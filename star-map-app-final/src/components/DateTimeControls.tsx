@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const DEFAULT_TIME = "23:59:59";
 
@@ -17,6 +17,8 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
   const [dateOpen, setDateOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
   const [customTimeEnabled, setCustomTimeEnabled] = useState(() => timeValue !== DEFAULT_TIME);
+  const dateRef = useRef<HTMLDivElement>(null);
+  const timeRef = useRef<HTMLDivElement>(null);
 
   const handleDateChange = (value: string) => {
     if (!value) {
@@ -50,6 +52,29 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
     }
   };
 
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (dateRef.current && !dateRef.current.contains(event.target as Node)) {
+        setDateOpen(false);
+      }
+      if (timeRef.current && !timeRef.current.contains(event.target as Node)) {
+        setTimeOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDateOpen(false);
+        setTimeOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, []);
+
   return (
     <div className="space-y-3 rounded-xl border border-black/5 bg-white/80 p-4 shadow-inner shadow-black/5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -63,15 +88,22 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
       </div>
 
       <div className="space-y-3">
-        <div className="relative">
+        <div className="relative" ref={dateRef}>
           <button
             type="button"
             onClick={() => setDateOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-lg border border-black/10 bg-amber-50/70 px-3 py-3 text-left text-sm font-semibold text-midnight shadow-inner shadow-amber-100 transition hover:-translate-y-[1px] hover:shadow"
+            className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm font-semibold text-midnight shadow-inner transition hover:-translate-y-[1px] hover:shadow ${
+              dateOpen
+                ? "border-gold bg-amber-50/80 shadow-amber-100"
+                : "border-black/10 bg-amber-50/70 shadow-amber-100"
+            }`}
             aria-expanded={dateOpen}
           >
-            <span>{dateValue ? humanDate(selectedDate) : "Choose a date"}</span>
-            <span className="text-[11px] uppercase tracking-wide text-gold">Select</span>
+            <div className="flex flex-col">
+              <span>{dateValue ? humanDate(selectedDate) : "Choose the date of this moment"}</span>
+              {dateValue && <span className="text-[11px] font-normal text-gold">Change</span>}
+            </div>
+            <span className="text-[13px] leading-none">📅</span>
           </button>
           {dateOpen && (
             <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-xl border border-black/10 bg-white p-3 shadow-lg shadow-black/10">
@@ -91,7 +123,7 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-neutral-800">
-              {customTimeEnabled ? "Custom time" : "Default time set to midnight"}
+              {customTimeEnabled ? "Custom time" : "Find an exact moment"}
             </span>
             <button
               type="button"
@@ -108,15 +140,22 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
           </div>
 
           {customTimeEnabled && (
-            <div className="relative">
+            <div className="relative" ref={timeRef}>
               <button
                 type="button"
                 onClick={() => setTimeOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between rounded-lg border border-black/10 bg-amber-50/70 px-3 py-3 text-left text-sm font-semibold text-midnight shadow-inner shadow-amber-100 transition hover:-translate-y-[1px] hover:shadow"
+                className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm font-semibold text-midnight shadow-inner transition hover:-translate-y-[1px] hover:shadow ${
+                  timeOpen
+                    ? "border-gold bg-amber-50/80 shadow-amber-100"
+                    : "border-black/10 bg-amber-50/70 shadow-amber-100"
+                }`}
                 aria-expanded={timeOpen}
               >
-                <span>{timeValue ? formatTimeLabel(timeValue) : "Choose a time"}</span>
-                <span className="text-[11px] uppercase tracking-wide text-gold">Select</span>
+                <div className="flex flex-col">
+                  <span>{timeValue ? formatTimeLabel(timeValue) : "Add a time (optional)"}</span>
+                  {timeValue && <span className="text-[11px] font-normal text-gold">Edit time</span>}
+                </div>
+                <span className="text-[13px] leading-none">⏰</span>
               </button>
               {timeOpen && (
                 <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-xl border border-black/10 bg-white p-3 shadow-lg shadow-black/10">
@@ -130,11 +169,12 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
                     onChange={(e) => handleTimeChange(e.target.value)}
                     className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
                   />
-                  <p className="mt-1 text-xs text-neutral-500">Stored as 24h; tap outside to close.</p>
+                  <p className="mt-1 text-xs text-neutral-500">Stored as 24h; tap outside or press Esc to close.</p>
                 </div>
               )}
             </div>
           )}
+          <p className="text-xs text-neutral-500">If no time is chosen, the sky defaults to midnight.</p>
         </div>
       </div>
     </div>
@@ -174,7 +214,7 @@ function normalizeTimeInput(time: string) {
 function humanDate(date: Date) {
   if (!Number.isFinite(date.getTime())) return "";
   return date.toLocaleDateString("en-US", {
-    month: "short",
+    month: "long",
     day: "numeric",
     year: "numeric",
   });
