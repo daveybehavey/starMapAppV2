@@ -82,7 +82,7 @@ export function computeVisibleStars(
   const time = params.time?.trim() || "23:59";
   const date = toApproximateUTCDate(params.date, time, params.lon);
   if (!date || Number.isNaN(date.getTime())) {
-    return { stars: [], planets: [], moon: null, constellations: { lines: [] } };
+    return { stars: [], planets: [], moon: null, constellations: [] };
   }
 
   const observer = new Observer(params.lat, params.lon, 0);

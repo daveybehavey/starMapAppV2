@@ -1,5 +1,6 @@
 "use client";
 
+import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { StyleId, TextBox, useStore } from "@/lib/store";
 import { useMemo } from "react";
@@ -21,24 +22,20 @@ const fontLabels: Record<string, string> = {
 export default function Home() {
   const {
     dateTime,
-    location,
     textBoxes,
     selectedStyle,
     paid,
     setDateTime,
-    setLocation,
     updateTextBox,
     setStyle,
     setPaid,
   } = useStore(
     useShallow((state) => ({
       dateTime: state.dateTime,
-      location: state.location,
       textBoxes: state.textBoxes,
       selectedStyle: state.selectedStyle,
       paid: state.paid,
       setDateTime: state.setDateTime,
-      setLocation: state.setLocation,
       updateTextBox: state.updateTextBox,
       setStyle: state.setStyle,
       setPaid: state.setPaid,
@@ -86,19 +83,7 @@ export default function Home() {
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-neutral-800">Location</label>
-              <input
-                type="text"
-                value={location.name}
-                placeholder="Search or paste a place"
-                onChange={(e) => setLocation({ name: e.target.value })}
-                className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-              />
-              <p className="mt-1 text-xs text-neutral-500">
-                Geocoding + time zone wiring will auto-fill soon.
-              </p>
-            </div>
+            <LocationSearch />
 
             <div className="divide-y divide-black/5 rounded-lg border border-black/5 bg-neutral-50/70">
               {textBoxes.map((box) => (
