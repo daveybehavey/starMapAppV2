@@ -1,9 +1,10 @@
 "use client";
 
+import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { StyleId, TextBox, useStore } from "@/lib/store";
-import { useMemo } from "react";
+import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 const styles: { id: StyleId; name: string; note: string }[] = [
@@ -27,6 +28,8 @@ export default function Home() {
     paid,
     setDateTime,
     updateTextBox,
+    removeTextBox,
+    addTextBox,
     setStyle,
     setPaid,
   } = useStore(
@@ -37,15 +40,21 @@ export default function Home() {
       paid: state.paid,
       setDateTime: state.setDateTime,
       updateTextBox: state.updateTextBox,
+      removeTextBox: state.removeTextBox,
+      addTextBox: state.addTextBox,
       setStyle: state.setStyle,
       setPaid: state.setPaid,
     })),
   );
+  const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(textBoxes.map((box) => [box.id, true])),
+  );
 
-  const dateTimeInputValue = useMemo(() => {
-    const date = new Date(dateTime);
-    return date.toISOString().slice(0, 16);
-  }, [dateTime]);
+  const toggleCard = (id: string) =>
+    setCollapsedCards((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 lg:py-14">
@@ -73,15 +82,7 @@ export default function Home() {
           </p>
 
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-neutral-800">Date &amp; Time</label>
-              <input
-                type="datetime-local"
-                value={dateTimeInputValue}
-                onChange={(e) => setDateTime(new Date(e.target.value).toISOString())}
-                className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-              />
-            </div>
+            <DateTimeControls dateTime={dateTime} onChange={setDateTime} />
 
             <LocationSearch />
 
@@ -89,48 +90,81 @@ export default function Home() {
               {textBoxes.map((box) => (
                 <div key={box.id} className="space-y-2 p-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-neutral-800">{box.label}</span>
-                    <span className="text-[11px] uppercase tracking-wide text-neutral-500">
-                      {fontLabels[box.fontFamily]}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleCard(box.id)}
+                        className="h-6 w-6 rounded-full border border-black/10 bg-white text-xs font-semibold text-neutral-600 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+                        aria-pressed={!!collapsedCards[box.id]}
+                        aria-label={`Toggle ${box.label}`}
+                      >
+                        {collapsedCards[box.id] ? "▾" : "▴"}
+                      </button>
+                      <span className="font-medium text-neutral-800">{box.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] uppercase tracking-wide text-neutral-500">
+                        {fontLabels[box.fontFamily]}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeTextBox(box.id)}
+                        className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-600 transition hover:-translate-y-[1px] hover:shadow"
+                        aria-label={`Remove ${box.label}`}
+                      >
+                        –
+                      </button>
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    value={box.text}
-                    onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                    className="w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      aria-label={`${box.label} color`}
-                      value={box.color}
-                      onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                      className="h-9 w-12 cursor-pointer rounded-md border border-black/10 bg-white"
-                    />
-                    <input
-                      type="number"
-                      min={10}
-                      max={48}
-                      value={box.size}
-                      onChange={(e) =>
-                        updateTextBox(box.id, { size: Number.parseInt(e.target.value, 10) || box.size })
-                      }
-                      className="w-20 rounded-md border border-black/10 bg-white px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-                    />
-                    <select
-                      value={box.align}
-                      onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
-                      className="flex-1 rounded-md border border-black/10 bg-white px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-                    >
-                      <option value="left">Left</option>
-                      <option value="center">Center</option>
-                      <option value="right">Right</option>
-                    </select>
-                  </div>
+                  {!collapsedCards[box.id] && (
+                    <>
+                      <input
+                        type="text"
+                        value={box.text}
+                        onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                        className="w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          aria-label={`${box.label} color`}
+                          value={box.color}
+                          onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
+                          className="h-9 w-12 cursor-pointer rounded-md border border-black/10 bg-white"
+                        />
+                        <input
+                          type="number"
+                          min={10}
+                          max={48}
+                          value={box.size}
+                          onChange={(e) =>
+                            updateTextBox(box.id, { size: Number.parseInt(e.target.value, 10) || box.size })
+                          }
+                          className="w-20 rounded-md border border-black/10 bg-white px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                        />
+                        <select
+                          value={box.align}
+                          onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
+                          className="flex-1 rounded-md border border-black/10 bg-white px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                        >
+                          <option value="left">Left</option>
+                          <option value="center">Center</option>
+                          <option value="right">Right</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={addTextBox}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-black/15 bg-white/80 px-3 py-3 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+            >
+              <span className="text-lg">＋</span>
+              Add text line
+            </button>
 
             <div>
               <div className="flex items-center justify-between">

@@ -30,6 +30,7 @@ export default function LocationSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showExact, setShowExact] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
 
   const [manualLat, setManualLat] = useState(location.latitude.toString());
@@ -191,33 +192,45 @@ export default function LocationSearch() {
         Timezone: <span className="font-semibold text-neutral-700">{location.timezone}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-dashed border-black/10 bg-neutral-50/70 p-3">
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
-            Latitude
-          </label>
-          <input
-            type="number"
-            step="0.0001"
-            value={manualLat}
-            onChange={(e) => setManualLat(e.target.value)}
-            onBlur={(e) => handleManualLat(e.target.value)}
-            className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
-            Longitude
-          </label>
-          <input
-            type="number"
-            step="0.0001"
-            value={manualLon}
-            onChange={(e) => setManualLon(e.target.value)}
-            onBlur={(e) => handleManualLon(e.target.value)}
-            className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-          />
-        </div>
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setShowExact((prev) => !prev)}
+          className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+          aria-pressed={showExact}
+        >
+          {showExact ? "Hide exact location" : "Exact location"}
+        </button>
+        {showExact && (
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-dashed border-black/10 bg-neutral-50/70 p-3">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                Latitude
+              </label>
+              <input
+                type="number"
+                step="0.0001"
+                value={manualLat}
+                onChange={(e) => setManualLat(e.target.value)}
+                onBlur={(e) => handleManualLat(e.target.value)}
+                className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                Longitude
+              </label>
+              <input
+                type="number"
+                step="0.0001"
+                value={manualLon}
+                onChange={(e) => setManualLon(e.target.value)}
+                onBlur={(e) => handleManualLon(e.target.value)}
+                className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

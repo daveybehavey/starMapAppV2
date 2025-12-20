@@ -36,19 +36,25 @@ export interface EditorState {
   setDateTime: (dateTime: string) => void;
   setLocation: (location: Partial<LocationState>) => void;
   updateTextBox: (id: string, payload: Partial<TextBox>) => void;
+  removeTextBox: (id: string) => void;
+  addTextBox: () => void;
   setStyle: (style: StyleId) => void;
   setPaid: (paid: boolean) => void;
 }
 
-const initialDate = new Date();
+const initialDate = (() => {
+  const now = new Date();
+  now.setHours(23, 59, 59, 0);
+  return now;
+})();
 
 export const useStore = create<EditorState>((set) => ({
   dateTime: initialDate.toISOString(),
   location: {
-    name: "San Francisco, CA",
-    latitude: 37.7749,
-    longitude: -122.4194,
-    timezone: "America/Los_Angeles",
+    name: "",
+    latitude: 0,
+    longitude: 0,
+    timezone: "UTC",
   },
   textBoxes: [
     {
@@ -90,6 +96,24 @@ export const useStore = create<EditorState>((set) => ({
         box.id === id ? { ...box, ...payload } : box,
       ),
     })),
+  removeTextBox: (id) =>
+    set((state) => ({
+      textBoxes: state.textBoxes.filter((box) => box.id !== id),
+    })),
+  addTextBox: () =>
+    set((state) => {
+      const nextIndex = state.textBoxes.length + 1;
+      const newBox: TextBox = {
+        id: `custom-${Date.now()}`,
+        label: `Line ${nextIndex}`,
+        text: "New text",
+        fontFamily: "playfair",
+        color: "#0c1021",
+        size: 18,
+        align: "center",
+      };
+      return { textBoxes: [...state.textBoxes, newBox] };
+    }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
   setPaid: (paid) => set({ paid }),
 }));
