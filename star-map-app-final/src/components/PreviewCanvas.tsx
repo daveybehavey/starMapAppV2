@@ -56,18 +56,23 @@ export default function PreviewCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const skyRef = useRef<VisibleSky | null>(null);
   const rafRef = useRef<number>();
+  const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
+    new Map(),
+  );
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: 0,
     height: 0,
   });
 
-  const { selectedStyle, textBoxes, dateTime, location, paid } = useStore(
+  const { selectedStyle, textBoxes, dateTime, location, paid, updateTextBox } = useStore(
     useShallow((state) => ({
       selectedStyle: state.selectedStyle,
       textBoxes: state.textBoxes,
       dateTime: state.dateTime,
       location: state.location,
       paid: state.paid,
+      updateTextBox: state.updateTextBox,
     })),
   );
 
@@ -104,7 +109,7 @@ export default function PreviewCanvas() {
       ctx.scale(pixelRatio, pixelRatio);
       drawBackground(ctx, width, height, selectedStyle);
       drawSky(ctx, width, height, selectedStyle, skyRef.current);
-      drawText(ctx, width, height, textBoxes);
+      drawText(ctx, width, height, textBoxes, textBoundsRef.current);
       drawWatermark(ctx, width, height, paid, selectedStyle);
       ctx.restore();
     });
@@ -147,6 +152,53 @@ export default function PreviewCanvas() {
     };
   }, [scheduleDraw]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const bounds = canvas.getBoundingClientRect();
+      const x = event.clientX - bounds.left;
+      const y = event.clientY - bounds.top;
+      const hit = hitTestText(textBoundsRef.current, x, y);
+      if (hit) {
+        dragRef.current = {
+          id: hit.id,
+          offsetX: x - hit.centerX,
+          offsetY: y - hit.centerY,
+        };
+        canvas.setPointerCapture(event.pointerId);
+      }
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!dragRef.current) return;
+      const bounds = canvas.getBoundingClientRect();
+      const centerX = event.clientX - bounds.left - dragRef.current.offsetX;
+      const centerY = event.clientY - bounds.top - dragRef.current.offsetY;
+      const newX = clamp(centerX / bounds.width, 0.05, 0.95);
+      const newY = clamp(centerY / bounds.height, 0.1, 0.95);
+      updateTextBox(dragRef.current.id, { position: { x: newX, y: newY } });
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (dragRef.current) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+      dragRef.current = null;
+    };
+
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [updateTextBox]);
+
   return (
     <div
       ref={containerRef}
@@ -181,9 +233,11 @@ function drawBackground(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
+  // Draw a responsive frame; keep inset small on narrow screens so stars stay inside the box.
+  const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
   ctx.strokeStyle = theme.accent;
   ctx.lineWidth = 2;
-  ctx.strokeRect(20, 20, width - 40, height - 40);
+  ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
 }
 
 function drawSky(
@@ -237,24 +291,43 @@ function drawText(
   width: number,
   height: number,
   textBoxes: TextBox[],
+  bounds: Map<string, { x: number; y: number; width: number; height: number }>,
 ) {
   const baseY = height * 0.72;
   const lineGap = 28;
+  bounds.clear();
 
   textBoxes.forEach((box, index) => {
     ctx.font = `600 ${box.size}px ${FONT_STACKS[box.fontFamily]}`;
     ctx.fillStyle = box.color;
     ctx.textAlign = box.align;
     ctx.textBaseline = "middle";
-    const x =
-      box.align === "left"
-        ? width * 0.15
-        : box.align === "right"
-          ? width * 0.85
-          : width * 0.5;
-    const y = baseY + index * lineGap;
-    ctx.fillText(box.text, x, y);
+    const px = clamp(box.position?.x ?? 0.5, 0, 1) * width;
+    const py = clamp(box.position?.y ?? (baseY + index * lineGap) / height, 0, 1) * height;
+    ctx.fillText(box.text, px, py);
+
+    const metrics = ctx.measureText(box.text);
+    const textWidth = metrics.width;
+    const textHeight = box.size * 1.2;
+    let left = px;
+    if (ctx.textAlign === "center") left = px - textWidth / 2;
+    if (ctx.textAlign === "right") left = px - textWidth;
+    const top = py - textHeight / 2;
+    bounds.set(box.id, { x: left, y: top, width: textWidth, height: textHeight });
   });
+}
+
+function hitTestText(
+  bounds: Map<string, { x: number; y: number; width: number; height: number }>,
+  x: number,
+  y: number,
+) {
+  for (const [id, rect] of Array.from(bounds.entries()).reverse()) {
+    if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) {
+      return { id, centerX: rect.x + rect.width / 2, centerY: rect.y + rect.height / 2 };
+    }
+  }
+  return null;
 }
 
 function drawConstellations(

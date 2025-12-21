@@ -111,6 +111,29 @@ export default function LocationSearch() {
     setDropdownOpen(false);
   };
 
+  const applyTypedLocation = async () => {
+    const trimmed = query.trim();
+    if (trimmed.length < 3) return;
+
+    if (results.length > 0) {
+      applyLocation(results[0]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as GeocodeResult[];
+      if (data.length > 0) {
+        cache.set(trimmed.toLowerCase(), data);
+        applyLocation(data[0]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleManualLat = (value: string) => {
     const num = Number.parseFloat(value);
     if (!Number.isFinite(num)) return;
@@ -138,6 +161,16 @@ export default function LocationSearch() {
           onChange={(e) => {
             setQuery(e.target.value);
             setDropdownOpen(true);
+          }}
+          onBlur={() => {
+            // If the user clicks away without selecting, still apply the typed location.
+            void applyTypedLocation();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              applyTypedLocation();
+            }
           }}
           onFocus={() => hasResults && setDropdownOpen(true)}
           role="combobox"

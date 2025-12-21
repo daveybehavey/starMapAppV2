@@ -18,6 +18,10 @@ export interface TextBox {
   color: string;
   size: number;
   align: TextAlign;
+  position?: {
+    x: number; // 0-1 relative horizontal position
+    y: number; // 0-1 relative vertical position
+  };
 }
 
 export interface LocationState {
@@ -33,6 +37,7 @@ export interface EditorState {
   textBoxes: TextBox[];
   selectedStyle: StyleId;
   paid: boolean;
+  revealed: boolean;
   setDateTime: (dateTime: string) => void;
   setLocation: (location: Partial<LocationState>) => void;
   updateTextBox: (id: string, payload: Partial<TextBox>) => void;
@@ -40,6 +45,7 @@ export interface EditorState {
   addTextBox: () => void;
   setStyle: (style: StyleId) => void;
   setPaid: (paid: boolean) => void;
+  setRevealed: (revealed: boolean) => void;
 }
 
 const initialDate = (() => {
@@ -65,6 +71,7 @@ export const useStore = create<EditorState>((set) => ({
       color: "#0c1021",
       size: 28,
       align: "center",
+      position: { x: 0.5, y: 0.68 },
     },
     {
       id: "subtitle",
@@ -74,6 +81,7 @@ export const useStore = create<EditorState>((set) => ({
       color: "#4b5563",
       size: 16,
       align: "center",
+      position: { x: 0.5, y: 0.74 },
     },
     {
       id: "dedication",
@@ -83,10 +91,12 @@ export const useStore = create<EditorState>((set) => ({
       color: "#8a6a2f",
       size: 18,
       align: "center",
+      position: { x: 0.5, y: 0.8 },
     },
   ],
   selectedStyle: "navyGold",
   paid: false,
+  revealed: false,
   setDateTime: (dateTime) => set({ dateTime }),
   setLocation: (location) =>
     set((state) => ({ location: { ...state.location, ...location } })),
@@ -111,9 +121,11 @@ export const useStore = create<EditorState>((set) => ({
         color: "#0c1021",
         size: 18,
         align: "center",
+        position: { x: 0.5, y: Math.min(0.85, 0.7 + nextIndex * 0.06) },
       };
       return { textBoxes: [...state.textBoxes, newBox] };
     }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
   setPaid: (paid) => set({ paid }),
+  setRevealed: (revealed) => set({ revealed }),
 }));
