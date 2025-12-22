@@ -6,6 +6,7 @@ import PreviewCanvas from "@/components/PreviewCanvas";
 import { StyleId, TextBox, useStore } from "@/lib/store";
 import { useCallback, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { computeSky, drawSkyToCanvas } from "@/lib/renderSky";
 
 const styles: { id: StyleId; name: string; note: string }[] = [
   { id: "navyGold", name: "Navy & Gold", note: "Luxe midnight with gilded accents" },
@@ -56,6 +57,9 @@ export default function Home() {
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(textBoxes.map((box) => [box.id, true])),
   );
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [pendingExport, setPendingExport] = useState<"preview" | "hd" | null>(null);
+  const [shareLink, setShareLink] = useState<string | null>(null);
   const locationName = location.name?.trim() ?? "";
   const hasDate = Number.isFinite(new Date(dateTime).getTime());
   const canReveal = Boolean(locationName);
@@ -82,6 +86,75 @@ export default function Home() {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, [canReveal, hasDate, setRevealed]);
+
+  const exportImage = useCallback(
+    (mode: "preview" | "hd") => {
+      const size = mode === "hd" ? 5000 : 1200;
+      const watermark = mode !== "hd";
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const sky = computeSky(dateTime, location, size, size);
+      drawSkyToCanvas({
+        canvas,
+        sky,
+        textBoxes,
+        selectedStyle,
+        paid: !watermark,
+        pixelRatio: 1,
+      });
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = mode === "hd" ? "star-map-hd.png" : "star-map-preview.png";
+      link.href = url;
+      link.click();
+    },
+    [dateTime, location, selectedStyle, textBoxes],
+  );
+
+  const handleExport = useCallback(
+    (mode: "preview" | "hd") => {
+      if (mode === "hd" && !paid) {
+        setPendingExport(mode);
+        setPaywallOpen(true);
+        return;
+      }
+      exportImage(mode);
+    },
+    [exportImage, paid],
+  );
+
+  const unlockAndExport = useCallback(() => {
+    setPaywallOpen(false);
+    setPaid(true);
+    if (pendingExport) {
+      exportImage(pendingExport);
+      setPendingExport(null);
+    }
+  }, [exportImage, pendingExport, setPaid]);
+
+  const handleShare = useCallback(async () => {
+    const recipe = {
+      dateTime,
+      location,
+      textBoxes,
+      selectedStyle,
+    };
+    const res = await fetch("/api/maps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(recipe),
+    });
+    if (!res.ok) return;
+    const { id } = (await res.json()) as { id: string };
+    const url = `${window.location.origin}/m/${id}`;
+    setShareLink(url);
+    if (navigator.share) {
+      await navigator.share({ url, title: "My Star Map", text: "See this night sky moment" }).catch(() => {});
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {});
+    }
+  }, [dateTime, location, selectedStyle, textBoxes]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-6 pt-6 sm:pt-8 lg:py-12">
@@ -125,15 +198,15 @@ export default function Home() {
             style={
               revealed
                 ? undefined
-                  : {
-                      backgroundColor: "#0b0f3b",
-                      backgroundImage:
-                        "url('/ribbon-overlay.png'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
-                      backgroundRepeat: "no-repeat, no-repeat",
-                      backgroundSize: "100% auto, cover",
-                      backgroundPosition: "center 10px, center",
-                    }
-              }
+                : {
+                    backgroundColor: "#0b0f3b",
+                    backgroundImage:
+                      "url('/ribbon-overlay.png'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
+                    backgroundRepeat: "no-repeat, no-repeat",
+                    backgroundSize: "100% auto, cover",
+                    backgroundPosition: "center 10px, center",
+                  }
+            }
           >
             <div
               className={`relative min-h-[70vh] overflow-hidden rounded-xl sm:min-h-[75vh] lg:min-h-[80vh] ${
@@ -172,6 +245,29 @@ export default function Home() {
                 <>
                   <PreviewCanvas />
                   <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-black/5" />
+                  <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleExport("preview")}
+                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    >
+                      Download preview (watermarked)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport("hd")}
+                      className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    >
+                      Download HD / Remove watermark
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    >
+                      Share / Remix link
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setIsFullscreen(true)}
@@ -365,6 +461,40 @@ export default function Home() {
           </div>
         </section>
       </div>
+      {paywallOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl shadow-black/20">
+            <h3 className="text-lg font-semibold text-midnight">Unlock HD export</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              Remove the watermark and download a high-resolution print-ready file.
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPaywallOpen(false);
+                  setPendingExport(null);
+                }}
+                className="rounded-full border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={unlockAndExport}
+                className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
+              >
+                Unlock now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {shareLink && (
+        <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-xl -translate-x-1/2 rounded-full bg-white/90 px-4 py-2 text-center text-xs font-semibold text-neutral-800 shadow-lg">
+          Link copied: {shareLink}
+        </div>
+      )}
       {isFullscreen && (
         <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#0b1a30] via-[#050b18] to-[#0b1a30] p-4 sm:p-6">
           <div className="relative mx-auto flex h-full max-w-6xl flex-col gap-3">

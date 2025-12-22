@@ -40,6 +40,7 @@ export interface EditorState {
   revealed: boolean;
   setDateTime: (dateTime: string) => void;
   setLocation: (location: Partial<LocationState>) => void;
+  setTextBoxes: (boxes: TextBox[]) => void;
   updateTextBox: (id: string, payload: Partial<TextBox>) => void;
   removeTextBox: (id: string) => void;
   addTextBox: () => void;
@@ -100,6 +101,7 @@ export const useStore = create<EditorState>((set) => ({
   setDateTime: (dateTime) => set({ dateTime }),
   setLocation: (location) =>
     set((state) => ({ location: { ...state.location, ...location } })),
+  setTextBoxes: (boxes) => set({ textBoxes: boxes }),
   updateTextBox: (id, payload) =>
     set((state) => ({
       textBoxes: state.textBoxes.map((box) =>
