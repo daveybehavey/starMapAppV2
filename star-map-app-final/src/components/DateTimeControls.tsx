@@ -14,6 +14,7 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
   const dateValue = formatDateInput(selectedDate);
   const timeValue = formatTimeInput(selectedDate);
 
+  const [mounted, setMounted] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
   const [customTimeEnabled, setCustomTimeEnabled] = useState(() => timeValue !== DEFAULT_TIME);
@@ -69,6 +70,9 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
     };
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKey);
+
+    setMounted(true);
+
     return () => {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
@@ -91,20 +95,20 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
         <div className="relative" ref={dateRef}>
           <button
             type="button"
-            onClick={() => setDateOpen((prev) => !prev)}
-            className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm font-semibold text-midnight shadow-inner transition hover:-translate-y-[1px] hover:shadow ${
-              dateOpen
-                ? "border-gold bg-amber-50/80 shadow-amber-100"
-                : "border-black/10 bg-amber-50/70 shadow-amber-100"
-            }`}
-            aria-expanded={dateOpen}
-          >
-            <div className="flex flex-col">
-              <span>{dateValue ? humanDate(selectedDate) : "Choose the date of this moment"}</span>
-              {dateValue && <span className="text-[11px] font-normal text-gold">Change</span>}
-            </div>
-            <span className="text-[13px] leading-none">📅</span>
-          </button>
+          onClick={() => setDateOpen((prev) => !prev)}
+          className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm font-semibold text-midnight shadow-inner transition hover:-translate-y-[1px] hover:shadow ${
+            dateOpen
+              ? "border-gold bg-amber-50/80 shadow-amber-100"
+              : "border-black/10 bg-amber-50/70 shadow-amber-100"
+          }`}
+          aria-expanded={dateOpen}
+        >
+          <div className="flex flex-col">
+            <span>{mounted && dateValue ? humanDate(selectedDate) : "Choose the date of this moment"}</span>
+            {mounted && dateValue && <span className="text-[11px] font-normal text-gold">Change</span>}
+          </div>
+          <span className="text-[13px] leading-none">📅</span>
+        </button>
           {dateOpen && (
             <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-xl border border-black/10 bg-white p-3 shadow-lg shadow-black/10">
               <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
@@ -135,7 +139,7 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
               }`}
               aria-pressed={customTimeEnabled}
             >
-              {customTimeEnabled ? "Remove time" : "Add custom time"}
+              {customTimeEnabled ? "Remove time" : "⏰"}
             </button>
           </div>
 

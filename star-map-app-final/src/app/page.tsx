@@ -120,18 +120,30 @@ export default function Home() {
               {styles.find((s) => s.id === selectedStyle)?.name ?? "Style"}
             </div>
           </div>
-          <div className="rounded-2xl border border-black/5 bg-[#0b1a30] p-2 shadow-inner shadow-black/10">
+          <div
+            className="relative overflow-hidden rounded-2xl border border-black/5 bg-[#0b1a30] p-2 shadow-inner shadow-black/10"
+            style={
+              revealed
+                ? undefined
+                  : {
+                      backgroundColor: "#0b0f3b",
+                      backgroundImage:
+                        "url('/ribbon-overlay.png'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
+                      backgroundRepeat: "no-repeat, no-repeat",
+                      backgroundSize: "100% auto, cover",
+                      backgroundPosition: "center 10px, center",
+                    }
+              }
+          >
             <div
               className={`relative min-h-[70vh] overflow-hidden rounded-xl sm:min-h-[75vh] lg:min-h-[80vh] ${
-                revealed ? "" : "bg-[#0b1a30]"
+                revealed ? "" : "bg-transparent"
               }`}
             >
               {!revealed && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-[#0b1a30] via-[#0b1a30] to-[#091426] text-center text-sm text-amber-50">
-                  <div className="pointer-events-none absolute inset-0 opacity-50">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center text-sm text-amber-50">
+                  <div className="pointer-events-none absolute inset-0 opacity-35">
                     <div className="absolute inset-10 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-200/5 to-transparent blur-3xl" />
-                    <div className="absolute left-8 top-6 h-1 w-16 rounded-full bg-amber-200/60 blur-[1px]" />
-                    <div className="absolute right-12 bottom-8 h-1 w-10 rounded-full bg-amber-100/40 blur-[1px]" />
                   </div>
                   <div className="relative z-10 px-6">
                     <p className="text-base font-semibold text-amber-100">Your sky is wrapped and waiting.</p>
