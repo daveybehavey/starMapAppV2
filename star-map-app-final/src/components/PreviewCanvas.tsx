@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { type VisibleSky } from "@/lib/astronomy";
-import { computeSky, drawSkyToCanvas } from "@/lib/renderSky";
+import { buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { TextBox, useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 
 export default function PreviewCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const skyRef = useRef<VisibleSky | null>(null);
   const rafRef = useRef<number>();
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
@@ -48,33 +46,24 @@ export default function PreviewCanvas() {
     rafRef.current = requestAnimationFrame(() => {
       const { width, height } = dimensions;
       const pixelRatio = window.devicePixelRatio || 1;
-      canvas.width = width * pixelRatio;
-      canvas.height = height * pixelRatio;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      drawSkyToCanvas({
-        canvas,
-        sky: skyRef.current,
+      const recipe = buildRecipeFromState({
+        dateTime,
+        location,
         textBoxes,
         selectedStyle,
-        paid,
+      });
+      renderStarMap({
+        recipe,
+        canvas,
+        width,
+        height,
+        watermark: !paid,
+        quality: "preview",
         pixelRatio,
         textBounds: textBoundsRef.current,
       });
     });
-  }, [dimensions, paid, selectedStyle, textBoxes]);
-
-  const recomputeSky = useCallback(() => {
-    const { width, height } = dimensions;
-    if (width === 0 || height === 0) return;
-    const sky = computeSky(dateTime, location, width, height);
-    skyRef.current = sky ?? { stars: [], planets: [], moon: null, constellations: [] };
-    scheduleDraw();
-  }, [dateTime, dimensions, location, scheduleDraw]);
-
-  useEffect(() => {
-    recomputeSky();
-  }, [recomputeSky]);
+  }, [dateTime, dimensions, location, paid, selectedStyle, textBoxes]);
 
   useEffect(() => {
     scheduleDraw();

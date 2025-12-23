@@ -1,6 +1,29 @@
 import { computeVisibleStars, type VisibleSky } from "@/lib/astronomy";
 import type { LocationState, StyleId, TextBox } from "@/lib/store";
 
+export type AspectRatio = "square" | "3:4" | "2:3" | "4:5";
+
+export type MapRecipe = {
+  version: number;
+  seed: string;
+  datetimeISO: string;
+  location: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    timezone: string;
+  };
+  textBoxes: TextBox[];
+  selectedStyle: StyleId;
+  aspectRatio: AspectRatio;
+  renderOptions?: {
+    showConstellations?: boolean;
+    showGrid?: boolean;
+    showPlanets?: boolean;
+    showMoon?: boolean;
+  };
+};
+
 const STYLE_THEME: Record<
   StyleId,
   {
@@ -47,6 +70,81 @@ const FONT_STACKS: Record<TextBox["fontFamily"], string> = {
   script: '"Great Vibes", cursive',
 };
 
+export const DEFAULT_RECIPE: MapRecipe = {
+  version: 1,
+  seed: "default",
+  datetimeISO: new Date().toISOString(),
+  location: { name: "", latitude: 0, longitude: 0, timezone: "UTC" },
+  textBoxes: [],
+  selectedStyle: "navyGold",
+  aspectRatio: "square",
+  renderOptions: {
+    showConstellations: true,
+    showGrid: false,
+    showPlanets: true,
+    showMoon: true,
+  },
+};
+
+export function aspectRatioToNumber(aspect: AspectRatio): number {
+  switch (aspect) {
+    case "3:4":
+      return 3 / 4;
+    case "2:3":
+      return 2 / 3;
+    case "4:5":
+      return 4 / 5;
+    default:
+      return 1;
+  }
+}
+
+type CanvasLike = {
+  width: number;
+  height: number;
+  style?: { width?: string; height?: string };
+  getContext: (type: "2d") => CanvasRenderingContext2D | null;
+};
+
+export function renderStarMap({
+  recipe,
+  canvas,
+  width,
+  height,
+  watermark,
+  quality,
+  pixelRatio = 1,
+  textBounds,
+}: {
+  recipe: MapRecipe;
+  canvas: CanvasLike;
+  width: number;
+  height: number;
+  watermark: boolean;
+  quality: "preview" | "og" | "export";
+  pixelRatio?: number;
+  textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
+}) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const sky = computeSky(recipe, width, height);
+
+  canvas.width = width * pixelRatio;
+  canvas.height = height * pixelRatio;
+  if (canvas.style) {
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+  }
+
+  ctx.save();
+  ctx.scale(pixelRatio, pixelRatio);
+  drawBackground(ctx, width, height, recipe.selectedStyle);
+  drawSky(ctx, width, height, recipe.selectedStyle, sky, recipe.renderOptions);
+  drawText(ctx, width, height, recipe.textBoxes, textBounds);
+  drawWatermark(ctx, width, height, watermark, recipe.selectedStyle);
+  ctx.restore();
+}
+
 export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
   const date = new Date(dateTime);
   if (!Number.isFinite(date.getTime())) return null;
@@ -74,52 +172,47 @@ export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
   return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
 }
 
-export function computeSky(
-  dateTime: string,
-  location: LocationState,
-  width: number,
-  height: number,
-): VisibleSky | null {
-  const formatted = formatDateTimeForLocation(dateTime, location.timezone);
+export function computeSky(recipe: MapRecipe, width: number, height: number): VisibleSky | null {
+  const formatted = formatDateTimeForLocation(recipe.datetimeISO, recipe.location.timezone);
   if (!formatted) return null;
   return computeVisibleStars(
     {
       date: formatted.date,
       time: formatted.time,
-      lat: location.latitude,
-      lon: location.longitude,
+      lat: recipe.location.latitude,
+      lon: recipe.location.longitude,
       bortle: 4.5,
-      showConstellations: true,
+      showConstellations: recipe.renderOptions?.showConstellations ?? true,
     },
     width,
     height,
   );
 }
 
-export function drawSkyToCanvas(options: {
-  canvas: HTMLCanvasElement;
-  sky: VisibleSky | null;
+export function buildRecipeFromState(input: {
+  dateTime: string;
+  location: LocationState;
   textBoxes: TextBox[];
   selectedStyle: StyleId;
-  paid: boolean;
-  pixelRatio?: number;
-  textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
-}) {
-  const { canvas, sky, textBoxes, selectedStyle, paid, pixelRatio = 1, textBounds } = options;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  ctx.save();
-  ctx.scale(pixelRatio, pixelRatio);
-  const width = canvas.width / pixelRatio;
-  const height = canvas.height / pixelRatio;
-
-  drawBackground(ctx, width, height, selectedStyle);
-  drawSky(ctx, width, height, selectedStyle, sky);
-  drawText(ctx, width, height, textBoxes, textBounds);
-  drawWatermark(ctx, width, height, paid, selectedStyle);
-
-  ctx.restore();
+  aspectRatio?: AspectRatio;
+  renderOptions?: MapRecipe["renderOptions"];
+  seed?: string;
+}): MapRecipe {
+  return {
+    version: 1,
+    seed: input.seed || "default",
+    datetimeISO: input.dateTime,
+    location: input.location,
+    textBoxes: input.textBoxes,
+    selectedStyle: input.selectedStyle,
+    aspectRatio: input.aspectRatio || "square",
+    renderOptions: {
+      showConstellations: input.renderOptions?.showConstellations ?? true,
+      showGrid: input.renderOptions?.showGrid ?? false,
+      showPlanets: input.renderOptions?.showPlanets ?? true,
+      showMoon: input.renderOptions?.showMoon ?? true,
+    },
+  };
 }
 
 function drawBackground(
@@ -157,11 +250,14 @@ function drawSky(
   height: number,
   styleId: StyleId,
   sky: VisibleSky | null,
+  renderOptions?: MapRecipe["renderOptions"],
 ) {
   if (!sky) return;
   const theme = STYLE_THEME[styleId];
 
-  drawConstellations(ctx, sky, theme.accent);
+  if (renderOptions?.showConstellations ?? true) {
+    drawConstellations(ctx, sky, theme.accent);
+  }
 
   ctx.save();
   ctx.fillStyle = theme.star;
@@ -182,16 +278,20 @@ function drawSky(
   ctx.shadowBlur = 14;
   ctx.shadowColor = theme.glow;
   ctx.globalAlpha = 0.95;
-  for (const planet of sky.planets) {
-    if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
-    ctx.fillStyle = theme.accent;
-    ctx.beginPath();
-    ctx.arc(planet.x, planet.y, 3.2, 0, Math.PI * 2);
-    ctx.fill();
+  if (renderOptions?.showPlanets ?? true) {
+    for (const planet of sky.planets) {
+      if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
+      ctx.fillStyle = theme.accent;
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  if (sky.moon && Number.isFinite(sky.moon.x) && Number.isFinite(sky.moon.y)) {
-    drawMoon(ctx, sky.moon.x, sky.moon.y, theme.background, theme.star, theme.accent, sky.moon.phase);
+  if (renderOptions?.showMoon ?? true) {
+    if (sky.moon && Number.isFinite(sky.moon.x) && Number.isFinite(sky.moon.y)) {
+      drawMoon(ctx, sky.moon.x, sky.moon.y, theme.background, theme.star, theme.accent, sky.moon.phase);
+    }
   }
 
   ctx.restore();
@@ -231,14 +331,8 @@ function drawText(
   });
 }
 
-function drawWatermark(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  paid: boolean,
-  styleId: StyleId,
-) {
-  if (paid) return;
+function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number, show: boolean, styleId: StyleId) {
+  if (!show) return;
   const theme = STYLE_THEME[styleId];
   ctx.save();
   ctx.translate(width / 2, height / 2);

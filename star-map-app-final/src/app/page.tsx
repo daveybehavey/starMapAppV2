@@ -4,9 +4,9 @@ import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { StyleId, TextBox, useStore } from "@/lib/store";
-import { useCallback, useRef, useState } from "react";
+import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { computeSky, drawSkyToCanvas } from "@/lib/renderSky";
 
 const styles: { id: StyleId; name: string; note: string }[] = [
   { id: "navyGold", name: "Navy & Gold", note: "Luxe midnight with gilded accents" },
@@ -70,6 +70,14 @@ export default function Home() {
     inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("star-map-unlock");
+    if (token) {
+      setPaid(true);
+    }
+  }, [setPaid]);
+
   const toggleCard = (id: string) =>
     setCollapsedCards((prev) => ({
       ...prev,
@@ -89,19 +97,24 @@ export default function Home() {
 
   const exportImage = useCallback(
     (mode: "preview" | "hd") => {
-      const size = mode === "hd" ? 5000 : 1200;
-      const watermark = mode !== "hd";
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const sky = computeSky(dateTime, location, size, size);
-      drawSkyToCanvas({
-        canvas,
-        sky,
+      const recipe = buildRecipeFromState({
+        dateTime,
+        location,
         textBoxes,
         selectedStyle,
-        paid: !watermark,
-        pixelRatio: 1,
+      });
+      const width = mode === "hd" ? 6000 : 1200;
+      const ratio = aspectRatioToNumber(recipe.aspectRatio);
+      const height = Math.round(width / ratio);
+      const canvas = document.createElement("canvas");
+      const watermark = mode !== "hd";
+      renderStarMap({
+        recipe,
+        canvas,
+        width,
+        height,
+        watermark,
+        quality: mode === "hd" ? "export" : "preview",
       });
       const url = canvas.toDataURL("image/png");
       const link = document.createElement("a");
@@ -124,22 +137,34 @@ export default function Home() {
     [exportImage, paid],
   );
 
-  const unlockAndExport = useCallback(() => {
-    setPaywallOpen(false);
-    setPaid(true);
-    if (pendingExport) {
-      exportImage(pendingExport);
-      setPendingExport(null);
+  const startCheckout = useCallback(async () => {
+    try {
+      const res = await fetch("/api/checkout", { method: "POST" });
+      if (!res.ok) throw new Error("checkout failed");
+      const data = (await res.json()) as { url?: string };
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      throw new Error("no url");
+    } catch (err) {
+      console.error(err);
+      setPaid(true);
+      if (pendingExport) {
+        exportImage(pendingExport);
+        setPendingExport(null);
+      }
+      setPaywallOpen(false);
     }
   }, [exportImage, pendingExport, setPaid]);
 
   const handleShare = useCallback(async () => {
-    const recipe = {
+    const recipe = buildRecipeFromState({
       dateTime,
       location,
       textBoxes,
       selectedStyle,
-    };
+    });
     const res = await fetch("/api/maps", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -481,7 +506,7 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={unlockAndExport}
+                onClick={startCheckout}
                 className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
               >
                 Unlock now

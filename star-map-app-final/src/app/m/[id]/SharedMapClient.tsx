@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 
 type Recipe = {
-  dateTime: string;
+  version: number;
+  seed: string;
+  datetimeISO: string;
   location: {
     name: string;
     latitude: number;
@@ -14,6 +16,13 @@ type Recipe = {
   };
   textBoxes: unknown;
   selectedStyle: string;
+  aspectRatio?: string;
+  renderOptions?: {
+    showConstellations?: boolean;
+    showGrid?: boolean;
+    showPlanets?: boolean;
+    showMoon?: boolean;
+  };
 };
 
 type Props = {
@@ -40,7 +49,7 @@ export function SharedMapClient({ id, searchParams }: Props) {
         const res = await fetch(`/api/maps?id=${id}${qp ? `&${qp}` : ""}`);
         if (!res.ok) throw new Error("Not found");
         const data = (await res.json()) as Recipe;
-        setDateTime(data.dateTime);
+        setDateTime(data.datetimeISO);
         setLocation(data.location);
         if (Array.isArray(data.textBoxes)) {
           setTextBoxes(data.textBoxes as any);

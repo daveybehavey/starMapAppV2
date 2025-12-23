@@ -1,10 +1,9 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import type { Metadata } from "next";
 import { SharedMapClient } from "./SharedMapClient";
+import { kv } from "@vercel/kv";
 
 type Recipe = {
-  dateTime: string;
+  datetimeISO: string;
   location: {
     name: string;
     latitude: number;
@@ -15,16 +14,9 @@ type Recipe = {
   selectedStyle: string;
 };
 
-const DATA_FILE = path.join(process.cwd(), "data", "maps.json");
-
 async function loadRecipe(id: string): Promise<Recipe | null> {
-  try {
-    const raw = await fs.readFile(DATA_FILE, "utf8");
-    const store = JSON.parse(raw) as Record<string, Recipe>;
-    return store[id] ?? null;
-  } catch {
-    return null;
-  }
+  const data = await kv.get<Recipe>(`map:${id}`);
+  return data ?? null;
 }
 
 function siteOrigin() {
@@ -35,12 +27,12 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const recipe = await loadRecipe(params.id);
   const titleText = recipe?.textBoxes?.[0]?.text || "Star Map Preview";
   const description =
-    recipe?.location?.name && recipe?.dateTime
+    recipe?.location?.name && recipe?.datetimeISO
       ? `${recipe.location.name} — ${new Intl.DateTimeFormat("en-US", {
           month: "long",
           day: "numeric",
           year: "numeric",
-        }).format(new Date(recipe.dateTime))}`
+        }).format(new Date(recipe.datetimeISO))}`
       : "A captured night sky moment.";
   const image = `${siteOrigin()}/m/${params.id}/opengraph-image`;
 
