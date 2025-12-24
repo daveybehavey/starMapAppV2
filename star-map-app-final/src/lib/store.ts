@@ -18,6 +18,8 @@ export interface TextBox {
   color: string;
   size: number;
   align: TextAlign;
+  textShadow?: boolean;
+  textGlow?: boolean;
   position?: {
     x: number; // 0-1 relative horizontal position
     y: number; // 0-1 relative vertical position
@@ -31,11 +33,30 @@ export interface LocationState {
   timezone: string;
 }
 
+export type VisualMode = "astronomical" | "enhanced" | "illustrated";
+export type ConstellationLines = "off" | "thin" | "thick";
+
+export interface RenderOptions {
+  visualMode: VisualMode;
+  starIntensity: "subtle" | "normal" | "bold";
+  starGlow: boolean;
+  constellationLines: ConstellationLines;
+  constellationLabels: boolean;
+  showPlanets: boolean;
+  planetEmphasis: "normal" | "highlighted";
+  showMoon: boolean;
+  moonSize: "normal" | "large";
+  colorTheme: "night" | "midnight" | "vintage" | "emerald";
+  typography: "classic" | "elegant" | "script";
+  textLayout: "center" | "top" | "bottom";
+}
+
 export interface EditorState {
   dateTime: string;
   location: LocationState;
   textBoxes: TextBox[];
   selectedStyle: StyleId;
+  renderOptions: RenderOptions;
   paid: boolean;
   revealed: boolean;
   setDateTime: (dateTime: string) => void;
@@ -45,6 +66,7 @@ export interface EditorState {
   removeTextBox: (id: string) => void;
   addTextBox: () => void;
   setStyle: (style: StyleId) => void;
+  setRenderOptions: (options: Partial<RenderOptions>) => void;
   setPaid: (paid: boolean) => void;
   setRevealed: (revealed: boolean) => void;
 }
@@ -69,33 +91,53 @@ export const useStore = create<EditorState>((set) => ({
       label: "Title",
       text: "Our Night Sky",
       fontFamily: "playfair",
-      color: "#0c1021",
-      size: 28,
+      color: "#d9b56f", // warm gold for main title
+      size: 40,
       align: "center",
-      position: { x: 0.5, y: 0.68 },
+      textShadow: false,
+      textGlow: false,
+      position: { x: 0.5, y: 0.12 },
     },
     {
       id: "subtitle",
       label: "Subtitle",
       text: "Under the vintage stars",
       fontFamily: "cinzel",
-      color: "#4b5563",
-      size: 16,
+      color: "#c7a35a", // softer gold accent for subtitle
+      size: 24,
       align: "center",
-      position: { x: 0.5, y: 0.74 },
+      textShadow: false,
+      textGlow: false,
+      position: { x: 0.5, y: 0.18 },
     },
     {
       id: "dedication",
       label: "Dedication",
       text: "Celebrating our constellation of moments.",
       fontFamily: "script",
-      color: "#8a6a2f",
-      size: 18,
+      color: "#b8893f", // deeper gold tone for dedication line
+      size: 26,
       align: "center",
-      position: { x: 0.5, y: 0.8 },
+      textShadow: false,
+      textGlow: false,
+      position: { x: 0.5, y: 0.9 },
     },
   ],
   selectedStyle: "navyGold",
+  renderOptions: {
+    visualMode: "enhanced",
+    starIntensity: "normal",
+    starGlow: false,
+    constellationLines: "thin",
+    constellationLabels: false,
+    showPlanets: true,
+    planetEmphasis: "normal",
+    showMoon: true,
+    moonSize: "normal",
+    colorTheme: "night",
+    typography: "classic",
+    textLayout: "center",
+  },
   paid: false,
   revealed: false,
   setDateTime: (dateTime) => set({ dateTime }),
@@ -128,6 +170,8 @@ export const useStore = create<EditorState>((set) => ({
       return { textBoxes: [...state.textBoxes, newBox] };
     }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
+  setRenderOptions: (options) =>
+    set((state) => ({ renderOptions: { ...state.renderOptions, ...options } })),
   setPaid: (paid) => set({ paid }),
   setRevealed: (revealed) => set({ revealed }),
 }));

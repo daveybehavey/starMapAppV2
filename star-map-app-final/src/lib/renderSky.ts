@@ -17,10 +17,19 @@ export type MapRecipe = {
   selectedStyle: StyleId;
   aspectRatio: AspectRatio;
   renderOptions?: {
-    showConstellations?: boolean;
+    visualMode?: string;
+    starIntensity?: "subtle" | "normal" | "bold";
+    starGlow?: boolean;
+    constellationLines?: "off" | "thin" | "thick";
+    constellationLabels?: boolean;
     showGrid?: boolean;
     showPlanets?: boolean;
+    planetEmphasis?: "normal" | "highlighted";
     showMoon?: boolean;
+    moonSize?: "normal" | "large";
+    colorTheme?: string;
+    typography?: string;
+    textLayout?: string;
   };
 };
 
@@ -106,6 +115,82 @@ type CanvasLike = {
   getContext: (type: "2d") => CanvasRenderingContext2D | null;
 };
 
+type ModeSettings = {
+  glowBlur: number;
+  lineWidthFactor: number;
+  planetSizeFactor: number;
+  vignetteStrength: number;
+  vignetteOverlay: number;
+  lineAlpha: number;
+  starSizeFactor: number;
+  starAlpha: number;
+  planetAlpha: number;
+  moonSizeFactor: number;
+  palette?: Partial<{
+    background: string;
+    accent: string;
+    star: string;
+    glow: string;
+  }>;
+};
+
+function resolveVisualMode(mode?: string): ModeSettings {
+  switch (mode) {
+    case "astronomical":
+      return {
+        glowBlur: 0,
+        lineWidthFactor: 0.7,
+        planetSizeFactor: 0.9,
+        vignetteStrength: 0.2,
+        vignetteOverlay: 0,
+        lineAlpha: 0.22,
+        starSizeFactor: 0.95,
+        starAlpha: 0.9,
+        planetAlpha: 0.7,
+        moonSizeFactor: 0.95,
+        palette: {
+          background: "#050915",
+          accent: "#9eb6d1",
+          star: "#f8fbff",
+          glow: "rgba(158,182,209,0.15)",
+        },
+      };
+    case "illustrated":
+      return {
+        glowBlur: 14,
+        lineWidthFactor: 1.25,
+        planetSizeFactor: 1.2,
+        vignetteStrength: 1.1,
+        vignetteOverlay: 0.18,
+        lineAlpha: 0.45,
+        starSizeFactor: 1.1,
+        starAlpha: 1,
+        planetAlpha: 0.95,
+        moonSizeFactor: 1.05,
+        palette: {
+          background: "#0b0a1a",
+          accent: "#d9b56f",
+          star: "#fff5d9",
+          glow: "rgba(217,181,111,0.6)",
+        },
+      };
+    case "enhanced":
+    default:
+      return {
+        glowBlur: 8,
+        lineWidthFactor: 1,
+        planetSizeFactor: 1,
+        vignetteStrength: 1,
+        vignetteOverlay: 0.05,
+        lineAlpha: 0.32,
+        starSizeFactor: 1,
+        starAlpha: 1,
+        planetAlpha: 0.85,
+        moonSizeFactor: 1,
+      };
+  }
+}
+
 export function renderStarMap({
   recipe,
   canvas,
@@ -128,6 +213,7 @@ export function renderStarMap({
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const sky = computeSky(recipe, width, height);
+  const mode = resolveVisualMode(recipe.renderOptions?.visualMode);
 
   canvas.width = width * pixelRatio;
   canvas.height = height * pixelRatio;
@@ -136,12 +222,15 @@ export function renderStarMap({
     canvas.style.height = `${height}px`;
   }
 
+  const baseWidth = 1200;
+  const scale = width / baseWidth;
+
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
-  drawBackground(ctx, width, height, recipe.selectedStyle);
-  drawSky(ctx, width, height, recipe.selectedStyle, sky, recipe.renderOptions);
-  drawText(ctx, width, height, recipe.textBoxes, textBounds);
-  drawWatermark(ctx, width, height, watermark, recipe.selectedStyle);
+  drawBackground(ctx, width, height, recipe.selectedStyle, mode, scale);
+  drawSky(ctx, width, height, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale);
+  drawText(ctx, width, height, recipe.textBoxes, textBounds, scale);
+  drawWatermark(ctx, width, height, watermark, recipe.selectedStyle, scale);
   ctx.restore();
 }
 
@@ -182,7 +271,7 @@ export function computeSky(recipe: MapRecipe, width: number, height: number): Vi
       lat: recipe.location.latitude,
       lon: recipe.location.longitude,
       bortle: 4.5,
-      showConstellations: recipe.renderOptions?.showConstellations ?? true,
+      showConstellations: recipe.renderOptions?.constellationLines !== "off",
     },
     width,
     height,
@@ -207,10 +296,19 @@ export function buildRecipeFromState(input: {
     selectedStyle: input.selectedStyle,
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
-      showConstellations: input.renderOptions?.showConstellations ?? true,
+      visualMode: input.renderOptions?.visualMode ?? "enhanced",
+      starIntensity: input.renderOptions?.starIntensity ?? "normal",
+      starGlow: input.renderOptions?.starGlow ?? false,
+      constellationLines: input.renderOptions?.constellationLines ?? "thin",
+      constellationLabels: input.renderOptions?.constellationLabels ?? false,
       showGrid: input.renderOptions?.showGrid ?? false,
       showPlanets: input.renderOptions?.showPlanets ?? true,
+      planetEmphasis: input.renderOptions?.planetEmphasis ?? "normal",
       showMoon: input.renderOptions?.showMoon ?? true,
+      moonSize: input.renderOptions?.moonSize ?? "normal",
+      colorTheme: input.renderOptions?.colorTheme ?? "night",
+      typography: input.renderOptions?.typography ?? "classic",
+      textLayout: input.renderOptions?.textLayout ?? "center",
     },
   };
 }
@@ -220,9 +318,19 @@ function drawBackground(
   width: number,
   height: number,
   styleId: StyleId,
+  mode: ModeSettings,
+  scale: number,
 ) {
   const theme = STYLE_THEME[styleId];
-  ctx.fillStyle = theme.background;
+  const palette = {
+    background: mode.palette?.background ?? theme.background,
+    vignette: theme.vignette,
+    accent: mode.palette?.accent ?? theme.accent,
+    star: mode.palette?.star ?? theme.star,
+    glow: mode.palette?.glow ?? theme.glow,
+  };
+
+  ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, width, height);
 
   const gradient = ctx.createRadialGradient(
@@ -234,13 +342,27 @@ function drawBackground(
     Math.max(width, height),
   );
   gradient.addColorStop(0, "rgba(255,255,255,0.08)");
-  gradient.addColorStop(1, theme.vignette);
+  gradient.addColorStop(1, palette.vignette);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1.2, Math.max(0, mode.vignetteStrength));
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+
+  if (mode.vignetteOverlay > 0) {
+    ctx.save();
+    const overlay = ctx.createRadialGradient(width * 0.5, height * 0.45, width * 0.2, width * 0.5, height * 0.5, Math.max(width, height) * 0.8);
+    overlay.addColorStop(0, "rgba(0,0,0,0)");
+    overlay.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.globalAlpha = mode.vignetteOverlay;
+    ctx.fillStyle = overlay;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
 
   const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
-  ctx.strokeStyle = theme.accent;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = palette.accent;
+  ctx.lineWidth = 2 * scale;
   ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
 }
 
@@ -251,24 +373,49 @@ function drawSky(
   styleId: StyleId,
   sky: VisibleSky | null,
   renderOptions?: MapRecipe["renderOptions"],
+  mode?: ModeSettings,
+  scale = 1,
 ) {
   if (!sky) return;
   const theme = STYLE_THEME[styleId];
+  const palette = {
+    background: mode?.palette?.background ?? theme.background,
+    vignette: theme.vignette,
+    accent: mode?.palette?.accent ?? theme.accent,
+    star: mode?.palette?.star ?? theme.star,
+    glow: mode?.palette?.glow ?? theme.glow,
+  };
+  const lineFactor = mode?.lineWidthFactor ?? 1;
 
-  if (renderOptions?.showConstellations ?? true) {
-    drawConstellations(ctx, sky, theme.accent);
+  if (renderOptions?.constellationLines !== "off") {
+    const lineWidth =
+      renderOptions?.constellationLines === "thick"
+        ? 1.2 * lineFactor
+        : renderOptions?.constellationLines === "thin"
+          ? 0.8 * lineFactor
+          : 0.8 * lineFactor;
+    drawConstellations(
+      ctx,
+      sky,
+      palette.accent,
+      lineWidth * scale,
+      renderOptions?.constellationLabels ?? false,
+      mode?.lineAlpha ?? 0.3,
+    );
   }
 
   ctx.save();
-  ctx.fillStyle = theme.star;
-  ctx.shadowColor = theme.glow;
-  ctx.shadowBlur = 8;
+  ctx.fillStyle = palette.star;
+  ctx.shadowColor = palette.glow;
+  const baseGlow = mode?.glowBlur ?? 8;
+  const glow = (renderOptions?.starGlow ? baseGlow + 4 : baseGlow) * scale;
+  ctx.shadowBlur = glow;
 
   for (const star of sky.stars) {
     if (!Number.isFinite(star.x) || !Number.isFinite(star.y)) continue;
     const baseAlpha = brightnessFromMagnitude(star.magnitude);
-    const alpha = clamp(baseAlpha * (star.opacity ?? 1), 0.05, 1);
-    const radius = starRadiusFromMagnitude(star.magnitude);
+    const alpha = clamp(baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1), 0.05, 1);
+    const radius = starRadiusFromMagnitude(star.magnitude) * (mode?.starSizeFactor ?? 1) * scale;
     ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.arc(star.x, star.y, radius, 0, Math.PI * 2);
@@ -281,16 +428,29 @@ function drawSky(
   if (renderOptions?.showPlanets ?? true) {
     for (const planet of sky.planets) {
       if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
-      ctx.fillStyle = theme.accent;
+      ctx.fillStyle = palette.accent;
+      const sizeBase = renderOptions?.planetEmphasis === "highlighted" ? 4.2 : 3.2;
+      const size = sizeBase * (mode?.planetSizeFactor ?? 1) * scale;
+      ctx.globalAlpha = (mode?.planetAlpha ?? 0.85) * (renderOptions?.planetEmphasis === "highlighted" ? 1 : 0.95);
       ctx.beginPath();
-      ctx.arc(planet.x, planet.y, 3.2, 0, Math.PI * 2);
+      ctx.arc(planet.x, planet.y, size, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   if (renderOptions?.showMoon ?? true) {
     if (sky.moon && Number.isFinite(sky.moon.x) && Number.isFinite(sky.moon.y)) {
-      drawMoon(ctx, sky.moon.x, sky.moon.y, theme.background, theme.star, theme.accent, sky.moon.phase);
+      const moonSizeMultiplier = renderOptions?.moonSize === "large" ? 1.4 : 1;
+      drawMoon(
+        ctx,
+        sky.moon.x,
+        sky.moon.y,
+        palette.background,
+        palette.star,
+        palette.accent,
+        sky.moon.phase,
+        moonSizeMultiplier * (mode?.planetSizeFactor ?? 1) * (mode?.moonSizeFactor ?? 1) * scale,
+      );
     }
   }
 
@@ -303,15 +463,31 @@ function drawText(
   height: number,
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
+  scale = 1,
 ) {
   const baseY = height * 0.72;
-  const lineGap = 28;
+  const lineGap = 28 * scale;
 
   if (bounds) bounds.clear();
 
   textBoxes.forEach((box, index) => {
-    ctx.font = `600 ${box.size}px ${FONT_STACKS[box.fontFamily]}`;
+    const fontSize = Math.max(10, box.size * scale);
+    ctx.font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
     ctx.fillStyle = box.color;
+    if (box.textGlow) {
+      ctx.shadowColor = `${box.color}90`;
+      ctx.shadowBlur = 12 * scale;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    } else if (box.textShadow) {
+      ctx.shadowColor = `${box.color}80`;
+      ctx.shadowBlur = 6 * scale;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    } else {
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
     ctx.textAlign = box.align;
     ctx.textBaseline = "middle";
     const px = clamp(box.position?.x ?? 0.5, 0, 1) * width;
@@ -321,7 +497,7 @@ function drawText(
     if (bounds) {
       const metrics = ctx.measureText(box.text);
       const textWidth = metrics.width;
-      const textHeight = box.size * 1.2;
+      const textHeight = fontSize * 1.2;
       let left = px;
       if (ctx.textAlign === "center") left = px - textWidth / 2;
       if (ctx.textAlign === "right") left = px - textWidth;
@@ -329,9 +505,18 @@ function drawText(
       bounds.set(box.id, { x: left, y: top, width: textWidth, height: textHeight });
     }
   });
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
 }
 
-function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number, show: boolean, styleId: StyleId) {
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  show: boolean,
+  styleId: StyleId,
+  scale: number,
+) {
   if (!show) return;
   const theme = STYLE_THEME[styleId];
   ctx.save();
@@ -341,17 +526,25 @@ function drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.globalAlpha = 0.06;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `700 ${Math.min(width, height) * 0.12}px "Cinzel", serif`;
-  ctx.fillText("PREVIEW", 0, 0);
+  const fontSize = Math.min(width, height) * 0.12 * scale;
+  ctx.font = `700 ${fontSize}px "Cinzel", serif`;
+  ctx.fillText("StarMapCo", 0, 0);
   ctx.restore();
 }
 
-function drawConstellations(ctx: CanvasRenderingContext2D, sky: VisibleSky, accentColor: string) {
+function drawConstellations(
+  ctx: CanvasRenderingContext2D,
+  sky: VisibleSky,
+  accentColor: string,
+  lineWidth = 0.8,
+  showLabels = false,
+  lineAlpha = 0.3,
+) {
   if (!sky.constellations.length) return;
   ctx.save();
   ctx.strokeStyle = accentColor;
-  ctx.lineWidth = 0.8;
-  ctx.globalAlpha = 0.3;
+  ctx.lineWidth = lineWidth;
+  ctx.globalAlpha = lineAlpha;
 
   for (const constellation of sky.constellations) {
     for (const [a, b] of constellation.lines) {
@@ -385,8 +578,9 @@ function drawMoon(
   starColor: string,
   accent: string,
   phase: number,
+  sizeMultiplier: number,
 ) {
-  const radius = 6;
+  const radius = 6 * sizeMultiplier;
   ctx.save();
   ctx.translate(x, y);
 

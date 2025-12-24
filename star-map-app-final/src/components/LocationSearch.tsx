@@ -12,6 +12,8 @@ type GeocodeResult = {
   longitude: number;
   category?: string;
   type?: string;
+  countryCode?: string;
+  state?: string;
 };
 
 const cache = new Map<string, GeocodeResult[]>();

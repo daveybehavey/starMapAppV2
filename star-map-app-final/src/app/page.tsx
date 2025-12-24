@@ -3,7 +3,7 @@
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
-import { StyleId, TextBox, useStore } from "@/lib/store";
+import { StyleId, TextBox, useStore, RenderOptions } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -15,51 +15,78 @@ const styles: { id: StyleId; name: string; note: string }[] = [
   { id: "midnightMinimal", name: "Midnight Minimal", note: "Clean noir with subtle glow" },
 ];
 
+const DRAFT_KEY = "star-map-draft";
+const AUTO_EXPORT_KEY = "star-map-auto-export";
+const REVEALED_FLAG = "star-map-last-revealed";
+
 const fontLabels: Record<string, string> = {
   playfair: "Playfair Display",
   cinzel: "Cinzel",
   script: "Great Vibes",
 };
 
+const visualModes: Array<{ id: RenderOptions["visualMode"]; label: string; description: string }> = [
+  { id: "astronomical", label: "Astronomical", description: "Pure star field, minimal embellishment" },
+  { id: "enhanced", label: "Enhanced", description: "Balanced glow and detail (default)" },
+  { id: "illustrated", label: "Illustrated", description: "Artistic finish with richer accents" },
+];
+
+const constellationPresets: Array<{ id: RenderOptions["constellationLines"]; label: string; note: string }> = [
+  { id: "off", label: "Off", note: "No lines visible" },
+  { id: "thin", label: "Thin", note: "Subtle guides (default)" },
+  { id: "thick", label: "Bold", note: "Stronger, etched lines" },
+];
+
 export default function Home() {
   const {
     dateTime,
     textBoxes,
     selectedStyle,
+    renderOptions,
     paid,
     revealed,
     location,
+    setLocation,
     setDateTime,
     updateTextBox,
     removeTextBox,
     addTextBox,
     setStyle,
+    setRenderOptions,
     setPaid,
     setRevealed,
+    setTextBoxes,
   } = useStore(
     useShallow((state) => ({
       dateTime: state.dateTime,
       textBoxes: state.textBoxes,
       selectedStyle: state.selectedStyle,
+      renderOptions: state.renderOptions,
       paid: state.paid,
       revealed: state.revealed,
       location: state.location,
+      setLocation: state.setLocation,
       setDateTime: state.setDateTime,
       updateTextBox: state.updateTextBox,
       removeTextBox: state.removeTextBox,
       addTextBox: state.addTextBox,
       setStyle: state.setStyle,
+      setRenderOptions: state.setRenderOptions,
       setPaid: state.setPaid,
       setRevealed: state.setRevealed,
+      setTextBoxes: state.setTextBoxes,
     })),
   );
 
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(textBoxes.map((box) => [box.id, true])),
   );
+  const [restored, setRestored] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [pendingExport, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
+  const [autoExportPending, setAutoExportPending] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
   const locationName = location.name?.trim() ?? "";
   const hasDate = Number.isFinite(new Date(dateTime).getTime());
   const canReveal = Boolean(locationName);
@@ -76,7 +103,42 @@ export default function Home() {
     if (token) {
       setPaid(true);
     }
-  }, [setPaid]);
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft) as ReturnType<typeof buildRecipeFromState>;
+        if (parsed.datetimeISO) setDateTime(parsed.datetimeISO);
+        if (parsed.location) setLocation(parsed.location);
+        if (parsed.textBoxes?.length) setTextBoxes(parsed.textBoxes);
+        if (parsed.selectedStyle) setStyle(parsed.selectedStyle);
+        if (parsed.renderOptions) setRenderOptions(parsed.renderOptions);
+        setRevealed(false);
+        setRestored(true);
+      } catch {
+        // ignore bad drafts
+      }
+    }
+    const revealedFlag = localStorage.getItem(REVEALED_FLAG);
+    if (revealedFlag === "true") {
+      setRevealed(true);
+    }
+    const autoFlag = localStorage.getItem(AUTO_EXPORT_KEY);
+    if (autoFlag === "hd") {
+      setAutoExportPending(true);
+    }
+  }, [setPaid, setDateTime, setLocation, setRenderOptions, setRevealed, setStyle, setTextBoxes]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !restored) return;
+    const recipe = buildRecipeFromState({
+      dateTime,
+      location,
+      textBoxes,
+      selectedStyle,
+      renderOptions,
+    });
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(recipe));
+  }, [dateTime, location, renderOptions, restored, selectedStyle, textBoxes]);
 
   const toggleCard = (id: string) =>
     setCollapsedCards((prev) => ({
@@ -90,6 +152,9 @@ export default function Home() {
       return;
     }
     setRevealed(true);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(REVEALED_FLAG, "true");
+    }
     requestAnimationFrame(() => {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -102,6 +167,7 @@ export default function Home() {
         location,
         textBoxes,
         selectedStyle,
+        renderOptions,
       });
       const width = mode === "hd" ? 6000 : 1200;
       const ratio = aspectRatioToNumber(recipe.aspectRatio);
@@ -122,19 +188,43 @@ export default function Home() {
       link.href = url;
       link.click();
     },
-    [dateTime, location, selectedStyle, textBoxes],
+    [dateTime, location, renderOptions, selectedStyle, textBoxes],
   );
+
+  useEffect(() => {
+    if (!restored || !autoExportPending || !paid) return;
+    setRevealed(true);
+  }, [autoExportPending, paid, restored, setRevealed]);
+
+  useEffect(() => {
+    if (!autoExportPending || !canvasReady) return;
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [autoExportPending, canvasReady]);
+
+  useEffect(() => {
+    if (!autoExportPending || !canvasReady || !paid) return;
+    const id = requestAnimationFrame(() => {
+      exportImage("hd");
+      localStorage.removeItem(AUTO_EXPORT_KEY);
+      setAutoExportPending(false);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [autoExportPending, canvasReady, exportImage, paid]);
 
   const handleExport = useCallback(
     (mode: "preview" | "hd") => {
       if (mode === "hd" && !paid) {
         setPendingExport(mode);
         setPaywallOpen(true);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(AUTO_EXPORT_KEY, mode);
+          if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
+        }
         return;
       }
       exportImage(mode);
     },
-    [exportImage, paid],
+    [exportImage, paid, revealed],
   );
 
   const startCheckout = useCallback(async () => {
@@ -164,6 +254,7 @@ export default function Home() {
       location,
       textBoxes,
       selectedStyle,
+      renderOptions,
     });
     const res = await fetch("/api/maps", {
       method: "POST",
@@ -179,18 +270,60 @@ export default function Home() {
     } else {
       await navigator.clipboard.writeText(url).catch(() => {});
     }
-  }, [dateTime, location, selectedStyle, textBoxes]);
+  }, [dateTime, location, renderOptions, selectedStyle, textBoxes]);
+
+  const handleShareImage = useCallback(async () => {
+    const recipe = buildRecipeFromState({
+      dateTime,
+      location,
+      textBoxes,
+      selectedStyle,
+      renderOptions,
+    });
+    const width = 1200;
+    const height = 630;
+    const canvas = document.createElement("canvas");
+    renderStarMap({
+      recipe,
+      canvas,
+      width,
+      height,
+      watermark: true,
+      quality: "preview",
+    });
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) return;
+
+    const file = new File([blob], "star-map-share.png", { type: "image/png" });
+    const shareData: ShareData = { files: [file], title: "My Star Map", text: "See this night sky moment" };
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // fallback below
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "star-map-share.png";
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [dateTime, location, renderOptions, selectedStyle, textBoxes]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-6 pt-6 sm:pt-8 lg:py-12">
       <header className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-gold">Vintage Constellation Maps</p>
+          <p className="text-xs uppercase tracking-[0.35em] text-gold">StarMapCo</p>
           <h1 className="mt-2 text-3xl font-bold text-midnight sm:text-[34px] md:text-4xl">
-            Craft a personalized night sky keepsake
+            Craft a personalized night sky map
           </h1>
           <p className="mt-1 text-sm text-neutral-700 md:text-base">
-            Select your moment, style, and dedication. Reveal the sky when you’re ready.
+            Select your moment, style, and dedication. Reveal an astronomically accurate sky when you’re ready.
           </p>
         </div>
         <div className="inline-flex items-center gap-2 self-start rounded-full border border-gold/40 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gold shadow-sm backdrop-blur">
@@ -207,7 +340,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Preview</p>
-              <h3 className="text-xl font-semibold text-midnight sm:text-2xl">Vintage constellation map</h3>
+              <h3 className="text-xl font-semibold text-midnight sm:text-2xl">StarMapCo night sky</h3>
               <p className="text-xs text-neutral-600 sm:text-sm">
                 {revealed
                   ? "Your sky is revealed. Tap edit to refine."
@@ -229,7 +362,7 @@ export default function Home() {
                       "url('/ribbon-overlay.png'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
                     backgroundRepeat: "no-repeat, no-repeat",
                     backgroundSize: "100% auto, cover",
-                    backgroundPosition: "center 10px, center",
+                    backgroundPosition: "center 26px, center",
                   }
             }
           >
@@ -239,7 +372,7 @@ export default function Home() {
               }`}
             >
               {!revealed && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center text-sm text-amber-50">
+                <div className="absolute inset-0 flex flex-col items-center justify-end gap-4 pb-10 text-center text-sm text-amber-50">
                   <div className="pointer-events-none absolute inset-0 opacity-35">
                     <div className="absolute inset-10 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-200/5 to-transparent blur-3xl" />
                   </div>
@@ -268,7 +401,7 @@ export default function Home() {
               )}
               {revealed && (
                 <>
-                  <PreviewCanvas />
+                  <PreviewCanvas onRendered={() => setCanvasReady(true)} />
                   <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-black/5" />
                   <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
                     <button
@@ -283,7 +416,14 @@ export default function Home() {
                       onClick={() => handleExport("hd")}
                       className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
-                      Download HD / Remove watermark
+                      Download your print-ready star map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShareImage}
+                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    >
+                      Share as image
                     </button>
                     <button
                       type="button"
@@ -398,6 +538,38 @@ export default function Home() {
                           <option value="center">Center</option>
                           <option value="right">Right</option>
                         </select>
+                        <button
+                          type="button"
+                          onClick={() => paid && updateTextBox(box.id, { textShadow: !box.textShadow })}
+                          disabled={!paid}
+                          className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/5 transition ${
+                            paid
+                              ? box.textShadow
+                                ? "border-amber-300 bg-amber-100/80 text-midnight shadow-amber-200/60 hover:-translate-y-[1px] hover:shadow-md"
+                                : "border-black/10 bg-white text-neutral-800 hover:-translate-y-[1px] hover:shadow"
+                              : "cursor-not-allowed border-black/10 bg-neutral-100 text-neutral-400"
+                          }`}
+                          aria-pressed={!!box.textShadow}
+                          aria-label={`Toggle text shadow for ${box.label}`}
+                        >
+                          Shadow
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => paid && updateTextBox(box.id, { textGlow: !box.textGlow })}
+                          disabled={!paid}
+                          className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/5 transition ${
+                            paid
+                              ? box.textGlow
+                                ? "border-amber-300 bg-amber-50 text-midnight shadow-amber-200/80 hover:-translate-y-[1px] hover:shadow-md"
+                                : "border-black/10 bg-white text-neutral-800 hover:-translate-y-[1px] hover:shadow"
+                              : "cursor-not-allowed border-black/10 bg-neutral-100 text-neutral-400"
+                          }`}
+                          aria-pressed={!!box.textGlow}
+                          aria-label={`Toggle text glow for ${box.label}`}
+                        >
+                          Glow
+                        </button>
                       </div>
                     </>
                   )}
@@ -437,29 +609,110 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-xl border border-black/5 bg-gradient-to-r from-white to-amber-50/60 px-4 py-3 shadow-inner shadow-black/5">
-              <div>
-                <p className="text-sm font-semibold text-midnight">Export mode</p>
-                <p className="text-xs text-neutral-600">
-                  Free = watermark preview. Paid unlocks clean hi-res.
-                </p>
+            <div className="space-y-2 rounded-2xl border border-black/5 bg-white/85 p-3 shadow-inner shadow-black/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">Visual mode</p>
+                  <p className="text-xs text-neutral-600">Paid unlock · choose the finish</p>
+                </div>
+                {!paid && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                    Paid
+                  </span>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => setPaid(!paid)}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-wide transition ${
-                  paid
-                    ? "border-emerald-500/60 bg-emerald-50 text-emerald-700"
-                    : "border-neutral-300 bg-white text-neutral-700"
-                }`}
-              >
-                <span
-                  className={`flex h-2.5 w-2.5 items-center justify-center rounded-full ${
-                    paid ? "bg-emerald-500" : "bg-neutral-400"
-                  }`}
-                />
-                {paid ? "Paid" : "Free"}
-              </button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {visualModes.map((mode) => {
+                  const active = renderOptions.visualMode === mode.id;
+                  const locked = !paid && mode.id !== "enhanced";
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => paid && setRenderOptions({ visualMode: mode.id })}
+                      className={`rounded-xl border px-3 py-3 text-left text-sm shadow-sm transition ${
+                        active ? "border-gold bg-amber-50" : "border-black/10 bg-white"
+                      } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
+                    >
+                      <div className="font-semibold">{mode.label}</div>
+                      <div className="text-xs text-neutral-600">{mode.description}</div>
+                      {locked && <div className="mt-1 text-[10px] font-semibold text-amber-600">Unlock to use</div>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-2xl border border-black/5 bg-white/85 p-3 shadow-inner shadow-black/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">Constellations</p>
+                  <p className="text-xs text-neutral-600">Paid unlock · lines and labels</p>
+                </div>
+                {!paid && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                    Paid
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {constellationPresets.map((preset) => {
+                  const active = renderOptions.constellationLines === preset.id;
+                  const locked = !paid && preset.id !== "thin";
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => paid && setRenderOptions({ constellationLines: preset.id })}
+                      className={`rounded-xl border px-3 py-3 text-left text-sm shadow-sm transition ${
+                        active ? "border-gold bg-amber-50" : "border-black/10 bg-white"
+                      } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
+                    >
+                      <div className="font-semibold">{preset.label}</div>
+                      <div className="text-xs text-neutral-600">{preset.note}</div>
+                      {locked && <div className="mt-1 text-[10px] font-semibold text-amber-600">Unlock to use</div>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-black/5 bg-white/80 px-3 py-2">
+                <div className="text-sm font-medium text-neutral-800">Constellation labels</div>
+                <button
+                  type="button"
+                  disabled={!paid}
+                  onClick={() => paid && setRenderOptions({ constellationLabels: !renderOptions.constellationLabels })}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+                    renderOptions.constellationLabels ? "border-gold bg-amber-50 text-midnight" : "border-black/10 bg-white text-neutral-700"
+                  } ${!paid ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow"}`}
+                >
+                  {renderOptions.constellationLabels ? "Labels on" : "Labels off"}
+                </button>
+              </div>
+
+              {!paid && (
+                <div className="mt-3 space-y-2 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-neutral-800 shadow-sm">
+                  <div className="text-sm font-semibold text-midnight">Instant unlock</div>
+                  <ul className="list-disc pl-5 text-xs text-neutral-700">
+                    <li>Print-ready 6000×6000 poster file</li>
+                    <li>Illustrated & astronomical visual modes</li>
+                    <li>Bold constellations, glow, labels</li>
+                    <li>No watermark</li>
+                  </ul>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                    One-time purchase · No subscription
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPaywallOpen(true)}
+                    className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                  >
+                    🔓 Unlock premium styles →
+                  </button>
+                  <div className="text-center text-[11px] font-semibold text-neutral-700">$9.99 · One-time purchase</div>
+                </div>
+              )}
             </div>
 
             {!revealed && (
@@ -489,10 +742,14 @@ export default function Home() {
       {paywallOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl shadow-black/20">
-            <h3 className="text-lg font-semibold text-midnight">Unlock HD export</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Remove the watermark and download a high-resolution print-ready file.
-            </p>
+            <h3 className="text-lg font-semibold text-midnight">Download your print-ready star map</h3>
+            <ul className="mt-3 space-y-1 text-sm text-neutral-700">
+              <li>• 6000px high resolution (poster quality)</li>
+              <li>• No watermark</li>
+              <li>• Instant digital download</li>
+              <li>• One-time payment — $9.99 USD</li>
+              <li className="text-xs text-neutral-500">Secure checkout · No subscription</li>
+            </ul>
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -509,7 +766,7 @@ export default function Home() {
                 onClick={startCheckout}
                 className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
               >
-                Unlock now
+                Continue to secure checkout
               </button>
             </div>
           </div>

@@ -5,7 +5,11 @@ import { buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { TextBox, useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 
-export default function PreviewCanvas() {
+type Props = {
+  onRendered?: () => void;
+};
+
+export default function PreviewCanvas({ onRendered }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>();
@@ -15,12 +19,13 @@ export default function PreviewCanvas() {
   );
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
-  const { selectedStyle, textBoxes, dateTime, location, paid, updateTextBox } = useStore(
+  const { selectedStyle, textBoxes, dateTime, location, renderOptions, paid, updateTextBox } = useStore(
     useShallow((state) => ({
       selectedStyle: state.selectedStyle,
       textBoxes: state.textBoxes,
       dateTime: state.dateTime,
       location: state.location,
+      renderOptions: state.renderOptions,
       paid: state.paid,
       updateTextBox: state.updateTextBox,
     })),
@@ -51,6 +56,7 @@ export default function PreviewCanvas() {
         location,
         textBoxes,
         selectedStyle,
+        renderOptions,
       });
       renderStarMap({
         recipe,
@@ -62,8 +68,9 @@ export default function PreviewCanvas() {
         pixelRatio,
         textBounds: textBoundsRef.current,
       });
+      onRendered?.();
     });
-  }, [dateTime, dimensions, location, paid, selectedStyle, textBoxes]);
+  }, [dateTime, dimensions, location, onRendered, paid, renderOptions, selectedStyle, textBoxes]);
 
   useEffect(() => {
     scheduleDraw();

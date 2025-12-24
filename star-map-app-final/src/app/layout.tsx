@@ -26,9 +26,9 @@ const greatVibes = GreatVibes({
 });
 
 export const metadata: Metadata = {
-  title: "Vintage Constellation Maps",
+  title: "StarMapCo — Custom Night Sky Maps",
   description:
-    "Create a personalized night sky map with curated vintage and luxe styles, ready for print or keepsake gifting.",
+    "Create a personalized, print-ready star map with astronomically accurate night skies. Custom night sky maps for your special moment.",
 };
 
 export default function RootLayout({
