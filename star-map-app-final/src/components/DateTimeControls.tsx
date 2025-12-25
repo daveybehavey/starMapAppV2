@@ -28,7 +28,7 @@ export default function DateTimeControls({ dateTime, onChange }: Props) {
     }
     const iso = combineDateTime(value, customTimeEnabled ? timeValue : DEFAULT_TIME);
     if (iso) onChange(iso);
-    setDateOpen(false);
+    // keep calendar open; it will close on outside click or Escape
   };
 
   const handleTimeChange = (value: string) => {

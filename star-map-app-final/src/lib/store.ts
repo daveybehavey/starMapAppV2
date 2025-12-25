@@ -14,7 +14,7 @@ export interface TextBox {
   id: string;
   label: string;
   text: string;
-  fontFamily: "playfair" | "cinzel" | "script";
+  fontFamily: "playfair" | "cinzel" | "script" | "cormorant" | "montserrat";
   color: string;
   size: number;
   align: TextAlign;

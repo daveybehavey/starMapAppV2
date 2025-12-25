@@ -18,6 +18,8 @@ export default function PreviewCanvas({ onRendered }: Props) {
     new Map(),
   );
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [activeBox, setActiveBox] = useState<string | null>(null);
+  const [boxRect, setBoxRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const { selectedStyle, textBoxes, dateTime, location, renderOptions, paid, updateTextBox } = useStore(
     useShallow((state) => ({
@@ -68,9 +70,13 @@ export default function PreviewCanvas({ onRendered }: Props) {
         pixelRatio,
         textBounds: textBoundsRef.current,
       });
+      if (activeBox) {
+        const rect = textBoundsRef.current.get(activeBox);
+        if (rect) setBoxRect(rect);
+      }
       onRendered?.();
     });
-  }, [dateTime, dimensions, location, onRendered, paid, renderOptions, selectedStyle, textBoxes]);
+  }, [activeBox, dateTime, dimensions, location, onRendered, paid, renderOptions, selectedStyle, textBoxes]);
 
   useEffect(() => {
     scheduleDraw();
@@ -94,7 +100,13 @@ export default function PreviewCanvas({ onRendered }: Props) {
           offsetX: x - hit.centerX,
           offsetY: y - hit.centerY,
         };
+        setActiveBox(hit.id);
+        const rect = textBoundsRef.current.get(hit.id);
+        if (rect) setBoxRect(rect);
         canvas.setPointerCapture(event.pointerId);
+      } else {
+        setActiveBox(null);
+        setBoxRect(null);
       }
     };
 
@@ -106,6 +118,8 @@ export default function PreviewCanvas({ onRendered }: Props) {
       const newX = clamp(centerX / bounds.width, 0.05, 0.95);
       const newY = clamp(centerY / bounds.height, 0.1, 0.95);
       updateTextBox(dragRef.current.id, { position: { x: newX, y: newY } });
+      const rect = textBoundsRef.current.get(dragRef.current.id);
+      if (rect) setBoxRect(rect);
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -126,12 +140,36 @@ export default function PreviewCanvas({ onRendered }: Props) {
     };
   }, [updateTextBox]);
 
+  useEffect(() => {
+    const handleOutside = (event: PointerEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      if (!canvas.contains(event.target as Node)) {
+        setActiveBox(null);
+        setBoxRect(null);
+      }
+    };
+    window.addEventListener("pointerdown", handleOutside);
+    return () => window.removeEventListener("pointerdown", handleOutside);
+  }, []);
+
   return (
     <div
       ref={containerRef}
       className="relative h-[460px] overflow-hidden rounded-2xl border border-black/5 bg-white/30 shadow-2xl shadow-black/20 sm:h-[540px] md:h-[620px]"
     >
       <canvas ref={canvasRef} className="absolute inset-0" />
+      {activeBox && boxRect && (
+        <div
+          className="pointer-events-none absolute rounded-md border border-amber-300/70 bg-amber-200/10 shadow-[0_0_0_1px_rgba(251,191,36,0.4)]"
+          style={{
+            left: boxRect.x - 6,
+            top: boxRect.y - 6,
+            width: boxRect.width + 12,
+            height: boxRect.height + 12,
+          }}
+        />
+      )}
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/10" />
     </div>
   );

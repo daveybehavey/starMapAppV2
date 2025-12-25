@@ -77,6 +77,8 @@ const FONT_STACKS: Record<TextBox["fontFamily"], string> = {
   playfair: '"Playfair Display", serif',
   cinzel: '"Cinzel", serif',
   script: '"Great Vibes", cursive',
+  cormorant: '"Cormorant Garamond", serif',
+  montserrat: '"Montserrat", sans-serif',
 };
 
 export const DEFAULT_RECIPE: MapRecipe = {
@@ -520,15 +522,14 @@ function drawWatermark(
   if (!show) return;
   const theme = STYLE_THEME[styleId];
   ctx.save();
-  ctx.translate(width / 2, height / 2);
-  ctx.rotate(-Math.PI / 6);
   ctx.fillStyle = theme.star;
-  ctx.globalAlpha = 0.06;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const fontSize = Math.min(width, height) * 0.12 * scale;
+  ctx.globalAlpha = 0.18;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  const fontSize = Math.max(12, Math.min(width, height) * 0.035 * scale);
   ctx.font = `700 ${fontSize}px "Cinzel", serif`;
-  ctx.fillText("StarMapCo", 0, 0);
+  const margin = 28 * scale;
+  ctx.fillText("StarMapCo", margin, height - margin);
   ctx.restore();
 }
 

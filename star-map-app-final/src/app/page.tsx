@@ -19,11 +19,13 @@ const DRAFT_KEY = "star-map-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
 
-const fontLabels: Record<string, string> = {
-  playfair: "Playfair Display",
-  cinzel: "Cinzel",
-  script: "Great Vibes",
-};
+const fontOptions: Array<{ id: TextBox["fontFamily"]; label: string }> = [
+  { id: "playfair", label: "Playfair Display" },
+  { id: "cinzel", label: "Cinzel" },
+  { id: "script", label: "Great Vibes" },
+  { id: "cormorant", label: "Cormorant Garamond" },
+  { id: "montserrat", label: "Montserrat" },
+];
 
 const visualModes: Array<{ id: RenderOptions["visualMode"]; label: string; description: string }> = [
   { id: "astronomical", label: "Astronomical", description: "Pure star field, minimal embellishment" },
@@ -326,10 +328,6 @@ export default function Home() {
             Select your moment, style, and dedication. Reveal an astronomically accurate sky when you’re ready.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 self-start rounded-full border border-gold/40 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gold shadow-sm backdrop-blur">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
-          Live Preview
-        </div>
       </header>
 
       <div className="flex flex-col gap-5 lg:gap-6">
@@ -402,6 +400,10 @@ export default function Home() {
               {revealed && (
                 <>
                   <PreviewCanvas onRendered={() => setCanvasReady(true)} />
+                  <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-gold/40 bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gold shadow-sm backdrop-blur">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
+                    Live Preview
+                  </div>
                   <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-black/5" />
                   <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
                     <button
@@ -490,9 +492,22 @@ export default function Home() {
                       <span className="font-medium text-neutral-800">{box.label}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] uppercase tracking-wide text-neutral-500">
-                        {fontLabels[box.fontFamily]}
-                      </span>
+                      <select
+                        value={box.fontFamily}
+                        onChange={(e) =>
+                          paid && updateTextBox(box.id, { fontFamily: e.target.value as TextBox["fontFamily"] })
+                        }
+                        disabled={!paid}
+                        className={`rounded-md border px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30 ${
+                          paid ? "bg-white text-neutral-800" : "cursor-not-allowed bg-neutral-100 text-neutral-400"
+                        }`}
+                      >
+                        {fontOptions.map((opt) => (
+                          <option key={opt.id} value={opt.id}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                       <button
                         type="button"
                         onClick={() => removeTextBox(box.id)}
@@ -698,6 +713,7 @@ export default function Home() {
                     <li>Print-ready 6000×6000 poster file</li>
                     <li>Illustrated & astronomical visual modes</li>
                     <li>Bold constellations, glow, labels</li>
+                    <li>Customizable fonts</li>
                     <li>No watermark</li>
                   </ul>
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
