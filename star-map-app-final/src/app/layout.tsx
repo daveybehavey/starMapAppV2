@@ -7,6 +7,7 @@ import {
   Playfair_Display as PlayfairDisplay,
 } from "next/font/google";
 import "./globals.css";
+import PosthogProvider from "@/components/PosthogProvider";
 
 const playfair = PlayfairDisplay({
   variable: "--font-playfair",
@@ -86,6 +87,7 @@ export default function RootLayout({
         <div className="min-h-screen bg-gradient-to-br from-parchment via-white to-parchment">
           {children}
         </div>
+        <PosthogProvider />
         <script
           id="product-schema"
           type="application/ld+json"

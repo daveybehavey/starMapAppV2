@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { AspectRatio, Shape } from "./types";
 
 export type StyleId =
   | "navyGold"
@@ -49,6 +50,8 @@ export interface RenderOptions {
   colorTheme: "night" | "midnight" | "vintage" | "emerald";
   typography: "classic" | "elegant" | "script";
   textLayout: "center" | "top" | "bottom";
+  shapeMask: "none" | "circle" | "heart" | "diamond" | "ring";
+  backgroundColor?: string;
 }
 
 export interface EditorState {
@@ -56,6 +59,8 @@ export interface EditorState {
   location: LocationState;
   textBoxes: TextBox[];
   selectedStyle: StyleId;
+  aspectRatio: AspectRatio;
+  shape: Shape;
   renderOptions: RenderOptions;
   paid: boolean;
   revealed: boolean;
@@ -66,6 +71,8 @@ export interface EditorState {
   removeTextBox: (id: string) => void;
   addTextBox: () => void;
   setStyle: (style: StyleId) => void;
+  setAspectRatio: (aspectRatio: AspectRatio) => void;
+  setShape: (shape: Shape) => void;
   setRenderOptions: (options: Partial<RenderOptions>) => void;
   setPaid: (paid: boolean) => void;
   setRevealed: (revealed: boolean) => void;
@@ -85,6 +92,8 @@ export const useStore = create<EditorState>((set) => ({
     longitude: 0,
     timezone: "UTC",
   },
+  aspectRatio: "square",
+  shape: "rectangle",
   textBoxes: [
     {
       id: "title",
@@ -137,6 +146,8 @@ export const useStore = create<EditorState>((set) => ({
     colorTheme: "night",
     typography: "classic",
     textLayout: "center",
+    shapeMask: "circle",
+    backgroundColor: "",
   },
   paid: false,
   revealed: false,
@@ -170,6 +181,8 @@ export const useStore = create<EditorState>((set) => ({
       return { textBoxes: [...state.textBoxes, newBox] };
     }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
+  setAspectRatio: (aspectRatio) => set({ aspectRatio }),
+  setShape: (shape) => set({ shape }),
   setRenderOptions: (options) =>
     set((state) => ({ renderOptions: { ...state.renderOptions, ...options } })),
   setPaid: (paid) => set({ paid }),

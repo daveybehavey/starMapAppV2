@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { track } from "@/lib/analytics";
 
 export default function SuccessPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function SuccessPage() {
     const token = `paid-${Date.now()}`;
     localStorage.setItem("star-map-unlock", token);
     setPaid(true);
+    track("purchase_success", { isPaid: true });
     const timer = setTimeout(() => {
       router.replace("/");
     }, 1200);

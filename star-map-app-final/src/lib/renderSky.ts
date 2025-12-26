@@ -1,7 +1,9 @@
 import { computeVisibleStars, type VisibleSky } from "@/lib/astronomy";
+import { getShapeData } from "@/lib/shapeUtils";
 import type { LocationState, StyleId, TextBox } from "@/lib/store";
+import type { AspectRatio, Shape } from "@/lib/types";
 
-export type AspectRatio = "square" | "3:4" | "2:3" | "4:5";
+export type { AspectRatio, Shape } from "@/lib/types";
 
 export type MapRecipe = {
   version: number;
@@ -15,6 +17,7 @@ export type MapRecipe = {
   };
   textBoxes: TextBox[];
   selectedStyle: StyleId;
+  shape: Shape;
   aspectRatio: AspectRatio;
   renderOptions?: {
     visualMode?: string;
@@ -30,6 +33,8 @@ export type MapRecipe = {
     colorTheme?: string;
     typography?: string;
     textLayout?: string;
+    shapeMask?: "none" | "circle" | "heart" | "diamond" | "ring";
+    backgroundColor?: string;
   };
 };
 
@@ -88,12 +93,14 @@ export const DEFAULT_RECIPE: MapRecipe = {
   location: { name: "", latitude: 0, longitude: 0, timezone: "UTC" },
   textBoxes: [],
   selectedStyle: "navyGold",
+  shape: "rectangle",
   aspectRatio: "square",
   renderOptions: {
     showConstellations: true,
     showGrid: false,
     showPlanets: true,
     showMoon: true,
+    shapeMask: "circle",
   },
 };
 
@@ -193,7 +200,7 @@ function resolveVisualMode(mode?: string): ModeSettings {
   }
 }
 
-export function renderStarMap({
+export async function renderStarMap({
   recipe,
   canvas,
   width,
@@ -214,25 +221,51 @@ export function renderStarMap({
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const sky = computeSky(recipe, width, height);
+  const shapeName = recipe.shape || (recipe.renderOptions?.shapeMask as Shape) || "rectangle";
+  const shapeData = await getShapeData(shapeName).catch(() => null);
+  const ratioFromShape = shapeData ? shapeData.viewBox.height / shapeData.viewBox.width : null;
+  const fallbackHeight = height || Math.round(width / aspectRatioToNumber(recipe.aspectRatio));
+  const targetHeight = Math.max(
+    1,
+    Math.round(width * (ratioFromShape ?? 0)) || fallbackHeight || Math.round(width / 1),
+  );
+  const sky = computeSky(recipe, width, targetHeight);
   const mode = resolveVisualMode(recipe.renderOptions?.visualMode);
 
   canvas.width = width * pixelRatio;
-  canvas.height = height * pixelRatio;
+  canvas.height = targetHeight * pixelRatio;
   if (canvas.style) {
     canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    canvas.style.height = `${targetHeight}px`;
   }
 
   const baseWidth = 1200;
   const scale = width / baseWidth;
+  const backgroundColor = recipe.renderOptions?.backgroundColor?.trim() || STYLE_THEME[recipe.selectedStyle].background;
+  const clipPath = shapeData ? buildClipPath(shapeData, width, targetHeight, scale) : null;
 
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
-  drawBackground(ctx, width, height, recipe.selectedStyle, mode, scale);
-  drawSky(ctx, width, height, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale);
-  drawText(ctx, width, height, recipe.textBoxes, textBounds, scale);
-  drawWatermark(ctx, width, height, watermark, recipe.selectedStyle, scale);
+  // clear and paint base background
+  ctx.save();
+  ctx.clearRect(0, 0, width, targetHeight);
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, width, targetHeight);
+  ctx.restore();
+
+  // clip to mask and draw sky
+  ctx.save();
+  if (clipPath) {
+    ctx.clip(clipPath, "nonzero");
+  }
+  drawBackground(ctx, width, targetHeight, recipe.selectedStyle, mode, scale);
+  drawSky(ctx, width, targetHeight, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale);
+  ctx.restore();
+
+  // outlines, text, watermark above everything
+  drawMaskOutline(ctx, width, targetHeight, clipPath, recipe.selectedStyle, scale);
+  drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
+  drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
   ctx.restore();
 }
 
@@ -286,6 +319,7 @@ export function buildRecipeFromState(input: {
   textBoxes: TextBox[];
   selectedStyle: StyleId;
   aspectRatio?: AspectRatio;
+  shape?: Shape;
   renderOptions?: MapRecipe["renderOptions"];
   seed?: string;
 }): MapRecipe {
@@ -296,6 +330,7 @@ export function buildRecipeFromState(input: {
     location: input.location,
     textBoxes: input.textBoxes,
     selectedStyle: input.selectedStyle,
+    shape: input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
       visualMode: input.renderOptions?.visualMode ?? "enhanced",
@@ -311,6 +346,8 @@ export function buildRecipeFromState(input: {
       colorTheme: input.renderOptions?.colorTheme ?? "night",
       typography: input.renderOptions?.typography ?? "classic",
       textLayout: input.renderOptions?.textLayout ?? "center",
+      shapeMask: input.renderOptions?.shapeMask ?? "circle",
+      backgroundColor: input.renderOptions?.backgroundColor ?? "",
     },
   };
 }
@@ -531,6 +568,42 @@ function drawWatermark(
   const margin = 28 * scale;
   ctx.fillText("StarMapCo", margin, height - margin);
   ctx.restore();
+}
+
+function drawMaskOutline(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  clipPath: Path2D | null,
+  styleId: StyleId,
+  scale: number,
+) {
+  if (!clipPath) return;
+  ctx.save();
+  const theme = STYLE_THEME[styleId];
+  ctx.strokeStyle = theme.accent;
+  ctx.lineWidth = 2 * scale;
+  ctx.stroke(clipPath);
+  ctx.restore();
+}
+
+function buildClipPath(
+  shapeData: { d: string; viewBox: { minX: number; minY: number; width: number; height: number } },
+  width: number,
+  height: number,
+  scale: number,
+) {
+  const pad = 12 * scale;
+  const w = Math.max(1, width - pad * 2);
+  const h = Math.max(1, height - pad * 2);
+  const path = new Path2D(shapeData.d);
+  const matrix = new DOMMatrix();
+  matrix.translateSelf(-shapeData.viewBox.minX, -shapeData.viewBox.minY);
+  matrix.scaleSelf(w / shapeData.viewBox.width, h / shapeData.viewBox.height);
+  matrix.translateSelf(pad, pad);
+  const scaled = new Path2D();
+  scaled.addPath(path, matrix);
+  return scaled;
 }
 
 function drawConstellations(

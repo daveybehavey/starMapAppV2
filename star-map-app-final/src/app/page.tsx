@@ -5,6 +5,9 @@ import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { StyleId, TextBox, useStore, RenderOptions } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import { getShapeData } from "@/lib/shapeUtils";
+import type { Shape } from "@/lib/types";
+import { track } from "@/lib/analytics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -33,6 +36,12 @@ const visualModes: Array<{ id: RenderOptions["visualMode"]; label: string; descr
   { id: "illustrated", label: "Illustrated", description: "Artistic finish with richer accents" },
 ];
 
+const shapes: Array<{ id: Shape; label: string }> = [
+  { id: "rectangle", label: "Rectangle" },
+  { id: "heart", label: "Heart" },
+  { id: "circle", label: "Circle" },
+];
+
 const constellationPresets: Array<{ id: RenderOptions["constellationLines"]; label: string; note: string }> = [
   { id: "off", label: "Off", note: "No lines visible" },
   { id: "thin", label: "Thin", note: "Subtle guides (default)" },
@@ -44,6 +53,8 @@ export default function Home() {
     dateTime,
     textBoxes,
     selectedStyle,
+    aspectRatio,
+    shape,
     renderOptions,
     paid,
     revealed,
@@ -54,6 +65,8 @@ export default function Home() {
     removeTextBox,
     addTextBox,
     setStyle,
+    setAspectRatio,
+    setShape,
     setRenderOptions,
     setPaid,
     setRevealed,
@@ -63,6 +76,8 @@ export default function Home() {
       dateTime: state.dateTime,
       textBoxes: state.textBoxes,
       selectedStyle: state.selectedStyle,
+      aspectRatio: state.aspectRatio,
+      shape: state.shape,
       renderOptions: state.renderOptions,
       paid: state.paid,
       revealed: state.revealed,
@@ -73,6 +88,8 @@ export default function Home() {
       removeTextBox: state.removeTextBox,
       addTextBox: state.addTextBox,
       setStyle: state.setStyle,
+      setAspectRatio: state.setAspectRatio,
+      setShape: state.setShape,
       setRenderOptions: state.setRenderOptions,
       setPaid: state.setPaid,
       setRevealed: state.setRevealed,
@@ -113,6 +130,12 @@ export default function Home() {
         if (parsed.location) setLocation(parsed.location);
         if (parsed.textBoxes?.length) setTextBoxes(parsed.textBoxes);
         if (parsed.selectedStyle) setStyle(parsed.selectedStyle);
+        if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio as any);
+        if ((parsed as any).shape) {
+          setShape((parsed as any).shape);
+        } else if ((parsed.renderOptions as any)?.shapeMask) {
+          setShape((parsed.renderOptions as any).shapeMask);
+        }
         if (parsed.renderOptions) setRenderOptions(parsed.renderOptions);
         setRevealed(false);
         setRestored(true);
@@ -128,7 +151,17 @@ export default function Home() {
     if (autoFlag === "hd") {
       setAutoExportPending(true);
     }
-  }, [setPaid, setDateTime, setLocation, setRenderOptions, setRevealed, setStyle, setTextBoxes]);
+  }, [
+    setPaid,
+    setDateTime,
+    setLocation,
+    setRenderOptions,
+    setRevealed,
+    setStyle,
+    setTextBoxes,
+    setAspectRatio,
+    setShape,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !restored) return;
@@ -137,10 +170,12 @@ export default function Home() {
       location,
       textBoxes,
       selectedStyle,
+      aspectRatio,
+      shape,
       renderOptions,
     });
     localStorage.setItem(DRAFT_KEY, JSON.stringify(recipe));
-  }, [dateTime, location, renderOptions, restored, selectedStyle, textBoxes]);
+  }, [aspectRatio, dateTime, location, renderOptions, restored, selectedStyle, shape, textBoxes]);
 
   const toggleCard = (id: string) =>
     setCollapsedCards((prev) => ({
@@ -154,6 +189,7 @@ export default function Home() {
       return;
     }
     setRevealed(true);
+    track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
     if (typeof window !== "undefined") {
       localStorage.setItem(REVEALED_FLAG, "true");
     }
@@ -163,20 +199,25 @@ export default function Home() {
   }, [canReveal, hasDate, setRevealed]);
 
   const exportImage = useCallback(
-    (mode: "preview" | "hd") => {
+    async (mode: "preview" | "hd") => {
       const recipe = buildRecipeFromState({
         dateTime,
         location,
         textBoxes,
         selectedStyle,
+        aspectRatio,
+        shape,
         renderOptions,
       });
       const width = mode === "hd" ? 6000 : 1200;
-      const ratio = aspectRatioToNumber(recipe.aspectRatio);
-      const height = Math.round(width / ratio);
+      const shapeData = await getShapeData(recipe.shape).catch(() => null);
+      const ratio = shapeData
+        ? shapeData.viewBox.width / shapeData.viewBox.height
+        : aspectRatioToNumber(recipe.aspectRatio);
+      const height = Math.max(1, Math.round(width / ratio));
       const canvas = document.createElement("canvas");
       const watermark = mode !== "hd";
-      renderStarMap({
+      await renderStarMap({
         recipe,
         canvas,
         width,
@@ -190,7 +231,7 @@ export default function Home() {
       link.href = url;
       link.click();
     },
-    [dateTime, location, renderOptions, selectedStyle, textBoxes],
+    [aspectRatio, dateTime, location, renderOptions, selectedStyle, shape, textBoxes],
   );
 
   useEffect(() => {
@@ -206,9 +247,12 @@ export default function Home() {
   useEffect(() => {
     if (!autoExportPending || !canvasReady || !paid) return;
     const id = requestAnimationFrame(() => {
-      exportImage("hd");
-      localStorage.removeItem(AUTO_EXPORT_KEY);
-      setAutoExportPending(false);
+      exportImage("hd")
+        .catch(() => {})
+        .finally(() => {
+          localStorage.removeItem(AUTO_EXPORT_KEY);
+          setAutoExportPending(false);
+        });
     });
     return () => cancelAnimationFrame(id);
   }, [autoExportPending, canvasReady, exportImage, paid]);
@@ -218,19 +262,26 @@ export default function Home() {
       if (mode === "hd" && !paid) {
         setPendingExport(mode);
         setPaywallOpen(true);
+        track("paywall_opened", { visualMode: renderOptions.visualMode });
         if (typeof window !== "undefined") {
           localStorage.setItem(AUTO_EXPORT_KEY, mode);
           if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
         }
         return;
       }
-      exportImage(mode);
+      track(mode === "hd" ? "export_hd_clicked" : "export_free_clicked", {
+        isPaid: paid,
+        visualMode: renderOptions.visualMode,
+        exportResolution: mode === "hd" ? 6000 : 1200,
+      });
+      exportImage(mode).catch(() => {});
     },
-    [exportImage, paid, revealed],
+    [exportImage, paid, renderOptions.visualMode, revealed],
   );
 
   const startCheckout = useCallback(async () => {
     try {
+      track("checkout_started", { visualMode: renderOptions.visualMode });
       const res = await fetch("/api/checkout", { method: "POST" });
       if (!res.ok) throw new Error("checkout failed");
       const data = (await res.json()) as { url?: string };
@@ -242,13 +293,14 @@ export default function Home() {
     } catch (err) {
       console.error(err);
       setPaid(true);
+      track("purchase_success", { isPaid: true });
       if (pendingExport) {
-        exportImage(pendingExport);
+        await exportImage(pendingExport).catch(() => {});
         setPendingExport(null);
       }
       setPaywallOpen(false);
     }
-  }, [exportImage, pendingExport, setPaid]);
+  }, [exportImage, pendingExport, renderOptions.visualMode, setPaid]);
 
   const handleShare = useCallback(async () => {
     const recipe = buildRecipeFromState({
@@ -256,6 +308,8 @@ export default function Home() {
       location,
       textBoxes,
       selectedStyle,
+      aspectRatio,
+      shape,
       renderOptions,
     });
     const res = await fetch("/api/maps", {
@@ -267,12 +321,13 @@ export default function Home() {
     const { id } = (await res.json()) as { id: string };
     const url = `${window.location.origin}/m/${id}`;
     setShareLink(url);
+    track("share_link_clicked", { isPaid: paid, visualMode: renderOptions.visualMode });
     if (navigator.share) {
       await navigator.share({ url, title: "My Star Map", text: "See this night sky moment" }).catch(() => {});
     } else {
       await navigator.clipboard.writeText(url).catch(() => {});
     }
-  }, [dateTime, location, renderOptions, selectedStyle, textBoxes]);
+  }, [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]);
 
   const handleShareImage = useCallback(async () => {
     const recipe = buildRecipeFromState({
@@ -280,12 +335,18 @@ export default function Home() {
       location,
       textBoxes,
       selectedStyle,
+      aspectRatio,
+      shape,
       renderOptions,
     });
     const width = 1200;
-    const height = 630;
+    const shapeData = await getShapeData(recipe.shape).catch(() => null);
+    const ratio = shapeData
+      ? shapeData.viewBox.width / shapeData.viewBox.height
+      : aspectRatioToNumber(recipe.aspectRatio);
+    const height = Math.max(1, Math.round(width / ratio));
     const canvas = document.createElement("canvas");
-    renderStarMap({
+    await renderStarMap({
       recipe,
       canvas,
       width,
@@ -295,6 +356,7 @@ export default function Home() {
     });
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!blob) return;
+    track("share_image_clicked", { isPaid: paid, visualMode: renderOptions.visualMode });
 
     const file = new File([blob], "star-map-share.png", { type: "image/png" });
     const shareData: ShareData = { files: [file], title: "My Star Map", text: "See this night sky moment" };
@@ -314,7 +376,7 @@ export default function Home() {
     link.download = "star-map-share.png";
     link.click();
     URL.revokeObjectURL(url);
-  }, [dateTime, location, renderOptions, selectedStyle, textBoxes]);
+  }, [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-6 pt-6 sm:pt-8 lg:py-12">
@@ -411,28 +473,28 @@ export default function Home() {
                       onClick={() => handleExport("preview")}
                       className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
-                      Download preview (watermarked)
+                      Free ⬇️
                     </button>
                     <button
                       type="button"
                       onClick={() => handleExport("hd")}
                       className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
-                      Download your print-ready star map
+                      {!paid && "🔒 "}HD ⬇️
                     </button>
                     <button
                       type="button"
                       onClick={handleShareImage}
                       className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
-                      Share as image
+                      🔗 Share
                     </button>
                     <button
                       type="button"
                       onClick={handleShare}
                       className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
-                      Share / Remix link
+                      💾 Save & Remix
                     </button>
                   </div>
                   <button
@@ -645,7 +707,11 @@ export default function Home() {
                       key={mode.id}
                       type="button"
                       disabled={locked}
-                      onClick={() => paid && setRenderOptions({ visualMode: mode.id })}
+                      onClick={() => {
+                        if (!paid) return;
+                        setRenderOptions({ visualMode: mode.id });
+                        track("visual_mode_changed", { visualMode: mode.id, isPaid: paid });
+                      }}
                       className={`rounded-xl border px-3 py-3 text-left text-sm shadow-sm transition ${
                         active ? "border-gold bg-amber-50" : "border-black/10 bg-white"
                       } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
@@ -729,6 +795,55 @@ export default function Home() {
                   <div className="text-center text-[11px] font-semibold text-neutral-700">$9.99 · One-time purchase</div>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2 rounded-2xl border border-black/5 bg-white/85 p-3 shadow-inner shadow-black/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">Shape</p>
+                  <p className="text-xs text-neutral-600">Drop custom SVGs into public/shapes/</p>
+                </div>
+                {!paid && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                    Paid
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-800">Frame shape</label>
+                  <select
+                    value={shape}
+                    onChange={(e) => {
+                      const next = e.target.value as Shape;
+                      if (!paid && next !== "rectangle") {
+                        setPaywallOpen(true);
+                        return;
+                      }
+                      setShape(next);
+                    }}
+                    className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                  >
+                    {(paid ? shapes : shapes.filter((opt) => opt.id === "rectangle")).map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Add more by dropping SVGs into public/shapes/ and adding their filenames here.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-semibold text-neutral-800">Background color</label>
+                  <input
+                    type="color"
+                    value={renderOptions.backgroundColor || "#0b1a30"}
+                    onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}
+                    className="h-9 w-14 cursor-pointer rounded-md border border-black/10 bg-white shadow-inner shadow-black/5"
+                  />
+                </div>
+              </div>
             </div>
 
             {!revealed && (

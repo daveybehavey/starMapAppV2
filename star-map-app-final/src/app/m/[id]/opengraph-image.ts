@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { kv } from "@vercel/kv";
 import { createCanvas } from "@napi-rs/canvas";
-import { MapRecipe, renderStarMap } from "@/lib/renderSky";
+import { aspectRatioToNumber, MapRecipe, renderStarMap } from "@/lib/renderSky";
+import { getShapeData } from "@/lib/shapeUtils";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -13,12 +14,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return new Response("Not found", { status: 404 });
   }
 
+  const recipe: MapRecipe = {
+    ...data,
+    shape: (data as any).shape ?? (data.renderOptions as any)?.shapeMask ?? "rectangle",
+    aspectRatio: data.aspectRatio ?? "square",
+  };
+
   const width = size.width;
-  const height = size.height;
+  const shapeData = await getShapeData(recipe.shape).catch(() => null);
+  const ratio = shapeData
+    ? shapeData.viewBox.width / shapeData.viewBox.height
+    : aspectRatioToNumber(recipe.aspectRatio);
+  const height = shapeData ? Math.max(1, Math.round(width / ratio)) : size.height;
   const canvas = createCanvas(width, height);
 
-  renderStarMap({
-    recipe: data,
+  await renderStarMap({
+    recipe,
     canvas: canvas as unknown as HTMLCanvasElement,
     width,
     height,

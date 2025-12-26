@@ -15,6 +15,7 @@ type MapRecipe = {
   textBoxes: unknown;
   selectedStyle: string;
   aspectRatio?: string;
+  shape?: string;
   renderOptions?: Record<string, unknown>;
 };
 

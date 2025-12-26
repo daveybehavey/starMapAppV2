@@ -17,6 +17,7 @@ type Recipe = {
   textBoxes: unknown;
   selectedStyle: string;
   aspectRatio?: string;
+  shape?: string;
   renderOptions?: {
     showConstellations?: boolean;
     showGrid?: boolean;
@@ -37,6 +38,9 @@ export function SharedMapClient({ id, searchParams }: Props) {
   const setTextBoxes = useStore((s) => s.setTextBoxes);
   const setStyle = useStore((s) => s.setStyle);
   const setRevealed = useStore((s) => s.setRevealed);
+  const setRenderOptions = useStore((s) => s.setRenderOptions);
+  const setAspectRatio = useStore((s) => s.setAspectRatio);
+  const setShape = useStore((s) => s.setShape);
 
   useEffect(() => {
     const load = async () => {
@@ -55,6 +59,15 @@ export function SharedMapClient({ id, searchParams }: Props) {
           setTextBoxes(data.textBoxes as any);
         }
         setStyle(data.selectedStyle as any);
+        if (data.aspectRatio) setAspectRatio(data.aspectRatio as any);
+        if ((data as any).shape) {
+          setShape((data as any).shape);
+        } else if ((data.renderOptions as any)?.shapeMask) {
+          setShape((data.renderOptions as any).shapeMask as any);
+        }
+        if (data.renderOptions) {
+          setRenderOptions(data.renderOptions as any);
+        }
         setRevealed(true);
         setStatus("ready");
       } catch (e) {
@@ -63,7 +76,18 @@ export function SharedMapClient({ id, searchParams }: Props) {
       }
     };
     load();
-  }, [id, searchParams, setDateTime, setLocation, setRevealed, setStyle, setTextBoxes]);
+  }, [
+    id,
+    searchParams,
+    setAspectRatio,
+    setDateTime,
+    setLocation,
+    setRenderOptions,
+    setRevealed,
+    setShape,
+    setStyle,
+    setTextBoxes,
+  ]);
 
   if (status === "loading") {
     return (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import { getShapeData } from "@/lib/shapeUtils";
 import { TextBox, useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 
@@ -17,21 +18,25 @@ export default function PreviewCanvas({ onRendered }: Props) {
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map(),
   );
+  const { selectedStyle, textBoxes, dateTime, location, renderOptions, paid, updateTextBox, aspectRatio, shape } =
+    useStore(
+      useShallow((state) => ({
+        selectedStyle: state.selectedStyle,
+        textBoxes: state.textBoxes,
+        dateTime: state.dateTime,
+        location: state.location,
+        renderOptions: state.renderOptions,
+        paid: state.paid,
+        aspectRatio: state.aspectRatio,
+        shape: state.shape,
+        updateTextBox: state.updateTextBox,
+      })),
+    );
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [activeBox, setActiveBox] = useState<string | null>(null);
   const [boxRect, setBoxRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-
-  const { selectedStyle, textBoxes, dateTime, location, renderOptions, paid, updateTextBox } = useStore(
-    useShallow((state) => ({
-      selectedStyle: state.selectedStyle,
-      textBoxes: state.textBoxes,
-      dateTime: state.dateTime,
-      location: state.location,
-      renderOptions: state.renderOptions,
-      paid: state.paid,
-      updateTextBox: state.updateTextBox,
-    })),
-  );
+  const [widthToHeight, setWidthToHeight] = useState<number>(1);
+  const [loadingShape, setLoadingShape] = useState(false);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -46,6 +51,27 @@ export default function PreviewCanvas({ onRendered }: Props) {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const updateRatio = async () => {
+      setLoadingShape(true);
+      try {
+        const data = await getShapeData(shape);
+        const ratio = data ? data.viewBox.width / data.viewBox.height : aspectRatioToNumber(aspectRatio);
+        if (active) setWidthToHeight(Math.max(ratio || 1, 0.01));
+      } catch (err) {
+        console.error("Shape load failed:", err);
+        if (active) setWidthToHeight(1);
+      } finally {
+        if (active) setLoadingShape(false);
+      }
+    };
+    updateRatio();
+    return () => {
+      active = false;
+    };
+  }, [aspectRatio, shape]);
+
   const scheduleDraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
@@ -59,6 +85,8 @@ export default function PreviewCanvas({ onRendered }: Props) {
         textBoxes,
         selectedStyle,
         renderOptions,
+        aspectRatio,
+        shape,
       });
       renderStarMap({
         recipe,
@@ -69,14 +97,29 @@ export default function PreviewCanvas({ onRendered }: Props) {
         quality: "preview",
         pixelRatio,
         textBounds: textBoundsRef.current,
-      });
-      if (activeBox) {
-        const rect = textBoundsRef.current.get(activeBox);
-        if (rect) setBoxRect(rect);
-      }
-      onRendered?.();
+      })
+        .then(() => {
+          if (activeBox) {
+            const rect = textBoundsRef.current.get(activeBox);
+            if (rect) setBoxRect(rect);
+          }
+          onRendered?.();
+        })
+        .catch(() => {});
     });
-  }, [activeBox, dateTime, dimensions, location, onRendered, paid, renderOptions, selectedStyle, textBoxes]);
+  }, [
+    activeBox,
+    dateTime,
+    dimensions,
+    location,
+    onRendered,
+    paid,
+    renderOptions,
+    selectedStyle,
+    shape,
+    textBoxes,
+    aspectRatio,
+  ]);
 
   useEffect(() => {
     scheduleDraw();
@@ -156,7 +199,8 @@ export default function PreviewCanvas({ onRendered }: Props) {
   return (
     <div
       ref={containerRef}
-      className="relative h-[460px] overflow-hidden rounded-2xl border border-black/5 bg-white/30 shadow-2xl shadow-black/20 sm:h-[540px] md:h-[620px]"
+      className="relative w-full overflow-hidden rounded-2xl border border-black/5 bg-white/30 shadow-2xl shadow-black/20 min-h-[360px] sm:min-h-[420px] md:min-h-[480px]"
+      style={{ aspectRatio: `${widthToHeight} / 1` }}
     >
       <canvas ref={canvasRef} className="absolute inset-0" />
       {activeBox && boxRect && (
