@@ -1,32 +1,30 @@
 import type { MetadataRoute } from "next";
+import { blogPosts } from "@/lib/blogPosts";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const base = "https://starmapco.com";
-  const now = new Date();
-  return [
-    {
-      url: `${base}/`,
-      lastModified: now,
-      changeFreq: "daily",
-      priority: 1.0,
-    },
-    {
-      url: `${base}/wedding`,
-      lastModified: now,
-      changeFreq: "weekly",
-      priority: 0.8,
-    },
-    {
-      url: `${base}/anniversary`,
-      lastModified: now,
-      changeFreq: "weekly",
-      priority: 0.8,
-    },
-    {
-      url: `${base}/birthday`,
-      lastModified: now,
-      changeFreq: "weekly",
-      priority: 0.8,
-    },
+const mapIdsEnv = process.env.SITEMAP_MAP_IDS ?? "";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date().toISOString();
+
+  const blogEntries = blogPosts.map((post) => ({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: post.date,
+  }));
+
+  const staticEntries: MetadataRoute.Sitemap = [
+    { url: `${baseUrl}/`, lastModified: now },
+    { url: `${baseUrl}/blog`, lastModified: now },
   ];
+
+  const mapEntries: MetadataRoute.Sitemap = mapIdsEnv
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .map((id) => ({
+      url: `${baseUrl}/m/${id}`,
+      lastModified: now,
+    }));
+
+  return [...staticEntries, ...blogEntries, ...mapEntries];
 }

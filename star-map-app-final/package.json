@@ -10,17 +10,18 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.58",
+    "@vercel/analytics": "^1.6.1",
     "@vercel/kv": "^1.0.0",
     "astronomy-engine": "^2.1.19",
     "date-fns": "^4.1.0",
     "jspdf": "^3.0.4",
-    "next": "16.1.0",
     "posthog-js": "^1.310.1",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
     "stripe": "^16.12.0",
     "tz-lookup": "^6.1.25",
-    "zustand": "^5.0.9"
+    "zustand": "^5.0.9",
+    "next": "14.2.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

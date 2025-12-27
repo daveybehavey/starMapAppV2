@@ -7,7 +7,7 @@ import {
   Playfair_Display as PlayfairDisplay,
 } from "next/font/google";
 import "./globals.css";
-import PosthogProvider from "@/components/PosthogProvider";
+import ConsentManager from "@/components/ConsentManager";
 
 const playfair = PlayfairDisplay({
   variable: "--font-playfair",
@@ -89,7 +89,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${cormorant.variable} ${montserrat.variable} text-midnight min-h-screen antialiased`}>
         <div className="cosmic-backdrop">{children}</div>
-        <PosthogProvider />
+        <ConsentManager />
         <script
           id="product-schema"
           type="application/ld+json"

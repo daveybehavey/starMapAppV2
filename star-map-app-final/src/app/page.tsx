@@ -290,6 +290,7 @@ export default function Home() {
       if (mode === "hd" && !paid) {
         setPendingExport(mode);
         setPaywallOpen(true);
+        track("paywall_view", { visualMode: renderOptions.visualMode });
         track("paywall_opened", { visualMode: renderOptions.visualMode });
         if (typeof window !== "undefined") {
           localStorage.setItem(AUTO_EXPORT_KEY, mode);
@@ -302,6 +303,7 @@ export default function Home() {
         visualMode: renderOptions.visualMode,
         exportResolution: mode === "hd" ? 6000 : 1200,
       });
+      track("export_download", { type: mode === "hd" ? "hd" : "preview" });
       exportImage(mode).catch(() => {});
     },
     [exportImage, paid, renderOptions.visualMode, revealed],
@@ -322,6 +324,7 @@ export default function Home() {
       console.error(err);
       setPaid(true);
       track("purchase_success", { isPaid: true });
+      track("purchase", { value: 9.99 });
       if (pendingExport) {
         await exportImage(pendingExport).catch(() => {});
         setPendingExport(null);
@@ -350,6 +353,7 @@ export default function Home() {
     const url = `${window.location.origin}/m/${id}`;
     setShareLink(url);
     track("share_link_clicked", { isPaid: paid, visualMode: renderOptions.visualMode });
+    track("share", { platform: "link" });
     if (navigator.share) {
       await navigator.share({ url, title: "My Star Map", text: "See this night sky moment" }).catch(() => {});
     } else {
@@ -385,6 +389,7 @@ export default function Home() {
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!blob) return;
     track("share_image_clicked", { isPaid: paid, visualMode: renderOptions.visualMode });
+    track("share", { platform: "image" });
 
     const file = new File([blob], "star-map-share.png", { type: "image/png" });
     const shareData: ShareData = { files: [file], title: "My Star Map", text: "See this night sky moment" };
@@ -432,32 +437,38 @@ export default function Home() {
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={handleReveal}
+                onClick={() => {
+                  track("cta_click", { type: "hero_create" });
+                  handleReveal();
+                }}
                 className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200/60 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 ${
                   canReveal && hasDate
                     ? "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-300 text-midnight focus:ring-offset-white"
-                    : "bg-white/70 text-neutral-700 focus:ring-offset-white"
+                    : "bg-[rgba(247,241,227,0.85)] text-neutral-700 focus:ring-offset-[rgba(247,241,227,1)]"
                 }`}
               >
                 ✦ Create yours now
               </button>
               <button
                 type="button"
-                onClick={scrollToPreview}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/60 bg-white/80 px-4 py-3 text-sm font-semibold text-neutral-800 shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 focus:ring-offset-white"
+                onClick={() => {
+                  track("cta_click", { type: "hero_sample" });
+                  scrollToPreview();
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/60 bg-[rgba(247,241,227,0.9)] px-4 py-3 text-sm font-semibold text-neutral-800 shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 focus:ring-offset-white"
               >
                 👀 See a sample
               </button>
             </div>
             <div className="flex flex-wrap gap-3 text-xs text-neutral-800 sm:text-sm">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-white/80 px-3 py-2 shadow-sm shadow-black/10">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.9)] px-3 py-2 shadow-sm shadow-black/10">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" />
                 Astronomically accurate skyfields
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-white/80 px-3 py-2 shadow-sm shadow-black/10">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.9)] px-3 py-2 shadow-sm shadow-black/10">
                 100K+ maps crafted
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-white/80 px-3 py-2 shadow-sm shadow-black/10">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.9)] px-3 py-2 shadow-sm shadow-black/10">
                 Instant share & export
               </div>
             </div>
@@ -467,8 +478,8 @@ export default function Home() {
               className="pointer-events-none absolute -inset-6 bg-[radial-gradient(circle_at_20%_30%,rgba(241,194,125,0.18),transparent_35%),radial-gradient(circle_at_75%_10%,rgba(96,161,255,0.16),transparent_28%)] blur-3xl"
               aria-hidden="true"
             />
-            <div className="relative overflow-hidden rounded-3xl border border-amber-200/70 bg-white/85 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.25)] backdrop-blur">
-              <div className="relative rounded-2xl border border-amber-100 bg-white p-2 shadow-inner shadow-black/10">
+            <div className="relative overflow-hidden rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.9)] p-3 shadow-[0_20px_50px_rgba(0,0,0,0.25)] backdrop-blur">
+              <div className="relative rounded-2xl border border-amber-100 bg-[rgba(247,241,227,0.92)] p-2 shadow-inner shadow-black/10">
                 <Image
                   src={heroPreviewSrc}
                   alt="Custom star map preview"
@@ -480,7 +491,7 @@ export default function Home() {
                   priority
                 />
                 <div className="pointer-events-none absolute inset-3 rounded-2xl ring-1 ring-amber-100" aria-hidden="true" />
-                <div className="pointer-events-none absolute left-5 top-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-midnight shadow-sm backdrop-blur">
+                <div className="pointer-events-none absolute left-5 top-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-midnight shadow-sm backdrop-blur">
                   Sample preview
                   <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" />
                 </div>
@@ -505,12 +516,12 @@ export default function Home() {
                   : "Hidden until you reveal. Perfect your inputs first."}
               </p>
             </div>
-            <div className="rounded-full border border-gold/50 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gold shadow-sm">
+            <div className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800 shadow-sm">
               {styles.find((s) => s.id === selectedStyle)?.name ?? "Style"}
             </div>
           </div>
           <div
-            className="relative overflow-hidden rounded-2xl border border-black/5 bg-[#0b1a30] p-2 shadow-inner shadow-black/10"
+            className="relative overflow-hidden rounded-2xl border border-amber-100/70 bg-[rgba(247,241,227,0.9)] p-2 shadow-inner shadow-black/10"
             style={
               revealed
                 ? undefined
@@ -560,7 +571,7 @@ export default function Home() {
               {revealed && (
                 <>
                   <PreviewCanvas onRendered={() => setCanvasReady(true)} />
-                  <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-gold/40 bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gold shadow-sm backdrop-blur">
+                  <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.95)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 shadow-sm backdrop-blur">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
                     Live Preview
                   </div>
@@ -569,7 +580,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => handleExport("preview")}
-                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                      className="inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
                       Free ⬇️
                     </button>
@@ -583,14 +594,14 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={handleShareImage}
-                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                      className="inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
                       🔗 Share
                     </button>
                     <button
                       type="button"
                       onClick={handleShare}
-                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                      className="inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     >
                       💾 Save & Remix
                     </button>
@@ -598,7 +609,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setIsFullscreen(true)}
-                    className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-lg text-neutral-800 shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(247,241,227,0.9)] text-lg text-neutral-800 shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     aria-label="Open fullscreen"
                   >
                     ⤢
@@ -606,7 +617,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={handleEditScroll}
-                    className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-[rgba(247,241,227,0.95)] px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                   >
                     ← Edit
                   </button>
@@ -643,7 +654,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => toggleCard(box.id)}
-                        className="h-7 w-7 rounded-full border border-black/10 bg-white text-sm font-semibold text-neutral-600 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+                        className="h-7 w-7 rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
                         aria-pressed={!!collapsedCards[box.id]}
                         aria-label={`Toggle ${box.label}`}
                       >
@@ -659,7 +670,9 @@ export default function Home() {
                         }
                         disabled={!paid}
                         className={`rounded-md border px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30 ${
-                          paid ? "bg-white text-neutral-800" : "cursor-not-allowed bg-neutral-100 text-neutral-400"
+                          paid
+                            ? "border-amber-200 bg-[rgba(247,241,227,0.95)] text-neutral-800"
+                            : "cursor-not-allowed border-amber-100 bg-neutral-100 text-neutral-400"
                         }`}
                       >
                         {fontOptions.map((opt) => (
@@ -684,7 +697,7 @@ export default function Home() {
                         type="text"
                         value={box.text}
                         onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                        className="w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                        className="w-full rounded-md border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
                       />
                       <div className="flex flex-wrap items-center gap-2">
                         <input
@@ -692,7 +705,7 @@ export default function Home() {
                           aria-label={`${box.label} color`}
                           value={box.color}
                           onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                          className="h-10 w-14 cursor-pointer rounded-md border border-black/10 bg-white"
+                          className="h-10 w-14 cursor-pointer rounded-md border border-amber-200 bg-[rgba(247,241,227,0.95)]"
                         />
                         <input
                           type="number"
@@ -702,12 +715,12 @@ export default function Home() {
                           onChange={(e) =>
                             updateTextBox(box.id, { size: Number.parseInt(e.target.value, 10) || box.size })
                           }
-                          className="w-24 rounded-md border border-black/10 bg-white px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                          className="w-24 rounded-md border border-amber-200 bg-[rgba(247,241,227,0.95)] px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
                         />
                         <select
                           value={box.align}
                           onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
-                          className="flex-1 rounded-md border border-black/10 bg-white px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                          className="flex-1 rounded-md border border-amber-200 bg-[rgba(247,241,227,0.95)] px-2 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
                         >
                           <option value="left">Left</option>
                           <option value="center">Center</option>
@@ -721,8 +734,8 @@ export default function Home() {
                             paid
                               ? box.textShadow
                                 ? "border-amber-300 bg-amber-100/80 text-midnight shadow-amber-200/60 hover:-translate-y-[1px] hover:shadow-md"
-                                : "border-black/10 bg-white text-neutral-800 hover:-translate-y-[1px] hover:shadow"
-                              : "cursor-not-allowed border-black/10 bg-neutral-100 text-neutral-400"
+                                : "border-amber-200 bg-[rgba(247,241,227,0.95)] text-neutral-800 hover:-translate-y-[1px] hover:shadow"
+                              : "cursor-not-allowed border-amber-100 bg-neutral-100 text-neutral-400"
                           }`}
                           aria-pressed={!!box.textShadow}
                           aria-label={`Toggle text shadow for ${box.label}`}
@@ -737,8 +750,8 @@ export default function Home() {
                             paid
                               ? box.textGlow
                                 ? "border-amber-300 bg-amber-50 text-midnight shadow-amber-200/80 hover:-translate-y-[1px] hover:shadow-md"
-                                : "border-black/10 bg-white text-neutral-800 hover:-translate-y-[1px] hover:shadow"
-                              : "cursor-not-allowed border-black/10 bg-neutral-100 text-neutral-400"
+                                : "border-amber-200 bg-[rgba(247,241,227,0.95)] text-neutral-800 hover:-translate-y-[1px] hover:shadow"
+                              : "cursor-not-allowed border-amber-100 bg-neutral-100 text-neutral-400"
                           }`}
                           aria-pressed={!!box.textGlow}
                           aria-label={`Toggle text glow for ${box.label}`}
@@ -754,7 +767,7 @@ export default function Home() {
             <button
               type="button"
               onClick={addTextBox}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-black/15 bg-white/80 px-3 py-3 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-amber-200 bg-[rgba(247,241,227,0.9)] px-3 py-3 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
             >
               <span className="text-lg">＋</span>
               Add text line
@@ -827,7 +840,7 @@ export default function Home() {
                   type="color"
                   value={renderOptions.backgroundColor || "#0b1a30"}
                   onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}
-                  className="h-9 w-14 cursor-pointer rounded-md border border-amber-100 bg-white shadow-inner shadow-black/5"
+                  className="h-9 w-14 cursor-pointer rounded-md border border-amber-100 bg-[rgba(247,241,227,0.95)] shadow-inner shadow-black/5"
                 />
               </div>
             </div>
@@ -911,7 +924,9 @@ export default function Home() {
                   disabled={!paid}
                   onClick={() => paid && setRenderOptions({ constellationLabels: !renderOptions.constellationLabels })}
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-                    renderOptions.constellationLabels ? "border-gold bg-amber-50 text-midnight" : "border-black/10 bg-white text-neutral-700"
+                    renderOptions.constellationLabels
+                      ? "border-gold bg-amber-50 text-midnight"
+                      : "border-amber-200 bg-[rgba(247,241,227,0.95)] text-neutral-700"
                   } ${!paid ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow"}`}
                 >
                   {renderOptions.constellationLabels ? "Labels on" : "Labels off"}
@@ -969,7 +984,7 @@ export default function Home() {
       </div>
       {paywallOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl shadow-black/20">
+          <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25">
             <h3 className="text-lg font-semibold text-midnight">Download your print-ready star map</h3>
             <ul className="mt-3 space-y-1 text-sm text-neutral-700">
               <li>• 6000px high resolution (poster quality)</li>
@@ -985,7 +1000,7 @@ export default function Home() {
                   setPaywallOpen(false);
                   setPendingExport(null);
                 }}
-                className="rounded-full border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+                className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
               >
                 Cancel
               </button>
@@ -1001,7 +1016,7 @@ export default function Home() {
         </div>
       )}
       {shareLink && (
-        <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-xl -translate-x-1/2 rounded-full bg-white/90 px-4 py-2 text-center text-xs font-semibold text-neutral-800 shadow-lg">
+        <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-xl -translate-x-1/2 rounded-full bg-[rgba(247,241,227,0.95)] px-4 py-2 text-center text-xs font-semibold text-neutral-800 shadow-lg">
           Link copied: {shareLink}
         </div>
       )}
@@ -1016,12 +1031,12 @@ export default function Home() {
                   previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                 });
               }}
-              className="self-start rounded-full border border-white/20 bg-white/90 px-4 py-2 text-sm font-semibold text-neutral-800 shadow transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30]"
+              className="self-start rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-4 py-2 text-sm font-semibold text-neutral-800 shadow transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30]"
               aria-label="Exit fullscreen"
             >
               ⤡ Exit fullscreen
             </button>
-            <div className="flex-1 overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-2xl">
+            <div className="flex-1 overflow-hidden rounded-2xl border border-amber-200/60 bg-[rgba(5,9,21,0.25)] shadow-2xl">
               <PreviewCanvas />
             </div>
           </div>
