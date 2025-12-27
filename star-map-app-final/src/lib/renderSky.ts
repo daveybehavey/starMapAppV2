@@ -1,6 +1,6 @@
 import { computeVisibleStars, type VisibleSky } from "@/lib/astronomy";
-import { getShapeData } from "@/lib/shapeUtils";
 import type { LocationState, StyleId, TextBox } from "@/lib/store";
+import { SHAPE_PATHS } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
 
 export type { AspectRatio, Shape } from "@/lib/types";
@@ -200,7 +200,7 @@ function resolveVisualMode(mode?: string): ModeSettings {
   }
 }
 
-export async function renderStarMap({
+export function renderStarMap({
   recipe,
   canvas,
   width,
@@ -222,13 +222,7 @@ export async function renderStarMap({
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const shapeName = recipe.shape || (recipe.renderOptions?.shapeMask as Shape) || "rectangle";
-  const shapeData = await getShapeData(shapeName).catch(() => null);
-  const ratioFromShape = shapeData ? shapeData.viewBox.height / shapeData.viewBox.width : null;
-  const fallbackHeight = height || Math.round(width / aspectRatioToNumber(recipe.aspectRatio));
-  const targetHeight = Math.max(
-    1,
-    Math.round(width * (ratioFromShape ?? 0)) || fallbackHeight || Math.round(width / 1),
-  );
+  const targetHeight = height || Math.round(width / aspectRatioToNumber(recipe.aspectRatio));
   const sky = computeSky(recipe, width, targetHeight);
   const mode = resolveVisualMode(recipe.renderOptions?.visualMode);
 
@@ -242,28 +236,33 @@ export async function renderStarMap({
   const baseWidth = 1200;
   const scale = width / baseWidth;
   const backgroundColor = recipe.renderOptions?.backgroundColor?.trim() || STYLE_THEME[recipe.selectedStyle].background;
-  const clipPath = shapeData ? buildClipPath(shapeData, width, targetHeight, scale) : null;
+  const clipPath = buildShapeClip(shapeName, width, targetHeight);
 
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
-  // clear and paint base background
-  ctx.save();
+  // Layer: frame background
   ctx.clearRect(0, 0, width, targetHeight);
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, width, targetHeight);
-  ctx.restore();
 
-  // clip to mask and draw sky
+  // Layer: clipped sky
   ctx.save();
-  if (clipPath) {
-    ctx.clip(clipPath, "nonzero");
-  }
-  drawBackground(ctx, width, targetHeight, recipe.selectedStyle, mode, scale);
+  if (clipPath) ctx.clip(clipPath, "nonzero");
+  drawBackground(ctx, width, targetHeight, recipe.selectedStyle, mode, scale, shapeName);
   drawSky(ctx, width, targetHeight, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale);
   ctx.restore();
 
-  // outlines, text, watermark above everything
-  drawMaskOutline(ctx, width, targetHeight, clipPath, recipe.selectedStyle, scale);
+  // Outline for clarity
+  if (clipPath) {
+    ctx.save();
+    ctx.strokeStyle = STYLE_THEME[recipe.selectedStyle].accent;
+    ctx.lineWidth = 2 * scale;
+    ctx.globalAlpha = 0.9;
+    ctx.stroke(clipPath);
+    ctx.restore();
+  }
+
+  // Overlays
   drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
   drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
   ctx.restore();
@@ -359,6 +358,7 @@ function drawBackground(
   styleId: StyleId,
   mode: ModeSettings,
   scale: number,
+  shape?: Shape,
 ) {
   const theme = STYLE_THEME[styleId];
   const palette = {
@@ -399,10 +399,12 @@ function drawBackground(
     ctx.restore();
   }
 
-  const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
-  ctx.strokeStyle = palette.accent;
-  ctx.lineWidth = 2 * scale;
-  ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
+  if (!shape || shape === "rectangle") {
+    const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
+    ctx.strokeStyle = palette.accent;
+    ctx.lineWidth = 2 * scale;
+    ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
+  }
 }
 
 function drawSky(
@@ -570,37 +572,27 @@ function drawWatermark(
   ctx.restore();
 }
 
-function drawMaskOutline(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  clipPath: Path2D | null,
-  styleId: StyleId,
-  scale: number,
-) {
-  if (!clipPath) return;
-  ctx.save();
-  const theme = STYLE_THEME[styleId];
-  ctx.strokeStyle = theme.accent;
-  ctx.lineWidth = 2 * scale;
-  ctx.stroke(clipPath);
-  ctx.restore();
-}
-
-function buildClipPath(
-  shapeData: { d: string; viewBox: { minX: number; minY: number; width: number; height: number } },
-  width: number,
-  height: number,
-  scale: number,
-) {
-  const pad = 12 * scale;
-  const w = Math.max(1, width - pad * 2);
-  const h = Math.max(1, height - pad * 2);
-  const path = new Path2D(shapeData.d);
+function buildShapeClip(shape: string, width: number, height: number): Path2D | null {
+  if (shape === "rectangle") {
+    const path = new Path2D();
+    path.rect(0, 0, width, height);
+    return path;
+  }
+  if (shape === "circle") {
+    const path = new Path2D();
+    const minDim = Math.min(width, height);
+    const inset = minDim * 0.06; // slight inset to match star map footprint
+    const radius = Math.max(1, minDim / 2 - inset);
+    path.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
+    return path;
+  }
+  const entry = SHAPE_PATHS[shape];
+  if (!entry?.d) return null;
+  const path = new Path2D(entry.d);
+  const [minX, minY, vbWidth, vbHeight] = entry.viewBox;
   const matrix = new DOMMatrix();
-  matrix.translateSelf(-shapeData.viewBox.minX, -shapeData.viewBox.minY);
-  matrix.scaleSelf(w / shapeData.viewBox.width, h / shapeData.viewBox.height);
-  matrix.translateSelf(pad, pad);
+  matrix.translateSelf(-minX, -minY);
+  matrix.scaleSelf(width / vbWidth, height / vbHeight);
   const scaled = new Path2D();
   scaled.addPath(path, matrix);
   return scaled;

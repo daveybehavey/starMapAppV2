@@ -97,15 +97,12 @@ export default function PreviewCanvas({ onRendered }: Props) {
         quality: "preview",
         pixelRatio,
         textBounds: textBoundsRef.current,
-      })
-        .then(() => {
-          if (activeBox) {
-            const rect = textBoundsRef.current.get(activeBox);
-            if (rect) setBoxRect(rect);
-          }
-          onRendered?.();
-        })
-        .catch(() => {});
+      });
+      if (activeBox) {
+        const rect = textBoundsRef.current.get(activeBox);
+        if (rect) setBoxRect(rect);
+      }
+      onRendered?.();
     });
   }, [
     activeBox,

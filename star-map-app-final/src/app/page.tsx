@@ -40,6 +40,7 @@ const shapes: Array<{ id: Shape; label: string }> = [
   { id: "rectangle", label: "Rectangle" },
   { id: "heart", label: "Heart" },
   { id: "circle", label: "Circle" },
+  { id: "star", label: "Star" },
 ];
 
 const constellationPresets: Array<{ id: RenderOptions["constellationLines"]; label: string; note: string }> = [
