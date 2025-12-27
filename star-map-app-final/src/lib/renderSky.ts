@@ -235,7 +235,10 @@ export function renderStarMap({
 
   const baseWidth = 1200;
   const scale = width / baseWidth;
-  const backgroundColor = recipe.renderOptions?.backgroundColor?.trim() || STYLE_THEME[recipe.selectedStyle].background;
+  const backgroundColor =
+    (recipe.renderOptions?.backgroundColor || "").trim() ||
+    (recipe as any).backgroundColor?.trim?.() ||
+    "#ffffff";
   const clipPath = buildShapeClip(shapeName, width, targetHeight);
 
   ctx.save();

@@ -8,6 +8,7 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -107,6 +108,7 @@ export default function Home() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [autoExportPending, setAutoExportPending] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
+  const [heroPreviewSrc, setHeroPreviewSrc] = useState("/og-default.png");
   const locationName = location.name?.trim() ?? "";
   const hasDate = Number.isFinite(new Date(dateTime).getTime());
   const canReveal = Boolean(locationName);
@@ -115,6 +117,31 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const handleEditScroll = useCallback(() => {
     inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+  const scrollToPreview = useCallback(() => {
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+    fetch("/api/og/sample")
+      .then((res) => {
+        if (!res.ok) throw new Error("OG fetch failed");
+        return res.blob();
+      })
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setHeroPreviewSrc(objectUrl);
+      })
+      .catch(() => {
+        setHeroPreviewSrc("/og-default.png");
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, []);
 
   useEffect(() => {
@@ -379,24 +406,94 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }, [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]);
 
+  const heroBlurPlaceholder =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAuMBg5C85vIAAAAASUVORK5CYII=";
+
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-6 pt-6 sm:pt-8 lg:py-12">
-      <header className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-gold">StarMapCo</p>
-          <h1 className="mt-2 text-3xl font-bold text-midnight sm:text-[34px] md:text-4xl">
-            Craft a personalized night sky map
-          </h1>
-          <p className="mt-1 text-sm text-neutral-700 md:text-base">
-            Select your moment, style, and dedication. Reveal an astronomically accurate sky when you’re ready.
-          </p>
+    <main className="mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
+      <section
+        id="hero"
+        className="cosmic-panel relative mb-8 overflow-hidden rounded-[32px] px-5 py-10 text-midnight shadow-[0_25px_80px_rgba(0,0,0,0.35)] sm:px-8 lg:mb-10 lg:px-12"
+      >
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(241,194,125,0.16),transparent_36%),radial-gradient(circle_at_82%_12%,rgba(96,161,255,0.16),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.28),transparent_45%)] blur-xl"
+          aria-hidden="true"
+        />
+        <div className="relative grid items-center gap-10 lg:grid-cols-[1.04fr_minmax(360px,1fr)]">
+          <div className="space-y-5">
+            <p className="text-xs uppercase tracking-[0.35em] text-amber-700">StarMapCo</p>
+            <h1 className="text-3xl font-semibold leading-tight sm:text-4xl lg:text-[42px]">
+              Relive Your Moment Under the Stars
+            </h1>
+            <p className="max-w-xl text-base text-neutral-800 sm:text-lg">
+              Real-time preview with astronomically accurate skies, luxe finishes, and instant exports when you reveal
+              your story.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleReveal}
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200/60 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 ${
+                  canReveal && hasDate
+                    ? "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-300 text-midnight focus:ring-offset-white"
+                    : "bg-white/70 text-neutral-700 focus:ring-offset-white"
+                }`}
+              >
+                ✦ Create yours now
+              </button>
+              <button
+                type="button"
+                onClick={scrollToPreview}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/60 bg-white/80 px-4 py-3 text-sm font-semibold text-neutral-800 shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 focus:ring-offset-white"
+              >
+                👀 See a sample
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs text-neutral-800 sm:text-sm">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-white/80 px-3 py-2 shadow-sm shadow-black/10">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" />
+                Astronomically accurate skyfields
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-white/80 px-3 py-2 shadow-sm shadow-black/10">
+                100K+ maps crafted
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-white/80 px-3 py-2 shadow-sm shadow-black/10">
+                Instant share & export
+              </div>
+            </div>
+          </div>
+          <div className="relative">
+            <div
+              className="pointer-events-none absolute -inset-6 bg-[radial-gradient(circle_at_20%_30%,rgba(241,194,125,0.18),transparent_35%),radial-gradient(circle_at_75%_10%,rgba(96,161,255,0.16),transparent_28%)] blur-3xl"
+              aria-hidden="true"
+            />
+            <div className="relative overflow-hidden rounded-3xl border border-amber-200/70 bg-white/85 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.25)] backdrop-blur">
+              <div className="relative rounded-2xl border border-amber-100 bg-white p-2 shadow-inner shadow-black/10">
+                <Image
+                  src={heroPreviewSrc}
+                  alt="Custom star map preview"
+                  width={1200}
+                  height={900}
+                  className="preview-static"
+                  placeholder="blur"
+                  blurDataURL={heroBlurPlaceholder}
+                  priority
+                />
+                <div className="pointer-events-none absolute inset-3 rounded-2xl ring-1 ring-amber-100" aria-hidden="true" />
+                <div className="pointer-events-none absolute left-5 top-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-midnight shadow-sm backdrop-blur">
+                  Sample preview
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </header>
+      </section>
 
       <div className="flex flex-col gap-5 lg:gap-6">
         <section
           ref={previewRef}
-          className="flex flex-col gap-3 rounded-3xl border border-black/5 bg-white/70 p-3 shadow-2xl shadow-black/10 backdrop-blur transition-all duration-500 sm:p-4"
+          className="flex flex-col gap-3 rounded-3xl border border-amber-200/60 bg-[rgba(247,241,227,0.85)] p-3 shadow-2xl shadow-black/15 backdrop-blur transition-all duration-500 sm:p-4"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -526,7 +623,7 @@ export default function Home() {
 
         <section
           ref={inputsRef}
-          className="rounded-3xl border border-black/5 bg-white/90 p-4 shadow-xl shadow-black/10 backdrop-blur sm:p-5"
+          className="rounded-3xl border border-amber-200/60 bg-[rgba(247,241,227,0.92)] p-4 shadow-xl shadow-black/15 backdrop-blur sm:p-5"
         >
           <h2 className="text-lg font-semibold text-midnight">Inputs</h2>
           <p className="mb-4 text-sm text-neutral-600">
@@ -538,7 +635,7 @@ export default function Home() {
 
             <LocationSearch />
 
-            <div className="divide-y divide-black/5 rounded-2xl border border-black/5 bg-neutral-50/70">
+            <div className="divide-y divide-amber-100/70 rounded-2xl border border-amber-100/80 bg-[rgba(247,241,227,0.8)]">
               {textBoxes.map((box) => (
                 <div key={box.id} className="space-y-2 p-3 sm:p-4">
                   <div className="flex items-center justify-between text-sm">
@@ -677,7 +774,7 @@ export default function Home() {
                     className={`rounded-xl border px-3 py-3 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${
                       selectedStyle === style.id
                         ? "border-gold bg-amber-50/70 text-midnight"
-                        : "border-black/10 bg-white/80 text-neutral-800"
+                        : "border-amber-100 bg-[rgba(247,241,227,0.85)] text-neutral-800"
                     }`}
                   >
                     <div className="text-sm font-semibold">{style.name}</div>
@@ -687,7 +784,55 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="space-y-2 rounded-2xl border border-black/5 bg-white/85 p-3 shadow-inner shadow-black/5">
+            <div className="space-y-2 rounded-2xl border border-amber-100/80 bg-[rgba(247,241,227,0.85)] p-3 shadow-inner shadow-black/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">Shape</p>
+                  <p className="text-xs text-neutral-600">Pick a frame shape for your star map.</p>
+                </div>
+                {!paid && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                    Paid
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {shapes.map((opt) => {
+                  const active = shape === opt.id;
+                  const locked = !paid && opt.id !== "rectangle";
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        if (locked) {
+                          setPaywallOpen(true);
+                          return;
+                        }
+                        setShape(opt.id);
+                      }}
+                      className={`rounded-lg border px-3 py-3 text-left text-sm shadow-sm transition ${
+                        active ? "border-gold bg-amber-50" : "border-amber-100 bg-[rgba(247,241,227,0.85)]"
+                      } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
+                    >
+                      <div className="font-semibold text-neutral-900">{opt.label}</div>
+                      {locked && <div className="text-[11px] font-semibold uppercase text-amber-700">Unlock</div>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-semibold text-neutral-800">Background color</label>
+                <input
+                  type="color"
+                  value={renderOptions.backgroundColor || "#0b1a30"}
+                  onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}
+                  className="h-9 w-14 cursor-pointer rounded-md border border-amber-100 bg-white shadow-inner shadow-black/5"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-2xl border border-amber-100/80 bg-[rgba(247,241,227,0.85)] p-3 shadow-inner shadow-black/5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-neutral-900">Visual mode</p>
@@ -714,7 +859,7 @@ export default function Home() {
                         track("visual_mode_changed", { visualMode: mode.id, isPaid: paid });
                       }}
                       className={`rounded-xl border px-3 py-3 text-left text-sm shadow-sm transition ${
-                        active ? "border-gold bg-amber-50" : "border-black/10 bg-white"
+                        active ? "border-gold bg-amber-50" : "border-amber-100 bg-[rgba(247,241,227,0.85)]"
                       } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
                     >
                       <div className="font-semibold">{mode.label}</div>
@@ -726,7 +871,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="space-y-2 rounded-2xl border border-black/5 bg-white/85 p-3 shadow-inner shadow-black/5">
+            <div className="space-y-2 rounded-2xl border border-amber-100/80 bg-[rgba(247,241,227,0.85)] p-3 shadow-inner shadow-black/5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-neutral-900">Constellations</p>
@@ -749,7 +894,7 @@ export default function Home() {
                       disabled={locked}
                       onClick={() => paid && setRenderOptions({ constellationLines: preset.id })}
                       className={`rounded-xl border px-3 py-3 text-left text-sm shadow-sm transition ${
-                        active ? "border-gold bg-amber-50" : "border-black/10 bg-white"
+                        active ? "border-gold bg-amber-50" : "border-amber-100 bg-[rgba(247,241,227,0.85)]"
                       } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
                     >
                       <div className="font-semibold">{preset.label}</div>
@@ -759,7 +904,7 @@ export default function Home() {
                   );
                 })}
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-black/5 bg-white/80 px-3 py-2">
+              <div className="flex items-center justify-between rounded-xl border border-amber-100 bg-[rgba(247,241,227,0.85)] px-3 py-2">
                 <div className="text-sm font-medium text-neutral-800">Constellation labels</div>
                 <button
                   type="button"
@@ -774,7 +919,7 @@ export default function Home() {
               </div>
 
               {!paid && (
-                <div className="mt-3 space-y-2 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-neutral-800 shadow-sm">
+                <div className="mt-3 space-y-2 rounded-xl border border-amber-200/70 bg-[rgba(247,241,227,0.9)] px-4 py-3 text-neutral-800 shadow-sm">
                   <div className="text-sm font-semibold text-midnight">Instant unlock</div>
                   <ul className="list-disc pl-5 text-xs text-neutral-700">
                     <li>Print-ready 6000×6000 poster file</li>
@@ -796,55 +941,6 @@ export default function Home() {
                   <div className="text-center text-[11px] font-semibold text-neutral-700">$9.99 · One-time purchase</div>
                 </div>
               )}
-            </div>
-
-            <div className="space-y-2 rounded-2xl border border-black/5 bg-white/85 p-3 shadow-inner shadow-black/5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">Shape</p>
-                  <p className="text-xs text-neutral-600">Drop custom SVGs into public/shapes/</p>
-                </div>
-                {!paid && (
-                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                    Paid
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-800">Frame shape</label>
-                  <select
-                    value={shape}
-                    onChange={(e) => {
-                      const next = e.target.value as Shape;
-                      if (!paid && next !== "rectangle") {
-                        setPaywallOpen(true);
-                        return;
-                      }
-                      setShape(next);
-                    }}
-                    className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
-                  >
-                    {(paid ? shapes : shapes.filter((opt) => opt.id === "rectangle")).map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Add more by dropping SVGs into public/shapes/ and adding their filenames here.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-semibold text-neutral-800">Background color</label>
-                  <input
-                    type="color"
-                    value={renderOptions.backgroundColor || "#0b1a30"}
-                    onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}
-                    className="h-9 w-14 cursor-pointer rounded-md border border-black/10 bg-white shadow-inner shadow-black/5"
-                  />
-                </div>
-              </div>
             </div>
 
             {!revealed && (
