@@ -4,17 +4,26 @@ import Stripe from "stripe";
 export const runtime = "nodejs";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
+
+// Use fetch-based HTTP client to work in Cloudflare Workers.
+const stripe =
+  stripeSecret &&
+  new Stripe(stripeSecret, {
+    apiVersion: "2024-06-20",
+    httpClient: Stripe.createFetchHttpClient(),
+    timeout: 20_000,
+  });
 
 function siteOrigin() {
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  return siteUrl.replace(/\/+$/, "") || "https://starmapco.com";
 }
 
 export async function POST(req: NextRequest) {
-  console.log("STRIPE KEY EXISTS:", !!process.env.STRIPE_SECRET_KEY, "SITE:", process.env.NEXT_PUBLIC_SITE_URL);
-  if (!stripeSecret) {
+  console.log("STRIPE KEY EXISTS:", !!stripeSecret, "SITE:", siteUrl);
+  if (!stripe) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
   }
-  const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" });
   try {
     const successUrl = `${siteOrigin()}/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${siteOrigin()}`;
@@ -38,7 +47,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    console.error(err);
+    console.error("Stripe checkout error", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
