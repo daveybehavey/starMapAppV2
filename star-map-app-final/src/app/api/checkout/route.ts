@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!stripeSecret) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
   }
-  const stripe = new Stripe(stripeSecret, { apiVersion: "2023-10-16" });
+  const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" });
   try {
     const successUrl = `${siteOrigin()}/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${siteOrigin()}`;

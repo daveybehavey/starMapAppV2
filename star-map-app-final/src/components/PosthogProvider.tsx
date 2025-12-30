@@ -20,11 +20,7 @@ export default function PosthogProvider({ enabled = true }: Props) {
       persistence: "localStorage",
     });
     return () => {
-      if (typeof posthog.shutdown === "function") {
-        posthog.shutdown();
-      } else if (typeof posthog.reset === "function") {
-        posthog.reset();
-      }
+      posthog.reset?.();
     };
   }, []);
 

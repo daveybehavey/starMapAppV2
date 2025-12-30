@@ -1,5 +1,5 @@
 import { computeVisibleStars, type VisibleSky } from "@/lib/astronomy";
-import type { LocationState, StyleId, TextBox } from "@/lib/store";
+import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
 import { SHAPE_PATHS } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
 
@@ -19,23 +19,7 @@ export type MapRecipe = {
   selectedStyle: StyleId;
   shape: Shape;
   aspectRatio: AspectRatio;
-  renderOptions?: {
-    visualMode?: string;
-    starIntensity?: "subtle" | "normal" | "bold";
-    starGlow?: boolean;
-    constellationLines?: "off" | "thin" | "thick";
-    constellationLabels?: boolean;
-    showGrid?: boolean;
-    showPlanets?: boolean;
-    planetEmphasis?: "normal" | "highlighted";
-    showMoon?: boolean;
-    moonSize?: "normal" | "large";
-    colorTheme?: string;
-    typography?: string;
-    textLayout?: string;
-    shapeMask?: "none" | "circle" | "heart" | "diamond" | "ring";
-    backgroundColor?: string;
-  };
+  renderOptions?: Partial<RenderOptions>;
 };
 
 const STYLE_THEME: Record<
@@ -96,7 +80,6 @@ export const DEFAULT_RECIPE: MapRecipe = {
   shape: "rectangle",
   aspectRatio: "square",
   renderOptions: {
-    showConstellations: true,
     showGrid: false,
     showPlanets: true,
     showMoon: true,

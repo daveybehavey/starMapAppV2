@@ -105,6 +105,7 @@ export default function Home() {
   const [restored, setRestored] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [pendingExport, setPendingExport] = useState<"preview" | "hd" | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [autoExportPending, setAutoExportPending] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
@@ -290,6 +291,7 @@ export default function Home() {
       if (mode === "hd" && !paid) {
         setPendingExport(mode);
         setPaywallOpen(true);
+        setCheckoutError(null);
         track("paywall_view", { visualMode: renderOptions.visualMode });
         track("paywall_opened", { visualMode: renderOptions.visualMode });
         if (typeof window !== "undefined") {
@@ -311,6 +313,7 @@ export default function Home() {
 
   const startCheckout = useCallback(async () => {
     try {
+      setCheckoutError(null);
       track("checkout_started", { visualMode: renderOptions.visualMode });
       const res = await fetch("/api/checkout", { method: "POST" });
       if (!res.ok) throw new Error("checkout failed");
@@ -322,16 +325,10 @@ export default function Home() {
       throw new Error("no url");
     } catch (err) {
       console.error(err);
-      setPaid(true);
-      track("purchase_success", { isPaid: true });
-      track("purchase", { value: 9.99 });
-      if (pendingExport) {
-        await exportImage(pendingExport).catch(() => {});
-        setPendingExport(null);
-      }
-      setPaywallOpen(false);
+      setCheckoutError("Checkout is unavailable right now. Please try again shortly.");
+      track("checkout_failed", { reason: (err as Error)?.message ?? "unknown" });
     }
-  }, [exportImage, pendingExport, renderOptions.visualMode, setPaid]);
+  }, [renderOptions.visualMode]);
 
   const handleShare = useCallback(async () => {
     const recipe = buildRecipeFromState({
@@ -999,6 +996,7 @@ export default function Home() {
                 onClick={() => {
                   setPaywallOpen(false);
                   setPendingExport(null);
+                  setCheckoutError(null);
                 }}
                 className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
               >
@@ -1012,6 +1010,9 @@ export default function Home() {
                 Continue to secure checkout
               </button>
             </div>
+            {checkoutError && (
+              <p className="mt-2 text-sm font-semibold text-rose-700">{checkoutError}</p>
+            )}
           </div>
         </div>
       )}

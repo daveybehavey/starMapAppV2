@@ -13,7 +13,7 @@ type Props = {
 export default function PreviewCanvas({ onRendered }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | null>(null);
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map(),

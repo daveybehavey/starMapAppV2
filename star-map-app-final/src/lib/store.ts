@@ -43,6 +43,7 @@ export interface RenderOptions {
   starGlow: boolean;
   constellationLines: ConstellationLines;
   constellationLabels: boolean;
+  showGrid: boolean;
   showPlanets: boolean;
   planetEmphasis: "normal" | "highlighted";
   showMoon: boolean;
@@ -139,6 +140,7 @@ export const useStore = create<EditorState>((set) => ({
     starGlow: false,
     constellationLines: "thin",
     constellationLabels: false,
+    showGrid: false,
     showPlanets: true,
     planetEmphasis: "normal",
     showMoon: true,

@@ -1,46 +1,6 @@
 import type { Metadata } from "next";
-import {
-  Cinzel,
-  Cormorant_Garamond as CormorantGaramond,
-  Great_Vibes as GreatVibes,
-  Montserrat,
-  Playfair_Display as PlayfairDisplay,
-} from "next/font/google";
 import "./globals.css";
 import ConsentManager from "@/components/ConsentManager";
-
-const playfair = PlayfairDisplay({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const cinzel = Cinzel({
-  variable: "--font-cinzel",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const cormorant = CormorantGaramond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  display: "swap",
-});
-
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
-  subsets: ["latin"],
-  weight: ["500", "600"],
-  display: "swap",
-});
-
-const greatVibes = GreatVibes({
-  variable: "--font-great-vibes",
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -87,7 +47,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${cormorant.variable} ${montserrat.variable} text-midnight min-h-screen antialiased`}>
+      <body className="text-midnight min-h-screen antialiased">
         <div className="cosmic-backdrop">{children}</div>
         <ConsentManager />
         <script

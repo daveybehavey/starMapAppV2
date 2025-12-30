@@ -6,10 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.58",
     "@vercel/analytics": "^1.6.1",
     "@vercel/kv": "^1.0.0",
     "astronomy-engine": "^2.1.19",
@@ -19,7 +21,7 @@
     "stripe": "^16.12.0",
     "tz-lookup": "^6.1.25",
     "zustand": "^5.0.9",
-    "next": "14.2.3",
+    "next": "14.2.35",
     "react": "18.2.0",
     "react-dom": "18.2.0"
   },
@@ -28,9 +30,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.35",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@opennextjs/cloudflare": "^1.14.7",
+    "wrangler": "^4.53.0"
   }
 }

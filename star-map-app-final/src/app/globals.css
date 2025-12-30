@@ -2,6 +2,7 @@
 
 :root {
   color-scheme: light;
+  --font-playfair: "Playfair Display", "Times New Roman", Georgia, serif;
   --cosmic-midnight: #050915;
   --cosmic-deep-blue: #0f1f3a;
   --accent-amber: #f1c27d;
