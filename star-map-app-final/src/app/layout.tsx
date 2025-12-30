@@ -3,6 +3,7 @@ import "./globals.css";
 import ConsentManager from "@/components/ConsentManager";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://starmapco.com"),
   title: {
     default: "Create Your Custom Star Map | StarMapCo",
     template: "%s | StarMapCo",
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
     "wedding star map",
     "anniversary gift",
   ],
+  alternates: {
+    canonical: "https://starmapco.com",
+  },
   openGraph: {
     title: "Create Your Custom Star Map | StarMapCo",
     description:
@@ -24,7 +28,7 @@ export const metadata: Metadata = {
     siteName: "StarMapCo",
     images: [
       {
-        url: "/api/og/sample",
+        url: "https://starmapco.com/og-default.png",
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
@@ -41,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Create Your Custom Star Map | StarMapCo",
     description: "Personalized star maps for special occasions with instant previews and premium finishes.",
-    images: ["/api/og/sample"],
+    images: ["https://starmapco.com/og-default.png"],
   },
 };
 
