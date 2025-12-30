@@ -32,6 +32,11 @@ export const metadata: Metadata = {
     ],
     type: "website",
   },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
   twitter: {
     card: "summary_large_image",
     title: "Create Your Custom Star Map | StarMapCo",
