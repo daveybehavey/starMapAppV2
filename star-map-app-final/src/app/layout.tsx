@@ -33,9 +33,9 @@ export const metadata: Metadata = {
     type: "website",
   },
   icons: {
-    icon: "/favicon.ico",
-    apple: "/favicon.ico",
-    shortcut: "/favicon.ico",
+    icon: "/favicon.png",
+    apple: "/favicon.png",
+    shortcut: "/favicon.png",
   },
   twitter: {
     card: "summary_large_image",
