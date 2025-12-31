@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     siteName: "StarMapCo",
     images: [
       {
-        url: "https://starmapco.com/custom-star-map-anniversary.png",
+        url: "https://starmapco.com/custom-star-map-anniversary.webp",
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
