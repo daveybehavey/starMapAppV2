@@ -18,6 +18,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
     },
     { url: `${baseUrl}/blog`, lastModified: now },
+    {
+      url: `${baseUrl}/blog/custom-star-map-for-anniversary`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
   ];
 
   const mapEntries: MetadataRoute.Sitemap = mapIdsEnv

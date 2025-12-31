@@ -67,6 +67,31 @@ export const blogPosts: BlogPost[] = [
       </article>
     ),
   },
+  {
+    slug: "custom-star-map-for-anniversary",
+    title: "Custom Star Map for Anniversary: A Timeless Romantic Gift",
+    description:
+      "Discover why a custom star map for anniversary moments is one of the most romantic, personal, and unforgettable gifts you can give.",
+    date: "2025-12-31",
+    keywords: [
+      "custom star map for anniversary",
+      "personalized anniversary star map",
+      "anniversary night sky gift",
+    ],
+    content: () => (
+      <article className="prose prose-neutral prose-invert max-w-none">
+        <p>
+          This long-form guide explores why anniversary star maps are deeply personal, how they are created with real
+          astronomical data, and how to personalize them with names, dates, locations, and heartfelt messages.
+        </p>
+        <p>
+          It also covers design ideas, common mistakes to avoid, and how star maps compare to traditional gifts—highlighting
+          their uniqueness and lasting impact as a keepsake that captures the exact night sky from your milestone
+          moment.
+        </p>
+      </article>
+    ),
+  },
 ];
 
 export function getPost(slug: string) {
