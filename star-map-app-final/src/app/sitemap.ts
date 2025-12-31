@@ -17,7 +17,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${baseUrl}/`,
       lastModified: now,
     },
-    { url: `${baseUrl}/blog`, lastModified: now },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
     {
       url: `${baseUrl}/blog/custom-star-map-for-anniversary`,
       lastModified: now,
