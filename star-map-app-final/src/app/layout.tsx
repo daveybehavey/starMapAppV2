@@ -93,34 +93,82 @@ export default function RootLayout({
                   mainEntity: [
                     {
                       "@type": "Question",
-                      name: "How do I create a custom star map?",
+                      name: "How accurate are StarMapCo custom star maps?",
                       acceptedAnswer: {
                         "@type": "Answer",
-                        text: "Enter your date, time, and location, choose a style, then reveal and export your sky.",
+                        text: "Extremely accurate—using professional astronomy libraries based on skyfield and Yale catalogs for precise star positions.",
                       },
                     },
                     {
                       "@type": "Question",
-                      name: "Is the star map astronomically accurate?",
+                      name: "What data sources do you use for the night sky?",
                       acceptedAnswer: {
                         "@type": "Answer",
-                        text: "Yes. We render skyfields based on your exact datetime and location with constellation options.",
+                        text: "We rely on real astronomical data from trusted sources like the Yale Bright Star Catalog to calculate exact positions for your date, time, and location.",
                       },
                     },
                     {
                       "@type": "Question",
-                      name: "Can I download a high-resolution file?",
+                      name: "Can I customize text, styles, and shapes?",
                       acceptedAnswer: {
                         "@type": "Answer",
-                        text: "You can export a print-ready 6000px file after unlocking premium, or download a free preview.",
+                        text: "Yes—add titles, subtitles, or dedications; choose from four styles (navy gold, vintage, parchment, minimal) and shapes (rectangle free, heart/circle/star premium) plus visual modes and constellations.",
                       },
                     },
                     {
                       "@type": "Question",
-                      name: "Do you offer frames or styles?",
+                      name: "What is included in the free version vs. premium unlock?",
                       acceptedAnswer: {
                         "@type": "Answer",
-                        text: "Yes. Choose from multiple visual styles, shapes, and text treatments to match your aesthetic.",
+                        text: "Free offers a basic preview and watermarked export. Premium ($9.99 one-time) gives HD no-watermark PNG/PDF and advanced visuals.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      name: "How do I export or download my star map?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "After premium unlock, download a high-resolution PNG or PDF directly from the app.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Is this a one-time purchase or subscription?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "One-time $9.99 unlock per device/browser, stored locally—no subscriptions.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Are the maps suitable for printing?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Can I share my custom star map with others?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Generate and share images or links now; public sharing options are coming soon.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      name: "What if I enter the wrong date or location?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Edit inputs anytime before export—the preview updates in real time so you can correct details.",
+                      },
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Why choose StarMapCo over other star map generators?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Instant real-time preview, accurate science, premium visuals, and an affordable one-time unlock with no subscriptions.",
                       },
                     },
                   ],
