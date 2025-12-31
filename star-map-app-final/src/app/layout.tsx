@@ -66,6 +66,9 @@ export default function RootLayout({
               <Link href="/blog" className="font-semibold text-midnight hover:underline">
                 Blog
               </Link>
+              <Link href="/privacy" className="font-semibold text-midnight hover:underline">
+                Privacy Policy
+              </Link>
               <Link href="/returns" className="font-semibold text-midnight hover:underline">
                 Returns &amp; Refunds
               </Link>
