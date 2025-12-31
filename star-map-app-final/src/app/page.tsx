@@ -109,7 +109,7 @@ export default function Home() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [autoExportPending, setAutoExportPending] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
-  const [heroPreviewSrc, setHeroPreviewSrc] = useState("/og-default.png");
+  const [heroPreviewSrc, setHeroPreviewSrc] = useState("/custom-star-map-anniversary.png");
   const locationName = location.name?.trim() ?? "";
   const hasDate = Number.isFinite(new Date(dateTime).getTime());
   const canReveal = Boolean(locationName);
@@ -137,7 +137,7 @@ export default function Home() {
         setHeroPreviewSrc(objectUrl);
       })
       .catch(() => {
-        setHeroPreviewSrc("/og-default.png");
+        setHeroPreviewSrc("/custom-star-map-anniversary.png");
       });
     return () => {
       active = false;

@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     siteName: "StarMapCo",
     images: [
       {
-        url: "https://starmapco.com/og-default.png",
+        url: "https://starmapco.com/custom-star-map-anniversary.png",
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Buy Your Personalized Star Map | StarMapCo",
     description: "Create custom star maps with accurate night skies for anniversaries, birthdays, and more.",
-    images: ["https://starmapco.com/og-default.png"],
+    images: ["https://starmapco.com/custom-star-map-anniversary.png"],
   },
 };
 
