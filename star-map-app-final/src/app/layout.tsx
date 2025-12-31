@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 import ConsentManager from "@/components/ConsentManager";
 
@@ -58,6 +59,14 @@ export default function RootLayout({
     <html lang="en">
       <body className="text-midnight min-h-screen antialiased">
         <div className="cosmic-backdrop">{children}</div>
+        <footer className="bg-[rgba(247,241,227,0.92)] px-6 py-4 text-sm text-neutral-800 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
+          <div className="mx-auto flex max-w-6xl items-center justify-between">
+            <span>© {new Date().getFullYear()} StarMapCo</span>
+            <Link href="/returns" className="font-semibold text-midnight hover:underline">
+              Returns &amp; Refunds
+            </Link>
+          </div>
+        </footer>
         <ConsentManager />
         <script
           id="product-schema"
