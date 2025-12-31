@@ -24,12 +24,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/blog/custom-star-map-for-anniversary`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
       url: `${baseUrl}/blog/personalized-star-map-birthday-gift`,
       lastModified: now,
       changeFrequency: "monthly",

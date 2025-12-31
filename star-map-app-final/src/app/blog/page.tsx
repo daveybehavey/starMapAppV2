@@ -89,31 +89,6 @@ const indexPosts: IndexPost[] = [
     image: "/custom-star-map-anniversary.webp",
     alt: "Choose date and location for custom star map",
   },
-  // Placeholders for upcoming posts
-  {
-    slug: "#",
-    title: "Birthday Star Maps (Coming Soon)",
-    excerpt: "Ideas for celebrating birthdays with personalized night sky maps and memorable designs.",
-    date: "2025-12-31",
-    image: "/og-default.png",
-    alt: "Personalized birthday star map coming soon",
-  },
-  {
-    slug: "#",
-    title: "Astronomy Insights (Coming Soon)",
-    excerpt: "Deep dives into constellations, coordinates, and how we render scientifically accurate skies.",
-    date: "2025-12-31",
-    image: "/og-default.png",
-    alt: "Astronomy insights for custom star maps coming soon",
-  },
-  {
-    slug: "#",
-    title: "Gifting Ideas (Coming Soon)",
-    excerpt: "Creative ways to gift custom star maps for milestones, proposals, and family moments.",
-    date: "2025-12-31",
-    image: "/og-default.png",
-    alt: "Custom star map gifting ideas coming soon",
-  },
 ];
 
 export default function BlogIndex() {

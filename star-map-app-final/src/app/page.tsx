@@ -8,6 +8,7 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
+import { blogPosts } from "@/lib/blogPosts";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -1186,6 +1187,56 @@ export default function Home() {
                 Ready to create yours? Start now
               </Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="cosmic-panel mb-8 mt-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+        <div className="space-y-4">
+          <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Latest from the Blog</h2>
+          <p className="text-base text-neutral-800 sm:text-lg">
+            Guides and inspiration for anniversaries, birthdays, and accurate astronomy behind your custom star map.
+          </p>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[...blogPosts]
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .slice(0, 5)
+              .map((post) => (
+                <article
+                  key={post.slug}
+                  className="flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-white/80 text-midnight shadow-md transition hover:-translate-y-[2px] hover:shadow-2xl"
+                >
+                  <div className="relative h-40 w-full">
+                    <Image
+                      src="/custom-star-map-anniversary.webp"
+                      alt={post.title}
+                      fill
+                      className="object-cover"
+                      loading="lazy"
+                      sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="text-xs uppercase tracking-wide text-amber-700">
+                      {new Date(post.date).toDateString()}
+                    </div>
+                    <h3 className="mt-1 text-lg font-semibold">
+                      <Link href={`/blog/${post.slug}`} className="hover:underline">
+                        {post.title}
+                      </Link>
+                    </h3>
+                    <p className="mt-2 line-clamp-3 text-sm text-neutral-700">{post.description}</p>
+                    <div className="mt-auto pt-3">
+                      <Link
+                        href={`/blog/${post.slug}`}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-amber-700 hover:underline"
+                      >
+                        Read more →
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
           </div>
         </div>
       </section>
