@@ -16,9 +16,6 @@ routes = [
 directory = ".open-next/assets"
 binding = "ASSETS"
 
-[cache]
-enabled = true
-
 [vars]
 NEXTJS_ENV = "production"
 NEXT_INC_CACHE_R2_PREFIX = "incremental-cache"

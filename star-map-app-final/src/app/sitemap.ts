@@ -16,7 +16,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/`,
       lastModified: now,
-      images: [`${baseUrl}/custom-star-map-anniversary.webp`],
     },
     { url: `${baseUrl}/blog`, lastModified: now },
   ];
