@@ -92,6 +92,66 @@ export const blogPosts: BlogPost[] = [
       </article>
     ),
   },
+  {
+    slug: "personalized-star-map-birthday-gift",
+    title: "Personalized Star Map Birthday Gift - Capture the Stars on Their Special Day",
+    description:
+      "A personalized star map birthday gift recreates the night sky from their birth date, time, and location to create a meaningful keepsake.",
+    date: "2025-12-31",
+    keywords: [
+      "personalized star map birthday gift",
+      "custom star map for birthday",
+      "birthday night sky map",
+    ],
+    content: () => (
+      <article className="prose prose-neutral prose-invert max-w-none">
+        <p>
+          This guide explains why birthday star maps are uniquely personal, how they are generated with real astronomical
+          data, and how to customize them with birth details, quotes, and age-appropriate styles for any milestone.
+        </p>
+      </article>
+    ),
+  },
+  {
+    slug: "astronomy-behind-star-maps",
+    title: "Astronomy Behind Star Maps - How Science Makes Them Accurate",
+    description:
+      "Explore how real data from catalogs and precise calculations create accurate custom star maps for gifts and education.",
+    date: "2025-12-31",
+    keywords: [
+      "astronomy behind star maps",
+      "accurate star map data",
+      "custom star map science",
+    ],
+    content: () => (
+      <article className="prose prose-neutral prose-invert max-w-none">
+        <p>
+          Learn about the catalogs, celestial mechanics, and calculations that power accurate star maps, and why
+          precision matters for meaningful gifts and educational use.
+        </p>
+      </article>
+    ),
+  },
+  {
+    slug: "choose-date-location-custom-star-map",
+    title: "Choose Date Location Custom Star Map - Tips for Perfect Accuracy",
+    description:
+      "How to pick the right date and location for an accurate and meaningful custom star map, with tips on timing, coordinates, and common pitfalls.",
+    date: "2025-12-31",
+    keywords: [
+      "choose date location custom star map",
+      "custom star map accuracy tips",
+      "pick date location star map",
+    ],
+    content: () => (
+      <article className="prose prose-neutral prose-invert max-w-none">
+        <p>
+          Guidance on selecting dates, times, and coordinates to ensure your custom star map is both accurate and
+          sentimental, plus common errors to avoid.
+        </p>
+      </article>
+    ),
+  },
 ];
 
 export function getPost(slug: string) {

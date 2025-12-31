@@ -62,6 +62,33 @@ const indexPosts: IndexPost[] = [
     image: "/custom-star-map-anniversary.webp",
     alt: "Custom star map for anniversary gift",
   },
+  {
+    slug: "personalized-star-map-birthday-gift",
+    title: "Personalized Star Map Birthday Gift - Capture the Stars on Their Special Day",
+    excerpt:
+      "A personalized star map birthday gift recreates the night sky from their birth date, making a thoughtful keepsake for any age.",
+    date: "2025-12-31",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Personalized star map birthday gift preview",
+  },
+  {
+    slug: "astronomy-behind-star-maps",
+    title: "Astronomy Behind Star Maps - How Science Makes Them Accurate",
+    excerpt:
+      "Explore how real data from catalogs and precise calculations create accurate night-sky recreations for custom star maps.",
+    date: "2025-12-31",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Astronomy behind star maps",
+  },
+  {
+    slug: "choose-date-location-custom-star-map",
+    title: "Choose Date Location Custom Star Map - Tips for Perfect Accuracy",
+    excerpt:
+      "Learn how to pick the right date and location for a custom star map, avoid common pitfalls, and capture your moment perfectly.",
+    date: "2025-12-31",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Choose date and location for custom star map",
+  },
   // Placeholders for upcoming posts
   {
     slug: "#",
