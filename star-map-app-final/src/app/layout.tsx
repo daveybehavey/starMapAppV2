@@ -5,11 +5,11 @@ import ConsentManager from "@/components/ConsentManager";
 export const metadata: Metadata = {
   metadataBase: new URL("https://starmapco.com"),
   title: {
-    default: "Create Your Custom Star Map | StarMapCo",
+    default: "Buy Custom Star Map for Anniversary | StarMapCo",
     template: "%s | StarMapCo",
   },
   description:
-    "Personalized night sky prints for weddings, anniversaries, and birthdays. Relive special moments with accurate star maps, premium effects, and easy sharing.",
+    "Buy personalized star maps for special moments. Customize date, location, and styles at StarMapCo for anniversaries, birthdays, and more.",
   keywords: [
     "custom star map",
     "personalized night sky print",
@@ -21,9 +21,9 @@ export const metadata: Metadata = {
     canonical: "https://starmapco.com",
   },
   openGraph: {
-    title: "Create Your Custom Star Map | StarMapCo",
+    title: "Buy Your Personalized Star Map | StarMapCo",
     description:
-      "Capture your milestone under the stars with our interactive star map generator. Print-ready exports, premium effects, and instant sharing.",
+      "Create custom star maps with accurate night skies for anniversaries, birthdays, and more.",
     url: "https://starmapco.com",
     siteName: "StarMapCo",
     images: [
@@ -43,8 +43,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Create Your Custom Star Map | StarMapCo",
-    description: "Personalized star maps for special occasions with instant previews and premium finishes.",
+    title: "Buy Your Personalized Star Map | StarMapCo",
+    description: "Create custom star maps with accurate night skies for anniversaries, birthdays, and more.",
     images: ["https://starmapco.com/og-default.png"],
   },
 };
@@ -69,14 +69,15 @@ export default function RootLayout({
                 {
                   "@type": "Product",
                   name: "Custom Star Map",
-                  description: "Personalized night sky map generator with premium effects and sharing.",
+                  description: "Personalized star map generator for special dates and locations.",
                   brand: { "@type": "Brand", name: "StarMapCo" },
                   offers: {
                     "@type": "Offer",
-                    price: "9.99",
                     priceCurrency: "USD",
+                    price: "9.99",
                     availability: "https://schema.org/InStock",
                   },
+                  review: [],
                 },
                 {
                   "@type": "FAQPage",

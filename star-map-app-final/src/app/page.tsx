@@ -425,11 +425,11 @@ export default function Home() {
           <div className="space-y-5">
             <p className="text-xs uppercase tracking-[0.35em] text-amber-700">StarMapCo</p>
             <h1 className="text-3xl font-semibold leading-tight sm:text-4xl lg:text-[42px]">
-              Relive Your Moment Under the Stars
+              Buy Custom Star Map for Anniversary | Personalized Star Map Gift at StarMapCo
             </h1>
             <p className="max-w-xl text-base text-neutral-800 sm:text-lg">
-              Real-time preview with astronomically accurate skies, luxe finishes, and instant exports when you reveal
-              your story.
+              Create a custom star map for anniversary, personalized star map gift, or buy custom star map to capture
+              special moments under the night sky.
             </p>
             <div className="flex flex-wrap gap-3">
               <button
@@ -479,7 +479,7 @@ export default function Home() {
               <div className="relative rounded-2xl border border-amber-100 bg-[rgba(247,241,227,0.92)] p-2 shadow-inner shadow-black/10">
                 <Image
                   src={heroPreviewSrc}
-                  alt="Custom star map preview"
+                  alt="Custom star map preview for anniversary gift"
                   width={1200}
                   height={900}
                   className="preview-static"
@@ -494,6 +494,77 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="cosmic-panel mb-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+        <div className="space-y-6 text-neutral-800">
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">What Is a Custom Star Map?</h2>
+            <p className="text-base leading-relaxed sm:text-lg">
+              A custom star map is a personalized print that shows the exact night sky from a specific date, time, and
+              location. At StarMapCo, we generate astronomically accurate star maps that reflect how the stars were
+              aligned during life&apos;s most meaningful moments—weddings, anniversaries, birthdays, proposals, and
+              milestones—then transform them into beautifully designed, print-ready artwork you can treasure or gift.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">How StarMapCo Works</h2>
+            <p className="text-base leading-relaxed sm:text-lg">
+              Creating your personalized star map takes just a few steps:
+            </p>
+            <ol className="list-decimal space-y-2 pl-5 text-base leading-relaxed sm:text-lg">
+              <li>Choose a date and location—the moment that matters most.</li>
+              <li>Preview your night sky in real time with accurate star positions.</li>
+              <li>Customize the design with text, styles, and visual finishes.</li>
+              <li>Unlock and download a high-resolution star map ready for print or sharing.</li>
+            </ol>
+            <p className="text-base leading-relaxed sm:text-lg">
+              Every star map is rendered based on your inputs, so the sky you see is the sky that truly existed.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Astronomically Accurate Night Skies</h2>
+            <p className="text-base leading-relaxed sm:text-lg">
+              StarMapCo uses real astronomical calculations to render the sky exactly as it appeared from your chosen
+              place and time. Star positions, constellations, and orientation are all determined by precise skyfield
+              data—not approximations or guesses—so every map is scientifically grounded.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Perfect for Meaningful Gifts & Milestones</h2>
+            <ul className="list-disc space-y-2 pl-5 text-base leading-relaxed sm:text-lg">
+              <li>Wedding nights & anniversaries</li>
+              <li>Birthdays & newborn arrivals</li>
+              <li>Proposals & engagements</li>
+              <li>Memorials & remembrance pieces</li>
+              <li>Graduations and life milestones</li>
+            </ul>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Why Choose StarMapCo?</h2>
+            <ul className="list-disc space-y-2 pl-5 text-base leading-relaxed sm:text-lg">
+              <li>Accurate star positioning based on real sky data</li>
+              <li>Instant preview before you unlock</li>
+              <li>High-resolution 6000×6000 export for printing</li>
+              <li>Multiple visual styles & finishes</li>
+              <li>One-time purchase—no subscription</li>
+              <li>Designed for both digital sharing and physical prints</li>
+            </ul>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Create Your Custom Star Map Today</h2>
+            <p className="text-base leading-relaxed sm:text-lg">
+              Relive your moment under the stars with a personalized star map designed just for you. Enter a date and
+              location to preview your sky, then unlock a premium, print-ready artwork you&apos;ll keep forever.
+            </p>
+            <p className="text-sm italic text-neutral-700">Each star map is uniquely generated. No two skies are ever the same.</p>
           </div>
         </div>
       </section>

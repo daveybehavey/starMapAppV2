@@ -13,7 +13,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const staticEntries: MetadataRoute.Sitemap = [
-    { url: `${baseUrl}/`, lastModified: now },
+    {
+      url: `${baseUrl}/`,
+      lastModified: now,
+      images: [`${baseUrl}/og-default.png`],
+    },
     { url: `${baseUrl}/blog`, lastModified: now },
   ];
 
