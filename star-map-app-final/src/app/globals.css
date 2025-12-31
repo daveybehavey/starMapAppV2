@@ -121,3 +121,22 @@ a {
   border-radius: 18px;
   box-shadow: 0 12px 45px rgba(0, 0, 0, 0.35), 0 0 30px rgba(241, 194, 125, 0.3);
 }
+
+@media (max-width: 768px) {
+  .main-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .main-container input,
+  .main-container select,
+  .main-container button {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .preview-static {
+    max-height: 360px;
+  }
+}

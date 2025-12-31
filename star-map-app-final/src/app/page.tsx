@@ -412,7 +412,7 @@ export default function Home() {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAuMBg5C85vIAAAAASUVORK5CYII=";
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
+    <main className="main-container mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
       <section
         id="hero"
         className="cosmic-panel relative mb-8 overflow-hidden rounded-[32px] px-5 py-10 text-midnight shadow-[0_25px_80px_rgba(0,0,0,0.35)] sm:px-8 lg:mb-10 lg:px-12"
@@ -477,16 +477,20 @@ export default function Home() {
             />
             <div className="relative overflow-hidden rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.9)] p-3 shadow-[0_20px_50px_rgba(0,0,0,0.25)] backdrop-blur">
               <div className="relative rounded-2xl border border-amber-100 bg-[rgba(247,241,227,0.92)] p-2 shadow-inner shadow-black/10">
-                <Image
-                  src={heroPreviewSrc}
-                  alt="Custom star map preview for anniversary gift"
-                  width={1200}
-                  height={900}
-                  className="preview-static"
-                  placeholder="blur"
-                  blurDataURL={heroBlurPlaceholder}
-                  priority
-                />
+                <picture>
+                  <source srcSet="/custom-star-map-anniversary.webp" type="image/webp" />
+                  <source srcSet="/custom-star-map-anniversary.png" type="image/png" />
+                  <Image
+                    src={heroPreviewSrc}
+                    alt="Custom star map preview for anniversary gift"
+                    width={1200}
+                    height={900}
+                    className="preview-static"
+                    placeholder="blur"
+                    blurDataURL={heroBlurPlaceholder}
+                    priority
+                  />
+                </picture>
                 <div className="pointer-events-none absolute inset-3 rounded-2xl ring-1 ring-amber-100" aria-hidden="true" />
                 <div className="pointer-events-none absolute left-5 top-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-midnight shadow-sm backdrop-blur">
                   Sample preview
