@@ -506,98 +506,6 @@ export default function Home() {
       <section className="cosmic-panel mb-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
         <div className="space-y-6 text-neutral-800">
           <div className="space-y-3">
-            <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Frequently Asked Questions</h2>
-            <p className="text-base leading-relaxed sm:text-lg">
-              Everything you need to know about creating and sharing a custom star map with StarMapCo—accuracy, styling,
-              pricing, printing, and more.
-            </p>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[2fr_minmax(260px,1fr)]">
-            <div className="space-y-3">
-              {[
-                {
-                  q: "How accurate are StarMapCo custom star maps?",
-                  a: "Extremely accurate—using professional astronomy libraries based on skyfield and Yale catalogs for precise star positions.",
-                },
-                {
-                  q: "What data sources do you use for the night sky?",
-                  a: "Real astronomical data from trusted sources like the Yale Bright Star Catalog to calculate exact positions for your date, time, and location.",
-                },
-                {
-                  q: "Can I customize text, styles, and shapes?",
-                  a: "Yes—add titles, subtitles, or dedications; choose from four styles (navy gold, vintage, parchment, minimal) and shapes (rectangle free, heart/circle/star premium) plus visual modes and constellations.",
-                },
-                {
-                  q: "What is included in the free version vs. premium unlock?",
-                  a: "Free: basic preview and watermarked export. Premium ($9.99 one-time): HD no-watermark PNG/PDF and advanced visuals.",
-                },
-                {
-                  q: "How do I export or download my star map?",
-                  a: "After premium unlock, download a high-resolution PNG or PDF directly from the app.",
-                },
-                {
-                  q: "Is this a one-time purchase or subscription?",
-                  a: "One-time $9.99 unlock per device/browser, stored locally—no subscriptions.",
-                },
-                {
-                  q: "Are the maps suitable for printing?",
-                  a: "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
-                },
-                {
-                  q: "Can I share my custom star map with others?",
-                  a: "Generate and share images or links now; public sharing options are coming soon.",
-                },
-                {
-                  q: "What if I enter the wrong date or location?",
-                  a: "Edit inputs anytime before export—the preview updates in real time so you can correct details.",
-                },
-                {
-                  q: "Why choose StarMapCo over other star map generators?",
-                  a: "Instant real-time preview, accurate science, premium visuals, and an affordable one-time unlock with no subscriptions.",
-                },
-              ].map((item) => (
-                <details key={item.q} className="group rounded-2xl border border-amber-200/60 bg-white/70 p-4">
-                  <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">
-                    {item.q}
-                  </summary>
-                  <p className="mt-2 text-sm text-neutral-800 sm:text-base">{item.a}</p>
-                </details>
-              ))}
-              <div className="pt-2">
-                <Link
-                  href="#preview"
-                  className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
-                >
-                  Ready to create yours? Start now
-                </Link>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <Image
-                src="/custom-star-map-anniversary.webp"
-                alt="Custom star map FAQ illustration"
-                width={800}
-                height={600}
-                className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"
-                loading="lazy"
-              />
-              <Image
-                src="/og-default.png"
-                alt="Personalized night sky map questions"
-                width={800}
-                height={600}
-                className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"
-                loading="lazy"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-      <section className="cosmic-panel mb-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
-        <div className="space-y-6 text-neutral-800">
-          <div className="space-y-3">
             <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">What Is a Custom Star Map?</h2>
             <p className="text-base leading-relaxed sm:text-lg">
               A custom star map is a personalized print that shows the exact night sky from a specific date, time, and
@@ -795,6 +703,78 @@ export default function Home() {
               <span className="text-xs text-neutral-500">Tap edit to adjust details</span>
             </div>
           )}
+        </section>
+
+        <section className="cosmic-panel mb-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+          <div className="space-y-6 text-neutral-800">
+            <div className="space-y-3">
+              <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Frequently Asked Questions</h2>
+              <p className="text-base leading-relaxed sm:text-lg">
+                Everything you need to know about creating and sharing a custom star map with StarMapCo—accuracy, styling,
+                pricing, printing, and more.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                {
+                  q: "How accurate are StarMapCo custom star maps?",
+                  a: "Extremely accurate—using professional astronomy libraries based on skyfield and Yale catalogs for precise star positions.",
+                },
+                {
+                  q: "What data sources do you use for the night sky?",
+                  a: "Real astronomical data from trusted sources like the Yale Bright Star Catalog to calculate exact positions for your date, time, and location.",
+                },
+                {
+                  q: "Can I customize text, styles, and shapes?",
+                  a: "Yes—add titles, subtitles, or dedications; choose from four styles (navy gold, vintage, parchment, minimal) and shapes (rectangle free, heart/circle/star premium) plus visual modes and constellations.",
+                },
+                {
+                  q: "What is included in the free version vs. premium unlock?",
+                  a: "Free: basic preview and watermarked export. Premium ($9.99 one-time): HD no-watermark PNG/PDF and advanced visuals.",
+                },
+                {
+                  q: "How do I export or download my star map?",
+                  a: "After premium unlock, download a high-resolution PNG or PDF directly from the app.",
+                },
+                {
+                  q: "Is this a one-time purchase or subscription?",
+                  a: "One-time $9.99 unlock per device/browser, stored locally—no subscriptions.",
+                },
+                {
+                  q: "Are the maps suitable for printing?",
+                  a: "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
+                },
+                {
+                  q: "Can I share my custom star map with others?",
+                  a: "Generate and share images or links now; public sharing options are coming soon.",
+                },
+                {
+                  q: "What if I enter the wrong date or location?",
+                  a: "Edit inputs anytime before export—the preview updates in real time so you can correct details.",
+                },
+                {
+                  q: "Why choose StarMapCo over other star map generators?",
+                  a: "Instant real-time preview, accurate science, premium visuals, and an affordable one-time unlock with no subscriptions.",
+                },
+              ].map((item) => (
+                <details key={item.q} className="group rounded-2xl border border-amber-200/60 bg-white/70 p-4">
+                  <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">
+                    {item.q}
+                  </summary>
+                  <p className="mt-2 text-sm text-neutral-800 sm:text-base">{item.a}</p>
+                </details>
+              ))}
+              <div className="pt-2">
+                <Link
+                  href="#preview"
+                  className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
+                >
+                  Ready to create yours? Start now
+                </Link>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section
