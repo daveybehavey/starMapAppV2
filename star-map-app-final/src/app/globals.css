@@ -148,8 +148,8 @@ a {
   right: 0;
   z-index: 50;
   width: 100%;
-  background: #1e1e1e;
-  color: #ffffff;
+  background: rgba(247, 241, 227, 0.98);
+  color: #0f1f3a;
   padding: 1rem;
   display: flex;
   align-items: center;
@@ -172,24 +172,24 @@ a {
 .cookie-btn {
   font-weight: 600;
   border: none;
+  border-radius: 9999px;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .cookie-btn-primary {
-  background: #16a34a;
-  color: #ffffff;
+  background: #0f1f3a;
+  color: #f1c27d;
   padding: 0.5rem 1.5rem;
-  border-radius: 9999px;
 }
 
 .cookie-btn-primary:hover {
-  background: #15803d;
+  background: #0a1427;
 }
 
 .cookie-btn-secondary {
   background: transparent;
-  color: #d1d5db;
+  color: #0f1f3a;
   padding: 0.5rem 1rem;
   text-decoration: underline;
 }
