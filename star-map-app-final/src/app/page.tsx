@@ -9,8 +9,10 @@ import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
 import { blogPosts } from "@/lib/blogPosts";
+import { demoPresets } from "@/lib/demoPresets";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -112,6 +114,9 @@ export default function Home() {
   const [autoExportPending, setAutoExportPending] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [heroPreviewSrc, setHeroPreviewSrc] = useState("/custom-star-map-anniversary.webp");
+  const [demoApplied, setDemoApplied] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const locationName = location.name?.trim() ?? "";
   const hasDate = Number.isFinite(new Date(dateTime).getTime());
   const canReveal = Boolean(locationName);
@@ -149,6 +154,25 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!demoApplied) {
+      const demoKey = searchParams.get("demo");
+      if (demoKey && demoPresets[demoKey]) {
+        const preset = demoPresets[demoKey];
+        setDateTime(preset.dateTimeISO);
+        setLocation({
+          name: preset.location?.name ?? "",
+          latitude: preset.location?.latitude ?? 0,
+          longitude: preset.location?.longitude ?? 0,
+          timezone: preset.location?.timezone ?? "UTC",
+        });
+        if (preset.textBoxes) setTextBoxes(preset.textBoxes);
+        if (preset.style) setStyle(preset.style as StyleId);
+        if (preset.shape) setShape(preset.shape as Shape);
+        setRevealed(false);
+        setPaid(false);
+        setDemoApplied(true);
+      }
+    }
     const token = localStorage.getItem("star-map-unlock");
     if (token) {
       setPaid(true);
@@ -458,6 +482,13 @@ export default function Home() {
               >
                 👀 See a sample
               </button>
+              <button
+                type="button"
+                onClick={() => router.push("/?demo=default")}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-amber-500 px-4 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2"
+              >
+                ✨ Try a Demo Star Map
+              </button>
             </div>
             <div className="flex flex-wrap gap-3 text-xs text-neutral-800 sm:text-sm">
               <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.9)] px-3 py-2 shadow-sm shadow-black/10">
@@ -500,6 +531,79 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="cosmic-panel mb-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.9)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+        <div className="space-y-4 text-neutral-800">
+          <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">What StarMapCo Can Do</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                title: "Astronomical Accuracy",
+                desc: "Real calculations from Yale catalogs for any date, location, and hemisphere.",
+              },
+              {
+                title: "Global Hemispheres",
+                desc: "Supports Northern/Southern skies with precise orientation.",
+              },
+              {
+                title: "High-Res Exports",
+                desc: "6000x6000 print-ready PNG/PDF, no watermarks on premium.",
+              },
+              {
+                title: "One-Time Payment",
+                desc: "$9.99 unlock, no subscriptions—lifetime access on your device.",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="rounded-2xl border border-amber-200/60 bg-white/80 p-4 shadow-sm shadow-black/10"
+              >
+                <h3 className="text-lg font-semibold text-midnight">{item.title}</h3>
+                <p className="mt-2 text-sm text-neutral-800">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="cosmic-panel mb-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+        <div className="space-y-4 text-neutral-800">
+          <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">StarMapCo vs Generic Poster Sites</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border border-amber-200/50 text-left text-sm text-neutral-900">
+              <thead className="bg-[#0f1f3a] text-amber-200">
+                <tr>
+                  <th className="p-3">Feature</th>
+                  <th className="p-3">StarMapCo</th>
+                  <th className="p-3">Generic Sites</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-amber-200/50">
+                  <td className="p-3">Accuracy</td>
+                  <td className="p-3">Real astronomy-engine & Yale catalogs</td>
+                  <td className="p-3">Pre-made images</td>
+                </tr>
+                <tr className="border-t border-amber-200/50">
+                  <td className="p-3">Customization</td>
+                  <td className="p-3">Real-time preview, styles, shapes</td>
+                  <td className="p-3">Limited templates</td>
+                </tr>
+                <tr className="border-t border-amber-200/50">
+                  <td className="p-3">Price</td>
+                  <td className="p-3">$9.99 one-time</td>
+                  <td className="p-3">$20-50 recurring/upsells</td>
+                </tr>
+                <tr className="border-t border-amber-200/50">
+                  <td className="p-3">Exports</td>
+                  <td className="p-3">HD print-ready, no watermark</td>
+                  <td className="p-3">Lower-res or watermarked</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -576,6 +680,9 @@ export default function Home() {
       </section>
 
       <div className="flex flex-col gap-5 lg:gap-6">
+        <p className="text-sm font-semibold text-amber-700">
+          Real-time generation: change date/location and watch the sky update instantly with accurate stars.
+        </p>
         <section
           ref={previewRef}
           className="flex flex-col gap-3 rounded-3xl border border-amber-200/60 bg-[rgba(247,241,227,0.85)] p-3 shadow-2xl shadow-black/15 backdrop-blur transition-all duration-500 sm:p-4"
@@ -1067,7 +1174,15 @@ export default function Home() {
               <li>• Instant digital download</li>
               <li>• One-time payment — $9.99 USD</li>
               <li className="text-xs text-neutral-500">Secure checkout · No subscription</li>
+              <li className="text-xs text-neutral-700">One-time payment: Instant access, no recurring fees.</li>
+              <li className="text-xs text-neutral-700">Instant download: HD files ready immediately.</li>
+              <li className="text-xs text-neutral-700">
+                Satisfaction guarantee: Email support@starmapco.com for issues—refunds for technical errors.
+              </li>
             </ul>
+            <p className="mt-2 text-xs font-semibold text-neutral-600">
+              Early access: No reviews yet—we focus on accuracy and your satisfaction.
+            </p>
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -1173,6 +1288,10 @@ export default function Home() {
                 q: "Why choose StarMapCo over other star map generators?",
                 a: "Instant real-time preview, accurate science, premium visuals, and an affordable one-time unlock with no subscriptions.",
               },
+              {
+                q: "Can I try a demo?",
+                a: "Yes—use the demo button to auto-fill a sample moment and preview without payment.",
+              },
             ].map((item) => (
               <details key={item.q} className="group rounded-2xl border border-amber-200/60 bg-white/70 p-4">
                 <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">{item.q}</summary>
@@ -1239,6 +1358,41 @@ export default function Home() {
               ))}
           </div>
         </div>
+      </section>
+
+      <section className="cosmic-panel mb-8 mt-2 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.9)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+        <div className="space-y-4 text-neutral-800">
+          <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">Why is this accurate?</h2>
+          <details className="group rounded-2xl border border-amber-200/60 bg-white/80 p-4">
+            <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">Data Sources</summary>
+            <p className="mt-2 text-sm sm:text-base">
+              Yale Bright Star Catalog and astronomy-engine (Skyfield-based) for stellar positions across hemispheres.
+            </p>
+          </details>
+          <details className="group rounded-2xl border border-amber-200/60 bg-white/80 p-4">
+            <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">Calculations</summary>
+            <p className="mt-2 text-sm sm:text-base">
+              Precession, time zones, latitude/longitude, and horizon transforms (alt/az) for true-to-time skies.
+            </p>
+          </details>
+          <details className="group rounded-2xl border border-amber-200/60 bg-white/80 p-4">
+            <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">Verification</summary>
+            <p className="mt-2 text-sm sm:text-base">
+              Compare with Stellarium or other planetarium tools—your rendered sky should match within arcminutes.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section className="cosmic-panel mb-8 mt-2 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.92)] px-5 py-6 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+        <h3 className="text-xl font-semibold text-midnight sm:text-2xl">Who builds StarMapCo?</h3>
+        <p className="mt-2 text-sm text-neutral-800 sm:text-base">
+          Built by an independent developer passionate about astronomy. Accuracy-first design with no subscriptions—just
+          real sky data for meaningful maps.
+        </p>
+        <p className="mt-1 text-xs font-semibold text-neutral-700">
+          Early access: We’re building reviews organically. Try the demo and see the accuracy yourself.
+        </p>
       </section>
     </main>
   );
