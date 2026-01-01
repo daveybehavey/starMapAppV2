@@ -249,7 +249,7 @@ export default function PersonalizedBirthdayPost() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image
-              src="/blog/personalized-star-map-birthday-gift/preview.jpg"
+              src="/custom-star-map-anniversary.webp"
               alt="Personalized star map birthday gift preview"
               width={900}
               height={650}
@@ -257,7 +257,7 @@ export default function PersonalizedBirthdayPost() {
               loading="lazy"
             />
             <Image
-              src="/blog/personalized-star-map-birthday-gift/detail.jpg"
+              src="/og-default.png"
               alt="Custom star map for birthday night sky"
               width={900}
               height={650}
@@ -265,7 +265,7 @@ export default function PersonalizedBirthdayPost() {
               loading="lazy"
             />
             <Image
-              src="/blog/personalized-star-map-birthday-gift/frame.jpg"
+              src="/favicon.png"
               alt="Framed birthday star map gift"
               width={900}
               height={650}

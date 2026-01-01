@@ -191,7 +191,7 @@ export default function AstronomyBehindStarMaps() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image
-              src="/blog/astronomy-behind-star-maps/preview.jpg"
+              src="/custom-star-map-anniversary.webp"
               alt="Astronomy behind star maps preview"
               width={900}
               height={650}
@@ -199,7 +199,7 @@ export default function AstronomyBehindStarMaps() {
               loading="lazy"
             />
             <Image
-              src="/blog/astronomy-behind-star-maps/chart.jpg"
+              src="/og-default.png"
               alt="Accurate star map data visualization"
               width={900}
               height={650}
@@ -207,7 +207,7 @@ export default function AstronomyBehindStarMaps() {
               loading="lazy"
             />
             <Image
-              src="/blog/astronomy-behind-star-maps/schematic.jpg"
+              src="/favicon.png"
               alt="Custom star map science schematic"
               width={900}
               height={650}

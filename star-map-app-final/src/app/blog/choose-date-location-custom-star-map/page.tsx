@@ -176,7 +176,7 @@ export default function ChooseDateLocationPost() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image
-              src="/blog/choose-date-location-custom-star-map/preview.jpg"
+              src="/custom-star-map-anniversary.webp"
               alt="Choose date location custom star map preview"
               width={900}
               height={650}
@@ -184,7 +184,7 @@ export default function ChooseDateLocationPost() {
               loading="lazy"
             />
             <Image
-              src="/blog/choose-date-location-custom-star-map/map.jpg"
+              src="/og-default.png"
               alt="Custom star map location detail"
               width={900}
               height={650}
@@ -192,7 +192,7 @@ export default function ChooseDateLocationPost() {
               loading="lazy"
             />
             <Image
-              src="/blog/choose-date-location-custom-star-map/location.jpg"
+              src="/favicon.png"
               alt="Select location for accurate star map"
               width={900}
               height={650}

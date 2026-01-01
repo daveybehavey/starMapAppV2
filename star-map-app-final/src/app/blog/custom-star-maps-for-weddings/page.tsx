@@ -197,7 +197,7 @@ export default function WeddingsPostPage() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image
-              src="/blog/custom-star-maps-for-weddings/preview.jpg"
+              src="/custom-star-map-anniversary.webp"
               alt="Custom star map for wedding night sky"
               width={900}
               height={650}
@@ -205,7 +205,7 @@ export default function WeddingsPostPage() {
               loading="lazy"
             />
             <Image
-              src="/blog/custom-star-maps-for-weddings/first-dance.jpg"
+              src="/og-default.png"
               alt="Wedding first dance star map keepsake"
               width={900}
               height={650}
@@ -213,7 +213,7 @@ export default function WeddingsPostPage() {
               loading="lazy"
             />
             <Image
-              src="/blog/custom-star-maps-for-weddings/style.jpg"
+              src="/favicon.png"
               alt="Styled custom star map for wedding décor"
               width={900}
               height={650}
