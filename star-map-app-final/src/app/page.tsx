@@ -14,7 +14,7 @@ import { renderModes, type RenderModeId } from "@/lib/renderModes";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 const styles: { id: StyleId; name: string; note: string }[] = [
@@ -519,7 +519,8 @@ export default function Home() {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAuMBg5C85vIAAAAASUVORK5CYII=";
 
   return (
-    <main className="main-container mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
+    <Suspense fallback={null}>
+      <main className="main-container mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
       <section
         id="hero"
         className="cosmic-panel relative mb-8 overflow-hidden rounded-[32px] px-5 py-10 text-midnight shadow-[0_25px_80px_rgba(0,0,0,0.35)] sm:px-8 lg:mb-10 lg:px-12"
@@ -1562,6 +1563,7 @@ export default function Home() {
           Early access: We’re building reviews organically. Try the demo and see the accuracy yourself.
         </p>
       </section>
-    </main>
+      </main>
+    </Suspense>
   );
 }
