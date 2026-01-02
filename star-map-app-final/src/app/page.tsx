@@ -529,7 +529,6 @@ function HomeInner() {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAuMBg5C85vIAAAAASUVORK5CYII=";
 
   return (
-    <Suspense fallback={null}>
       <main className="main-container mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
       <section
         id="hero"
