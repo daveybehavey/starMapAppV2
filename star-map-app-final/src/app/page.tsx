@@ -10,6 +10,7 @@ import type { Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
 import { blogPosts } from "@/lib/blogPosts";
 import { occasionPresets } from "@/lib/occasionPresets";
+import { renderModes, type RenderModeId } from "@/lib/renderModes";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -117,6 +118,9 @@ export default function Home() {
   const [demoApplied, setDemoApplied] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [renderMode, setRenderMode] = useState<RenderModeId>("classic");
+  const [intensity, setIntensity] = useState(50);
+  const [isUpdating, setIsUpdating] = useState(false);
   const locationName = location.name?.trim() ?? "";
   const hasDate = Number.isFinite(new Date(dateTime).getTime());
   const canReveal = Boolean(locationName);
@@ -170,6 +174,10 @@ export default function Home() {
         if (preset.textBoxes) setTextBoxes(preset.textBoxes);
         if (preset.style) setStyle(preset.style as StyleId);
         if (preset.shape) setShape(preset.shape as Shape);
+        setRenderMode(preset.renderMode);
+        const level = Math.round(preset.intensity * 100);
+        setIntensity(level);
+        applyVisualOptions(preset.renderMode, level);
         setRevealed(false);
         setPaid(false);
         setDemoApplied(Boolean(demoKey));
@@ -257,6 +265,36 @@ export default function Home() {
     });
   }, [canReveal, hasDate, setRevealed]);
 
+  const applyVisualOptions = useCallback(
+    (mode: RenderModeId, level: number) => {
+      setIsUpdating(true);
+      setCanvasReady(false);
+      const cfg = renderModes[mode];
+      const normalized = Math.min(Math.max(level / 100, 0), 1);
+      const starIntensity: RenderOptions["starIntensity"] =
+        normalized < 0.3 ? "subtle" : normalized < 0.7 ? "normal" : "bold";
+      const starGlow = cfg.glow + normalized * 0.3 > 0.35;
+      const visualMode: RenderOptions["visualMode"] =
+        mode === "blueprint" ? "astronomical" : mode === "cinematic" ? "illustrated" : "enhanced";
+      const colorTheme: RenderOptions["colorTheme"] =
+        mode === "blueprint" ? "vintage" : mode === "cinematic" ? "midnight" : "night";
+      const constellationLines: RenderOptions["constellationLines"] =
+        mode === "blueprint" ? "thick" : "thin";
+
+      setRenderOptions({
+        starIntensity,
+        starGlow,
+        visualMode,
+        colorTheme,
+        constellationLines,
+      });
+      setRenderOptions({
+        planetEmphasis: cfg.contrast > 1.1 ? "highlighted" : "normal",
+      });
+    },
+    [setRenderOptions],
+  );
+
   const applyPreset = useCallback(
     (id: string) => {
       const preset = occasionPresets.find((p) => p.id === id);
@@ -271,6 +309,10 @@ export default function Home() {
       setTextBoxes(preset.textBoxes);
       setStyle(preset.style as StyleId);
       setShape(preset.shape as Shape);
+      setRenderMode(preset.renderMode);
+      const level = Math.round(preset.intensity * 100);
+      setIntensity(level);
+      applyVisualOptions(preset.renderMode, level);
       setRevealed(false);
       setPaid(false);
       setPresetApplied(true);
@@ -278,7 +320,18 @@ export default function Home() {
       handleEditScroll();
       requestAnimationFrame(() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     },
-    [handleEditScroll, setDateTime, setLocation, setPaid, setRevealed, setShape, setStyle, setTextBoxes],
+    [
+      applyVisualOptions,
+      handleEditScroll,
+      setDateTime,
+      setLocation,
+      setPaid,
+      setRenderMode,
+      setRevealed,
+      setShape,
+      setStyle,
+      setTextBoxes,
+    ],
   );
 
   const exportImage = useCallback(
@@ -724,6 +777,67 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mb-4 rounded-2xl border border-amber-200/60 bg-[rgba(247,241,227,0.92)] px-3 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Render modes</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "classic", label: "Classic", premium: false },
+                { id: "cinematic", label: "Cinematic", premium: true },
+                { id: "blueprint", label: "Blueprint", premium: false },
+                { id: "luxe", label: "Luxe", premium: true },
+              ].map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => {
+                    if (!paid && mode.premium) setPaywallOpen(true);
+                    const targetLevel =
+                      mode.id === "cinematic" ? Math.max(intensity, 60) : mode.id === "luxe" ? Math.max(intensity, 55) : intensity;
+                    setRenderMode(mode.id as RenderModeId);
+                    setIntensity(targetLevel);
+                    applyVisualOptions(mode.id as RenderModeId, targetLevel);
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
+                    renderMode === mode.id
+                      ? "border-amber-400 bg-amber-200 text-midnight"
+                      : "border-amber-200 bg-white/80 text-midnight"
+                  }`}
+                >
+                  {mode.premium && "🔒"} {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="flex items-center justify-between text-sm font-semibold text-midnight">
+              <span>Visual Intensity</span>
+              <span className="text-xs text-neutral-700">Clean → Cinematic</span>
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={intensity}
+              onChange={(e) => {
+                let next = Number(e.target.value);
+                if (!paid && next > 60) {
+                  next = 60;
+                  setPaywallOpen(true);
+                }
+                setIntensity(next);
+                applyVisualOptions(renderMode, next);
+              }}
+              className="mt-2 w-full accent-amber-400"
+            />
+          </div>
+          {!paid && (
+            <p className="mt-2 text-xs font-semibold text-neutral-700">
+              Cinematic/Luxe and higher intensity require unlock for export. Preview stays free to explore.
+            </p>
+          )}
+        </section>
+
         <p className="text-sm font-semibold text-amber-700">
           Real-time generation: change date/location and watch the sky update instantly with accurate stars.
         </p>
@@ -763,7 +877,7 @@ export default function Home() {
             <div
               className={`relative min-h-[70vh] overflow-hidden rounded-xl sm:min-h-[75vh] lg:min-h-[80vh] ${
                 revealed ? "" : "bg-transparent"
-              }`}
+              } transition-opacity duration-200 ${isUpdating ? "opacity-80" : "opacity-100"}`}
             >
               {!revealed && (
                 <div className="absolute inset-0 flex flex-col items-center justify-end gap-4 pb-10 text-center text-sm text-amber-50">
@@ -795,7 +909,17 @@ export default function Home() {
               )}
               {revealed && (
                 <>
-                  <PreviewCanvas onRendered={() => setCanvasReady(true)} />
+                  <PreviewCanvas
+                    onRendered={() => {
+                      setCanvasReady(true);
+                      setIsUpdating(false);
+                    }}
+                  />
+                  {isUpdating && (
+                    <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.95)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 shadow-sm backdrop-blur">
+                      Updating sky…
+                    </div>
+                  )}
                   <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.95)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 shadow-sm backdrop-blur">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
                     Live Preview
