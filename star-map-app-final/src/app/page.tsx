@@ -253,15 +253,6 @@ function HomeInner() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(recipe));
   }, [aspectRatio, dateTime, location, renderOptions, restored, selectedStyle, shape, textBoxes]);
 
-  useEffect(() => {
-    setIsUpdating(true);
-    setCanvasReady(false);
-    const t = setTimeout(() => {
-      applyVisualOptions(renderMode, intensity);
-    }, 120);
-    return () => clearTimeout(t);
-  }, [applyVisualOptions, intensity, renderMode]);
-
   const toggleCard = (id: string) =>
     setCollapsedCards((prev) => ({
       ...prev,
@@ -310,6 +301,15 @@ function HomeInner() {
     },
     [setRenderOptions],
   );
+
+  useEffect(() => {
+    setIsUpdating(true);
+    setCanvasReady(false);
+    const t = setTimeout(() => {
+      applyVisualOptions(renderMode, intensity);
+    }, 120);
+    return () => clearTimeout(t);
+  }, [applyVisualOptions, intensity, renderMode]);
 
   const applyPreset = useCallback(
     (id: string) => {
