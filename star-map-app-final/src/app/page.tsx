@@ -9,7 +9,7 @@ import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
 import { blogPosts } from "@/lib/blogPosts";
-import { demoPresets } from "@/lib/demoPresets";
+import { occasionPresets } from "@/lib/occasionPresets";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -123,6 +123,7 @@ export default function Home() {
   const previewRef = useRef<HTMLDivElement>(null);
   const inputsRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [presetApplied, setPresetApplied] = useState(false);
   const handleEditScroll = useCallback(() => {
     inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
@@ -154,10 +155,11 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!demoApplied) {
+    if (!demoApplied && !presetApplied) {
       const demoKey = searchParams.get("demo");
-      if (demoKey && demoPresets[demoKey]) {
-        const preset = demoPresets[demoKey];
+      const preset =
+        occasionPresets.find((p) => p.id === (demoKey as any)) || occasionPresets.find((p) => p.id === "wedding");
+      if (preset) {
         setDateTime(preset.dateTimeISO);
         setLocation({
           name: preset.location?.name ?? "",
@@ -170,7 +172,9 @@ export default function Home() {
         if (preset.shape) setShape(preset.shape as Shape);
         setRevealed(false);
         setPaid(false);
-        setDemoApplied(true);
+        setDemoApplied(Boolean(demoKey));
+        setPresetApplied(true);
+        requestAnimationFrame(() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
       }
     }
     const token = localStorage.getItem("star-map-unlock");
@@ -252,6 +256,30 @@ export default function Home() {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, [canReveal, hasDate, setRevealed]);
+
+  const applyPreset = useCallback(
+    (id: string) => {
+      const preset = occasionPresets.find((p) => p.id === id);
+      if (!preset) return;
+      setDateTime(preset.dateTimeISO);
+      setLocation({
+        name: preset.location?.name ?? "",
+        latitude: preset.location?.latitude ?? 0,
+        longitude: preset.location?.longitude ?? 0,
+        timezone: preset.location?.timezone ?? "UTC",
+      });
+      setTextBoxes(preset.textBoxes);
+      setStyle(preset.style as StyleId);
+      setShape(preset.shape as Shape);
+      setRevealed(false);
+      setPaid(false);
+      setPresetApplied(true);
+      setDemoApplied(false);
+      handleEditScroll();
+      requestAnimationFrame(() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    },
+    [handleEditScroll, setDateTime, setLocation, setPaid, setRevealed, setShape, setStyle, setTextBoxes],
+  );
 
   const exportImage = useCallback(
     async (mode: "preview" | "hd") => {
@@ -680,13 +708,29 @@ export default function Home() {
       </section>
 
       <div className="flex flex-col gap-5 lg:gap-6">
+        <section className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-amber-200/60 bg-[rgba(247,241,227,0.92)] px-3 py-3 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Occasion presets</p>
+          <div className="flex flex-wrap gap-2">
+            {occasionPresets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset.id)}
+                className="rounded-full border border-amber-300 bg-white/80 px-3 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <p className="text-sm font-semibold text-amber-700">
           Real-time generation: change date/location and watch the sky update instantly with accurate stars.
         </p>
         <section
           ref={previewRef}
-          className="flex flex-col gap-3 rounded-3xl border border-amber-200/60 bg-[rgba(247,241,227,0.85)] p-3 shadow-2xl shadow-black/15 backdrop-blur transition-all duration-500 sm:p-4"
-        >
+        className="flex flex-col gap-3 rounded-3xl border border-amber-200/60 bg-[rgba(247,241,227,0.85)] p-3 shadow-2xl shadow-black/15 backdrop-blur transition-all duration-500 sm:p-4"
+      >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Preview</p>
