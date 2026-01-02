@@ -64,7 +64,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "navyGold",
     shape: "rectangle",
     renderMode: "classic",
-    intensity: 0.4,
+    intensity: 0.45,
   },
   {
     id: "anniversary",
@@ -104,7 +104,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "parchmentScroll",
     shape: "rectangle",
     renderMode: "classic",
-    intensity: 0.35,
+    intensity: 0.5,
   },
   {
     id: "birth",
@@ -124,7 +124,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "midnightMinimal",
     shape: "star",
     renderMode: "classic",
-    intensity: 0.3,
+    intensity: 0.5,
   },
   {
     id: "memorial",
@@ -144,7 +144,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "vintageEngraving",
     shape: "rectangle",
     renderMode: "classic",
-    intensity: 0.25,
+    intensity: 0.35,
   },
   {
     id: "graduation",

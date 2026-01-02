@@ -187,7 +187,6 @@ function HomeInner() {
         setRenderMode(preset.renderMode);
         const level = Math.round(preset.intensity * 100);
         setIntensity(level);
-        applyVisualOptions(preset.renderMode, level);
         setRevealed(false);
         setPaid(false);
         setDemoApplied(Boolean(demoKey));
@@ -254,6 +253,15 @@ function HomeInner() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(recipe));
   }, [aspectRatio, dateTime, location, renderOptions, restored, selectedStyle, shape, textBoxes]);
 
+  useEffect(() => {
+    setIsUpdating(true);
+    setCanvasReady(false);
+    const t = setTimeout(() => {
+      applyVisualOptions(renderMode, intensity);
+    }, 120);
+    return () => clearTimeout(t);
+  }, [applyVisualOptions, intensity, renderMode]);
+
   const toggleCard = (id: string) =>
     setCollapsedCards((prev) => ({
       ...prev,
@@ -277,13 +285,11 @@ function HomeInner() {
 
   const applyVisualOptions = useCallback(
     (mode: RenderModeId, level: number) => {
-      setIsUpdating(true);
-      setCanvasReady(false);
       const cfg = renderModes[mode];
       const normalized = Math.min(Math.max(level / 100, 0), 1);
       const starIntensity: RenderOptions["starIntensity"] =
         normalized < 0.3 ? "subtle" : normalized < 0.7 ? "normal" : "bold";
-      const starGlow = cfg.glow + normalized * 0.3 > 0.35;
+      const starGlow = cfg.glow + normalized * 0.25 > 0.35;
       const visualMode: RenderOptions["visualMode"] =
         mode === "blueprint" ? "astronomical" : mode === "cinematic" ? "illustrated" : "enhanced";
       const colorTheme: RenderOptions["colorTheme"] =
@@ -529,7 +535,7 @@ function HomeInner() {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAuMBg5C85vIAAAAASUVORK5CYII=";
 
   return (
-      <main className="main-container mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
+    <main className="main-container mx-auto max-w-6xl px-4 pb-8 pt-6 sm:pt-8 lg:py-12">
       <section
         id="hero"
         className="cosmic-panel relative mb-8 overflow-hidden rounded-[32px] px-5 py-10 text-midnight shadow-[0_25px_80px_rgba(0,0,0,0.35)] sm:px-8 lg:mb-10 lg:px-12"
@@ -791,31 +797,30 @@ function HomeInner() {
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Render modes</p>
             <div className="flex flex-wrap gap-2">
-              {[
-                { id: "classic", label: "Classic", premium: false },
-                { id: "cinematic", label: "Cinematic", premium: true },
-                { id: "blueprint", label: "Blueprint", premium: false },
-                { id: "luxe", label: "Luxe", premium: true },
-              ].map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  onClick={() => {
-                    if (!paid && mode.premium) setPaywallOpen(true);
-                    const targetLevel =
-                      mode.id === "cinematic" ? Math.max(intensity, 60) : mode.id === "luxe" ? Math.max(intensity, 55) : intensity;
-                    setRenderMode(mode.id as RenderModeId);
-                    setIntensity(targetLevel);
-                    applyVisualOptions(mode.id as RenderModeId, targetLevel);
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
+            {[
+              { id: "classic", label: "Classic", premium: false },
+              { id: "cinematic", label: "Cinematic", premium: true },
+              { id: "blueprint", label: "Blueprint", premium: false },
+              { id: "luxe", label: "Luxe", premium: true },
+            ].map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => {
+                  if (!paid && mode.premium) setPaywallOpen(true);
+                  const targetLevel =
+                    mode.id === "cinematic" ? Math.max(intensity, 60) : mode.id === "luxe" ? Math.max(intensity, 55) : intensity;
+                  setRenderMode(mode.id as RenderModeId);
+                  setIntensity(targetLevel);
+                }}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
                     renderMode === mode.id
                       ? "border-amber-400 bg-amber-200 text-midnight"
                       : "border-amber-200 bg-white/80 text-midnight"
                   }`}
-                >
-                  {mode.premium && "🔒"} {mode.label}
-                </button>
+              >
+                {mode.premium && "🔒"} {mode.label}
+              </button>
               ))}
             </div>
           </div>
@@ -836,7 +841,6 @@ function HomeInner() {
                   setPaywallOpen(true);
                 }
                 setIntensity(next);
-                applyVisualOptions(renderMode, next);
               }}
               className="mt-2 w-full accent-amber-400"
             />
@@ -932,7 +936,7 @@ function HomeInner() {
                   )}
                   <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-[rgba(247,241,227,0.95)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 shadow-sm backdrop-blur">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
-                    Live Preview
+                    {isUpdating ? "Rendering…" : "Updated ✓"}
                   </div>
                   <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-black/5" />
                   <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
