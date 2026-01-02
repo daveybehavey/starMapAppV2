@@ -58,6 +58,14 @@ const constellationPresets: Array<{ id: RenderOptions["constellationLines"]; lab
 ];
 
 export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
+  );
+}
+
+function HomeInner() {
   const {
     dateTime,
     textBoxes,
@@ -1566,6 +1574,5 @@ export default function Home() {
         </p>
       </section>
       </main>
-    </Suspense>
   );
 }
