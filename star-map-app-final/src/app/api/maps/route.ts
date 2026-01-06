@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
   const id = crypto.randomUUID();
-  await kv.set<MapRecipe>(`map:${id}`, body);
+  const ttlSeconds = 30 * 24 * 60 * 60; // 30 days
+  await kv.set<MapRecipe>(`map:${id}`, body, { ex: ttlSeconds });
   return NextResponse.json({ id });
 }
 

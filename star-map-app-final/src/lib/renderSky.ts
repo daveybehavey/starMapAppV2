@@ -333,6 +333,8 @@ export function buildRecipeFromState(input: {
       textLayout: input.renderOptions?.textLayout ?? "center",
       shapeMask: input.renderOptions?.shapeMask ?? "circle",
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
+      constellationColor: input.renderOptions?.constellationColor ?? "",
+      constellationLineScale: input.renderOptions?.constellationLineScale ?? 1,
     },
   };
 }
@@ -415,6 +417,11 @@ function drawSky(
   const lineFactor = mode?.lineWidthFactor ?? 1;
 
   if (renderOptions?.constellationLines !== "off") {
+    const constellationColor =
+      renderOptions?.constellationColor && renderOptions.constellationColor.trim().length > 0
+        ? renderOptions.constellationColor
+        : palette.accent;
+    const lineScale = clamp(renderOptions?.constellationLineScale ?? 1, 0.6, 1.6);
     const lineWidth =
       renderOptions?.constellationLines === "thick"
         ? 1.2 * lineFactor
@@ -424,8 +431,8 @@ function drawSky(
     drawConstellations(
       ctx,
       sky,
-      palette.accent,
-      lineWidth * scale,
+      constellationColor,
+      lineWidth * lineScale * scale,
       renderOptions?.constellationLabels ?? false,
       mode?.lineAlpha ?? 0.3,
     );

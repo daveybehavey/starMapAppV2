@@ -206,3 +206,14 @@ a {
     flex-wrap: wrap;
   }
 }
+
+@media (min-width: 1024px) {
+  .text-editor input,
+  .text-editor select {
+    font-size: 0.875rem;
+  }
+
+  .cosmic-backdrop {
+    overflow: visible;
+  }
+}

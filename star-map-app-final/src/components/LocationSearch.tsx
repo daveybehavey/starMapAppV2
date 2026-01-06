@@ -32,6 +32,7 @@ export default function LocationSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [showExact, setShowExact] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -56,7 +57,7 @@ export default function LocationSearch() {
     const cached = cache.get(key);
     if (cached) {
       setResults(cached);
-      setDropdownOpen(true);
+      if (isFocused) setDropdownOpen(true);
       setError(null);
       return;
     }
@@ -80,7 +81,7 @@ export default function LocationSearch() {
         const data = (await res.json()) as GeocodeResult[];
         cache.set(key, data);
         setResults(data);
-        setDropdownOpen(true);
+        if (isFocused) setDropdownOpen(true);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setError("Could not search that place. Try again.");
@@ -165,8 +166,10 @@ export default function LocationSearch() {
             setDropdownOpen(true);
           }}
           onBlur={() => {
+            setIsFocused(false);
             // If the user clicks away without selecting, still apply the typed location.
             void applyTypedLocation();
+            setDropdownOpen(false);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -174,7 +177,10 @@ export default function LocationSearch() {
               applyTypedLocation();
             }
           }}
-          onFocus={() => hasResults && setDropdownOpen(true)}
+          onFocus={() => {
+            setIsFocused(true);
+            if (hasResults) setDropdownOpen(true);
+          }}
           role="combobox"
           aria-haspopup="listbox"
           className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"

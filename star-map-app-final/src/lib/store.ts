@@ -53,6 +53,8 @@ export interface RenderOptions {
   textLayout: "center" | "top" | "bottom";
   shapeMask: "none" | "circle" | "heart" | "diamond" | "ring";
   backgroundColor?: string;
+  constellationColor?: string;
+  constellationLineScale?: number;
 }
 
 export interface EditorState {
@@ -150,6 +152,8 @@ export const useStore = create<EditorState>((set) => ({
     textLayout: "center",
     shapeMask: "circle",
     backgroundColor: "",
+    constellationColor: "",
+    constellationLineScale: 1,
   },
   paid: false,
   revealed: false,

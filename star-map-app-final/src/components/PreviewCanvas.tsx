@@ -14,7 +14,9 @@ export default function PreviewCanvas({ onRendered }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
+  const dragRafRef = useRef<number | null>(null);
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const pendingDragRef = useRef<{ x: number; y: number } | null>(null);
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map(),
   );
@@ -135,6 +137,8 @@ export default function PreviewCanvas({ onRendered }: Props) {
       const y = event.clientY - bounds.top;
       const hit = hitTestText(textBoundsRef.current, x, y);
       if (hit) {
+        // Prevent the page from scrolling when dragging on touch devices.
+        event.preventDefault();
         dragRef.current = {
           id: hit.id,
           offsetX: x - hit.centerX,
@@ -152,14 +156,27 @@ export default function PreviewCanvas({ onRendered }: Props) {
 
     const handlePointerMove = (event: PointerEvent) => {
       if (!dragRef.current) return;
+      // Prevent touchmove from being treated as a scroll on mobile.
+      event.preventDefault();
       const bounds = canvas.getBoundingClientRect();
-      const centerX = event.clientX - bounds.left - dragRef.current.offsetX;
-      const centerY = event.clientY - bounds.top - dragRef.current.offsetY;
-      const newX = clamp(centerX / bounds.width, 0.05, 0.95);
-      const newY = clamp(centerY / bounds.height, 0.1, 0.95);
-      updateTextBox(dragRef.current.id, { position: { x: newX, y: newY } });
-      const rect = textBoundsRef.current.get(dragRef.current.id);
-      if (rect) setBoxRect(rect);
+      pendingDragRef.current = {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      };
+      if (dragRafRef.current) return;
+      dragRafRef.current = requestAnimationFrame(() => {
+        dragRafRef.current = null;
+        const drag = dragRef.current;
+        const pending = pendingDragRef.current;
+        if (!drag || !pending) return;
+        const centerX = pending.x - drag.offsetX;
+        const centerY = pending.y - drag.offsetY;
+        const newX = clamp(centerX / bounds.width, 0.05, 0.95);
+        const newY = clamp(centerY / bounds.height, 0.1, 0.95);
+        updateTextBox(drag.id, { position: { x: newX, y: newY } });
+        const rect = textBoundsRef.current.get(drag.id);
+        if (rect) setBoxRect(rect);
+      });
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -177,6 +194,7 @@ export default function PreviewCanvas({ onRendered }: Props) {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
     };
   }, [updateTextBox]);
 
@@ -196,8 +214,8 @@ export default function PreviewCanvas({ onRendered }: Props) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-2xl border border-black/5 bg-white/30 shadow-2xl shadow-black/20 min-h-[360px] sm:min-h-[420px] md:min-h-[480px]"
-      style={{ aspectRatio: `${widthToHeight} / 1` }}
+      className="relative w-full overflow-hidden rounded-2xl border border-black/5 bg-white/30 shadow-2xl shadow-black/20 min-h-[360px] sm:min-h-[420px] md:min-h-[520px]"
+      style={{ aspectRatio: "1 / 1" }}
     >
       <canvas ref={canvasRef} className="absolute inset-0" />
       {activeBox && boxRect && (
