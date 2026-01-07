@@ -2,6 +2,50 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import CookieBanner from "@/components/CookieBanner";
+import PromoBanner from "@/components/PromoBanner";
+import PromoPopup from "@/components/PromoPopup";
+import {
+  Playfair_Display,
+  Cinzel,
+  Great_Vibes,
+  Cormorant_Garamond,
+  Montserrat,
+  Libre_Baskerville,
+  EB_Garamond,
+  Crimson_Text,
+  Lora,
+  Raleway,
+  Poppins,
+  Dancing_Script,
+  Parisienne,
+  Bebas_Neue,
+  Abril_Fatface,
+} from "next/font/google";
+
+// Current fonts
+const playfair = Playfair_Display({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-playfair" });
+const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-cinzel" });
+const greatVibes = Great_Vibes({ subsets: ["latin"], weight: ["400"], variable: "--font-script" });
+const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-cormorant" });
+const montserrat = Montserrat({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-montserrat" });
+
+// Premium fonts - Serif
+const libreBaskerville = Libre_Baskerville({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-libre-baskerville" });
+const ebGaramond = EB_Garamond({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-eb-garamond" });
+const crimsonText = Crimson_Text({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-crimson-text" });
+const lora = Lora({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-lora" });
+
+// Premium fonts - Sans-serif
+const raleway = Raleway({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-raleway" });
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-poppins" });
+
+// Premium fonts - Script/Decorative
+const dancingScript = Dancing_Script({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-dancing-script" });
+const parisienne = Parisienne({ subsets: ["latin"], weight: ["400"], variable: "--font-parisienne" });
+
+// Premium fonts - Display
+const bebasNeue = Bebas_Neue({ subsets: ["latin"], weight: ["400"], variable: "--font-bebas-neue" });
+const abrilFatface = Abril_Fatface({ subsets: ["latin"], weight: ["400"], variable: "--font-abril-fatface" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://starmapco.com"),
@@ -57,7 +101,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="text-midnight min-h-screen antialiased">
+      <body className={`text-midnight min-h-screen antialiased ${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${cormorant.variable} ${montserrat.variable} ${libreBaskerville.variable} ${ebGaramond.variable} ${crimsonText.variable} ${lora.variable} ${raleway.variable} ${poppins.variable} ${dancingScript.variable} ${parisienne.variable} ${bebasNeue.variable} ${abrilFatface.variable}`}>
+        <PromoBanner />
         <div className="cosmic-backdrop">{children}</div>
         <footer className="bg-[rgba(247,241,227,0.92)] px-6 py-4 text-sm text-neutral-800 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
           <div className="mx-auto flex max-w-6xl items-center justify-between">
@@ -76,6 +121,7 @@ export default function RootLayout({
           </div>
         </footer>
         <CookieBanner />
+        <PromoPopup />
         <script
           id="product-schema"
           type="application/ld+json"
@@ -91,7 +137,8 @@ export default function RootLayout({
                   offers: {
                     "@type": "Offer",
                     priceCurrency: "USD",
-                    price: "9.99",
+                    price: "0.99",
+                    priceValidUntil: "2026-01-31",
                     availability: "https://schema.org/InStock",
                   },
                   review: [],

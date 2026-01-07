@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
 import { TextBox, useStore } from "@/lib/store";
@@ -8,9 +8,10 @@ import { useShallow } from "zustand/react/shallow";
 
 type Props = {
   onRendered?: () => void;
+  fullscreen?: boolean;
 };
 
-export default function PreviewCanvas({ onRendered }: Props) {
+export default function PreviewCanvas({ onRendered, fullscreen = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -74,10 +75,11 @@ export default function PreviewCanvas({ onRendered }: Props) {
     };
   }, [aspectRatio, shape]);
 
-  const scheduleDraw = useCallback(() => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
     rafRef.current = requestAnimationFrame(() => {
       const { width, height } = dimensions;
       const pixelRatio = window.devicePixelRatio || 1;
@@ -106,26 +108,11 @@ export default function PreviewCanvas({ onRendered }: Props) {
       }
       onRendered?.();
     });
-  }, [
-    activeBox,
-    dateTime,
-    dimensions,
-    location,
-    onRendered,
-    paid,
-    renderOptions,
-    selectedStyle,
-    shape,
-    textBoxes,
-    aspectRatio,
-  ]);
 
-  useEffect(() => {
-    scheduleDraw();
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [scheduleDraw]);
+  }, [dimensions, activeBox, dateTime, location, textBoxes, selectedStyle, renderOptions, aspectRatio, shape, paid, onRendered]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -168,7 +155,10 @@ export default function PreviewCanvas({ onRendered }: Props) {
         dragRafRef.current = null;
         const drag = dragRef.current;
         const pending = pendingDragRef.current;
-        if (!drag || !pending) return;
+        if (!drag || !pending || !canvas) return;
+
+        // Recalculate bounds fresh each frame for accuracy
+        const bounds = canvas.getBoundingClientRect();
         const centerX = pending.x - drag.offsetX;
         const centerY = pending.y - drag.offsetY;
         const newX = clamp(centerX / bounds.width, 0.05, 0.95);
@@ -214,10 +204,14 @@ export default function PreviewCanvas({ onRendered }: Props) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-2xl border border-black/5 bg-white/30 shadow-2xl shadow-black/20 min-h-[360px] sm:min-h-[420px] md:min-h-[520px]"
-      style={{ aspectRatio: "1 / 1" }}
+      className={`relative overflow-hidden rounded-2xl shadow-2xl ${
+        fullscreen
+          ? "w-[90vmin] h-[90vmin] border-2 border-amber-400/80 shadow-black/40"
+          : "w-full border-2 border-amber-400/80 shadow-black/20 min-h-[360px] sm:min-h-[420px] md:min-h-[520px]"
+      }`}
+      style={fullscreen ? {} : { aspectRatio: "1 / 1" }}
     >
-      <canvas ref={canvasRef} className="absolute inset-0" />
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       {activeBox && boxRect && (
         <div
           className="pointer-events-none absolute rounded-md border border-amber-300/70 bg-amber-200/10 shadow-[0_0_0_1px_rgba(251,191,36,0.4)]"

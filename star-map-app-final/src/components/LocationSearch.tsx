@@ -16,6 +16,7 @@ type GeocodeResult = {
   state?: string;
 };
 
+const MAX_CACHE_SIZE = 50;
 const cache = new Map<string, GeocodeResult[]>();
 
 export default function LocationSearch() {
@@ -70,6 +71,7 @@ export default function LocationSearch() {
     const controller = new AbortController();
     controllerRef.current = controller;
 
+    let mounted = true;
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
@@ -79,23 +81,31 @@ export default function LocationSearch() {
           throw new Error("Search failed");
         }
         const data = (await res.json()) as GeocodeResult[];
+        if (!mounted) return;
+        // Limit cache size to prevent memory bloat
+        if (cache.size >= MAX_CACHE_SIZE) {
+          const firstKey = cache.keys().next().value;
+          if (firstKey) cache.delete(firstKey);
+        }
         cache.set(key, data);
         setResults(data);
         if (isFocused) setDropdownOpen(true);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
+        if (!mounted) return;
         setError("Could not search that place. Try again.");
         setResults([]);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }, 250);
 
     return () => {
+      mounted = false;
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, isFocused]);
 
   const applyLocation = (result: GeocodeResult) => {
     const { latitude, longitude } = result;

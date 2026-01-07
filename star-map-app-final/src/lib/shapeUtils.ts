@@ -29,6 +29,10 @@ export async function getShapeData(shape: string): Promise<ShapeData | null> {
 }
 
 export function getAspectFromViewBox(viewBox: { width: number; height: number }): AspectRatio {
+  if (viewBox.height === 0) {
+    console.warn('Invalid viewBox height:', viewBox);
+    return "square";
+  }
   const ratio = viewBox.width / viewBox.height;
   if (isApprox(ratio, 1)) return "square";
   if (isApprox(ratio, 3 / 4)) return "3:4";

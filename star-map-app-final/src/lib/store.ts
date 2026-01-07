@@ -15,7 +15,22 @@ export interface TextBox {
   id: string;
   label: string;
   text: string;
-  fontFamily: "playfair" | "cinzel" | "script" | "cormorant" | "montserrat";
+  fontFamily:
+    | "playfair"
+    | "cinzel"
+    | "script"
+    | "cormorant"
+    | "montserrat"
+    | "libreBaskerville"
+    | "ebGaramond"
+    | "crimsonText"
+    | "lora"
+    | "raleway"
+    | "poppins"
+    | "dancingScript"
+    | "parisienne"
+    | "bebasNeue"
+    | "abrilFatface";
   color: string;
   size: number;
   align: TextAlign;
@@ -104,7 +119,7 @@ export const useStore = create<EditorState>((set) => ({
       text: "Our Night Sky",
       fontFamily: "playfair",
       color: "#d9b56f", // warm gold for main title
-      size: 40,
+      size: 52,
       align: "center",
       textShadow: false,
       textGlow: false,
@@ -116,7 +131,7 @@ export const useStore = create<EditorState>((set) => ({
       text: "Under the vintage stars",
       fontFamily: "cinzel",
       color: "#c7a35a", // softer gold accent for subtitle
-      size: 24,
+      size: 36,
       align: "center",
       textShadow: false,
       textGlow: false,
@@ -128,7 +143,7 @@ export const useStore = create<EditorState>((set) => ({
       text: "Celebrating our constellation of moments.",
       fontFamily: "script",
       color: "#b8893f", // deeper gold tone for dedication line
-      size: 26,
+      size: 32,
       align: "center",
       textShadow: false,
       textGlow: false,
@@ -180,7 +195,7 @@ export const useStore = create<EditorState>((set) => ({
         text: "New text",
         fontFamily: "playfair",
         color: "#0c1021",
-        size: 18,
+        size: 28,
         align: "center",
         position: { x: 0.5, y: Math.min(0.85, 0.7 + nextIndex * 0.06) },
       };

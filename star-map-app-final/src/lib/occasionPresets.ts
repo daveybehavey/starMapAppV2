@@ -19,7 +19,7 @@ const baseText = {
   title: {
     fontFamily: "playfair" as const,
     color: "#d9b56f",
-    size: 40,
+    size: 52,
     align: "center" as const,
     textShadow: false,
     textGlow: false,
@@ -28,7 +28,7 @@ const baseText = {
   subtitle: {
     fontFamily: "cinzel" as const,
     color: "#c7a35a",
-    size: 26,
+    size: 36,
     align: "center" as const,
     textShadow: false,
     textGlow: false,
@@ -37,7 +37,7 @@ const baseText = {
   footer: {
     fontFamily: "script" as const,
     color: "#b8893f",
-    size: 24,
+    size: 32,
     align: "center" as const,
     textShadow: false,
     textGlow: false,

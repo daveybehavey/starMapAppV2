@@ -74,11 +74,27 @@ const toApproximateUTCDate = (dateStr: string, timeStr: string, lon: number): Da
   return new Date(utcMs - lonOffsetMs);
 };
 
+// Cache for expensive astronomy calculations
+const astronomyCache = new Map<string, VisibleSky>();
+const MAX_ASTRONOMY_CACHE_SIZE = 20;
+
+function createAstronomyCacheKey(params: VisibleStarParams, width: number, height: number): string {
+  const time = params.time?.trim() || "23:59";
+  const bortle = params.bortle ?? 4.5;
+  const showConst = params.showConstellations ?? false;
+  return `${params.date}|${time}|${params.lat}|${params.lon}|${bortle}|${width}|${height}|${showConst}`;
+}
+
 export function computeVisibleStars(
   params: VisibleStarParams,
   width: number,
   height: number
 ): VisibleSky {
+  // Check cache first
+  const cacheKey = createAstronomyCacheKey(params, width, height);
+  const cached = astronomyCache.get(cacheKey);
+  if (cached) return cached;
+
   const time = params.time?.trim() || "23:59";
   const date = toApproximateUTCDate(params.date, time, params.lon);
   if (!date || Number.isNaN(date.getTime())) {
@@ -88,7 +104,8 @@ export function computeVisibleStars(
   const observer = new Observer(params.lat, params.lon, 0);
   const output: StarPoint[] = [];
   const visibleIndexByHip = new Map<number, number>();
-  const bortle = params.bortle ? clamp(params.bortle, 1, 9) : null;
+  // Default to class 4.5 if no bortle provided to avoid NaN in calculations
+  const bortle = params.bortle ? clamp(params.bortle, 1, 9) : 4.5;
   const catalogStars = stars as Array<{ hip: number; ra: number; dec: number; mag: number }>;
 
   for (const star of catalogStars) {
@@ -112,11 +129,9 @@ export function computeVisibleStars(
     const x = width / 2 + r * Math.sin(angle) * radius;
     const y = height / 2 - r * Math.cos(angle) * radius;
     const mag = star.mag;
-    const opacity = bortle
-      ? mag < 4
-        ? 1
-        : Math.max(0.2, 1 - ((bortle - 1) / 8) * ((mag - 4) / 2))
-      : 1;
+    const opacity = mag < 4
+      ? 1
+      : Math.max(0.2, 1 - ((bortle - 1) / 8) * ((mag - 4) / 2));
     const nextIndex = output.length;
     output.push({
       x,
@@ -189,7 +204,16 @@ export function computeVisibleStars(
     moon = { name: "Moon", x, y, phase };
   }
 
-  return { stars: output, planets, moon, constellations: visibleConstellations };
+  const result = { stars: output, planets, moon, constellations: visibleConstellations };
+
+  // Store in cache with size limit
+  if (astronomyCache.size >= MAX_ASTRONOMY_CACHE_SIZE) {
+    const firstKey = astronomyCache.keys().next().value;
+    if (firstKey) astronomyCache.delete(firstKey);
+  }
+  astronomyCache.set(cacheKey, result);
+
+  return result;
 }
 
 /**

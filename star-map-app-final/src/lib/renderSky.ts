@@ -63,11 +63,21 @@ const STYLE_THEME: Record<
 };
 
 const FONT_STACKS: Record<TextBox["fontFamily"], string> = {
-  playfair: '"Playfair Display", serif',
-  cinzel: '"Cinzel", serif',
-  script: '"Great Vibes", cursive',
-  cormorant: '"Cormorant Garamond", serif',
-  montserrat: '"Montserrat", sans-serif',
+  playfair: 'var(--font-playfair), "Playfair Display", serif',
+  cinzel: 'var(--font-cinzel), "Cinzel", serif',
+  script: 'var(--font-script), "Great Vibes", cursive',
+  cormorant: 'var(--font-cormorant), "Cormorant Garamond", serif',
+  montserrat: 'var(--font-montserrat), "Montserrat", sans-serif',
+  libreBaskerville: 'var(--font-libre-baskerville), "Libre Baskerville", serif',
+  ebGaramond: 'var(--font-eb-garamond), "EB Garamond", serif',
+  crimsonText: 'var(--font-crimson-text), "Crimson Text", serif',
+  lora: 'var(--font-lora), "Lora", serif',
+  raleway: 'var(--font-raleway), "Raleway", sans-serif',
+  poppins: 'var(--font-poppins), "Poppins", sans-serif',
+  dancingScript: 'var(--font-dancing-script), "Dancing Script", cursive',
+  parisienne: 'var(--font-parisienne), "Parisienne", cursive',
+  bebasNeue: 'var(--font-bebas-neue), "Bebas Neue", sans-serif',
+  abrilFatface: 'var(--font-abril-fatface), "Abril Fatface", display',
 };
 
 export const DEFAULT_RECIPE: MapRecipe = {
@@ -209,6 +219,12 @@ export function renderStarMap({
   const sky = computeSky(recipe, width, targetHeight);
   const mode = resolveVisualMode(recipe.renderOptions?.visualMode);
 
+  // Defensive check for invalid dimensions
+  if (width <= 0 || targetHeight <= 0) {
+    console.warn('Invalid canvas dimensions:', { width, targetHeight });
+    return;
+  }
+
   canvas.width = width * pixelRatio;
   canvas.height = targetHeight * pixelRatio;
   if (canvas.style) {
@@ -238,12 +254,12 @@ export function renderStarMap({
   drawSky(ctx, width, targetHeight, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale);
   ctx.restore();
 
-  // Outline for clarity
+  // Shape outline with consistent amber color
   if (clipPath) {
     ctx.save();
-    ctx.strokeStyle = STYLE_THEME[recipe.selectedStyle].accent;
-    ctx.lineWidth = 2 * scale;
-    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = "#fbbf24"; // Amber-400 to match CSS border
+    ctx.lineWidth = 3 * scale;
+    ctx.globalAlpha = 0.8;
     ctx.stroke(clipPath);
     ctx.restore();
   }
@@ -281,10 +297,23 @@ export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
   return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
 }
 
+// Cache for sky computation - keyed by date/location/dimensions hash
+const skyCache = new Map<string, VisibleSky>();
+const MAX_SKY_CACHE_SIZE = 10;
+
+function createSkyCacheKey(recipe: MapRecipe, width: number, height: number): string {
+  return `${recipe.datetimeISO}|${recipe.location.latitude}|${recipe.location.longitude}|${recipe.location.timezone}|${width}|${height}|${recipe.renderOptions?.constellationLines !== "off"}`;
+}
+
 export function computeSky(recipe: MapRecipe, width: number, height: number): VisibleSky | null {
+  const cacheKey = createSkyCacheKey(recipe, width, height);
+  const cached = skyCache.get(cacheKey);
+  if (cached) return cached;
+
   const formatted = formatDateTimeForLocation(recipe.datetimeISO, recipe.location.timezone);
   if (!formatted) return null;
-  return computeVisibleStars(
+
+  const sky = computeVisibleStars(
     {
       date: formatted.date,
       time: formatted.time,
@@ -296,6 +325,15 @@ export function computeSky(recipe: MapRecipe, width: number, height: number): Vi
     width,
     height,
   );
+
+  // Evict oldest entry if cache is full
+  if (skyCache.size >= MAX_SKY_CACHE_SIZE) {
+    const firstKey = skyCache.keys().next().value;
+    if (firstKey) skyCache.delete(firstKey);
+  }
+
+  skyCache.set(cacheKey, sky);
+  return sky;
 }
 
 export function buildRecipeFromState(input: {
@@ -387,11 +425,14 @@ function drawBackground(
     ctx.restore();
   }
 
+  // Rectangle border with consistent amber color
   if (!shape || shape === "rectangle") {
     const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
-    ctx.strokeStyle = palette.accent;
-    ctx.lineWidth = 2 * scale;
+    ctx.strokeStyle = "#fbbf24"; // Amber-400 to match CSS border
+    ctx.lineWidth = 3 * scale;
+    ctx.globalAlpha = 0.8;
     ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -448,8 +489,11 @@ function drawSky(
   for (const star of sky.stars) {
     if (!Number.isFinite(star.x) || !Number.isFinite(star.y)) continue;
     const baseAlpha = brightnessFromMagnitude(star.magnitude);
+    if (!Number.isFinite(baseAlpha)) continue;
     const alpha = clamp(baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1), 0.05, 1);
+    if (!Number.isFinite(alpha)) continue;
     const radius = starRadiusFromMagnitude(star.magnitude) * (mode?.starSizeFactor ?? 1) * scale;
+    if (!Number.isFinite(radius) || radius <= 0) continue;
     ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.arc(star.x, star.y, radius, 0, Math.PI * 2);
@@ -560,7 +604,7 @@ function drawWatermark(
   ctx.textBaseline = "bottom";
   const fontSize = Math.max(12, Math.min(width, height) * 0.035 * scale);
   ctx.font = `700 ${fontSize}px "Cinzel", serif`;
-  const margin = 28 * scale;
+  const margin = 50 * scale;
   ctx.fillText("StarMapCo", margin, height - margin);
   ctx.restore();
 }
@@ -699,6 +743,10 @@ function brightnessFromMagnitude(magnitude: number) {
 }
 
 function clamp(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) {
+    console.warn('clamp received non-finite value:', value);
+    return min;
+  }
   return Math.min(max, Math.max(min, value));
 }
 

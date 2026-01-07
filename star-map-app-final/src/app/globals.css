@@ -41,6 +41,14 @@ body {
   font-family: var(--font-playfair), "Playfair Display", serif;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -110,6 +118,35 @@ a {
   }
   to {
     transform: translate3d(-120px, -80px, 0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(241, 194, 125, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(241, 194, 125, 0.5);
+  }
+}
+
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

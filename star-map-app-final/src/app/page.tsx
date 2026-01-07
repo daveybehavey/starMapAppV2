@@ -11,6 +11,7 @@ import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
 import { blogPosts } from "@/lib/blogPosts";
+import { formatPrice, getPricingInfo } from "@/lib/pricing";
 import { occasionPresets } from "@/lib/occasionPresets";
 import { renderModes, type RenderModeId } from "@/lib/renderModes";
 import Image from "next/image";
@@ -30,12 +31,27 @@ const DRAFT_KEY = "star-map-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
 
-const fontOptions: Array<{ id: TextBox["fontFamily"]; label: string }> = [
+const fontOptions: Array<{ id: TextBox["fontFamily"]; label: string; premium?: boolean }> = [
+  // Free fonts
   { id: "playfair", label: "Playfair Display" },
   { id: "cinzel", label: "Cinzel" },
   { id: "script", label: "Great Vibes" },
   { id: "cormorant", label: "Cormorant Garamond" },
   { id: "montserrat", label: "Montserrat" },
+  // Premium fonts - Serif
+  { id: "libreBaskerville", label: "Libre Baskerville", premium: true },
+  { id: "ebGaramond", label: "EB Garamond", premium: true },
+  { id: "crimsonText", label: "Crimson Text", premium: true },
+  { id: "lora", label: "Lora", premium: true },
+  // Premium fonts - Sans-serif
+  { id: "raleway", label: "Raleway", premium: true },
+  { id: "poppins", label: "Poppins", premium: true },
+  // Premium fonts - Script/Decorative
+  { id: "dancingScript", label: "Dancing Script", premium: true },
+  { id: "parisienne", label: "Parisienne", premium: true },
+  // Premium fonts - Display
+  { id: "bebasNeue", label: "Bebas Neue", premium: true },
+  { id: "abrilFatface", label: "Abril Fatface", premium: true },
 ];
 
 const visualModes: Array<{ id: RenderOptions["visualMode"]; label: string; description: string }> = [
@@ -52,9 +68,9 @@ const shapes: Array<{ id: Shape; label: string }> = [
 ];
 
 const shapeSymbols: Record<Shape, string> = {
-  rectangle: "▯",
+  rectangle: "■",
   heart: "♥",
-  circle: "◯",
+  circle: "●",
   star: "★",
 };
 
@@ -128,9 +144,22 @@ function HomeInner() {
     })),
   );
 
+  const [mounted, setMounted] = useState(false);
+  const [pricing, setPricing] = useState(() => getPricingInfo());
+  const [activePriceLabel, setActivePriceLabel] = useState("$9.99");
+  const [basePriceLabel, setBasePriceLabel] = useState("$9.99");
+
+  useEffect(() => {
+    setMounted(true);
+    const pricingInfo = getPricingInfo();
+    setPricing(pricingInfo);
+    setActivePriceLabel(formatPrice(pricingInfo.activeAmountCents, pricingInfo.currency));
+    setBasePriceLabel(formatPrice(pricingInfo.baseAmountCents, pricingInfo.currency));
+  }, []);
+
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => {
-    const entries = textBoxes.map((box, idx) => [box.id, idx === 0 ? false : true]);
-    return { __all__: false, ...Object.fromEntries(entries) };
+    const entries = textBoxes.map((box) => [box.id, true]);
+    return { __all__: true, ...Object.fromEntries(entries) };
   });
   const [restored, setRestored] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -144,8 +173,8 @@ function HomeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [renderMode, setRenderMode] = useState<RenderModeId>("classic");
-  const [intensity, setIntensity] = useState(50); // applied intensity
-  const [intensityDraft, setIntensityDraft] = useState(50); // live slider value
+  const [intensity, setIntensity] = useState(50); // applied intensity for rendering
+  const [intensityDisplay, setIntensityDisplay] = useState(50); // immediate display value
   const [isUpdating, setIsUpdating] = useState(false);
   const [showPresetTransition, setShowPresetTransition] = useState(false);
   const locationName = location.name?.trim() ?? "";
@@ -156,6 +185,30 @@ function HomeInner() {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [presetApplied, setPresetApplied] = useState(false);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup transition timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setCollapsedCards((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const box of textBoxes) {
+        if (typeof next[box.id] === "undefined") {
+          next[box.id] = false;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [textBoxes]);
   const handleEditScroll = useCallback(() => {
     inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
@@ -166,7 +219,9 @@ function HomeInner() {
   useEffect(() => {
     let active = true;
     let objectUrl: string | null = null;
-    fetch("/api/og/sample")
+    const controller = new AbortController();
+
+    fetch("/api/og/sample", { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error("OG fetch failed");
         return res.blob();
@@ -176,11 +231,15 @@ function HomeInner() {
         objectUrl = URL.createObjectURL(blob);
         setHeroPreviewSrc(objectUrl);
       })
-      .catch(() => {
-        setHeroPreviewSrc("/custom-star-map-anniversary.webp");
+      .catch((err) => {
+        if (!active) return;
+        if (err.name !== 'AbortError') {
+          setHeroPreviewSrc("/custom-star-map-anniversary.webp");
+        }
       });
     return () => {
       active = false;
+      controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, []);
@@ -192,21 +251,27 @@ function HomeInner() {
       const preset =
         occasionPresets.find((p) => p.id === (demoKey as any)) || occasionPresets.find((p) => p.id === "wedding");
       if (preset) {
-        setDateTime(preset.dateTimeISO);
-        setLocation({
-          name: preset.location?.name ?? "",
-          latitude: preset.location?.latitude ?? 0,
-          longitude: preset.location?.longitude ?? 0,
-          timezone: preset.location?.timezone ?? "UTC",
+        // Batch all Zustand store updates into single setState call for better performance
+        useStore.setState({
+          dateTime: preset.dateTimeISO,
+          location: {
+            name: preset.location?.name ?? "",
+            latitude: preset.location?.latitude ?? 0,
+            longitude: preset.location?.longitude ?? 0,
+            timezone: preset.location?.timezone ?? "UTC",
+          },
+          textBoxes: preset.textBoxes,
+          selectedStyle: preset.style as StyleId,
+          shape: preset.shape as Shape,
+          revealed: true,
+          paid: false,
         });
-        if (preset.textBoxes) setTextBoxes(preset.textBoxes);
-        if (preset.style) setStyle(preset.style as StyleId);
-        if (preset.shape) setShape(preset.shape as Shape);
+
+        // Local state updates (fewer re-renders)
         setRenderMode(preset.renderMode);
         const level = Math.round(preset.intensity * 100);
         setIntensity(level);
-        setRevealed(true);
-        setPaid(false);
+        setIntensityDisplay(level);
         setDemoApplied(Boolean(demoKey));
         setPresetApplied(true);
       }
@@ -327,48 +392,61 @@ function HomeInner() {
       setIsUpdating(true);
       setCanvasReady(false);
       applyVisualOptions(renderMode, intensity);
-    }, 80);
+    }, 150);
     return () => clearTimeout(t);
   }, [applyVisualOptions, intensity, renderMode]);
 
   useEffect(() => {
-    let next = intensityDraft;
+    let next = intensityDisplay;
     if (!paid && next > 60) {
       next = 60;
     }
     if (next === intensity) return;
-    const t = setTimeout(() => setIntensity(next), 80);
+    const t = setTimeout(() => setIntensity(next), 200);
     return () => clearTimeout(t);
-  }, [intensityDraft, paid, intensity]);
+  }, [intensityDisplay, paid, intensity]);
 
   const applyPreset = useCallback(
     (id: string) => {
       const preset = occasionPresets.find((p) => p.id === id);
       if (!preset) return;
-      setDateTime(preset.dateTimeISO);
-      setLocation({
-        name: preset.location?.name ?? "",
-        latitude: preset.location?.latitude ?? 0,
-        longitude: preset.location?.longitude ?? 0,
-        timezone: preset.location?.timezone ?? "UTC",
+
+      // Batch all Zustand store updates into single setState call for better performance
+      useStore.setState({
+        dateTime: preset.dateTimeISO,
+        location: {
+          name: preset.location?.name ?? "",
+          latitude: preset.location?.latitude ?? 0,
+          longitude: preset.location?.longitude ?? 0,
+          timezone: preset.location?.timezone ?? "UTC",
+        },
+        textBoxes: preset.textBoxes,
+        selectedStyle: preset.style as StyleId,
+        shape: preset.shape as Shape,
+        revealed: true,
+        paid: false,
       });
-      setTextBoxes(preset.textBoxes);
-      setStyle(preset.style as StyleId);
-      setShape(preset.shape as Shape);
+
+      // Local state updates (fewer re-renders)
       setRenderMode(preset.renderMode);
       const level = Math.round(preset.intensity * 100);
       setIntensity(level);
-      setIntensityDraft(level);
+      setIntensityDisplay(level);
       applyVisualOptions(preset.renderMode, level);
-      setRevealed(true);
-      setPaid(false);
       setPresetApplied(true);
       setDemoApplied(false);
       setShowPresetTransition(true);
       setIsUpdating(true);
       setCanvasReady(false);
       handleEditScroll();
-      setTimeout(() => setShowPresetTransition(false), 240);
+      // Clear any existing timeout before setting new one
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+      transitionTimeoutRef.current = setTimeout(() => {
+        setShowPresetTransition(false);
+        transitionTimeoutRef.current = null;
+      }, 240);
     },
     [
       applyVisualOptions,
@@ -397,9 +475,17 @@ function HomeInner() {
       });
       const width = mode === "hd" ? 6000 : 1200;
       const shapeData = await getShapeData(recipe.shape).catch(() => null);
-      const ratio = shapeData
-        ? shapeData.viewBox.width / shapeData.viewBox.height
-        : aspectRatioToNumber(recipe.aspectRatio);
+      let ratio: number;
+      if (shapeData) {
+        if (shapeData.viewBox.height === 0) {
+          console.warn('Invalid shape viewBox height');
+          ratio = aspectRatioToNumber(recipe.aspectRatio);
+        } else {
+          ratio = shapeData.viewBox.width / shapeData.viewBox.height;
+        }
+      } else {
+        ratio = aspectRatioToNumber(recipe.aspectRatio);
+      }
       const height = Math.max(1, Math.round(width / ratio));
       const canvas = document.createElement("canvas");
       const watermark = mode !== "hd";
@@ -432,15 +518,23 @@ function HomeInner() {
 
   useEffect(() => {
     if (!autoExportPending || !canvasReady || !paid) return;
+
+    let mounted = true;
     const id = requestAnimationFrame(() => {
       exportImage("hd")
         .catch(() => {})
         .finally(() => {
-          localStorage.removeItem(AUTO_EXPORT_KEY);
-          setAutoExportPending(false);
+          if (mounted) {
+            localStorage.removeItem(AUTO_EXPORT_KEY);
+            setAutoExportPending(false);
+          }
         });
     });
-    return () => cancelAnimationFrame(id);
+
+    return () => {
+      mounted = false;
+      cancelAnimationFrame(id);
+    };
   }, [autoExportPending, canvasReady, exportImage, paid]);
 
   const handleExport = useCallback(
@@ -527,9 +621,17 @@ function HomeInner() {
     });
     const width = 1200;
     const shapeData = await getShapeData(recipe.shape).catch(() => null);
-    const ratio = shapeData
-      ? shapeData.viewBox.width / shapeData.viewBox.height
-      : aspectRatioToNumber(recipe.aspectRatio);
+    let ratio: number;
+    if (shapeData) {
+      if (shapeData.viewBox.height === 0) {
+        console.warn('Invalid shape viewBox height');
+        ratio = aspectRatioToNumber(recipe.aspectRatio);
+      } else {
+        ratio = shapeData.viewBox.width / shapeData.viewBox.height;
+      }
+    } else {
+      ratio = aspectRatioToNumber(recipe.aspectRatio);
+    }
     const height = Math.max(1, Math.round(width / ratio));
     const canvas = document.createElement("canvas");
     await renderStarMap({
@@ -566,8 +668,8 @@ function HomeInner() {
   }, [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]);
 
   return (
-    <main className="flex flex-col items-center px-4 py-4 md:py-8 lg:py-0">
-      <section className="mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-16">
+    <main className="flex flex-col items-center px-6 md:px-8 lg:px-12 py-4 md:py-8 lg:py-0">
+      <section className="mx-auto w-full max-w-7xl min-h-screen flex items-center py-12 sm:py-14 lg:py-16">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_minmax(340px,1fr)]">
               <div className="space-y-5">
                 <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[42px]">
@@ -581,7 +683,7 @@ function HomeInner() {
                   <button
                     type="button"
                     onClick={() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 sm:w-auto"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_8px_30px_rgba(251,191,36,0.5)] focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 active:scale-95 sm:w-auto"
                   >
                     Start with a preset
                   </button>
@@ -604,9 +706,9 @@ function HomeInner() {
               ))}
             </div>
           </div>
-          <div className="relative">
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-[0_25px_60px_rgba(0,0,0,0.35)]">
-              <div className="relative aspect-[1/1] bg-gradient-to-b from-[#0b0f24] via-[#0a0d1c] to-[#05070f]">
+          <div className="relative" style={{ animation: 'float 6s ease-in-out infinite' }}>
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-[0_25px_60px_rgba(0,0,0,0.35)] transition-shadow duration-300 hover:shadow-[0_30px_70px_rgba(241,194,125,0.2)]">
+              <div className="relative aspect-[2/1] bg-gradient-to-b from-[#0b0f24] via-[#0a0d1c] to-[#05070f]">
                 <Image
                     src="/custom-star-map-anniversary.webp"
                     alt="Example star map output"
@@ -629,7 +731,7 @@ function HomeInner() {
               Real outputs from our presets and render modes—so you know exactly what you can create in seconds.
             </p>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-5 lg:grid-cols-3">
             {[
               {
                 imageSrc: "/examples/example-birth-classic.webp",
@@ -769,340 +871,165 @@ function HomeInner() {
 
       <section ref={editorRef} id="editor" className="mx-auto w-full max-w-7xl lg:max-w-none py-12 sm:py-14 lg:py-12">
         <div className="space-y-6 lg:h-full">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">Create your star map</p>
-              <h2 className="text-3xl font-semibold text-white sm:text-4xl">Design your sky in seconds</h2>
-              <p className="text-base text-neutral-200 sm:text-lg">
-                Start from a preset, fine-tune the details, and see a finished map before you unlock.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-neutral-100 shadow-sm shadow-black/30">
-              <p className="font-semibold text-white">Matches professional planetarium accuracy (Yale catalogs + skyfield).</p>
-              <Link href="#accuracy" className="mt-2 inline-flex text-sm font-semibold text-amber-300 hover:underline">
-                Learn how accuracy works →
-              </Link>
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-[2fr_3fr] lg:items-start lg:gap-8">
-            <section
-              ref={previewRef}
-              id="preview"
-              className="col-span-6 flex flex-col gap-3 rounded-3xl border border-white/10 bg-[#0b0f24]/90 p-4 shadow-2xl shadow-black/30 backdrop-blur lg:col-span-1 lg:sticky lg:top-6 lg:h-[calc(100vh-72px)] lg:max-h-[calc(100vh-72px)] lg:w-full lg:self-start"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="text-2xl font-semibold text-white sm:text-3xl">StarMapCo Night Sky</h3>
-                  <p className="text-xs text-neutral-300 sm:text-sm">
-                    {revealed
-                      ? "Your sky is revealed. Tap edit to refine."
-                      : "Hidden until you reveal. Perfect your inputs first."}
-                  </p>
-                </div>
-                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm text-center">
-                  {styles.find((s) => s.id === selectedStyle)?.name ?? "Style"}
-                </div>
+          <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 lg:items-end">
+            <div ref={inputsRef} className="w-full space-y-2">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">Create your star map</p>
+                <h2 className="text-3xl font-semibold text-white sm:text-4xl">Design your sky in seconds</h2>
+                <p className="text-base text-neutral-200 sm:text-lg">
+                  Start from a preset, fine-tune the details, and see a finished map before you unlock.
+                </p>
               </div>
-              <div
-                className="relative overflow-hidden rounded-2xl border border-white/15 bg-black/40 p-2 shadow-inner shadow-black/30"
-                style={
-                  revealed
-                    ? undefined
-                    : {
-                        backgroundColor: "#0b0f3b",
-                        backgroundImage:
-                          "url('/ribbon-overlay.png'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
-                        backgroundRepeat: "no-repeat, no-repeat",
-                        backgroundSize: "100% auto, cover",
-                        backgroundPosition: "center 26px, center",
-                      }
-                }
-              >
-                <div
-                  className={`relative flex flex-col rounded-xl ${
-                    revealed ? "" : "bg-transparent"
-                  } transition-opacity duration-200 ${isUpdating ? "opacity-80" : "opacity-100"}`}
-                  style={{ minHeight: revealed ? "auto" : "50vh" }}
-                >
-                  {!revealed && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-end gap-4 pb-10 text-center text-sm text-amber-50">
-                      <div className="pointer-events-none absolute inset-0 opacity-35">
-                        <div className="absolute inset-10 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-200/5 to-transparent blur-3xl" />
-                      </div>
-                      <div className="relative z-10 flex flex-col items-center gap-2 px-6">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-100">
-                          Live preview waiting
-                        </div>
-                        <p className="text-base font-semibold text-amber-50">Your sky is wrapped and waiting.</p>
-                        <p className="text-xs text-amber-200/80">
-                          Enter a place and date to unveil the exact night sky for your moment.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleReveal}
-                        className={`relative z-10 inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] ${
-                          canReveal && hasDate
-                            ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
-                            : "cursor-pointer bg-neutral-400/60 text-neutral-700 shadow-none"
-                        }`}
-                        aria-disabled={!canReveal || !hasDate}
-                      >
-                        ✨ Find your special moment
-                      </button>
-                      {(!canReveal || !hasDate) && (
-                        <p className="relative z-10 text-xs text-amber-200/80">
-                          Add a location and date to unlock your reveal.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {revealed && (
-                    <>
-                      <PreviewCanvas
-                        onRendered={() => {
-                          setCanvasReady(true);
-                          setIsUpdating(false);
-                        }}
-                      />
-                      {(isUpdating || !canvasReady) && (
-                        <div className="absolute inset-0 z-10 rounded-xl bg-gradient-to-b from-white/5 to-white/0 transition-opacity duration-300">
-                          <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
-                            Rendering…
-                          </div>
-                          <div className="absolute inset-0 animate-pulse bg-[linear-gradient(110deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.06)_25%,rgba(255,255,255,0)_50%)] bg-[length:200%_100%]" />
-                        </div>
-                      )}
-                      <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
-                        {isUpdating ? "Rendering…" : "Updated ✓"}
-                      </div>
-                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/5" />
-                      <div className="mt-4 flex flex-wrap items-center justify-start gap-2 sm:justify-start">
-                        <button
-                          type="button"
-                          onClick={() => handleExport("preview")}
-                          className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                        >
-                          Free ⬇️
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleExport("hd")}
-                          className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                          title="Unlock to export HD without watermark; preview stays free."
-                        >
-                          {!paid && "🔒 "}HD ⬇️
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleShareImage}
-                          className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                        >
-                          🔗 Share
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleShare}
-                          className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                        >
-                          💾 Save & Remix
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsFullscreen(true)}
-                        className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg text-white shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                        aria-label="Open fullscreen"
-                      >
-                        ⤢
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleEditScroll}
-                        className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                      >
-                        ← Edit
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </section>
+              <div className="rounded-2xl border border-white/10 bg-[rgba(10,14,30,0.82)] p-3 shadow-lg backdrop-blur-sm ring-1 ring-white/5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {occasionPresets.map((preset) => {
+                      const occasionStyles = {
+                        wedding: "border-pink-300/40 bg-gradient-to-br from-pink-100/15 to-rose-100/15 text-pink-100 hover:border-pink-300/60 hover:bg-pink-100/20",
+                        anniversary: "border-amber-300/40 bg-gradient-to-br from-amber-100/15 to-orange-100/15 text-amber-100 hover:border-amber-300/60 hover:bg-amber-100/20",
+                        birthday: "border-cyan-300/40 bg-gradient-to-br from-cyan-100/15 to-blue-100/15 text-cyan-100 hover:border-cyan-300/60 hover:bg-cyan-100/20",
+                        birth: "border-green-300/40 bg-gradient-to-br from-green-100/15 to-emerald-100/15 text-green-100 hover:border-green-300/60 hover:bg-green-100/20",
+                        memorial: "border-purple-300/40 bg-gradient-to-br from-purple-100/15 to-violet-100/15 text-purple-100 hover:border-purple-300/60 hover:bg-purple-100/20",
+                        graduation: "border-yellow-300/40 bg-gradient-to-br from-yellow-100/15 to-amber-100/15 text-yellow-100 hover:border-yellow-300/60 hover:bg-yellow-100/20"
+                      };
 
-            <div
-              ref={inputsRef}
-              className="col-span-6 w-full lg:col-span-1 lg:h-[calc(100vh-72px)] lg:overflow-hidden"
-            >
-              <div className="flex h-full flex-col gap-4 lg:pr-2">
-                <div className="rounded-3xl border border-white/10 bg-[rgba(10,14,30,0.82)] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.25)] backdrop-blur-sm ring-1 ring-white/5 sm:p-6">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-amber-300">Occasion presets</p>
-                      <p className="text-sm text-neutral-200">Tap to instantly apply a finished look.</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {occasionPresets.map((preset) => (
+                      const occasionEmojis = {
+                        wedding: "💍",
+                        anniversary: "❤️",
+                        birthday: "🎉",
+                        birth: "👶",
+                        memorial: "🕊️",
+                        graduation: "🎓"
+                      };
+
+                      return (
                         <button
                           key={preset.id}
                           type="button"
                           onClick={() => applyPreset(preset.id)}
-                          className="w-full rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow sm:w-auto"
+                          className={`rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-95 ${occasionStyles[preset.id as keyof typeof occasionStyles]}`}
                         >
-                          {preset.label}
+                          {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { id: "classic", label: "Classic", premium: false },
-                        { id: "cinematic", label: "Cinematic", premium: true },
-                        { id: "blueprint", label: "Blueprint", premium: false },
-                        { id: "luxe", label: "Luxe", premium: true },
-                      ].map((mode) => (
-                        <button
-                          key={mode.id}
-                          type="button"
-                          onClick={() => {
-                            if (!paid && mode.premium) setPaywallOpen(true);
-                            const targetLevel =
-                              mode.id === "cinematic"
-                                ? Math.max(intensityDraft, 60)
-                                : mode.id === "luxe"
-                                  ? Math.max(intensityDraft, 55)
-                                  : intensityDraft;
-                            setRenderMode(mode.id as RenderModeId);
-                            setIntensity(targetLevel);
-                            setIntensityDraft(targetLevel);
-                          }}
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
-                            renderMode === mode.id ? "border-amber-400 bg-amber-200 text-midnight" : "border-white/20 bg-white/10 text-white"
-                          }`}
-                          title={
-                            mode.premium && !paid
-                              ? "Unlock to export in Cinematic/Luxe. Preview stays free."
-                              : mode.label
-                          }
-                        >
-                          {mode.premium && "🔒"} {mode.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="min-w-[260px] flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-inner shadow-black/30">
-                      <label className="flex items-center justify-between text-sm font-semibold text-white">
-                        <span>Visual Intensity</span>
-                        <span className="text-xs text-neutral-300">Clean → Cinematic</span>
-                      </label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={intensityDraft}
-                        onChange={(e) => {
-                          let next = Number(e.target.value);
-                          if (!paid && next > 60) {
-                            next = 60;
-                            setPaywallOpen(true);
-                          }
-                          setIntensityDraft(next);
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { id: "classic", label: "Classic", premium: false },
+                      { id: "cinematic", label: "Cinematic", premium: true },
+                      { id: "blueprint", label: "Blueprint", premium: false },
+                      { id: "luxe", label: "Luxe", premium: true },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => {
+                          if (!paid && mode.premium) setPaywallOpen(true);
+                          const targetLevel =
+                            mode.id === "cinematic"
+                              ? Math.max(intensityDisplay, 60)
+                              : mode.id === "luxe"
+                                ? Math.max(intensityDisplay, 55)
+                                : intensityDisplay;
+                          setRenderMode(mode.id as RenderModeId);
+                          setIntensity(targetLevel);
+                          setIntensityDisplay(targetLevel);
                         }}
-                        className="mt-2 w-full accent-amber-400"
-                      />
-                      {!paid && (
-                        <p className="mt-1 text-xs text-neutral-300">
-                          Cinematic/Luxe and higher intensity require unlock for export. Preview stays free to explore; only downloads are gated.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-100 shadow-inner shadow-black/30">
-                    Real-time generation: change date/location and watch the sky update instantly with accurate stars.
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
+                          renderMode === mode.id ? "border-amber-400 bg-amber-200 text-midnight" : "border-white/20 bg-white/10 text-white"
+                        }`}
+                        title={
+                          mode.premium && !paid
+                            ? "Unlock to export in Cinematic/Luxe. Preview stays free."
+                            : mode.label
+                        }
+                      >
+                        {mode.premium && "🔒"} {mode.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="flex h-full flex-col gap-4 lg:overflow-hidden">
-                  <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-                    <section className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm shadow-black/30">
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-amber-300">Start here</p>
-                        <h3 className="text-xl font-semibold text-white">Date, place, and basics</h3>
-                        <p className="text-sm text-neutral-200">Tell us when and where—plus your main title lines.</p>
+                <div className="mt-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 shadow-inner shadow-black/30">
+                  <label className="flex items-center justify-between text-xs font-semibold text-white">
+                    <span>Intensity</span>
+                    <span className="text-[10px] text-neutral-300">{intensityDisplay}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={intensityDisplay}
+                    onChange={(e) => {
+                      let next = Number(e.target.value);
+                      if (!paid && next > 60) {
+                        next = 60;
+                        setPaywallOpen(true);
+                      }
+                      setIntensityDisplay(next);
+                    }}
+                    className="mt-1 w-full accent-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-sm shadow-black/30">
+                      <div className="mb-1.5">
+                        <h3 className="text-xs font-semibold text-white">Date & Location</h3>
                       </div>
-                      <div className="mt-3 space-y-3">
+                      <div className="space-y-2">
                         <DateTimeControls dateTime={dateTime} onChange={setDateTime} />
                         <LocationSearch />
-                        <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-white">Title & subtitle</p>
-                            <span className="text-[11px] uppercase tracking-wide text-neutral-400">Fits above the fold</span>
-                          </div>
-                          {textBoxes.slice(0, 2).map((box) => (
-                            <div key={box.id} className="space-y-1.5">
-                              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-300">{box.label}</label>
-                              <input
-                                type="text"
-                                value={box.text}
-                                onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                                className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                              />
-                            </div>
-                          ))}
-                        </div>
                       </div>
                     </section>
 
-                    <section className="rounded-2xl border border-white/10 bg-white/5 shadow-sm shadow-black/30">
-                      <button
-                        type="button"
-                        onClick={() => setCollapsedCards((prev) => ({ ...prev, __all__: !prev.__all__ }))}
-                        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-white"
-                      >
-                        Custom text & fonts (advanced)
-                        <span>{collapsedCards.__all__ ? "▾" : "▴"}</span>
-                      </button>
-                      {!collapsedCards.__all__ && (
-                        <div className="divide-y divide-white/10">
+                    <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-sm shadow-black/30">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="text-amber-300">✎</span>
+                        <h3 className="text-xs font-semibold text-white">Your Message</h3>
+                      </div>
+                      <div className="divide-y divide-white/10">
                           {textBoxes.map((box) => (
-                            <div key={box.id} className="space-y-2 p-3 sm:p-4">
-                              <div className="flex items-center justify-between text-sm">
-                                <div className="flex items-center gap-2">
+                            <div key={box.id} className="space-y-3 p-3 sm:p-4">
+                              <div className="flex items-start justify-between gap-3 text-sm">
+                                <div className="flex items-center gap-2 pt-0.5">
                                   <button
                                     type="button"
                                     onClick={() => toggleCard(box.id)}
-                                    className="h-7 w-7 rounded-full border border-white/20 bg-white/10 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+                                    className="h-8 w-8 flex-shrink-0 rounded-full border border-white/20 bg-white/10 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow"
                                     aria-pressed={!!collapsedCards[box.id]}
                                     aria-label={`Toggle ${box.label}`}
                                   >
                                     {collapsedCards[box.id] ? "▾" : "▴"}
                                   </button>
-                                  <span className="font-medium text-white">{box.label}</span>
+                                  <span className="font-medium leading-8 text-white">{box.label}</span>
                                 </div>
-                                <div className="ml-auto flex items-center justify-end gap-2">
+                                <div className="flex items-center gap-2">
                                   <select
                                     value={box.fontFamily}
-                                    onChange={(e) =>
-                                      paid && updateTextBox(box.id, { fontFamily: e.target.value as TextBox["fontFamily"] })
-                                    }
-                                    disabled={!paid}
-                                    className={`w-20 truncate rounded-md border px-2 py-2 text-sm shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 sm:w-24 ${
-                                      paid
-                                        ? "border-white/20 bg-white/10 text-white"
-                                        : "cursor-not-allowed border-white/10 bg-white/5 text-neutral-400"
-                                    }`}
+                                    onChange={(e) => {
+                                      const selectedFont = fontOptions.find(f => f.id === e.target.value);
+                                      if (selectedFont?.premium && !paid) {
+                                        setPaywallOpen(true);
+                                        return;
+                                      }
+                                      updateTextBox(box.id, { fontFamily: e.target.value as TextBox["fontFamily"] });
+                                    }}
+                                    className="h-8 w-28 flex-shrink-0 truncate rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 sm:w-32"
                                   >
                                     {fontOptions.map((opt) => (
-                                      <option key={opt.id} value={opt.id}>
-                                        {opt.label}
+                                      <option key={opt.id} value={opt.id} disabled={opt.premium && !paid}>
+                                        {opt.premium && !paid ? `🔒 ${opt.label}` : opt.label}
                                       </option>
                                     ))}
                                   </select>
                                   <button
                                     type="button"
                                     onClick={() => removeTextBox(box.id)}
-                                    className="h-7 w-7 rounded-full border border-rose-200 bg-rose-50 text-base font-semibold leading-none text-rose-600 transition hover:-translate-y-[1px] hover:shadow"
+                                    className="h-8 w-8 flex-shrink-0 rounded-full border border-rose-200 bg-rose-50 text-base font-semibold leading-none text-rose-600 transition hover:-translate-y-[1px] hover:shadow"
                                     aria-label={`Remove ${box.label}`}
                                   >
                                     –
@@ -1115,74 +1042,77 @@ function HomeInner() {
                                     type="text"
                                     value={box.text}
                                     onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                                    className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                    className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                                   />
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <input
-                                      type="color"
-                                      aria-label={`${box.label} color`}
-                                      value={box.color}
-                                      onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                                      className="h-10 w-14 cursor-pointer rounded-md border border-white/15 bg-white/10"
-                                    />
-                                    <input
-                                      type="number"
-                                      min={10}
-                                      max={48}
-                                      value={box.size}
-                                      onChange={(e) =>
-                                        updateTextBox(box.id, { size: Number.parseInt(e.target.value, 10) || box.size })
-                                      }
-                                      className="w-24 rounded-md border border-white/15 bg-white/10 px-2 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                    />
-                                    <select
-                                      value={box.align}
-                                      onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
-                                      className="flex-1 rounded-md border border-white/15 bg-white/10 px-2 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                    >
-                                      <option value="left">Left</option>
-                                      <option value="center">Center</option>
-                                      <option value="right">Right</option>
-                                    </select>
-                                    <button
-                                      type="button"
-                                      onClick={() => paid && updateTextBox(box.id, { textShadow: !box.textShadow })}
-                                      disabled={!paid}
-                                      className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/20 transition ${
-                                        paid
-                                          ? box.textShadow
-                                            ? "border-amber-300 bg-amber-100/80 text-midnight shadow-amber-200/60 hover:-translate-y-[1px] hover:shadow-md"
-                                            : "border-white/15 bg-white/10 text-white hover:-translate-y-[1px] hover:shadow"
-                                          : "cursor-not-allowed border-white/10 bg-white/5 text-neutral-400"
-                                      }`}
-                                      aria-pressed={!!box.textShadow}
-                                      aria-label={`Toggle text shadow for ${box.label}`}
-                                    >
-                                      Shadow
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => paid && updateTextBox(box.id, { textGlow: !box.textGlow })}
-                                      disabled={!paid}
-                                      className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/20 transition ${
-                                        paid
-                                          ? box.textGlow
-                                            ? "border-amber-300 bg-amber-50 text-midnight shadow-amber-200/80 hover:-translate-y-[1px] hover:shadow-md"
-                                            : "border-white/15 bg-white/10 text-white hover:-translate-y-[1px] hover:shadow"
-                                          : "cursor-not-allowed border-white/10 bg-white/5 text-neutral-400"
-                                      }`}
-                                      aria-pressed={!!box.textGlow}
-                                      aria-label={`Toggle text glow for ${box.label}`}
-                                    >
-                                      Glow
-                                    </button>
+                                  <div className="space-y-2.5">
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        aria-label={`${box.label} color`}
+                                        value={box.color}
+                                        onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
+                                        className="h-10 w-12 flex-shrink-0 cursor-pointer rounded-md border border-white/15 bg-white/10"
+                                      />
+                                      <input
+                                        type="number"
+                                        min={10}
+                                        max={48}
+                                        value={box.size}
+                                        onChange={(e) =>
+                                          updateTextBox(box.id, { size: Number.parseInt(e.target.value, 10) || box.size })
+                                        }
+                                        className="h-10 w-16 flex-shrink-0 rounded-md border border-white/15 bg-white/10 px-2 py-2 text-center text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                      />
+                                      <select
+                                        value={box.align}
+                                        onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
+                                        className="h-10 flex-1 rounded-md border border-white/15 bg-white/10 px-2 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                      >
+                                        <option value="left">Left</option>
+                                        <option value="center">Center</option>
+                                        <option value="right">Right</option>
+                                      </select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => paid && updateTextBox(box.id, { textShadow: !box.textShadow })}
+                                        disabled={!paid}
+                                        className={`flex h-10 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/20 transition ${
+                                          paid
+                                            ? box.textShadow
+                                              ? "border-amber-300 bg-amber-100/80 text-midnight shadow-amber-200/60 hover:-translate-y-[1px] hover:shadow-md"
+                                              : "border-white/15 bg-white/10 text-white hover:-translate-y-[1px] hover:shadow"
+                                            : "cursor-not-allowed border-white/10 bg-white/5 text-neutral-400"
+                                        }`}
+                                        aria-pressed={!!box.textShadow}
+                                        aria-label={`Toggle text shadow for ${box.label}`}
+                                      >
+                                        Shadow
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => paid && updateTextBox(box.id, { textGlow: !box.textGlow })}
+                                        disabled={!paid}
+                                        className={`flex h-10 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/20 transition ${
+                                          paid
+                                            ? box.textGlow
+                                              ? "border-amber-300 bg-amber-50 text-midnight shadow-amber-200/80 hover:-translate-y-[1px] hover:shadow-md"
+                                              : "border-white/15 bg-white/10 text-white hover:-translate-y-[1px] hover:shadow"
+                                            : "cursor-not-allowed border-white/10 bg-white/5 text-neutral-400"
+                                        }`}
+                                        aria-pressed={!!box.textGlow}
+                                        aria-label={`Toggle text glow for ${box.label}`}
+                                      >
+                                        Glow
+                                      </button>
+                                    </div>
                                   </div>
                                 </>
                               )}
                             </div>
                           ))}
                         </div>
-                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -1195,43 +1125,51 @@ function HomeInner() {
                         Add text line
                       </button>
                     </section>
+                  </div>
 
-                    <section className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/20">
+                  <div className="space-y-2">
+                    <section className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
+                      <h3 className="text-xs font-semibold text-white">Style & Shape</h3>
                       <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Style</p>
-                        <h3 className="text-xl font-semibold text-white">Finish & framing</h3>
-                        <p className="text-sm text-neutral-200">Choose the look, shape, and constellation detail.</p>
-                      </div>
-                      <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between">
                             <label className="text-sm font-medium text-white">Style presets</label>
                             <span className="text-xs uppercase tracking-wide text-neutral-300">4 of 10 presets</span>
                           </div>
-                          <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                            {styles.map((style) => (
-                              <button
-                                key={style.id}
-                                type="button"
-                                onClick={() => setStyle(style.id)}
-                                className={`flex h-full flex-col justify-center rounded-xl border px-4 py-3 text-left text-sm shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${
-                                  selectedStyle === style.id
-                                    ? "border-amber-300 bg-amber-50/80 text-midnight"
-                                    : "border-white/15 bg-white/10 text-white"
-                                }`}
-                              >
-                                <div className="text-sm font-semibold">{style.name}</div>
-                              </button>
-                            ))}
+                          <div className="mt-2 grid grid-cols-2 gap-1.5">
+                            {styles.map((style) => {
+                              const styleClasses = {
+                                navyGold: selectedStyle === style.id
+                                  ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300 shadow-amber-500/20"
+                                  : "border-amber-500/30 bg-gradient-to-br from-[#0d1b2a]/80 to-[#1b2838]/80 text-amber-200/80 hover:border-amber-400/50",
+                                vintageEngraving: selectedStyle === style.id
+                                  ? "border-amber-300 bg-gradient-to-br from-[#2d2d2d] to-[#1a1a1a] text-amber-100 shadow-amber-500/20"
+                                  : "border-neutral-400/30 bg-gradient-to-br from-[#2d2d2d]/80 to-[#1a1a1a]/80 text-neutral-200/80 hover:border-neutral-300/50",
+                                parchmentScroll: selectedStyle === style.id
+                                  ? "border-amber-400 bg-gradient-to-br from-[#f5f0e6] to-[#e8dcc8] text-amber-900 shadow-amber-500/20"
+                                  : "border-amber-500/30 bg-gradient-to-br from-[#f5f0e6]/90 to-[#e8dcc8]/90 text-amber-800/80 hover:border-amber-400/50",
+                                midnightMinimal: selectedStyle === style.id
+                                  ? "border-blue-400 bg-gradient-to-br from-[#0a0a0a] to-[#1a1a2e] text-blue-300 shadow-blue-500/20"
+                                  : "border-blue-500/30 bg-gradient-to-br from-[#0a0a0a]/80 to-[#1a1a2e]/80 text-blue-200/80 hover:border-blue-400/50"
+                              };
+
+                              return (
+                                <button
+                                  key={style.id}
+                                  type="button"
+                                  onClick={() => setStyle(style.id)}
+                                  className={`flex h-full flex-col justify-center rounded-lg border px-2 py-1.5 text-left text-xs shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${styleClasses[style.id as keyof typeof styleClasses]}`}
+                                >
+                                  <div className="text-xs font-semibold">{style.name}</div>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 
-                        <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-inner shadow-black/20">
+                        <div className="space-y-1.5 rounded-lg border border-white/10 bg-white/5 p-2 shadow-inner shadow-black/20">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-white">Shape</p>
-                              <p className="text-xs text-neutral-300">Pick a frame shape for your star map.</p>
-                            </div>
+                            <p className="text-xs font-semibold text-white">Shape</p>
                             {!paid && (
                               <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
                                 Paid
@@ -1288,19 +1226,16 @@ function HomeInner() {
                           )}
                         </div>
 
-                        <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-inner shadow-black/20">
+                        <div className="space-y-1.5 rounded-lg border border-white/10 bg-white/5 p-2 shadow-inner shadow-black/20">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-white">Visual mode</p>
-                              <p className="text-xs text-neutral-300">Paid unlock · choose the finish</p>
-                            </div>
+                            <p className="text-xs font-semibold text-white">Visual mode</p>
                             {!paid && (
                               <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
                                 Paid
                               </span>
                             )}
                           </div>
-                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                             {visualModes.map((mode) => {
                               const active = renderOptions.visualMode === mode.id;
                               const locked = !paid && mode.id !== "enhanced";
@@ -1314,7 +1249,7 @@ function HomeInner() {
                                     setRenderOptions({ visualMode: mode.id });
                                     track("visual_mode_changed", { visualMode: mode.id, isPaid: paid });
                                   }}
-                                  className={`flex h-full flex-col justify-center rounded-xl border px-4 py-3 text-left text-sm shadow-sm transition ${
+                                  className={`flex h-full flex-col justify-center rounded-xl border px-3 py-2 md:px-4 md:py-3 text-left text-xs md:text-sm shadow-sm transition ${
                                     active ? "border-amber-300 bg-amber-50 text-midnight" : "border-white/15 bg-white/10 text-white"
                                   } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
                                 >
@@ -1325,12 +1260,9 @@ function HomeInner() {
                           </div>
                         </div>
 
-                        <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-inner shadow-black/20">
+                        <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-white">Constellations</p>
-                              <p className="text-xs text-neutral-300">Lines and labels for your map.</p>
-                            </div>
+                            <p className="text-xs font-semibold text-white">Constellations</p>
                           </div>
                           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                             {constellationPresets.map((preset) => {
@@ -1398,95 +1330,210 @@ function HomeInner() {
                           </div>
                         </div>
 
-                        {!paid && (
-                          <div className="rounded-3xl border border-amber-200/70 bg-gradient-to-br from-[rgba(247,241,227,0.95)] via-[rgba(237,221,195,0.95)] to-[rgba(230,208,176,0.9)] p-6 text-neutral-900 shadow-[0_18px_45px_rgba(0,0,0,0.22)]">
-                            <div className="text-base font-semibold text-midnight">Instant unlock</div>
-                            <ul className="mt-2 space-y-1.5 text-left text-sm leading-relaxed text-neutral-800 list-disc pl-5">
-                              <li>Print-ready 6000×6000 poster file</li>
-                              <li>Illustrated & astronomical visual modes</li>
-                              <li>Bold constellations, glow, labels</li>
-                              <li>Customizable fonts</li>
-                              <li>No watermark</li>
-                            </ul>
-                            <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
-                              One-time purchase · No subscription
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setPaywallOpen(true)}
-                              className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2.5 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                            >
-                              🔓 Unlock premium styles →
-                            </button>
-                            <div className="mt-2 text-center text-[11px] font-semibold text-neutral-700">$9.99 · One-time purchase</div>
-                          </div>
-                        )}
-                      </div>
-                    </section>
-                  </div>
-
-                  <section className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm shadow-black/30">
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-amber-300">Actions</p>
-                      <h3 className="text-lg font-semibold text-white">Finish & share</h3>
-                      <p className="text-sm text-neutral-200">Reveal, export, or share your star map.</p>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {!revealed && (
-                        <button
-                          type="button"
-                          onClick={handleReveal}
-                          className={`inline-flex flex-1 min-w-[200px] items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-white ${
-                            canReveal && hasDate
-                              ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
-                              : "cursor-pointer bg-neutral-200 text-neutral-600 shadow-none"
-                          }`}
-                          aria-disabled={!canReveal || !hasDate}
-                        >
-                          ✨ Reveal my sky
-                        </button>
-                      )}
-                      {revealed && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleExport("preview")}
-                            className="inline-flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                          >
-                            Free preview ⬇️
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleExport("hd")}
-                            className="inline-flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                          >
-                            {!paid && "🔒 "}HD export
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleShareImage}
-                            className="inline-flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                          >
-                            🔗 Share image
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleShare}
-                            className="inline-flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                          >
-                            💾 Save & remix
-                          </button>
-                        </>
-                      )}
-                    </div>
-                    {!revealed && (!canReveal || !hasDate) && (
-                      <p className="mt-2 text-xs text-neutral-400">
-                        Add a location and date to unlock your reveal.
-                      </p>
-                    )}
                   </section>
                 </div>
               </div>
+            </div>
+
+            <div ref={previewRef} id="preview" className="flex w-full flex-col gap-3 pb-4 lg:pb-0">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-neutral-100 shadow-sm shadow-black/30">
+                <p className="font-semibold text-white">Matches professional planetarium accuracy (Yale catalogs + skyfield).</p>
+                <Link href="#accuracy" className="mt-2 inline-flex text-sm font-semibold text-amber-300 hover:underline">
+                  Learn how accuracy works →
+                </Link>
+              </div>
+              <section className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[#0b0f24]/90 p-3 shadow-xl shadow-black/30 backdrop-blur">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Preview</h3>
+                  <div className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                    {styles.find((s) => s.id === selectedStyle)?.name ?? "Style"}
+                  </div>
+                </div>
+                <div
+                  className="relative mx-auto overflow-hidden"
+                  style={{
+                    width: "100%",
+                    maxWidth: "600px",
+                    aspectRatio: "1/1",
+                    ...(revealed
+                      ? {}
+                      : {
+                          backgroundColor: "#0b0f3b",
+                          backgroundImage:
+                            "url('/ribbon-overlay.png'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
+                          backgroundRepeat: "no-repeat, no-repeat",
+                          backgroundSize: "100% auto, cover",
+                          backgroundPosition: "center 26px, center",
+                        }),
+                  }}
+                >
+                  <div
+                    className={`relative flex flex-col rounded-xl ${
+                      revealed ? "" : "bg-transparent"
+                    } transition-opacity duration-200 ${isUpdating ? "opacity-80" : "opacity-100"}`}
+                    style={{ height: "100%" }}
+                  >
+                    {!revealed && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-end gap-4 pb-10 text-center text-sm text-amber-50">
+                        <div className="pointer-events-none absolute inset-0 opacity-35">
+                          <div className="absolute inset-10 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-200/5 to-transparent blur-3xl" />
+                        </div>
+                        <div className="relative z-10 flex flex-col items-center gap-2 px-6">
+                          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-100">
+                            Live preview waiting
+                          </div>
+                          <p className="text-base font-semibold text-amber-50">Your sky is wrapped and waiting.</p>
+                          <p className="text-xs text-amber-200/80">
+                            Enter a place and date to unveil the exact night sky for your moment.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleReveal}
+                          className={`relative z-10 inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] ${
+                            canReveal && hasDate
+                              ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
+                              : "cursor-pointer bg-neutral-400/60 text-neutral-700 shadow-none"
+                          }`}
+                          aria-disabled={!canReveal || !hasDate}
+                        >
+                          ✨ Find your special moment
+                        </button>
+                        {(!canReveal || !hasDate) && (
+                          <p className="relative z-10 text-xs text-amber-200/80">
+                            Add a location and date to unlock your reveal.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {revealed && (
+                      <>
+                        <PreviewCanvas
+                          onRendered={() => {
+                            setCanvasReady(true);
+                            setIsUpdating(false);
+                          }}
+                        />
+                        {(isUpdating || !canvasReady) && (
+                          <div className="absolute inset-0 z-10 rounded-xl bg-gradient-to-b from-white/5 to-white/0 transition-opacity duration-300">
+                            <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
+                              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                              Rendering sky…
+                            </div>
+                            <div className="pointer-events-none absolute inset-0 animate-pulse bg-[linear-gradient(110deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0)_100%)] bg-[length:200%_100%] opacity-60" style={{ animationDuration: '1.5s' }} />
+                          </div>
+                        )}
+                        <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
+                          {isUpdating ? "Rendering…" : "Updated ✓"}
+                        </div>
+                        <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/5" />
+                        <button
+                          type="button"
+                          onClick={() => setIsFullscreen(true)}
+                          className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg text-white shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                          aria-label="Open fullscreen"
+                        >
+                          ⤢
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleEditScroll}
+                          className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                        >
+                          ← Edit
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {revealed && (
+                  <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-start">
+                    <button
+                      type="button"
+                      onClick={() => handleExport("preview")}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    >
+                      Free ⬇️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport("hd")}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                      title="Unlock to export HD without watermark; preview stays free."
+                    >
+                      {!paid && "🔒 "}HD ⬇️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShareImage}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    >
+                      🔗 Share
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    >
+                      💾 Save & Remix
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              {!paid && revealed && (
+                <section className="rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/95 to-amber-100/95 p-3 shadow-xl backdrop-blur">
+                  <div className="flex h-full flex-col justify-between space-y-2.5">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-base font-bold text-midnight">Unlock HD Export</h3>
+                        {pricing.promoActive && pricing.promoAmountCents != null ? (
+                          <span className="rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-md">
+                            <span className="line-through opacity-80">{basePriceLabel}</span>{" "}
+                            {activePriceLabel}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-md">
+                            {activePriceLabel}
+                          </span>
+                        )}
+                      </div>
+                      <ul className="space-y-1 text-xs text-neutral-700">
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-amber-600">✓</span>
+                          <span>6000px HD resolution</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-amber-600">✓</span>
+                          <span>No watermark</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-amber-600">✓</span>
+                          <span>Instant download</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-amber-600">✓</span>
+                          <span>One-time payment</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingExport("hd");
+                        setPaywallOpen(true);
+                        setCheckoutError(null);
+                        track("paywall_opened", { visualMode: renderOptions.visualMode, source: "unlock_card" });
+                      }}
+                      className="w-full rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
+                    >
+                      Unlock Now
+                    </button>
+                  </div>
+                </section>
+              )}
             </div>
           </div>
         </div>
@@ -1499,7 +1546,18 @@ function HomeInner() {
               <li>• 6000px high resolution (poster quality)</li>
               <li>• No watermark</li>
               <li>• Instant digital download</li>
-              <li>• One-time payment — $9.99 USD</li>
+              <li>
+                • One-time payment —{" "}
+                {pricing.promoActive && pricing.promoAmountCents != null ? (
+                  <span>
+                    <span className="line-through opacity-70">{basePriceLabel}</span>{" "}
+                    <span className="font-semibold text-amber-800">{activePriceLabel}</span>
+                  </span>
+                ) : (
+                  <span className="font-semibold text-amber-800">{activePriceLabel}</span>
+                )}{" "}
+                {pricing.currency.toUpperCase()}
+              </li>
               <li className="text-xs text-neutral-500">Secure checkout · No subscription</li>
               <li className="text-xs text-neutral-700">One-time payment: Instant access, no recurring fees.</li>
               <li className="text-xs text-neutral-700">Instant download: HD files ready immediately.</li>
@@ -1542,24 +1600,22 @@ function HomeInner() {
         </div>
       )}
       {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#0b1a30] via-[#050b18] to-[#0b1a30] p-4 sm:p-6">
-          <div className="relative mx-auto flex h-full max-w-6xl flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setIsFullscreen(false);
-                requestAnimationFrame(() => {
-                  previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                });
-              }}
-              className="self-start rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-4 py-2 text-sm font-semibold text-neutral-800 shadow transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30]"
-              aria-label="Exit fullscreen"
-            >
-              ⤡ Exit fullscreen
-            </button>
-            <div className="flex-1 overflow-hidden rounded-2xl border border-amber-200/60 bg-[rgba(5,9,21,0.25)] shadow-2xl">
-              <PreviewCanvas />
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-b from-[#0b1a30] via-[#050b18] to-[#0b1a30]">
+          <button
+            type="button"
+            onClick={() => {
+              setIsFullscreen(false);
+              requestAnimationFrame(() => {
+                previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              });
+            }}
+            className="absolute left-4 top-4 z-10 rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-4 py-2 text-sm font-semibold text-neutral-800 shadow transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] sm:left-6 sm:top-6"
+            aria-label="Exit fullscreen"
+          >
+            ⤡ Exit fullscreen
+          </button>
+          <div className="relative w-[95vw] h-[95vh] max-w-[95vw] max-h-[95vh] flex items-center justify-center">
+            <PreviewCanvas fullscreen />
           </div>
         </div>
       )}
@@ -1613,7 +1669,7 @@ function HomeInner() {
               },
               {
                 q: "What is included in the free version vs. premium unlock?",
-                a: "Free: basic preview and watermarked export. Premium ($9.99 one-time): HD no-watermark PNG/PDF and advanced visuals.",
+                a: `Free: basic preview and watermarked export. Premium (${activePriceLabel} one-time): HD no-watermark PNG/PDF and advanced visuals.`,
               },
               {
                 q: "How do I export or download my star map?",
@@ -1621,7 +1677,7 @@ function HomeInner() {
               },
               {
                 q: "Is this a one-time purchase or subscription?",
-                a: "One-time $9.99 unlock per device/browser, stored locally—no subscriptions.",
+                a: `One-time ${activePriceLabel} unlock per device/browser, stored locally—no subscriptions.`,
               },
               {
                 q: "Are the maps suitable for printing?",
@@ -1670,7 +1726,7 @@ function HomeInner() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[...blogPosts]
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .slice(0, 5)
+              .slice(0, 6)
               .map((post) => (
                 <article
                   key={post.slug}
@@ -1718,7 +1774,7 @@ function HomeInner() {
           real sky data for meaningful maps.
         </p>
         <p className="mt-1 text-xs font-semibold text-neutral-700">
-          Early access: We’re building reviews organically. Try the demo and see the accuracy yourself.
+          Early access: We're building reviews organically based on real customer experiences.
         </p>
       </section>
     </main>

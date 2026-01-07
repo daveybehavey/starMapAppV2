@@ -71,18 +71,30 @@ export async function GET(request: NextRequest) {
       if (preferStates.length && preferStates.some((s) => state.includes(s))) {
         score += 3;
       }
+      const latitude = Number.parseFloat(item.lat);
+      const longitude = Number.parseFloat(item.lon);
+
+      // Validate coordinates are finite and within valid bounds
+      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+        return null;
+      }
+      if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+        return null;
+      }
+
       return {
         id: item.place_id,
         name: item.display_name,
-        latitude: Number.parseFloat(item.lat),
-        longitude: Number.parseFloat(item.lon),
+        latitude,
+        longitude,
         category: item.class,
         type: item.type,
         countryCode,
         state,
         score,
       };
-    });
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
     scored.sort((a, b) => b.score - a.score);
 

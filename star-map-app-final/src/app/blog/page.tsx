@@ -89,6 +89,15 @@ const indexPosts: IndexPost[] = [
     image: "/custom-star-map-anniversary.webp",
     alt: "Choose date and location for custom star map",
   },
+  {
+    slug: "new-year-star-map",
+    title: "Celebrating the New Year Under the Stars: A Meaningful Way to Begin Again",
+    excerpt:
+      "Capture the exact New Year sky with a custom star map—preserve the moment midnight struck and start the year with a keepsake that lasts.",
+    date: "2025-01-01",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Custom New Year star map",
+  },
 ];
 
 export default function BlogIndex() {
