@@ -207,7 +207,7 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       className={`relative overflow-hidden rounded-2xl shadow-2xl ${
         fullscreen
           ? "w-[90vmin] h-[90vmin] border-2 border-amber-400/80 shadow-black/40"
-          : "w-full border-2 border-amber-400/80 shadow-black/20 min-h-[360px] sm:min-h-[420px] md:min-h-[520px]"
+          : "w-full border-2 border-amber-400/80 shadow-black/20 min-h-[280px] sm:min-h-[360px] md:min-h-[420px] lg:min-h-[520px]"
       }`}
       style={fullscreen ? {} : { aspectRatio: "1 / 1" }}
     >

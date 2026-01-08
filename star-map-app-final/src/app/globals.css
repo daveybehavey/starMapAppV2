@@ -29,6 +29,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  max-width: 100vw;
+  overflow-x: hidden;
   background-color: var(--cosmic-midnight);
   background-image:
     radial-gradient(circle at 20% 20%, rgba(241, 194, 125, 0.12), transparent 32%),
@@ -175,6 +177,48 @@ a {
 
   .preview-static {
     max-height: 360px;
+  }
+}
+
+/* Mobile viewport optimization */
+@media (max-width: 1023px) {
+  /* Smooth scrolling for inputs */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent zoom on iOS inputs */
+  #editor input[type="date"],
+  #editor input[type="time"],
+  #editor select {
+    font-size: 16px;
+  }
+
+  /* Ensure preview doesn't exceed viewport */
+  #preview {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Reduce header size on small screens */
+  #editor h2 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  /* Touch target optimization */
+  #editor button {
+    min-height: 44px;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 1023px) and (orientation: landscape) {
+  #editor .max-h-\[calc\(100vh-180px\)\] {
+    max-height: calc(100vh - 140px);
   }
 }
 

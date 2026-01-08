@@ -98,7 +98,7 @@ export interface EditorState {
 
 const initialDate = (() => {
   const now = new Date();
-  now.setHours(23, 59, 59, 0);
+  now.setHours(0, 0, 0, 0);
   return now;
 })();
 

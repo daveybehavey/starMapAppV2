@@ -2,6 +2,7 @@ import { computeVisibleStars, type VisibleSky } from "@/lib/astronomy";
 import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
 import { SHAPE_PATHS } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
+import { FONT_STACKS } from "@/lib/fonts";
 
 export type { AspectRatio, Shape } from "@/lib/types";
 
@@ -60,24 +61,6 @@ const STYLE_THEME: Record<
     star: "#dfe8f7",
     glow: "rgba(74, 105, 163, 0.35)",
   },
-};
-
-const FONT_STACKS: Record<TextBox["fontFamily"], string> = {
-  playfair: 'var(--font-playfair), "Playfair Display", serif',
-  cinzel: 'var(--font-cinzel), "Cinzel", serif',
-  script: 'var(--font-script), "Great Vibes", cursive',
-  cormorant: 'var(--font-cormorant), "Cormorant Garamond", serif',
-  montserrat: 'var(--font-montserrat), "Montserrat", sans-serif',
-  libreBaskerville: 'var(--font-libre-baskerville), "Libre Baskerville", serif',
-  ebGaramond: 'var(--font-eb-garamond), "EB Garamond", serif',
-  crimsonText: 'var(--font-crimson-text), "Crimson Text", serif',
-  lora: 'var(--font-lora), "Lora", serif',
-  raleway: 'var(--font-raleway), "Raleway", sans-serif',
-  poppins: 'var(--font-poppins), "Poppins", sans-serif',
-  dancingScript: 'var(--font-dancing-script), "Dancing Script", cursive',
-  parisienne: 'var(--font-parisienne), "Parisienne", cursive',
-  bebasNeue: 'var(--font-bebas-neue), "Bebas Neue", sans-serif',
-  abrilFatface: 'var(--font-abril-fatface), "Abril Fatface", display',
 };
 
 export const DEFAULT_RECIPE: MapRecipe = {
@@ -319,6 +302,7 @@ export function computeSky(recipe: MapRecipe, width: number, height: number): Vi
       time: formatted.time,
       lat: recipe.location.latitude,
       lon: recipe.location.longitude,
+      timezone: recipe.location.timezone,
       bortle: 4.5,
       showConstellations: recipe.renderOptions?.constellationLines !== "off",
     },

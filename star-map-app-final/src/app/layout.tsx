@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
 import CookieBanner from "@/components/CookieBanner";
@@ -93,6 +93,11 @@ export const metadata: Metadata = {
     images: ["https://starmapco.com/custom-star-map-anniversary.png"],
   },
 };
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
 
 export default function RootLayout({
   children,

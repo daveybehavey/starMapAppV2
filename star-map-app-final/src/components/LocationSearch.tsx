@@ -39,11 +39,15 @@ export default function LocationSearch() {
 
   const [manualLat, setManualLat] = useState(location.latitude.toString());
   const [manualLon, setManualLon] = useState(location.longitude.toString());
+  const [latError, setLatError] = useState<string | null>(null);
+  const [lonError, setLonError] = useState<string | null>(null);
 
   useEffect(() => {
     setQuery(location.name);
     setManualLat(location.latitude.toString());
     setManualLon(location.longitude.toString());
+    setLatError(null);
+    setLonError(null);
   }, [location.latitude, location.longitude, location.name]);
 
   useEffect(() => {
@@ -149,19 +153,31 @@ export default function LocationSearch() {
 
   const handleManualLat = (value: string) => {
     const num = Number.parseFloat(value);
-    if (!Number.isFinite(num)) return;
+    // Validate latitude bounds: -90 to 90
+    if (!Number.isFinite(num) || num < -90 || num > 90) {
+      setLatError("Latitude must be between -90 and 90.");
+      return;
+    }
+    setLatError(null);
     const timezone = safeLookupTz(num, location.longitude, location.timezone);
     setLocation({ latitude: num, timezone });
   };
 
   const handleManualLon = (value: string) => {
     const num = Number.parseFloat(value);
-    if (!Number.isFinite(num)) return;
+    // Validate longitude bounds: -180 to 180
+    if (!Number.isFinite(num) || num < -180 || num > 180) {
+      setLonError("Longitude must be between -180 and 180.");
+      return;
+    }
+    setLonError(null);
     const timezone = safeLookupTz(location.latitude, num, location.timezone);
     setLocation({ longitude: num, timezone });
   };
 
   const hasResults = results.length > 0;
+  const isDefaultLocation =
+    !location.name?.trim() && location.latitude === 0 && location.longitude === 0;
 
   return (
     <div className="space-y-2">
@@ -216,7 +232,9 @@ export default function LocationSearch() {
               </div>
             )}
             {!error && !loading && !hasResults && (
-              <div className="px-3 py-2 text-sm text-neutral-500">No results yet.</div>
+              <div className="px-3 py-2 text-sm text-neutral-500">
+                No matches found. Try another name or enter exact coordinates.
+              </div>
             )}
             {!error &&
               results.map((result) => (
@@ -237,6 +255,12 @@ export default function LocationSearch() {
           </div>
         )}
       </div>
+
+      {isDefaultLocation && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Using default coordinates (0, 0). Search for a city to get accurate stars.
+        </div>
+      )}
 
       <div className="flex items-center gap-2 text-xs text-neutral-500">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -262,10 +286,18 @@ export default function LocationSearch() {
                 type="number"
                 step="0.0001"
                 value={manualLat}
-                onChange={(e) => setManualLat(e.target.value)}
+                onChange={(e) => {
+                  setManualLat(e.target.value);
+                  setLatError(null);
+                }}
                 onBlur={(e) => handleManualLat(e.target.value)}
-                className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30 ${
+                  latError
+                    ? "border-rose-300 bg-rose-50/70 text-rose-900"
+                    : "border-black/10 bg-white"
+                }`}
               />
+              {latError && <div className="mt-1 text-[11px] text-rose-700">{latError}</div>}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
@@ -275,10 +307,18 @@ export default function LocationSearch() {
                 type="number"
                 step="0.0001"
                 value={manualLon}
-                onChange={(e) => setManualLon(e.target.value)}
+                onChange={(e) => {
+                  setManualLon(e.target.value);
+                  setLonError(null);
+                }}
                 onBlur={(e) => handleManualLon(e.target.value)}
-                className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30 ${
+                  lonError
+                    ? "border-rose-300 bg-rose-50/70 text-rose-900"
+                    : "border-black/10 bg-white"
+                }`}
               />
+              {lonError && <div className="mt-1 text-[11px] text-rose-700">{lonError}</div>}
             </div>
           </div>
         )}

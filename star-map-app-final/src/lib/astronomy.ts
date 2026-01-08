@@ -54,6 +54,7 @@ export type VisibleStarParams = {
   time?: string;
   lat: number;
   lon: number;
+  timezone?: string;
   bortle?: number;
   showConstellations?: boolean;
 };
@@ -61,7 +62,7 @@ export type VisibleStarParams = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const toApproximateUTCDate = (dateStr: string, timeStr: string, lon: number): Date | null => {
+const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: string): Date | null => {
   const [yearRaw, monthRaw, dayRaw] = dateStr.split("-").map(Number);
   if (!yearRaw || !monthRaw || !dayRaw) return null;
   const [hourRaw, minuteRaw] = timeStr.split(":").map(Number);
@@ -69,9 +70,45 @@ const toApproximateUTCDate = (dateStr: string, timeStr: string, lon: number): Da
 
   const hour = clamp(hourRaw, 0, 23);
   const minute = clamp(minuteRaw, 0, 59);
-  const utcMs = Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0);
-  const lonOffsetMs = (lon / 15) * 60 * 60 * 1000;
-  return new Date(utcMs - lonOffsetMs);
+
+  // Parse as local time in the specified timezone, then convert to UTC
+  // CRITICAL: Calculate offset at the ACTUAL target time to handle DST correctly
+  try {
+    // Create a test date at the target time to get the offset for THAT specific moment
+    // This handles DST transitions correctly because we check the actual time
+    const testDate = new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    // Format the test date in the target timezone
+    const parts = formatter.formatToParts(testDate);
+    const localYear = Number(parts.find(p => p.type === "year")?.value);
+    const localMonth = Number(parts.find(p => p.type === "month")?.value);
+    const localDay = Number(parts.find(p => p.type === "day")?.value);
+    const localHour = Number(parts.find(p => p.type === "hour")?.value);
+    const localMinute = Number(parts.find(p => p.type === "minute")?.value);
+
+    // Calculate the offset by comparing what we wanted vs what we got
+    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
+    const utcMs = testDate.getTime();
+    const offsetMs = utcMs - localMs;
+
+    // Apply this offset to our target date/time
+    const targetLocalMs = Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0);
+    return new Date(targetLocalMs + offsetMs);
+  } catch (error) {
+    console.warn("Failed to convert timezone:", timezone, error);
+    // Fallback to treating as UTC
+    return new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
+  }
 };
 
 // Cache for expensive astronomy calculations
@@ -79,10 +116,11 @@ const astronomyCache = new Map<string, VisibleSky>();
 const MAX_ASTRONOMY_CACHE_SIZE = 20;
 
 function createAstronomyCacheKey(params: VisibleStarParams, width: number, height: number): string {
-  const time = params.time?.trim() || "23:59";
+  const time = params.time?.trim() || "00:00";
+  const timezone = params.timezone || "UTC";
   const bortle = params.bortle ?? 4.5;
   const showConst = params.showConstellations ?? false;
-  return `${params.date}|${time}|${params.lat}|${params.lon}|${bortle}|${width}|${height}|${showConst}`;
+  return `${params.date}|${time}|${timezone}|${params.lat}|${params.lon}|${bortle}|${width}|${height}|${showConst}`;
 }
 
 export function computeVisibleStars(
@@ -95,9 +133,20 @@ export function computeVisibleStars(
   const cached = astronomyCache.get(cacheKey);
   if (cached) return cached;
 
-  const time = params.time?.trim() || "23:59";
-  const date = toApproximateUTCDate(params.date, time, params.lon);
+  const time = params.time?.trim() || "00:00";
+  const timezone = params.timezone || "UTC";
+  const date = toUTCDateFromLocal(params.date, time, timezone);
   if (!date || Number.isNaN(date.getTime())) {
+    return { stars: [], planets: [], moon: null, constellations: [] };
+  }
+
+  // Validate coordinates are within valid ranges
+  if (!Number.isFinite(params.lat) || params.lat < -90 || params.lat > 90) {
+    console.warn("Invalid latitude:", params.lat);
+    return { stars: [], planets: [], moon: null, constellations: [] };
+  }
+  if (!Number.isFinite(params.lon) || params.lon < -180 || params.lon > 180) {
+    console.warn("Invalid longitude:", params.lon);
     return { stars: [], planets: [], moon: null, constellations: [] };
   }
 
