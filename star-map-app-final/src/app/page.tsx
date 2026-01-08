@@ -1011,211 +1011,40 @@ function HomeInner() {
                   </div>
 
                   <div className="space-y-2">
-                    <section className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
-                      <h3 className="text-xs font-semibold text-white">Style & Shape</h3>
-                      <div className="space-y-2">
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-white">Style presets</label>
-                            <span className="text-xs uppercase tracking-wide text-neutral-300">4 of 10 presets</span>
-                          </div>
-                          <div className="mt-2 grid grid-cols-2 gap-1.5">
-                            {styles.map((style) => {
-                              const styleClasses = {
-                                navyGold: selectedStyle === style.id
-                                  ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300 shadow-amber-500/20"
-                                  : "border-amber-500/30 bg-gradient-to-br from-[#0d1b2a]/80 to-[#1b2838]/80 text-amber-200/80 hover:border-amber-400/50",
-                                vintageEngraving: selectedStyle === style.id
-                                  ? "border-amber-300 bg-gradient-to-br from-[#2d2d2d] to-[#1a1a1a] text-amber-100 shadow-amber-500/20"
-                                  : "border-neutral-400/30 bg-gradient-to-br from-[#2d2d2d]/80 to-[#1a1a1a]/80 text-neutral-200/80 hover:border-neutral-300/50",
-                                parchmentScroll: selectedStyle === style.id
-                                  ? "border-amber-400 bg-gradient-to-br from-[#f5f0e6] to-[#e8dcc8] text-amber-900 shadow-amber-500/20"
-                                  : "border-amber-500/30 bg-gradient-to-br from-[#f5f0e6]/90 to-[#e8dcc8]/90 text-amber-800/80 hover:border-amber-400/50",
-                                midnightMinimal: selectedStyle === style.id
-                                  ? "border-blue-400 bg-gradient-to-br from-[#0a0a0a] to-[#1a1a2e] text-blue-300 shadow-blue-500/20"
-                                  : "border-blue-500/30 bg-gradient-to-br from-[#0a0a0a]/80 to-[#1a1a2e]/80 text-blue-200/80 hover:border-blue-400/50"
-                              };
+                    <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
+                      <h3 className="text-xs font-semibold text-white mb-2">Style</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {styles.map((style) => {
+                          const styleClasses = {
+                            navyGold: selectedStyle === style.id
+                              ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300 shadow-amber-500/20"
+                              : "border-amber-500/30 bg-gradient-to-br from-[#0d1b2a]/80 to-[#1b2838]/80 text-amber-200/80 hover:border-amber-400/50",
+                            vintageEngraving: selectedStyle === style.id
+                              ? "border-amber-300 bg-gradient-to-br from-[#2d2d2d] to-[#1a1a1a] text-amber-100 shadow-amber-500/20"
+                              : "border-neutral-400/30 bg-gradient-to-br from-[#2d2d2d]/80 to-[#1a1a1a]/80 text-neutral-200/80 hover:border-neutral-300/50",
+                            parchmentScroll: selectedStyle === style.id
+                              ? "border-amber-400 bg-gradient-to-br from-[#f5f0e6] to-[#e8dcc8] text-amber-900 shadow-amber-500/20"
+                              : "border-amber-500/30 bg-gradient-to-br from-[#f5f0e6]/90 to-[#e8dcc8]/90 text-amber-800/80 hover:border-amber-400/50",
+                            midnightMinimal: selectedStyle === style.id
+                              ? "border-blue-400 bg-gradient-to-br from-[#0a0a0a] to-[#1a1a2e] text-blue-300 shadow-blue-500/20"
+                              : "border-blue-500/30 bg-gradient-to-br from-[#0a0a0a]/80 to-[#1a1a2e]/80 text-blue-200/80 hover:border-blue-400/50"
+                          };
 
-                              return (
-                                <button
-                                  key={style.id}
-                                  type="button"
-                                  onClick={() => setStyle(style.id)}
-                                  className={`flex h-full flex-col justify-center rounded-lg border px-2 py-1.5 text-left text-xs shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${styleClasses[style.id as keyof typeof styleClasses]}`}
-                                >
-                                  <div className="text-xs font-semibold">{style.name}</div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5 rounded-lg border border-white/10 bg-white/5 p-2 shadow-inner shadow-black/20">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold text-white">Shape</p>
-                            {!paid && (
-                              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                                Paid
-                              </span>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            {shapes.map((opt) => {
-                              const active = shape === opt.id;
-                              const locked = !paid && opt.id !== "rectangle";
-                              return (
-                                <button
-                                  key={opt.id}
-                                  type="button"
-                                  onClick={() => {
-                                    if (locked) {
-                                      setPaywallOpen(true);
-                                      return;
-                                    }
-                                    setShape(opt.id);
-                                  }}
-                                  className={`relative flex h-full items-center justify-center rounded-xl border px-3 py-3 text-sm shadow-sm transition ${
-                                    active ? "border-amber-300 bg-amber-50 text-midnight" : "border-white/15 bg-white/10 text-white"
-                                  } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
-                                >
-                                  <div className="flex h-11 w-11 items-center justify-center rounded-lg text-2xl font-semibold leading-none">
-                                    <span
-                                      className="block"
-                                      style={{ transform: shapeSymbolScale[opt.id], transformOrigin: "center" }}
-                                    >
-                                      {shapeSymbols[opt.id]}
-                                    </span>
-                                  </div>
-                                  <span className="sr-only">{opt.label}</span>
-                                  {locked && (
-                                    <div className="pointer-events-none absolute right-1.5 top-1.5 text-[11px] font-semibold text-amber-200 drop-shadow-sm">
-                                      🔒
-                                    </div>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {shape !== "rectangle" && (
-                            <div className="flex items-center gap-3">
-                              <label className="text-sm font-semibold text-white">Background color</label>
-                              <input
-                                type="color"
-                                value={renderOptions.backgroundColor || "#0b1a30"}
-                                onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}
-                                className="h-9 w-14 cursor-pointer rounded-md border border-white/15 bg-white/10 shadow-inner shadow-black/20"
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-1.5 rounded-lg border border-white/10 bg-white/5 p-2 shadow-inner shadow-black/20">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold text-white">Visual mode</p>
-                            {!paid && (
-                              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                                Paid
-                              </span>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                            {visualModes.map((mode) => {
-                              const active = renderOptions.visualMode === mode.id;
-                              const locked = !paid && mode.id !== "enhanced";
-                              return (
-                                <button
-                                  key={mode.id}
-                                  type="button"
-                                  disabled={locked}
-                                  onClick={() => {
-                                    if (!paid) return;
-                                    setRenderOptions({ visualMode: mode.id });
-                                    track("visual_mode_changed", { visualMode: mode.id, isPaid: paid });
-                                  }}
-                                  className={`flex h-full flex-col justify-center rounded-xl border px-3 py-2 md:px-4 md:py-3 text-left text-xs md:text-sm shadow-sm transition ${
-                                    active ? "border-amber-300 bg-amber-50 text-midnight" : "border-white/15 bg-white/10 text-white"
-                                  } ${locked ? "cursor-not-allowed opacity-60" : "hover:-translate-y-[1px] hover:shadow-md"}`}
-                                >
-                                  <div className="font-semibold">{mode.label}</div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold text-white">Constellations</p>
-                          </div>
-                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-                            {constellationPresets.map((preset) => {
-                              const active = renderOptions.constellationLines === preset.id;
-                              return (
-                                <button
-                                  key={preset.id}
-                                  type="button"
-                                  onClick={() => setRenderOptions({ constellationLines: preset.id })}
-                                  className={`flex h-full flex-col justify-center rounded-xl border px-4 py-3 text-left text-sm shadow-sm transition ${
-                                    active ? "border-amber-300 bg-amber-50 text-midnight" : "border-white/15 bg-white/10 text-white"
-                                  } hover:-translate-y-[1px] hover:shadow-md`}
-                                >
-                                  <div className="font-semibold">{preset.label}</div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="mt-3 grid gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 sm:grid-cols-[1fr_1.5fr] sm:items-center">
-                            <div className="flex items-center gap-3">
-                              <div className="text-sm font-medium text-white">Line color</div>
-                              <input
-                                type="color"
-                                value={renderOptions.constellationColor || "#c6a35c"}
-                                onChange={(e) => setRenderOptions({ constellationColor: e.target.value })}
-                                className="h-9 w-14 cursor-pointer rounded-md border border-white/15 bg-white/10 shadow-inner shadow-black/20"
-                                aria-label="Constellation line color"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium text-white">Line weight</div>
-                                <span className="text-xs text-neutral-300">
-                                  {((renderOptions.constellationLineScale ?? 1) * 100).toFixed(0)}%
-                                </span>
-                              </div>
-                              <input
-                                type="range"
-                                min={0.6}
-                                max={1.6}
-                                step={0.1}
-                                value={renderOptions.constellationLineScale ?? 1}
-                                onChange={(e) =>
-                                  setRenderOptions({ constellationLineScale: Number.parseFloat(e.target.value) || 1 })
-                                }
-                                className="w-full accent-amber-400"
-                                aria-label="Constellation line weight"
-                              />
-                              <p className="text-xs text-neutral-300">Adjust line thickness (60%–160%).</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3.5 py-3">
-                            <div className="text-sm font-medium text-white">Constellation labels</div>
+                          return (
                             <button
+                              key={style.id}
                               type="button"
-                              onClick={() => setRenderOptions({ constellationLabels: !renderOptions.constellationLabels })}
-                              className={`rounded-full border px-4 py-2 text-sm font-semibold uppercase tracking-wide transition ${
-                                renderOptions.constellationLabels
-                                  ? "border-amber-300 bg-amber-50 text-midnight"
-                                  : "border-white/15 bg-white/10 text-white"
-                              } hover:-translate-y-[1px] hover:shadow`}
+                              onClick={() => setStyle(style.id)}
+                              className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${styleClasses[style.id as keyof typeof styleClasses]}`}
                             >
-                              {renderOptions.constellationLabels ? "Labels on" : "Labels off"}
+                              <div className="text-sm font-semibold">{style.name}</div>
+                              <div className="text-xs opacity-80 mt-1">{style.note}</div>
                             </button>
-                          </div>
-                        </div>
-
-                    </div>
-                  </section>
-                </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  </div>
               </div>
             </div>
 
