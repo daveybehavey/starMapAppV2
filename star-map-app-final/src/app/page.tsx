@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import DateTimeControls from "@/components/DateTimeControls";
+import { EditorDrawer } from "@/components/EditorDrawer";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { StyleId, TextBox, useStore, RenderOptions } from "@/lib/store";
@@ -870,7 +871,8 @@ function HomeInner() {
       </section>
 
       <section ref={editorRef} id="editor" className="mx-auto w-full max-w-7xl lg:max-w-none py-12 sm:py-14 lg:py-12">
-        <div className="space-y-6 lg:h-full">
+        {/* Tablet/Desktop: Side-by-side layout */}
+        <div className="hidden md:block space-y-6 lg:h-full">
           <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 lg:items-end">
             <div ref={inputsRef} className="w-full space-y-2">
               <div className="space-y-2">
@@ -991,139 +993,20 @@ function HomeInner() {
                         <span className="text-amber-300">✎</span>
                         <h3 className="text-xs font-semibold text-white">Your Message</h3>
                       </div>
-                      <div className="divide-y divide-white/10">
+                      <div className="space-y-3">
                           {textBoxes.map((box) => (
-                            <div key={box.id} className="space-y-3 p-3 sm:p-4">
-                              <div className="flex items-start justify-between gap-3 text-sm">
-                                <div className="flex items-center gap-2 pt-0.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleCard(box.id)}
-                                    className="h-8 w-8 flex-shrink-0 rounded-full border border-white/20 bg-white/10 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow"
-                                    aria-pressed={!!collapsedCards[box.id]}
-                                    aria-label={`Toggle ${box.label}`}
-                                  >
-                                    {collapsedCards[box.id] ? "▾" : "▴"}
-                                  </button>
-                                  <span className="font-medium leading-8 text-white">{box.label}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    value={box.fontFamily}
-                                    onChange={(e) => {
-                                      const selectedFont = fontOptions.find(f => f.id === e.target.value);
-                                      if (selectedFont?.premium && !paid) {
-                                        setPaywallOpen(true);
-                                        return;
-                                      }
-                                      updateTextBox(box.id, { fontFamily: e.target.value as TextBox["fontFamily"] });
-                                    }}
-                                    className="h-8 w-28 flex-shrink-0 truncate rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 sm:w-32"
-                                  >
-                                    {fontOptions.map((opt) => (
-                                      <option key={opt.id} value={opt.id} disabled={opt.premium && !paid}>
-                                        {opt.premium && !paid ? `🔒 ${opt.label}` : opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeTextBox(box.id)}
-                                    className="h-8 w-8 flex-shrink-0 rounded-full border border-rose-200 bg-rose-50 text-base font-semibold leading-none text-rose-600 transition hover:-translate-y-[1px] hover:shadow"
-                                    aria-label={`Remove ${box.label}`}
-                                  >
-                                    –
-                                  </button>
-                                </div>
-                              </div>
-                              {!collapsedCards[box.id] && (
-                                <>
-                                  <input
-                                    type="text"
-                                    value={box.text}
-                                    onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                                    className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                  />
-                                  <div className="space-y-2.5">
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="color"
-                                        aria-label={`${box.label} color`}
-                                        value={box.color}
-                                        onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                                        className="h-10 w-12 flex-shrink-0 cursor-pointer rounded-md border border-white/15 bg-white/10"
-                                      />
-                                      <input
-                                        type="number"
-                                        min={10}
-                                        max={48}
-                                        value={box.size}
-                                        onChange={(e) =>
-                                          updateTextBox(box.id, { size: Number.parseInt(e.target.value, 10) || box.size })
-                                        }
-                                        className="h-10 w-16 flex-shrink-0 rounded-md border border-white/15 bg-white/10 px-2 py-2 text-center text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                      />
-                                      <select
-                                        value={box.align}
-                                        onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
-                                        className="h-10 flex-1 rounded-md border border-white/15 bg-white/10 px-2 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                      >
-                                        <option value="left">Left</option>
-                                        <option value="center">Center</option>
-                                        <option value="right">Right</option>
-                                      </select>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => paid && updateTextBox(box.id, { textShadow: !box.textShadow })}
-                                        disabled={!paid}
-                                        className={`flex h-10 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/20 transition ${
-                                          paid
-                                            ? box.textShadow
-                                              ? "border-amber-300 bg-amber-100/80 text-midnight shadow-amber-200/60 hover:-translate-y-[1px] hover:shadow-md"
-                                              : "border-white/15 bg-white/10 text-white hover:-translate-y-[1px] hover:shadow"
-                                            : "cursor-not-allowed border-white/10 bg-white/5 text-neutral-400"
-                                        }`}
-                                        aria-pressed={!!box.textShadow}
-                                        aria-label={`Toggle text shadow for ${box.label}`}
-                                      >
-                                        Shadow
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => paid && updateTextBox(box.id, { textGlow: !box.textGlow })}
-                                        disabled={!paid}
-                                        className={`flex h-10 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold shadow-inner shadow-black/20 transition ${
-                                          paid
-                                            ? box.textGlow
-                                              ? "border-amber-300 bg-amber-50 text-midnight shadow-amber-200/80 hover:-translate-y-[1px] hover:shadow-md"
-                                              : "border-white/15 bg-white/10 text-white hover:-translate-y-[1px] hover:shadow"
-                                            : "cursor-not-allowed border-white/10 bg-white/5 text-neutral-400"
-                                        }`}
-                                        aria-pressed={!!box.textGlow}
-                                        aria-label={`Toggle text glow for ${box.label}`}
-                                      >
-                                        Glow
-                                      </button>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
+                            <div key={box.id} className="space-y-2">
+                              <label className="text-sm font-medium text-white">{box.label}</label>
+                              <input
+                                type="text"
+                                value={box.text}
+                                onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                                className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                placeholder={`Enter ${box.label.toLowerCase()}...`}
+                              />
                             </div>
                           ))}
                         </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCollapsedCards((prev) => ({ ...prev, __all__: false }));
-                          addTextBox();
-                        }}
-                        className="flex w-full items-center justify-center gap-2 rounded-b-xl border-t border-dashed border-white/20 bg-white/5 px-3 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow"
-                      >
-                        <span className="text-lg">＋</span>
-                        Add text line
-                      </button>
                     </section>
                   </div>
 
