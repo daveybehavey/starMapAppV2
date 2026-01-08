@@ -916,12 +916,10 @@ function HomeInner() {
                       );
                     })}
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {[
                       { id: "classic", label: "Classic", premium: false },
-                      { id: "cinematic", label: "Cinematic", premium: true },
-                      { id: "blueprint", label: "Blueprint", premium: false },
-                      { id: "luxe", label: "Luxe", premium: true },
+                      { id: "cinematic", label: "Enhanced", premium: true },
                     ].map((mode) => (
                       <button
                         key={mode.id}
@@ -931,19 +929,17 @@ function HomeInner() {
                           const targetLevel =
                             mode.id === "cinematic"
                               ? Math.max(intensityDisplay, 60)
-                              : mode.id === "luxe"
-                                ? Math.max(intensityDisplay, 55)
-                                : intensityDisplay;
+                              : intensityDisplay;
                           setRenderMode(mode.id as RenderModeId);
                           setIntensity(targetLevel);
                           setIntensityDisplay(targetLevel);
                         }}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
                           renderMode === mode.id ? "border-amber-400 bg-amber-200 text-midnight" : "border-white/20 bg-white/10 text-white"
                         }`}
                         title={
                           mode.premium && !paid
-                            ? "Unlock to export in Cinematic/Luxe. Preview stays free."
+                            ? "Unlock to export Enhanced. Preview stays free."
                             : mode.label
                         }
                       >
