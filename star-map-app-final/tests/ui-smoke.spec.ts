@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 test("location warnings and validation errors render", async ({ page }) => {
-  await page.goto("/");
+  // Use force=desktop for deterministic test
+  await page.goto("/?force=desktop");
 
   // Wait for page to load
   await page.getByPlaceholder("Search city, landmark, or address").waitFor();

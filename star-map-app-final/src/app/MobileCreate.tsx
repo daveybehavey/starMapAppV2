@@ -399,7 +399,23 @@ export function MobileCreate({
               </div>
             </div>
             <div className="relative mx-auto overflow-hidden" style={{ width: "100%", maxWidth: "600px", aspectRatio: "1/1" }}>
-              <PreviewCanvas />
+              {!revealed && (
+                <div className="absolute inset-0 flex flex-col items-center justify-end gap-4 pb-10 text-center text-sm text-amber-50 bg-[#0b0f24]">
+                  <div className="pointer-events-none absolute inset-0 opacity-35">
+                    <div className="absolute inset-10 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-200/5 to-transparent blur-3xl" />
+                  </div>
+                  <div className="relative z-10 flex flex-col items-center gap-2 px-6">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-100">
+                      Live preview waiting
+                    </div>
+                    <p className="text-base font-semibold text-amber-50">Your sky is wrapped and waiting.</p>
+                    <p className="text-xs text-amber-200/80">
+                      Enter a place and date to unveil the exact night sky for your moment.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {revealed && <PreviewCanvas />}
             </div>
           </div>
 
