@@ -873,7 +873,9 @@ function HomeInner() {
       <section ref={editorRef} id="editor" className="mx-auto w-full max-w-7xl lg:max-w-none py-12 sm:py-14 lg:py-12">
         <div className="space-y-6 lg:h-full">
           <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 lg:items-end">
-            <div ref={inputsRef} className="w-full space-y-2">
+            {/* MOBILE: Preview first, DESKTOP: Editor first */}
+            <div ref={inputsRef} className="w-full space-y-2 order-2 lg:order-1">
+              {/* Header - always visible */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">Create your star map</p>
                 <h2 className="text-3xl font-semibold text-white sm:text-4xl">Design your sky in seconds</h2>
@@ -881,7 +883,9 @@ function HomeInner() {
                   Start from a preset, fine-tune the details, and see a finished map before you unlock.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-[rgba(10,14,30,0.82)] p-3 shadow-lg backdrop-blur-sm ring-1 ring-white/5">
+
+              {/* Desktop: always visible, Mobile: inside drawer */}
+              <div className="hidden lg:block rounded-2xl border border-white/10 bg-[rgba(10,14,30,0.82)] p-3 shadow-lg backdrop-blur-sm ring-1 ring-white/5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-1.5">
                     {occasionPresets.map((preset) => {
@@ -1041,9 +1045,156 @@ function HomeInner() {
                     </section>
                   </div>
               </div>
+
+              {/* Mobile: Controls in drawer */}
+              <EditorDrawer defaultOpen={false}>
+                <div className="space-y-3">
+                  {/* Occasion Presets & Render Modes */}
+                  <div className="rounded-xl border border-white/10 bg-[rgba(10,14,30,0.82)] p-3 shadow-lg backdrop-blur-sm">
+                    <h3 className="text-xs font-semibold text-white mb-2">Occasion</h3>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {occasionPresets.map((preset) => {
+                        const occasionStyles = {
+                          wedding: "border-pink-300/40 bg-gradient-to-br from-pink-100/15 to-rose-100/15 text-pink-100",
+                          anniversary: "border-amber-300/40 bg-gradient-to-br from-amber-100/15 to-orange-100/15 text-amber-100",
+                          birthday: "border-cyan-300/40 bg-gradient-to-br from-cyan-100/15 to-blue-100/15 text-cyan-100",
+                          birth: "border-green-300/40 bg-gradient-to-br from-green-100/15 to-emerald-100/15 text-green-100",
+                          memorial: "border-purple-300/40 bg-gradient-to-br from-purple-100/15 to-violet-100/15 text-purple-100",
+                          graduation: "border-yellow-300/40 bg-gradient-to-br from-yellow-100/15 to-amber-100/15 text-yellow-100"
+                        };
+                        const occasionEmojis = {
+                          wedding: "💍", anniversary: "❤️", birthday: "🎉",
+                          birth: "👶", memorial: "🕊️", graduation: "🎓"
+                        };
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => applyPreset(preset.id)}
+                            className={`rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition-all active:scale-95 ${occasionStyles[preset.id as keyof typeof occasionStyles]}`}
+                          >
+                            {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <h3 className="text-xs font-semibold text-white mb-2">Render Mode</h3>
+                    <div className="flex gap-2 mb-3">
+                      {[
+                        { id: "classic", label: "Classic", premium: false },
+                        { id: "cinematic", label: "Enhanced", premium: true },
+                      ].map((mode) => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => {
+                            if (!paid && mode.premium) setPaywallOpen(true);
+                            const targetLevel = mode.id === "cinematic" ? Math.max(intensityDisplay, 60) : intensityDisplay;
+                            setRenderMode(mode.id as RenderModeId);
+                            setIntensity(targetLevel);
+                            setIntensityDisplay(targetLevel);
+                          }}
+                          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition ${
+                            renderMode === mode.id ? "border-amber-400 bg-amber-200 text-midnight" : "border-white/20 bg-white/10 text-white"
+                          }`}
+                        >
+                          {mode.premium && "🔒"} {mode.label}
+                        </button>
+                      ))}
+                    </div>
+                    <h3 className="text-xs font-semibold text-white mb-1">Intensity</h3>
+                    <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <div className="flex items-center justify-between text-xs text-white mb-1">
+                        <span>Star brightness</span>
+                        <span className="text-[10px] text-neutral-300">{intensityDisplay}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={intensityDisplay}
+                        onChange={(e) => {
+                          let next = Number(e.target.value);
+                          if (!paid && next > 60) {
+                            next = 60;
+                            setPaywallOpen(true);
+                          }
+                          setIntensityDisplay(next);
+                        }}
+                        className="w-full accent-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date & Location */}
+                  <section className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                    <h3 className="text-xs font-semibold text-white mb-2">Date & Location</h3>
+                    <div className="space-y-2">
+                      <DateTimeControls dateTime={dateTime} onChange={setDateTime} />
+                      <LocationSearch />
+                    </div>
+                  </section>
+
+                  {/* Your Message */}
+                  <section className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-amber-300">✎</span>
+                      <h3 className="text-xs font-semibold text-white">Your Message</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {textBoxes.map((box) => (
+                        <div key={box.id} className="space-y-2">
+                          <label className="text-sm font-medium text-white">{box.label}</label>
+                          <input
+                            type="text"
+                            value={box.text}
+                            onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                            className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-amber-300"
+                            placeholder={`Enter ${box.label.toLowerCase()}...`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  {/* Style */}
+                  <section className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                    <h3 className="text-xs font-semibold text-white mb-2">Style</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {styles.map((style) => {
+                        const styleClasses = {
+                          navyGold: selectedStyle === style.id
+                            ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300"
+                            : "border-amber-500/30 bg-gradient-to-br from-[#0d1b2a]/80 to-[#1b2838]/80 text-amber-200/80",
+                          vintageEngraving: selectedStyle === style.id
+                            ? "border-amber-300 bg-gradient-to-br from-[#2d2d2d] to-[#1a1a1a] text-amber-100"
+                            : "border-neutral-400/30 bg-gradient-to-br from-[#2d2d2d]/80 to-[#1a1a1a]/80 text-neutral-200/80",
+                          parchmentScroll: selectedStyle === style.id
+                            ? "border-amber-400 bg-gradient-to-br from-[#f5f0e6] to-[#e8dcc8] text-amber-900"
+                            : "border-amber-500/30 bg-gradient-to-br from-[#f5f0e6]/90 to-[#e8dcc8]/90 text-amber-800/80",
+                          midnightMinimal: selectedStyle === style.id
+                            ? "border-blue-400 bg-gradient-to-br from-[#0a0a0a] to-[#1a1a2e] text-blue-300"
+                            : "border-blue-500/30 bg-gradient-to-br from-[#0a0a0a]/80 to-[#1a1a2e]/80 text-blue-200/80"
+                        };
+                        return (
+                          <button
+                            key={style.id}
+                            type="button"
+                            onClick={() => setStyle(style.id)}
+                            className={`flex flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition ${styleClasses[style.id as keyof typeof styleClasses]}`}
+                          >
+                            <div className="text-sm font-semibold">{style.name}</div>
+                            <div className="text-xs opacity-80 mt-1">{style.note}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </div>
+              </EditorDrawer>
             </div>
 
-            <div ref={previewRef} id="preview" className="flex w-full flex-col gap-3 pb-4 lg:pb-0">
+            <div ref={previewRef} id="preview" className="flex w-full flex-col gap-3 pb-4 lg:pb-0 order-1 lg:order-2">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-neutral-100 shadow-sm shadow-black/30">
                 <p className="font-semibold text-white">Matches professional planetarium accuracy (Yale catalogs + skyfield).</p>
                 <Link href="#accuracy" className="mt-2 inline-flex text-sm font-semibold text-amber-300 hover:underline">
