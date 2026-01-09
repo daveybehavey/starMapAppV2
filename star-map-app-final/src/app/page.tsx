@@ -6,6 +6,7 @@ import DateTimeControls from "@/components/DateTimeControls";
 import { EditorDrawer } from "@/components/EditorDrawer";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
+import { MobileCreate } from "./MobileCreate";
 import { StyleId, TextBox, useStore, RenderOptions } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
@@ -871,10 +872,22 @@ function HomeInner() {
       </section>
 
       <section ref={editorRef} id="editor" className="mx-auto w-full max-w-7xl lg:max-w-none py-12 sm:py-14 lg:py-12">
-        <div className="space-y-6 lg:h-full">
-          <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 lg:items-end">
-            {/* MOBILE: Preview first, DESKTOP: Editor first */}
-            <div ref={inputsRef} className="w-full space-y-2 order-2 lg:order-1">
+        {/* Mobile: Use MobileCreate component */}
+        <div className="lg:hidden">
+          <MobileCreate
+            onExport={handleExport}
+            onShareImage={handleShareImage}
+            onShare={handleShare}
+            paywallOpen={paywallOpen}
+            canvasReady={canvasReady}
+          />
+        </div>
+
+        {/* Desktop: Use existing implementation - UNCHANGED */}
+        <div className="hidden lg:block">
+          <div className="space-y-6 lg:h-full">
+            <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 lg:items-end">
+              <div ref={inputsRef} className="w-full space-y-2">
               {/* Header - always visible */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">Create your star map</p>
@@ -1400,6 +1413,7 @@ function HomeInner() {
               )}
             </div>
           </div>
+        </div>
         </div>
       </section>
       {paywallOpen && (
