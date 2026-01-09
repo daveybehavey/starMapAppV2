@@ -49,7 +49,7 @@ function generateStoryText(recipe: Recipe): string {
 export function ViewClient({ id, searchParams }: Props) {
   const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
   const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [showComparison, setShowComparison] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState("");
 
   const setDateTime = useStore((s) => s.setDateTime);
   const setLocation = useStore((s) => s.setLocation);
@@ -140,6 +140,35 @@ export function ViewClient({ id, searchParams }: Props) {
   const storyText = recipe ? generateStoryText(recipe) : "";
   const title = (recipe?.textBoxes as any)?.[0]?.text || "A Night to Remember";
 
+  const handleShare = async () => {
+    if (!recipe) return;
+
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const text = `The night sky on ${new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(recipe.datetimeISO))} over ${recipe.location.name}`;
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ url, title, text });
+      } catch {
+        // User cancelled or error
+      }
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      // Fallback: Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareFeedback("Link copied!");
+        setTimeout(() => setShareFeedback(""), 2000);
+      } catch {
+        setShareFeedback("Failed to copy");
+        setTimeout(() => setShareFeedback(""), 2000);
+      }
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#0b0f3b] to-[#1a1f3a] text-amber-50">
       {/* Hero Section */}
@@ -166,31 +195,18 @@ export function ViewClient({ id, searchParams }: Props) {
               <PreviewCanvas />
             </div>
 
-            {/* Comparison Toggle */}
-            <div className="flex items-center justify-center">
+            {/* Share Button */}
+            <div className="flex items-center justify-center gap-3">
               <button
-                onClick={() => setShowComparison(!showComparison)}
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:shadow"
+                onClick={handleShare}
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:shadow"
               >
-                {showComparison ? "Hide" : "Show"} sky comparison
+                📤 Share this map
               </button>
+              {shareFeedback && (
+                <span className="text-xs text-amber-300">{shareFeedback}</span>
+              )}
             </div>
-
-            {/* Comparison View */}
-            {showComparison && (
-              <div className="rounded-xl border border-amber-200/30 bg-white/5 p-4 backdrop-blur">
-                <p className="mb-3 text-sm font-semibold text-white">Actual Night Sky</p>
-                <div className="relative aspect-square overflow-hidden rounded-lg bg-black">
-                  {/* Placeholder for actual sky comparison - would need real astronomy data */}
-                  <div className="flex h-full items-center justify-center text-neutral-400">
-                    <p className="text-sm">Actual sky view would render here</p>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-neutral-300">
-                  Comparison with real astronomical data from NASA/ESA catalogs
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Right: Story & Details */}

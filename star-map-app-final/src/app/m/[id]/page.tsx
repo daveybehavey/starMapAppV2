@@ -15,8 +15,13 @@ type Recipe = {
 };
 
 async function loadRecipe(id: string): Promise<Recipe | null> {
-  const data = await kv.get<Recipe>(`map:${id}`);
-  return data ?? null;
+  try {
+    const data = await kv.get<Recipe>(`map:${id}`);
+    return data ?? null;
+  } catch (error) {
+    console.error("Failed to load recipe:", error);
+    return null;
+  }
 }
 
 function siteOrigin() {
