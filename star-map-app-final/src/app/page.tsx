@@ -871,8 +871,7 @@ function HomeInner() {
       </section>
 
       <section ref={editorRef} id="editor" className="mx-auto w-full max-w-7xl lg:max-w-none py-12 sm:py-14 lg:py-12">
-        {/* Tablet/Desktop: Side-by-side layout */}
-        <div className="hidden md:block space-y-6 lg:h-full">
+        <div className="space-y-6 lg:h-full">
           <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 lg:items-end">
             <div ref={inputsRef} className="w-full space-y-2">
               <div className="space-y-2">
