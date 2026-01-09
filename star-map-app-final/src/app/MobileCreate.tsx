@@ -81,9 +81,7 @@ export function MobileCreate({
       const baseOptions: Partial<RenderOptions> = {
         visualMode: "enhanced", // matches desktop default
         constellationLines: "thin",
-        constellationLabels: "off",
-        constellationColor: "#ffffff",
-        constellationLineWeight: 0.3,
+        constellationLabels: false,
       };
 
       if (mode === "cinematic") {
@@ -92,7 +90,7 @@ export function MobileCreate({
           ...baseOptions,
           visualMode: "illustrated",
           constellationLines: level > 60 ? "thick" : "thin",
-          constellationLabels: level > 70 ? "western" : "off",
+          constellationLabels: level > 70,
         });
       } else {
         // Classic mode uses existing "astronomical" visual mode from desktop
