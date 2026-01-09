@@ -21,6 +21,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { ClientOnly } from "@/components/ClientOnly";
 
 const styles: { id: StyleId; name: string; note: string }[] = [
   { id: "navyGold", name: "Navy & Gold", note: "Luxe midnight with gilded accents" },
@@ -174,6 +176,7 @@ function HomeInner() {
   const [demoApplied, setDemoApplied] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [renderMode, setRenderMode] = useState<RenderModeId>("classic");
   const [intensity, setIntensity] = useState(50); // applied intensity for rendering
   const [intensityDisplay, setIntensityDisplay] = useState(50); // immediate display value
@@ -872,19 +875,11 @@ function HomeInner() {
       </section>
 
       <section ref={editorRef} id="editor" className="mx-auto w-full max-w-7xl lg:max-w-none py-12 sm:py-14 lg:py-12">
-        {/* Mobile: Use MobileCreate component */}
-        <div className="lg:hidden">
-          <MobileCreate
-            onExport={handleExport}
-            onShareImage={handleShareImage}
-            onShare={handleShare}
-            paywallOpen={paywallOpen}
-            canvasReady={canvasReady}
-          />
-        </div>
-
-        {/* Desktop: Use existing implementation - UNCHANGED */}
-        <div className="hidden lg:block">
+        {/* Client-only conditional rendering: Only one component renders at a time */}
+        <ClientOnly>
+          {isDesktop ? (
+            /* Desktop: Use existing implementation - UNCHANGED */
+            <div>
           <div className="space-y-6 lg:h-full">
             <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 lg:items-end">
               <div ref={inputsRef} className="w-full space-y-2">
@@ -1415,6 +1410,17 @@ function HomeInner() {
           </div>
         </div>
         </div>
+          ) : (
+            /* Mobile: Use MobileCreate component */
+            <MobileCreate
+              onExport={handleExport}
+              onShareImage={handleShareImage}
+              onShare={handleShare}
+              paywallOpen={paywallOpen}
+              canvasReady={canvasReady}
+            />
+          )}
+        </ClientOnly>
       </section>
       {paywallOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
