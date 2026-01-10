@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import { useStore, type TextBox } from "@/lib/store";
+import { renderModes } from "@/lib/renderModes";
 import Link from "next/link";
 
 const fontOptions: Array<{ id: TextBox["fontFamily"]; label: string; premium?: boolean }> = [
@@ -20,15 +21,16 @@ const fontOptions: Array<{ id: TextBox["fontFamily"]; label: string; premium?: b
   { id: "lora", label: "Lora", premium: true },
 ];
 
-type AccordionSection = "date" | "text" | "style" | "advanced";
+type AccordionSection = "render" | "date" | "text" | "style" | "advanced";
 
 export function RefineClient() {
   const [openSections, setOpenSections] = useState<Set<AccordionSection>>(
-    new Set(["date", "text", "style"])
+    new Set(["render", "date", "text", "style"])
   );
 
   const dateTime = useStore((s) => s.dateTime);
   const setDateTime = useStore((s) => s.setDateTime);
+  const location = useStore((s) => s.location);
   const textBoxes = useStore((s) => s.textBoxes);
   const updateTextBox = useStore((s) => s.updateTextBox);
   const addTextBox = useStore((s) => s.addTextBox);
@@ -41,6 +43,26 @@ export function RefineClient() {
   const setRenderOptions = useStore((s) => s.setRenderOptions);
   const paid = useStore((s) => s.paid);
   const revealed = useStore((s) => s.revealed);
+  const setRevealed = useStore((s) => s.setRevealed);
+
+  // Local state for render mode and intensity (not in Zustand store)
+  const [renderMode, setRenderMode] = useState<any>("classic");
+  const [intensity, setIntensity] = useState(50);
+
+  // Convert renderModes record to array for rendering
+  const renderModesArray = [
+    { id: "classic", label: "Classic", premium: false },
+    { id: "cinematic", label: "Cinematic", premium: true },
+    { id: "blueprint", label: "Blueprint", premium: false },
+    { id: "luxe", label: "Luxe", premium: true },
+  ];
+
+  // Auto-reveal logic: if user lands in Refine without revealing, auto-reveal once
+  useEffect(() => {
+    if (dateTime && location && !revealed) {
+      setRevealed(true);
+    }
+  }, [dateTime, location, revealed, setRevealed]);
 
   const toggleSection = (section: AccordionSection) => {
     setOpenSections((prev) => {
@@ -91,6 +113,68 @@ export function RefineClient() {
         <div className="grid gap-6 lg:grid-cols-[400px,1fr]">
           {/* Left: Controls (Accordion) */}
           <div className="space-y-4">
+            {/* Render Mode & Intensity Accordion */}
+            <section className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+              <button
+                onClick={() => toggleSection("render")}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-white/5 transition"
+              >
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Render & Intensity</h2>
+                  <p className="text-xs text-neutral-400">Visual style and brightness</p>
+                </div>
+                <span className="text-white text-xl">{openSections.has("render") ? "−" : "+"}</span>
+              </button>
+              {openSections.has("render") && (
+                <div className="p-4 pt-0 space-y-4">
+                  <div>
+                    <label className="text-sm font-semibold text-white mb-2 block">
+                      Render Mode
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {renderModesArray.map((mode) => (
+                        <button
+                          key={mode.id}
+                          onClick={() => setRenderMode(mode.id)}
+                          disabled={mode.premium && !paid}
+                          className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                            renderMode === mode.id
+                              ? "border-amber-300 bg-amber-100 text-midnight"
+                              : mode.premium && !paid
+                              ? "border-white/10 bg-white/5 text-neutral-500 cursor-not-allowed"
+                              : "border-white/15 bg-white/10 text-white"
+                          }`}
+                        >
+                          {mode.label}
+                          {mode.premium && !paid && " 🔒"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold text-white mb-2 block">
+                      Intensity: {intensity}%
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={intensity}
+                      onChange={(e) => setIntensity(Number(e.target.value))}
+                      className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, rgb(251, 191, 36) 0%, rgb(251, 191, 36) ${intensity}%, rgba(255,255,255,0.2) ${intensity}%, rgba(255,255,255,0.2) 100%)`
+                      }}
+                    />
+                    {intensity > 60 && !paid && (
+                      <p className="text-xs text-amber-400 mt-1">HD export required for {intensity}% intensity</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+
             {/* Date & Location Accordion */}
             <section className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
               <button
@@ -344,6 +428,41 @@ export function RefineClient() {
                       ))}
                     </div>
                   </div>
+
+                  {renderOptions.constellationLines !== "off" && (
+                    <>
+                      <div>
+                        <label className="text-sm font-semibold text-white mb-2 block">
+                          Constellation Line Color
+                        </label>
+                        <input
+                          type="color"
+                          value={renderOptions.constellationColor || "#ffffff"}
+                          onChange={(e) =>
+                            setRenderOptions({ constellationColor: e.target.value })
+                          }
+                          className="w-full h-10 rounded-md border border-white/15 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-semibold text-white mb-2 block">
+                          Line Scale: {renderOptions.constellationLineScale || 1}
+                        </label>
+                        <input
+                          type="range"
+                          min={0.5}
+                          max={2}
+                          step={0.1}
+                          value={renderOptions.constellationLineScale || 1}
+                          onChange={(e) =>
+                            setRenderOptions({ constellationLineScale: Number(e.target.value) })
+                          }
+                          className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div>
                     <label className="text-sm font-semibold text-white mb-2 block">
