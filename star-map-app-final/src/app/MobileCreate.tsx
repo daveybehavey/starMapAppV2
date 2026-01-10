@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { useStore } from "@/lib/store";
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
@@ -11,7 +12,6 @@ import { type RenderModeId } from "@/lib/renderModes";
 import type { StyleId, RenderOptions } from "@/lib/store";
 import type { Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
-import Link from "next/link";
 import { useShallow } from "zustand/react/shallow";
 
 const styles: { id: StyleId; name: string; note: string }[] = [
@@ -438,21 +438,29 @@ export function MobileCreate({
           </div>
 
           {/* Share Buttons */}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onShareImage}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onShareImage}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
+              >
+                🔗 Share
+              </button>
+              <button
+                type="button"
+                onClick={onShare}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
+              >
+                💾 Save & Remix
+              </button>
+            </div>
+            <Link
+              href="/refine"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-200 shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
             >
-              🔗 Share
-            </button>
-            <button
-              type="button"
-              onClick={onShare}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
-            >
-              💾 Save & Remix
-            </button>
+              ⚙️ Fine-tune design
+            </Link>
           </div>
         </section>
       )}
