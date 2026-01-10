@@ -711,22 +711,13 @@ function HomeInner() {
                   Accurate, instant star maps for weddings, births, anniversaries, and memorials — customized in seconds.
                 </p>
                 <p className="text-sm text-neutral-300">Designed to be framed, gifted, and kept forever.</p>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_8px_30px_rgba(251,191,36,0.5)] focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 active:scale-95 sm:w-auto"
-                  >
-                    Start with a preset
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => router.push("/?demo=wedding")}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-white/10 px-5 py-3 text-sm font-semibold text-amber-200 shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 sm:w-auto"
-                  >
-                    Try a demo
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_8px_30px_rgba(251,191,36,0.5)] focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 active:scale-95 sm:w-auto"
+                >
+                  Start with a preset
+                </button>
             <div className="flex flex-wrap gap-3 text-xs text-neutral-200 sm:text-sm">
               {["Instant preview", "Ready to frame exports", "One-time unlock"].map((chip) => (
                 <span
