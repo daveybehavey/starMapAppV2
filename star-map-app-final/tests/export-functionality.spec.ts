@@ -48,6 +48,7 @@ test.describe("Export Functionality", () => {
     const locationOption = page.getByRole("option", { name: "Paris, France" });
     await expect(locationOption).toBeVisible();
     await locationOption.click({ force: true });
+    await page.waitForTimeout(500); // Wait for location state to update
 
     // Find and fill text boxes
     const textInputs = page.locator('input[type="text"]');
@@ -55,7 +56,7 @@ test.describe("Export Functionality", () => {
     await titleInput.fill("Our Special Night");
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Find your special moment/i });
+    const revealButton = page.getByRole("button", { name: /Show my star map/i });
     await expect(revealButton).toBeVisible();
     await revealButton.click({ force: true });
 
@@ -110,9 +111,10 @@ test.describe("Export Functionality", () => {
     const locationOption = page.getByRole("option", { name: "Paris, France" });
     await expect(locationOption).toBeVisible();
     await locationOption.click({ force: true });
+    await page.waitForTimeout(500); // Wait for location state to update
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Find your special moment/i });
+    const revealButton = page.getByRole("button", { name: /Show my star map/i });
     await expect(revealButton).toBeVisible();
     await revealButton.click({ force: true });
 
@@ -151,7 +153,7 @@ test.describe("Export Functionality", () => {
     // DO NOT fill text boxes - leave them empty
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Find your special moment/i });
+    const revealButton = page.getByRole("button", { name: /Show my star map/i });
     await expect(revealButton).toBeVisible();
     await revealButton.click({ force: true });
 
@@ -210,7 +212,7 @@ test.describe("Export Functionality", () => {
     await textInputs.nth(2).fill("Dedication Line");
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Find your special moment/i });
+    const revealButton = page.getByRole("button", { name: /Show my star map/i });
     await expect(revealButton).toBeVisible();
     await revealButton.click({ force: true });
 

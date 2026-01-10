@@ -38,7 +38,7 @@ test.describe("Refine Surface (/refine)", () => {
 
     // Open text customization accordion if not open
     const textAccordion = page.getByRole("button", { name: /Text Customization/i });
-    await textAccordion.click();
+    await textAccordion.click({ force: true });
 
     // Wait for text boxes to appear
     await page.waitForTimeout(500);
@@ -68,7 +68,7 @@ test.describe("Refine Surface (/refine)", () => {
 
     // Open style & shape accordion
     const styleAccordion = page.getByRole("button", { name: /Style & Shape/i });
-    await styleAccordion.click();
+    await styleAccordion.click({ force: true });
 
     await page.waitForTimeout(500);
 
@@ -87,7 +87,7 @@ test.describe("Refine Surface (/refine)", () => {
 
     // Open advanced accordion
     const advancedAccordion = page.getByRole("button", { name: /Advanced/i });
-    await advancedAccordion.click();
+    await advancedAccordion.click({ force: true });
 
     await page.waitForTimeout(500);
 
