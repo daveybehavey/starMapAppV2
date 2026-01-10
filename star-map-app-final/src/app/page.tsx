@@ -1077,6 +1077,72 @@ function HomeInner() {
                         })}
                       </div>
                     </section>
+
+                    <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
+                      <h3 className="text-xs font-semibold text-white mb-2">Shape</h3>
+                      <div className="grid grid-cols-4 gap-2">
+                        {shapes.map((shapeOption) => {
+                          const isPremium = shapeOption.id !== "rectangle" && shapeOption.id !== "circle";
+                          const isSelected = shape === shapeOption.id;
+
+                          return (
+                            <button
+                              key={shapeOption.id}
+                              type="button"
+                              onClick={() => {
+                                if (isPremium && !paid) {
+                                  // Allow preview, but note that HD export requires payment
+                                  setShape(shapeOption.id);
+                                } else {
+                                  setShape(shapeOption.id);
+                                }
+                              }}
+                              className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                isSelected
+                                  ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 text-amber-300 shadow-amber-500/20"
+                                  : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                              }`}
+                            >
+                              <span className="text-2xl mb-1" style={{ transform: shapeSymbolScale[shapeOption.id] }}>
+                                {shapeSymbols[shapeOption.id]}
+                              </span>
+                              <span className="text-[10px]">{shapeOption.label}</span>
+                              {isPremium && (
+                                <span className="text-[9px] text-amber-400 mt-0.5">HD only</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+
+                    <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
+                      <h3 className="text-xs font-semibold text-white mb-2">Frame</h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: "square" as const, label: "Square" },
+                          { id: "4:5" as const, label: "Poster" },
+                          { id: "2:3" as const, label: "Wide" },
+                        ].map((ratio) => {
+                          const isSelected = aspectRatio === ratio.id;
+
+                          return (
+                            <button
+                              key={ratio.id}
+                              type="button"
+                              onClick={() => setAspectRatio(ratio.id)}
+                              className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                isSelected
+                                  ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 text-amber-300 shadow-amber-500/20"
+                                  : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                              }`}
+                            >
+                              <span className="text-[10px]">{ratio.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
                   </div>
               </div>
             </div>

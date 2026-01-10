@@ -220,7 +220,7 @@ export function renderStarMap({
   const backgroundColor =
     (recipe.renderOptions?.backgroundColor || "").trim() ||
     (recipe as any).backgroundColor?.trim?.() ||
-    "#ffffff";
+    "#0b0f24";
   const clipPath = buildShapeClip(shapeName, width, targetHeight);
 
   ctx.save();
