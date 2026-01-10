@@ -478,6 +478,11 @@ function HomeInner() {
 
   const exportImage = useCallback(
     async (mode: "preview" | "hd") => {
+      // Ensure all fonts are loaded before export
+      if (typeof document !== "undefined" && document.fonts) {
+        await document.fonts.ready;
+      }
+
       const recipe = buildRecipeFromState({
         dateTime,
         location,
@@ -503,6 +508,8 @@ function HomeInner() {
       const height = Math.max(1, Math.round(width / ratio));
       const canvas = document.createElement("canvas");
       const watermark = mode !== "hd";
+
+      // Render the map
       await renderStarMap({
         recipe,
         canvas,
@@ -511,6 +518,7 @@ function HomeInner() {
         watermark,
         quality: mode === "hd" ? "export" : "preview",
       });
+
       const url = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = mode === "hd" ? "star-map-hd.png" : "star-map-preview.png";
@@ -624,6 +632,11 @@ function HomeInner() {
   }, [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]);
 
   const handleShareImage = useCallback(async () => {
+    // Ensure all fonts are loaded before export
+    if (typeof document !== "undefined" && document.fonts) {
+      await document.fonts.ready;
+    }
+
     const recipe = buildRecipeFromState({
       dateTime,
       location,

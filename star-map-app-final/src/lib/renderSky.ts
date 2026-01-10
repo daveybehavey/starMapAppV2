@@ -533,6 +533,9 @@ function drawText(
   if (bounds) bounds.clear();
 
   textBoxes.forEach((box, index) => {
+    // Skip empty text boxes
+    if (!box.text || box.text.trim() === "") return;
+
     const fontSize = Math.max(10, box.size * scale);
     ctx.font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
     ctx.fillStyle = box.color;
