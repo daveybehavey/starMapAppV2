@@ -1065,7 +1065,12 @@ function HomeInner() {
                               onClick={() => setStyle(style.id)}
                               className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${styleClasses[style.id as keyof typeof styleClasses]}`}
                             >
-                              <div className="text-sm font-semibold">{style.name}</div>
+                              <div className="text-sm font-semibold">
+                                {style.name}
+                                {style.id === "navyGold" && (
+                                  <span className="ml-1.5 text-[10px] text-amber-300">(Recommended)</span>
+                                )}
+                              </div>
                               <div className="text-xs opacity-80 mt-1">{style.note}</div>
                             </button>
                           );
@@ -1138,7 +1143,7 @@ function HomeInner() {
                           }`}
                           aria-disabled={!canReveal || !hasDate}
                         >
-                          ✨ Find your special moment
+                          ✨ Show my star map
                         </button>
                         {(!canReveal || !hasDate) && (
                           <p className="relative z-10 text-xs text-amber-200/80">
