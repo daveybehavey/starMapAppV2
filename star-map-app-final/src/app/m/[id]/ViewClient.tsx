@@ -177,13 +177,31 @@ export function ViewClient({ id, searchParams }: Props) {
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-400">Star Map</p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{title}</h1>
+            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">
+              {recipe ? (
+                <>
+                  The exact night sky from{" "}
+                  {new Intl.DateTimeFormat("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  }).format(new Date(recipe.datetimeISO))}{" "}
+                  — {recipe.location.name}
+                </>
+              ) : (
+                "A Night to Remember"
+              )}
+            </h1>
+            {title && title !== "A Night to Remember" && (
+              <p className="mt-2 text-lg text-neutral-300 italic">{title}</p>
+            )}
           </div>
           <Link
             href={`/?from=${id}`}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
+            className="inline-flex flex-col items-center justify-center gap-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
           >
-            ✨ Create your own
+            <span>✨ Create your own star map</span>
+            <span className="text-xs text-midnight/70 font-normal">Free preview · $9.99 HD unlock</span>
           </Link>
         </div>
 
@@ -193,6 +211,19 @@ export function ViewClient({ id, searchParams }: Props) {
           <div className="space-y-4">
             <div className="relative overflow-hidden rounded-2xl border border-amber-200/30 bg-black/40 p-4 shadow-2xl backdrop-blur">
               <PreviewCanvas />
+            </div>
+
+            {/* Accuracy micro-explainer */}
+            <div className="rounded-lg border border-amber-200/30 bg-amber-50/10 p-3 text-xs text-white">
+              <details>
+                <summary className="cursor-pointer font-semibold">
+                  ⭐ Matches professional planetarium accuracy
+                </summary>
+                <p className="mt-2 text-neutral-200">
+                  Built on Yale Bright Star Catalog & NASA-grade ephemeris.
+                  Timezone-corrected, location-accurate to 0.01°.
+                </p>
+              </details>
             </div>
 
             {/* Share Button */}

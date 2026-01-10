@@ -1227,6 +1227,45 @@ function HomeInner() {
                     </Link>
                   </div>
                 )}
+
+                {revealed && (
+                  <>
+                    {/* Accuracy micro-explainer */}
+                    <div className="mt-3 rounded-lg border border-amber-200/30 bg-amber-50/10 p-3 text-xs text-white">
+                      <details>
+                        <summary className="cursor-pointer font-semibold">
+                          ⭐ Matches professional planetarium accuracy
+                        </summary>
+                        <p className="mt-2 text-neutral-200">
+                          Built on Yale Bright Star Catalog & NASA-grade ephemeris.
+                          Timezone-corrected, location-accurate to 0.01°.
+                        </p>
+                      </details>
+                    </div>
+
+                    {/* Free vs HD comparison */}
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-neutral-200">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="font-semibold text-white">Free Preview</p>
+                          <ul className="mt-1 space-y-0.5">
+                            <li>• 1200px resolution</li>
+                            <li>• Watermark</li>
+                            <li>• Screen sharing</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-amber-300">HD Export</p>
+                          <ul className="mt-1 space-y-0.5">
+                            <li>• 6000px (6x larger)</li>
+                            <li>• No watermark</li>
+                            <li>• Print-ready</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </section>
 
               {!paid && revealed && (
