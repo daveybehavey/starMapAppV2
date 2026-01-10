@@ -262,32 +262,37 @@ function HomeInner() {
     if (typeof window === "undefined") return;
     if (!demoApplied && !presetApplied) {
       const demoKey = searchParams.get("demo");
-      const preset =
-        occasionPresets.find((p) => p.id === (demoKey as any)) || occasionPresets.find((p) => p.id === "wedding");
-      if (preset) {
-        // Batch all Zustand store updates into single setState call for better performance
-        useStore.setState({
-          dateTime: preset.dateTimeISO,
-          location: {
-            name: preset.location?.name ?? "",
-            latitude: preset.location?.latitude ?? 0,
-            longitude: preset.location?.longitude ?? 0,
-            timezone: preset.location?.timezone ?? "UTC",
-          },
-          textBoxes: preset.textBoxes,
-          selectedStyle: preset.style as StyleId,
-          shape: preset.shape as Shape,
-          revealed: true,
-          paid: false,
-        });
 
-        // Local state updates (fewer re-renders)
-        setRenderMode(preset.renderMode);
-        const level = Math.round(preset.intensity * 100);
-        setIntensity(level);
-        setIntensityDisplay(level);
-        setDemoApplied(Boolean(demoKey));
-        setPresetApplied(true);
+      // Only apply demo preset if explicitly requested via query param
+      if (demoKey) {
+        const preset =
+          occasionPresets.find((p) => p.id === demoKey) || occasionPresets.find((p) => p.id === "wedding");
+
+        if (preset) {
+          // Batch all Zustand store updates into single setState call for better performance
+          useStore.setState({
+            dateTime: preset.dateTimeISO,
+            location: {
+              name: preset.location?.name ?? "",
+              latitude: preset.location?.latitude ?? 0,
+              longitude: preset.location?.longitude ?? 0,
+              timezone: preset.location?.timezone ?? "UTC",
+            },
+            textBoxes: preset.textBoxes,
+            selectedStyle: preset.style as StyleId,
+            shape: preset.shape as Shape,
+            revealed: true,
+            paid: false,
+          });
+
+          // Local state updates (fewer re-renders)
+          setRenderMode(preset.renderMode);
+          const level = Math.round(preset.intensity * 100);
+          setIntensity(level);
+          setIntensityDisplay(level);
+          setDemoApplied(true);
+          setPresetApplied(true);
+        }
       }
     }
     const token = localStorage.getItem("star-map-unlock");
@@ -716,7 +721,7 @@ function HomeInner() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => router.push("/?demo=default")}
+                    onClick={() => router.push("/?demo=wedding")}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-white/10 px-5 py-3 text-sm font-semibold text-amber-200 shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400/70 focus:ring-offset-2 sm:w-auto"
                   >
                     Try a demo
