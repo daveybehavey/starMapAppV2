@@ -60,13 +60,13 @@ export interface RenderOptions {
   constellationLabels: boolean;
   showGrid: boolean;
   showPlanets: boolean;
+  premiumStars: "off" | "subtle" | "realistic";
+  premiumPlanets: "off" | "realistic";
   planetEmphasis: "normal" | "highlighted";
   showMoon: boolean;
   moonSize: "normal" | "large";
-  colorTheme: "night" | "midnight" | "vintage" | "emerald";
-  typography: "classic" | "elegant" | "script";
-  textLayout: "center" | "top" | "bottom";
   shapeMask: "none" | "circle" | "heart" | "diamond" | "ring";
+  frameEnabled: boolean;
   backgroundColor?: string;
   constellationColor?: string;
   constellationLineScale?: number;
@@ -80,6 +80,7 @@ export interface EditorState {
   aspectRatio: AspectRatio;
   shape: Shape;
   renderOptions: RenderOptions;
+  previewFidelity: "standard" | "high";
   paid: boolean;
   revealed: boolean;
   setDateTime: (dateTime: string) => void;
@@ -92,6 +93,7 @@ export interface EditorState {
   setAspectRatio: (aspectRatio: AspectRatio) => void;
   setShape: (shape: Shape) => void;
   setRenderOptions: (options: Partial<RenderOptions>) => void;
+  setPreviewFidelity: (fidelity: EditorState["previewFidelity"]) => void;
   setPaid: (paid: boolean) => void;
   setRevealed: (revealed: boolean) => void;
 }
@@ -102,7 +104,7 @@ const initialDate = (() => {
   return now;
 })();
 
-export const useStore = create<EditorState>((set) => ({
+const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void): EditorState => ({
   dateTime: initialDate.toISOString(),
   location: {
     name: "",
@@ -117,9 +119,9 @@ export const useStore = create<EditorState>((set) => ({
       id: "title",
       label: "Title",
       text: "Our Night Sky",
-      fontFamily: "playfair",
-      color: "#d9b56f", // warm gold for main title
-      size: 52,
+      fontFamily: "cinzel",
+      color: "#d7b56c", // cinematic gold
+      size: 48,
       align: "center",
       textShadow: false,
       textGlow: false,
@@ -129,9 +131,9 @@ export const useStore = create<EditorState>((set) => ({
       id: "subtitle",
       label: "Subtitle",
       text: "Under the vintage stars",
-      fontFamily: "cinzel",
-      color: "#c7a35a", // softer gold accent for subtitle
-      size: 36,
+      fontFamily: "raleway",
+      color: "#c8a662", // softer gold accent for subtitle
+      size: 28,
       align: "center",
       textShadow: false,
       textGlow: false,
@@ -142,8 +144,8 @@ export const useStore = create<EditorState>((set) => ({
       label: "Dedication",
       text: "Celebrating our constellation of moments.",
       fontFamily: "script",
-      color: "#b8893f", // deeper gold tone for dedication line
-      size: 32,
+      color: "#b98a3d", // deeper gold tone for dedication line
+      size: 26,
       align: "center",
       textShadow: false,
       textGlow: false,
@@ -152,24 +154,25 @@ export const useStore = create<EditorState>((set) => ({
   ],
   selectedStyle: "navyGold",
   renderOptions: {
-    visualMode: "enhanced",
-    starIntensity: "normal",
-    starGlow: false,
+    visualMode: "illustrated",
+    starIntensity: "bold",
+    starGlow: true,
     constellationLines: "thin",
     constellationLabels: false,
     showGrid: false,
     showPlanets: true,
-    planetEmphasis: "normal",
+    premiumStars: "off",
+    premiumPlanets: "off",
+    planetEmphasis: "highlighted",
     showMoon: true,
-    moonSize: "normal",
-    colorTheme: "night",
-    typography: "classic",
-    textLayout: "center",
+    moonSize: "large",
     shapeMask: "circle",
+    frameEnabled: true,
     backgroundColor: "",
     constellationColor: "",
-    constellationLineScale: 1,
+    constellationLineScale: 1.1,
   },
+  previewFidelity: "standard",
   paid: false,
   revealed: false,
   setDateTime: (dateTime) => set({ dateTime }),
@@ -206,6 +209,14 @@ export const useStore = create<EditorState>((set) => ({
   setShape: (shape) => set({ shape }),
   setRenderOptions: (options) =>
     set((state) => ({ renderOptions: { ...state.renderOptions, ...options } })),
+  setPreviewFidelity: (previewFidelity) => set({ previewFidelity }),
   setPaid: (paid) => set({ paid }),
   setRevealed: (revealed) => set({ revealed }),
-}));
+});
+
+export const useStore = create<EditorState>(storeImpl);
+
+// Expose store globally for testing/export scripts in development
+if (typeof window !== "undefined") {
+  (window as unknown as { __ZUSTAND_STORE__: typeof useStore }).__ZUSTAND_STORE__ = useStore;
+}

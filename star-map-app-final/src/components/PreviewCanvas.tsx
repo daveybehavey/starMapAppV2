@@ -2,7 +2,6 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
-import { getShapeData } from "@/lib/shapeUtils";
 import { TextBox, useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 
@@ -18,10 +17,11 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
   const dragRafRef = useRef<number | null>(null);
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const pendingDragRef = useRef<{ x: number; y: number } | null>(null);
+  const dragActiveRef = useRef(false);
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map(),
   );
-  const { selectedStyle, textBoxes, dateTime, location, renderOptions, paid, updateTextBox, aspectRatio, shape } =
+  const { selectedStyle, textBoxes, dateTime, location, renderOptions, paid, updateTextBox, aspectRatio, shape, previewFidelity } =
     useStore(
       useShallow((state) => ({
         selectedStyle: state.selectedStyle,
@@ -33,13 +33,14 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
         aspectRatio: state.aspectRatio,
         shape: state.shape,
         updateTextBox: state.updateTextBox,
+        previewFidelity: state.previewFidelity,
       })),
     );
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [activeBox, setActiveBox] = useState<string | null>(null);
   const [boxRect, setBoxRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [widthToHeight, setWidthToHeight] = useState<number>(1);
-  const [loadingShape, setLoadingShape] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -55,34 +56,15 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
   }, []);
 
   useEffect(() => {
-    let active = true;
-    const updateRatio = async () => {
-      setLoadingShape(true);
-      try {
-        const data = await getShapeData(shape);
-        const ratio = data ? data.viewBox.width / data.viewBox.height : aspectRatioToNumber(aspectRatio);
-        if (active) setWidthToHeight(Math.max(ratio || 1, 0.01));
-      } catch (err) {
-        console.error("Shape load failed:", err);
-        if (active) setWidthToHeight(1);
-      } finally {
-        if (active) setLoadingShape(false);
-      }
-    };
-    updateRatio();
-    return () => {
-      active = false;
-    };
-  }, [aspectRatio, shape]);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     rafRef.current = requestAnimationFrame(() => {
       const { width, height } = dimensions;
-      const pixelRatio = window.devicePixelRatio || 1;
+      const deviceRatio = window.devicePixelRatio || 1;
+      const fidelityBoost = previewFidelity === "high" ? 2 : 1;
+      const pixelRatio = Math.min(deviceRatio * fidelityBoost, 3);
       const recipe = buildRecipeFromState({
         dateTime,
         location,
@@ -99,6 +81,7 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
         height,
         watermark: !paid,
         quality: "preview",
+        premium: paid,
         pixelRatio,
         textBounds: textBoundsRef.current,
       });
@@ -106,13 +89,14 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
         const rect = textBoundsRef.current.get(activeBox);
         if (rect) setBoxRect(rect);
       }
+      setIsLoading(false);
       onRendered?.();
     });
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [dimensions, activeBox, dateTime, location, textBoxes, selectedStyle, renderOptions, aspectRatio, shape, paid, onRendered]);
+  }, [dimensions, activeBox, dateTime, location, textBoxes, selectedStyle, renderOptions, aspectRatio, shape, paid, previewFidelity, onRendered]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -131,6 +115,8 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
           offsetX: x - hit.centerX,
           offsetY: y - hit.centerY,
         };
+        dragActiveRef.current = false;
+        setIsDragging(false);
         setActiveBox(hit.id);
         const rect = textBoundsRef.current.get(hit.id);
         if (rect) setBoxRect(rect);
@@ -138,6 +124,8 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       } else {
         setActiveBox(null);
         setBoxRect(null);
+        dragActiveRef.current = false;
+        setIsDragging(false);
       }
     };
 
@@ -145,6 +133,10 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       if (!dragRef.current) return;
       // Prevent touchmove from being treated as a scroll on mobile.
       event.preventDefault();
+      if (!dragActiveRef.current) {
+        dragActiveRef.current = true;
+        setIsDragging(true);
+      }
       const bounds = canvas.getBoundingClientRect();
       pendingDragRef.current = {
         x: event.clientX - bounds.left,
@@ -174,6 +166,8 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
         canvas.releasePointerCapture(event.pointerId);
       }
       dragRef.current = null;
+      dragActiveRef.current = false;
+      setIsDragging(false);
     };
 
     canvas.addEventListener("pointerdown", handlePointerDown);
@@ -195,6 +189,8 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       if (!canvas.contains(event.target as Node)) {
         setActiveBox(null);
         setBoxRect(null);
+        dragActiveRef.current = false;
+        setIsDragging(false);
       }
     };
     window.addEventListener("pointerdown", handleOutside);
@@ -204,14 +200,31 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
   return (
     <div
       ref={containerRef}
+      aria-busy={isLoading}
+      aria-label="Star map preview - drag text boxes to reposition"
       className={`relative overflow-hidden rounded-2xl shadow-2xl ${
         fullscreen
-          ? "w-[90vmin] h-[90vmin] border-2 border-amber-400/80 shadow-black/40"
-          : "w-full border-2 border-amber-400/80 shadow-black/20 min-h-[280px] sm:min-h-[360px] md:min-h-[420px] lg:min-h-[520px]"
+          ? "max-w-[90vmin] max-h-[90vmin] border-2 border-[#d7b56c]/80 shadow-black/40"
+          : "w-full border-2 border-[#d7b56c]/80 shadow-black/20 min-h-[280px] sm:min-h-[360px] md:min-h-[420px] lg:min-h-[520px]"
       }`}
-      style={fullscreen ? {} : { aspectRatio: "1 / 1" }}
+      style={{ aspectRatio: `${aspectRatioToNumber(aspectRatio)} / 1` }}
     >
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" />
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0b0f24]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+            <span className="text-xs text-neutral-400">Rendering stars...</span>
+          </div>
+        </div>
+      )}
+      {isDragging && (
+        <div
+          className={`pointer-events-none absolute inset-[7%] border border-dashed border-white/30 bg-white/5 ${
+            shape === "circle" ? "rounded-full" : "rounded-2xl"
+          }`}
+        />
+      )}
       {activeBox && boxRect && (
         <div
           className="pointer-events-none absolute rounded-md border border-amber-300/70 bg-amber-200/10 shadow-[0_0_0_1px_rgba(251,191,36,0.4)]"

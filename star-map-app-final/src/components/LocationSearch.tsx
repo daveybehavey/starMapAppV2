@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import tzLookup from "tz-lookup";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
+import { LRUCache } from "@/lib/lruCache";
 
 type GeocodeResult = {
   id: number;
@@ -16,10 +17,13 @@ type GeocodeResult = {
   state?: string;
 };
 
-const MAX_CACHE_SIZE = 50;
-const cache = new Map<string, GeocodeResult[]>();
+const cache = new LRUCache<string, GeocodeResult[]>(50);
 
-export default function LocationSearch() {
+type LocationSearchProps = {
+  onLocationChange?: () => void;
+};
+
+export default function LocationSearch({ onLocationChange }: LocationSearchProps) {
   const { location, setLocation } = useStore(
     useShallow((state) => ({
       location: state.location,
@@ -86,11 +90,7 @@ export default function LocationSearch() {
         }
         const data = (await res.json()) as GeocodeResult[];
         if (!mounted) return;
-        // Limit cache size to prevent memory bloat
-        if (cache.size >= MAX_CACHE_SIZE) {
-          const firstKey = cache.keys().next().value;
-          if (firstKey) cache.delete(firstKey);
-        }
+        // Store in cache (LRU eviction handled automatically)
         cache.set(key, data);
         setResults(data);
         if (isFocused) setDropdownOpen(true);
@@ -125,6 +125,7 @@ export default function LocationSearch() {
       longitude,
       timezone,
     });
+    onLocationChange?.();
     setDropdownOpen(false);
   };
 
@@ -161,6 +162,7 @@ export default function LocationSearch() {
     setLatError(null);
     const timezone = safeLookupTz(num, location.longitude, location.timezone);
     setLocation({ latitude: num, timezone });
+    onLocationChange?.();
   };
 
   const handleManualLon = (value: string) => {
@@ -173,6 +175,7 @@ export default function LocationSearch() {
     setLonError(null);
     const timezone = safeLookupTz(location.latitude, num, location.timezone);
     setLocation({ longitude: num, timezone });
+    onLocationChange?.();
   };
 
   const hasResults = results.length > 0;

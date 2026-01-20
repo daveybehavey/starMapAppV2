@@ -2,7 +2,8 @@
 
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { useEffect, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useStore, type TextBox, type StyleId, type RenderOptions } from "@/lib/store";
+import type { AspectRatio, Shape } from "@/lib/types";
 import Link from "next/link";
 
 type Recipe = {
@@ -15,15 +16,12 @@ type Recipe = {
     longitude: number;
     timezone: string;
   };
-  textBoxes: unknown;
-  selectedStyle: string;
-  aspectRatio?: string;
-  shape?: string;
-  renderOptions?: {
-    showConstellations?: boolean;
-    showGrid?: boolean;
-    showPlanets?: boolean;
-    showMoon?: boolean;
+  textBoxes: TextBox[];
+  selectedStyle: StyleId;
+  aspectRatio?: AspectRatio;
+  shape?: Shape;
+  renderOptions?: Partial<RenderOptions> & {
+    shapeMask?: string; // Legacy field for backwards compatibility
   };
 };
 
@@ -76,17 +74,19 @@ export function ViewClient({ id, searchParams }: Props) {
         setDateTime(data.datetimeISO);
         setLocation(data.location);
         if (Array.isArray(data.textBoxes)) {
-          setTextBoxes(data.textBoxes as any);
+          setTextBoxes(data.textBoxes);
         }
-        setStyle(data.selectedStyle as any);
-        if (data.aspectRatio) setAspectRatio(data.aspectRatio as any);
-        if ((data as any).shape) {
-          setShape((data as any).shape);
-        } else if ((data.renderOptions as any)?.shapeMask) {
-          setShape((data.renderOptions as any).shapeMask as any);
+        setStyle(data.selectedStyle);
+        if (data.aspectRatio) setAspectRatio(data.aspectRatio);
+        // Valid Shape values - filter out legacy shapeMask values like "none" or "ring"
+        const validShapes = new Set(["rectangle", "heart", "circle", "star", "diamond"]);
+        if (data.shape && validShapes.has(data.shape)) {
+          setShape(data.shape);
+        } else if (data.renderOptions?.shapeMask && validShapes.has(data.renderOptions.shapeMask)) {
+          setShape(data.renderOptions.shapeMask as Shape);
         }
         if (data.renderOptions) {
-          setRenderOptions(data.renderOptions as any);
+          setRenderOptions(data.renderOptions);
         }
         setRevealed(true);
         setStatus("ready");
@@ -138,7 +138,7 @@ export function ViewClient({ id, searchParams }: Props) {
   }
 
   const storyText = recipe ? generateStoryText(recipe) : "";
-  const title = (recipe?.textBoxes as any)?.[0]?.text || "A Night to Remember";
+  const title = recipe?.textBoxes?.[0]?.text || "A Night to Remember";
 
   const handleShare = async () => {
     if (!recipe) return;
@@ -201,7 +201,7 @@ export function ViewClient({ id, searchParams }: Props) {
             className="inline-flex flex-col items-center justify-center gap-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
           >
             <span>✨ Create your own star map</span>
-            <span className="text-xs text-midnight/70 font-normal">Free preview · $9.99 HD unlock</span>
+            <span className="text-xs text-midnight/70 font-normal">Free preview · $0.99 HD unlock</span>
           </Link>
         </div>
 

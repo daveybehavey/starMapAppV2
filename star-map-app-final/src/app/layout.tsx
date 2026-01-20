@@ -4,6 +4,7 @@ import "./globals.css";
 import CookieBanner from "@/components/CookieBanner";
 import PromoBanner from "@/components/PromoBanner";
 import PromoPopup from "@/components/PromoPopup";
+import { getPricingInfo } from "@/lib/pricing";
 import {
   Playfair_Display,
   Cinzel,
@@ -82,9 +83,12 @@ export const metadata: Metadata = {
     type: "website",
   },
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
     apple: "/favicon.png",
-    shortcut: "/favicon.png",
+    shortcut: "/favicon.ico",
   },
   twitter: {
     card: "summary_large_image",
@@ -98,6 +102,19 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
 }
+
+const pricingInfo = getPricingInfo();
+const schemaPrice = (pricingInfo.activeAmountCents / 100).toFixed(2);
+const schemaCurrency = (pricingInfo.currency || "USD").toUpperCase();
+const priceValidUntil = (() => {
+  const promoEnd = pricingInfo.promoEnd;
+  if (promoEnd && promoEnd.getTime() > Date.now()) {
+    return promoEnd.toISOString().slice(0, 10);
+  }
+  const now = new Date();
+  const nextYear = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
+  return nextYear.toISOString().slice(0, 10);
+})();
 
 export default function RootLayout({
   children,
@@ -141,9 +158,9 @@ export default function RootLayout({
                   brand: { "@type": "Brand", name: "StarMapCo" },
                   offers: {
                     "@type": "Offer",
-                    priceCurrency: "USD",
-                    price: "0.99",
-                    priceValidUntil: "2026-01-31",
+                    priceCurrency: schemaCurrency,
+                    price: schemaPrice,
+                    priceValidUntil,
                     availability: "https://schema.org/InStock",
                   },
                   review: [],
@@ -180,7 +197,7 @@ export default function RootLayout({
                       name: "What is included in the free version vs. premium unlock?",
                       acceptedAnswer: {
                         "@type": "Answer",
-                        text: "Free offers a basic preview and watermarked export. Premium ($9.99 one-time) gives HD no-watermark PNG/PDF and advanced visuals.",
+                        text: "Free offers a basic preview and watermarked export. Premium ($0.99 one-time) gives HD no-watermark PNG and advanced visuals.",
                       },
                     },
                     {
@@ -188,7 +205,7 @@ export default function RootLayout({
                       name: "How do I export or download my star map?",
                       acceptedAnswer: {
                         "@type": "Answer",
-                        text: "After premium unlock, download a high-resolution PNG or PDF directly from the app.",
+                        text: "After premium unlock, download a high-resolution PNG directly from the app.",
                       },
                     },
                     {
@@ -196,7 +213,7 @@ export default function RootLayout({
                       name: "Is this a one-time purchase or subscription?",
                       acceptedAnswer: {
                         "@type": "Answer",
-                        text: "One-time $9.99 unlock per device/browser, stored locally—no subscriptions.",
+                        text: "One-time $0.99 unlock per device/browser, stored locally—no subscriptions.",
                       },
                     },
                     {

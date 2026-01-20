@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "star-map-app/1.0 (+https://github.com/)",
+        "User-Agent": "StarMapCo/1.0 (https://starmapco.com; mailto:support@starmapco.com)",
       },
       next: { revalidate: 3600 },
     });

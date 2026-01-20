@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 async function testPromoCode() {
   console.log('\n=== STRIPE PROMO CODE TEST ===');
   console.log('Promo Code ID:', process.env.STRIPE_PROMO_CODE_ID);
-  console.log('Using API Key:', process.env.STRIPE_SECRET_KEY?.substring(0, 20) + '...');
+  console.log('Using API Key:', process.env.STRIPE_SECRET_KEY ? '[configured]' : '[missing]');
 
   try {
     const promoCode = await stripe.promotionCodes.retrieve(process.env.STRIPE_PROMO_CODE_ID);

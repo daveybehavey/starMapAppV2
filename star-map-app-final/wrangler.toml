@@ -20,6 +20,29 @@ binding = "ASSETS"
 NEXTJS_ENV = "production"
 NEXT_INC_CACHE_R2_PREFIX = "incremental-cache"
 
+# Site Configuration
+NEXT_PUBLIC_SITE_URL = "https://starmapco.com"
+
+# Analytics
+NEXT_PUBLIC_POSTHOG_KEY = "phc_s1dorhk13RhnCG0tHFiHLiMyamlm9UN06T7N3uSvRhY"
+NEXT_PUBLIC_POSTHOG_HOST = "https://app.posthog.com"
+NEXT_PUBLIC_GA_ID = "G-N4PPJ50JQ7"
+
+# Pricing Configuration
+PRICE_CENTS = "999"
+PROMO_PRICE_CENTS = "99"
+PROMO_START = "2026-01-01"
+PROMO_END = "2026-01-31"
+CURRENCY = "usd"
+STRIPE_PROMO_CODE_ID = "promo_1Sn0h5LWqD0o9865VJyVb98k"
+
+# Client-side Accessible Pricing
+NEXT_PUBLIC_PRICE_CENTS = "999"
+NEXT_PUBLIC_PROMO_PRICE_CENTS = "99"
+NEXT_PUBLIC_PROMO_START = "2026-01-01"
+NEXT_PUBLIC_PROMO_END = "2026-01-31"
+NEXT_PUBLIC_CURRENCY = "usd"
+
 [[services]]
 binding = "WORKER_SELF_REFERENCE"
 service = "star-map-final"
@@ -27,6 +50,10 @@ service = "star-map-final"
 [[r2_buckets]]
 binding = "NEXT_INC_CACHE_R2_BUCKET"
 bucket_name = "cache"
+
+[[kv_namespaces]]
+binding = "STAR_MAP_KV"
+id = "cdef6c5fa5cc4e52bfe105aa1ba37713"
 
 [images]
 binding = "IMAGES"

@@ -18,28 +18,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
     },
     {
+      url: `${baseUrl}/anniversary`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/birthday`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/wedding`,
+      lastModified: now,
+    },
+    {
       url: `${baseUrl}/blog`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/blog/personalized-star-map-birthday-gift`,
+      url: `${baseUrl}/privacy`,
       lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
     },
     {
-      url: `${baseUrl}/blog/astronomy-behind-star-maps`,
+      url: `${baseUrl}/returns`,
       lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/blog/choose-date-location-custom-star-map`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
     },
   ];
 

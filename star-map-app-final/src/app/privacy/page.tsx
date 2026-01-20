@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy | StarMapCo",
   description: "Learn how StarMapCo handles data privacy for custom star maps.",
+  alternates: { canonical: "https://starmapco.com/privacy" },
 };
 
 export default function PrivacyPage() {
@@ -32,7 +33,7 @@ export default function PrivacyPage() {
                 anonymized.
               </li>
               <li>
-                <strong>Payment Data (via Stripe):</strong> For premium unlocks ($9.99 one-time), Stripe processes
+                <strong>Payment Data (via Stripe):</strong> For premium unlocks ($0.99 one-time), Stripe processes
                 payment details (card info, billing address if provided). We do not store or access full payment
                 data—Stripe handles it securely under their privacy policy.
               </li>

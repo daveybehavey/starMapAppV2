@@ -60,7 +60,7 @@ function parseDateEnv(name: string): Date | null {
 }
 
 function readEnv(): PricingEnv {
-  const basePriceCents = parseIntEnv("PRICE_CENTS", 999);
+  const basePriceCents = parseIntEnv("PRICE_CENTS", 99);
   const promoPriceCents = (() => {
     const raw = parseIntEnv("PROMO_PRICE_CENTS", Number.NaN);
     return Number.isFinite(raw) ? raw : null;

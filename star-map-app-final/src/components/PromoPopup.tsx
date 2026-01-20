@@ -30,6 +30,16 @@ export default function PromoPopup() {
     }
   }, [pricing.promoActive, pricing.promoAmountCents]);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   const handleClose = () => {
     setIsOpen(false);
     localStorage.setItem(POPUP_DISMISSED_KEY, new Date().toISOString());
@@ -41,7 +51,12 @@ export default function PromoPopup() {
   const percentOff = Math.round((savings / pricing.baseAmountCents) * 100);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="promo-popup-title"
+    >
       <div className="relative w-full max-w-md animate-[scale-in_0.3s_ease-out] rounded-3xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-amber-50 p-6 shadow-2xl">
         <button
           onClick={handleClose}
@@ -55,7 +70,7 @@ export default function PromoPopup() {
           <div className="mb-2 inline-flex items-center justify-center rounded-full bg-amber-400 px-4 py-1.5 text-sm font-bold text-midnight shadow-md">
             🎉 LIMITED TIME OFFER
           </div>
-          <h2 className="mt-4 text-3xl font-bold text-midnight">
+          <h2 id="promo-popup-title" className="mt-4 text-3xl font-bold text-midnight">
             {percentOff}% Off New Year Sale!
           </h2>
         </div>

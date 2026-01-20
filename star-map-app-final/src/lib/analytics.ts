@@ -2,6 +2,17 @@ import posthog from "posthog-js";
 
 type EventProps = Record<string, string | number | boolean | undefined>;
 
+// Type declarations for third-party analytics on window
+type GtagFunction = (command: string, eventName: string, params?: Record<string, unknown>) => void;
+type VercelAnalytics = { track?: (name: string, data?: Record<string, unknown>) => void };
+
+declare global {
+  interface Window {
+    gtag?: GtagFunction;
+    va?: VercelAnalytics;
+  }
+}
+
 export function track(event: string, props?: EventProps) {
   if (typeof window === "undefined") return;
   const payload = {
@@ -12,13 +23,11 @@ export function track(event: string, props?: EventProps) {
     if (posthog?.capture) {
       posthog.capture(event, payload);
     }
-    const gtag = (window as any).gtag as ((...args: any[]) => void) | undefined;
-    if (typeof gtag === "function") {
-      gtag("event", event, payload);
+    if (typeof window.gtag === "function") {
+      window.gtag("event", event, payload);
     }
-    const va = (window as any).va as { track?: (name: string, data?: Record<string, unknown>) => void } | undefined;
-    if (va?.track) {
-      va.track(event, payload);
+    if (window.va?.track) {
+      window.va.track(event, payload);
     }
   } catch {
     // silently ignore tracking errors

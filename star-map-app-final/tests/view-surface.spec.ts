@@ -1,48 +1,88 @@
 import { test, expect } from "@playwright/test";
 
+const primeLocalStorage = async (page: { addInitScript: (fn: () => void) => Promise<void> }) => {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+    localStorage.setItem("cookiesAccepted", "true");
+    localStorage.setItem("analytics-consent", "true");
+  });
+};
+
+const dismissOverlays = async (page: { locator: (selector: string) => any; waitForTimeout: (ms: number) => Promise<void> }) => {
+  const selectors = [
+    'button[aria-label="Close"]',
+    'button:has-text("Close")',
+    'button:has-text("Accept")',
+    'button:has-text("Maybe later")',
+  ];
+  await page.waitForTimeout(500);
+  for (const selector of selectors) {
+    const buttons = page.locator(selector);
+    const count = await buttons.count();
+    for (let i = 0; i < count; i += 1) {
+      try {
+        await buttons.nth(i).click({ timeout: 1000 });
+      } catch {
+        // Ignore if button is not clickable
+      }
+    }
+  }
+};
+
+const waitForViewReady = async (page: { getByText: (text: string | RegExp) => any; locator: (selector: string) => any }) => {
+  // Wait for loading state to clear if it appears.
+  const loading = page.getByText("Loading your star map…");
+  if (await loading.isVisible().catch(() => false)) {
+    await expect(loading).toHaveCount(0, { timeout: 15000 });
+  }
+  await expect(page.locator("canvas")).toBeVisible({ timeout: 15000 });
+};
+
 test.describe("View Surface (/m/[id])", () => {
   // Test with a predictable map ID - we'll need to create this via the Create flow first
   // or use an existing shared map
 
   test("has no edit controls (read-only)", async ({ page }) => {
-    // First, create a test map by using the Create surface
-    await page.goto("/?force=desktop&demo=skip");
+    const payload = {
+      version: 1,
+      seed: "test-seed",
+      datetimeISO: "2024-06-15T00:00:00.000Z",
+      location: {
+        name: "Paris, France",
+        latitude: 48.8566,
+        longitude: 2.3522,
+        timezone: "Europe/Paris",
+      },
+      textBoxes: [{ text: "A Night in Paris" }, { text: "June 15, 2024" }, { text: "With love" }],
+      selectedStyle: "navyGold",
+      aspectRatio: "square",
+      shape: "rectangle",
+      renderOptions: {
+        constellationLines: "thin",
+      },
+    };
 
-    // Fill in date and location to enable reveal
-    await page.getByLabel("Date").fill("2024-06-15");
-    const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-    await locationInput.fill("Paris");
-    await page.waitForTimeout(500); // Wait for autocomplete
+    await primeLocalStorage(page);
+    const response = await page.request.post("/api/maps", { data: payload });
+    expect(response.ok()).toBeTruthy();
+    const { id } = (await response.json()) as { id: string };
 
-    // Click reveal if needed
-    const revealButton = page.getByRole("button", { name: /Find your special moment/i });
-    if (await revealButton.isVisible()) {
-      await revealButton.click({ force: true });
-    }
+    await page.goto(`/m/${id}`);
+    await dismissOverlays(page);
 
-    // Wait for canvas to render
-    await expect(page.locator("canvas")).toBeVisible({ timeout: 10000 });
-
-    // Click Share to create a map
-    const shareButton = page.getByRole("button", { name: /Save & Remix/i });
-    await shareButton.click({ force: true });
-
-    // Wait a moment for the share to complete
-    await page.waitForTimeout(2000);
-
-    // Get the current URL - it should now have a shared map ID or we should check clipboard
-    // For now, let's navigate to a known test route pattern
-    // In a real scenario, we'd extract the /m/[id] URL from clipboard or UI
-
-    // Skip this test for now since it requires actual map creation
-    test.skip();
+    await waitForViewReady(page);
+    await expect(page.getByRole("button", { name: /Share this map/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Save & Remix/i })).toHaveCount(0);
   });
 
   test("handles 404 gracefully", async ({ page }) => {
+    await primeLocalStorage(page);
     await page.goto("/m/nonexistent-id-12345-test");
+    await dismissOverlays(page);
 
-    // Should show error state
-    await expect(page.getByText(/Map not found/i)).toBeVisible();
+    // Should show error state (allow for brief loading state)
+    await expect(page.getByText(/Map not found/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("link", { name: /Create your own/i })).toBeVisible();
   });
 
@@ -60,13 +100,17 @@ test.describe("View Surface (/m/[id])", () => {
     // Test 404 on different viewports to ensure responsive layout works
 
     // Mobile
+    await primeLocalStorage(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto("/m/test-nonexistent");
-    await expect(page.getByText(/Map not found/i)).toBeVisible();
+    await dismissOverlays(page);
+    await expect(page.getByText(/Map not found/i)).toBeVisible({ timeout: 10000 });
 
     // Desktop
+    await primeLocalStorage(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/m/test-nonexistent-2");
-    await expect(page.getByText(/Map not found/i)).toBeVisible();
+    await dismissOverlays(page);
+    await expect(page.getByText(/Map not found/i)).toBeVisible({ timeout: 10000 });
   });
 });

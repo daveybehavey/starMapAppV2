@@ -42,7 +42,7 @@ export default function DateTimeControls({ dateTime, onChange, timezone }: Props
           type="date"
           value={dateValue}
           onChange={(e) => handleDateChange(e.target.value)}
-          className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+          className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 focus:ring-inset"
         />
       </div>
 
@@ -56,7 +56,7 @@ export default function DateTimeControls({ dateTime, onChange, timezone }: Props
           step={60}
           value={timeValue === DEFAULT_TIME ? "" : timeValue.slice(0, 5)}
           onChange={(e) => handleTimeChange(e.target.value)}
-          className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+          className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 focus:ring-inset"
         />
       </div>
 

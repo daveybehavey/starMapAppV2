@@ -34,11 +34,11 @@ const STYLE_THEME: Record<
   }
 > = {
   navyGold: {
-    background: "#0d1b2a",
-    vignette: "rgba(7, 13, 26, 0.65)",
-    accent: "#c6a35c",
-    star: "#fdf4dc",
-    glow: "rgba(198, 163, 92, 0.4)",
+    background: "#070b1b",
+    vignette: "rgba(3, 6, 16, 0.75)",
+    accent: "#d7b56c",
+    star: "#f7f0e2",
+    glow: "rgba(215, 181, 108, 0.5)",
   },
   vintageEngraving: {
     background: "#1b1b1b",
@@ -77,6 +77,9 @@ export const DEFAULT_RECIPE: MapRecipe = {
     showPlanets: true,
     showMoon: true,
     shapeMask: "circle",
+    frameEnabled: true,
+    premiumStars: "off",
+    premiumPlanets: "off",
   },
 };
 
@@ -153,10 +156,10 @@ function resolveVisualMode(mode?: string): ModeSettings {
         planetAlpha: 0.95,
         moonSizeFactor: 1.05,
         palette: {
-          background: "#0b0a1a",
-          accent: "#d9b56f",
-          star: "#fff5d9",
-          glow: "rgba(217,181,111,0.6)",
+          background: "#070b1b",
+          accent: "#d7b56c",
+          star: "#f7f0e2",
+          glow: "rgba(215, 181, 108, 0.55)",
         },
       };
     case "enhanced":
@@ -167,7 +170,7 @@ function resolveVisualMode(mode?: string): ModeSettings {
         planetSizeFactor: 1,
         vignetteStrength: 1,
         vignetteOverlay: 0.05,
-        lineAlpha: 0.32,
+        lineAlpha: 0.38,
         starSizeFactor: 1,
         starAlpha: 1,
         planetAlpha: 0.85,
@@ -183,6 +186,7 @@ export function renderStarMap({
   height,
   watermark,
   quality,
+  premium = false,
   pixelRatio = 1,
   textBounds,
 }: {
@@ -192,12 +196,16 @@ export function renderStarMap({
   height: number;
   watermark: boolean;
   quality: "preview" | "og" | "export";
+  premium?: boolean;
   pixelRatio?: number;
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const shapeName = recipe.shape || (recipe.renderOptions?.shapeMask as Shape) || "rectangle";
+  // Validate shape - filter out invalid values like "none" or "ring"
+  const validShapes = new Set(["rectangle", "heart", "circle", "star", "diamond"]);
+  const rawShape = recipe.shape || recipe.renderOptions?.shapeMask;
+  const shapeName: Shape = (rawShape && validShapes.has(rawShape)) ? rawShape as Shape : "rectangle";
   const targetHeight = height || Math.round(width / aspectRatioToNumber(recipe.aspectRatio));
   const sky = computeSky(recipe, width, targetHeight);
   const mode = resolveVisualMode(recipe.renderOptions?.visualMode);
@@ -217,10 +225,14 @@ export function renderStarMap({
 
   const baseWidth = 1200;
   const scale = width / baseWidth;
+  // Support both renderOptions.backgroundColor and legacy top-level backgroundColor
+  type RecipeWithLegacy = typeof recipe & { backgroundColor?: string };
+  const legacyBg = (recipe as RecipeWithLegacy).backgroundColor;
   const backgroundColor =
     (recipe.renderOptions?.backgroundColor || "").trim() ||
-    (recipe as any).backgroundColor?.trim?.() ||
+    (typeof legacyBg === "string" ? legacyBg.trim() : "") ||
     "#0b0f24";
+  const showFrame = recipe.renderOptions?.frameEnabled ?? true;
   const clipPath = buildShapeClip(shapeName, width, targetHeight);
 
   ctx.save();
@@ -233,12 +245,22 @@ export function renderStarMap({
   // Layer: clipped sky
   ctx.save();
   if (clipPath) ctx.clip(clipPath, "nonzero");
-  drawBackground(ctx, width, targetHeight, recipe.selectedStyle, mode, scale, shapeName);
-  drawSky(ctx, width, targetHeight, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale);
+  drawBackground(
+    ctx,
+    width,
+    targetHeight,
+    recipe.selectedStyle,
+    mode,
+    scale,
+    shapeName,
+    showFrame,
+    recipe.renderOptions?.backgroundColor,
+  );
+  drawSky(ctx, width, targetHeight, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale, premium);
   ctx.restore();
 
   // Shape outline with consistent amber color
-  if (clipPath) {
+  if (clipPath && showFrame) {
     ctx.save();
     ctx.strokeStyle = "#fbbf24"; // Amber-400 to match CSS border
     ctx.lineWidth = 3 * scale;
@@ -280,9 +302,23 @@ export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
   return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
 }
 
+import { LRUCache } from "./lruCache";
+
 // Cache for sky computation - keyed by date/location/dimensions hash
-const skyCache = new Map<string, VisibleSky>();
-const MAX_SKY_CACHE_SIZE = 10;
+const skyCache = new LRUCache<string, VisibleSky>(10);
+
+// Cache for text metrics - avoids expensive measureText calls
+const textMetricsCache = new LRUCache<string, number>(100);
+
+function getCachedTextWidth(ctx: CanvasRenderingContext2D, text: string, font: string): number {
+  const key = `${text}|${font}`;
+  const cached = textMetricsCache.get(key);
+  if (cached !== undefined) return cached;
+  ctx.font = font;
+  const width = ctx.measureText(text).width;
+  textMetricsCache.set(key, width);
+  return width;
+}
 
 function createSkyCacheKey(recipe: MapRecipe, width: number, height: number): string {
   return `${recipe.datetimeISO}|${recipe.location.latitude}|${recipe.location.longitude}|${recipe.location.timezone}|${width}|${height}|${recipe.renderOptions?.constellationLines !== "off"}`;
@@ -310,12 +346,7 @@ export function computeSky(recipe: MapRecipe, width: number, height: number): Vi
     height,
   );
 
-  // Evict oldest entry if cache is full
-  if (skyCache.size >= MAX_SKY_CACHE_SIZE) {
-    const firstKey = skyCache.keys().next().value;
-    if (firstKey) skyCache.delete(firstKey);
-  }
-
+  // Store in cache (LRU eviction handled automatically)
   skyCache.set(cacheKey, sky);
   return sky;
 }
@@ -340,23 +371,23 @@ export function buildRecipeFromState(input: {
     shape: input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
-      visualMode: input.renderOptions?.visualMode ?? "enhanced",
-      starIntensity: input.renderOptions?.starIntensity ?? "normal",
-      starGlow: input.renderOptions?.starGlow ?? false,
+      visualMode: input.renderOptions?.visualMode ?? "illustrated",
+      starIntensity: input.renderOptions?.starIntensity ?? "bold",
+      starGlow: input.renderOptions?.starGlow ?? true,
       constellationLines: input.renderOptions?.constellationLines ?? "thin",
       constellationLabels: input.renderOptions?.constellationLabels ?? false,
       showGrid: input.renderOptions?.showGrid ?? false,
       showPlanets: input.renderOptions?.showPlanets ?? true,
-      planetEmphasis: input.renderOptions?.planetEmphasis ?? "normal",
+      premiumStars: input.renderOptions?.premiumStars ?? "off",
+      premiumPlanets: input.renderOptions?.premiumPlanets ?? "off",
+      planetEmphasis: input.renderOptions?.planetEmphasis ?? "highlighted",
       showMoon: input.renderOptions?.showMoon ?? true,
-      moonSize: input.renderOptions?.moonSize ?? "normal",
-      colorTheme: input.renderOptions?.colorTheme ?? "night",
-      typography: input.renderOptions?.typography ?? "classic",
-      textLayout: input.renderOptions?.textLayout ?? "center",
+      moonSize: input.renderOptions?.moonSize ?? "large",
       shapeMask: input.renderOptions?.shapeMask ?? "circle",
+      frameEnabled: input.renderOptions?.frameEnabled ?? true,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
-      constellationLineScale: input.renderOptions?.constellationLineScale ?? 1,
+      constellationLineScale: input.renderOptions?.constellationLineScale ?? 1.1,
     },
   };
 }
@@ -369,10 +400,16 @@ function drawBackground(
   mode: ModeSettings,
   scale: number,
   shape?: Shape,
+  showFrame = true,
+  backgroundOverride?: string,
 ) {
   const theme = STYLE_THEME[styleId];
+  const resolvedBackground =
+    (backgroundOverride ?? "").trim() ||
+    mode.palette?.background ||
+    theme.background;
   const palette = {
-    background: mode.palette?.background ?? theme.background,
+    background: resolvedBackground,
     vignette: theme.vignette,
     accent: mode.palette?.accent ?? theme.accent,
     star: mode.palette?.star ?? theme.star,
@@ -390,7 +427,7 @@ function drawBackground(
     height * 0.45,
     Math.max(width, height),
   );
-  gradient.addColorStop(0, "rgba(255,255,255,0.08)");
+  gradient.addColorStop(0, "rgba(255,255,255,0.05)");
   gradient.addColorStop(1, palette.vignette);
   ctx.save();
   ctx.globalAlpha = Math.min(1.2, Math.max(0, mode.vignetteStrength));
@@ -410,7 +447,7 @@ function drawBackground(
   }
 
   // Rectangle border with consistent amber color
-  if (!shape || shape === "rectangle") {
+  if (showFrame && (!shape || shape === "rectangle")) {
     const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
     ctx.strokeStyle = "#fbbf24"; // Amber-400 to match CSS border
     ctx.lineWidth = 3 * scale;
@@ -429,6 +466,7 @@ function drawSky(
   renderOptions?: MapRecipe["renderOptions"],
   mode?: ModeSettings,
   scale = 1,
+  premium = false,
 ) {
   if (!sky) return;
   const theme = STYLE_THEME[styleId];
@@ -440,6 +478,15 @@ function drawSky(
     glow: mode?.palette?.glow ?? theme.glow,
   };
   const lineFactor = mode?.lineWidthFactor ?? 1;
+  const premiumStars = premium && (renderOptions?.premiumStars ?? "off") !== "off";
+  const premiumPlanets = premium && (renderOptions?.premiumPlanets ?? "off") !== "off";
+  const premiumThreshold = (renderOptions?.premiumStars ?? "off") === "realistic" ? 2.2 : 0.6;
+
+  // Apply starIntensity to affect star brightness and size
+  // subtle = smaller/dimmer, normal = default, bold = larger/brighter
+  const starIntensity = renderOptions?.starIntensity ?? "normal";
+  const intensityFactor = starIntensity === "subtle" ? 0.7 : starIntensity === "bold" ? 1.3 : 1.0;
+  const intensityAlphaBoost = starIntensity === "subtle" ? 0.8 : starIntensity === "bold" ? 1.15 : 1.0;
 
   if (renderOptions?.constellationLines !== "off") {
     const constellationColor =
@@ -470,14 +517,22 @@ function drawSky(
   const glow = (renderOptions?.starGlow ? baseGlow + 4 : baseGlow) * scale;
   ctx.shadowBlur = glow;
 
-  for (const star of sky.stars) {
+  for (let i = 0; i < sky.stars.length; i += 1) {
+    const star = sky.stars[i];
     if (!Number.isFinite(star.x) || !Number.isFinite(star.y)) continue;
     const baseAlpha = brightnessFromMagnitude(star.magnitude);
     if (!Number.isFinite(baseAlpha)) continue;
-    const alpha = clamp(baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1), 0.05, 1);
+    // Apply intensity alpha boost
+    const alpha = clamp(baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost, 0.05, 1);
     if (!Number.isFinite(alpha)) continue;
-    const radius = starRadiusFromMagnitude(star.magnitude) * (mode?.starSizeFactor ?? 1) * scale;
+    // Apply intensity size factor
+    const radius = starRadiusFromMagnitude(star.magnitude) * (mode?.starSizeFactor ?? 1) * intensityFactor * scale;
     if (!Number.isFinite(radius) || radius <= 0) continue;
+    if (premiumStars && star.magnitude <= premiumThreshold) {
+      const color = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
+      drawPremiumStar(ctx, star.x, star.y, radius, alpha, color, star.magnitude, i);
+      continue;
+    }
     ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.arc(star.x, star.y, radius, 0, Math.PI * 2);
@@ -490,13 +545,17 @@ function drawSky(
   if (renderOptions?.showPlanets ?? true) {
     for (const planet of sky.planets) {
       if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
-      ctx.fillStyle = palette.accent;
       const sizeBase = renderOptions?.planetEmphasis === "highlighted" ? 4.2 : 3.2;
       const size = sizeBase * (mode?.planetSizeFactor ?? 1) * scale;
       ctx.globalAlpha = (mode?.planetAlpha ?? 0.85) * (renderOptions?.planetEmphasis === "highlighted" ? 1 : 0.95);
-      ctx.beginPath();
-      ctx.arc(planet.x, planet.y, size, 0, Math.PI * 2);
-      ctx.fill();
+      if (premiumPlanets && renderOptions?.premiumPlanets === "realistic") {
+        drawPremiumPlanet(ctx, planet, size, palette);
+      } else {
+        ctx.fillStyle = palette.accent;
+        ctx.beginPath();
+        ctx.arc(planet.x, planet.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
@@ -536,7 +595,7 @@ function drawText(
     // Skip empty text boxes
     if (!box.text || box.text.trim() === "") return;
 
-    const fontSize = Math.max(10, box.size * scale);
+    const fontSize = Math.max(10, (box.size ?? 28) * scale);
     ctx.font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
@@ -560,8 +619,8 @@ function drawText(
     ctx.fillText(box.text, px, py);
 
     if (bounds) {
-      const metrics = ctx.measureText(box.text);
-      const textWidth = metrics.width;
+      const font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+      const textWidth = getCachedTextWidth(ctx, box.text, font);
       const textHeight = fontSize * 1.2;
       let left = px;
       if (ctx.textAlign === "center") left = px - textWidth / 2;
@@ -718,15 +777,165 @@ function drawMoon(
   ctx.restore();
 }
 
+function drawPremiumStar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  alpha: number,
+  color: string,
+  magnitude: number,
+  seed: number,
+) {
+  const brightness = clamp(1.6 - magnitude, 0, 2);
+  const haloSize = radius * (6 + brightness * 1.8);
+  const haloSoft = radius * (10 + brightness * 2.4);
+  const spikeSize = radius * (3.4 + brightness * 0.7);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = alpha;
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
+  const outerHalo = ctx.createRadialGradient(0, 0, 0, 0, 0, haloSoft);
+  outerHalo.addColorStop(0, toRgba(color, 0.18 + brightness * 0.05));
+  outerHalo.addColorStop(0.55, toRgba(color, 0.04));
+  outerHalo.addColorStop(1, toRgba(color, 0));
+  ctx.fillStyle = outerHalo;
+  ctx.beginPath();
+  ctx.arc(0, 0, haloSoft, 0, Math.PI * 2);
+  ctx.fill();
+
+  const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, haloSize);
+  halo.addColorStop(0, toRgba(color, 0.5));
+  halo.addColorStop(0.6, toRgba(color, 0.18));
+  halo.addColorStop(1, toRgba(color, 0));
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(0, 0, haloSize, 0, Math.PI * 2);
+  ctx.fill();
+
+  const bokehCount = magnitude <= 0.2 ? 3 : magnitude <= 1.0 ? 2 : 0;
+  for (let i = 0; i < bokehCount; i += 1) {
+    const a = randFromSeed(seed * 31 + i * 7) * Math.PI * 2;
+    const dist = radius * (3 + randFromSeed(seed * 97 + i * 11) * 5);
+    const bx = Math.cos(a) * dist;
+    const by = Math.sin(a) * dist;
+    const bSize = radius * (1.4 + randFromSeed(seed * 53 + i * 13) * 1.8);
+    ctx.globalAlpha = alpha * (0.12 + 0.06 * brightness);
+    const blur = ctx.createRadialGradient(bx, by, 0, bx, by, bSize * 2.2);
+    blur.addColorStop(0, toRgba(color, 0.28));
+    blur.addColorStop(0.6, toRgba(color, 0.08));
+    blur.addColorStop(1, toRgba(color, 0));
+    ctx.fillStyle = blur;
+    ctx.beginPath();
+    ctx.arc(bx, by, bSize * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = toRgba(color, 0.45 + brightness * 0.12);
+  ctx.lineWidth = Math.max(0.5, radius * (0.35 + brightness * 0.08));
+  ctx.beginPath();
+  ctx.moveTo(-spikeSize, 0);
+  ctx.lineTo(spikeSize, 0);
+  ctx.moveTo(0, -spikeSize);
+  ctx.lineTo(0, spikeSize);
+  ctx.stroke();
+
+  ctx.fillStyle = toRgba(color, 0.9);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.globalAlpha = alpha * 0.7;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawPremiumPlanet(
+  ctx: CanvasRenderingContext2D,
+  planet: { name: string; x: number; y: number },
+  size: number,
+  palette: { accent: string },
+) {
+  const baseColors: Record<string, string> = {
+    Mercury: "#b7b0a6",
+    Venus: "#e1c79b",
+    Mars: "#d46b4d",
+    Jupiter: "#d9c2a3",
+    Saturn: "#d8c5a2",
+  };
+  const base = baseColors[planet.name] ?? palette.accent;
+  const light = adjustColor(base, 0.22);
+  const dark = adjustColor(base, -0.18);
+
+  ctx.save();
+  ctx.translate(planet.x, planet.y);
+  ctx.shadowBlur = 0;
+
+  const gradient = ctx.createRadialGradient(-size * 0.35, -size * 0.35, size * 0.2, 0, 0, size);
+  gradient.addColorStop(0, light);
+  gradient.addColorStop(1, dark);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.clip();
+
+  if (planet.name === "Jupiter" || planet.name === "Saturn") {
+    const bandColor = adjustColor(base, -0.08);
+    ctx.fillStyle = bandColor;
+    for (let y = -size; y < size; y += size * 0.35) {
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(-size, y, size * 2, size * 0.16);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  if (planet.name === "Mars") {
+    ctx.fillStyle = adjustColor(base, 0.28);
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(size * 0.2, -size * 0.2, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+
+  if (planet.name === "Saturn") {
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = adjustColor(base, 0.1);
+    ctx.lineWidth = Math.max(0.6, size * 0.15);
+    ctx.scale(1.6, 0.5);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size, size, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
 function starRadiusFromMagnitude(magnitude: number) {
   const clamped = clamp(magnitude, -1, 6.5);
-  return clamp(3.6 - clamped * 0.45, 0.4, 3.6);
+  return clamp(3.8 - clamped * 0.42, 0.4, 3.8);
 }
 
 function brightnessFromMagnitude(magnitude: number) {
   const clamped = clamp(magnitude, -1, 6.5);
   const normalized = 1 - (clamped + 1) / 7.5;
-  return clamp(normalized * 1.2, 0.12, 1);
+  return clamp(normalized * 1.2, 0.18, 1);
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -735,6 +944,52 @@ function clamp(value: number, min: number, max: number) {
     return min;
   }
   return Math.min(max, Math.max(min, value));
+}
+
+function toRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "");
+  if (normalized.length !== 6) return `rgba(255,255,255,${alpha})`;
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function adjustColor(hex: string, amount: number) {
+  const normalized = hex.replace("#", "");
+  if (normalized.length !== 6) return hex;
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  const next = (value: number) => {
+    const delta = Math.round(255 * amount);
+    return Math.min(255, Math.max(0, value + delta));
+  };
+  return `rgb(${next(r)},${next(g)},${next(b)})`;
+}
+
+function getStarColor(index: number, magnitude: number) {
+  const colors = ["#f7f0e2", "#d7e7ff", "#ffe4bd"];
+  const seed = Math.abs(Math.floor(index * 7 + magnitude * 29));
+  return colors[seed % colors.length];
+}
+
+function bvToRgb(bv: number) {
+  const t = clamp(bv, -0.4, 2.0);
+  if (t < 0) return "#9bb0ff";
+  if (t < 0.15) return "#aabfff";
+  if (t < 0.3) return "#cad7ff";
+  if (t < 0.5) return "#f8f7ff";
+  if (t < 0.6) return "#fff4ea";
+  if (t < 0.8) return "#ffefd5";
+  if (t < 1.0) return "#ffd2a1";
+  if (t < 1.4) return "#ffcc6f";
+  return "#ffbd6f";
+}
+
+function randFromSeed(seed: number) {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 export { STYLE_THEME };

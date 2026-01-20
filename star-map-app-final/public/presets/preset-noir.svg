@@ -1,0 +1,24 @@
+<svg width="400" height="520" viewBox="0 0 400 520" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#070a14" />
+      <stop offset="100%" stop-color="#0f1424" />
+    </linearGradient>
+    <radialGradient id="vignette" cx="50%" cy="45%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.45" />
+    </radialGradient>
+  </defs>
+  <rect width="400" height="520" fill="url(#bg)" />
+  <rect width="400" height="520" fill="url(#vignette)" />
+  <rect x="40" y="60" width="320" height="400" fill="none" stroke="#b6c7e6" stroke-opacity="0.5" stroke-width="2" />
+  <g fill="#e5eefb" opacity="0.9">
+    <circle cx="100" cy="140" r="1.2" />
+    <circle cx="160" cy="210" r="1.4" />
+    <circle cx="220" cy="170" r="1.1" />
+    <circle cx="280" cy="240" r="1.5" />
+    <circle cx="130" cy="300" r="1.2" />
+    <circle cx="210" cy="320" r="1.1" />
+    <circle cx="260" cy="360" r="1.4" />
+  </g>
+</svg>

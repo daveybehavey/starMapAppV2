@@ -8,7 +8,7 @@
 
 ## Current Configuration
 
-- **Base Price**: $9.99
+- **Base Price**: $0.99
 - **Promo Price**: $0.99 (90% off)
 - **Promo Code**: NEWYEARS26
 - **Promo Window**: January 1-31, 2026
@@ -19,7 +19,7 @@
 When customers click "Unlock Now", they will see:
 
 ```
-Subtotal:              $9.99
+Subtotal:              $0.99
 Discount (NEWYEARS26): -$9.00
 ─────────────────────────────
 Total:                 $0.99

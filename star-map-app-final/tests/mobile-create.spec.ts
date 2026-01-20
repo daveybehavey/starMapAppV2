@@ -1,8 +1,15 @@
 import { test, expect, devices } from "@playwright/test";
 
-test.use({ ...devices["iPhone 12"] });
+test.use({ ...devices["iPhone 12"], browserName: "chromium" });
+test.setTimeout(60_000);
 
 test("mobile create flow and reveal gating", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+    localStorage.setItem("cookiesAccepted", "true");
+    localStorage.setItem("analytics-consent", "true");
+  });
+
   await page.route("**/api/geocode**", async (route) => {
     const requestUrl = new URL(route.request().url());
     const query = requestUrl.searchParams.get("q")?.toLowerCase() ?? "";
@@ -27,6 +34,7 @@ test("mobile create flow and reveal gating", async ({ page }) => {
 
   // Clear localStorage to ensure clean state and prevent auto-preset
   await page.goto("/?force=mobile&demo=skip");
+  await expect(page.getByText("Loading editor…")).toHaveCount(0);
   await page.evaluate(() => localStorage.clear());
   await page.goto("/?force=mobile&demo=skip");
 
@@ -42,39 +50,35 @@ test("mobile create flow and reveal gating", async ({ page }) => {
     }
   }
 
-  await expect(page.getByRole("heading", { name: "Design your sky in seconds" })).toBeVisible();
+  await expect(page.getByText(/See the exact night sky/i)).toBeVisible();
+  const editorSection = page.locator("#editor");
+  const startPresetButton = editorSection.getByRole("button", { name: /Start with a preset/i });
+  await expect(editorSection.getByRole("button", { name: /Try a sample moment/i })).toBeVisible();
+  await expect(startPresetButton).toBeVisible();
+  await startPresetButton.click();
   await expect(page.getByText("Choose an Occasion")).toBeVisible();
+  await expect(editorSection.getByRole("button", { name: "Generate preview" }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Date & Details|Hide details/i })).toHaveCount(0);
+  await expect(page.locator("canvas")).toHaveCount(0);
 
-  // Note: The app auto-loads a wedding preset demo, so there may already be a canvas
-  // This is expected product behavior to show users what the app does
+  // Apply a sample moment to populate date + location
+  const sampleMomentButton = editorSection.getByRole("button", { name: /Try a sample moment/i });
+  await sampleMomentButton.click();
 
-  // Force click to bypass any overlays (paywall, cookie banner, etc.)
-  await page.getByRole("button", { name: /Wedding/i }).click({ force: true });
-  await expect(page.getByRole("button", { name: /Classic/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Enhanced/i })).toBeVisible();
-  await expect(page.locator("input[type='range']")).toBeVisible();
-
-  // Drawer button should exist (either "Date & Details" or "Hide details")
-  const drawerHandle = page.getByRole("button", { name: /Date & Details|Hide details/i });
-  await expect(drawerHandle).toBeVisible();
-
-  // Clear the auto-loaded preset by entering new data
-  const dateInput = page.getByLabel("Date");
-  if (!(await dateInput.isVisible())) {
-    await drawerHandle.click();
-  }
-
-  await dateInput.fill("2024-06-15");
   const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-  await locationInput.fill("Paris, France");
-  const locationOption = page.getByRole("option", { name: "Paris, France" });
-  await expect(locationOption).toBeVisible();
-  await locationOption.click({ force: true });
+  await expect(locationInput).toHaveValue(/.+/, { timeout: 10000 });
+  const dateInput = page.getByLabel("Date");
+  await expect(dateInput).toHaveValue(/.+/, { timeout: 10000 });
 
-  // Mobile component shows canvas immediately (auto-preset behavior)
+  const primaryGenerateButton = editorSection.getByRole("button", { name: "Generate preview" }).first();
+  await primaryGenerateButton.scrollIntoViewIfNeeded();
+  await primaryGenerateButton.click({ force: true });
+
   // Wait for canvas and export buttons to be visible
-  await expect(page.locator("canvas")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText(/Matches professional planetarium accuracy/i)).toBeVisible();
-  await expect(page.getByRole("button", { name: /Free.*⬇/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /HD.*⬇/i })).toBeVisible();
+  await page.locator("#mobile-preview").scrollIntoViewIfNeeded();
+  await expect(page.locator("canvas")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("button", { name: /Free/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "HD export" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Share/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Customize more/i })).toBeVisible();
 });

@@ -92,7 +92,7 @@ To make the checkout match your StarMapCo branding, you need to configure your S
 │   [StarMapCo Logo]                  │
 │                                     │
 │   HD Star Map Download              │
-│   $9.99                             │
+│   $0.99                             │
 │                                     │
 │   [Product Image]                   │
 │   Print-ready 6000×6000px star map  │
@@ -100,7 +100,7 @@ To make the checkout match your StarMapCo branding, you need to configure your S
 │   • Instant download                │
 │   • Perfect for framing             │
 │                                     │
-│   Subtotal:           $9.99         │
+│   Subtotal:           $0.99         │
 │   Discount:          -$9.00         │
 │   ─────────────────────────────     │
 │   Total:              $0.99         │
@@ -119,7 +119,7 @@ To make the checkout match your StarMapCo branding, you need to configure your S
 
 1. **Your Logo** at the top (once you upload it)
 2. **Product Image** showing example star map
-3. **Clear Discount** display ($9.99 → $0.99)
+3. **Clear Discount** display ($0.99 → $0.99)
 4. **Trust Signals**: "Secure payment • Instant access • No subscription"
 5. **Required Legal**: Terms & Privacy acceptance
 6. **Professional Copy**: Benefit-focused description
@@ -188,7 +188,7 @@ metadata: {
 - [ ] Test checkout on desktop
 - [ ] Test checkout on mobile
 - [ ] Verify Terms & Privacy links work
-- [ ] Confirm discount shows correctly ($9.99 → $0.99)
+- [ ] Confirm discount shows correctly ($0.99 → $0.99)
 
 ---
 

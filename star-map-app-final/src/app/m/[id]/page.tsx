@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ViewClient } from "./ViewClient";
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 
 type Recipe = {
   datetimeISO: string;

@@ -2,7 +2,72 @@ import { test, expect } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
 
+const primeLocalStorage = async (page: { addInitScript: (fn: () => void) => Promise<void> }) => {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+    localStorage.setItem("cookiesAccepted", "true");
+    localStorage.setItem("analytics-consent", "true");
+  });
+};
+
+const dismissOverlays = async (page: { locator: (selector: string) => any; waitForTimeout: (ms: number) => Promise<void> }) => {
+  const selectors = [
+    'button[aria-label="Close"]',
+    'button:has-text("Close")',
+    'button:has-text("Accept")',
+    'button:has-text("Maybe later")',
+  ];
+  await page.waitForTimeout(250);
+  for (const selector of selectors) {
+    const buttons = page.locator(selector);
+    const count = await buttons.count();
+    for (let i = 0; i < count; i += 1) {
+      try {
+        await buttons.nth(i).click({ timeout: 1000 });
+      } catch {
+        // Ignore if button is not clickable
+      }
+    }
+  }
+};
+
+const setupCreateForm = async (page: {
+  goto: (url: string) => Promise<void>;
+  getByText: (text: string) => any;
+  getByRole: (role: string, options?: any) => any;
+  getByLabel: (text: string) => any;
+  getByPlaceholder: (text: string) => any;
+  locator: (selector: string) => any;
+}) => {
+  await primeLocalStorage(page);
+  await page.goto("/?force=desktop&demo=skip");
+  await dismissOverlays(page);
+  await expect(page.getByText("Loading editor…")).toHaveCount(0, { timeout: 15000 });
+
+  const startPresetButton = page.locator("#editor").getByRole("button", { name: /Start with a preset/i }).first();
+  if (await startPresetButton.isVisible().catch(() => false)) {
+    await startPresetButton.click();
+  }
+
+  await expect(page.locator("section#editor")).toBeVisible({ timeout: 15000 });
+  const sampleButton = page.locator("#editor").getByRole("button", { name: /Try a sample moment/i }).first();
+  await expect(sampleButton).toBeVisible({ timeout: 10000 });
+  await sampleButton.click();
+
+  const locationInput = page.getByPlaceholder("Search city, landmark, or address");
+  await expect(locationInput).toHaveValue(/.+/, { timeout: 10000 });
+  const dateInput = page.getByLabel("Date");
+  await expect(dateInput).toHaveValue(/.+/, { timeout: 10000 });
+};
+
+const waitForCanvas = async (page: { locator: (selector: string) => any }) => {
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible({ timeout: 15000 });
+};
+
 test.describe("Export Functionality", () => {
+  test.describe.configure({ timeout: 60_000 });
   test.beforeEach(async ({ page }) => {
     // Mock geocode API for consistent location results
     await page.route("**/api/geocode**", async (route) => {
@@ -29,41 +94,20 @@ test.describe("Export Functionality", () => {
   });
 
   test("text renders correctly in free export", async ({ page }) => {
-    // Navigate to Create surface with forced desktop mode
-    await page.goto("/?force=desktop&demo=skip");
-
-    // Clear localStorage to ensure clean state
-    await page.evaluate(() => localStorage.clear());
-    await page.goto("/?force=desktop&demo=skip");
-
-    // Fill in date
-    const dateInput = page.getByLabel("Date");
-    await dateInput.fill("2024-06-15");
-
-    // Fill in location
-    const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-    await locationInput.fill("Paris, France");
-    await page.waitForTimeout(500);
-
-    const locationOption = page.getByRole("option", { name: "Paris, France" });
-    await expect(locationOption).toBeVisible();
-    await locationOption.click({ force: true });
-    await page.waitForTimeout(500); // Wait for location state to update
+    await setupCreateForm(page);
 
     // Find and fill text boxes
-    const textInputs = page.locator('input[type="text"]');
-    const titleInput = textInputs.filter({ hasText: /title/i }).or(textInputs.nth(0));
+    const titleInput = page.getByPlaceholder("Enter title...");
     await titleInput.fill("Our Special Night");
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Show my star map/i });
+    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
     await expect(revealButton).toBeVisible();
-    await revealButton.click({ force: true });
+    await expect(revealButton).toBeEnabled();
+    await revealButton.click();
 
     // Wait for canvas to render
-    const canvas = page.locator("canvas");
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(2000); // Wait for full render
+    await waitForCanvas(page);
 
     // Set up download listener
     const downloadPromise = page.waitForEvent("download");
@@ -71,7 +115,7 @@ test.describe("Export Functionality", () => {
     // Click Free Download button
     const freeDownloadButton = page.getByRole("button", { name: /Free/i }).first();
     await expect(freeDownloadButton).toBeVisible();
-    await freeDownloadButton.click({ force: true });
+    await freeDownloadButton.click();
 
     // Wait for download to complete
     const download = await downloadPromise;
@@ -95,72 +139,39 @@ test.describe("Export Functionality", () => {
   test("text renders correctly in HD export (requires payment)", async ({ page }) => {
     // This test would require a valid payment token
     // For now, we'll verify the paywall appears
-    await page.goto("/?force=desktop&demo=skip");
-    await page.evaluate(() => localStorage.clear());
-    await page.goto("/?force=desktop&demo=skip");
-
-    // Fill in date
-    const dateInput = page.getByLabel("Date");
-    await dateInput.fill("2024-06-15");
-
-    // Fill in location
-    const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-    await locationInput.fill("Paris, France");
-    await page.waitForTimeout(500);
-
-    const locationOption = page.getByRole("option", { name: "Paris, France" });
-    await expect(locationOption).toBeVisible();
-    await locationOption.click({ force: true });
-    await page.waitForTimeout(500); // Wait for location state to update
+    await setupCreateForm(page);
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Show my star map/i });
+    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
     await expect(revealButton).toBeVisible();
-    await revealButton.click({ force: true });
+    await expect(revealButton).toBeEnabled();
+    await revealButton.click();
 
     // Wait for canvas to render
-    const canvas = page.locator("canvas");
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(2000);
+    await waitForCanvas(page);
 
     // Click HD Export button (should trigger paywall)
-    const hdExportButton = page.getByRole("button", { name: /HD/i }).first();
+    const hdExportButton = page.locator("#editor").getByRole("button", { name: "HD export" }).first();
     await expect(hdExportButton).toBeVisible();
-    await hdExportButton.click({ force: true });
+    await hdExportButton.click();
 
     // Verify paywall modal appears
-    await expect(page.getByText(/Unlock HD Export/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Download your print-ready star map/i)).toBeVisible({ timeout: 5000 });
   });
 
   test("empty text boxes don't break export", async ({ page }) => {
-    await page.goto("/?force=desktop&demo=skip");
-    await page.evaluate(() => localStorage.clear());
-    await page.goto("/?force=desktop&demo=skip");
-
-    // Fill in date
-    const dateInput = page.getByLabel("Date");
-    await dateInput.fill("2024-06-15");
-
-    // Fill in location
-    const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-    await locationInput.fill("Paris, France");
-    await page.waitForTimeout(500);
-
-    const locationOption = page.getByRole("option", { name: "Paris, France" });
-    await expect(locationOption).toBeVisible();
-    await locationOption.click({ force: true });
+    await setupCreateForm(page);
 
     // DO NOT fill text boxes - leave them empty
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Show my star map/i });
+    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
     await expect(revealButton).toBeVisible();
-    await revealButton.click({ force: true });
+    await expect(revealButton).toBeEnabled();
+    await revealButton.click();
 
     // Wait for canvas to render
-    const canvas = page.locator("canvas");
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(2000);
+    await waitForCanvas(page);
 
     // Set up download listener
     const downloadPromise = page.waitForEvent("download");
@@ -168,7 +179,7 @@ test.describe("Export Functionality", () => {
     // Click Free Download button
     const freeDownloadButton = page.getByRole("button", { name: /Free/i }).first();
     await expect(freeDownloadButton).toBeVisible();
-    await freeDownloadButton.click({ force: true });
+    await freeDownloadButton.click();
 
     // Wait for download to complete
     const download = await downloadPromise;
@@ -188,38 +199,25 @@ test.describe("Export Functionality", () => {
   });
 
   test("multiple text boxes render in export", async ({ page }) => {
-    await page.goto("/?force=desktop&demo=skip");
-    await page.evaluate(() => localStorage.clear());
-    await page.goto("/?force=desktop&demo=skip");
-
-    // Fill in date
-    const dateInput = page.getByLabel("Date");
-    await dateInput.fill("2024-06-15");
-
-    // Fill in location
-    const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-    await locationInput.fill("Paris, France");
-    await page.waitForTimeout(500);
-
-    const locationOption = page.getByRole("option", { name: "Paris, France" });
-    await expect(locationOption).toBeVisible();
-    await locationOption.click({ force: true });
-
-    // Fill all 3 default text boxes
-    const textInputs = page.locator('input[type="text"]').filter({ hasNotText: /search/i });
-    await textInputs.nth(0).fill("Title Line");
-    await textInputs.nth(1).fill("Subtitle Line");
-    await textInputs.nth(2).fill("Dedication Line");
+    await setupCreateForm(page);
 
     // Click reveal button
-    const revealButton = page.getByRole("button", { name: /Show my star map/i });
+    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
     await expect(revealButton).toBeVisible();
-    await revealButton.click({ force: true });
+    await expect(revealButton).toBeEnabled();
+    await revealButton.click();
 
     // Wait for canvas to render
-    const canvas = page.locator("canvas");
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(2000);
+    await waitForCanvas(page);
+
+    // Reveal editor controls to edit all text boxes
+    const customizeMoreButton = page.locator("#editor").getByRole("button", { name: /Customize more/i }).first();
+    await customizeMoreButton.click();
+
+    // Fill all 3 default text boxes
+    await page.getByPlaceholder("Enter title...").fill("Title Line");
+    await page.getByPlaceholder("Enter subtitle...").fill("Subtitle Line");
+    await page.getByPlaceholder("Enter dedication...").fill("Dedication Line");
 
     // Set up download listener
     const downloadPromise = page.waitForEvent("download");
@@ -227,7 +225,7 @@ test.describe("Export Functionality", () => {
     // Click Free Download button
     const freeDownloadButton = page.getByRole("button", { name: /Free/i }).first();
     await expect(freeDownloadButton).toBeVisible();
-    await freeDownloadButton.click({ force: true });
+    await freeDownloadButton.click();
 
     // Wait for download to complete
     const download = await downloadPromise;

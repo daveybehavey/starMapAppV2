@@ -17,11 +17,11 @@ export const renderModes: Record<RenderModeId, RenderModeConfig> = {
     starSize: 0.9,
   },
   cinematic: {
-    contrast: 1.28,
-    glow: 0.55,
-    starBrightness: 1.35,
-    starSize: 1.2,
-    vignette: 0.12,
+    contrast: 1.35,
+    glow: 0.65,
+    starBrightness: 1.5,
+    starSize: 1.25,
+    vignette: 0.16,
   },
   blueprint: {
     contrast: 1.02,

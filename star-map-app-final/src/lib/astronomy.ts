@@ -17,6 +17,7 @@ export type StarPoint = {
   y: number;
   magnitude: number;
   opacity?: number;
+  bv?: number;
 };
 
 export type PlanetName = "Mercury" | "Venus" | "Mars" | "Jupiter" | "Saturn";
@@ -111,9 +112,10 @@ const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: string):
   }
 };
 
+import { LRUCache } from "./lruCache";
+
 // Cache for expensive astronomy calculations
-const astronomyCache = new Map<string, VisibleSky>();
-const MAX_ASTRONOMY_CACHE_SIZE = 20;
+const astronomyCache = new LRUCache<string, VisibleSky>(20);
 
 function createAstronomyCacheKey(params: VisibleStarParams, width: number, height: number): string {
   const time = params.time?.trim() || "00:00";
@@ -155,7 +157,7 @@ export function computeVisibleStars(
   const visibleIndexByHip = new Map<number, number>();
   // Default to class 4.5 if no bortle provided to avoid NaN in calculations
   const bortle = params.bortle ? clamp(params.bortle, 1, 9) : 4.5;
-  const catalogStars = stars as Array<{ hip: number; ra: number; dec: number; mag: number }>;
+  const catalogStars = stars as Array<{ hip: number; ra: number; dec: number; mag: number; bv?: number }>;
 
   for (const star of catalogStars) {
     // Convert RA/Dec → Horizon (Alt/Az)
@@ -186,7 +188,8 @@ export function computeVisibleStars(
       x,
       y,
       magnitude: mag,
-      opacity
+      opacity,
+      bv: star.bv
     });
     if (Number.isFinite(star.hip)) {
       visibleIndexByHip.set(star.hip, nextIndex);
@@ -255,11 +258,7 @@ export function computeVisibleStars(
 
   const result = { stars: output, planets, moon, constellations: visibleConstellations };
 
-  // Store in cache with size limit
-  if (astronomyCache.size >= MAX_ASTRONOMY_CACHE_SIZE) {
-    const firstKey = astronomyCache.keys().next().value;
-    if (firstKey) astronomyCache.delete(firstKey);
-  }
+  // Store in cache (LRU eviction handled automatically)
   astronomyCache.set(cacheKey, result);
 
   return result;

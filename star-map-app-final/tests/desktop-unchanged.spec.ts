@@ -9,6 +9,7 @@ test("desktop layout unchanged", async ({ page }) => {
   // Wait for editor section
   const editor = page.locator('section#editor');
   await editor.waitFor({ timeout: 10000 });
+  await expect(page.getByText("Loading editor…")).toHaveCount(0);
 
   // Debug: Check data attributes
   const forceAttr = await editor.getAttribute('data-force');
@@ -22,10 +23,15 @@ test("desktop layout unchanged", async ({ page }) => {
 
   // Verify mobile-specific text is NOT present
   await expect(page.getByText("Date & Details")).toHaveCount(0);
-  await expect(page.getByText("Choose an Occasion")).toHaveCount(0);
+
+  const editorSection = page.locator("#editor");
 
   // Verify desktop layout elements ARE present
-  await expect(page.getByText("Create your star map")).toBeVisible();
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.getByText(/See the exact night sky/i)).toBeVisible();
+  await expect(editorSection.getByRole("button", { name: /Start with a preset/i })).toBeVisible();
+  await expect(editorSection.getByRole("button", { name: /Start from scratch/i })).toBeVisible();
+  await expect(editorSection.locator("span", { hasText: "Presets optional" }).first()).toBeVisible();
+  await expect(editorSection.getByRole("button", { name: "Generate preview" }).first()).toBeDisabled();
+  await expect(page.locator("canvas")).toHaveCount(0);
   await expect(page.getByText("Date & Location")).toBeVisible();
 });

@@ -11,28 +11,34 @@ const ANALYTICS_KEY = "analytics-consent";
 const gaId = process.env.NEXT_PUBLIC_GA_ID;
 
 export default function CookieBanner() {
-  const [consented, setConsented] = useState<boolean | null>(null);
+  const [cookiesAccepted, setCookiesAccepted] = useState<boolean | null>(null);
+  const [analyticsAccepted, setAnalyticsAccepted] = useState(false);
 
   useEffect(() => {
-    const hasCookieConsent = typeof window !== "undefined" ? localStorage.getItem(COOKIE_KEY) === "true" : false;
-    const hasAnalyticsConsent =
-      typeof window !== "undefined" ? localStorage.getItem(ANALYTICS_KEY) === "true" : false;
-    if (hasCookieConsent || hasAnalyticsConsent) {
-      setConsented(true);
-    } else {
-      setConsented(false);
-    }
+    if (typeof window === "undefined") return;
+    const hasCookieConsent = localStorage.getItem(COOKIE_KEY) === "true";
+    const hasAnalyticsConsent = localStorage.getItem(ANALYTICS_KEY) === "true";
+    setCookiesAccepted(hasCookieConsent);
+    setAnalyticsAccepted(hasAnalyticsConsent);
   }, []);
 
   const handleAccept = () => {
     localStorage.setItem(COOKIE_KEY, "true");
     localStorage.setItem(ANALYTICS_KEY, "true");
-    setConsented(true);
+    setCookiesAccepted(true);
+    setAnalyticsAccepted(true);
+  };
+
+  const handleDecline = () => {
+    localStorage.setItem(COOKIE_KEY, "true");
+    localStorage.setItem(ANALYTICS_KEY, "false");
+    setCookiesAccepted(true);
+    setAnalyticsAccepted(false);
   };
 
   return (
     <>
-      {consented ? (
+      {analyticsAccepted ? (
         <>
           <PosthogProvider enabled />
           {gaId ? (
@@ -52,7 +58,7 @@ export default function CookieBanner() {
         </>
       ) : null}
 
-      {consented === false && (
+      {cookiesAccepted === false && (
         <div className="cookie-banner">
           <div className="cookie-text">
             We use cookies to analyze traffic and improve your experience on StarMapCo. By continuing, you accept our
@@ -66,8 +72,8 @@ export default function CookieBanner() {
             <button type="button" className="cookie-btn cookie-btn-primary" onClick={handleAccept}>
               Accept
             </button>
-            <button type="button" className="cookie-btn cookie-btn-secondary" onClick={handleAccept}>
-              Manage Preferences
+            <button type="button" className="cookie-btn cookie-btn-secondary" onClick={handleDecline}>
+              Decline
             </button>
           </div>
         </div>

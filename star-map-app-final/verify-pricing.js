@@ -19,7 +19,7 @@ console.log('Promo Active:', isActive ? '✓ YES' : '✗ NO');
 
 if (isActive) {
   console.log('\n✓ Promo is ACTIVE - Stripe checkout will show:');
-  console.log('  Subtotal: $9.99');
+  console.log('  Subtotal: $0.99');
   console.log('  Discount (NEWYEARS26): -$9.00');
   console.log('  Total: $0.99');
 } else {

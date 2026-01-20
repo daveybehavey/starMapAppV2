@@ -137,7 +137,7 @@ export default function WeddingsPostPage() {
                   </tr>
                   <tr className="border-t border-amber-200/30">
                     <td className="p-3">Format</td>
-                    <td className="p-3">PNG for digital; PDF for printers</td>
+                    <td className="p-3">High-resolution PNG for digital and print</td>
                   </tr>
                   <tr className="border-t border-amber-200/30">
                     <td className="p-3">Frame</td>
@@ -170,7 +170,7 @@ export default function WeddingsPostPage() {
                 heart or circle.
               </li>
               <li>
-                <strong>Is this a one-time purchase?</strong> Yes—premium unlock is a one-time $9.99 per device/browser.
+                <strong>Is this a one-time purchase?</strong> Yes—premium unlock is a one-time $0.99 per device/browser.
               </li>
               <li>
                 <strong>Is it print-ready?</strong> Yes—export up to 6000x6000 for posters and frames.

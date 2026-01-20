@@ -3,7 +3,7 @@
 ## What I Built For You
 
 ### 1. **Sticky Promo Banner** (Top of every page)
-- Shows: "🎉 New Year Sale: 90% OFF — ~~$9.99~~ → $0.99"
+- Shows: "🎉 New Year Sale: 90% OFF — ~~$0.99~~ → $0.99"
 - Live countdown timer ("24d 5h left" / "5h 30m left")
 - Sticks to top of page as users scroll
 - Amber/gold styling matching your brand
@@ -14,7 +14,7 @@
 - Beautiful animated entrance
 - Shows:
   - Big "90% OFF" headline
-  - Price comparison: ~~$9.99~~ → **$0.99**
+  - Price comparison: ~~$0.99~~ → **$0.99**
   - Savings amount: "Save $9.00!"
   - All product benefits with checkmarks
   - "Create My Star Map Now" CTA button
@@ -46,7 +46,7 @@ Enhanced with:
 ### Promo Banner (PromoBanner.tsx)
 ```
 ┌───────────────────────────────────────────────────┐
-│ 🎉 New Year Sale: 90% OFF — $9.99 → $0.99 • ⏰ 24d 5h left │
+│ 🎉 New Year Sale: 90% OFF — $0.99 → $0.99 • ⏰ 24d 5h left │
 └───────────────────────────────────────────────────┘
 ```
 - Sticky positioning
@@ -63,7 +63,7 @@ Enhanced with:
 │                                     │
 │   Get your premium HD star map for: │
 │                                     │
-│      $9.99  →  $0.99               │
+│      $0.99  →  $0.99               │
 │      Save $9.00!                    │
 │                                     │
 │   ✓ 6000×6000px HD resolution      │
@@ -100,7 +100,7 @@ Enhanced with:
 - [ ] Close popup with X button
 - [ ] Reload page - popup doesn't show again (24hr cooldown)
 - [ ] Scroll down - banner stays at top (sticky)
-- [ ] Check "Unlock HD Export" card - shows ~~$9.99~~ $0.99
+- [ ] Check "Unlock HD Export" card - shows ~~$0.99~~ $0.99
 - [ ] Open paywall modal - shows promo pricing
 - [ ] Click "Unlock Now" - Stripe shows discount
 
@@ -116,7 +116,7 @@ Enhanced with:
 
 ### Current Promo Settings (.env.local):
 ```env
-PRICE_CENTS=999              # Base: $9.99
+PRICE_CENTS=99              # Base: $0.99
 PROMO_PRICE_CENTS=99         # Promo: $0.99
 PROMO_START=2026-01-01       # January 1, 2026
 PROMO_END=2026-01-31         # January 31, 2026
@@ -135,7 +135,7 @@ STRIPE_PROMO_CODE_ID=promo_1Sn0h5LWqD0o9865VJyVb98k
 ### Automatic Behavior:
 - ✅ Banner disappears
 - ✅ Popup stops showing
-- ✅ All pricing reverts to $9.99
+- ✅ All pricing reverts to $0.99
 - ✅ Stripe checkout shows regular price
 - ✅ No code changes needed!
 
