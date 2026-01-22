@@ -4,6 +4,7 @@ import "./globals.css";
 import CookieBanner from "@/components/CookieBanner";
 import PromoBanner from "@/components/PromoBanner";
 import PromoPopup from "@/components/PromoPopup";
+import { PageTransition } from "@/components/PageTransition";
 import { getPricingInfo } from "@/lib/pricing";
 import {
   Playfair_Display,
@@ -125,7 +126,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${cormorant.variable} ${montserrat.variable} ${libreBaskerville.variable} ${ebGaramond.variable} ${crimsonText.variable} ${lora.variable} ${raleway.variable} ${poppins.variable} ${dancingScript.variable} ${parisienne.variable} ${bebasNeue.variable} ${abrilFatface.variable}`}>
         <PromoBanner />
-        <div className="cosmic-backdrop">{children}</div>
+        <div className="cosmic-backdrop">
+          <PageTransition>{children}</PageTransition>
+        </div>
         <footer className="bg-[rgba(247,241,227,0.92)] px-6 py-4 text-sm text-neutral-800 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
           <div className="mx-auto flex max-w-6xl items-center justify-between">
             <span>© {new Date().getFullYear()} StarMapCo</span>

@@ -806,7 +806,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                               onClick={() => applyPreset(preset.id)}
                               className={`rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-95 ${
                                 occasionStyles[preset.id as keyof typeof occasionStyles]
-                              } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70" : ""}`}
+                              } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70 btn-selection-pulse btn-selected-glow" : ""}`}
                             >
                               {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
                             </button>
@@ -834,9 +834,9 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                 setIntensity(targetLevel);
                                 setIntensityDisplay(targetLevel);
                               }}
-                              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow ${
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow active:scale-95 ${
                                 renderMode === mode.id
-                                  ? "border-amber-400 bg-amber-200 text-midnight"
+                                  ? "border-amber-400 bg-amber-200 text-midnight btn-selection-pulse btn-selected-glow"
                                   : "border-white/20 bg-white/10 text-white"
                               }`}
                               title={
@@ -1209,9 +1209,9 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                         key={style.id}
                                         type="button"
                                         onClick={() => setStyle(style.id)}
-                                        className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${
+                                        className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
                                           styleClasses[style.id as keyof typeof styleClasses]
-                                        }`}
+                                        } ${selectedStyle === style.id ? "btn-selection-pulse" : ""}`}
                                       >
                                         <div className="text-sm font-semibold">{style.name}</div>
                                         <div className="text-xs opacity-80 mt-1">{style.note}</div>

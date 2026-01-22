@@ -463,9 +463,9 @@ export function MobileCreate({
                   key={preset.id}
                   type="button"
                   onClick={() => applyPreset(preset.id)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition-all active:scale-95 ${
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-95 ${
                     occasionStyles[preset.id as keyof typeof occasionStyles]
-                  } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70" : ""}`}
+                  } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70 btn-selection-pulse btn-selected-glow" : ""}`}
                 >
                   {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
                 </button>
@@ -508,8 +508,8 @@ export function MobileCreate({
                 key={preset.id}
                 type="button"
                 onClick={() => applyProPreset(preset.id)}
-                className={`group overflow-hidden rounded-lg border bg-[#0b0f24]/80 text-left shadow-sm transition active:scale-95 ${
-                  selectedOccasion === preset.id ? "border-amber-300/70 ring-1 ring-amber-300/30" : "border-white/10"
+                className={`group overflow-hidden rounded-lg border bg-[#0b0f24]/80 text-left shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:shadow-lg active:scale-[0.98] ${
+                  selectedOccasion === preset.id ? "border-amber-300/70 ring-1 ring-amber-300/30 btn-selection-pulse btn-selected-glow" : "border-white/10"
                 }`}
               >
                 <div className="relative aspect-[4/5] overflow-hidden">
@@ -519,7 +519,7 @@ export function MobileCreate({
                     loading="lazy"
                     width={120}
                     height={150}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
                 <div className="border-t border-white/10 px-2 py-2">
@@ -547,9 +547,9 @@ export function MobileCreate({
                 key={mode.id}
                 type="button"
                 onClick={() => handleRenderModeChange(mode.id as RenderModeId)}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition active:scale-95 ${
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow active:scale-95 ${
                   renderMode === mode.id
-                    ? "border-amber-400 bg-amber-200 text-midnight"
+                    ? "border-amber-400 bg-amber-200 text-midnight btn-selection-pulse btn-selected-glow"
                     : "border-white/20 bg-white/10 text-white"
                 }`}
               >
@@ -803,9 +803,9 @@ export function MobileCreate({
                       key={style.id}
                       type="button"
                       onClick={() => setStyle(style.id)}
-                      className={`flex flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition active:scale-95 ${
+                      className={`flex flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
                         styleClasses[style.id as keyof typeof styleClasses]
-                      }`}
+                      } ${selectedStyle === style.id ? "btn-selection-pulse" : ""}`}
                     >
                       <div className="text-sm font-semibold">{style.name}</div>
                       <div className="text-xs opacity-80 mt-1">{style.note}</div>

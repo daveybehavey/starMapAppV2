@@ -452,3 +452,143 @@ details > summary:hover {
     overflow: visible;
   }
 }
+
+/* Button selection pulse animation */
+@keyframes selection-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+
+.btn-selection-pulse {
+  animation: selection-pulse 0.4s ease-out;
+}
+
+/* Preset button press effect */
+@keyframes btn-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+.btn-press {
+  animation: btn-press 0.15s ease-out;
+}
+
+/* Subtle glow for selected buttons */
+.btn-selected-glow {
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3), 0 0 24px rgba(251, 191, 36, 0.1);
+}
+
+/* Loading skeleton animation */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+.skeleton-text {
+  height: 1rem;
+  border-radius: 0.25rem;
+}
+
+.skeleton-button {
+  height: 2.5rem;
+  border-radius: 9999px;
+}
+
+.skeleton-card {
+  height: 6rem;
+  border-radius: 0.75rem;
+}
+
+/* Page transition animations */
+@keyframes page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.3s ease-out forwards;
+}
+
+.page-exit {
+  animation: page-exit 0.2s ease-in forwards;
+}
+
+/* Input focus animation */
+@keyframes input-focus-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
+  }
+}
+
+.input-focus-animate:focus {
+  animation: input-focus-glow 0.2s ease-out forwards;
+}
+
+/* Color picker hover effect */
+input[type="color"]:hover {
+  transform: scale(1.02);
+  transition: transform 0.15s ease;
+}
+
+/* Slider track animation */
+input[type="range"]::-webkit-slider-thumb {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+
+input[type="range"]::-moz-range-thumb {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
