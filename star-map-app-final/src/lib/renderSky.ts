@@ -1,3 +1,4 @@
+import { Horizon, Observer } from "astronomy-engine";
 import { computeVisibleStars, type VisibleSky } from "@/lib/astronomy";
 import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
 import { SHAPE_PATHS } from "@/lib/shapes";
@@ -5,6 +6,17 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 
 export type { AspectRatio, Shape } from "@/lib/types";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+const TWO_PI = Math.PI * 2;
+const BASE_CANVAS_WIDTH = 1200;
+const DEFAULT_BORTLE = 4.5;
+const FILM_GRAIN_SIZE_DIVISOR = 220;
+const MILKY_WAY_BAND_WIDTH_FACTOR = 0.45;
+const MILKY_WAY_BAND_LENGTH_FACTOR = 1.6;
+const PROJECTION_RADIUS_FACTOR = 0.45;
 
 export type MapRecipe = {
   version: number;
@@ -223,7 +235,7 @@ export function renderStarMap({
     canvas.style.height = `${targetHeight}px`;
   }
 
-  const baseWidth = 1200;
+  const baseWidth = BASE_CANVAS_WIDTH;
   const scale = width / baseWidth;
   // Support both renderOptions.backgroundColor and legacy top-level backgroundColor
   type RecipeWithLegacy = typeof recipe & { backgroundColor?: string };
@@ -256,13 +268,18 @@ export function renderStarMap({
     showFrame,
     recipe.renderOptions?.backgroundColor,
   );
-  drawSky(ctx, width, targetHeight, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale, premium);
+  drawSky(ctx, width, targetHeight, recipe, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale, premium);
+  if (premium) {
+    drawPremiumVignette(ctx, width, targetHeight, mode);
+  }
   ctx.restore();
 
-  // Shape outline with consistent amber color
+  // Shape outline using theme accent color
   if (clipPath && showFrame) {
+    const theme = STYLE_THEME[recipe.selectedStyle];
+    const frameColor = mode?.palette?.accent ?? theme.accent;
     ctx.save();
-    ctx.strokeStyle = "#fbbf24"; // Amber-400 to match CSS border
+    ctx.strokeStyle = frameColor;
     ctx.lineWidth = 3 * scale;
     ctx.globalAlpha = 0.8;
     ctx.stroke(clipPath);
@@ -272,6 +289,9 @@ export function renderStarMap({
   // Overlays
   drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
   drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
+  if (premium) {
+    drawFilmGrain(ctx, width, targetHeight, mode);
+  }
   ctx.restore();
 }
 
@@ -339,7 +359,7 @@ export function computeSky(recipe: MapRecipe, width: number, height: number): Vi
       lat: recipe.location.latitude,
       lon: recipe.location.longitude,
       timezone: recipe.location.timezone,
-      bortle: 4.5,
+      bortle: DEFAULT_BORTLE,
       showConstellations: recipe.renderOptions?.constellationLines !== "off",
     },
     width,
@@ -446,10 +466,10 @@ function drawBackground(
     ctx.restore();
   }
 
-  // Rectangle border with consistent amber color
+  // Rectangle border using theme accent color
   if (showFrame && (!shape || shape === "rectangle")) {
     const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
-    ctx.strokeStyle = "#fbbf24"; // Amber-400 to match CSS border
+    ctx.strokeStyle = palette.accent;
     ctx.lineWidth = 3 * scale;
     ctx.globalAlpha = 0.8;
     ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
@@ -461,6 +481,7 @@ function drawSky(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
+  recipe: MapRecipe,
   styleId: StyleId,
   sky: VisibleSky | null,
   renderOptions?: MapRecipe["renderOptions"],
@@ -500,14 +521,22 @@ function drawSky(
         : renderOptions?.constellationLines === "thin"
           ? 0.8 * lineFactor
           : 0.8 * lineFactor;
+    const strokeWidth = lineWidth * lineScale * scale;
     drawConstellations(
       ctx,
       sky,
       constellationColor,
-      lineWidth * lineScale * scale,
+      strokeWidth,
       renderOptions?.constellationLabels ?? false,
       mode?.lineAlpha ?? 0.3,
+      premium,
+      scale,
     );
+  }
+
+  if (premium) {
+    const bandColor = resolveBandColor(palette.star);
+    drawMilkyWayBand(ctx, width, height, recipe, bandColor, mode);
   }
 
   ctx.save();
@@ -535,7 +564,7 @@ function drawSky(
     }
     ctx.globalAlpha = alpha;
     ctx.beginPath();
-    ctx.arc(star.x, star.y, radius, 0, Math.PI * 2);
+    ctx.arc(star.x, star.y, radius, 0, TWO_PI);
     ctx.fill();
   }
 
@@ -553,7 +582,7 @@ function drawSky(
       } else {
         ctx.fillStyle = palette.accent;
         ctx.beginPath();
-        ctx.arc(planet.x, planet.y, size, 0, Math.PI * 2);
+        ctx.arc(planet.x, planet.y, size, 0, TWO_PI);
         ctx.fill();
       }
     }
@@ -576,6 +605,165 @@ function drawSky(
   }
 
   ctx.restore();
+}
+
+function drawPremiumVignette(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  mode?: ModeSettings,
+) {
+  const baseStrength = 0.16 + (mode?.vignetteStrength ?? 1) * 0.08;
+  const strength = clamp(baseStrength, 0.12, 0.38);
+  const gradient = ctx.createRadialGradient(
+    width * 0.5,
+    height * 0.45,
+    Math.min(width, height) * 0.2,
+    width * 0.5,
+    height * 0.5,
+    Math.max(width, height) * 0.85,
+  );
+  gradient.addColorStop(0, "rgba(0,0,0,0)");
+  gradient.addColorStop(0.6, "rgba(0,0,0,0)");
+  gradient.addColorStop(1, `rgba(0,0,0,${strength})`);
+  ctx.save();
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function drawFilmGrain(ctx: CanvasRenderingContext2D, width: number, height: number, mode?: ModeSettings) {
+  const strength = clamp(0.08 + (mode?.vignetteStrength ?? 1) * 0.02, 0.06, 0.14);
+  const grainSize = Math.max(1, Math.round(Math.min(width, height) / FILM_GRAIN_SIZE_DIVISOR));
+  const cols = Math.ceil(width / grainSize);
+  const rows = Math.ceil(height / grainSize);
+  ctx.save();
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      const seed = (x + 1) * 73856093 ^ (y + 1) * 19349663;
+      const v = Math.floor(randFromSeed(seed) * 255);
+      ctx.fillStyle = `rgba(${v},${v},${v},${strength})`;
+      ctx.fillRect(x * grainSize, y * grainSize, grainSize, grainSize);
+    }
+  }
+  ctx.restore();
+}
+
+function drawMilkyWayBand(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  recipe: MapRecipe,
+  color: string,
+  mode?: ModeSettings,
+) {
+  const bandAngle = computeGalacticBandAngle(recipe, width, height) ?? Math.PI * 0.18;
+  const bandWidth = Math.min(width, height) * MILKY_WAY_BAND_WIDTH_FACTOR;
+  const bandLength = Math.max(width, height) * MILKY_WAY_BAND_LENGTH_FACTOR;
+  const baseStrength = 0.12 + (mode?.vignetteStrength ?? 1) * 0.05;
+  const strength = clamp(baseStrength, 0.08, 0.22);
+
+  ctx.save();
+  ctx.translate(width / 2, height / 2);
+  ctx.rotate(bandAngle);
+  const gradient = ctx.createLinearGradient(0, -bandWidth, 0, bandWidth);
+  // Smoother gradient with more stops for natural Milky Way appearance
+  gradient.addColorStop(0, "rgba(0,0,0,0)");
+  gradient.addColorStop(0.15, toRgba(color, strength * 0.08));
+  gradient.addColorStop(0.25, toRgba(color, strength * 0.22));
+  gradient.addColorStop(0.35, toRgba(color, strength * 0.55));
+  gradient.addColorStop(0.45, toRgba(color, strength * 0.85));
+  gradient.addColorStop(0.5, toRgba(color, strength));
+  gradient.addColorStop(0.55, toRgba(color, strength * 0.85));
+  gradient.addColorStop(0.65, toRgba(color, strength * 0.55));
+  gradient.addColorStop(0.75, toRgba(color, strength * 0.22));
+  gradient.addColorStop(0.85, toRgba(color, strength * 0.08));
+  gradient.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(-bandLength / 2, -bandWidth, bandLength, bandWidth * 2);
+  ctx.restore();
+}
+
+function computeGalacticBandAngle(recipe: MapRecipe, width: number, height: number) {
+  const formatted = formatDateTimeForLocation(recipe.datetimeISO, recipe.location.timezone);
+  if (!formatted) return null;
+  const date = toUTCDateFromLocal(formatted.date, formatted.time, recipe.location.timezone);
+  if (!date) return null;
+  const observer = new Observer(recipe.location.latitude, recipe.location.longitude, 0);
+
+  const gc = projectRaDec(17.761, -28.94, date, observer, width, height);
+  const ac = projectRaDec(5.761, 28.94, date, observer, width, height);
+  if (!gc || !ac) return null;
+
+  const dx = ac.x - gc.x;
+  const dy = ac.y - gc.y;
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return null;
+  return Math.atan2(dy, dx);
+}
+
+function projectRaDec(
+  raHours: number,
+  decDegrees: number,
+  date: Date,
+  observer: Observer,
+  width: number,
+  height: number,
+) {
+  const hor = Horizon(date, observer, raHours, decDegrees);
+  const r = (90 - hor.altitude) / 90;
+  const angle = (hor.azimuth * Math.PI) / 180;
+  const radius = Math.min(width, height) * PROJECTION_RADIUS_FACTOR;
+  const x = width / 2 + r * Math.sin(angle) * radius;
+  const y = height / 2 - r * Math.cos(angle) * radius;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function toUTCDateFromLocal(dateStr: string, timeStr: string, timezone: string) {
+  const [yearRaw, monthRaw, dayRaw] = dateStr.split("-").map(Number);
+  if (!yearRaw || !monthRaw || !dayRaw) return null;
+  const [hourRaw, minuteRaw] = timeStr.split(":").map(Number);
+  if (Number.isNaN(hourRaw) || Number.isNaN(minuteRaw)) return null;
+
+  const hour = clamp(hourRaw, 0, 23);
+  const minute = clamp(minuteRaw, 0, 59);
+
+  try {
+    const testDate = new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    const parts = formatter.formatToParts(testDate);
+    const localYear = Number(parts.find(p => p.type === "year")?.value);
+    const localMonth = Number(parts.find(p => p.type === "month")?.value);
+    const localDay = Number(parts.find(p => p.type === "day")?.value);
+    const localHour = Number(parts.find(p => p.type === "hour")?.value);
+    const localMinute = Number(parts.find(p => p.type === "minute")?.value);
+
+    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
+    const utcMs = testDate.getTime();
+    const offsetMs = utcMs - localMs;
+
+    const targetLocalMs = Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0);
+    return new Date(targetLocalMs + offsetMs);
+  } catch {
+    return new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
+  }
+}
+
+function resolveBandColor(color: string) {
+  const trimmed = color.trim();
+  if (trimmed.startsWith("#")) return trimmed;
+  // Fallback to neutral white if color format is unexpected
+  return "#ffffff";
 }
 
 function drawText(
@@ -666,7 +854,7 @@ function buildShapeClip(shape: string, width: number, height: number): Path2D | 
     const minDim = Math.min(width, height);
     const inset = minDim * 0.06; // slight inset to match star map footprint
     const radius = Math.max(1, minDim / 2 - inset);
-    path.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
+    path.arc(width / 2, height / 2, radius, 0, TWO_PI);
     return path;
   }
   const entry = SHAPE_PATHS[shape];
@@ -686,17 +874,16 @@ function drawConstellations(
   sky: VisibleSky,
   accentColor: string,
   lineWidth = 0.8,
-  showLabels = false,
+  _showLabels = false, // TODO: Implement constellation label rendering
   lineAlpha = 0.3,
+  premium = false,
+  scale = 1,
 ) {
   if (!sky.constellations.length) return;
-  ctx.save();
-  ctx.strokeStyle = accentColor;
-  ctx.lineWidth = lineWidth;
-  ctx.globalAlpha = lineAlpha;
+  const lines = sky.constellations.flatMap((constellation) => constellation.lines);
 
-  for (const constellation of sky.constellations) {
-    for (const [a, b] of constellation.lines) {
+  const drawLines = () => {
+    for (const [a, b] of lines) {
       const starA = sky.stars[a];
       const starB = sky.stars[b];
       if (
@@ -714,6 +901,30 @@ function drawConstellations(
       ctx.lineTo(starB.x, starB.y);
       ctx.stroke();
     }
+  };
+
+  ctx.save();
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = lineWidth;
+  ctx.globalAlpha = lineAlpha;
+
+  if (premium) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.6, lineAlpha * 1.4);
+    ctx.shadowColor = toRgba(accentColor, 0.65);
+    ctx.shadowBlur = Math.max(2, 6 * scale);
+    ctx.lineWidth = lineWidth * 1.35;
+    drawLines();
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.75, lineAlpha * 1.6);
+    ctx.strokeStyle = adjustColor(accentColor, 0.12);
+    ctx.lineWidth = Math.max(0.6, lineWidth * 0.85);
+    drawLines();
+    ctx.restore();
+  } else {
+    drawLines();
   }
 
   ctx.restore();
@@ -735,17 +946,17 @@ function drawMoon(
 
   ctx.fillStyle = background;
   ctx.beginPath();
-  ctx.arc(0, 0, radius + 1, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius + 1, 0, TWO_PI);
   ctx.fill();
 
   ctx.fillStyle = accent;
   ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius, 0, TWO_PI);
   ctx.fill();
 
   ctx.save();
   ctx.beginPath();
-  ctx.arc(0, 0, radius - 0.6, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius - 0.6, 0, TWO_PI);
   ctx.clip();
 
   const phaseAngle = phase * 2 * Math.PI;
@@ -770,7 +981,7 @@ function drawMoon(
   ctx.globalAlpha = 0.12 + illumination * 0.3;
   ctx.fillStyle = accent;
   ctx.beginPath();
-  ctx.arc(0, 0, radius + 1.5, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius + 1.5, 0, TWO_PI);
   ctx.fill();
 
   ctx.restore();
@@ -803,7 +1014,7 @@ function drawPremiumStar(
   outerHalo.addColorStop(1, toRgba(color, 0));
   ctx.fillStyle = outerHalo;
   ctx.beginPath();
-  ctx.arc(0, 0, haloSoft, 0, Math.PI * 2);
+  ctx.arc(0, 0, haloSoft, 0, TWO_PI);
   ctx.fill();
 
   const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, haloSize);
@@ -812,12 +1023,13 @@ function drawPremiumStar(
   halo.addColorStop(1, toRgba(color, 0));
   ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(0, 0, haloSize, 0, Math.PI * 2);
+  ctx.arc(0, 0, haloSize, 0, TWO_PI);
   ctx.fill();
 
-  const bokehCount = magnitude <= 0.2 ? 3 : magnitude <= 1.0 ? 2 : 0;
+  // Bokeh count scales with star brightness (magnitude 0.2 = very bright, 2.2 = premium threshold)
+  const bokehCount = magnitude <= 0.2 ? 3 : magnitude <= 1.0 ? 2 : magnitude <= 1.8 ? 1 : 0;
   for (let i = 0; i < bokehCount; i += 1) {
-    const a = randFromSeed(seed * 31 + i * 7) * Math.PI * 2;
+    const a = randFromSeed(seed * 31 + i * 7) * TWO_PI;
     const dist = radius * (3 + randFromSeed(seed * 97 + i * 11) * 5);
     const bx = Math.cos(a) * dist;
     const by = Math.sin(a) * dist;
@@ -829,7 +1041,7 @@ function drawPremiumStar(
     blur.addColorStop(1, toRgba(color, 0));
     ctx.fillStyle = blur;
     ctx.beginPath();
-    ctx.arc(bx, by, bSize * 2.2, 0, Math.PI * 2);
+    ctx.arc(bx, by, bSize * 2.2, 0, TWO_PI);
     ctx.fill();
   }
 
@@ -845,13 +1057,13 @@ function drawPremiumStar(
 
   ctx.fillStyle = toRgba(color, 0.9);
   ctx.beginPath();
-  ctx.arc(0, 0, radius * 1.15, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius * 1.15, 0, TWO_PI);
   ctx.fill();
 
   ctx.fillStyle = "#ffffff";
   ctx.globalAlpha = alpha * 0.7;
   ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.55, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius * 0.55, 0, TWO_PI);
   ctx.fill();
 
   ctx.restore();
@@ -883,12 +1095,12 @@ function drawPremiumPlanet(
   gradient.addColorStop(1, dark);
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.arc(0, 0, size, 0, TWO_PI);
   ctx.fill();
 
   ctx.save();
   ctx.beginPath();
-  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.arc(0, 0, size, 0, TWO_PI);
   ctx.clip();
 
   if (planet.name === "Jupiter" || planet.name === "Saturn") {
@@ -905,7 +1117,7 @@ function drawPremiumPlanet(
     ctx.fillStyle = adjustColor(base, 0.28);
     ctx.globalAlpha = 0.6;
     ctx.beginPath();
-    ctx.arc(size * 0.2, -size * 0.2, size * 0.3, 0, Math.PI * 2);
+    ctx.arc(size * 0.2, -size * 0.2, size * 0.3, 0, TWO_PI);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
@@ -919,7 +1131,7 @@ function drawPremiumPlanet(
     ctx.lineWidth = Math.max(0.6, size * 0.15);
     ctx.scale(1.6, 0.5);
     ctx.beginPath();
-    ctx.ellipse(0, 0, size, size, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, size, size, 0, 0, TWO_PI);
     ctx.stroke();
     ctx.restore();
   }
@@ -947,7 +1159,11 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function toRgba(hex: string, alpha: number) {
-  const normalized = hex.replace("#", "");
+  let normalized = hex.replace("#", "");
+  // Expand 3-digit hex to 6-digit (e.g., #fff -> #ffffff)
+  if (normalized.length === 3) {
+    normalized = normalized[0] + normalized[0] + normalized[1] + normalized[1] + normalized[2] + normalized[2];
+  }
   if (normalized.length !== 6) return `rgba(255,255,255,${alpha})`;
   const r = Number.parseInt(normalized.slice(0, 2), 16);
   const g = Number.parseInt(normalized.slice(2, 4), 16);
@@ -956,7 +1172,11 @@ function toRgba(hex: string, alpha: number) {
 }
 
 function adjustColor(hex: string, amount: number) {
-  const normalized = hex.replace("#", "");
+  let normalized = hex.replace("#", "");
+  // Expand 3-digit hex to 6-digit (e.g., #fff -> #ffffff)
+  if (normalized.length === 3) {
+    normalized = normalized[0] + normalized[0] + normalized[1] + normalized[1] + normalized[2] + normalized[2];
+  }
   if (normalized.length !== 6) return hex;
   const r = Number.parseInt(normalized.slice(0, 2), 16);
   const g = Number.parseInt(normalized.slice(2, 4), 16);
@@ -974,16 +1194,35 @@ function getStarColor(index: number, magnitude: number) {
   return colors[seed % colors.length];
 }
 
-function bvToRgb(bv: number) {
+// B-V color index to RGB with smooth interpolation
+// Based on astronomical color-temperature relationships
+const BV_COLOR_STOPS = [
+  { bv: -0.4, r: 155, g: 176, b: 255 },  // Blue (O/B stars)
+  { bv: 0.0, r: 170, g: 191, b: 255 },   // Blue-white (A stars)
+  { bv: 0.15, r: 202, g: 215, b: 255 },  // White-blue
+  { bv: 0.4, r: 248, g: 247, b: 255 },   // White (F stars)
+  { bv: 0.6, r: 255, g: 244, b: 234 },   // Yellow-white (G stars)
+  { bv: 0.8, r: 255, g: 239, b: 213 },   // Yellow
+  { bv: 1.0, r: 255, g: 210, b: 161 },   // Orange-yellow (K stars)
+  { bv: 1.4, r: 255, g: 204, b: 111 },   // Orange
+  { bv: 2.0, r: 255, g: 189, b: 111 },   // Red-orange (M stars)
+];
+
+function bvToRgb(bv: number): string {
   const t = clamp(bv, -0.4, 2.0);
-  if (t < 0) return "#9bb0ff";
-  if (t < 0.15) return "#aabfff";
-  if (t < 0.3) return "#cad7ff";
-  if (t < 0.5) return "#f8f7ff";
-  if (t < 0.6) return "#fff4ea";
-  if (t < 0.8) return "#ffefd5";
-  if (t < 1.0) return "#ffd2a1";
-  if (t < 1.4) return "#ffcc6f";
+
+  // Find surrounding color stops and interpolate
+  for (let i = 0; i < BV_COLOR_STOPS.length - 1; i++) {
+    const curr = BV_COLOR_STOPS[i];
+    const next = BV_COLOR_STOPS[i + 1];
+    if (t <= next.bv) {
+      const ratio = (t - curr.bv) / (next.bv - curr.bv);
+      const r = Math.round(curr.r + ratio * (next.r - curr.r));
+      const g = Math.round(curr.g + ratio * (next.g - curr.g));
+      const b = Math.round(curr.b + ratio * (next.b - curr.b));
+      return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+    }
+  }
   return "#ffbd6f";
 }
 
@@ -992,4 +1231,4 @@ function randFromSeed(seed: number) {
   return x - Math.floor(x);
 }
 
-export { STYLE_THEME };
+export { STYLE_THEME, clamp };

@@ -65,7 +65,7 @@ export interface RenderOptions {
   planetEmphasis: "normal" | "highlighted";
   showMoon: boolean;
   moonSize: "normal" | "large";
-  shapeMask: "none" | "circle" | "heart" | "diamond" | "ring";
+  shapeMask: "rectangle" | "circle" | "heart" | "star" | "diamond";
   frameEnabled: boolean;
   backgroundColor?: string;
   constellationColor?: string;

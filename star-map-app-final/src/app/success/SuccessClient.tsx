@@ -60,10 +60,29 @@ export default function SuccessClient() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
-      <div className="relative overflow-hidden rounded-3xl border border-amber-200/30 bg-white/10 px-8 py-7 text-center shadow-2xl backdrop-blur md:px-10 md:py-9">
+      {/* Celebration stars animation */}
+      {status === "success" && (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          {[...Array(12)].map((_, i) => (
+            <span
+              key={i}
+              className="absolute text-2xl"
+              style={{
+                left: `${10 + (i * 7) % 80}%`,
+                top: `${20 + (i * 11) % 60}%`,
+                animation: `star-burst 1.5s ease-out ${i * 0.1}s infinite`,
+                color: i % 2 === 0 ? '#f1c27d' : '#ffffff',
+              }}
+            >
+              ★
+            </span>
+          ))}
+        </div>
+      )}
+      <div className={`relative overflow-hidden rounded-3xl border border-amber-200/30 bg-white/10 px-8 py-7 text-center shadow-2xl backdrop-blur md:px-10 md:py-9 ${status === "success" ? 'animate-[scale-in_0.4s_ease-out]' : ''}`}>
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-10 -top-16 h-36 w-36 rounded-full bg-amber-300/15 blur-3xl" />
-          <div className="absolute -bottom-14 right-0 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl" />
+          <div className={`absolute -left-10 -top-16 h-36 w-36 rounded-full bg-amber-300/15 blur-3xl ${status === "success" ? 'animate-pulse' : ''}`} />
+          <div className={`absolute -bottom-14 right-0 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl ${status === "success" ? 'animate-pulse' : ''}`} />
         </div>
         <div className="relative inline-flex items-center gap-2 rounded-full border border-amber-200/50 bg-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-100 shadow-sm">
           StarMapCo
@@ -78,8 +97,17 @@ export default function SuccessClient() {
         </p>
         {status !== "error" && (
           <>
-            <div className="relative mt-4 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/50 bg-white/15 px-4 py-2 text-xs font-semibold text-amber-50 shadow">
-              {status === "success" ? "Verified - redirecting..." : "Unlocking your HD download..."}
+            <div className={`relative mt-4 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/50 bg-white/15 px-4 py-2 text-xs font-semibold text-amber-50 shadow ${status === "success" ? 'bg-green-500/20 border-green-300/50' : ''}`}>
+              {status === "success" ? (
+                <span className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Verified - redirecting...
+                </span>
+              ) : (
+                "Unlocking your HD download..."
+              )}
             </div>
             <p className="relative mt-3 text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
               You will be redirected shortly

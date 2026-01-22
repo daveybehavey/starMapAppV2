@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, clamp } from "@/lib/renderSky";
 import { TextBox, useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 
@@ -209,12 +209,15 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       }`}
       style={{ aspectRatio: `${aspectRatioToNumber(aspectRatio)} / 1` }}
     >
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" />
+      <canvas ref={canvasRef} className={`absolute inset-0 w-full h-full touch-none transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100 canvas-twinkle'}`} />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0b0f24]">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
-            <span className="text-xs text-neutral-400">Rendering stars...</span>
+            <div className="relative">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+              <div className="absolute inset-0 animate-ping rounded-full border border-amber-400/20" />
+            </div>
+            <span className="text-xs text-neutral-400 animate-pulse">Rendering stars...</span>
           </div>
         </div>
       )}
@@ -254,6 +257,3 @@ function hitTestText(
   return null;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}

@@ -8,6 +8,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { EditorExperience } from "@/components/EditorExperience";
 import { blogPosts } from "@/lib/blogPosts";
 import { formatPrice, getPricingInfo } from "@/lib/pricing";
+import { useInView } from "@/hooks/useInView";
 
 export default function Home() {
   return (
@@ -20,6 +21,11 @@ export default function Home() {
 function HomeInner() {
   const editorRef = useRef<HTMLDivElement>(null);
   const [activePriceLabel, setActivePriceLabel] = useState("$0.99");
+
+  // Scroll-triggered animation hooks
+  const { ref: examplesRef, isVisible: examplesVisible } = useInView();
+  const { ref: howItWorksRef, isVisible: howItWorksVisible } = useInView();
+  const { ref: blogRef, isVisible: blogVisible } = useInView();
 
   useEffect(() => {
     const pricingInfo = getPricingInfo();
@@ -41,7 +47,7 @@ function HomeInner() {
             <button
               type="button"
               onClick={() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#d7b56c] px-5 py-3 text-sm font-semibold text-[#201a0c] shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_8px_30px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2 active:scale-95 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#d7b56c] via-[#e8c87d] to-[#d7b56c] bg-[length:200%_100%] px-5 py-3 text-sm font-semibold text-[#201a0c] shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:animate-[shimmer_2s_ease-in-out_infinite] hover:shadow-[0_12px_40px_rgba(215,181,108,0.5)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2 active:scale-95 sm:w-auto"
             >
               Start with a preset
             </button>
@@ -57,13 +63,13 @@ function HomeInner() {
             </div>
           </div>
           <div className="relative" style={{ animation: "float 6s ease-in-out infinite" }}>
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-[0_25px_60px_rgba(0,0,0,0.35)] transition-shadow duration-300 hover:shadow-[0_30px_70px_rgba(241,194,125,0.2)]">
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-[0_25px_60px_rgba(0,0,0,0.35)] transition-all duration-500 hover:shadow-[0_30px_70px_rgba(241,194,125,0.25)] hover:animate-[glow-pulse_3s_ease-in-out_infinite]">
               <div className="relative aspect-[2/1] bg-gradient-to-b from-[#0b0f24] via-[#0a0d1c] to-[#05070f]">
                 <Image
                   src="/custom-star-map-anniversary.webp"
                   alt="Example star map output"
                   fill
-                  className="object-cover"
+                  className="object-cover transition-transform duration-700 hover:scale-[1.02]"
                   priority
                 />
               </div>
@@ -72,7 +78,7 @@ function HomeInner() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-16">
+      <section ref={examplesRef} className={`mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-16 fade-in-up ${examplesVisible ? 'visible' : ''}`}>
         <div className="space-y-6">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">What your map could look like</p>
@@ -81,7 +87,7 @@ function HomeInner() {
               Real outputs from our presets and render modes—so you know exactly what you can create in seconds.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-5 lg:grid-cols-3">
+          <div className={`grid grid-cols-2 gap-5 lg:grid-cols-3 stagger-children ${examplesVisible ? 'visible' : ''}`}>
             {[
               {
                 imageSrc: "/examples/example-wedding-cinematic-heart.webp",
@@ -128,14 +134,14 @@ function HomeInner() {
             ].map((item, idx) => (
               <div
                 key={`${item.imageSrc}-${idx}`}
-                className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30"
+                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30 transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/30 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(241,194,125,0.15)]"
               >
-                <div className="relative aspect-[4/5]">
+                <div className="relative aspect-[4/5] overflow-hidden">
                   <Image
                     src={item.imageSrc}
                     alt={`${item.occasion} · ${item.renderMode}`}
                     fill
-                    className="object-cover"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
                     sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                     loading="lazy"
                   />
@@ -160,7 +166,7 @@ function HomeInner() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-16">
+      <section ref={howItWorksRef} className={`mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-16 fade-in-up ${howItWorksVisible ? 'visible' : ''}`}>
         <div className="space-y-6">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">How it works</p>
@@ -169,7 +175,7 @@ function HomeInner() {
               Pick a meaningful moment, see the night sky instantly, personalize, and export a print-ready map in minutes.
             </p>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className={`grid gap-4 md:grid-cols-3 stagger-children ${howItWorksVisible ? 'visible' : ''}`}>
             {[
               {
                 title: "Choose your moment",
@@ -186,7 +192,7 @@ function HomeInner() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm shadow-black/20"
+                className="tilt-card rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm shadow-black/20 transition-all duration-300 hover:border-white/20 hover:bg-white/8 hover:shadow-md"
               >
                 <h3 className="text-lg font-semibold text-white">{item.title}</h3>
                 <p className="mt-2 text-sm text-neutral-200">{item.desc}</p>
@@ -319,27 +325,27 @@ function HomeInner() {
         </div>
       </section>
 
-      <section className="cosmic-panel mb-8 mt-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+      <section ref={blogRef} className={`cosmic-panel mb-8 mt-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10 fade-in-up ${blogVisible ? 'visible' : ''}`}>
         <div className="space-y-4">
           <h2 className="text-3xl font-semibold text-midnight sm:text-4xl">Latest from the Blog</h2>
           <p className="text-base text-neutral-800 sm:text-lg">
             Guides and inspiration for anniversaries, birthdays, and accurate astronomy behind your custom star map.
           </p>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className={`grid gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children ${blogVisible ? 'visible' : ''}`}>
             {[...blogPosts]
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
               .slice(0, 6)
               .map((post) => (
                 <article
                   key={post.slug}
-                  className="flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-white/80 text-midnight shadow-md transition hover:-translate-y-[2px] hover:shadow-2xl"
+                  className="group flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-white/80 text-midnight shadow-md transition-all duration-300 hover:-translate-y-2 hover:border-amber-300 hover:shadow-[0_25px_50px_rgba(0,0,0,0.15)]"
                 >
-                  <div className="relative h-40 w-full">
+                  <div className="relative h-40 w-full overflow-hidden">
                     <Image
                       src="/custom-star-map-anniversary.webp"
                       alt={post.title}
                       fill
-                      className="object-cover"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
                       sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                     />
@@ -357,7 +363,7 @@ function HomeInner() {
                     <div className="mt-auto pt-3">
                       <Link
                         href={`/blog/${post.slug}`}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-amber-700 hover:underline"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-amber-700 transition-colors hover:text-amber-900 hover:underline"
                       >
                         Read more →
                       </Link>
