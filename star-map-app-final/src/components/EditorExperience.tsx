@@ -440,24 +440,23 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     (id: string) => {
       const preset = proPresets.find((entry) => entry.id === id);
       if (!preset) return;
-      const lockedRenderMode = isQuick ? "cinematic" : preset.renderMode;
-      const lockedIntensity = isQuick ? 70 : preset.intensity;
+      // Pro presets retain their intended renderMode and intensity for visual fidelity
       setSelectedOccasion(id);
       setCustomOccasion(false);
       setStyle(preset.style);
       setShape(preset.shape);
       setAspectRatio(preset.aspectRatio);
       setTextBoxes(preset.textBoxes);
-      setRenderMode(lockedRenderMode);
-      setIntensity(lockedIntensity);
-      setIntensityDisplay(lockedIntensity);
+      setRenderMode(preset.renderMode);
+      setIntensity(preset.intensity);
+      setIntensityDisplay(preset.intensity);
+      // Apply base visual options first, then merge preset-specific overrides on top
+      applyVisualOptions(preset.renderMode, preset.intensity);
       setRenderOptions(preset.renderOptions);
-      applyVisualOptions(lockedRenderMode, lockedIntensity);
-      track("pro_preset_selected", { preset: id, locked: isQuick });
+      track("pro_preset_selected", { preset: id });
     },
     [
       applyVisualOptions,
-      isQuick,
       setAspectRatio,
       setRenderMode,
       setRenderOptions,
