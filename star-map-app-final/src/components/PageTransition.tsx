@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -10,18 +10,19 @@ interface PageTransitionProps {
 export function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
-  const [displayChildren, setDisplayChildren] = useState(children);
+  const prevPathnameRef = useRef(pathname);
 
   useEffect(() => {
-    // When pathname changes, trigger exit animation then swap content
-    setIsVisible(false);
-    const timer = setTimeout(() => {
-      setDisplayChildren(children);
-      setIsVisible(true);
-    }, 150); // Match exit animation duration
-
-    return () => clearTimeout(timer);
-  }, [pathname, children]);
+    // Only animate when pathname actually changes, not on initial mount or children updates
+    if (prevPathnameRef.current !== pathname) {
+      setIsVisible(false);
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+      }, 150); // Match exit animation duration
+      prevPathnameRef.current = pathname;
+      return () => clearTimeout(timer);
+    }
+  }, [pathname]);
 
   return (
     <div
@@ -29,7 +30,7 @@ export function PageTransition({ children }: PageTransitionProps) {
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
       }`}
     >
-      {displayChildren}
+      {children}
     </div>
   );
 }
