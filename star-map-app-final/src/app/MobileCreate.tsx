@@ -138,27 +138,23 @@ export function MobileCreate({
       setCustomOccasion(false);
       track("occasion_selected", { preset: id, autofill: shouldAutofill });
 
+      // Always apply style, shape, textBoxes, and render options from preset
+      setTextBoxes(preset.textBoxes);
+      setStyle(preset.style);
+      setShape(preset.shape);
+      setRenderMode(preset.renderMode);
+      // Convert intensity from 0-1 to 0-100 scale
+      const intensityPercent = Math.round(preset.intensity * 100);
+      setIntensity(intensityPercent);
+      setIntensityDisplay(intensityPercent);
+      applyVisualOptions(preset.renderMode, intensityPercent);
+
       if (shouldAutofill) {
+        // Also set date/location if user hasn't entered them yet
         setDateTime(preset.dateTimeISO);
         setLocation(preset.location as Parameters<typeof setLocation>[0]);
-        setTextBoxes(preset.textBoxes);
-        setStyle(preset.style);
-        setShape(preset.shape);
-        setRenderMode(preset.renderMode);
-        // Convert intensity from 0-1 to 0-100 scale
-        const intensityPercent = Math.round(preset.intensity * 100);
-        setIntensity(intensityPercent);
-        setIntensityDisplay(intensityPercent);
-        applyVisualOptions(preset.renderMode, intensityPercent);
         setPresetHint("Preset applied — edit date or location anytime.");
       } else {
-        setStyle(preset.style);
-        setShape(preset.shape);
-        setRenderMode(preset.renderMode);
-        const intensityPercent = Math.round(preset.intensity * 100);
-        setIntensity(intensityPercent);
-        setIntensityDisplay(intensityPercent);
-        applyVisualOptions(preset.renderMode, intensityPercent);
         setPresetHint("Preset applied — date and location preserved.");
       }
       setRevealed(true);

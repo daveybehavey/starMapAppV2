@@ -367,26 +367,22 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       setCustomOccasion(false);
       track("occasion_selected", { preset: id, autofill: shouldAutofill });
 
+      // Always apply style, shape, textBoxes, and render options from preset
+      setTextBoxes(preset.textBoxes);
+      setStyle(preset.style);
+      setShape(preset.shape);
+      setRenderMode(preset.renderMode);
+      const level = Math.round(preset.intensity * 100);
+      setIntensity(level);
+      setIntensityDisplay(level);
+      applyVisualOptions(preset.renderMode, level);
+
       if (shouldAutofill) {
+        // Also set date/location if user hasn't entered them yet
         setDateTime(preset.dateTimeISO);
         setLocation(preset.location as Parameters<typeof setLocation>[0]);
-        setTextBoxes(preset.textBoxes);
-        setStyle(preset.style);
-        setShape(preset.shape);
-        setRenderMode(preset.renderMode);
-        const level = Math.round(preset.intensity * 100);
-        setIntensity(level);
-        setIntensityDisplay(level);
-        applyVisualOptions(preset.renderMode, level);
         setPresetHint("Preset applied — edit date or location anytime.");
       } else {
-        setStyle(preset.style);
-        setShape(preset.shape);
-        setRenderMode(preset.renderMode);
-        const level = Math.round(preset.intensity * 100);
-        setIntensity(level);
-        setIntensityDisplay(level);
-        applyVisualOptions(preset.renderMode, level);
         setPresetHint("Preset applied — date and location preserved.");
       }
       setRevealed(true);
