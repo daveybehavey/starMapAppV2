@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getPricingInfo } from "@/lib/pricing";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,13 @@ function siteOrigin() {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 requests per minute per IP (prevents checkout session spam)
+  const ip = getClientIp(req);
+  const rateLimit = await checkRateLimit(`checkout:${ip}`, 5, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
+  }
+
   if (!stripe) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
   }

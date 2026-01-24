@@ -1,14 +1,28 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import Image from "next/image";
 import Link from "next/link";
+import nextDynamic from "next/dynamic";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { EditorExperience } from "@/components/EditorExperience";
 import { blogPosts } from "@/lib/blogPosts";
 import { formatPrice, getPricingInfo } from "@/lib/pricing";
 import { useInView } from "@/hooks/useInView";
+
+// Lazy load the heavy EditorExperience component to improve initial page load
+const EditorExperience = nextDynamic(
+  () => import("@/components/EditorExperience").then((mod) => mod.EditorExperience),
+  {
+    loading: () => (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+          <span className="text-sm text-neutral-400">Loading editor...</span>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 export default function Home() {
   return (

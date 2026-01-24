@@ -49,6 +49,9 @@ const parisienne = Parisienne({ subsets: ["latin"], weight: ["400"], variable: "
 const bebasNeue = Bebas_Neue({ subsets: ["latin"], weight: ["400"], variable: "--font-bebas-neue" });
 const abrilFatface = Abril_Fatface({ subsets: ["latin"], weight: ["400"], variable: "--font-abril-fatface" });
 
+// Revalidate pricing/schema data every hour to keep promos fresh
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://starmapco.com"),
   title: {
@@ -64,9 +67,6 @@ export const metadata: Metadata = {
     "wedding star map",
     "anniversary gift",
   ],
-  alternates: {
-    canonical: "https://starmapco.com",
-  },
   openGraph: {
     title: "Buy Your Personalized Star Map | StarMapCo",
     description:

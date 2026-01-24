@@ -115,7 +115,8 @@ const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: string):
 import { LRUCache } from "./lruCache";
 
 // Cache for expensive astronomy calculations
-const astronomyCache = new LRUCache<string, VisibleSky>(20);
+// Increased from 20 to 50 entries for better cache hit rate during editing sessions
+const astronomyCache = new LRUCache<string, VisibleSky>(50);
 
 function createAstronomyCacheKey(params: VisibleStarParams, width: number, height: number): string {
   const time = params.time?.trim() || "00:00";

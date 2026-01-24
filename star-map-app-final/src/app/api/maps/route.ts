@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import crypto from "node:crypto";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 
 const MAX_BODY_BYTES = 50_000;
 const MAX_TEXTBOXES = 12;
@@ -59,6 +60,13 @@ type StoredRecipe = Omit<MapRecipe, "textBoxes"> & {
 };
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 10 requests per minute per IP
+  const ip = getClientIp(req);
+  const rateLimit = await checkRateLimit(`maps:post:${ip}`, 10, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
+  }
+
   const raw = await req.text();
   if (!raw || raw.length > MAX_BODY_BYTES) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
@@ -125,7 +133,11 @@ export async function GET(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const data = await kv.get<MapRecipe>(`map:${id}`);
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(data);
+  return NextResponse.json(data, {
+    headers: {
+      "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000",
+    },
+  });
 }
 
 function sanitizeTextBox(box: StoredTextBox): StoredTextBox {

@@ -1,12 +1,13 @@
 "use client";
 
 import PreviewCanvas from "@/components/PreviewCanvas";
-import { useEffect, useState } from "react";
-import { useStore, type TextBox, type StyleId, type RenderOptions } from "@/lib/store";
+import { useEffect, useState, useMemo } from "react";
+import { type TextBox, type StyleId, type RenderOptions } from "@/lib/store";
+import { type MapRecipe } from "@/lib/renderSky";
 import type { AspectRatio, Shape } from "@/lib/types";
 import Link from "next/link";
 
-type Recipe = {
+type ApiRecipe = {
   version: number;
   seed: string;
   datetimeISO: string;
@@ -30,7 +31,7 @@ type Props = {
   searchParams?: Record<string, string>;
 };
 
-function generateStoryText(recipe: Recipe): string {
+function generateStoryText(recipe: ApiRecipe): string {
   const date = new Date(recipe.datetimeISO);
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -46,17 +47,35 @@ function generateStoryText(recipe: Recipe): string {
 
 export function ViewClient({ id, searchParams }: Props) {
   const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [apiRecipe, setApiRecipe] = useState<ApiRecipe | null>(null);
   const [shareFeedback, setShareFeedback] = useState("");
 
-  const setDateTime = useStore((s) => s.setDateTime);
-  const setLocation = useStore((s) => s.setLocation);
-  const setTextBoxes = useStore((s) => s.setTextBoxes);
-  const setStyle = useStore((s) => s.setStyle);
-  const setRevealed = useStore((s) => s.setRevealed);
-  const setRenderOptions = useStore((s) => s.setRenderOptions);
-  const setAspectRatio = useStore((s) => s.setAspectRatio);
-  const setShape = useStore((s) => s.setShape);
+  // Convert API recipe to MapRecipe format for PreviewCanvas
+  // This keeps the recipe in local state instead of polluting the global store
+  const mapRecipe = useMemo((): MapRecipe | undefined => {
+    if (!apiRecipe) return undefined;
+
+    // Resolve shape from either new format or legacy shapeMask
+    const validShapes = new Set(["rectangle", "heart", "circle", "star", "diamond"]);
+    let resolvedShape: Shape = "rectangle";
+    if (apiRecipe.shape && validShapes.has(apiRecipe.shape)) {
+      resolvedShape = apiRecipe.shape;
+    } else if (apiRecipe.renderOptions?.shapeMask && validShapes.has(apiRecipe.renderOptions.shapeMask)) {
+      resolvedShape = apiRecipe.renderOptions.shapeMask as Shape;
+    }
+
+    return {
+      version: apiRecipe.version,
+      seed: apiRecipe.seed,
+      datetimeISO: apiRecipe.datetimeISO,
+      location: apiRecipe.location,
+      textBoxes: apiRecipe.textBoxes,
+      selectedStyle: apiRecipe.selectedStyle,
+      aspectRatio: apiRecipe.aspectRatio ?? "square",
+      shape: resolvedShape,
+      renderOptions: apiRecipe.renderOptions,
+    };
+  }, [apiRecipe]);
 
   useEffect(() => {
     const load = async () => {
@@ -68,27 +87,9 @@ export function ViewClient({ id, searchParams }: Props) {
           : "";
         const res = await fetch(`/api/maps?id=${id}${qp ? `&${qp}` : ""}`);
         if (!res.ok) throw new Error("Not found");
-        const data = (await res.json()) as Recipe;
+        const data = (await res.json()) as ApiRecipe;
 
-        setRecipe(data);
-        setDateTime(data.datetimeISO);
-        setLocation(data.location);
-        if (Array.isArray(data.textBoxes)) {
-          setTextBoxes(data.textBoxes);
-        }
-        setStyle(data.selectedStyle);
-        if (data.aspectRatio) setAspectRatio(data.aspectRatio);
-        // Valid Shape values - filter out legacy shapeMask values like "none" or "ring"
-        const validShapes = new Set(["rectangle", "heart", "circle", "star", "diamond"]);
-        if (data.shape && validShapes.has(data.shape)) {
-          setShape(data.shape);
-        } else if (data.renderOptions?.shapeMask && validShapes.has(data.renderOptions.shapeMask)) {
-          setShape(data.renderOptions.shapeMask as Shape);
-        }
-        if (data.renderOptions) {
-          setRenderOptions(data.renderOptions);
-        }
-        setRevealed(true);
+        setApiRecipe(data);
         setStatus("ready");
       } catch (e) {
         console.error(e);
@@ -96,18 +97,7 @@ export function ViewClient({ id, searchParams }: Props) {
       }
     };
     load();
-  }, [
-    id,
-    searchParams,
-    setAspectRatio,
-    setDateTime,
-    setLocation,
-    setRenderOptions,
-    setRevealed,
-    setShape,
-    setStyle,
-    setTextBoxes,
-  ]);
+  }, [id, searchParams]);
 
   if (status === "loading") {
     return (
@@ -137,18 +127,18 @@ export function ViewClient({ id, searchParams }: Props) {
     );
   }
 
-  const storyText = recipe ? generateStoryText(recipe) : "";
-  const title = recipe?.textBoxes?.[0]?.text || "A Night to Remember";
+  const storyText = apiRecipe ? generateStoryText(apiRecipe) : "";
+  const title = apiRecipe?.textBoxes?.[0]?.text || "A Night to Remember";
 
   const handleShare = async () => {
-    if (!recipe) return;
+    if (!apiRecipe) return;
 
     const url = typeof window !== "undefined" ? window.location.href : "";
     const text = `The night sky on ${new Intl.DateTimeFormat("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
-    }).format(new Date(recipe.datetimeISO))} over ${recipe.location.name}`;
+    }).format(new Date(apiRecipe.datetimeISO))} over ${apiRecipe.location.name}`;
 
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
@@ -178,15 +168,15 @@ export function ViewClient({ id, searchParams }: Props) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-400">Star Map</p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">
-              {recipe ? (
+              {apiRecipe ? (
                 <>
                   The exact night sky from{" "}
                   {new Intl.DateTimeFormat("en-US", {
                     month: "long",
                     day: "numeric",
                     year: "numeric",
-                  }).format(new Date(recipe.datetimeISO))}{" "}
-                  — {recipe.location.name}
+                  }).format(new Date(apiRecipe.datetimeISO))}{" "}
+                  — {apiRecipe.location.name}
                 </>
               ) : (
                 "A Night to Remember"
@@ -210,7 +200,7 @@ export function ViewClient({ id, searchParams }: Props) {
           {/* Left: Star Map */}
           <div className="space-y-4">
             <div className="relative overflow-hidden rounded-2xl border border-amber-200/30 bg-black/40 p-4 shadow-2xl backdrop-blur">
-              <PreviewCanvas />
+              <PreviewCanvas readOnly externalRecipe={mapRecipe} />
             </div>
 
             {/* Accuracy micro-explainer */}
@@ -249,7 +239,7 @@ export function ViewClient({ id, searchParams }: Props) {
             </div>
 
             {/* Details Card */}
-            {recipe && (
+            {apiRecipe && (
               <div className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur">
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-amber-400">
                   Details
@@ -257,7 +247,7 @@ export function ViewClient({ id, searchParams }: Props) {
                 <div className="space-y-3 text-sm">
                   <div>
                     <p className="text-xs text-neutral-400">Location</p>
-                    <p className="font-medium text-white">{recipe.location?.name || "Unknown"}</p>
+                    <p className="font-medium text-white">{apiRecipe.location?.name || "Unknown"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-neutral-400">Date</p>
@@ -266,13 +256,13 @@ export function ViewClient({ id, searchParams }: Props) {
                         month: "long",
                         day: "numeric",
                         year: "numeric",
-                      }).format(new Date(recipe.datetimeISO))}
+                      }).format(new Date(apiRecipe.datetimeISO))}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-neutral-400">Coordinates</p>
                     <p className="font-mono text-xs text-neutral-300">
-                      {recipe.location?.latitude.toFixed(4)}°, {recipe.location?.longitude.toFixed(4)}°
+                      {apiRecipe.location?.latitude.toFixed(4)}°, {apiRecipe.location?.longitude.toFixed(4)}°
                     </p>
                   </div>
                 </div>

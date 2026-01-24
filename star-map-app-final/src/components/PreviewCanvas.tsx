@@ -1,16 +1,31 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, clamp } from "@/lib/renderSky";
-import { TextBox, useStore } from "@/lib/store";
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, clamp, type MapRecipe } from "@/lib/renderSky";
+import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 
 type Props = {
   onRendered?: () => void;
   fullscreen?: boolean;
+  readOnly?: boolean;
+  /** When provided with readOnly=true, uses this recipe instead of global store state */
+  externalRecipe?: MapRecipe;
 };
 
-export default function PreviewCanvas({ onRendered, fullscreen = false }: Props) {
+// Debounce hook for expensive calculations
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly = false, externalRecipe }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -42,6 +57,32 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Debounce astronomy-intensive state changes (date, location) to reduce CPU load
+  // Text box changes render immediately for responsive drag feedback
+  const debouncedDateTime = useDebounce(dateTime, 150);
+  const debouncedLocation = useDebounce(location, 150);
+
+  // Memoize the recipe to avoid recalculating when only render-related props change
+  // When externalRecipe is provided (read-only mode), use it directly instead of store state
+  const recipe = useMemo(
+    () =>
+      externalRecipe ??
+      buildRecipeFromState({
+        dateTime: debouncedDateTime,
+        location: debouncedLocation,
+        textBoxes,
+        selectedStyle,
+        renderOptions,
+        aspectRatio,
+        shape,
+      }),
+    [externalRecipe, debouncedDateTime, debouncedLocation, textBoxes, selectedStyle, renderOptions, aspectRatio, shape]
+  );
+
+  // Use external recipe's aspect ratio and shape when provided
+  const effectiveAspectRatio = externalRecipe?.aspectRatio ?? aspectRatio;
+  const effectiveShape = externalRecipe?.shape ?? shape;
+
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -65,15 +106,6 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       const deviceRatio = window.devicePixelRatio || 1;
       const fidelityBoost = previewFidelity === "high" ? 2 : 1;
       const pixelRatio = Math.min(deviceRatio * fidelityBoost, 3);
-      const recipe = buildRecipeFromState({
-        dateTime,
-        location,
-        textBoxes,
-        selectedStyle,
-        renderOptions,
-        aspectRatio,
-        shape,
-      });
       renderStarMap({
         recipe,
         canvas,
@@ -96,9 +128,10 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [dimensions, activeBox, dateTime, location, textBoxes, selectedStyle, renderOptions, aspectRatio, shape, paid, previewFidelity, onRendered]);
+  }, [dimensions, activeBox, recipe, paid, previewFidelity, onRendered]);
 
   useEffect(() => {
+    if (readOnly) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -180,9 +213,10 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       window.removeEventListener("pointerup", handlePointerUp);
       if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
     };
-  }, [updateTextBox]);
+  }, [readOnly, updateTextBox]);
 
   useEffect(() => {
+    if (readOnly) return;
     const handleOutside = (event: PointerEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -195,21 +229,26 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
     };
     window.addEventListener("pointerdown", handleOutside);
     return () => window.removeEventListener("pointerdown", handleOutside);
-  }, []);
+  }, [readOnly]);
 
   return (
     <div
       ref={containerRef}
       aria-busy={isLoading}
-      aria-label="Star map preview - drag text boxes to reposition"
+      aria-label={readOnly ? "Star map preview" : "Star map preview - drag text boxes to reposition"}
       className={`relative overflow-hidden rounded-2xl shadow-2xl ${
         fullscreen
           ? "max-w-[90vmin] max-h-[90vmin] border-2 border-[#d7b56c]/80 shadow-black/40"
           : "w-full border-2 border-[#d7b56c]/80 shadow-black/20 min-h-[280px] sm:min-h-[360px] md:min-h-[420px] lg:min-h-[520px]"
       }`}
-      style={{ aspectRatio: `${aspectRatioToNumber(aspectRatio)} / 1` }}
+      style={{ aspectRatio: `${aspectRatioToNumber(effectiveAspectRatio)} / 1` }}
     >
-      <canvas ref={canvasRef} className={`absolute inset-0 w-full h-full touch-none transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100 canvas-twinkle'}`} />
+      <canvas
+        ref={canvasRef}
+        className={`absolute inset-0 w-full h-full transition-opacity duration-500 ${
+          readOnly ? "" : "touch-none"
+        } ${isLoading ? "opacity-0" : "opacity-100 canvas-twinkle"}`}
+      />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0b0f24]">
           <div className="flex flex-col items-center gap-3">
@@ -224,7 +263,7 @@ export default function PreviewCanvas({ onRendered, fullscreen = false }: Props)
       {isDragging && (
         <div
           className={`pointer-events-none absolute inset-[7%] border border-dashed border-white/30 bg-white/5 ${
-            shape === "circle" ? "rounded-full" : "rounded-2xl"
+            effectiveShape === "circle" ? "rounded-full" : "rounded-2xl"
           }`}
         />
       )}
@@ -256,4 +295,3 @@ function hitTestText(
   }
   return null;
 }
-

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 
 type NominatimResult = {
   place_id: number;
@@ -15,6 +16,13 @@ type NominatimResult = {
 };
 
 export async function GET(request: NextRequest) {
+  // Rate limit: 30 requests per minute per IP (Nominatim TOS requires ~1/sec max)
+  const ip = getClientIp(request);
+  const rateLimit = await checkRateLimit(`geocode:${ip}`, 30, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
+  }
+
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
 
@@ -100,7 +108,12 @@ export async function GET(request: NextRequest) {
 
     const trimmed = scored.map(({ score, ...rest }) => rest);
 
-    return Response.json(trimmed, { status: 200 });
+    return Response.json(trimmed, {
+      status: 200,
+      headers: {
+        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+      },
+    });
   } catch {
     return Response.json({ error: "Geocoding request error" }, { status: 500 });
   }
