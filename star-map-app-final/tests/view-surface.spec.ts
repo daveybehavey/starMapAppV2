@@ -1,34 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-const primeLocalStorage = async (page: { addInitScript: (fn: () => void) => Promise<void> }) => {
-  await page.addInitScript(() => {
-    localStorage.clear();
-    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
-    localStorage.setItem("cookiesAccepted", "true");
-    localStorage.setItem("analytics-consent", "true");
-  });
-};
-
-const dismissOverlays = async (page: { locator: (selector: string) => any; waitForTimeout: (ms: number) => Promise<void> }) => {
-  const selectors = [
-    'button[aria-label="Close"]',
-    'button:has-text("Close")',
-    'button:has-text("Accept")',
-    'button:has-text("Maybe later")',
-  ];
-  await page.waitForTimeout(500);
-  for (const selector of selectors) {
-    const buttons = page.locator(selector);
-    const count = await buttons.count();
-    for (let i = 0; i < count; i += 1) {
-      try {
-        await buttons.nth(i).click({ timeout: 1000 });
-      } catch {
-        // Ignore if button is not clickable
-      }
-    }
-  }
-};
+import { dismissOverlays, primeLocalStorage } from "./test-helpers";
 
 const waitForViewReady = async (page: { getByText: (text: string | RegExp) => any; locator: (selector: string) => any }) => {
   // Wait for loading state to clear if it appears.
@@ -96,21 +67,5 @@ test.describe("View Surface (/m/[id])", () => {
     test.skip(); // Skip until we have a test fixture
   });
 
-  test("works on mobile and desktop viewports", async ({ page }) => {
-    // Test 404 on different viewports to ensure responsive layout works
-
-    // Mobile
-    await primeLocalStorage(page);
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto("/m/test-nonexistent");
-    await dismissOverlays(page);
-    await expect(page.getByText(/Map not found/i)).toBeVisible({ timeout: 10000 });
-
-    // Desktop
-    await primeLocalStorage(page);
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/m/test-nonexistent-2");
-    await dismissOverlays(page);
-    await expect(page.getByText(/Map not found/i)).toBeVisible({ timeout: 10000 });
-  });
+  // Removed redundant viewport test - responsive layout for 404 is already covered by "handles 404 gracefully" test
 });

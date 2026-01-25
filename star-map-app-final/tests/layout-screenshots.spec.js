@@ -13,6 +13,12 @@ test.use({
 test('capture layout screenshots', async ({ page }) => {
   const outDir = path.join(process.cwd(), 'screenshots');
   fs.mkdirSync(outDir, { recursive: true });
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+    localStorage.setItem("cookiesAccepted", "true");
+    localStorage.setItem("analytics-consent", "true");
+  });
   const gotoWithRetry = async (url, options) => {
     try {
       await page.goto(url, options);
@@ -34,7 +40,8 @@ test('capture layout screenshots', async ({ page }) => {
 
   for (const shot of shots) {
     await page.setViewportSize({ width: shot.width, height: shot.height });
-    await gotoWithRetry('http://127.0.0.1:3004/?demo=skip', { waitUntil: 'domcontentloaded' });
+    const force = shot.width < 1024 ? 'mobile' : 'desktop';
+    await gotoWithRetry(`http://127.0.0.1:3004/?force=${force}`, { waitUntil: 'domcontentloaded' });
     const startButton = page.locator('#editor').getByRole('button', { name: /Start with a preset/i }).first();
     if (await startButton.isVisible().catch(() => false)) {
       await startButton.click();

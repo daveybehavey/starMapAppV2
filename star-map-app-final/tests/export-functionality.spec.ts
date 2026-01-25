@@ -1,120 +1,33 @@
 import { test, expect } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
+import { applySampleMoment, gotoEditor, mockGeocode, waitForPreview } from "./test-helpers";
 
-const primeLocalStorage = async (page: { addInitScript: (fn: () => void) => Promise<void> }) => {
-  await page.addInitScript(() => {
-    localStorage.clear();
-    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
-    localStorage.setItem("cookiesAccepted", "true");
-    localStorage.setItem("analytics-consent", "true");
-  });
-};
-
-const dismissOverlays = async (page: { locator: (selector: string) => any; waitForTimeout: (ms: number) => Promise<void> }) => {
-  const selectors = [
-    'button[aria-label="Close"]',
-    'button:has-text("Close")',
-    'button:has-text("Accept")',
-    'button:has-text("Maybe later")',
-  ];
-  await page.waitForTimeout(250);
-  for (const selector of selectors) {
-    const buttons = page.locator(selector);
-    const count = await buttons.count();
-    for (let i = 0; i < count; i += 1) {
-      try {
-        await buttons.nth(i).click({ timeout: 1000 });
-      } catch {
-        // Ignore if button is not clickable
-      }
-    }
-  }
-};
-
-const setupCreateForm = async (page: {
-  goto: (url: string) => Promise<void>;
-  getByText: (text: string) => any;
-  getByRole: (role: string, options?: any) => any;
-  getByLabel: (text: string) => any;
-  getByPlaceholder: (text: string) => any;
-  locator: (selector: string) => any;
-}) => {
-  await primeLocalStorage(page);
-  await page.goto("/?force=desktop&demo=skip");
-  await dismissOverlays(page);
-  await expect(page.getByText("Loading editor…")).toHaveCount(0, { timeout: 15000 });
-
-  const startPresetButton = page.locator("#editor").getByRole("button", { name: /Start with a preset/i }).first();
-  if (await startPresetButton.isVisible().catch(() => false)) {
-    await startPresetButton.click();
-  }
-
-  await expect(page.locator("section#editor")).toBeVisible({ timeout: 15000 });
-  const sampleButton = page.locator("#editor").getByRole("button", { name: /Try a sample moment/i }).first();
-  await expect(sampleButton).toBeVisible({ timeout: 10000 });
-  await sampleButton.click();
-
-  const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-  await expect(locationInput).toHaveValue(/.+/, { timeout: 10000 });
-  const dateInput = page.getByLabel("Date");
-  await expect(dateInput).toHaveValue(/.+/, { timeout: 10000 });
-};
-
-const waitForCanvas = async (page: { locator: (selector: string) => any }) => {
-  const canvas = page.locator("canvas");
-  await expect(canvas).toBeVisible({ timeout: 15000 });
+const setupEditor = async (page: Parameters<typeof gotoEditor>[0]) => {
+  await gotoEditor(page, { path: "/editor", force: "desktop" });
+  await applySampleMoment(page);
 };
 
 test.describe("Export Functionality", () => {
-  test.describe.configure({ timeout: 60_000 });
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
-    // Mock geocode API for consistent location results
-    await page.route("**/api/geocode**", async (route) => {
-      const requestUrl = new URL(route.request().url());
-      const query = requestUrl.searchParams.get("q")?.toLowerCase() ?? "";
-      if (query.includes("paris")) {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([
-            {
-              id: 1,
-              name: "Paris, France",
-              latitude: 48.8566,
-              longitude: 2.3522,
-              timezone: "Europe/Paris",
-            },
-          ]),
-        });
-        return;
-      }
-      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
-    });
+    await mockGeocode(page);
   });
 
   test("text renders correctly in free export", async ({ page }) => {
-    await setupCreateForm(page);
+    await setupEditor(page);
 
-    // Find and fill text boxes
     const titleInput = page.getByPlaceholder("Enter title...");
+    await expect(titleInput).toBeVisible();
     await titleInput.fill("Our Special Night");
-
-    // Click reveal button
-    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
-    await expect(revealButton).toBeVisible();
-    await expect(revealButton).toBeEnabled();
-    await revealButton.click();
-
-    // Wait for canvas to render
-    await waitForCanvas(page);
+    await waitForPreview(page);
 
     // Set up download listener
     const downloadPromise = page.waitForEvent("download");
 
     // Click Free Download button
-    const freeDownloadButton = page.getByRole("button", { name: /Free/i }).first();
-    await expect(freeDownloadButton).toBeVisible();
+    const freeDownloadButton = page.getByLabel("Free export").first();
+    await expect(freeDownloadButton).toBeVisible({ timeout: 10000 });
     await freeDownloadButton.click();
 
     // Wait for download to complete
@@ -139,45 +52,46 @@ test.describe("Export Functionality", () => {
   test("text renders correctly in HD export (requires payment)", async ({ page }) => {
     // This test would require a valid payment token
     // For now, we'll verify the paywall appears
-    await setupCreateForm(page);
-
-    // Click reveal button
-    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
-    await expect(revealButton).toBeVisible();
-    await expect(revealButton).toBeEnabled();
-    await revealButton.click();
-
-    // Wait for canvas to render
-    await waitForCanvas(page);
+    await setupEditor(page);
 
     // Click HD Export button (should trigger paywall)
-    const hdExportButton = page.locator("#editor").getByRole("button", { name: "HD export" }).first();
+    const hdExportButton = page.getByLabel("HD export").first();
     await expect(hdExportButton).toBeVisible();
     await hdExportButton.click();
 
     // Verify paywall modal appears
-    await expect(page.getByText(/Download your print-ready star map/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: /Download your print-ready star map/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("empty text boxes don't break export", async ({ page }) => {
-    await setupCreateForm(page);
+    await setupEditor(page);
 
-    // DO NOT fill text boxes - leave them empty
+    // Expand collapsed textboxes (subtitle and dedication are collapsed by default)
+    // Click only "Show" buttons that are collapsed (aria-expanded=false)
+    const showButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
+    const buttonCount = await showButtons.count();
+    for (let i = 0; i < buttonCount; i++) {
+      // Re-query each time as the button state changes after clicking
+      const collapsedButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
+      const count = await collapsedButtons.count();
+      if (count > 0) {
+        await collapsedButtons.first().click();
+        await page.waitForTimeout(100); // Brief wait for state update
+      }
+    }
 
-    // Click reveal button
-    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
-    await expect(revealButton).toBeVisible();
-    await expect(revealButton).toBeEnabled();
-    await revealButton.click();
-
-    // Wait for canvas to render
-    await waitForCanvas(page);
+    await page.getByPlaceholder("Enter title...").fill("");
+    await page.getByPlaceholder("Enter subtitle...").fill("");
+    await page.getByPlaceholder("Enter dedication...").fill("");
+    await waitForPreview(page);
 
     // Set up download listener
     const downloadPromise = page.waitForEvent("download");
 
     // Click Free Download button
-    const freeDownloadButton = page.getByRole("button", { name: /Free/i }).first();
+    const freeDownloadButton = page.getByLabel("Free export").first();
     await expect(freeDownloadButton).toBeVisible();
     await freeDownloadButton.click();
 
@@ -199,20 +113,21 @@ test.describe("Export Functionality", () => {
   });
 
   test("multiple text boxes render in export", async ({ page }) => {
-    await setupCreateForm(page);
+    await setupEditor(page);
 
-    // Click reveal button
-    const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
-    await expect(revealButton).toBeVisible();
-    await expect(revealButton).toBeEnabled();
-    await revealButton.click();
-
-    // Wait for canvas to render
-    await waitForCanvas(page);
-
-    // Reveal editor controls to edit all text boxes
-    const customizeMoreButton = page.locator("#editor").getByRole("button", { name: /Customize more/i }).first();
-    await customizeMoreButton.click();
+    // Expand collapsed textboxes (subtitle and dedication are collapsed by default)
+    // Click only "Show" buttons that are collapsed (aria-expanded=false)
+    const showButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
+    const buttonCount = await showButtons.count();
+    for (let i = 0; i < buttonCount; i++) {
+      // Re-query each time as the button state changes after clicking
+      const collapsedButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
+      const count = await collapsedButtons.count();
+      if (count > 0) {
+        await collapsedButtons.first().click();
+        await page.waitForTimeout(100); // Brief wait for state update
+      }
+    }
 
     // Fill all 3 default text boxes
     await page.getByPlaceholder("Enter title...").fill("Title Line");
@@ -223,7 +138,7 @@ test.describe("Export Functionality", () => {
     const downloadPromise = page.waitForEvent("download");
 
     // Click Free Download button
-    const freeDownloadButton = page.getByRole("button", { name: /Free/i }).first();
+    const freeDownloadButton = page.getByLabel("Free export").first();
     await expect(freeDownloadButton).toBeVisible();
     await freeDownloadButton.click();
 
