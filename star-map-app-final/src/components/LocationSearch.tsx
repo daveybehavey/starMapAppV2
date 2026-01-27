@@ -268,7 +268,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
           }}
           role="combobox"
           aria-haspopup="listbox"
-          className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
+          className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
           aria-autocomplete="list"
           aria-expanded={dropdownOpen}
           aria-controls={dropdownOpen ? listId : undefined}
@@ -364,7 +364,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
                   setLatError(null);
                 }}
                 onBlur={(e) => handleManualLat(e.target.value)}
-                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 ${
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 ${
                   latError
                     ? "border-rose-300 bg-rose-50/70 text-rose-900"
                     : "border-black/10 bg-white"
@@ -385,7 +385,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
                   setLonError(null);
                 }}
                 onBlur={(e) => handleManualLon(e.target.value)}
-                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 ${
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 ${
                   lonError
                     ? "border-rose-300 bg-rose-50/70 text-rose-900"
                     : "border-black/10 bg-white"
