@@ -217,6 +217,6 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
 export const useStore = create<EditorState>(storeImpl);
 
 // Expose store globally for testing/export scripts in development
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
   (window as unknown as { __ZUSTAND_STORE__: typeof useStore }).__ZUSTAND_STORE__ = useStore;
 }

@@ -12,6 +12,7 @@ export type OccasionPreset = {
   style: StyleId;
   shape: Shape;
   renderMode: RenderModeId;
+  /** Intensity level on 0-100 scale (consistent with Pro presets) */
   intensity: number;
 };
 
@@ -64,7 +65,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "navyGold",
     shape: "rectangle",
     renderMode: "cinematic",
-    intensity: 0.55,
+    intensity: 55,
   },
   {
     id: "anniversary",
@@ -84,7 +85,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "navyGold",
     shape: "circle",
     renderMode: "cinematic",
-    intensity: 0.55,
+    intensity: 55,
   },
   {
     id: "birthday",
@@ -104,7 +105,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "parchmentScroll",
     shape: "rectangle",
     renderMode: "cinematic",
-    intensity: 0.58,
+    intensity: 58,
   },
   {
     id: "birth",
@@ -124,7 +125,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "midnightMinimal",
     shape: "star",
     renderMode: "cinematic",
-    intensity: 0.58,
+    intensity: 58,
   },
   {
     id: "memorial",
@@ -144,7 +145,7 @@ export const occasionPresets: OccasionPreset[] = [
     style: "vintageEngraving",
     shape: "rectangle",
     renderMode: "cinematic",
-    intensity: 0.48,
+    intensity: 48,
   },
   {
     id: "graduation",
@@ -164,6 +165,6 @@ export const occasionPresets: OccasionPreset[] = [
     style: "navyGold",
     shape: "rectangle",
     renderMode: "cinematic",
-    intensity: 0.55,
+    intensity: 55,
   },
 ];

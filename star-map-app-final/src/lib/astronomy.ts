@@ -6,7 +6,8 @@ import {
   GeoVector,
   GeoMoon,
   MoonPhase,
-  EquatorFromVector
+  EquatorFromVector,
+  Illumination
 } from "astronomy-engine";
 
 import stars from "./data/stars.json";
@@ -26,6 +27,7 @@ export type PlanetPoint = {
   name: PlanetName;
   x: number;
   y: number;
+  magnitude: number;
 };
 
 export type MoonPoint = {
@@ -238,7 +240,9 @@ export function computeVisibleStars(
     const radius = Math.min(width, height) * 0.45;
     const x = width / 2 + r * Math.sin(angle) * radius;
     const y = height / 2 - r * Math.cos(angle) * radius;
-    planets.push({ name: target.name, x, y });
+    // Calculate apparent magnitude for brightness-based sizing
+    const illum = Illumination(target.body, date);
+    planets.push({ name: target.name, x, y, magnitude: illum.mag });
   }
 
   let moon: MoonPoint | null = null;

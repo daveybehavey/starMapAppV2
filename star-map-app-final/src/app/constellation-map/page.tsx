@@ -1,0 +1,84 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+
+export const revalidate = 86400; // refresh once per day
+
+export const metadata: Metadata = {
+  title: "Custom Constellation Map",
+  description:
+    "Create a custom constellation map of any date and location. Accurate star positions, instant preview, and print-ready digital download.",
+  alternates: { canonical: "https://starmapco.com/constellation-map" },
+  openGraph: {
+    title: "Custom Constellation Map | StarMapCo",
+    description:
+      "Create a custom constellation map of any date and location. Accurate star positions, instant preview, and print-ready download.",
+    url: "https://starmapco.com/constellation-map",
+    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    type: "website",
+  },
+  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+};
+
+export default function ConstellationMapPage() {
+  return (
+    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+      <header className="space-y-3 text-center">
+        <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
+        <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Custom Constellation Map</h1>
+        <p className="text-sm text-neutral-700 sm:text-base">
+          Capture the exact constellation layout from any date and place. A personal night sky map you can preview instantly
+          and download in high resolution.
+        </p>
+      </header>
+
+      <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-xl font-semibold text-midnight">Why a constellation map is special</h2>
+        <p className="text-sm leading-relaxed text-neutral-700 sm:text-base">
+          A constellation map is more than a star chart. It is a snapshot of a real night sky tied to a meaningful moment.
+          Whether it is a wedding, a birth, an anniversary, or a memorial, the constellations you saw that night can become
+          a lasting keepsake.
+        </p>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700 sm:text-base">
+          <li>Accurate to the date, time, and location you choose</li>
+          <li>Instant preview so you can refine details before download</li>
+          <li>Elegant styles and clean layouts for framing or gifting</li>
+          <li>One-time unlock for a print-ready digital file</li>
+        </ul>
+      </section>
+
+      <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
+        <h2 className="text-lg font-semibold text-midnight">Make your constellation map in minutes</h2>
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-700 sm:text-base">
+          <li>Enter the date, time, and location</li>
+          <li>Choose a layout, style, and optional labels</li>
+          <li>Preview your exact sky instantly</li>
+          <li>Unlock and download the HD file</li>
+        </ol>
+        <div className="pt-2">
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+          >
+            Create a constellation map
+          </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">What you get</h2>
+        <p className="text-sm text-neutral-700 sm:text-base">
+          Your preview and HD export use the same rendering engine, so what you see is what you download. The file is
+          designed for framing and printing, with crisp stars, constellation lines, and clean typography.
+        </p>
+        <div className="flex gap-3 text-sm text-neutral-700">
+          <Link href="/anniversary" className="text-gold underline hover:text-amber-600">
+            Anniversary star maps
+          </Link>
+          <Link href="/wedding" className="text-gold underline hover:text-amber-600">
+            Wedding star maps
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}

@@ -5,10 +5,24 @@ import Link from "next/link";
 import Script from "next/script";
 import PosthogProvider from "./PosthogProvider";
 import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
+import { ANALYTICS_STORAGE_KEY, hasAnalyticsConsent, isDoNotTrackEnabled } from "@/lib/analytics";
 
 const COOKIE_KEY = "cookiesAccepted";
-const ANALYTICS_KEY = "analytics-consent";
 const gaId = process.env.NEXT_PUBLIC_GA_ID;
+const safeGet = (key: string) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const safeSet = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore storage failures (private mode, blocked storage)
+  }
+};
 
 export default function CookieBanner() {
   const [cookiesAccepted, setCookiesAccepted] = useState<boolean | null>(null);
@@ -16,22 +30,23 @@ export default function CookieBanner() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const hasCookieConsent = localStorage.getItem(COOKIE_KEY) === "true";
-    const hasAnalyticsConsent = localStorage.getItem(ANALYTICS_KEY) === "true";
+    const hasCookieConsent = safeGet(COOKIE_KEY) === "true";
+    const hasAnalytics = hasAnalyticsConsent();
+    const dntEnabled = isDoNotTrackEnabled();
     setCookiesAccepted(hasCookieConsent);
-    setAnalyticsAccepted(hasAnalyticsConsent);
+    setAnalyticsAccepted(hasAnalytics && !dntEnabled);
   }, []);
 
   const handleAccept = () => {
-    localStorage.setItem(COOKIE_KEY, "true");
-    localStorage.setItem(ANALYTICS_KEY, "true");
+    safeSet(COOKIE_KEY, "true");
+    safeSet(ANALYTICS_STORAGE_KEY, "true");
     setCookiesAccepted(true);
-    setAnalyticsAccepted(true);
+    setAnalyticsAccepted(!isDoNotTrackEnabled());
   };
 
   const handleDecline = () => {
-    localStorage.setItem(COOKIE_KEY, "true");
-    localStorage.setItem(ANALYTICS_KEY, "false");
+    safeSet(COOKIE_KEY, "true");
+    safeSet(ANALYTICS_STORAGE_KEY, "false");
     setCookiesAccepted(true);
     setAnalyticsAccepted(false);
   };

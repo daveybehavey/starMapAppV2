@@ -30,6 +30,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
     },
     {
+      url: `${baseUrl}/constellation-map`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/star-map-poster`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/night-sky-map-gift`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/star-map-generator`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/custom-night-sky-map`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/personalized-star-map`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/how-to-print-star-map`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/media-kit`,
+      lastModified: now,
+    },
+    {
+      url: `${baseUrl}/star-map-gift`,
+      lastModified: now,
+    },
+    {
       url: `${baseUrl}/blog`,
       lastModified: now,
       changeFrequency: "monthly",

@@ -31,13 +31,19 @@ export default function SuccessClient() {
           const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionId)}`);
           const data = (await res.json()) as { paid?: boolean };
           if (data.paid) {
-            const token = `paid-${Date.now()}`;
-            localStorage.setItem("star-map-unlock", token);
             setPaid(true);
             track("purchase_success", { isPaid: true });
             setStatus("success");
+            if (typeof window !== "undefined") {
+              try {
+                // Ensure paid users auto-download after redirect back to the editor
+                localStorage.setItem("star-map-auto-export", "hd");
+              } catch {
+                // ignore storage errors (e.g., privacy mode)
+              }
+            }
             redirectTimer = setTimeout(() => {
-              router.replace("/");
+              router.replace("/download");
             }, 1200);
             return;
           }

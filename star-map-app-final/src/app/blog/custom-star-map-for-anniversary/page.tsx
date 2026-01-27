@@ -16,9 +16,13 @@ export const metadata: Metadata = {
   title,
   description,
   keywords,
+  alternates: { canonical: "https://starmapco.com/blog/custom-star-map-for-anniversary" },
   openGraph: {
     title,
     description,
+    url: "https://starmapco.com/blog/custom-star-map-for-anniversary",
+    type: "article",
+    publishedTime: "2025-12-31",
     images: [{ url: ogImage }],
   },
   twitter: {
@@ -29,7 +33,7 @@ export const metadata: Metadata = {
   },
 };
 
-const published = new Date().toISOString();
+const published = "2025-12-31";
 
 export default function AnniversaryPostPage() {
   const articleJsonLd = {
@@ -38,9 +42,15 @@ export default function AnniversaryPostPage() {
     headline: title,
     description,
     datePublished: published,
+    dateModified: published,
     author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
-    publisher: { "@type": "Organization", name: "StarMapCo" },
+    publisher: {
+      "@type": "Organization",
+      name: "StarMapCo",
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+    },
+    mainEntityOfPage: "https://starmapco.com/blog/custom-star-map-for-anniversary",
   };
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useCallback } from "react";
 import tzLookup from "tz-lookup";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
@@ -39,7 +39,9 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [showExact, setShowExact] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const controllerRef = useRef<AbortController | null>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const [manualLat, setManualLat] = useState(location.latitude.toString());
   const [manualLon, setManualLon] = useState(location.longitude.toString());
@@ -111,7 +113,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
     };
   }, [query, isFocused]);
 
-  const applyLocation = (result: GeocodeResult) => {
+  const applyLocation = useCallback((result: GeocodeResult) => {
     const { latitude, longitude } = result;
     let timezone = location.timezone;
     try {
@@ -127,9 +129,25 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
     });
     onLocationChange?.();
     setDropdownOpen(false);
-  };
+    setHighlightedIndex(-1);
+  }, [location.timezone, onLocationChange, setLocation]);
 
-  const applyTypedLocation = async () => {
+  // Reset highlighted index when results change
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [results]);
+
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && optionRefs.current[highlightedIndex]) {
+      optionRefs.current[highlightedIndex]?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    }
+  }, [highlightedIndex]);
+
+  const applyTypedLocation = useCallback(async () => {
     const trimmed = query.trim();
     if (trimmed.length < 3) return;
 
@@ -150,7 +168,49 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, results, applyLocation]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!dropdownOpen || results.length === 0) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void applyTypedLocation();
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < results.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : results.length - 1
+        );
+        break;
+      case "Enter":
+        event.preventDefault();
+        if (highlightedIndex >= 0 && results[highlightedIndex]) {
+          applyLocation(results[highlightedIndex]);
+        } else if (results.length > 0) {
+          applyLocation(results[0]);
+        }
+        break;
+      case "Escape":
+        event.preventDefault();
+        setDropdownOpen(false);
+        setHighlightedIndex(-1);
+        break;
+      case "Tab":
+        setDropdownOpen(false);
+        setHighlightedIndex(-1);
+        break;
+    }
+  }, [dropdownOpen, results, highlightedIndex, applyLocation, applyTypedLocation]);
 
   const handleManualLat = (value: string) => {
     const num = Number.parseFloat(value);
@@ -199,26 +259,23 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
             // If the user clicks away without selecting, still apply the typed location.
             void applyTypedLocation();
             setDropdownOpen(false);
+            setHighlightedIndex(-1);
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              applyTypedLocation();
-            }
-          }}
+          onKeyDown={handleKeyDown}
           onFocus={() => {
             setIsFocused(true);
             if (hasResults) setDropdownOpen(true);
           }}
           role="combobox"
           aria-haspopup="listbox"
-          className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+          className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
           aria-autocomplete="list"
           aria-expanded={dropdownOpen}
           aria-controls={dropdownOpen ? listId : undefined}
+          aria-activedescendant={highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined}
         />
         {loading && (
-          <div className="absolute inset-y-0 right-3 flex items-center text-[11px] uppercase tracking-wide text-neutral-500">
+          <div className="absolute inset-y-0 right-3 flex items-center text-xs uppercase tracking-wide text-neutral-600">
             Searching…
           </div>
         )}
@@ -240,21 +297,34 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
               </div>
             )}
             {!error &&
-              results.map((result) => (
-                <button
-                  key={result.id}
-                  type="button"
-                  onClick={() => applyLocation(result)}
-                  role="option"
-                  aria-selected={result.name === location.name}
-                  className="block w-full px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-amber-50"
-                >
-                  <div className="font-semibold">{result.name}</div>
-                  <div className="text-xs text-neutral-500">
-                    {result.latitude.toFixed(4)}, {result.longitude.toFixed(4)}
-                  </div>
-                </button>
-              ))}
+              results.map((result, index) => {
+                const isHighlighted = index === highlightedIndex;
+                const isSelected = result.name === location.name;
+                return (
+                  <button
+                    key={result.id}
+                    ref={(el) => { optionRefs.current[index] = el; }}
+                    id={`${listId}-option-${index}`}
+                    type="button"
+                    onClick={() => applyLocation(result)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    role="option"
+                    aria-selected={isSelected}
+                    className={`block w-full px-3 py-2 text-left text-sm transition ${
+                      isHighlighted
+                        ? "bg-amber-100 text-neutral-900"
+                        : isSelected
+                        ? "bg-amber-50 text-neutral-800"
+                        : "text-neutral-800 hover:bg-amber-50"
+                    }`}
+                  >
+                    <div className="font-semibold">{result.name}</div>
+                    <div className="text-xs text-neutral-500">
+                      {result.latitude.toFixed(4)}, {result.longitude.toFixed(4)}
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         )}
       </div>
@@ -294,13 +364,13 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
                   setLatError(null);
                 }}
                 onBlur={(e) => handleManualLat(e.target.value)}
-                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30 ${
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 ${
                   latError
                     ? "border-rose-300 bg-rose-50/70 text-rose-900"
                     : "border-black/10 bg-white"
                 }`}
               />
-              {latError && <div className="mt-1 text-[11px] text-rose-700">{latError}</div>}
+              {latError && <div className="mt-1 text-xs text-rose-600 font-medium">{latError}</div>}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
@@ -315,13 +385,13 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
                   setLonError(null);
                 }}
                 onBlur={(e) => handleManualLon(e.target.value)}
-                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30 ${
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm shadow-inner shadow-black/5 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 ${
                   lonError
                     ? "border-rose-300 bg-rose-50/70 text-rose-900"
                     : "border-black/10 bg-white"
                 }`}
               />
-              {lonError && <div className="mt-1 text-[11px] text-rose-700">{lonError}</div>}
+              {lonError && <div className="mt-1 text-xs text-rose-600 font-medium">{lonError}</div>}
             </div>
           </div>
         )}

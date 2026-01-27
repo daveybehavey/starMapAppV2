@@ -42,13 +42,13 @@ export default function DateTimeControls({ dateTime, onChange, timezone }: Props
           type="date"
           value={dateValue}
           onChange={(e) => handleDateChange(e.target.value)}
-          className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 focus:ring-inset"
+          className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
         />
       </div>
 
       <div>
         <label htmlFor="star-time" className="mb-1 block text-xs font-semibold text-white">
-          Time <span className="font-normal text-neutral-300">(optional, defaults to midnight)</span>
+          Time <span className="font-normal text-neutral-200">(optional, defaults to midnight)</span>
         </label>
         <input
           id="star-time"
@@ -56,13 +56,13 @@ export default function DateTimeControls({ dateTime, onChange, timezone }: Props
           step={60}
           value={timeValue === DEFAULT_TIME ? "" : timeValue.slice(0, 5)}
           onChange={(e) => handleTimeChange(e.target.value)}
-          className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 focus:ring-inset"
+          className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
         />
       </div>
 
       {localPreview && (
         <div className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-300">
+          <div className="text-[11px] uppercase tracking-wide text-neutral-200">
             Local time in {timezoneLabel}
           </div>
           <div className="text-sm font-semibold text-white">{localPreview}</div>

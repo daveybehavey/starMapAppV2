@@ -44,6 +44,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   return {
     title: `${titleText} | StarMapCo`,
     description,
+    robots: { index: false, follow: false },
     openGraph: {
       title: titleText,
       description,

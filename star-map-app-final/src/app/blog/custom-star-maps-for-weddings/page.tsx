@@ -16,9 +16,13 @@ export const metadata: Metadata = {
   title,
   description,
   keywords,
+  alternates: { canonical: "https://starmapco.com/blog/custom-star-maps-for-weddings" },
   openGraph: {
     title,
     description,
+    url: "https://starmapco.com/blog/custom-star-maps-for-weddings",
+    type: "article",
+    publishedTime: "2024-06-01",
     images: [{ url: ogImage }],
   },
   twitter: {
@@ -36,9 +40,15 @@ export default function WeddingsPostPage() {
     headline: title,
     description,
     datePublished: "2024-06-01",
+    dateModified: "2024-06-01",
     author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
-    publisher: { "@type": "Organization", name: "StarMapCo" },
+    publisher: {
+      "@type": "Organization",
+      name: "StarMapCo",
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+    },
+    mainEntityOfPage: "https://starmapco.com/blog/custom-star-maps-for-weddings",
   };
 
   return (

@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     "anniversary star map ideas",
     "wedding star map tips",
   ],
+  alternates: { canonical: "https://starmapco.com/blog" },
   openGraph: {
     title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
     description:
@@ -45,6 +46,15 @@ type IndexPost = {
 };
 
 const indexPosts: IndexPost[] = [
+  {
+    slug: "custom-star-map-milestones-guide",
+    title: "Custom Star Map Milestones Guide: Preserve Life's Moments With Meaningful Personalization",
+    excerpt:
+      "A step-by-step guide to creating a custom star map that captures engagements, graduations, and memorials, with astronomy basics and personalization ideas.",
+    date: "2026-01-24",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Custom star map for life milestones",
+  },
   {
     slug: "custom-star-maps-for-weddings",
     title: "Custom Star Maps for Weddings: How to Capture Your Night Sky",

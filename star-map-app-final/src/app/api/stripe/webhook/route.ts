@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
+import { PREMIUM_TTL_SECONDS } from "@/lib/premium";
 
 export const runtime = "nodejs";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-const PAID_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
-
 const stripe =
   stripeSecret &&
   new Stripe(stripeSecret, {
@@ -44,7 +43,7 @@ export async function POST(req: Request) {
           paid: true,
           created: Date.now(),
         },
-        { ex: PAID_SESSION_TTL_SECONDS },
+        { ex: PREMIUM_TTL_SECONDS },
       );
     }
   }

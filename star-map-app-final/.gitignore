@@ -12,9 +12,13 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/test-output*.log
 
 # next.js
 /.next/
+/.next.bak-*/
 /.open-next/
 /out/
 
@@ -26,6 +30,7 @@
 *.pem
 .wrangler/
 testzip.zip
+/exports/custom/
 
 # debug
 npm-debug.log*

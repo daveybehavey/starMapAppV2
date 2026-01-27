@@ -25,7 +25,7 @@ test("desktop layout unchanged", async ({ page }) => {
   const editorSection = page.locator("#editor");
 
   // Verify desktop layout elements ARE present
-  await expect(page.getByText(/See the exact night sky/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Design your sky in seconds/i })).toBeVisible();
   await expect(editorSection.getByRole("button", { name: /Start with a preset/i })).toBeVisible();
   await expect(editorSection.getByRole("button", { name: /Start from scratch/i })).toBeVisible();
   await expect(editorSection.locator("span", { hasText: "Presets optional" }).first()).toBeVisible();

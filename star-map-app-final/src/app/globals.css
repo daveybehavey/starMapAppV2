@@ -14,6 +14,12 @@
     radial-gradient(1px 1px at 70% 20%, rgba(241, 194, 125, 0.55), transparent 45%),
     radial-gradient(1px 1px at 40% 70%, rgba(255, 255, 255, 0.65), transparent 50%),
     radial-gradient(1px 1px at 80% 80%, rgba(255, 255, 255, 0.4), transparent 50%);
+
+  /* Standardized focus ring */
+  --ring-color: rgba(241, 194, 125, 0.5);
+  --ring-color-light: rgba(241, 194, 125, 0.3);
+  --ring-offset: 2px;
+  --ring-width: 2px;
 }
 
 @theme inline {
@@ -24,6 +30,10 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 body {
@@ -343,9 +353,9 @@ details > summary:hover {
   }
 
   /* Prevent zoom on iOS inputs */
-  #editor input[type="date"],
-  #editor input[type="time"],
-  #editor select {
+  input,
+  select,
+  textarea {
     font-size: 16px;
   }
 
@@ -591,4 +601,110 @@ input[type="range"]::-moz-range-thumb {
 input[type="range"]:hover::-moz-range-thumb {
   transform: scale(1.1);
   box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+
+/* ===== STANDARDIZED FOCUS STYLES ===== */
+
+/* Base focus ring utility - use for all interactive elements */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-width) var(--ring-color);
+}
+
+/* Input-specific focus (with border change) */
+.input-focus {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-focus:focus {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 var(--ring-width) var(--ring-color-light);
+  outline: none;
+}
+
+/* Button focus with offset */
+.btn-focus {
+  outline: none;
+}
+
+.btn-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-offset) transparent, 0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--ring-color);
+}
+
+/* ===== IMPROVED ACCESSIBILITY ===== */
+
+/* Better contrast text utilities */
+.text-contrast-high {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.text-contrast-subtle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Improved muted text - higher contrast than before */
+.text-muted-accessible {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Light theme text */
+.text-light-muted {
+  color: #525252; /* neutral-600 - passes WCAG AA on white */
+}
+
+/* Skip link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent-amber);
+  color: #0c1021;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+  font-weight: 600;
+  border-radius: 0 0 0.5rem 0;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ===== VISUAL POLISH UTILITIES ===== */
+
+/* Smooth hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Active press effect */
+.active-press:active {
+  transform: scale(0.98);
+}
+
+/* Glass effect utility */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Subtle border glow on hover */
+.border-glow-hover {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.border-glow-hover:hover {
+  border-color: rgba(241, 194, 125, 0.4);
+  box-shadow: 0 0 20px rgba(241, 194, 125, 0.15);
 }

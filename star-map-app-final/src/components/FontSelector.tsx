@@ -90,7 +90,7 @@ export default function FontSelector({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="h-8 w-24 flex-shrink-0 truncate rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-left text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40 sm:w-28 md:w-32"
+        className="h-8 w-24 flex-shrink-0 truncate rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-left text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 sm:w-28 md:w-32"
         style={{ fontFamily: FONT_STACKS[value] }}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -115,12 +115,15 @@ export default function FontSelector({
                 onClick={() => handleOptionClick(option)}
                 className={`block w-full px-4 py-2 text-left text-sm transition ${
                   isSelected
-                    ? "bg-amber-100 text-gray-900"
+                    ? "bg-amber-100"
                     : isLocked
-                    ? "cursor-not-allowed bg-gray-50 text-gray-400"
-                    : "text-gray-800 hover:bg-gray-100"
+                    ? "cursor-not-allowed bg-gray-50"
+                    : "bg-white hover:bg-gray-100"
                 }`}
-                style={{ fontFamily: FONT_STACKS[option.id] }}
+                style={{
+                  fontFamily: FONT_STACKS[option.id],
+                  color: isSelected ? '#111827' : isLocked ? '#9ca3af' : '#111827'
+                }}
                 role="option"
                 aria-selected={isSelected}
                 disabled={isLocked}

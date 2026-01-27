@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { getPricingInfo, formatPrice } from "@/lib/pricing";
+import { useFocusTrap } from "@/components/ui/useFocusTrap";
 
 const POPUP_DISMISSED_KEY = "starmap-promo-popup-dismissed";
 
 export default function PromoPopup() {
   const [isOpen, setIsOpen] = useState(false);
   const pricing = getPricingInfo();
+  const modalRef = useFocusTrap<HTMLDivElement>(isOpen);
 
   useEffect(() => {
     if (!pricing.promoActive || !pricing.promoAmountCents) return;
@@ -40,6 +42,17 @@ export default function PromoPopup() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
+
   const handleClose = () => {
     setIsOpen(false);
     localStorage.setItem(POPUP_DISMISSED_KEY, new Date().toISOString());
@@ -57,7 +70,10 @@ export default function PromoPopup() {
       aria-modal="true"
       aria-labelledby="promo-popup-title"
     >
-      <div className="relative w-full max-w-md animate-[scale-in_0.3s_ease-out] rounded-3xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-amber-50 p-6 shadow-2xl">
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-md animate-[scale-in_0.3s_ease-out] rounded-3xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-amber-50 p-6 shadow-2xl"
+      >
         <button
           onClick={handleClose}
           className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-600 transition hover:bg-neutral-300 hover:text-neutral-800"

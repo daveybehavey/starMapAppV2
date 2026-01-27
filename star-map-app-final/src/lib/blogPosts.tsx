@@ -11,6 +11,161 @@ export type BlogPost = {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "custom-star-map-milestones-guide",
+    title: "Custom Star Map Milestones Guide: Preserve Life's Moments With Meaningful Personalization",
+    description:
+      "A step-by-step guide to creating a custom star map that captures engagements, graduations, and memorials, with astronomy basics and personalization ideas.",
+    date: "2026-01-24",
+    keywords: [
+      "custom star map",
+      "personalized star map",
+      "night sky map",
+      "star map gift",
+      "custom constellation map",
+      "accurate star map",
+    ],
+    content: () => (
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
+        <p>
+          A <strong>custom star map</strong> turns a single night into a lasting keepsake. It captures the real sky above
+          a meaningful moment and pairs it with words, names, and details that make the memory feel personal. Whether
+          you are a gift buyer looking for something heartfelt or a stargazer who wants a scientifically grounded
+          print, a star map blends emotion with astronomy in a way photos often cannot.
+        </p>
+        <p>
+          This guide walks through the meaning behind milestones, the basics of how a <strong>night sky map</strong> is
+          calculated, and the exact steps to create an <strong>accurate star map</strong> you will be proud to frame or
+          give.
+        </p>
+
+        <h2>Why a custom star map fits life milestones so well</h2>
+        <p>
+          Milestones are about more than a date. They capture a shift in identity: engaged, graduate, parent, or someone
+          honoring a memory. A <strong>personalized star map</strong> is a way to show that change in a visual form that
+          feels both intimate and universal.
+        </p>
+        <ul>
+          <li>It is specific to one time and place, which makes it feel irreplaceable.</li>
+          <li>It pairs beautifully with a note, a vow, or a line of poetry without needing a long explanation.</li>
+          <li>It lasts beyond flowers, cards, and social posts.</li>
+        </ul>
+        <p>
+          For many people, that is what makes a <strong>star map gift</strong> so powerful. It is not just decor, it is a
+          record of a moment that only happened once.
+        </p>
+
+        <h2>A quick astronomy primer for better personalization</h2>
+        <p>
+          A star map is not an illustration. It is a computed sky. An <strong>accurate star map</strong> uses the date,
+          exact time, and location to calculate the sky view from that place on Earth. That calculation determines:
+        </p>
+        <ul>
+          <li>Which constellations are visible at that moment</li>
+          <li>The orientation of the sky relative to the horizon</li>
+          <li>The positions of brighter stars and notable objects</li>
+        </ul>
+        <p>
+          When you add a name or message, you are anchoring a real sky to a real story. That mix of science and meaning
+          is what turns a <strong>custom constellation map</strong> into something that feels personal rather than
+          generic.
+        </p>
+
+        <h2>How to create a custom star map, step by step</h2>
+        <h3>1) Choose the milestone</h3>
+        <p>
+          Start by naming the moment. The strongest maps are tied to a clear point in time, such as a proposal, a
+          graduation ceremony, or a memorial service.
+        </p>
+
+        <h3>2) Lock the exact date and time</h3>
+        <p>
+          Time matters. Even a one hour shift can change which constellations sit at the center of your map. If you do
+          not know the exact minute, choose the closest meaningful moment, such as the time the ceremony ended or the
+          moment you got the news.
+        </p>
+
+        <h3>3) Choose the location with care</h3>
+        <p>
+          Use the city or precise coordinates where the moment took place. A <strong>night sky map</strong> for Paris
+          will not match the sky in Los Angeles on the same night. If the event spanned multiple places, pick the one
+          with the strongest emotional tie.
+        </p>
+
+        <h3>4) Select a visual style that fits the story</h3>
+        <p>
+          Minimalist designs feel modern and calm. Bold, high-contrast styles feel dramatic and celebratory. A muted
+          palette can be more appropriate for memorials. The style should support the emotion you want the map to carry.
+        </p>
+
+        <h3>5) Personalize the text</h3>
+        <p>
+          Great personalization is short and clear. Use names, a date line, and a subtitle that captures the meaning.
+          Examples: <em>The Night You Said Yes</em>, <em>Class of 2026</em>, <em>Forever in Our Sky</em>.
+        </p>
+
+        <h2>Real-world milestone ideas beyond weddings and anniversaries</h2>
+        <h3>Engagements</h3>
+        <p>
+          Use the proposal time and the exact location. A short line such as <em>Under These Stars</em> makes the map feel
+          like a promise. This is one of the most popular moments for a <strong>custom star map</strong> because the
+          memory is vivid and the emotion is fresh.
+        </p>
+
+        <h3>Graduations</h3>
+        <p>
+          Capture the night of a graduation ceremony or the moment a degree was conferred. Pair the sky with a school
+          name and year. It turns a milestone that is often photographed into a piece of art that honors the effort
+          behind it.
+        </p>
+
+        <h3>Memorials</h3>
+        <p>
+          A memorial <strong>personalized star map</strong> is a quiet way to remember someone. Use the date of passing
+          or another shared moment. A restrained layout and a simple dedication make this kind of map feel calm and
+          respectful.
+        </p>
+
+        <h3>New beginnings</h3>
+        <p>
+          Moving to a new city, opening a business, or starting a new chapter can be just as meaningful as a classic
+          celebration. A star map marks that transition and gives it a permanent place in your home.
+        </p>
+
+        <h2>How to make your star map feel truly personal</h2>
+        <ul>
+          <li>Choose a title that sounds like something you would say to the person</li>
+          <li>Add a short message line that gives context without overexplaining</li>
+          <li>Match the font or color palette to the recipient's style</li>
+          <li>Keep the text minimal so the sky remains the focus</li>
+        </ul>
+        <p>
+          These details are what transform a nice print into a <strong>star map gift</strong> that feels one of a kind.
+        </p>
+
+        <h2>Accuracy matters for both stargazers and gift buyers</h2>
+        <p>
+          A beautiful design is not enough. An <strong>accurate star map</strong> needs real astronomical calculations.
+          When the sky is correct, the story feels more grounded and the gift carries more weight. If someone ever asks,
+          you can say with confidence that the map reflects the real sky above that moment.
+        </p>
+
+        <h2>Final touches: print, frame, and presentation</h2>
+        <p>
+          For a polished result, choose a print size that fits the space where it will live and pair it with a simple
+          frame. Matte finishes reduce glare and keep the stars crisp. If you are gifting the map, include a short note
+          that explains why the date matters.
+        </p>
+
+        <h2>Create your own custom star map</h2>
+        <p>
+          A custom map is both a science-backed record and a deeply personal reminder. Whether you are celebrating a
+          milestone or honoring a memory, the sky gives you a way to hold onto the moment.
+        </p>
+        <p>Create your own custom star map today and capture your special moment forever.</p>
+      </article>
+    ),
+  },
+  {
     slug: "custom-star-maps-for-weddings",
     title: "Custom Star Maps for Weddings: How to Capture Your Night Sky",
     description:
@@ -24,7 +179,7 @@ export const blogPosts: BlogPost[] = [
       "star map generator",
     ],
     content: () => (
-      <article className="prose prose-neutral prose-invert max-w-none">
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
         <p>
           Your wedding night sky is a one-of-a-kind snapshot in time. A custom star map lets you preserve the exact
           positions of constellations, stars, and planets for your ceremony or reception — a keepsake that’s both
@@ -79,7 +234,7 @@ export const blogPosts: BlogPost[] = [
       "anniversary night sky gift",
     ],
     content: () => (
-      <article className="prose prose-neutral prose-invert max-w-none">
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
         <p>
           This long-form guide explores why anniversary star maps are deeply personal, how they are created with real
           astronomical data, and how to personalize them with names, dates, locations, and heartfelt messages.
@@ -104,7 +259,7 @@ export const blogPosts: BlogPost[] = [
       "birthday night sky map",
     ],
     content: () => (
-      <article className="prose prose-neutral prose-invert max-w-none">
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
         <p>
           This guide explains why birthday star maps are uniquely personal, how they are generated with real astronomical
           data, and how to customize them with birth details, quotes, and age-appropriate styles for any milestone.
@@ -124,7 +279,7 @@ export const blogPosts: BlogPost[] = [
       "custom star map science",
     ],
     content: () => (
-      <article className="prose prose-neutral prose-invert max-w-none">
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
         <p>
           Learn about the catalogs, celestial mechanics, and calculations that power accurate star maps, and why
           precision matters for meaningful gifts and educational use.
@@ -144,7 +299,7 @@ export const blogPosts: BlogPost[] = [
       "pick date location star map",
     ],
     content: () => (
-      <article className="prose prose-neutral prose-invert max-w-none">
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
         <p>
           Guidance on selecting dates, times, and coordinates to ensure your custom star map is both accurate and
           sentimental, plus common errors to avoid.
@@ -166,7 +321,7 @@ export const blogPosts: BlogPost[] = [
       "star map resolution keepsake",
     ],
     content: () => (
-      <article className="prose prose-neutral prose-invert max-w-none">
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
         <div className="grid gap-3 sm:grid-cols-2">
           <img
             src="https://m.media-amazon.com/images/I/71adHw4K47L._AC_UF894%2C1000_QL80_.jpg"
@@ -334,7 +489,7 @@ export const blogPosts: BlogPost[] = [
       "birth star map",
     ],
     content: () => (
-      <article className="prose prose-neutral prose-invert max-w-none">
+      <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
         <p>
           Some dates change everything.
         </p>

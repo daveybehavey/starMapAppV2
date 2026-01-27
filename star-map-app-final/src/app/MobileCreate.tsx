@@ -15,7 +15,7 @@ import { track } from "@/lib/analytics";
 import { useShallow } from "zustand/react/shallow";
 
 interface MobileCreateProps {
-  onExport: (mode: "preview" | "hd") => void;
+  onExport: (mode: "preview" | "hd") => void | Promise<void>;
   onShareImage: () => void;
   onShare: () => void;
   onCanvasReady?: () => void;
@@ -88,6 +88,10 @@ export function MobileCreate({
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
   const showAdvanced = isQuick ? false : showAdvancedState;
+  const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
+    subtitle: true,
+    dedication: true,
+  }));
   const presetRailRef = useRef<HTMLDivElement>(null);
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
@@ -102,6 +106,20 @@ export function MobileCreate({
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
+
+  useEffect(() => {
+    setCollapsedTextBoxes((prev) => {
+      const next: Record<string, boolean> = {};
+      textBoxes.forEach((box) => {
+        if (prev.hasOwnProperty(box.id)) {
+          next[box.id] = prev[box.id];
+          return;
+        }
+        next[box.id] = box.id === "subtitle" || box.id === "dedication";
+      });
+      return next;
+    });
+  }, [textBoxes]);
 
   // Apply visual options based on render mode and intensity
   // MATCHES DESKTOP SEMANTICS - mirrors existing desktop mappings from page.tsx
@@ -143,11 +161,10 @@ export function MobileCreate({
       setStyle(preset.style);
       setShape(preset.shape);
       setRenderMode(preset.renderMode);
-      // Convert intensity from 0-1 to 0-100 scale
-      const intensityPercent = Math.round(preset.intensity * 100);
-      setIntensity(intensityPercent);
-      setIntensityDisplay(intensityPercent);
-      applyVisualOptions(preset.renderMode, intensityPercent);
+      // Intensity is already on 0-100 scale
+      setIntensity(preset.intensity);
+      setIntensityDisplay(preset.intensity);
+      applyVisualOptions(preset.renderMode, preset.intensity);
 
       if (shouldAutofill) {
         // Also set date/location if user hasn't entered them yet
@@ -545,7 +562,7 @@ export function MobileCreate({
                 onClick={() => handleRenderModeChange(mode.id as RenderModeId)}
                 className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow active:scale-95 ${
                   renderMode === mode.id
-                    ? "border-amber-400 bg-amber-200 text-midnight btn-selection-pulse btn-selected-glow"
+                  ? "border-amber-400 bg-amber-200 !text-midnight btn-selection-pulse btn-selected-glow"
                     : "border-white/20 bg-white/10 text-white"
                 }`}
               >
@@ -655,111 +672,135 @@ export function MobileCreate({
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
               <h3 className="text-xs font-semibold text-white mb-2">Text Styling</h3>
               <div className="space-y-3">
-                {textBoxes.map((box) => (
-                  <div key={box.id} className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white">{box.label}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeTextBox(box.id)}
-                        className="text-[10px] text-rose-300 hover:text-rose-200"
-                        aria-label={`Remove ${box.label} text box`}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label htmlFor={`font-select-${box.id}`} className="text-[10px] text-neutral-300">Font</label>
-                        <select
-                          id={`font-select-${box.id}`}
-                          value={box.fontFamily}
-                          onChange={(e) => {
-                            const next = e.target.value as TextBox["fontFamily"];
-                            const fontMeta = fontOptions.find((opt) => opt.id === next);
-                            if (fontMeta?.premium && !paid) {
-                              track("paywall_font_blocked", { font: next });
-                              return;
+                {textBoxes.map((box) => {
+                  const isCollapsed = collapsedTextBoxes[box.id] ?? false;
+
+                  return (
+                    <div key={box.id} className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-white">{box.label}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCollapsedTextBoxes((prev) => ({
+                                ...prev,
+                                [box.id]: !isCollapsed,
+                              }))
                             }
-                            updateTextBox(box.id, { fontFamily: next });
-                          }}
-                          className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                        >
-                          {fontOptions.map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.premium ? `🔒 ${opt.label}` : opt.label}
-                            </option>
-                          ))}
-                        </select>
+                            aria-expanded={!isCollapsed}
+                            aria-controls={`text-style-${box.id}`}
+                            className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
+                          >
+                            {isCollapsed ? "Show" : "Hide"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeTextBox(box.id)}
+                            className="text-[10px] text-rose-300 hover:text-rose-200"
+                            aria-label={`Remove ${box.label} text box`}
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <label htmlFor={`size-input-${box.id}`} className="text-[10px] text-neutral-300">Size</label>
-                        <input
-                          id={`size-input-${box.id}`}
-                          type="number"
-                          min={10}
-                          max={64}
-                          value={box.size}
-                          onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
-                          className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                        />
-                      </div>
+                      {!isCollapsed && (
+                        <div id={`text-style-${box.id}`} className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label htmlFor={`font-select-${box.id}`} className="text-[10px] text-neutral-300">Font</label>
+                              <select
+                                id={`font-select-${box.id}`}
+                                value={box.fontFamily}
+                                onChange={(e) => {
+                                  const next = e.target.value as TextBox["fontFamily"];
+                                  const fontMeta = fontOptions.find((opt) => opt.id === next);
+                                  if (fontMeta?.premium && !paid) {
+                                    track("paywall_font_blocked", { font: next });
+                                    return;
+                                  }
+                                  updateTextBox(box.id, { fontFamily: next });
+                                }}
+                                className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                              >
+                                {fontOptions.map((opt) => (
+                                  <option key={opt.id} value={opt.id}>
+                                    {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label htmlFor={`size-input-${box.id}`} className="text-[10px] text-neutral-300">Size</label>
+                              <input
+                                id={`size-input-${box.id}`}
+                                type="number"
+                                min={10}
+                                max={64}
+                                value={box.size}
+                                onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
+                                className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label htmlFor={`color-input-${box.id}`} className="text-[10px] text-neutral-300">Color</label>
+                              <input
+                                id={`color-input-${box.id}`}
+                                type="color"
+                                value={box.color}
+                                onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
+                                className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label htmlFor={`align-select-${box.id}`} className="text-[10px] text-neutral-300">Align</label>
+                              <select
+                                id={`align-select-${box.id}`}
+                                value={box.align}
+                                onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
+                                className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                              >
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateTextBox(box.id, { textShadow: !box.textShadow })}
+                              className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                box.textShadow
+                        ? "border-amber-300 bg-amber-100 !text-midnight"
+                                  : "border-white/15 bg-white/10 text-white"
+                              }`}
+                              aria-label={`Toggle shadow for ${box.label}`}
+                              aria-pressed={box.textShadow}
+                            >
+                              Shadow
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateTextBox(box.id, { textGlow: !box.textGlow })}
+                              className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                box.textGlow
+                        ? "border-amber-300 bg-amber-100 !text-midnight"
+                                  : "border-white/15 bg-white/10 text-white"
+                              }`}
+                              aria-label={`Toggle glow for ${box.label}`}
+                              aria-pressed={box.textGlow}
+                            >
+                              Glow
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label htmlFor={`color-input-${box.id}`} className="text-[10px] text-neutral-300">Color</label>
-                        <input
-                          id={`color-input-${box.id}`}
-                          type="color"
-                          value={box.color}
-                          onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                          className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label htmlFor={`align-select-${box.id}`} className="text-[10px] text-neutral-300">Align</label>
-                        <select
-                          id={`align-select-${box.id}`}
-                          value={box.align}
-                          onChange={(e) => updateTextBox(box.id, { align: e.target.value as TextBox["align"] })}
-                          className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                        >
-                          <option value="left">Left</option>
-                          <option value="center">Center</option>
-                          <option value="right">Right</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => updateTextBox(box.id, { textShadow: !box.textShadow })}
-                        className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                          box.textShadow
-                            ? "border-amber-300 bg-amber-100 text-midnight"
-                            : "border-white/15 bg-white/10 text-white"
-                        }`}
-                        aria-label={`Toggle shadow for ${box.label}`}
-                        aria-pressed={box.textShadow}
-                      >
-                        Shadow
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateTextBox(box.id, { textGlow: !box.textGlow })}
-                        className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                          box.textGlow
-                            ? "border-amber-300 bg-amber-100 text-midnight"
-                            : "border-white/15 bg-white/10 text-white"
-                        }`}
-                        aria-label={`Toggle glow for ${box.label}`}
-                        aria-pressed={box.textGlow}
-                      >
-                        Glow
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <button
                   type="button"
                   onClick={addTextBox}
@@ -822,7 +863,7 @@ export function MobileCreate({
                     onClick={() => setShape(shapeOption.id)}
                     className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition active:scale-95 ${
                       shape === shapeOption.id
-                        ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 text-amber-300"
+                        ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight"
                         : "border-white/15 bg-white/5 text-white"
                     }`}
                   >
@@ -858,7 +899,7 @@ export function MobileCreate({
                     onClick={() => setAspectRatio(ratio.id)}
                     className={`flex items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition active:scale-95 ${
                       aspectRatio === ratio.id
-                        ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 text-amber-300"
+                        ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight"
                         : "border-white/15 bg-white/5 text-white"
                     }`}
                   >
@@ -871,7 +912,7 @@ export function MobileCreate({
                 onClick={() => setRenderOptions({ frameEnabled: !renderOptions.frameEnabled })}
                 className={`mt-2 w-full rounded-md border px-3 py-2 text-xs font-semibold transition active:scale-95 ${
                   renderOptions.frameEnabled
-                    ? "border-amber-300 bg-amber-100 text-midnight"
+                    ? "border-amber-300 bg-amber-100 !text-midnight"
                     : "border-white/15 bg-white/10 text-white"
                 }`}
               >
@@ -893,7 +934,7 @@ export function MobileCreate({
                         onClick={() => setRenderOptions({ constellationLines: preset.id })}
                         className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                           renderOptions.constellationLines === preset.id
-                            ? "border-amber-300 bg-amber-100 text-midnight"
+                          ? "border-amber-300 bg-amber-100 !text-midnight"
                             : "border-white/15 bg-white/10 text-white"
                         }`}
                       >
@@ -940,7 +981,7 @@ export function MobileCreate({
                   }
                   className={`w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
                     renderOptions.constellationLabels
-                      ? "border-amber-300 bg-amber-100 text-midnight"
+                    ? "border-amber-300 bg-amber-100 !text-midnight"
                       : "border-white/15 bg-white/10 text-white"
                   }`}
                 >
@@ -956,7 +997,7 @@ export function MobileCreate({
                         onClick={() => setRenderOptions({ visualMode: mode.id })}
                         className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                           renderOptions.visualMode === mode.id
-                            ? "border-amber-300 bg-amber-100 text-midnight"
+                          ? "border-amber-300 bg-amber-100 !text-midnight"
                             : "border-white/15 bg-white/10 text-white"
                         }`}
                       >
@@ -978,7 +1019,7 @@ export function MobileCreate({
                         onClick={() => setPreviewFidelity(preset.id as "standard" | "high")}
                         className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                           previewFidelity === preset.id
-                            ? "border-amber-300 bg-amber-100 text-midnight"
+                          ? "border-amber-300 bg-amber-100 !text-midnight"
                             : "border-white/15 bg-white/10 text-white"
                         }`}
                       >
@@ -1007,7 +1048,7 @@ export function MobileCreate({
                         }}
                         className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                           renderOptions.premiumStars === preset.id
-                            ? "border-amber-300 bg-amber-100 text-midnight"
+                          ? "border-amber-300 bg-amber-100 !text-midnight"
                             : "border-white/15 bg-white/10 text-white"
                         }`}
                       >
@@ -1035,7 +1076,7 @@ export function MobileCreate({
                         }}
                         className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                           renderOptions.premiumPlanets === preset.id
-                            ? "border-amber-300 bg-amber-100 text-midnight"
+                          ? "border-amber-300 bg-amber-100 !text-midnight"
                             : "border-white/15 bg-white/10 text-white"
                         }`}
                       >
@@ -1092,7 +1133,7 @@ export function MobileCreate({
           <div className="flex gap-2">
             <button
               type="button"
-                onClick={() => onExport("preview")}
+                onClick={() => void onExport("preview")}
                 aria-label="Free export"
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
               >
@@ -1100,7 +1141,7 @@ export function MobileCreate({
               </button>
               <button
                 type="button"
-                onClick={() => onExport("hd")}
+                onClick={() => void onExport("hd")}
                 aria-label="HD export"
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
               >

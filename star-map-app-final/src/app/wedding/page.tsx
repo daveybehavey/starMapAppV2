@@ -73,10 +73,10 @@ export default function WeddingPage() {
           a one-time purchase for a keepsake you can print forever.
         </p>
         <div className="flex gap-3 text-sm text-neutral-700">
-          <Link href="/" className="text-gold underline hover:text-amber-600">
+          <Link href="/anniversary" className="text-gold underline hover:text-amber-600">
             Anniversary star maps
           </Link>
-          <Link href="/" className="text-gold underline hover:text-amber-600">
+          <Link href="/birthday" className="text-gold underline hover:text-amber-600">
             Birthday star maps
           </Link>
         </div>

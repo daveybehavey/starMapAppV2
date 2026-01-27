@@ -544,7 +544,7 @@ function drawSky(
   ctx.shadowColor = palette.glow;
   const baseGlow = mode?.glowBlur ?? 8;
   const glow = (renderOptions?.starGlow ? baseGlow + 4 : baseGlow) * scale;
-  ctx.shadowBlur = glow;
+  ctx.shadowBlur = renderOptions?.starGlow ? glow : 0;
 
   for (let i = 0; i < sky.stars.length; i += 1) {
     const star = sky.stars[i];
@@ -552,17 +552,39 @@ function drawSky(
     const baseAlpha = brightnessFromMagnitude(star.magnitude);
     if (!Number.isFinite(baseAlpha)) continue;
     // Apply intensity alpha boost
-    const alpha = clamp(baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost, 0.05, 1);
+    const alpha = clamp(baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost, 0.02, 1);
     if (!Number.isFinite(alpha)) continue;
     // Apply intensity size factor
-    const radius = starRadiusFromMagnitude(star.magnitude) * (mode?.starSizeFactor ?? 1) * intensityFactor * scale;
+    const jitter = 0.92 + randFromSeed((i + 1) * 17) * 0.18;
+    const radius =
+      starRadiusFromMagnitude(star.magnitude) * (mode?.starSizeFactor ?? 1) * intensityFactor * jitter * scale;
     if (!Number.isFinite(radius) || radius <= 0) continue;
     if (premiumStars && star.magnitude <= premiumThreshold) {
       const color = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
       drawPremiumStar(ctx, star.x, star.y, radius, alpha, color, star.magnitude, i);
       continue;
     }
+    const color = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
+    const isBright = star.magnitude <= 1.2;
+
+    if (renderOptions?.starGlow || isBright) {
+      ctx.save();
+      ctx.shadowBlur = 0;
+      const haloRadius = radius * (isBright ? 3.2 : 2.4);
+      const halo = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, haloRadius);
+      halo.addColorStop(0, toRgba(color, Math.min(0.7, alpha * 0.9)));
+      halo.addColorStop(0.45, toRgba(color, alpha * 0.35));
+      halo.addColorStop(1, toRgba(color, 0));
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, haloRadius, 0, TWO_PI);
+      ctx.fill();
+      ctx.restore();
+    }
+
     ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(star.x, star.y, radius, 0, TWO_PI);
     ctx.fill();
@@ -575,12 +597,39 @@ function drawSky(
     for (const planet of sky.planets) {
       if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
       const sizeBase = renderOptions?.planetEmphasis === "highlighted" ? 4.2 : 3.2;
-      const size = sizeBase * (mode?.planetSizeFactor ?? 1) * scale;
+      // Apply magnitude-based sizing
+      const magnitudeSize = planetRadiusFromMagnitude(planet.magnitude, sizeBase);
+      const size = magnitudeSize * (mode?.planetSizeFactor ?? 1) * scale;
       ctx.globalAlpha = (mode?.planetAlpha ?? 0.85) * (renderOptions?.planetEmphasis === "highlighted" ? 1 : 0.95);
       if (premiumPlanets && renderOptions?.premiumPlanets === "realistic") {
         drawPremiumPlanet(ctx, planet, size, palette);
       } else {
-        ctx.fillStyle = palette.accent;
+        // Use planet-specific color
+        const planetColor = PLANET_COLORS[planet.name] ?? palette.accent;
+
+        // Draw atmospheric glow
+        ctx.save();
+        const glowGradient = ctx.createRadialGradient(
+          planet.x, planet.y, size * 0.5,
+          planet.x, planet.y, size * 2.5
+        );
+        glowGradient.addColorStop(0, toRgba(planetColor, 0.25));
+        glowGradient.addColorStop(0.6, toRgba(planetColor, 0.08));
+        glowGradient.addColorStop(1, toRgba(planetColor, 0));
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(planet.x, planet.y, size * 2.5, 0, TWO_PI);
+        ctx.fill();
+        ctx.restore();
+
+        // Draw planet body with subtle gradient
+        const bodyGradient = ctx.createRadialGradient(
+          planet.x - size * 0.3, planet.y - size * 0.3, size * 0.1,
+          planet.x, planet.y, size
+        );
+        bodyGradient.addColorStop(0, adjustColor(planetColor, 0.15));
+        bodyGradient.addColorStop(1, adjustColor(planetColor, -0.1));
+        ctx.fillStyle = bodyGradient;
         ctx.beginPath();
         ctx.arc(planet.x, planet.y, size, 0, TWO_PI);
         ctx.fill();
@@ -944,47 +993,107 @@ function drawMoon(
   ctx.save();
   ctx.translate(x, y);
 
+  const phaseAngle = phase * 2 * Math.PI;
+  const illumination = (1 - Math.cos(phaseAngle)) / 2;
+  const waxing = phase <= 0.5;
+
+  // Outer atmospheric glow
+  const outerGlow = ctx.createRadialGradient(0, 0, radius * 0.8, 0, 0, radius * 2.2);
+  outerGlow.addColorStop(0, toRgba(accent, 0.12));
+  outerGlow.addColorStop(0.5, toRgba(accent, 0.05));
+  outerGlow.addColorStop(1, toRgba(accent, 0));
+  ctx.fillStyle = outerGlow;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 2.2, 0, TWO_PI);
+  ctx.fill();
+
+  // Background mask
   ctx.fillStyle = background;
   ctx.beginPath();
   ctx.arc(0, 0, radius + 1, 0, TWO_PI);
   ctx.fill();
 
+  // Base moon surface
   ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.arc(0, 0, radius, 0, TWO_PI);
   ctx.fill();
 
+  // Clip to moon for surface details
   ctx.save();
   ctx.beginPath();
   ctx.arc(0, 0, radius - 0.6, 0, TWO_PI);
   ctx.clip();
 
-  const phaseAngle = phase * 2 * Math.PI;
-  const illumination = (1 - Math.cos(phaseAngle)) / 2;
-  const waxing = phase <= 0.5;
+  // Maria (dark "sea" regions) - visible on moon surface
+  const mariaRegions = [
+    { x: -0.2, y: -0.15, rx: 0.22, ry: 0.18 },   // Mare Imbrium (Sea of Rains)
+    { x: 0.12, y: 0.08, rx: 0.14, ry: 0.18 },    // Mare Tranquillitatis
+    { x: -0.08, y: 0.22, rx: 0.18, ry: 0.12 },   // Mare Nubium
+    { x: 0.25, y: -0.1, rx: 0.12, ry: 0.14 },    // Mare Serenitatis
+    { x: -0.25, y: 0.05, rx: 0.1, ry: 0.12 },    // Oceanus Procellarum edge
+  ];
+  ctx.fillStyle = toRgba(background, 0.2);
+  for (const m of mariaRegions) {
+    ctx.beginPath();
+    ctx.ellipse(m.x * radius, m.y * radius, m.rx * radius, m.ry * radius, 0, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  // Crater highlights (bright spots)
+  const craterSpots = [
+    { x: 0.32, y: -0.38, r: 0.08 },   // Tycho-like rays
+    { x: -0.28, y: 0.32, r: 0.05 },   // Copernicus
+    { x: 0.15, y: 0.35, r: 0.04 },    // Kepler
+    { x: -0.1, y: -0.35, r: 0.035 },  // Aristarchus
+  ];
+  ctx.fillStyle = toRgba(starColor, 0.3);
+  for (const c of craterSpots) {
+    ctx.beginPath();
+    ctx.arc(c.x * radius, c.y * radius, c.r * radius, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  // Phase terminator gradient
   const gradient = ctx.createLinearGradient(-radius, 0, radius, 0);
   const terminator = 0.5 + Math.cos(phaseAngle) / 2;
 
   if (waxing) {
     gradient.addColorStop(0, starColor);
-    gradient.addColorStop(terminator, starColor);
-    gradient.addColorStop(1, "rgba(0, 0, 0, 0.6)");
+    gradient.addColorStop(Math.max(0, terminator - 0.08), starColor);
+    gradient.addColorStop(terminator, toRgba(starColor, 0.5));
+    gradient.addColorStop(Math.min(1, terminator + 0.08), "rgba(0, 0, 0, 0.6)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.65)");
   } else {
-    gradient.addColorStop(0, "rgba(0, 0, 0, 0.6)");
-    gradient.addColorStop(terminator, starColor);
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0.65)");
+    gradient.addColorStop(Math.max(0, terminator - 0.08), "rgba(0, 0, 0, 0.6)");
+    gradient.addColorStop(terminator, toRgba(starColor, 0.5));
+    gradient.addColorStop(Math.min(1, terminator + 0.08), starColor);
     gradient.addColorStop(1, starColor);
   }
 
   ctx.fillStyle = gradient;
   ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
 
-  ctx.globalAlpha = 0.12 + illumination * 0.3;
+  // Earthshine on dark side during crescent phases
+  if (illumination < 0.35) {
+    ctx.globalAlpha = 0.06 * (1 - illumination * 2.5);
+    ctx.fillStyle = starColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TWO_PI);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+
+  // Limb glow effect
+  ctx.globalAlpha = 0.15 + illumination * 0.25;
   ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.arc(0, 0, radius + 1.5, 0, TWO_PI);
   ctx.fill();
 
-  ctx.restore();
   ctx.restore();
 }
 
@@ -1071,7 +1180,7 @@ function drawPremiumStar(
 
 function drawPremiumPlanet(
   ctx: CanvasRenderingContext2D,
-  planet: { name: string; x: number; y: number },
+  planet: { name: string; x: number; y: number; magnitude?: number },
   size: number,
   palette: { accent: string },
 ) {
@@ -1090,6 +1199,17 @@ function drawPremiumPlanet(
   ctx.translate(planet.x, planet.y);
   ctx.shadowBlur = 0;
 
+  // Outer atmospheric glow
+  const outerGlow = ctx.createRadialGradient(0, 0, size * 0.8, 0, 0, size * 2.8);
+  outerGlow.addColorStop(0, toRgba(base, 0.15));
+  outerGlow.addColorStop(0.5, toRgba(base, 0.05));
+  outerGlow.addColorStop(1, toRgba(base, 0));
+  ctx.fillStyle = outerGlow;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 2.8, 0, TWO_PI);
+  ctx.fill();
+
+  // Planet body gradient
   const gradient = ctx.createRadialGradient(-size * 0.35, -size * 0.35, size * 0.2, 0, 0, size);
   gradient.addColorStop(0, light);
   gradient.addColorStop(1, dark);
@@ -1103,36 +1223,112 @@ function drawPremiumPlanet(
   ctx.arc(0, 0, size, 0, TWO_PI);
   ctx.clip();
 
-  if (planet.name === "Jupiter" || planet.name === "Saturn") {
-    const bandColor = adjustColor(base, -0.08);
+  if (planet.name === "Jupiter") {
+    // Horizontal cloud bands
+    const bandColors = [
+      adjustColor(base, -0.12),
+      adjustColor(base, 0.05),
+      adjustColor(base, -0.08),
+    ];
+    const bandPositions = [-0.7, -0.35, 0, 0.35, 0.7];
+    for (let i = 0; i < bandPositions.length; i++) {
+      ctx.fillStyle = bandColors[i % bandColors.length];
+      ctx.globalAlpha = 0.4;
+      ctx.fillRect(-size, bandPositions[i] * size, size * 2, size * 0.22);
+    }
+    ctx.globalAlpha = 1;
+
+    // Great Red Spot
+    ctx.save();
+    ctx.fillStyle = "#c45d3a";
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.ellipse(size * 0.25, size * 0.18, size * 0.22, size * 0.12, -0.15, 0, TWO_PI);
+    ctx.fill();
+    // Inner highlight of GRS
+    ctx.fillStyle = "#d87755";
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.ellipse(size * 0.23, size * 0.16, size * 0.12, size * 0.06, -0.15, 0, TWO_PI);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  if (planet.name === "Saturn") {
+    const bandColor = adjustColor(base, -0.06);
     ctx.fillStyle = bandColor;
-    for (let y = -size; y < size; y += size * 0.35) {
-      ctx.globalAlpha = 0.35;
-      ctx.fillRect(-size, y, size * 2, size * 0.16);
+    for (let y = -size; y < size; y += size * 0.4) {
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(-size, y, size * 2, size * 0.15);
     }
     ctx.globalAlpha = 1;
   }
 
   if (planet.name === "Mars") {
-    ctx.fillStyle = adjustColor(base, 0.28);
-    ctx.globalAlpha = 0.6;
+    // North polar ice cap
+    ctx.fillStyle = adjustColor(base, 0.35);
+    ctx.globalAlpha = 0.65;
     ctx.beginPath();
-    ctx.arc(size * 0.2, -size * 0.2, size * 0.3, 0, TWO_PI);
+    ctx.ellipse(0, -size * 0.75, size * 0.35, size * 0.18, 0, 0, TWO_PI);
+    ctx.fill();
+    // Dark feature (Syrtis Major)
+    ctx.fillStyle = adjustColor(base, -0.2);
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.ellipse(size * 0.15, size * 0.1, size * 0.25, size * 0.35, 0.2, 0, TWO_PI);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  if (planet.name === "Venus") {
+    // Subtle cloud patterns
+    ctx.fillStyle = adjustColor(base, -0.05);
+    ctx.globalAlpha = 0.15;
+    ctx.beginPath();
+    ctx.ellipse(-size * 0.2, 0, size * 0.6, size * 0.8, 0.3, 0, TWO_PI);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
 
   ctx.restore();
 
+  // Saturn rings with Cassini division
   if (planet.name === "Saturn") {
     ctx.save();
-    ctx.globalAlpha = 0.6;
-    ctx.strokeStyle = adjustColor(base, 0.1);
-    ctx.lineWidth = Math.max(0.6, size * 0.15);
-    ctx.scale(1.6, 0.5);
+    ctx.scale(1.6, 0.45);
+
+    // Outer A ring
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = adjustColor(base, 0.15);
+    ctx.lineWidth = Math.max(0.8, size * 0.12);
     ctx.beginPath();
-    ctx.ellipse(0, 0, size, size, 0, 0, TWO_PI);
+    ctx.ellipse(0, 0, size * 1.15, size * 1.15, 0, 0, TWO_PI);
     ctx.stroke();
+
+    // Cassini division (dark gap)
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = Math.max(0.3, size * 0.04);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 1.0, size * 1.0, 0, 0, TWO_PI);
+    ctx.stroke();
+
+    // Inner B ring (brighter)
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = adjustColor(base, 0.2);
+    ctx.lineWidth = Math.max(0.8, size * 0.14);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.88, size * 0.88, 0, 0, TWO_PI);
+    ctx.stroke();
+
+    // Innermost C ring (faint)
+    ctx.globalAlpha = 0.25;
+    ctx.strokeStyle = adjustColor(base, 0.05);
+    ctx.lineWidth = Math.max(0.4, size * 0.06);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.72, size * 0.72, 0, 0, TWO_PI);
+    ctx.stroke();
+
     ctx.restore();
   }
 
@@ -1144,10 +1340,29 @@ function starRadiusFromMagnitude(magnitude: number) {
   return clamp(3.8 - clamped * 0.42, 0.4, 3.8);
 }
 
+// Planet radius based on apparent magnitude
+// Venus at -4.5 should be larger than Mars at +1.5
+function planetRadiusFromMagnitude(magnitude: number, baseSize: number): number {
+  // Typical range: Venus -4.5 to Saturn +1.5
+  // Normalize so brighter planets are larger
+  const normalized = clamp((2 - magnitude) / 6, 0.5, 1.6);
+  return baseSize * normalized;
+}
+
+// Planet colors for standard mode rendering
+const PLANET_COLORS: Record<string, string> = {
+  Mercury: "#c7bfb5",
+  Venus: "#fffde7",
+  Mars: "#e57373",
+  Jupiter: "#ffcc80",
+  Saturn: "#ffe082",
+};
+
 function brightnessFromMagnitude(magnitude: number) {
   const clamped = clamp(magnitude, -1, 6.5);
   const normalized = 1 - (clamped + 1) / 7.5;
-  return clamp(normalized * 1.2, 0.18, 1);
+  const boosted = Math.pow(normalized, 1.25);
+  return clamp(boosted * 1.35, 0.12, 1);
 }
 
 function clamp(value: number, min: number, max: number) {

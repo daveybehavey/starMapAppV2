@@ -3,6 +3,7 @@
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
+import FontSelector from "@/components/FontSelector";
 import { MobileCreate } from "@/app/MobileCreate";
 import { TextBox, useStore, RenderOptions, StyleId } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
@@ -117,11 +118,16 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   }, []);
 
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => ({
+    dateLocation: false,
     textStyling: false,
-    style: true,
-    shape: true,
-    frame: true,
+    style: false,
+    shape: false,
+    frame: false,
     advanced: true,
+  }));
+  const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
+    subtitle: true,
+    dedication: true,
   }));
   const [restored, setRestored] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -133,6 +139,20 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
   const [renderMode, setRenderMode] = useState<RenderModeId>("cinematic");
+
+  useEffect(() => {
+    setCollapsedTextBoxes((prev) => {
+      const next: Record<string, boolean> = {};
+      textBoxes.forEach((box) => {
+        if (prev.hasOwnProperty(box.id)) {
+          next[box.id] = prev[box.id];
+          return;
+        }
+        next[box.id] = box.id === "subtitle" || box.id === "dedication";
+      });
+      return next;
+    });
+  }, [textBoxes]);
 
   // Test-only override for deterministic Playwright testing
   // In production, force will be null and normal responsive behavior applies
@@ -202,12 +222,21 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     }
   }, [selectedOccasion]);
 
+  const refreshPaidStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/premium", { cache: "no-store" });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { paid?: boolean };
+      const nextPaid = Boolean(data.paid);
+      setPaid(nextPaid);
+      return nextPaid;
+    } catch {
+      return false;
+    }
+  }, [setPaid]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const token = localStorage.getItem("star-map-unlock");
-    if (token) {
-      setPaid(true);
-    }
     const draft = localStorage.getItem(DRAFT_KEY);
     if (draft) {
       try {
@@ -255,8 +284,8 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     if (autoFlag === "hd") {
       setAutoExportPending(true);
     }
+    void refreshPaidStatus();
   }, [
-    setPaid,
     setDateTime,
     setLocation,
     setRenderOptions,
@@ -265,7 +294,13 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     setTextBoxes,
     setAspectRatio,
     setShape,
+    refreshPaidStatus,
   ]);
+
+  useEffect(() => {
+    if (!autoExportPending || paid) return;
+    void refreshPaidStatus();
+  }, [autoExportPending, paid, refreshPaidStatus]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !restored) return;
@@ -306,6 +341,8 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       return;
     }
     setRevealed(true);
+    // Auto-collapse Date & Location after generating map
+    setCollapsedCards((prev) => ({ ...prev, dateLocation: true }));
     track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
     if (typeof window !== "undefined") {
       localStorage.setItem(REVEALED_FLAG, "true");
@@ -372,10 +409,10 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       setStyle(preset.style);
       setShape(preset.shape);
       setRenderMode(preset.renderMode);
-      const level = Math.round(preset.intensity * 100);
-      setIntensity(level);
-      setIntensityDisplay(level);
-      applyVisualOptions(preset.renderMode, level);
+      // Intensity is already on 0-100 scale
+      setIntensity(preset.intensity);
+      setIntensityDisplay(preset.intensity);
+      applyVisualOptions(preset.renderMode, preset.intensity);
 
       if (shouldAutofill) {
         // Also set date/location if user hasn't entered them yet
@@ -419,10 +456,10 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     setStyle(preset.style);
     setShape(preset.shape);
     setRenderMode(preset.renderMode);
-    const level = Math.round(preset.intensity * 100);
-    setIntensity(level);
-    setIntensityDisplay(level);
-    applyVisualOptions(preset.renderMode, level);
+    // Intensity is already on 0-100 scale
+    setIntensity(preset.intensity);
+    setIntensityDisplay(preset.intensity);
+    applyVisualOptions(preset.renderMode, preset.intensity);
     setRevealed(true);
     track("sample_moment_applied", { preset: preset.id });
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -467,7 +504,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   );
 
   const exportImage = useCallback(
-    async (mode: "preview" | "hd") => {
+    async (mode: "preview" | "hd", premiumOverride?: boolean) => {
       // Ensure all fonts are loaded before export
       if (typeof document !== "undefined" && document.fonts) {
         await document.fonts.ready;
@@ -498,6 +535,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       const height = Math.max(1, Math.round(width / ratio));
       const canvas = document.createElement("canvas");
       const watermark = mode !== "hd";
+      const premium = premiumOverride ?? paid;
 
       // Render the map
       await renderStarMap({
@@ -507,7 +545,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
         height,
         watermark,
         quality: mode === "hd" ? "export" : "preview",
-        premium: paid,
+        premium,
       });
 
       const url = canvas.toDataURL("image/png");
@@ -548,28 +586,32 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   }, [autoExportPending, canvasReady, exportImage, paid]);
 
   const handleExport = useCallback(
-    (mode: "preview" | "hd") => {
+    async (mode: "preview" | "hd") => {
+      let hasAccess = paid;
       if (mode === "hd" && !paid) {
-        setPendingExport(mode);
-        setPaywallOpen(true);
-        setCheckoutError(null);
-        track("paywall_view", { visualMode: renderOptions.visualMode });
-        track("paywall_opened", { visualMode: renderOptions.visualMode });
-        if (typeof window !== "undefined") {
-          localStorage.setItem(AUTO_EXPORT_KEY, mode);
-          if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
+        hasAccess = await refreshPaidStatus();
+        if (!hasAccess) {
+          setPendingExport(mode);
+          setPaywallOpen(true);
+          setCheckoutError(null);
+          track("paywall_view", { visualMode: renderOptions.visualMode });
+          track("paywall_opened", { visualMode: renderOptions.visualMode });
+          if (typeof window !== "undefined") {
+            localStorage.setItem(AUTO_EXPORT_KEY, mode);
+            if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
+          }
+          return;
         }
-        return;
       }
       track(mode === "hd" ? "export_hd_clicked" : "export_free_clicked", {
-        isPaid: paid,
+        isPaid: hasAccess,
         visualMode: renderOptions.visualMode,
         exportResolution: mode === "hd" ? 6000 : 1200,
       });
       track("export_download", { type: mode === "hd" ? "hd" : "preview" });
-      exportImage(mode).catch(() => {});
+      exportImage(mode, hasAccess).catch(() => {});
     },
-    [exportImage, paid, renderOptions.visualMode, revealed],
+    [exportImage, paid, refreshPaidStatus, renderOptions.visualMode, revealed],
   );
 
   const startCheckout = useCallback(async () => {
@@ -695,6 +737,8 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
+  const cardIds = ["dateLocation", "textStyling", "style", "shape", "frame", "advanced"] as const;
+  const allCardsCollapsed = cardIds.every((id) => collapsedCards[id]);
 
   return (
     <>
@@ -712,13 +756,15 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
           </div>
         ) : isDesktop ? (
           <div key="desktop" data-component="desktop">
-            <div className="space-y-4 lg:h-full">
+            <div className="space-y-4 lg:h-full font-[var(--font-montserrat)] text-neutral-100 text-[13px]">
               {/* Header section - above the grid */}
               {(showGuidedForm || showEditor) && (
                 <div ref={inputsRef} className="space-y-3">
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#d7b56c]">Create your star map</p>
-                    <h2 className="text-3xl font-semibold text-white sm:text-4xl">Design your sky in seconds</h2>
+                    <h2 className="text-3xl font-semibold text-white sm:text-4xl font-[var(--font-playfair)] tracking-tight">
+                      Design your sky in seconds
+                    </h2>
                     <p className="text-base text-neutral-200 sm:text-lg">
                       Start from a preset, fine-tune the details, and see a finished map before you unlock.
                     </p>
@@ -831,7 +877,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                               }}
                               className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow active:scale-95 ${
                                 renderMode === mode.id
-                                  ? "border-amber-400 bg-amber-200 text-midnight btn-selection-pulse btn-selected-glow"
+                                  ? "border-amber-400 bg-amber-200 !text-midnight btn-selection-pulse btn-selected-glow"
                                   : "border-white/20 bg-white/10 text-white"
                               }`}
                               title={
@@ -849,10 +895,10 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                     {presetHint && <p className="mt-2 text-xs text-amber-100/80">{presetHint}</p>}
 
                     {showEditor && (
-                      <div className="mt-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 shadow-inner shadow-black/30">
-                        <label className="flex items-center justify-between text-xs font-semibold text-white">
+                      <div className="mt-2 rounded-xl border border-white/15 bg-white/5 px-2.5 py-2 shadow-inner shadow-black/30 backdrop-blur-sm">
+                        <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
                           <span>Intensity</span>
-                          <span className="text-[10px] text-neutral-300">{intensityDisplay}%</span>
+                          <span className="text-[10px] font-semibold text-amber-200/70">{intensityDisplay}%</span>
                         </label>
                         <input
                           type="range"
@@ -881,37 +927,50 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
               <div
                 className={`grid gap-3 lg:gap-4 ${
                   showGuidedForm || showEditor
-                    ? `lg:grid-cols-2 ${showEditor ? "lg:items-end" : "lg:items-start"}`
+                    ? "lg:grid-cols-[3fr_2fr] lg:items-start"
                     : "lg:grid-cols-1"
                 }`}
               >
                 {(showGuidedForm || showEditor) && (
-                  <div className="w-full space-y-2">
+                  <div className="w-full">
+                    <div className="space-y-2">
                     {/* Date & Location - FIRST (required input) */}
                     {(showGuidedForm || showEditor) && (
                       <section
                         ref={dateLocationRef}
-                        className="hidden lg:block rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-sm shadow-black/30"
+                        className="hidden lg:block rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm"
                       >
-                        <div className="mb-1.5">
-                          <h3 className="text-xs font-semibold text-white">Date & Location</h3>
-                        </div>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          <LocationSearch onLocationChange={handleLocationChange} />
-                          <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleCard("dateLocation")}
+                          aria-expanded={!collapsedCards.dateLocation}
+                          className="flex w-full items-center justify-between text-left mb-1.5"
+                        >
+                          <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                            Date & Location
+                          </h3>
+                          <span className="text-[11px] font-semibold text-amber-200/70">
+                            {collapsedCards.dateLocation ? "Show" : "Hide"}
+                          </span>
+                        </button>
+                        {!collapsedCards.dateLocation && (
+                          <div className="grid gap-2 md:grid-cols-2">
+                            <LocationSearch onLocationChange={handleLocationChange} />
+                            <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
+                          </div>
+                        )}
                       </section>
                     )}
 
                     {/* Pro Presets - SECOND (optional styling) */}
                     {(showGuidedForm || showEditor) && (
-                      <div className="hidden lg:block rounded-2xl border border-white/10 bg-white/5 p-3 shadow-sm shadow-black/30">
+                      <div className="hidden lg:block rounded-2xl border border-white/15 bg-white/5 p-3 shadow-sm shadow-black/30 backdrop-blur-sm">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-sm font-semibold text-white">Pro Presets</h3>
-                            <p className="text-xs text-neutral-300">Curated looks with balanced typography.</p>
+                            <h3 className="text-sm font-semibold text-amber-100/90">Pro Presets</h3>
+                            <p className="text-xs text-neutral-200/80">Curated looks with balanced typography.</p>
                           </div>
-                          <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] uppercase tracking-wide text-neutral-200">
+                          <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-100/80">
                             New
                           </span>
                         </div>
@@ -946,17 +1005,20 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                         </div>
                       </div>
                     )}
+                    </div>
 
                     {/* Your Message + Editor sections */}
                     {(showGuidedForm || showEditor) && (
-                      <div className="grid gap-2 md:grid-cols-2">
+                      <div className="mt-2 space-y-2">
 
                         {showGuidedForm && (
                           <div className="space-y-2">
-                            <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-sm shadow-black/30">
+                            <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm">
                               <div className="mb-2 flex items-center gap-2">
                                 <span className="text-amber-300">✎</span>
-                                <h3 className="text-xs font-semibold text-white">Your Message</h3>
+                                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                  Your Message
+                                </h3>
                               </div>
                               <div className="space-y-3">
                                 {visibleTextBoxes.map((box) => (
@@ -998,162 +1060,195 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                         )}
 
                         {showEditor && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-neutral-300 shadow-sm shadow-black/20">
-                              <span className="uppercase tracking-wide text-neutral-400">Editor sections</span>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setCardState({
-                                      textStyling: false,
-                                      style: false,
-                                      shape: false,
-                                      frame: false,
-                                      advanced: false,
-                                    })
-                                  }
-                                  className="rounded-full border border-white/15 bg-white/10 px-2 py-1 font-semibold text-white transition hover:border-amber-300/60"
-                                >
-                                  Expand all
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setCardState({
-                                      textStyling: true,
-                                      style: true,
-                                      shape: true,
-                                      frame: true,
-                                      advanced: true,
-                                    })
-                                  }
-                                  className="rounded-full border border-white/15 bg-white/10 px-2 py-1 font-semibold text-white transition hover:border-amber-300/60"
-                                >
-                                  Collapse all
-                                </button>
-                              </div>
-                            </div>
-
-                            <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-start">
                               <button
                                 type="button"
-                                onClick={() => toggleCard("textStyling")}
-                                aria-expanded={!collapsedCards.textStyling}
-                                className="flex w-full items-center justify-between text-left"
+                                onClick={() =>
+                                  setCardState(
+                                    allCardsCollapsed
+                                      ? {
+                                          dateLocation: false,
+                                          textStyling: false,
+                                          style: false,
+                                          shape: false,
+                                          frame: false,
+                                          advanced: false,
+                                        }
+                                      : {
+                                          dateLocation: true,
+                                          textStyling: true,
+                                          style: true,
+                                          shape: true,
+                                          frame: true,
+                                          advanced: true,
+                                        }
+                                  )
+                                }
+                                className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-amber-300/60"
                               >
-                                <h3 className="text-xs font-semibold text-white">Text Styling</h3>
-                                <span className="text-[10px] font-semibold text-neutral-300">
-                                  {collapsedCards.textStyling ? "Show" : "Hide"}
-                                </span>
+                                {allCardsCollapsed ? "Expand all" : "Collapse all"}
                               </button>
+                            </div>
+
+                            <div className="w-full flex flex-col gap-2">
+                              <div
+                                className={`flex flex-col gap-2 ${
+                                  collapsedCards.textStyling ? "" : "lg:flex-row"
+                                }`}
+                              >
+                                <div
+                                  className={`flex flex-col gap-2 ${
+                                    collapsedCards.textStyling ? "" : "lg:w-1/2"
+                                  }`}
+                                >
+                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleCard("textStyling")}
+                                      aria-expanded={!collapsedCards.textStyling}
+                                      className="flex w-full items-center justify-between text-left"
+                                    >
+                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                        Text Styling
+                                      </h3>
+                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                        {collapsedCards.textStyling ? "Show" : "Hide"}
+                                      </span>
+                                    </button>
                               {!collapsedCards.textStyling && (
                                 <div className="mt-2 space-y-3">
-                                  {textBoxes.map((box) => (
-                                    <div key={box.id} className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-xs font-semibold text-white">{box.label}</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => removeTextBox(box.id)}
-                                          className="text-[10px] text-rose-300 hover:text-rose-200"
-                                        >
-                                          Remove
-                                        </button>
-                                      </div>
-                                      <input
-                                        type="text"
-                                        value={box.text}
-                                        onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                                        className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                        placeholder={`Enter ${box.label.toLowerCase()}...`}
-                                      />
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div className="space-y-1">
-                                          <label className="text-[10px] text-neutral-300">Font</label>
-                                          <select
-                                            value={box.fontFamily}
-                                            onChange={(e) => {
-                                              const next = e.target.value as TextBox["fontFamily"];
-                                              const fontMeta = fontOptions.find((opt) => opt.id === next);
-                                              if (fontMeta?.premium && !paid) {
-                                                setPaywallOpen(true);
-                                                return;
+                                  {textBoxes.map((box) => {
+                                    const isCollapsed = collapsedTextBoxes[box.id] ?? false;
+
+                                    return (
+                                      <div key={box.id} className="rounded-lg border border-white/15 bg-white/5 p-3 space-y-2 backdrop-blur-sm">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-xs font-semibold text-white">{box.label}</span>
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setCollapsedTextBoxes((prev) => ({
+                                                  ...prev,
+                                                  [box.id]: !isCollapsed,
+                                                }))
                                               }
-                                              updateTextBox(box.id, { fontFamily: next });
-                                            }}
-                                            className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                          >
-                                            {fontOptions.map((opt) => (
-                                              <option key={opt.id} value={opt.id}>
-                                                {opt.premium ? `🔒 ${opt.label}` : opt.label}
-                                              </option>
-                                            ))}
-                                          </select>
+                                              aria-expanded={!isCollapsed}
+                                              aria-controls={`text-style-${box.id}`}
+                                              className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
+                                            >
+                                              {isCollapsed ? "Show" : "Hide"}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => removeTextBox(box.id)}
+                                              className="text-[10px] text-rose-300 hover:text-rose-200"
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
                                         </div>
-                                        <div className="space-y-1">
-                                          <label className="text-[10px] text-neutral-300">Size</label>
-                                          <input
-                                            type="number"
-                                            min={10}
-                                            max={64}
-                                            value={box.size}
-                                            onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
-                                            className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                          />
-                                        </div>
+                                        {!isCollapsed && (
+                                          <div id={`text-style-${box.id}`} className="space-y-2">
+                                            <input
+                                              type="text"
+                                              value={box.text}
+                                              onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                                              className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                              placeholder={`Enter ${box.label.toLowerCase()}...`}
+                                            />
+                                            <div className="grid grid-cols-2 gap-2">
+                                              <div className="space-y-1">
+                                                <label className="text-[10px] text-neutral-300">Font</label>
+                                                <select
+                                                  value={box.fontFamily}
+                                                  onChange={(e) => {
+                                                    const next = e.target.value as TextBox["fontFamily"];
+                                                    const fontMeta = fontOptions.find((opt) => opt.id === next);
+                                                    if (fontMeta?.premium && !paid) {
+                                                      setPaywallOpen(true);
+                                                      return;
+                                                    }
+                                                    updateTextBox(box.id, { fontFamily: next });
+                                                  }}
+                                                  className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                  style={{ color: 'white' }}
+                                                >
+                                                  {fontOptions.map((opt) => (
+                                                    <option key={opt.id} value={opt.id} style={{ color: '#111827' }}>
+                                                      {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              </div>
+                                              <div className="space-y-1">
+                                                <label className="text-[10px] text-neutral-300">Size</label>
+                                                <input
+                                                  type="number"
+                                                  min={10}
+                                                  max={64}
+                                                  value={box.size}
+                                                  onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
+                                                  className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                              <div className="space-y-1">
+                                                <label className="text-[10px] text-neutral-300">Color</label>
+                                                <input
+                                                  type="color"
+                                                  value={box.color}
+                                                  onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
+                                                  className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <label className="text-[10px] text-neutral-300">Align</label>
+                                                <select
+                                                  value={box.align}
+                                                  onChange={(e) =>
+                                                    updateTextBox(box.id, { align: e.target.value as TextBox["align"] })
+                                                  }
+                                                  className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                  style={{ color: 'white' }}
+                                                >
+                                                  <option value="left" style={{ color: '#111827' }}>Left</option>
+                                                  <option value="center" style={{ color: '#111827' }}>Center</option>
+                                                  <option value="right" style={{ color: '#111827' }}>Right</option>
+                                                </select>
+                                              </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={() => updateTextBox(box.id, { textShadow: !box.textShadow })}
+                                                className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                                  box.textShadow
+                                                    ? "border-amber-300 bg-amber-100 !text-midnight"
+                                                    : "border-white/15 bg-white/10 text-white"
+                                                }`}
+                                              >
+                                                Shadow
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => updateTextBox(box.id, { textGlow: !box.textGlow })}
+                                                className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                                  box.textGlow
+                                                    ? "border-amber-300 bg-amber-100 !text-midnight"
+                                                    : "border-white/15 bg-white/10 text-white"
+                                                }`}
+                                              >
+                                                Glow
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div className="space-y-1">
-                                          <label className="text-[10px] text-neutral-300">Color</label>
-                                          <input
-                                            type="color"
-                                            value={box.color}
-                                            onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                                            className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
-                                          />
-                                        </div>
-                                        <div className="space-y-1">
-                                          <label className="text-[10px] text-neutral-300">Align</label>
-                                          <select
-                                            value={box.align}
-                                            onChange={(e) =>
-                                              updateTextBox(box.id, { align: e.target.value as TextBox["align"] })
-                                            }
-                                            className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                          >
-                                            <option value="left">Left</option>
-                                            <option value="center">Center</option>
-                                            <option value="right">Right</option>
-                                          </select>
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => updateTextBox(box.id, { textShadow: !box.textShadow })}
-                                          className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                                            box.textShadow
-                                              ? "border-amber-300 bg-amber-100 text-midnight"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          Shadow
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => updateTextBox(box.id, { textGlow: !box.textGlow })}
-                                          className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                                            box.textGlow
-                                              ? "border-amber-300 bg-amber-100 text-midnight"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          Glow
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                   <button
                                     type="button"
                                     onClick={addTextBox}
@@ -1163,72 +1258,81 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                   </button>
                                 </div>
                               )}
-                            </section>
+                                  </section>
 
-                            <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
-                              <button
-                                type="button"
-                                onClick={() => toggleCard("style")}
-                                aria-expanded={!collapsedCards.style}
-                                className="flex w-full items-center justify-between text-left"
-                              >
-                                <h3 className="text-xs font-semibold text-white">Style</h3>
-                                <span className="text-[10px] font-semibold text-neutral-300">
-                                  {collapsedCards.style ? "Show" : "Hide"}
-                                </span>
-                              </button>
-                              {!collapsedCards.style && (
-                                <div className="mt-2 grid grid-cols-2 gap-2">
-                                  {styles.map((style) => {
-                                    const styleClasses = {
-                                      navyGold:
-                                        selectedStyle === style.id
-                                          ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300 shadow-amber-500/20"
-                                          : "border-amber-500/30 bg-gradient-to-br from-[#0d1b2a]/80 to-[#1b2838]/80 text-amber-200/80 hover:border-amber-400/50",
-                                      vintageEngraving:
-                                        selectedStyle === style.id
-                                          ? "border-amber-300 bg-gradient-to-br from-[#2d2d2d] to-[#1a1a1a] text-amber-100 shadow-amber-500/20"
-                                          : "border-neutral-400/30 bg-gradient-to-br from-[#2d2d2d]/80 to-[#1a1a1a]/80 text-neutral-200/80 hover:border-neutral-300/50",
-                                      parchmentScroll:
-                                        selectedStyle === style.id
-                                          ? "border-amber-400 bg-gradient-to-br from-[#f5f0e6] to-[#e8dcc8] text-amber-900 shadow-amber-500/20"
-                                          : "border-amber-500/30 bg-gradient-to-br from-[#f5f0e6]/90 to-[#e8dcc8]/90 text-amber-800/80 hover:border-amber-400/50",
-                                      midnightMinimal:
-                                        selectedStyle === style.id
-                                          ? "border-blue-400 bg-gradient-to-br from-[#0a0a0a] to-[#1a1a2e] text-blue-300 shadow-blue-500/20"
-                                          : "border-blue-500/30 bg-gradient-to-br from-[#0a0a0a]/80 to-[#1a1a2e]/80 text-blue-200/80 hover:border-blue-400/50",
-                                    };
-
-                                    return (
-                                      <button
-                                        key={style.id}
-                                        type="button"
-                                        onClick={() => setStyle(style.id)}
-                                        className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
-                                          styleClasses[style.id as keyof typeof styleClasses]
-                                        } ${selectedStyle === style.id ? "btn-selection-pulse" : ""}`}
-                                      >
-                                        <div className="text-sm font-semibold">{style.name}</div>
-                                        <div className="text-xs opacity-80 mt-1">{style.note}</div>
-                                      </button>
-                                    );
-                                  })}
                                 </div>
-                              )}
-                            </section>
+                                <div
+                                  className={`flex flex-col gap-2 ${
+                                    collapsedCards.textStyling ? "" : "lg:w-1/2"
+                                  }`}
+                                >
+                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleCard("style")}
+                                      aria-expanded={!collapsedCards.style}
+                                      className="flex w-full items-center justify-between text-left"
+                                    >
+                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                        Style
+                                      </h3>
+                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                        {collapsedCards.style ? "Show" : "Hide"}
+                                      </span>
+                                    </button>
+                                    {!collapsedCards.style && (
+                                      <div className="mt-2 grid grid-cols-1 gap-2">
+                                        {styles.map((style) => {
+                                          const styleClasses = {
+                                            navyGold:
+                                              selectedStyle === style.id
+                                                ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300 shadow-amber-500/20"
+                                                : "border-amber-500/30 bg-gradient-to-br from-[#0d1b2a]/80 to-[#1b2838]/80 text-amber-200/80 hover:border-amber-400/50",
+                                            vintageEngraving:
+                                              selectedStyle === style.id
+                                                ? "border-amber-300 bg-gradient-to-br from-[#2d2d2d] to-[#1a1a1a] text-amber-100 shadow-amber-500/20"
+                                                : "border-neutral-400/30 bg-gradient-to-br from-[#2d2d2d]/80 to-[#1a1a1a]/80 text-neutral-200/80 hover:border-neutral-300/50",
+                                            parchmentScroll:
+                                              selectedStyle === style.id
+                                                ? "border-amber-400 bg-gradient-to-br from-[#f5f0e6] to-[#e8dcc8] text-amber-900 shadow-amber-500/20"
+                                                : "border-amber-500/30 bg-gradient-to-br from-[#f5f0e6]/90 to-[#e8dcc8]/90 text-amber-800/80 hover:border-amber-400/50",
+                                            midnightMinimal:
+                                              selectedStyle === style.id
+                                                ? "border-blue-400 bg-gradient-to-br from-[#0a0a0a] to-[#1a1a2e] text-blue-300 shadow-blue-500/20"
+                                                : "border-blue-500/30 bg-gradient-to-br from-[#0a0a0a]/80 to-[#1a1a2e]/80 text-blue-200/80 hover:border-blue-400/50",
+                                          };
 
-                            <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
-                              <button
-                                type="button"
-                                onClick={() => toggleCard("shape")}
-                                aria-expanded={!collapsedCards.shape}
-                                className="flex w-full items-center justify-between text-left"
-                              >
-                                <h3 className="text-xs font-semibold text-white">Shape</h3>
-                                <span className="text-[10px] font-semibold text-neutral-300">
-                                  {collapsedCards.shape ? "Show" : "Hide"}
-                                </span>
-                              </button>
+                                          return (
+                                            <button
+                                              key={style.id}
+                                              type="button"
+                                              onClick={() => setStyle(style.id)}
+                                              className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
+                                                styleClasses[style.id as keyof typeof styleClasses]
+                                              } ${selectedStyle === style.id ? "btn-selection-pulse" : ""}`}
+                                            >
+                                              <div className="text-sm font-semibold">{style.name}</div>
+                                              <div className="text-xs opacity-80 mt-1">{style.note}</div>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </section>
+                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleCard("shape")}
+                                      aria-expanded={!collapsedCards.shape}
+                                      className="flex w-full items-center justify-between text-left"
+                                    >
+                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                        Shape
+                                      </h3>
+                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                        {collapsedCards.shape ? "Show" : "Hide"}
+                                      </span>
+                                    </button>
                               {!collapsedCards.shape && (
                                 <>
                                   <div className="mt-2 grid grid-cols-4 gap-2">
@@ -1250,7 +1354,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                           }}
                                           className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
                                             isSelected
-                                              ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 text-amber-300 shadow-amber-500/20"
+                                              ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight shadow-amber-500/20"
                                               : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
                                           }`}
                                         >
@@ -1276,20 +1380,22 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                   )}
                                 </>
                               )}
-                            </section>
+                                  </section>
 
-                            <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
-                              <button
-                                type="button"
-                                onClick={() => toggleCard("frame")}
-                                aria-expanded={!collapsedCards.frame}
-                                className="flex w-full items-center justify-between text-left"
-                              >
-                                <h3 className="text-xs font-semibold text-white">Frame</h3>
-                                <span className="text-[10px] font-semibold text-neutral-300">
-                                  {collapsedCards.frame ? "Show" : "Hide"}
-                                </span>
-                              </button>
+                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleCard("frame")}
+                                      aria-expanded={!collapsedCards.frame}
+                                      className="flex w-full items-center justify-between text-left"
+                                    >
+                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                        Frame
+                                      </h3>
+                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                        {collapsedCards.frame ? "Show" : "Hide"}
+                                      </span>
+                                    </button>
                               {!collapsedCards.frame && (
                                 <>
                                   <div className="mt-2 grid grid-cols-3 gap-2">
@@ -1307,7 +1413,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                           onClick={() => setAspectRatio(ratio.id)}
                                           className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
                                             isSelected
-                                              ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 text-amber-300 shadow-amber-500/20"
+                                              ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight shadow-amber-500/20"
                                               : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
                                           }`}
                                         >
@@ -1321,7 +1427,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                     onClick={() => setRenderOptions({ frameEnabled: !renderOptions.frameEnabled })}
                                     className={`mt-2 w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
                                       renderOptions.frameEnabled
-                                        ? "border-amber-300 bg-amber-100 text-midnight"
+                                        ? "border-amber-300 bg-amber-100 !text-midnight"
                                         : "border-white/15 bg-white/10 text-white"
                                     }`}
                                   >
@@ -1329,20 +1435,24 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                   </button>
                                 </>
                               )}
-                            </section>
+                                  </section>
+                                </div>
+                              </div>
 
-                            <section className="rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-inner shadow-black/20">
-                              <button
-                                type="button"
-                                onClick={() => toggleCard("advanced")}
-                                aria-expanded={!collapsedCards.advanced}
-                                className="flex w-full items-center justify-between text-left"
-                              >
-                                <h3 className="text-xs font-semibold text-white">Advanced</h3>
-                                <span className="text-[10px] font-semibold text-neutral-300">
-                                  {collapsedCards.advanced ? "Show" : "Hide"}
-                                </span>
-                              </button>
+                              <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCard("advanced")}
+                                  aria-expanded={!collapsedCards.advanced}
+                                  className="flex w-full items-center justify-between text-left"
+                                >
+                                  <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                    Advanced
+                                  </h3>
+                                  <span className="text-[11px] font-semibold text-amber-200/70">
+                                    {collapsedCards.advanced ? "Show" : "Hide"}
+                                  </span>
+                                </button>
                               {!collapsedCards.advanced && (
                                 <div className="mt-2 space-y-3">
                                   <div className="space-y-1">
@@ -1355,7 +1465,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                           onClick={() => setRenderOptions({ constellationLines: preset.id })}
                                           className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                                             renderOptions.constellationLines === preset.id
-                                              ? "border-amber-300 bg-amber-100 text-midnight"
+                                              ? "border-amber-300 bg-amber-100 !text-midnight"
                                               : "border-white/15 bg-white/10 text-white"
                                           }`}
                                         >
@@ -1404,7 +1514,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                     }
                                     className={`w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
                                       renderOptions.constellationLabels
-                                        ? "border-amber-300 bg-amber-100 text-midnight"
+                                        ? "border-amber-300 bg-amber-100 !text-midnight"
                                         : "border-white/15 bg-white/10 text-white"
                                     }`}
                                   >
@@ -1421,7 +1531,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                           onClick={() => setRenderOptions({ visualMode: mode.id })}
                                           className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                                             renderOptions.visualMode === mode.id
-                                              ? "border-amber-300 bg-amber-100 text-midnight"
+                                              ? "border-amber-300 bg-amber-100 !text-midnight"
                                               : "border-white/15 bg-white/10 text-white"
                                           }`}
                                         >
@@ -1446,7 +1556,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                           }
                                           className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                                             previewFidelity === preset.id
-                                              ? "border-amber-300 bg-amber-100 text-midnight"
+                                              ? "border-amber-300 bg-amber-100 !text-midnight"
                                               : "border-white/15 bg-white/10 text-white"
                                           }`}
                                         >
@@ -1475,7 +1585,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                           }}
                                           className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                                             renderOptions.premiumStars === preset.id
-                                              ? "border-amber-300 bg-amber-100 text-midnight"
+                                              ? "border-amber-300 bg-amber-100 !text-midnight"
                                               : "border-white/15 bg-white/10 text-white"
                                           }`}
                                         >
@@ -1509,7 +1619,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                           }}
                                           className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
                                             renderOptions.premiumPlanets === preset.id
-                                              ? "border-amber-300 bg-amber-100 text-midnight"
+                                              ? "border-amber-300 bg-amber-100 !text-midnight"
                                               : "border-white/15 bg-white/10 text-white"
                                           }`}
                                         >
@@ -1521,7 +1631,8 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                   </div>
                                 </div>
                               )}
-                            </section>
+                              </section>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1634,7 +1745,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                         <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-start">
                           <button
                             type="button"
-                            onClick={() => handleExport("preview")}
+                            onClick={() => void handleExport("preview")}
                             aria-label="Free export"
                             className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                           >
@@ -1642,7 +1753,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleExport("hd")}
+                            onClick={() => void handleExport("hd")}
                             aria-label="HD export"
                             className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                             title="Unlock to export HD without watermark; preview stays free."
@@ -1684,7 +1795,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                 <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-start">
                   <button
                     type="button"
-                    onClick={() => handleExport("preview")}
+                    onClick={() => void handleExport("preview")}
                     aria-label="Free export"
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                   >
@@ -1692,7 +1803,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleExport("hd")}
+                    onClick={() => void handleExport("hd")}
                     aria-label="HD export"
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                     title="Unlock to export HD without watermark; preview stays free."

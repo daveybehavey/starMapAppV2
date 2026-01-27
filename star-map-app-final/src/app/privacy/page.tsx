@@ -38,7 +38,7 @@ export default function PrivacyPage() {
                 data—Stripe handles it securely under their privacy policy.
               </li>
               <li>
-                <strong>Local Browser Storage:</strong> Draft inputs, premium unlock status (localStorage/cookies for
+                <strong>Local Browser Storage:</strong> Draft inputs (localStorage) and premium unlock status (cookie for
                 functionality, e.g., auto-save previews). Stored only on your device; not transmitted to us.
               </li>
               <li>

@@ -12,9 +12,13 @@ export const metadata: Metadata = {
   title,
   description,
   keywords,
+  alternates: { canonical: "https://starmapco.com/blog/astronomy-behind-star-maps" },
   openGraph: {
     title,
     description,
+    url: "https://starmapco.com/blog/astronomy-behind-star-maps",
+    type: "article",
+    publishedTime: "2025-12-31",
     images: [{ url: ogImage }],
   },
   twitter: {
@@ -32,9 +36,15 @@ export default function AstronomyBehindStarMaps() {
     headline: title,
     description,
     datePublished: "2025-12-31",
+    dateModified: "2025-12-31",
     author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
-    publisher: { "@type": "Organization", name: "StarMapCo" },
+    publisher: {
+      "@type": "Organization",
+      name: "StarMapCo",
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+    },
+    mainEntityOfPage: "https://starmapco.com/blog/astronomy-behind-star-maps",
   };
 
   return (
