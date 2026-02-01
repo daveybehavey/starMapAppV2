@@ -15,9 +15,10 @@ type GeocodeResult = {
 type LocationInputProps = {
   disabled?: boolean;
   onLocationChange?: () => void;
+  inputId?: string;
 };
 
-export function LocationInput({ disabled, onLocationChange }: LocationInputProps) {
+export function LocationInput({ disabled, onLocationChange, inputId }: LocationInputProps) {
   const { location, setLocation } = useStore(
     useShallow((state) => ({
       location: state.location,
@@ -187,6 +188,7 @@ export function LocationInput({ disabled, onLocationChange }: LocationInputProps
   return (
     <div className="relative">
       <input
+        id={inputId}
         type="text"
         value={query}
         placeholder="Search for a city..."
@@ -214,7 +216,8 @@ export function LocationInput({ disabled, onLocationChange }: LocationInputProps
         aria-activedescendant={
           highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined
         }
-        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label="Location search"
+        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
       />
 
       {loading && !disabled && (

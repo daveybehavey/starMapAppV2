@@ -82,8 +82,12 @@ export function SimplifiedEditor() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [hdExporting, setHdExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const hdExportInFlightRef = useRef(false);
+
+  // Generate unique IDs for form elements (accessibility)
+  const formId = useRef(`simplified-editor-${Math.random().toString(36).slice(2, 9)}`).current;
 
   const {
     dateTime,
@@ -265,8 +269,12 @@ export function SimplifiedEditor() {
   const handleFreePreview = useCallback(async () => {
     if (exporting) return;
     setExporting(true);
+    setExportError(null);
     try {
       await exportImage("preview");
+    } catch (err) {
+      console.error("Preview export error:", err);
+      setExportError("Failed to generate preview. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -275,6 +283,7 @@ export function SimplifiedEditor() {
   // Handle HD download - redirects to checkout if not paid
   const handleHdDownload = useCallback(async () => {
     if (hdExportInFlightRef.current) return;
+    setExportError(null);
 
     if (paid) {
       // User has paid - do direct HD export
@@ -282,6 +291,9 @@ export function SimplifiedEditor() {
       setHdExporting(true);
       try {
         await exportImage("hd", true);
+      } catch (err) {
+        console.error("HD export error:", err);
+        setExportError("Failed to generate HD download. Please try again.");
       } finally {
         hdExportInFlightRef.current = false;
         setHdExporting(false);
@@ -348,6 +360,7 @@ export function SimplifiedEditor() {
       throw new Error("No checkout URL");
     } catch (err) {
       console.error("Checkout error:", err);
+      setExportError("Unable to start checkout. Please try again.");
       // Reset state on error
       hdExportInFlightRef.current = false;
       setHdExporting(false);
@@ -399,10 +412,18 @@ export function SimplifiedEditor() {
   }, [selectedStyle, shape, textBoxes, renderOptions]);
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+    <div
+      className="flex flex-col gap-6 lg:flex-row lg:gap-8"
+      role="region"
+      aria-label="Star map editor"
+    >
       {/* Preview Section */}
       <div className="relative flex-1">
-        <div className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-[#070b1b] shadow-2xl">
+        <div
+          className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-[#070b1b] shadow-2xl"
+          role="img"
+          aria-label={canShowCustomPreview ? "Your custom star map preview" : "Sample star map preview"}
+        >
           {!canShowCustomPreview ? (
             <PreviewCanvas key={`${selectedStyle}-${shape}`} readOnly={mode === "sample"} externalRecipe={dynamicRecipe} />
           ) : (
@@ -416,7 +437,8 @@ export function SimplifiedEditor() {
             <button
               type="button"
               onClick={handleMakeItYours}
-              className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-[#0b1433] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
+              className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-[#0b1433] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b]"
+              aria-label="Start customizing your star map"
             >
               ✨ Make it yours
             </button>
@@ -430,94 +452,127 @@ export function SimplifiedEditor() {
         className={`flex flex-col gap-4 lg:w-80 ${
           mode === "sample" ? "opacity-50" : "opacity-100"
         } transition-opacity`}
+        aria-disabled={mode === "sample"}
       >
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-          <h3 className="mb-4 text-lg font-semibold text-white">
+        <form
+          className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur"
+          onSubmit={(e) => e.preventDefault()}
+          aria-label="Star map customization form"
+        >
+          <h3 className="mb-4 text-lg font-semibold text-white" id={`${formId}-heading`}>
             {mode === "sample" ? "Customize your moment" : "Your moment"}
           </h3>
 
           {/* Date Input */}
           <div className="mb-4">
-            <label className="mb-1.5 block text-xs font-medium text-amber-100/70">
+            <label
+              htmlFor={`${formId}-date`}
+              className="mb-1.5 block text-xs font-medium text-amber-100/70"
+            >
               When was it?
             </label>
             <input
+              id={`${formId}-date`}
               type="date"
               value={dateInputValue}
               onChange={handleDateChange}
               disabled={mode === "sample"}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-describedby={`${formId}-date-hint`}
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
             />
+            <span id={`${formId}-date-hint`} className="sr-only">
+              Select the date of your special moment
+            </span>
           </div>
 
           {/* Location Input */}
           <div className="mb-4">
-            <label className="mb-1.5 block text-xs font-medium text-amber-100/70">
+            <label
+              htmlFor={`${formId}-location`}
+              className="mb-1.5 block text-xs font-medium text-amber-100/70"
+            >
               Where were you?
             </label>
-            <LocationInput disabled={mode === "sample"} />
+            <LocationInput disabled={mode === "sample"} inputId={`${formId}-location`} />
           </div>
 
           {/* Title Input */}
           <div className="mb-4">
-            <label className="mb-1.5 block text-xs font-medium text-amber-100/70">
+            <label
+              htmlFor={`${formId}-title`}
+              className="mb-1.5 block text-xs font-medium text-amber-100/70"
+            >
               Title
             </label>
             <input
+              id={`${formId}-title`}
               type="text"
               value={title}
               onChange={handleTitleChange}
               disabled={mode === "sample"}
               placeholder="Our Night Sky"
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-describedby={`${formId}-title-hint`}
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
             />
+            <span id={`${formId}-title-hint`} className="sr-only">
+              Enter a title for your star map
+            </span>
           </div>
 
           {/* Subtitle Input */}
           <div className="mb-4">
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-xs font-medium text-amber-100/70">
+              <label
+                htmlFor={`${formId}-subtitle`}
+                className="text-xs font-medium text-amber-100/70"
+              >
                 Subtitle
               </label>
               <button
                 type="button"
                 onClick={toggleSubtitle}
                 disabled={mode === "sample"}
-                className="text-[10px] text-amber-400/70 hover:text-amber-400 disabled:opacity-50"
+                aria-pressed={showSubtitle}
+                aria-label={showSubtitle ? "Remove subtitle" : "Add subtitle"}
+                className="text-[10px] text-amber-400/70 hover:text-amber-400 focus:outline-none focus:underline disabled:opacity-50"
               >
                 {showSubtitle ? "Remove" : "+ Add subtitle"}
               </button>
             </div>
             {showSubtitle && (
               <input
+                id={`${formId}-subtitle`}
                 type="text"
                 value={subtitle}
                 onChange={handleSubtitleChange}
                 disabled={mode === "sample"}
                 placeholder="June 15, 2024 • New York"
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-describedby={`${formId}-subtitle-hint`}
+                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
               />
             )}
             {showSubtitle && mode === "customizing" && (
-              <p className="mt-1 text-[10px] text-white/40">
+              <p id={`${formId}-subtitle-hint`} className="mt-1 text-[10px] text-white/40">
                 Tip: Drag text on the preview to reposition
               </p>
             )}
           </div>
 
           {/* Style Picker */}
-          <div className="mb-4">
-            <label className="mb-2 block text-xs font-medium text-amber-100/70">
+          <fieldset className="mb-4">
+            <legend className="mb-2 block text-xs font-medium text-amber-100/70">
               Style
-            </label>
-            <div className="grid grid-cols-4 gap-2">
+            </legend>
+            <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Map style">
               {styles.map((style) => (
                 <button
                   key={style.id}
                   type="button"
+                  role="radio"
+                  aria-checked={selectedStyle === style.id}
                   onClick={() => handleStyleChange(style.id)}
                   disabled={mode === "sample"}
-                  className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 transition ${
+                  className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${
                     selectedStyle === style.id
                       ? "border-amber-400 bg-amber-400/10"
                       : "border-white/10 bg-white/5 hover:border-white/30"
@@ -525,78 +580,139 @@ export function SimplifiedEditor() {
                 >
                   <div
                     className={`h-8 w-8 rounded-full ${style.preview} border border-white/20`}
+                    aria-hidden="true"
                   />
                   <span className="text-[10px] text-white/70">{style.name}</span>
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
 
           {/* Shape Picker */}
-          <div className="mb-4">
-            <label className="mb-2 block text-xs font-medium text-amber-100/70">
+          <fieldset className="mb-4">
+            <legend className="mb-2 block text-xs font-medium text-amber-100/70">
               Shape
-            </label>
-            <div className="grid grid-cols-4 gap-2">
+            </legend>
+            <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Map shape">
               {shapes.map((shapeOption) => (
                 <button
                   key={shapeOption.id}
                   type="button"
+                  role="radio"
+                  aria-checked={shape === shapeOption.id}
                   onClick={() => handleShapeChange(shapeOption.id)}
                   disabled={mode === "sample"}
-                  className={`flex flex-col items-center gap-1 rounded-lg border p-2 transition ${
+                  className={`flex flex-col items-center gap-1 rounded-lg border p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${
                     shape === shapeOption.id
                       ? "border-amber-400 bg-amber-400/10"
                       : "border-white/10 bg-white/5 hover:border-white/30"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  <span className="text-xl text-white/80">{shapeOption.icon}</span>
+                  <span className="text-xl text-white/80" aria-hidden="true">{shapeOption.icon}</span>
                   <span className="text-[10px] text-white/70">{shapeOption.name}</span>
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
 
           {/* Customize More Toggle */}
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             disabled={mode === "sample"}
-            className="w-full rounded-lg border border-white/10 bg-white/5 py-2 text-xs font-medium text-white/60 transition hover:border-white/20 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-expanded={showAdvanced}
+            aria-controls={`${formId}-advanced`}
+            className="w-full rounded-lg border border-white/10 bg-white/5 py-2 text-xs font-medium text-white/60 transition hover:border-white/20 hover:text-white/80 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {showAdvanced ? "− Less options" : "+ Customize more"}
           </button>
 
           {/* Advanced Options (hidden by default) */}
-          {showAdvanced && mode === "customizing" && (
-            <AdvancedOptionsPanel
-              renderOptions={renderOptions}
-              setRenderOptions={setRenderOptions}
-              textBoxes={textBoxes}
-              setTextBoxes={setTextBoxes}
-              paid={paid}
-            />
-          )}
-        </div>
+          <div id={`${formId}-advanced`} aria-hidden={!showAdvanced || mode === "sample"}>
+            {showAdvanced && mode === "customizing" && (
+              <AdvancedOptionsPanel
+                renderOptions={renderOptions}
+                setRenderOptions={setRenderOptions}
+                textBoxes={textBoxes}
+                setTextBoxes={setTextBoxes}
+                paid={paid}
+              />
+            )}
+          </div>
+        </form>
+
+        {/* Error Message */}
+        {exportError && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-200"
+          >
+            <span className="sr-only">Error: </span>
+            {exportError}
+            <button
+              type="button"
+              onClick={() => setExportError(null)}
+              className="ml-2 text-red-300 hover:text-red-100 focus:outline-none focus:underline"
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Action Buttons */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3" role="group" aria-label="Download options">
           <button
             type="button"
             onClick={handleFreePreview}
             disabled={mode === "sample" || !canShowCustomPreview || exporting}
-            className="w-full rounded-full bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-busy={exporting}
+            aria-describedby={`${formId}-preview-hint`}
+            className="w-full rounded-full bg-white/10 py-3.5 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {exporting ? "⏳ Exporting..." : "⬇️ Free preview"}
+            {exporting ? (
+              <>
+                <span className="inline-block animate-spin mr-2" aria-hidden="true">⏳</span>
+                Exporting...
+              </>
+            ) : (
+              <>⬇️ Free preview</>
+            )}
           </button>
+          <span id={`${formId}-preview-hint`} className="sr-only">
+            Download a free watermarked preview of your star map
+          </span>
+
           <button
             type="button"
             onClick={handleHdDownload}
             disabled={mode === "sample" || !canShowCustomPreview || hdExporting}
-            className="w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 py-3 text-sm font-semibold text-[#0b1433] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+            aria-busy={hdExporting}
+            aria-describedby={`${formId}-hd-hint`}
+            className="w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 py-3.5 text-sm font-semibold text-[#0b1433] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {hdExporting ? "⏳ Processing..." : paid ? "⬇️ HD download" : "🔒 Unlock HD"}
+            {hdExporting ? (
+              <>
+                <span className="inline-block animate-spin mr-2" aria-hidden="true">⏳</span>
+                Processing...
+              </>
+            ) : paid ? (
+              <>⬇️ HD download</>
+            ) : (
+              <>🔒 Unlock HD</>
+            )}
           </button>
+          <span id={`${formId}-hd-hint`} className="sr-only">
+            {paid ? "Download high-resolution star map" : "Purchase to unlock high-resolution download"}
+          </span>
+        </div>
+
+        {/* Status hint for screen readers */}
+        <div aria-live="polite" className="sr-only">
+          {!canShowCustomPreview && mode === "customizing" && "Enter a location to enable downloads"}
+          {exporting && "Generating preview..."}
+          {hdExporting && "Processing download..."}
         </div>
       </div>
     </div>
