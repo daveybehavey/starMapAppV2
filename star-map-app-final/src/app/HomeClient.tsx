@@ -3,20 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useMemo } from "react";
 import { blogPosts } from "@/lib/blogPosts";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 import { useInView } from "@/hooks/useInView";
 
-// Lazy load the heavy EditorExperience component to improve initial page load
-const EditorExperience = nextDynamic(
-  () => import("@/components/EditorExperience").then((mod) => mod.EditorExperience),
+// Lazy load SimplifiedEditor for the hero section
+const SimplifiedEditor = nextDynamic(
+  () => import("@/components/SimplifiedEditor").then((mod) => mod.SimplifiedEditor),
   {
     loading: () => (
-      <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex aspect-square w-full items-center justify-center rounded-2xl border border-white/10 bg-[#070b1b]">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
-          <span className="text-sm text-neutral-400">Loading editor...</span>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+          <span className="text-sm text-neutral-400">Loading preview...</span>
         </div>
       </div>
     ),
@@ -33,8 +33,6 @@ export default function HomeClient() {
 }
 
 function HomeInner() {
-  const editorRef = useRef<HTMLDivElement>(null);
-
   // Compute price labels once (they never change during session)
   const priceLabels = useMemo(() => {
     const tiers = getPricingTiers();
@@ -52,53 +50,20 @@ function HomeInner() {
 
   return (
     <main className="flex flex-col items-center px-6 md:px-8 lg:px-12 py-4 md:py-8 lg:py-0">
-      <section className="mx-auto w-full max-w-7xl min-h-screen flex items-center py-12 sm:py-14 lg:py-16">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_minmax(340px,1fr)]">
-          <div className="space-y-5">
-            <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[42px]">
-              Create a custom star map of the night sky from your most meaningful moment.
-            </h1>
-            <p className="max-w-2xl text-base text-neutral-200 sm:text-lg">
-              Use our star map generator to build accurate constellation maps for weddings, births, anniversaries, and memorials —
-              personalized in seconds.
-            </p>
-            <p className="text-sm text-neutral-300">Designed to be framed, gifted, and kept forever.</p>
-            <button
-              type="button"
-              onClick={() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#d7b56c] via-[#e8c87d] to-[#d7b56c] bg-[length:200%_100%] px-5 py-3 text-sm font-semibold text-[#201a0c] shadow-lg transition-all duration-300 hover:-translate-y-[2px] hover:animate-[shimmer_2s_ease-in-out_infinite] hover:shadow-[0_12px_40px_rgba(215,181,108,0.5)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2 active:scale-95 sm:w-auto"
-            >
-              Start free preview
-            </button>
-            <p className="text-xs text-neutral-300">
-              HD from {priceLabels.single} • {priceLabels.pack3} for 3 • {priceLabels.subscription}/mo unlimited
-            </p>
-            <div className="flex flex-wrap gap-3 text-xs text-neutral-200 sm:text-sm">
-              {"Instant preview, Print-ready download, Flexible pricing".split(", ").map((chip) => (
-                <span
-                  key={chip}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 shadow-sm shadow-black/20"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="relative" style={{ animation: "float 6s ease-in-out infinite" }}>
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-[0_25px_60px_rgba(0,0,0,0.35)] transition-all duration-500 hover:shadow-[0_30px_70px_rgba(241,194,125,0.25)] hover:animate-[glow-pulse_3s_ease-in-out_infinite]">
-              <div className="relative aspect-[2/1] bg-gradient-to-b from-[#0b0f24] via-[#0a0d1c] to-[#05070f]">
-                <Image
-                  src="/custom-star-map-anniversary.webp"
-                  alt="Example star map output"
-                  fill
-                  className="object-cover transition-transform duration-700 hover:scale-[1.02]"
-                  sizes="(min-width: 1024px) 45vw, (min-width: 768px) 80vw, 95vw"
-                  priority
-                />
-              </div>
-            </div>
-          </div>
+      {/* Hero Section with SimplifiedEditor */}
+      <section className="mx-auto w-full max-w-7xl py-8 sm:py-10 lg:py-12">
+        <div className="mb-6 space-y-3 text-center lg:mb-8">
+          <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[42px]">
+            Create a custom star map of the night sky
+          </h1>
+          <p className="mx-auto max-w-2xl text-base text-neutral-200 sm:text-lg">
+            See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds.
+          </p>
+          <p className="text-xs text-neutral-300">
+            HD from {priceLabels.single} • {priceLabels.pack3} for 3 • {priceLabels.subscription}/mo unlimited
+          </p>
         </div>
+        <SimplifiedEditor />
       </section>
 
       <section ref={examplesRef} className={`mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-10 fade-in-up ${examplesVisible ? 'visible' : ''}`}>
@@ -295,7 +260,7 @@ function HomeInner() {
         </div>
       </section>
 
-      <EditorExperience variant="quick" editorRef={editorRef} />
+      {/* SimplifiedEditor is now in hero section above */}
 
       <section id="accuracy" className="cosmic-panel mx-auto mb-8 mt-8 w-full max-w-7xl rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.9)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
         <div className="space-y-4 text-neutral-800">
