@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Star Map Generator
+
+A custom star map creation tool that renders accurate constellation maps for meaningful moments.
+
+## Features
+
+- Accurate astronomical positioning using the astronomy-engine library
+- Multiple visual styles (Navy & Gold, Vintage Engraving, Parchment Scroll, Midnight Minimal)
+- Shape masks (Rectangle, Heart, Circle, Star, Diamond)
+- Draggable text elements with customizable fonts
+- Premium effects (realistic stars, enhanced planets)
+- High-resolution PDF/PNG export
+- Mobile-responsive design
+
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **State Management**: Zustand
+- **Styling**: Tailwind CSS 4
+- **Deployment**: Cloudflare Pages (via opennextjs-cloudflare)
+- **Payments**: Stripe
+- **Storage**: Cloudflare KV
+
+## Project Structure
+
+```
+src/
+  app/           # Next.js App Router pages and API routes
+  components/    # React components
+  hooks/         # Custom React hooks
+  lib/           # Utilities, types, and business logic
+```
+
+### Key Files
+
+- `lib/store.ts` - Zustand global state
+- `lib/renderSky.ts` - Star map rendering logic
+- `lib/api.ts` - Typed API client
+- `hooks/useEditorLogic.ts` - Shared editor state and actions
+- `components/PreviewCanvas.tsx` - Map preview component
+- `components/EditorExperience.tsx` - Main editor UI
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+
+- npm/pnpm/yarn
+
+### Environment Variables
+
+Create a `.dev.vars` file for local development:
+
+```env
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Cloudflare KV (for local dev, uses in-memory fallback)
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Start development server
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000)
 
-To learn more about Next.js, take a look at the following resources:
+### Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run lint` | Run ESLint |
+| `npm run format` | Format code with Prettier |
+| `npm run format:check` | Check formatting |
+| `npm run test:ui` | Run Playwright E2E tests |
+| `npm run preview` | Build and preview for Cloudflare |
+| `npm run deploy` | Deploy to Cloudflare Pages |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+This project deploys to Cloudflare Pages using opennextjs-cloudflare:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run deploy
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Configure environment variables in the Cloudflare dashboard.
+
+## Architecture Notes
+
+### State Management
+
+- Global state is managed via Zustand (`lib/store.ts`)
+- The `useEditorLogic` hook extracts shared editor logic used by both desktop and mobile views
+- API calls are centralized in `lib/api.ts` for type-safe, consistent requests
+
+### Rendering Pipeline
+
+1. User inputs (date, location, text) are stored in Zustand
+2. `buildRecipeFromState` creates a `MapRecipe` object
+3. `renderStarMap` uses astronomy-engine to calculate star positions
+4. Canvas rendering with shape masks, effects, and text overlays
+
+### Premium Features
+
+- Premium features are gated by `paid` state
+- Entitlements are stored in Cloudflare KV with session-based access
+- Supports single purchase, 3-pack, and subscription plans

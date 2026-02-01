@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import { blogPosts } from "@/lib/blogPosts";
-import { formatPrice, getPricingInfo } from "@/lib/pricing";
+import { formatPrice, getPricingTiers } from "@/lib/pricing";
 import { useInView } from "@/hooks/useInView";
 
 // Lazy load the heavy EditorExperience component to improve initial page load
@@ -34,17 +34,21 @@ export default function HomeClient() {
 
 function HomeInner() {
   const editorRef = useRef<HTMLDivElement>(null);
-  const [activePriceLabel, setActivePriceLabel] = useState("$0.99");
+
+  // Compute price labels once (they never change during session)
+  const priceLabels = useMemo(() => {
+    const tiers = getPricingTiers();
+    return {
+      single: formatPrice(tiers.single.amountCents, tiers.single.currency),
+      pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
+      subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
+    };
+  }, []);
 
   // Scroll-triggered animation hooks
   const { ref: examplesRef, isVisible: examplesVisible } = useInView();
   const { ref: howItWorksRef, isVisible: howItWorksVisible } = useInView();
   const { ref: blogRef, isVisible: blogVisible } = useInView();
-
-  useEffect(() => {
-    const pricingInfo = getPricingInfo();
-    setActivePriceLabel(formatPrice(pricingInfo.activeAmountCents, pricingInfo.currency));
-  }, []);
 
   return (
     <main className="flex flex-col items-center px-6 md:px-8 lg:px-12 py-4 md:py-8 lg:py-0">
@@ -66,9 +70,11 @@ function HomeInner() {
             >
               Start free preview
             </button>
-            <p className="text-xs text-neutral-300">One-time unlock {activePriceLabel} • No subscription • Instant download</p>
+            <p className="text-xs text-neutral-300">
+              HD from {priceLabels.single} • {priceLabels.pack3} for 3 • {priceLabels.subscription}/mo unlimited
+            </p>
             <div className="flex flex-wrap gap-3 text-xs text-neutral-200 sm:text-sm">
-              {"Instant preview, Print-ready download, One-time unlock".split(", ").map((chip) => (
+              {"Instant preview, Print-ready download, Flexible pricing".split(", ").map((chip) => (
                 <span
                   key={chip}
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 shadow-sm shadow-black/20"
@@ -86,6 +92,7 @@ function HomeInner() {
                   alt="Example star map output"
                   fill
                   className="object-cover transition-transform duration-700 hover:scale-[1.02]"
+                  sizes="(min-width: 1024px) 45vw, (min-width: 768px) 80vw, 95vw"
                   priority
                 />
               </div>
@@ -203,7 +210,7 @@ function HomeInner() {
               },
               {
                 title: "Unlock & export",
-                desc: "Download a high-resolution, print-ready file with one-time unlock.",
+                desc: "Download a high-resolution, print-ready file with flexible pricing options.",
               },
             ].map((item) => (
               <div
@@ -340,7 +347,7 @@ function HomeInner() {
               },
               {
                 q: "What is included in the free version vs. premium unlock?",
-                a: `Free: basic preview and watermarked export. Premium (${activePriceLabel} one-time): HD no-watermark PNG and advanced visuals.`,
+                a: `Free: basic preview and watermarked export. Premium unlocks start at ${priceLabels.single} for an HD download, with 3-packs and unlimited monthly options.`,
               },
               {
                 q: "How do I export or download my star map?",
@@ -348,7 +355,7 @@ function HomeInner() {
               },
               {
                 q: "Is this a one-time purchase or subscription?",
-                a: `One-time ${activePriceLabel} unlock per device/browser, stored locally—no subscriptions.`,
+                a: `Both options are available: one-time HD downloads or an unlimited monthly subscription.`,
               },
               {
                 q: "Are the maps suitable for printing?",
@@ -364,7 +371,7 @@ function HomeInner() {
               },
               {
                 q: "Why choose StarMapCo over other star map generators?",
-                a: "Instant real-time preview, accurate science, premium visuals, and an affordable one-time unlock with no subscriptions.",
+                a: "Instant real-time preview, accurate science, premium visuals, and flexible pricing for one-time or unlimited access.",
               },
               {
                 q: "Can I try a demo?",
@@ -441,7 +448,7 @@ function HomeInner() {
       <section className="cosmic-panel mb-8 mt-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.92)] px-5 py-6 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
         <h3 className="text-xl font-semibold text-midnight sm:text-2xl">Who builds StarMapCo?</h3>
         <p className="mt-2 text-sm text-neutral-800 sm:text-base">
-          Built by an independent developer passionate about astronomy. Accuracy-first design with no subscriptions—just
+          Built by an independent developer passionate about astronomy. Accuracy-first design with flexible pricing and
           real sky data for meaningful maps.
         </p>
         <p className="mt-1 text-xs font-semibold text-neutral-700">

@@ -1,37 +1,75 @@
 "use client";
 
-import DateTimeControls from "@/components/DateTimeControls";
-import LocationSearch from "@/components/LocationSearch";
-import PreviewCanvas from "@/components/PreviewCanvas";
-import FontSelector from "@/components/FontSelector";
-import { MobileCreate } from "@/app/MobileCreate";
+import dynamic from "next/dynamic";
 import { TextBox, useStore, RenderOptions, StyleId } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { AspectRatio, Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
-import { formatPrice, getPricingInfo } from "@/lib/pricing";
+import { formatPrice, getPricingInfo, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
 import { occasionPresets } from "@/lib/occasionPresets";
-import { renderModes, type RenderModeId } from "@/lib/renderModes";
+import type { RenderModeId } from "@/lib/renderModes";
 import {
   styles,
   fontOptions,
-  visualModes,
   shapes,
   shapeSymbols,
   shapeSymbolScale,
-  constellationPresets,
 } from "@/lib/config";
-import { proPresets } from "@/lib/proPresets";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { useEditorLogic } from "@/hooks/useEditorLogic";
+
+const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
+  ssr: false,
+});
+
+const DateTimeControls = dynamic(() => import("@/components/DateTimeControls"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-24 rounded-xl border border-white/15 bg-white/5 shadow-inner shadow-black/30" />
+  ),
+});
+
+const LocationSearch = dynamic(() => import("@/components/LocationSearch"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-24 rounded-xl border border-white/15 bg-white/5 shadow-inner shadow-black/30" />
+  ),
+});
+
+const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full rounded-xl border border-white/10 bg-white/5" />
+  ),
+});
+
+const ProPresetsPanel = dynamic(
+  () => import("@/components/ProPresetsPanel").then((mod) => mod.ProPresetsPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="hidden lg:block rounded-2xl border border-white/15 bg-white/5 p-3 shadow-sm shadow-black/30" />
+    ),
+  },
+);
+
+const AdvancedPanel = dynamic(
+  () => import("@/components/AdvancedPanel").then((mod) => mod.AdvancedPanel),
+  {
+    ssr: false,
+    loading: () => <div className="mt-2 h-40 rounded-xl border border-white/15 bg-white/5" />,
+  },
+);
 
 const DRAFT_KEY = "star-map-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
+const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 
 export type EditorExperienceVariant = "quick" | "full";
 
@@ -41,8 +79,19 @@ interface EditorExperienceProps {
 }
 
 export function EditorExperience({ variant = "quick", editorRef }: EditorExperienceProps) {
+  // Loading state callback for visual options
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
+
+  const onVisualOptionsApplied = useCallback(() => {
+    setIsUpdating(true);
+    setCanvasReady(false);
+  }, []);
+
+  // Use shared editor logic hook
   const {
     dateTime,
+    location,
     textBoxes,
     selectedStyle,
     aspectRatio,
@@ -51,9 +100,9 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     previewFidelity,
     paid,
     revealed,
-    location,
-    setLocation,
     setDateTime,
+    setLocation,
+    setTextBoxes,
     updateTextBox,
     removeTextBox,
     addTextBox,
@@ -64,34 +113,28 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     setPreviewFidelity,
     setPaid,
     setRevealed,
-    setTextBoxes,
-  } = useStore(
-    useShallow((state) => ({
-      dateTime: state.dateTime,
-      textBoxes: state.textBoxes,
-      selectedStyle: state.selectedStyle,
-      aspectRatio: state.aspectRatio,
-      shape: state.shape,
-      renderOptions: state.renderOptions,
-      previewFidelity: state.previewFidelity,
-      paid: state.paid,
-      revealed: state.revealed,
-      location: state.location,
-      setLocation: state.setLocation,
-      setDateTime: state.setDateTime,
-      updateTextBox: state.updateTextBox,
-      removeTextBox: state.removeTextBox,
-      addTextBox: state.addTextBox,
-      setStyle: state.setStyle,
-      setAspectRatio: state.setAspectRatio,
-      setShape: state.setShape,
-      setRenderOptions: state.setRenderOptions,
-      setPreviewFidelity: state.setPreviewFidelity,
-      setPaid: state.setPaid,
-      setRevealed: state.setRevealed,
-      setTextBoxes: state.setTextBoxes,
-    })),
-  );
+    // Local editor state from hook
+    renderMode,
+    setRenderMode,
+    intensity,
+    setIntensity,
+    intensityDisplay,
+    setIntensityDisplay,
+    selectedOccasion,
+    setSelectedOccasion,
+    customOccasion,
+    setCustomOccasion,
+    presetHint,
+    setPresetHint,
+    // Derived state
+    locationName,
+    hasDate,
+    canReveal,
+    // Actions
+    applyVisualOptions,
+    applyPreset: hookApplyPreset,
+    applyProPreset,
+  } = useEditorLogic({ variant, onVisualOptionsApplied });
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
@@ -105,16 +148,33 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const editorSectionRef = editorRef ?? internalEditorRef;
 
   const [mounted, setMounted] = useState(false);
-  const [pricing, setPricing] = useState(() => getPricingInfo());
-  const [activePriceLabel, setActivePriceLabel] = useState("$0.99");
-  const [basePriceLabel, setBasePriceLabel] = useState("$0.99");
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<CheckoutPlan | null>(null);
+
+  // Compute pricing labels once (never change during session)
+  const pricing = useMemo(() => getPricingInfo(), []);
+  const { activePriceLabel, basePriceLabel, priceLabels } = useMemo(() => {
+    const tiers = getPricingTiers();
+    return {
+      activePriceLabel: formatPrice(pricing.activeAmountCents, pricing.currency),
+      basePriceLabel: formatPrice(pricing.baseAmountCents, pricing.currency),
+      priceLabels: {
+        single: formatPrice(tiers.single.amountCents, tiers.single.currency),
+        pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
+        subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
+      },
+    };
+  }, [pricing]);
+
+  const hdCreditLabel =
+    currentPlan === "subscription"
+      ? "Unlimited HD"
+      : typeof creditsRemaining === "number"
+        ? `${creditsRemaining} HD left`
+        : null;
 
   useEffect(() => {
     setMounted(true);
-    const pricingInfo = getPricingInfo();
-    setPricing(pricingInfo);
-    setActivePriceLabel(formatPrice(pricingInfo.activeAmountCents, pricingInfo.currency));
-    setBasePriceLabel(formatPrice(pricingInfo.baseAmountCents, pricingInfo.currency));
   }, []);
 
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => ({
@@ -133,12 +193,15 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutInFlight, setCheckoutInFlight] = useState(false);
+  const checkoutInFlightRef = useRef(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [autoExportPending, setAutoExportPending] = useState(false);
-  const [canvasReady, setCanvasReady] = useState(false);
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
-  const [renderMode, setRenderMode] = useState<RenderModeId>("cinematic");
+  const consumePromiseRef = useRef<Promise<boolean> | null>(null);
+  const [hdExportInFlight, setHdExportInFlight] = useState(false);
+  const hdExportInFlightRef = useRef(false);
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -160,23 +223,21 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const isDesktop = forceViewport === "desktop" ? true : forceViewport === "mobile" ? false : isDesktopQuery;
   const editorReady = mounted || Boolean(forceViewport);
 
-  const [intensity, setIntensity] = useState(isQuick ? 70 : 50);
-  const [intensityDisplay, setIntensityDisplay] = useState(isQuick ? 70 : 50);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
   const showAdvanced = isQuick ? false : showAdvancedState;
-  const locationName = location.name?.trim() ?? "";
-  const hasDate = Number.isFinite(new Date(dateTime).getTime());
-  const canReveal = Boolean(locationName) && hasDate;
   const previewRef = useRef<HTMLDivElement>(null);
   const inputsRef = useRef<HTMLDivElement>(null);
   const presetRailRef = useRef<HTMLDivElement>(null);
   const dateLocationRef = useRef<HTMLDivElement>(null);
-  const [presetHint, setPresetHint] = useState<string | null>(null);
-  const presetHintTimerRef = useRef<number | null>(null);
-  const [customOccasion, setCustomOccasion] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Wrap hook's applyPreset to scroll to dateLocationRef
+  const applyPreset = useCallback(
+    (id: string) => {
+      hookApplyPreset(id, dateLocationRef.current);
+    },
+    [hookApplyPreset]
+  );
 
   useEffect(() => {
     setCollapsedCards((prev) => {
@@ -226,64 +287,113 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     try {
       const res = await fetch("/api/premium", { cache: "no-store" });
       if (!res.ok) return false;
-      const data = (await res.json()) as { paid?: boolean };
+      const data = (await res.json()) as {
+        paid?: boolean;
+        creditsRemaining?: number | null;
+        plan?: CheckoutPlan | null;
+      };
       const nextPaid = Boolean(data.paid);
       setPaid(nextPaid);
+      setCreditsRemaining(typeof data.creditsRemaining === "number" ? data.creditsRemaining : null);
+      setCurrentPlan(
+        data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null,
+      );
       return nextPaid;
     } catch {
       return false;
     }
   }, [setPaid]);
 
+  const consumeHdCredit = useCallback(async () => {
+    if (consumePromiseRef.current) return consumePromiseRef.current;
+    const promise = (async () => {
+      try {
+        const token =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const res = await fetch("/api/entitlements/consume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        if (!res.ok) return false;
+        const data = (await res.json()) as { creditsRemaining?: number | null; plan?: CheckoutPlan | null };
+        if (typeof data.creditsRemaining === "number") {
+          setCreditsRemaining(data.creditsRemaining);
+          setPaid(data.creditsRemaining > 0);
+        } else if (data.plan === "subscription") {
+          setCreditsRemaining(null);
+          setPaid(true);
+        }
+        return true;
+      } catch {
+        return false;
+      } finally {
+        consumePromiseRef.current = null;
+      }
+    })();
+    consumePromiseRef.current = promise;
+    return promise;
+  }, [setPaid]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const draft = localStorage.getItem(DRAFT_KEY);
-    if (draft) {
-      try {
-        // Draft may be from older versions with shapeMask in renderOptions
-        type DraftData = ReturnType<typeof buildRecipeFromState> & {
-          shape?: Shape;
-          selectedOccasion?: string | null;
-          renderOptions?: ReturnType<typeof buildRecipeFromState>["renderOptions"] & {
-            shapeMask?: string;
+    try {
+      const draft = localStorage.getItem(DRAFT_KEY);
+      if (draft) {
+        try {
+          // Draft may be from older versions with shapeMask in renderOptions
+          type DraftData = ReturnType<typeof buildRecipeFromState> & {
+            shape?: Shape;
+            selectedOccasion?: string | null;
+            renderOptions?: ReturnType<typeof buildRecipeFromState>["renderOptions"] & {
+              shapeMask?: string;
+            };
           };
-        };
-        const parsed = JSON.parse(draft) as DraftData;
-        if (parsed.datetimeISO) setDateTime(parsed.datetimeISO);
-        if (parsed.location) setLocation(parsed.location);
-        if (parsed.textBoxes?.length) setTextBoxes(parsed.textBoxes);
-        if (parsed.selectedStyle) setStyle(parsed.selectedStyle);
-        if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
-        if (parsed.selectedOccasion) {
-          setSelectedOccasion(parsed.selectedOccasion);
-          setCustomOccasion(false);
-        } else if (parsed.location?.name) {
-          setCustomOccasion(true);
+          const parsed = JSON.parse(draft) as DraftData;
+          if (parsed.datetimeISO) setDateTime(parsed.datetimeISO);
+          if (parsed.location) setLocation(parsed.location);
+          if (parsed.textBoxes?.length) setTextBoxes(parsed.textBoxes);
+          if (parsed.selectedStyle) setStyle(parsed.selectedStyle);
+          if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
+          if (parsed.selectedOccasion) {
+            setSelectedOccasion(parsed.selectedOccasion);
+            setCustomOccasion(false);
+          } else if (parsed.location?.name) {
+            setCustomOccasion(true);
+          }
+          // Handle both new (shape) and legacy (renderOptions.shapeMask) formats
+          const shapeValue = parsed.shape ?? parsed.renderOptions?.shapeMask;
+          if (shapeValue && ["rectangle", "heart", "circle", "star", "diamond"].includes(shapeValue)) {
+            setShape(shapeValue as Shape);
+          }
+          if (parsed.renderOptions) setRenderOptions(parsed.renderOptions);
+          if (parsed.location?.name) {
+            setRevealed(true);
+          } else {
+            setRevealed(false);
+          }
+        } catch {
+          // ignore bad drafts
         }
-        // Handle both new (shape) and legacy (renderOptions.shapeMask) formats
-        const shapeValue = parsed.shape ?? parsed.renderOptions?.shapeMask;
-        if (shapeValue && ["rectangle", "heart", "circle", "star", "diamond"].includes(shapeValue)) {
-          setShape(shapeValue as Shape);
-        }
-        if (parsed.renderOptions) setRenderOptions(parsed.renderOptions);
-        if (parsed.location?.name) {
-          setRevealed(true);
-        } else {
-          setRevealed(false);
-        }
-        setRestored(true);
-      } catch {
-        // ignore bad drafts
       }
+    } catch {
+      // ignore storage errors (e.g. private browsing)
     }
-    const revealedFlag = localStorage.getItem(REVEALED_FLAG);
-    if (revealedFlag === "true") {
-      setRevealed(true);
+    try {
+      const revealedFlag = localStorage.getItem(REVEALED_FLAG);
+      if (revealedFlag === "true") {
+        setRevealed(true);
+      }
+      const autoFlag = localStorage.getItem(AUTO_EXPORT_KEY);
+      if (autoFlag === "hd") {
+        setAutoExportPending(true);
+      }
+    } catch {
+      // ignore storage errors (e.g. private browsing)
     }
-    const autoFlag = localStorage.getItem(AUTO_EXPORT_KEY);
-    if (autoFlag === "hd") {
-      setAutoExportPending(true);
-    }
+    setRestored(true);
     void refreshPaidStatus();
   }, [
     setDateTime,
@@ -314,17 +424,12 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       renderOptions,
     });
     const draft = { ...recipe, selectedOccasion };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      // ignore storage errors (e.g. private browsing)
+    }
   }, [aspectRatio, dateTime, location, renderOptions, restored, selectedOccasion, selectedStyle, shape, textBoxes]);
-
-  useEffect(() => {
-    return () => {
-      if (presetHintTimerRef.current) {
-        window.clearTimeout(presetHintTimerRef.current);
-        presetHintTimerRef.current = null;
-      }
-    };
-  }, []);
 
   const toggleCard = (id: string) =>
     setCollapsedCards((prev) => ({
@@ -345,163 +450,24 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     setCollapsedCards((prev) => ({ ...prev, dateLocation: true }));
     track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
     if (typeof window !== "undefined") {
-      localStorage.setItem(REVEALED_FLAG, "true");
+      try {
+        localStorage.setItem(REVEALED_FLAG, "true");
+      } catch {
+        // ignore storage errors (e.g. private browsing)
+      }
     }
     requestAnimationFrame(() => {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, [canReveal, hasDate, setRevealed]);
 
-  const applyVisualOptions = useCallback(
-    (mode: RenderModeId, level: number) => {
-      const cfg = renderModes[mode];
-      const normalized = Math.min(Math.max(level / 100, 0), 1);
-      const starIntensity: RenderOptions["starIntensity"] =
-        normalized < 0.3 ? "subtle" : normalized < 0.7 ? "normal" : "bold";
-      const starGlow = cfg.glow + normalized * 0.2 > 0.3;
-      const visualMode: RenderOptions["visualMode"] =
-        mode === "blueprint" ? "astronomical" : mode === "cinematic" ? "illustrated" : "enhanced";
-      const constellationLines: RenderOptions["constellationLines"] =
-        mode === "blueprint" ? "thick" : "thin";
-      const planetEmphasis: RenderOptions["planetEmphasis"] = cfg.contrast > 1.15 ? "highlighted" : "normal";
-
-      setRenderOptions({
-        starIntensity,
-        starGlow,
-        visualMode,
-        constellationLines,
-        planetEmphasis,
-      });
-    },
-    [setRenderOptions],
-  );
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setIsUpdating(true);
-      setCanvasReady(false);
-      applyVisualOptions(renderMode, intensity);
-    }, 150);
-    return () => clearTimeout(t);
-  }, [applyVisualOptions, intensity, renderMode]);
-
-  useEffect(() => {
-    let next = intensityDisplay;
-    if (!paid && next > 60) {
-      next = 60;
-    }
-    if (next === intensity) return;
-    const t = setTimeout(() => setIntensity(next), 200);
-    return () => clearTimeout(t);
-  }, [intensityDisplay, paid, intensity]);
-
-  const applyPreset = useCallback(
-    (id: string) => {
-      const preset = occasionPresets.find((item) => item.id === id);
-      if (!preset) return;
-      const shouldAutofill = !locationName || !hasDate;
-      setSelectedOccasion(id);
-      setCustomOccasion(false);
-      track("occasion_selected", { preset: id, autofill: shouldAutofill });
-
-      // Always apply style, shape, textBoxes, and render options from preset
-      setTextBoxes(preset.textBoxes);
-      setStyle(preset.style);
-      setShape(preset.shape);
-      setRenderMode(preset.renderMode);
-      // Intensity is already on 0-100 scale
-      setIntensity(preset.intensity);
-      setIntensityDisplay(preset.intensity);
-      applyVisualOptions(preset.renderMode, preset.intensity);
-
-      if (shouldAutofill) {
-        // Also set date/location if user hasn't entered them yet
-        setDateTime(preset.dateTimeISO);
-        setLocation(preset.location as Parameters<typeof setLocation>[0]);
-        setPresetHint("Preset applied — edit date or location anytime.");
-      } else {
-        setPresetHint("Preset applied — date and location preserved.");
-      }
-      setRevealed(true);
-
-      if (presetHintTimerRef.current) {
-        window.clearTimeout(presetHintTimerRef.current);
-      }
-      presetHintTimerRef.current = window.setTimeout(() => {
-        setPresetHint(null);
-        presetHintTimerRef.current = null;
-      }, 2400);
-    },
-    [
-      applyVisualOptions,
-      hasDate,
-      locationName,
-      setDateTime,
-      setLocation,
-      setRevealed,
-      setShape,
-      setStyle,
-      setTextBoxes,
-    ],
-  );
-
   const applySampleMoment = useCallback(() => {
     const preset = occasionPresets.find((item) => item.id === "wedding") ?? occasionPresets[0];
     if (!preset) return;
-    setSelectedOccasion(preset.id);
-    setCustomOccasion(false);
-    setDateTime(preset.dateTimeISO);
-    setLocation(preset.location as Parameters<typeof setLocation>[0]);
-    setTextBoxes(preset.textBoxes);
-    setStyle(preset.style);
-    setShape(preset.shape);
-    setRenderMode(preset.renderMode);
-    // Intensity is already on 0-100 scale
-    setIntensity(preset.intensity);
-    setIntensityDisplay(preset.intensity);
-    applyVisualOptions(preset.renderMode, preset.intensity);
-    setRevealed(true);
+    applyPreset(preset.id);
     track("sample_moment_applied", { preset: preset.id });
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [
-    applyVisualOptions,
-    setDateTime,
-    setLocation,
-    setRevealed,
-    setShape,
-    setStyle,
-    setTextBoxes,
-  ]);
-
-  const applyProPreset = useCallback(
-    (id: string) => {
-      const preset = proPresets.find((entry) => entry.id === id);
-      if (!preset) return;
-      // Pro presets retain their intended renderMode and intensity for visual fidelity
-      setSelectedOccasion(id);
-      setCustomOccasion(false);
-      setStyle(preset.style);
-      setShape(preset.shape);
-      setAspectRatio(preset.aspectRatio);
-      setTextBoxes(preset.textBoxes);
-      setRenderMode(preset.renderMode);
-      setIntensity(preset.intensity);
-      setIntensityDisplay(preset.intensity);
-      // Apply base visual options first, then merge preset-specific overrides on top
-      applyVisualOptions(preset.renderMode, preset.intensity);
-      setRenderOptions(preset.renderOptions);
-      track("pro_preset_selected", { preset: id });
-    },
-    [
-      applyVisualOptions,
-      setAspectRatio,
-      setRenderMode,
-      setRenderOptions,
-      setShape,
-      setStyle,
-      setTextBoxes,
-    ],
-  );
+  }, [applyPreset]);
 
   const exportImage = useCallback(
     async (mode: "preview" | "hd", premiumOverride?: boolean) => {
@@ -569,11 +535,24 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
 
     let mounted = true;
     const id = requestAnimationFrame(() => {
-      exportImage("hd")
+      if (hdExportInFlightRef.current) return;
+      hdExportInFlightRef.current = true;
+      setHdExportInFlight(true);
+      consumeHdCredit()
+        .then((ok) => {
+          if (!ok) return;
+          return exportImage("hd", true);
+        })
         .catch(() => {})
         .finally(() => {
+          hdExportInFlightRef.current = false;
+          setHdExportInFlight(false);
           if (mounted) {
-            localStorage.removeItem(AUTO_EXPORT_KEY);
+            try {
+              localStorage.removeItem(AUTO_EXPORT_KEY);
+            } catch {
+              // ignore storage errors (e.g. private browsing)
+            }
             setAutoExportPending(false);
           }
         });
@@ -583,12 +562,18 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       mounted = false;
       cancelAnimationFrame(id);
     };
-  }, [autoExportPending, canvasReady, exportImage, paid]);
+  }, [autoExportPending, canvasReady, consumeHdCredit, exportImage, paid]);
 
   const handleExport = useCallback(
     async (mode: "preview" | "hd") => {
+      const isHd = mode === "hd";
+      if (isHd) {
+        if (hdExportInFlightRef.current) return;
+        hdExportInFlightRef.current = true;
+        setHdExportInFlight(true);
+      }
       let hasAccess = paid;
-      if (mode === "hd" && !paid) {
+      if (isHd && !paid) {
         hasAccess = await refreshPaidStatus();
         if (!hasAccess) {
           setPendingExport(mode);
@@ -597,28 +582,98 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
           track("paywall_view", { visualMode: renderOptions.visualMode });
           track("paywall_opened", { visualMode: renderOptions.visualMode });
           if (typeof window !== "undefined") {
-            localStorage.setItem(AUTO_EXPORT_KEY, mode);
-            if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
+            try {
+              localStorage.setItem(AUTO_EXPORT_KEY, mode);
+              if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
+            } catch {
+              // ignore storage errors (e.g. private browsing)
+            }
           }
           return;
         }
       }
-      track(mode === "hd" ? "export_hd_clicked" : "export_free_clicked", {
-        isPaid: hasAccess,
-        visualMode: renderOptions.visualMode,
-        exportResolution: mode === "hd" ? 6000 : 1200,
-      });
-      track("export_download", { type: mode === "hd" ? "hd" : "preview" });
-      exportImage(mode, hasAccess).catch(() => {});
+      try {
+        if (isHd) {
+          const consumed = await consumeHdCredit();
+          if (!consumed) {
+            setPendingExport(mode);
+            setPaywallOpen(true);
+            setCheckoutError("No HD downloads remaining. Choose a new pack or subscription.");
+            return;
+          }
+          track("export_hd_clicked", {
+            isPaid: hasAccess,
+            visualMode: renderOptions.visualMode,
+            exportResolution: 6000,
+          });
+          track("export_download", { type: "hd" });
+          await exportImage("hd", true);
+          return;
+        }
+        track("export_free_clicked", {
+          isPaid: hasAccess,
+          visualMode: renderOptions.visualMode,
+          exportResolution: 1200,
+        });
+        track("export_download", { type: "preview" });
+        exportImage("preview", hasAccess).catch(() => {});
+      } finally {
+        if (isHd) {
+          hdExportInFlightRef.current = false;
+          setHdExportInFlight(false);
+        }
+      }
     },
-    [exportImage, paid, refreshPaidStatus, renderOptions.visualMode, revealed],
+    [consumeHdCredit, exportImage, paid, refreshPaidStatus, renderOptions.visualMode, revealed],
   );
 
-  const startCheckout = useCallback(async () => {
+  const startCheckout = useCallback(async (plan: CheckoutPlan) => {
+    if (checkoutInFlightRef.current) return;
     try {
+      checkoutInFlightRef.current = true;
+      setCheckoutInFlight(true);
       setCheckoutError(null);
-      track("checkout_started", { visualMode: renderOptions.visualMode });
-      const res = await fetch("/api/checkout", { method: "POST" });
+      track("checkout_started", { visualMode: renderOptions.visualMode, plan });
+      let mapId: string | null = null;
+      try {
+        const recipe = buildRecipeFromState({
+          dateTime,
+          location,
+          textBoxes,
+          selectedStyle,
+          aspectRatio,
+          shape,
+          renderOptions,
+        });
+        const mapRes = await fetch("/api/maps", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(recipe),
+        });
+        if (mapRes.ok) {
+          const data = (await mapRes.json()) as { id?: string };
+          if (typeof data.id === "string" && data.id.trim()) {
+            mapId = data.id.trim();
+            try {
+              localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+            } catch {
+              // ignore storage errors (e.g. private browsing)
+            }
+          }
+        }
+      } catch {
+        // Map persistence is best-effort; proceed to checkout even if it fails.
+      }
+
+      const checkoutPayload: { mapId?: string; plan: CheckoutPlan } = { plan };
+      if (mapId) checkoutPayload.mapId = mapId;
+      const checkoutInit: RequestInit = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(checkoutPayload),
+      };
+
+      const res = await fetch("/api/checkout", checkoutInit);
       if (!res.ok) throw new Error("checkout failed");
       const data = (await res.json()) as { url?: string };
       if (data.url) {
@@ -630,8 +685,19 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       console.error(err);
       setCheckoutError("Checkout is unavailable right now. Please try again shortly.");
       track("checkout_failed", { reason: (err as Error)?.message ?? "unknown" });
+      checkoutInFlightRef.current = false;
+      setCheckoutInFlight(false);
     }
-  }, [renderOptions.visualMode]);
+  }, [
+    aspectRatio,
+    dateTime,
+    location,
+    renderOptions,
+    selectedStyle,
+    shape,
+    textBoxes,
+    renderOptions.visualMode,
+  ]);
 
   const handleShare = useCallback(async () => {
     const recipe = buildRecipeFromState({
@@ -964,46 +1030,10 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
 
                     {/* Pro Presets - SECOND (optional styling) */}
                     {(showGuidedForm || showEditor) && (
-                      <div className="hidden lg:block rounded-2xl border border-white/15 bg-white/5 p-3 shadow-sm shadow-black/30 backdrop-blur-sm">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-sm font-semibold text-amber-100/90">Pro Presets</h3>
-                            <p className="text-xs text-neutral-200/80">Curated looks with balanced typography.</p>
-                          </div>
-                          <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-100/80">
-                            New
-                          </span>
-                        </div>
-                        <div className="mt-3 grid gap-2 lg:grid-cols-4">
-                          {proPresets.map((preset) => (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              onClick={() => applyProPreset(preset.id)}
-                              className={`group overflow-hidden rounded-xl border bg-[#0b0f24]/80 text-left shadow-sm transition hover:-translate-y-[2px] hover:border-[#d7b56c]/40 hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ${
-                                selectedOccasion === preset.id
-                                  ? "border-amber-300/70 ring-1 ring-amber-300/30"
-                                  : "border-white/10"
-                              }`}
-                            >
-                              <div className="relative aspect-[4/5] overflow-hidden">
-                                <Image
-                                  src={preset.thumbnail}
-                                  alt={preset.label}
-                                  fill
-                                  loading="lazy"
-                                  className="object-cover transition duration-300 group-hover:scale-[1.02]"
-                                  sizes="(min-width: 1024px) 180px, 45vw"
-                                />
-                              </div>
-                              <div className="border-t border-white/10 px-3 py-2">
-                                <div className="text-sm font-semibold text-white">{preset.label}</div>
-                                <div className="text-xs text-neutral-300">{preset.note}</div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <ProPresetsPanel
+                        selectedOccasion={selectedOccasion}
+                        onSelect={applyProPreset}
+                      />
                     )}
                     </div>
 
@@ -1454,182 +1484,16 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                   </span>
                                 </button>
                               {!collapsedCards.advanced && (
-                                <div className="mt-2 space-y-3">
-                                  <div className="space-y-1">
-                                    <label className="text-[10px] text-neutral-300">Constellation Lines</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                      {constellationPresets.map((preset) => (
-                                        <button
-                                          key={preset.id}
-                                          type="button"
-                                          onClick={() => setRenderOptions({ constellationLines: preset.id })}
-                                          className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                                            renderOptions.constellationLines === preset.id
-                                              ? "border-amber-300 bg-amber-100 !text-midnight"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          {preset.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  {renderOptions.constellationLines !== "off" && (
-                                    <>
-                                      <div className="space-y-1">
-                                        <label className="text-[10px] text-neutral-300">Line Color</label>
-                                        <input
-                                          type="color"
-                                          value={renderOptions.constellationColor || "#ffffff"}
-                                          onChange={(e) => setRenderOptions({ constellationColor: e.target.value })}
-                                          className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
-                                        />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className="text-[10px] text-neutral-300">
-                                          Line Scale: {renderOptions.constellationLineScale || 1}
-                                        </label>
-                                        <input
-                                          type="range"
-                                          min={0.5}
-                                          max={2}
-                                          step={0.1}
-                                          value={renderOptions.constellationLineScale || 1}
-                                          onChange={(e) =>
-                                            setRenderOptions({ constellationLineScale: Number(e.target.value) })
-                                          }
-                                          aria-label="Constellation line scale"
-                                          aria-valuetext={`Line scale: ${renderOptions.constellationLineScale || 1}`}
-                                          className="w-full accent-amber-400"
-                                        />
-                                      </div>
-                                    </>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setRenderOptions({ constellationLabels: !renderOptions.constellationLabels })
-                                    }
-                                    className={`w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                                      renderOptions.constellationLabels
-                                        ? "border-amber-300 bg-amber-100 !text-midnight"
-                                        : "border-white/15 bg-white/10 text-white"
-                                    }`}
-                                  >
-                                    {renderOptions.constellationLabels ? "Labels On" : "Labels Off"}
-                                  </button>
-
-                                  <div className="space-y-1">
-                                    <label className="text-[10px] text-neutral-300">Visual Mode</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                      {visualModes.map((mode) => (
-                                        <button
-                                          key={mode.id}
-                                          type="button"
-                                          onClick={() => setRenderOptions({ visualMode: mode.id })}
-                                          className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                                            renderOptions.visualMode === mode.id
-                                              ? "border-amber-300 bg-amber-100 !text-midnight"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          {mode.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <label className="text-[10px] text-neutral-300">Preview Fidelity</label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                      {[
-                                        { id: "standard", label: "Standard" },
-                                        { id: "high", label: "High" },
-                                      ].map((preset) => (
-                                        <button
-                                          key={preset.id}
-                                          type="button"
-                                          onClick={() =>
-                                            setPreviewFidelity(preset.id as "standard" | "high")
-                                          }
-                                          className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                                            previewFidelity === preset.id
-                                              ? "border-amber-300 bg-amber-100 !text-midnight"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          {preset.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <label className="text-[10px] text-neutral-300">Premium Stars</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                      {[
-                                        { id: "off", label: "Off" },
-                                        { id: "subtle", label: "Subtle" },
-                                        { id: "realistic", label: "Realistic" },
-                                      ].map((preset) => (
-                                        <button
-                                          key={preset.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setRenderOptions({ premiumStars: preset.id as RenderOptions["premiumStars"] });
-                                            if (!paid && preset.id !== "off") {
-                                              track("premium_preview_enabled", { feature: "stars", level: preset.id });
-                                            }
-                                          }}
-                                          className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                                            renderOptions.premiumStars === preset.id
-                                              ? "border-amber-300 bg-amber-100 !text-midnight"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          {!paid && preset.id !== "off" ? "🔒 " : ""}
-                                          {preset.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <label className="text-[10px] text-neutral-300">Premium Planets</label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                      {[
-                                        { id: "off", label: "Off" },
-                                        { id: "realistic", label: "Realistic" },
-                                      ].map((preset) => (
-                                        <button
-                                          key={preset.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setRenderOptions({
-                                              premiumPlanets: preset.id as RenderOptions["premiumPlanets"],
-                                            });
-                                            if (!paid && preset.id !== "off") {
-                                              track("premium_preview_enabled", {
-                                                feature: "planets",
-                                                level: preset.id,
-                                              });
-                                            }
-                                          }}
-                                          className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                                            renderOptions.premiumPlanets === preset.id
-                                              ? "border-amber-300 bg-amber-100 !text-midnight"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          {!paid && preset.id !== "off" ? "🔒 " : ""}
-                                          {preset.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
+                                <AdvancedPanel
+                                  renderOptions={renderOptions}
+                                  setRenderOptions={setRenderOptions}
+                                  previewFidelity={previewFidelity}
+                                  setPreviewFidelity={setPreviewFidelity}
+                                  paid={paid}
+                                  onPremiumPreview={(feature, level) =>
+                                    track("premium_preview_enabled", { feature, level })
+                                  }
+                                />
                               )}
                               </section>
                             </div>
@@ -1661,7 +1525,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                           : {
                               backgroundColor: "#0b0f3b",
                               backgroundImage:
-                                "url('/ribbon-overlay.png'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
+                                "url('/ribbon-overlay.webp'), radial-gradient(circle at 50% 65%, rgba(28, 34, 94, 0.55), rgba(7, 9, 26, 0.98))",
                               backgroundRepeat: "no-repeat, no-repeat",
                               backgroundSize: "100% auto, cover",
                               backgroundPosition: "center 26px, center",
@@ -1755,11 +1619,17 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                             type="button"
                             onClick={() => void handleExport("hd")}
                             aria-label="HD export"
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                            disabled={hdExportInFlight}
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                             title="Unlock to export HD without watermark; preview stays free."
                           >
-                            {!paid && "🔒 "}HD ⬇️
+                            {hdExportInFlight ? "Preparing..." : `${!paid ? "🔒 " : ""}HD ⬇️`}
                           </button>
+                          {hdCreditLabel && (
+                            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
+                              {hdCreditLabel}
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={handleShareImage}
@@ -1805,11 +1675,17 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                     type="button"
                     onClick={() => void handleExport("hd")}
                     aria-label="HD export"
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                    disabled={hdExportInFlight}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                     title="Unlock to export HD without watermark; preview stays free."
                   >
-                    {!paid && "🔒 "}HD ⬇️
+                    {hdExportInFlight ? "Preparing..." : `${!paid ? "🔒 " : ""}HD ⬇️`}
                   </button>
+                  {hdCreditLabel && (
+                    <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
+                      {hdCreditLabel}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={handleShareImage}
@@ -1834,6 +1710,15 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                     Customize more
                   </button>
                 </div>
+                {(currentPlan === "subscription" || typeof creditsRemaining === "number") && (
+                  <p className="mt-2 text-[11px] text-neutral-300">
+                    {currentPlan === "subscription"
+                      ? "Unlimited HD downloads on your active subscription."
+                      : typeof creditsRemaining === "number"
+                        ? `${creditsRemaining} HD download${creditsRemaining === 1 ? "" : "s"} remaining.`
+                        : "HD downloads available."}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -1850,64 +1735,126 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
               }}
               variant={variant}
               onCustomizeMore={handleCustomizeMore}
+              creditsRemaining={creditsRemaining}
+              currentPlan={currentPlan}
             />
           </div>
         )}
       </section>
-      {paywallOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25">
-            <h3 className="text-lg font-semibold text-midnight">Download your print-ready star map</h3>
-            <ul className="mt-3 space-y-1 text-sm text-neutral-700">
-              <li>• 6000px high resolution (poster quality)</li>
-              <li>• No watermark</li>
-              <li>• Instant digital download</li>
-              <li>
-                • One-time payment —{" "}
-                {pricing.promoActive && pricing.promoAmountCents != null ? (
-                  <span>
-                    <span className="line-through opacity-70">{basePriceLabel}</span>{" "}
-                    <span className="font-semibold text-amber-800">{activePriceLabel}</span>
-                  </span>
-                ) : (
-                  <span className="font-semibold text-amber-800">{activePriceLabel}</span>
-                )}{" "}
-                {pricing.currency.toUpperCase()}
-              </li>
-              <li className="text-xs text-neutral-500">Secure checkout · No subscription</li>
-              <li className="text-xs text-neutral-700">One-time payment: Instant access, no recurring fees.</li>
-              <li className="text-xs text-neutral-700">Instant download: HD files ready immediately.</li>
-              <li className="text-xs text-neutral-700">
-                Satisfaction guarantee: Email support@starmapco.com for issues—refunds for technical errors.
-              </li>
-            </ul>
-            <p className="mt-2 text-xs font-semibold text-neutral-600">
-              Early access: No reviews yet—we focus on accuracy and your satisfaction.
-            </p>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPaywallOpen(false);
-                  setPendingExport(null);
-                  setCheckoutError(null);
-                }}
-                className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={startCheckout}
-                className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
-              >
-                Continue to secure checkout
-              </button>
-            </div>
-            {checkoutError && <p className="mt-2 text-sm font-semibold text-rose-700">{checkoutError}</p>}
-          </div>
-        </div>
-      )}
+      {paywallOpen && mounted && typeof document !== "undefined"
+        ? createPortal(
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8 overflow-y-auto">
+              <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25 max-h-[90vh] overflow-y-auto">
+                <h3 className="text-lg font-semibold text-midnight">Download your print-ready star map</h3>
+                <p className="mt-2 text-xs text-neutral-700">
+                  Choose the option that fits how many HD downloads you need right now.
+                </p>
+                <ul className="mt-3 space-y-1 text-xs text-neutral-700">
+                  <li>• 6000px high resolution (poster quality)</li>
+                  <li>• No watermark</li>
+                  <li>• Instant digital download</li>
+                </ul>
+
+                <div className="mt-4 grid gap-3 text-sm">
+                  <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-midnight">Single HD</p>
+                        <p className="text-xs text-neutral-600">1 print-ready download</p>
+                      </div>
+                      <div className="text-right text-sm font-semibold text-amber-800">
+                        {pricing.promoActive && pricing.promoAmountCents != null ? (
+                          <span>
+                            <span className="line-through opacity-70">{basePriceLabel}</span>{" "}
+                            <span>{activePriceLabel}</span>
+                          </span>
+                        ) : (
+                          <span>{priceLabels.single}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void startCheckout("single")}
+                      disabled={checkoutInFlight}
+                      className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                    >
+                      {checkoutInFlight ? "Starting checkout..." : "Continue with single"}
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-midnight">3-pack</p>
+                        <p className="text-xs text-neutral-600">3 HD downloads</p>
+                      </div>
+                      <div className="text-right text-sm font-semibold text-amber-800">
+                        {priceLabels.pack3}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void startCheckout("pack3")}
+                      disabled={checkoutInFlight}
+                      className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                    >
+                      Get 3 downloads
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-midnight">Unlimited monthly</p>
+                          <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-midnight">
+                            Best value
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-700">Unlimited HD exports • cancel anytime</p>
+                      </div>
+                      <div className="text-right text-sm font-semibold text-amber-900">
+                        {priceLabels.subscription}
+                        <span className="text-xs text-amber-900/70">/mo</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void startCheckout("subscription")}
+                      disabled={checkoutInFlight}
+                      className="mt-3 w-full rounded-full bg-[#0b1433] px-4 py-2 text-sm font-semibold text-amber-100 shadow-md transition hover:-translate-y-[1px] hover:bg-[#0b1a40] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                    >
+                      {checkoutInFlight ? "Starting checkout..." : "Start unlimited"}
+                    </button>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-[11px] text-neutral-600">
+                  Secure checkout. Subscription can be canceled anytime. Need help? Email support@starmapco.com.
+                </p>
+                <p className="mt-2 text-xs font-semibold text-neutral-600">
+                  Early access: No reviews yet—we focus on accuracy and your satisfaction.
+                </p>
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaywallOpen(false);
+                      setPendingExport(null);
+                      setCheckoutError(null);
+                    }}
+                    className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {checkoutError && <p className="mt-2 text-sm font-semibold text-rose-700">{checkoutError}</p>}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
       {shareLink && (
         <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-xl -translate-x-1/2 rounded-full bg-[rgba(247,241,227,0.95)] px-4 py-2 text-center text-xs font-semibold text-neutral-800 shadow-lg">
           Link copied: {shareLink}

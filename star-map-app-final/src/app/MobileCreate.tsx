@@ -7,12 +7,14 @@ import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { EditorDrawer } from "@/components/EditorDrawer";
 import { occasionPresets } from "@/lib/occasionPresets";
-import { renderModes, type RenderModeId } from "@/lib/renderModes";
+import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
 import { proPresets } from "@/lib/proPresets";
 import { track } from "@/lib/analytics";
-import { useShallow } from "zustand/react/shallow";
+import Image from "next/image";
+import type { CheckoutPlan } from "@/lib/pricing";
+import { useEditorLogic } from "@/hooks/useEditorLogic";
 
 interface MobileCreateProps {
   onExport: (mode: "preview" | "hd") => void | Promise<void>;
@@ -21,6 +23,8 @@ interface MobileCreateProps {
   onCanvasReady?: () => void;
   variant?: "quick" | "full";
   onCustomizeMore?: () => void;
+  creditsRemaining?: number | null;
+  currentPlan?: CheckoutPlan | null;
 }
 
 export function MobileCreate({
@@ -30,7 +34,10 @@ export function MobileCreate({
   onCanvasReady,
   variant = "full",
   onCustomizeMore,
+  creditsRemaining = null,
+  currentPlan = null,
 }: MobileCreateProps) {
+  // Use shared editor logic hook
   const {
     dateTime,
     setDateTime,
@@ -54,38 +61,30 @@ export function MobileCreate({
     revealed,
     setRevealed,
     paid,
-  } = useStore(
-    useShallow((state) => ({
-      dateTime: state.dateTime,
-      setDateTime: state.setDateTime,
-      location: state.location,
-      setLocation: state.setLocation,
-      textBoxes: state.textBoxes,
-      setTextBoxes: state.setTextBoxes,
-      updateTextBox: state.updateTextBox,
-      removeTextBox: state.removeTextBox,
-      addTextBox: state.addTextBox,
-      selectedStyle: state.selectedStyle,
-      setStyle: state.setStyle,
-      shape: state.shape,
-      setShape: state.setShape,
-      aspectRatio: state.aspectRatio,
-      setAspectRatio: state.setAspectRatio,
-      renderOptions: state.renderOptions,
-      setRenderOptions: state.setRenderOptions,
-      previewFidelity: state.previewFidelity,
-      setPreviewFidelity: state.setPreviewFidelity,
-      revealed: state.revealed,
-      setRevealed: state.setRevealed,
-      paid: state.paid,
-    })),
-  );
+    // Local editor state from hook
+    renderMode,
+    setRenderMode,
+    intensity,
+    setIntensity,
+    intensityDisplay,
+    setIntensityDisplay,
+    selectedOccasion,
+    setSelectedOccasion,
+    customOccasion,
+    setCustomOccasion,
+    presetHint,
+    setPresetHint,
+    // Derived state
+    locationName,
+    hasDate,
+    canReveal,
+    // Actions
+    applyVisualOptions,
+    applyPreset: hookApplyPreset,
+    applyProPreset,
+  } = useEditorLogic({ variant });
 
   const isQuick = variant === "quick";
-  const [renderMode, setRenderMode] = useState<RenderModeId>("cinematic");
-  const [intensity, setIntensity] = useState(isQuick ? 70 : 50);
-  const [intensityDisplay, setIntensityDisplay] = useState(isQuick ? 70 : 50);
-  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
   const showAdvanced = isQuick ? false : showAdvancedState;
   const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
@@ -96,16 +95,16 @@ export function MobileCreate({
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
-  const [presetHint, setPresetHint] = useState<string | null>(null);
-  const presetHintTimerRef = useRef<number | null>(null);
-  const [customOccasion, setCustomOccasion] = useState(false);
 
-  const locationName = location.name?.trim() ?? "";
-  const hasDate = Number.isFinite(new Date(dateTime).getTime());
-  const canReveal = Boolean(locationName) && hasDate;
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
+  const hdCreditLabel =
+    currentPlan === "subscription"
+      ? "Unlimited HD"
+      : typeof creditsRemaining === "number"
+        ? `${creditsRemaining} HD left`
+        : null;
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -121,122 +120,23 @@ export function MobileCreate({
     });
   }, [textBoxes]);
 
-  // Apply visual options based on render mode and intensity
-  // MATCHES DESKTOP SEMANTICS - mirrors existing desktop mappings from page.tsx
-  const applyVisualOptions = useCallback(
-    (mode: RenderModeId, level: number) => {
-      const cfg = renderModes[mode];
-      const normalized = Math.min(Math.max(level / 100, 0), 1);
-      const starIntensity: RenderOptions["starIntensity"] =
-        normalized < 0.3 ? "subtle" : normalized < 0.7 ? "normal" : "bold";
-      const starGlow = cfg.glow + normalized * 0.2 > 0.3;
-      const visualMode: RenderOptions["visualMode"] =
-        mode === "blueprint" ? "astronomical" : mode === "cinematic" ? "illustrated" : "enhanced";
-      const constellationLines: RenderOptions["constellationLines"] =
-        mode === "blueprint" ? "thick" : "thin";
-      const planetEmphasis: RenderOptions["planetEmphasis"] = cfg.contrast > 1.15 ? "highlighted" : "normal";
-
-      setRenderOptions({
-        starIntensity,
-        starGlow,
-        visualMode,
-        constellationLines,
-        planetEmphasis,
-      });
-    },
-    [setRenderOptions],
-  );
-
+  // Wrap hook's applyPreset to scroll to mobile preview
   const applyPreset = useCallback(
     (id: string) => {
-      const preset = occasionPresets.find((p) => p.id === id);
-      if (!preset) return;
-      const shouldAutofill = !locationName || !hasDate;
-      setSelectedOccasion(id);
-      setCustomOccasion(false);
-      track("occasion_selected", { preset: id, autofill: shouldAutofill });
-
-      // Always apply style, shape, textBoxes, and render options from preset
-      setTextBoxes(preset.textBoxes);
-      setStyle(preset.style);
-      setShape(preset.shape);
-      setRenderMode(preset.renderMode);
-      // Intensity is already on 0-100 scale
-      setIntensity(preset.intensity);
-      setIntensityDisplay(preset.intensity);
-      applyVisualOptions(preset.renderMode, preset.intensity);
-
-      if (shouldAutofill) {
-        // Also set date/location if user hasn't entered them yet
-        setDateTime(preset.dateTimeISO);
-        setLocation(preset.location as Parameters<typeof setLocation>[0]);
-        setPresetHint("Preset applied — edit date or location anytime.");
-      } else {
-        setPresetHint("Preset applied — date and location preserved.");
-      }
-      setRevealed(true);
-      setTimeout(() => {
-        document.getElementById("mobile-preview")?.scrollIntoView({
-          behavior: "smooth",
-        });
-      }, 100);
-
-      if (presetHintTimerRef.current) {
-        window.clearTimeout(presetHintTimerRef.current);
-      }
-      presetHintTimerRef.current = window.setTimeout(() => {
-        setPresetHint(null);
-        presetHintTimerRef.current = null;
-      }, 2400);
+      hookApplyPreset(id, document.getElementById("mobile-preview"));
     },
-    [
-      applyVisualOptions,
-      hasDate,
-      locationName,
-      setDateTime,
-      setLocation,
-      setRenderMode,
-      setShape,
-      setStyle,
-      setTextBoxes,
-    ],
+    [hookApplyPreset]
   );
-
-  const applyProPreset = useCallback(
-    (id: string) => {
-      const preset = proPresets.find((entry) => entry.id === id);
-      if (!preset) return;
-      // Pro presets retain their intended renderMode and intensity for visual fidelity
-      setSelectedOccasion(id);
-      setCustomOccasion(false);
-      setStyle(preset.style);
-      setShape(preset.shape);
-      setAspectRatio(preset.aspectRatio);
-      setTextBoxes(preset.textBoxes);
-      setRenderMode(preset.renderMode);
-      setIntensity(preset.intensity);
-      setIntensityDisplay(preset.intensity);
-      // Apply base visual options first, then merge preset-specific overrides on top
-      applyVisualOptions(preset.renderMode, preset.intensity);
-      setRenderOptions(preset.renderOptions);
-      track("pro_preset_selected", { preset: id });
-    },
-    [applyVisualOptions, setAspectRatio, setRenderMode, setRenderOptions, setShape, setStyle, setTextBoxes],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (presetHintTimerRef.current) {
-        window.clearTimeout(presetHintTimerRef.current);
-        presetHintTimerRef.current = null;
-      }
-    };
-  }, []);
 
   // Restore selectedOccasion from draft on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const draft = localStorage.getItem("star-map-draft");
+    let draft: string | null = null;
+    try {
+      draft = localStorage.getItem("star-map-draft");
+    } catch {
+      return;
+    }
     if (draft) {
       try {
         const parsed = JSON.parse(draft) as { selectedOccasion?: string | null };
@@ -255,12 +155,21 @@ export function MobileCreate({
   // Sync selectedOccasion to draft when it changes
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const draft = localStorage.getItem("star-map-draft");
+    let draft: string | null = null;
+    try {
+      draft = localStorage.getItem("star-map-draft");
+    } catch {
+      return;
+    }
     if (draft) {
       try {
         const parsed = JSON.parse(draft) as Record<string, unknown>;
         parsed.selectedOccasion = selectedOccasion;
-        localStorage.setItem("star-map-draft", JSON.stringify(parsed));
+        try {
+          localStorage.setItem("star-map-draft", JSON.stringify(parsed));
+        } catch {
+          // Ignore storage errors
+        }
       } catch {
         // Ignore parse errors
       }
@@ -526,13 +435,13 @@ export function MobileCreate({
                 }`}
               >
                 <div className="relative aspect-[4/5] overflow-hidden">
-                  <img
+                  <Image
                     src={preset.thumbnail}
                     alt={preset.label}
+                    fill
                     loading="lazy"
-                    width={120}
-                    height={150}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    sizes="(min-width: 640px) 180px, 45vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
                 <div className="border-t border-white/10 px-2 py-2">
@@ -1148,6 +1057,13 @@ export function MobileCreate({
                 {!paid && "🔒 "}HD ⬇️
               </button>
             </div>
+            {hdCreditLabel && (
+              <div className="mt-2 flex justify-end">
+                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
+                  {hdCreditLabel}
+                </span>
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">

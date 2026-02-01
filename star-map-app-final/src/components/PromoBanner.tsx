@@ -17,10 +17,6 @@ export default function PromoBanner() {
   }, []);
 
   useEffect(() => {
-    pricingRef.current = pricing;
-  }, [pricing]);
-
-  useEffect(() => {
     if (!pricing?.promoActive || !pricing?.promoEnd) return;
 
     const updateCountdown = () => {
