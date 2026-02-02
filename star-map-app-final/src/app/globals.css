@@ -761,6 +761,26 @@ input[type="range"]:hover::-moz-range-thumb {
   box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15), 0 0 20px rgba(251, 191, 36, 0.1);
 }
 
+/* Keep native iOS date/time controls inside card bounds on narrow screens. */
+.ios-form-control {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+@supports (-webkit-touch-callout: none) {
+  input[type="date"].ios-form-control,
+  input[type="time"].ios-form-control {
+    max-width: 100%;
+  }
+
+  input[type="date"].ios-form-control::-webkit-date-and-time-value,
+  input[type="time"].ios-form-control::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+  }
+}
+
 /* Card hover glow effect */
 .card-hover-glow {
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;

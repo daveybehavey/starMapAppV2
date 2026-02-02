@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
-import { buildRecipeFromState, renderStarMap, aspectRatioToNumber, type MapRecipe } from "@/lib/renderSky";
+import {
+  buildRecipeFromState,
+  renderStarMap,
+  aspectRatioToNumber,
+  formatDateTimeForLocation,
+  type MapRecipe,
+} from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";
@@ -79,10 +85,12 @@ const SAMPLE_RECIPE: MapRecipe = {
 type EditorMode = "sample" | "customizing";
 
 const DRAFT_STORAGE_KEY = "starmap-simplified-draft";
+const DEFAULT_EXACT_TIME = "00:00:00";
 
 export function SimplifiedEditor() {
   const [mode, setMode] = useState<EditorMode>("sample");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showExactTime, setShowExactTime] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [hdExporting, setHdExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -256,12 +264,29 @@ export function SimplifiedEditor() {
         return;
       }
       setDateError(null);
-      const newDate = new Date(nextValue);
-      if (!isNaN(newDate.getTime())) {
-        setDateTime(newDate.toISOString());
+      const currentTime = getDateTimeInputValues(dateTime, location.timezone).exactTimeValue;
+      const iso = combineDateTime(nextValue, currentTime, location.timezone);
+      if (iso) {
+        setDateTime(iso);
       }
     },
-    [maxDateValue, setDateTime]
+    [dateTime, location.timezone, maxDateValue, setDateTime]
+  );
+
+  const handleExactTimeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const nextTimeValue = e.target.value;
+      const targetDateValue = getDateTimeInputValues(dateTime, location.timezone).dateInputValue || toISODate(new Date());
+      const iso = combineDateTime(
+        targetDateValue,
+        nextTimeValue ? `${nextTimeValue}:00` : DEFAULT_EXACT_TIME,
+        location.timezone
+      );
+      if (iso) {
+        setDateTime(iso);
+      }
+    },
+    [dateTime, location.timezone, setDateTime]
   );
 
   const handleTitleChange = useCallback(
@@ -552,10 +577,18 @@ export function SimplifiedEditor() {
     { id: "star", name: "Star", icon: "★" },
   ];
 
-  // Format date for input
-  const dateInputValue = dateTime
-    ? new Date(dateTime).toISOString().split("T")[0]
-    : "";
+  const { dateInputValue, exactTimeValue } = useMemo(
+    () => getDateTimeInputValues(dateTime, location.timezone),
+    [dateTime, location.timezone]
+  );
+  const exactTimeInputValue = exactTimeValue === DEFAULT_EXACT_TIME ? "" : exactTimeValue.slice(0, 5);
+  const hasCustomExactTime = exactTimeValue !== DEFAULT_EXACT_TIME;
+  const exactTimeDisplayLabel = formatTimeLabel(exactTimeValue);
+  const exactTimeToggleLabel = showExactTime
+    ? "Hide exact time"
+    : hasCustomExactTime
+      ? `Edit exact time (${exactTimeDisplayLabel})`
+      : "+ Add exact time (optional)";
   const titleTrimmed = title.trim();
   const titleIsValid = titleTrimmed.length > 0 && titleTrimmed.length <= 100;
   const dateIsValid = !dateError && (!dateInputValue || dateInputValue <= maxDateValue);
@@ -615,13 +648,13 @@ export function SimplifiedEditor() {
       {/* Form Section */}
       <div
         ref={formRef}
-        className={`flex flex-col gap-5 lg:w-[380px] xl:w-[420px] ${
+        className={`min-w-0 flex flex-col gap-5 lg:w-[380px] xl:w-[420px] ${
           mode === "sample" ? "opacity-60" : "opacity-100"
         } transition-opacity duration-300`}
         aria-disabled={mode === "sample"}
       >
         <form
-          className="glass-panel rounded-2xl p-5 sm:p-6"
+          className="glass-panel min-w-0 rounded-2xl p-5 sm:p-6"
           onSubmit={(e) => e.preventDefault()}
           aria-label="Star map customization form"
         >
@@ -630,7 +663,7 @@ export function SimplifiedEditor() {
           </h3>
 
           {/* Date Input */}
-          <div className="mb-4">
+          <div className="mb-4 min-w-0">
             <label
               htmlFor={`${formId}-date`}
               className="mb-1.5 block text-sm font-medium text-amber-100/80"
@@ -647,7 +680,7 @@ export function SimplifiedEditor() {
               disabled={mode === "sample"}
               aria-invalid={showDateError}
               aria-describedby={`${formId}-date-hint${showDateError ? ` ${formId}-date-error` : ""}`}
-              className="input-glow w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
             <span id={`${formId}-date-hint`} className="sr-only">
               Select the date of your special moment
@@ -656,6 +689,40 @@ export function SimplifiedEditor() {
               <p id={`${formId}-date-error`} className="mt-1 text-[10px] text-red-300">
                 {dateError ?? "Please choose a valid date."}
               </p>
+            )}
+            {mode === "customizing" && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowExactTime((prev) => !prev)}
+                  aria-expanded={showExactTime}
+                  aria-controls={`${formId}-exact-time`}
+                  className="text-xs text-amber-400/80 transition hover:text-amber-300 focus:outline-none focus:underline"
+                >
+                  {exactTimeToggleLabel}
+                </button>
+                {showExactTime && (
+                  <div id={`${formId}-exact-time`} className="mt-2 min-w-0">
+                    <label
+                      htmlFor={`${formId}-time`}
+                      className="mb-1.5 block text-xs font-medium text-amber-100/70"
+                    >
+                      Exact time
+                    </label>
+                    <input
+                      id={`${formId}-time`}
+                      type="time"
+                      step={60}
+                      value={exactTimeInputValue}
+                      onChange={handleExactTimeChange}
+                      className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none"
+                    />
+                    <p className="mt-1 text-[10px] text-white/50">
+                      Leave blank to default to midnight
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -903,3 +970,121 @@ export function SimplifiedEditor() {
 }
 
 export default SimplifiedEditor;
+
+function formatDateInput(date: Date) {
+  if (!Number.isFinite(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatTimeInput(date: Date) {
+  if (!Number.isFinite(date.getTime())) return DEFAULT_EXACT_TIME;
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  const s = String(date.getSeconds()).padStart(2, "0");
+  return `${h}:${m}:${s}`;
+}
+
+function combineDateTime(date: string, time: string, timezone?: string) {
+  if (!date) return null;
+  const normalizedTime = normalizeTimeInput(time);
+
+  if (!timezone || timezone === "UTC") {
+    const combined = new Date(`${date}T${normalizedTime}`);
+    if (!Number.isFinite(combined.getTime())) return null;
+    return combined.toISOString();
+  }
+
+  try {
+    const [yearStr, monthStr, dayStr] = date.split("-");
+    const [hourStr, minuteStr] = normalizedTime.split(":");
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    const day = Number(dayStr);
+    const hour = Number(hourStr);
+    const minute = Number(minuteStr);
+
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(month) ||
+      !Number.isFinite(day) ||
+      !Number.isFinite(hour) ||
+      !Number.isFinite(minute)
+    ) {
+      return null;
+    }
+
+    const testDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    const parts = formatter.formatToParts(testDate);
+    const localYear = Number(parts.find((p) => p.type === "year")?.value);
+    const localMonth = Number(parts.find((p) => p.type === "month")?.value);
+    const localDay = Number(parts.find((p) => p.type === "day")?.value);
+    const localHour = Number(parts.find((p) => p.type === "hour")?.value);
+    const localMinute = Number(parts.find((p) => p.type === "minute")?.value);
+
+    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
+    const utcMs = testDate.getTime();
+    const offsetMs = utcMs - localMs;
+
+    const targetLocalMs = Date.UTC(year, month - 1, day, hour, minute, 0);
+    const result = new Date(targetLocalMs + offsetMs);
+
+    if (!Number.isFinite(result.getTime())) return null;
+    return result.toISOString();
+  } catch (error) {
+    console.warn("Failed to convert timezone in combineDateTime:", timezone, error);
+    const combined = new Date(`${date}T${normalizedTime}`);
+    if (!Number.isFinite(combined.getTime())) return null;
+    return combined.toISOString();
+  }
+}
+
+function normalizeTimeInput(time: string) {
+  if (!time) return DEFAULT_EXACT_TIME;
+  if (time.length === 5) return `${time}:00`;
+  return time;
+}
+
+function toISODate(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatTimeLabel(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return "12:00 AM";
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour12 = ((h + 11) % 12) + 1;
+  return `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+function getDateTimeInputValues(dateTime: string, timezone?: string) {
+  const byTimezone = formatDateTimeForLocation(dateTime, timezone || "UTC");
+  if (byTimezone) {
+    return {
+      dateInputValue: byTimezone.date,
+      exactTimeValue: `${byTimezone.time}:00`,
+    };
+  }
+
+  const parsed = new Date(dateTime);
+  return {
+    dateInputValue: formatDateInput(parsed),
+    exactTimeValue: formatTimeInput(parsed),
+  };
+}
