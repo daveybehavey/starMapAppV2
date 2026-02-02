@@ -2,6 +2,7 @@ import { kv as vercelKv } from "@vercel/kv";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 type KvSetOptions = Parameters<typeof vercelKv.set>[2];
+type KvIncrOptions = { ex?: number; px?: number };
 type CloudflareKvNamespace = {
   get<T>(key: string, type: "json"): Promise<T | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
@@ -26,7 +27,7 @@ async function getCloudflareKv(): Promise<CloudflareKvNamespace | null> {
   }
 }
 
-function ttlFromOptions(options?: KvSetOptions) {
+function ttlFromOptions(options?: { ex?: number; px?: number }) {
   if (!options) return undefined;
   const ex = (options as { ex?: number }).ex;
   if (typeof ex === "number" && Number.isFinite(ex)) return Math.max(1, Math.floor(ex));
@@ -58,5 +59,27 @@ export const kv = {
       return "OK";
     }
     return (await vercelKv.set<T>(key, value, options)) as "OK";
+  },
+  async incr(key: string, by = 1, options?: KvIncrOptions): Promise<number> {
+    const cfKv = await getCloudflareKv();
+    const ttl = ttlFromOptions(options);
+    if (cfKv) {
+      const current = (await cfKv.get<number>(key, "json")) ?? 0;
+      const next = current + by;
+      await cfKv.put(key, JSON.stringify(next), ttl ? { expirationTtl: ttl } : undefined);
+      return next;
+    }
+    if (!hasVercelEnv) {
+      const current = Number(memoryStore.get(key) ?? 0);
+      const next = current + by;
+      memoryStore.set(key, next);
+      return next;
+    }
+
+    // Best effort TTL initialization for the first write in this window.
+    if (ttl) {
+      await vercelKv.set(key, 0, { ex: ttl, nx: true });
+    }
+    return vercelKv.incrby(key, by);
   },
 };

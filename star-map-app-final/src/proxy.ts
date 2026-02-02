@@ -8,7 +8,7 @@ const REDIRECT_HOSTS = new Set([
   "www.starmapco.ca",
 ]);
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = request.headers.get("host")?.toLowerCase() ?? "";
 
   if (host === CANONICAL_HOST || host.includes("localhost") || host.startsWith("127.0.0.1")) {

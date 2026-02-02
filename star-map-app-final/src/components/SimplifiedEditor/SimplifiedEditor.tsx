@@ -584,7 +584,7 @@ export function SimplifiedEditor() {
       {/* Preview Section */}
       <div className="relative flex-1">
         <div
-          className="animate-float aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-[#070b1b] shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_30px_rgba(241,194,125,0.1)]"
+          className="relative animate-float will-change-transform transform-gpu aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-[#070b1b] shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           role="img"
           aria-label={canShowCustomPreview ? "Your custom star map preview" : "Sample star map preview"}
         >
@@ -599,7 +599,7 @@ export function SimplifiedEditor() {
         {mode === "sample" && (
           <div className="absolute inset-0 flex items-end justify-center pb-10">
             {/* Gradient fade at bottom */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 rounded-b-2xl bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 rounded-b-2xl bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
             <button
               type="button"
               onClick={handleMakeItYours}

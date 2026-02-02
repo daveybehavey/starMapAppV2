@@ -25,16 +25,12 @@ export async function checkRateLimit(
   const resetIn = windowStart + windowSeconds - now;
 
   try {
-    const current = (await kv.get<number>(windowKey)) ?? 0;
-
-    if (current >= limit) {
+    // Prefer atomic increment when available to reduce race-window overruns.
+    const current = await kv.incr(windowKey, 1, { ex: windowSeconds + 5 });
+    if (current > limit) {
       return { allowed: false, remaining: 0, resetIn };
     }
-
-    // Increment counter with TTL slightly longer than window to handle edge cases
-    await kv.set(windowKey, current + 1, { ex: windowSeconds + 5 });
-
-    return { allowed: true, remaining: limit - current - 1, resetIn };
+    return { allowed: true, remaining: Math.max(0, limit - current), resetIn };
   } catch (error) {
     // On KV failure, allow the request but log the error
     console.error("Rate limit check failed:", error);
