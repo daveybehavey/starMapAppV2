@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { blogPosts } from "@/lib/blogPosts";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
 export const metadata: Metadata = {
   title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
   description:
-    "Read our blog for ideas on anniversary, birthday, and wedding star maps, plus astronomy tips.",
+    "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
   keywords: [
     "custom star map blog",
     "personalized star map guides",
+    "valentine's day star map gift ideas",
     "anniversary star map ideas",
     "wedding star map tips",
   ],
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
     description:
-      "Read our blog for ideas on anniversary, birthday, and wedding star maps, plus astronomy tips.",
+      "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
     images: [
       {
         url: `${siteUrl}/custom-star-map-anniversary.webp`,
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   twitter: {
     title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
     description:
-      "Read our blog for ideas on anniversary, birthday, and wedding star maps, plus astronomy tips.",
+      "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
     images: [`${siteUrl}/custom-star-map-anniversary.webp`],
     card: "summary_large_image",
   },
@@ -49,6 +49,15 @@ type IndexPost = {
 
 const indexPosts: IndexPost[] = [
   {
+    slug: "most-meaningful-valentines-day-gift-custom-star-map",
+    title: "The Most Meaningful Valentine's Day Gift: A Custom Star Map of Your Love",
+    excerpt:
+      "Looking for a meaningful Valentine's Day gift? Discover why a custom star map is a romantic, personalized keepsake that captures your story under the stars.",
+    date: "2026-02-02",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Valentine's Day custom star map gift idea",
+  },
+  {
     slug: "custom-star-map-milestones-guide",
     title: "Custom Star Map Milestones Guide: Preserve Life's Moments With Meaningful Personalization",
     excerpt:
@@ -60,7 +69,8 @@ const indexPosts: IndexPost[] = [
   {
     slug: "custom-star-maps-for-weddings",
     title: "Custom Star Maps for Weddings: How to Capture Your Night Sky",
-    excerpt: "Learn how to create a personalized star map for your wedding day, from choosing location and time to styling and printing.",
+    excerpt:
+      "Learn how to create a personalized star map for your wedding day, from choosing location and time to styling and printing.",
     date: "2024-05-01",
     image: "/custom-star-map-anniversary.webp",
     alt: "Custom star map for wedding night sky",
@@ -114,13 +124,15 @@ const indexPosts: IndexPost[] = [
 
 export default function BlogIndex() {
   return (
-    <main className="bg-[#050915] px-4 pb-16 pt-10 text-white">
+    <main className="bg-[#050915] px-4 pt-10 pb-16 text-white">
       <header className="mx-auto mb-8 max-w-5xl space-y-3">
-        <p className="text-sm uppercase tracking-[0.25em] text-amber-300">Blog</p>
-        <h1 className="text-3xl font-bold text-amber-200 sm:text-4xl">StarMapCo Blog: Stories &amp; Guides</h1>
+        <p className="text-sm tracking-[0.25em] text-amber-300 uppercase">Blog</p>
+        <h1 className="text-3xl font-bold text-amber-200 sm:text-4xl">
+          StarMapCo Blog: Stories &amp; Guides
+        </h1>
         <p className="text-base text-neutral-200 sm:text-lg">
-          Explore guides and inspiration for creating your perfect custom star map. From anniversary ideas to astronomy
-          insights.
+          Explore guides and inspiration for creating your perfect custom star map. From anniversary ideas to
+          astronomy insights.
         </p>
       </header>
 
@@ -129,7 +141,7 @@ export default function BlogIndex() {
           {indexPosts.map((post) => (
             <article
               key={post.slug + post.title}
-              className="flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-[rgba(247,241,227,0.9)] text-midnight shadow-lg transition hover:-translate-y-[2px] hover:shadow-2xl"
+              className="text-midnight flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-[rgba(247,241,227,0.9)] shadow-lg transition hover:-translate-y-[2px] hover:shadow-2xl"
             >
               <div className="relative h-48 w-full">
                 <Image
@@ -142,10 +154,10 @@ export default function BlogIndex() {
                 />
               </div>
               <div className="flex flex-1 flex-col p-4">
-                <div className="text-xs uppercase tracking-wide text-amber-700">
+                <div className="text-xs tracking-wide text-amber-700 uppercase">
                   {post.date === "#" ? "Coming Soon" : new Date(post.date).toDateString()}
                 </div>
-                <h2 className="mt-2 text-xl font-semibold text-midnight">
+                <h2 className="text-midnight mt-2 text-xl font-semibold">
                   {post.slug !== "#" ? (
                     <Link href={`/blog/${post.slug}`} className="hover:underline">
                       {post.title}
@@ -174,7 +186,7 @@ export default function BlogIndex() {
 
         <div className="mt-10 text-center text-base text-neutral-200">
           Ready to create?{" "}
-          <Link href="/" className="text-amber-300 font-semibold hover:underline">
+          <Link href="/" className="font-semibold text-amber-300 hover:underline">
             Start now
           </Link>
         </div>

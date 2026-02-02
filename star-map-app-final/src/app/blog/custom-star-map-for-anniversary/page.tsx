@@ -61,28 +61,29 @@ export default function AnniversaryPostPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
         />
         <header className="mb-8 space-y-3">
-          <p className="text-sm uppercase tracking-[0.25em] text-amber-300">Anniversary Gifts</p>
+          <p className="text-sm tracking-[0.25em] text-amber-300 uppercase">Anniversary Gifts</p>
           <h1 className="text-3xl font-bold text-amber-200 sm:text-4xl">
             Custom Star Map for Anniversary: A Timeless, Romantic Gift That Never Fades
           </h1>
           <p className="text-base text-neutral-200 sm:text-lg">
-            Looking for a meaningful anniversary present? Discover why a custom star map for anniversary moments is one
-            of the most romantic, personal, and unforgettable gifts you can give.
+            Looking for a meaningful anniversary present? Discover why a custom star map for anniversary
+            moments is one of the most romantic, personal, and unforgettable gifts you can give.
           </p>
         </header>
 
         <div className="space-y-8 text-neutral-100">
           <p>
-            Anniversaries mark more than just a date on the calendar—they celebrate shared memories, commitment, and
-            love that has grown over time. Finding a gift that truly captures all of that can feel overwhelming. That’s
-            exactly why a custom star map for anniversary occasions has become one of the most cherished and meaningful
-            gifts for couples worldwide.
+            Anniversaries mark more than just a date on the calendar—they celebrate shared memories,
+            commitment, and love that has grown over time. Finding a gift that truly captures all of that can
+            feel overwhelming. That’s exactly why a custom star map for anniversary occasions has become one
+            of the most cherished and meaningful gifts for couples worldwide.
           </p>
           <p>
-            Instead of something temporary or generic, a custom star map captures the actual night sky from a specific
-            moment that matters deeply to you—your wedding night, the day you met, or another milestone in your love
-            story. In this guide, we’ll explore what makes these maps so special, how they’re created, how to personalize
-            them perfectly, and why they’ve become a modern classic for anniversary gifting.
+            Instead of something temporary or generic, a custom star map captures the actual night sky from a
+            specific moment that matters deeply to you—your wedding night, the day you met, or another
+            milestone in your love story. In this guide, we’ll explore what makes these maps so special, how
+            they’re created, how to personalize them perfectly, and why they’ve become a modern classic for
+            anniversary gifting.
           </p>
 
           <section className="space-y-4">
@@ -90,9 +91,9 @@ export default function AnniversaryPostPage() {
               What Is a Custom Star Map for Anniversary Gifts?
             </h2>
             <p>
-              A custom star map is a personalized illustration of the night sky exactly as it appeared at a specific
-              date, time, and location. Using astronomical data, it recreates the precise alignment of stars and
-              constellations from that moment.
+              A custom star map is a personalized illustration of the night sky exactly as it appeared at a
+              specific date, time, and location. Using astronomical data, it recreates the precise alignment
+              of stars and constellations from that moment.
             </p>
             <p>When used as a custom star map for anniversary gift, couples often choose:</p>
             <ul className="list-disc space-y-2 pl-5">
@@ -101,7 +102,10 @@ export default function AnniversaryPostPage() {
               <li>Their engagement date</li>
               <li>A meaningful shared memory</li>
             </ul>
-            <p>The result is a beautiful blend of science and sentiment—one that tells your story through the stars.</p>
+            <p>
+              The result is a beautiful blend of science and sentiment—one that tells your story through the
+              stars.
+            </p>
           </section>
 
           <section className="space-y-4">
@@ -110,20 +114,20 @@ export default function AnniversaryPostPage() {
             </h2>
             <ol className="list-decimal space-y-3 pl-5">
               <li>
-                <strong>Deeply Personal and Emotional</strong> — A star map isn’t just decorative—it’s symbolic. It
-                represents the exact moment your journey together began or changed forever.
+                <strong>Deeply Personal and Emotional</strong> — A star map isn’t just decorative—it’s
+                symbolic. It represents the exact moment your journey together began or changed forever.
               </li>
               <li>
-                <strong>Truly One of a Kind</strong> — Names, dates, locations, and messages can all be customized,
-                ensuring no two maps are ever the same.
+                <strong>Truly One of a Kind</strong> — Names, dates, locations, and messages can all be
+                customized, ensuring no two maps are ever the same.
               </li>
               <li>
-                <strong>Suitable for Any Anniversary Year</strong> — Works beautifully for every milestone and any
-                aesthetic.
+                <strong>Suitable for Any Anniversary Year</strong> — Works beautifully for every milestone and
+                any aesthetic.
               </li>
               <li>
-                <strong>A Lasting Keepsake</strong> — A framed star map becomes part of your home, a daily reminder of a
-                life-changing moment.
+                <strong>A Lasting Keepsake</strong> — A framed star map becomes part of your home, a daily
+                reminder of a life-changing moment.
               </li>
             </ol>
           </section>
@@ -134,9 +138,9 @@ export default function AnniversaryPostPage() {
             </h2>
             <h3 className="text-xl font-semibold text-amber-100">Astronomical Accuracy</h3>
             <p>
-              Star maps are generated using real astronomical databases that calculate where stars, planets, and
-              constellations were located at a specific time and place. This ensures your map reflects the real sky from
-              that exact moment.
+              Star maps are generated using real astronomical databases that calculate where stars, planets,
+              and constellations were located at a specific time and place. This ensures your map reflects the
+              real sky from that exact moment.
             </p>
             <h3 className="text-xl font-semibold text-amber-100">Design &amp; Personalization</h3>
             <p>Once the sky data is generated, design elements are added, such as:</p>
@@ -147,8 +151,8 @@ export default function AnniversaryPostPage() {
               <li>A meaningful phrase or quote</li>
             </ul>
             <p>
-              This balance of scientific precision and emotional storytelling defines the custom star map for anniversary
-              gifting experience.
+              This balance of scientific precision and emotional storytelling defines the custom star map for
+              anniversary gifting experience.
             </p>
           </section>
 
@@ -158,13 +162,13 @@ export default function AnniversaryPostPage() {
             </h2>
             <h3 className="text-xl font-semibold text-amber-100">Choose a Moment That Matters Most</h3>
             <p>
-              While wedding dates are popular, many couples choose the first “I love you,” a proposal night, or the
-              moment they moved in together.
+              While wedding dates are popular, many couples choose the first “I love you,” a proposal night,
+              or the moment they moved in together.
             </p>
             <h3 className="text-xl font-semibold text-amber-100">Add a Short, Heartfelt Message</h3>
             <p>
-              Simple lines like “The night our forever began,” “Written in the stars,” or “Our love, under this sky” make
-              the custom star map for anniversary gift feel intimate and intentional.
+              Simple lines like “The night our forever began,” “Written in the stars,” or “Our love, under
+              this sky” make the custom star map for anniversary gift feel intimate and intentional.
             </p>
             <h3 className="text-xl font-semibold text-amber-100">Match the Style to Your Home</h3>
             <p>Popular design styles include:</p>
@@ -177,19 +181,21 @@ export default function AnniversaryPostPage() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Who Is a Custom Star Map Perfect For?</h2>
+            <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">
+              Who Is a Custom Star Map Perfect For?
+            </h2>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                <strong>For Spouses:</strong> Romantic without being over-the-top, ideal for husbands and wives who value
-                meaningful gifts.
+                <strong>For Spouses:</strong> Romantic without being over-the-top, ideal for husbands and
+                wives who value meaningful gifts.
               </li>
               <li>
-                <strong>From Friends or Family:</strong> Thoughtful for milestone anniversaries like the 10th, 25th, or
-                50th.
+                <strong>From Friends or Family:</strong> Thoughtful for milestone anniversaries like the 10th,
+                25th, or 50th.
               </li>
               <li>
-                <strong>For Long-Distance or Military Couples:</strong> The symbolism of connection across space is
-                especially powerful.
+                <strong>For Long-Distance or Military Couples:</strong> The symbolism of connection across
+                space is especially powerful.
               </li>
             </ul>
           </section>
@@ -255,8 +261,9 @@ export default function AnniversaryPostPage() {
               Where to Create a Custom Star Map
             </h2>
             <p>
-              Look for accurate astronomical data, high-quality printing options, clear customization previews, and
-              reliable delivery timelines. If you’re ready to turn your special moment into a celestial keepsake, you can{" "}
+              Look for accurate astronomical data, high-quality printing options, clear customization
+              previews, and reliable delivery timelines. If you’re ready to turn your special moment into a
+              celestial keepsake, you can{" "}
               <Link href="/" className="text-amber-300 hover:underline">
                 create your custom star map
               </Link>{" "}
@@ -270,28 +277,29 @@ export default function AnniversaryPostPage() {
             </h2>
             <ol className="space-y-3 pl-5">
               <li>
-                <strong>Are custom star maps scientifically accurate?</strong> Yes. They use real astronomical data to
-                reflect the exact night sky from your chosen date and location.
+                <strong>Are custom star maps scientifically accurate?</strong> Yes. They use real astronomical
+                data to reflect the exact night sky from your chosen date and location.
               </li>
               <li>
-                <strong>Can I customize the text on the map?</strong> Absolutely. Names, dates, locations, and personal
-                messages can all be added.
+                <strong>Can I customize the text on the map?</strong> Absolutely. Names, dates, locations, and
+                personal messages can all be added.
               </li>
               <li>
-                <strong>Is this gift suitable for milestone anniversaries?</strong> Perfect for 10th, 25th, 50th, and
-                beyond.
+                <strong>Is this gift suitable for milestone anniversaries?</strong> Perfect for 10th, 25th,
+                50th, and beyond.
               </li>
               <li>
-                <strong>What size star map should I choose?</strong> A3 or 18x24 inches are popular, depending on where
-                you plan to display it.
+                <strong>What size star map should I choose?</strong> A3 or 18x24 inches are popular, depending
+                on where you plan to display it.
               </li>
               <li>
-                <strong>Can I order a digital version?</strong> Many providers offer digital downloads for last-minute
-                gifting.
+                <strong>Can I order a digital version?</strong> Many providers offer digital downloads for
+                last-minute gifting.
               </li>
               <li>
-                <strong>Why is a custom star map more meaningful than traditional gifts?</strong> It captures a real
-                moment in time that represents your relationship—something no generic gift can replicate.
+                <strong>Why is a custom star map more meaningful than traditional gifts?</strong> It captures
+                a real moment in time that represents your relationship—something no generic gift can
+                replicate.
               </li>
             </ol>
           </section>
@@ -301,13 +309,23 @@ export default function AnniversaryPostPage() {
               Conclusion: A Love Story Written in the Stars
             </h2>
             <p>
-              An anniversary is about celebrating everything you’ve built together. A custom star map for anniversary
-              gifting does exactly that—by preserving a meaningful moment in the night sky and turning it into art. It’s
-              romantic, thoughtful, and timeless.
+              An anniversary is about celebrating everything you’ve built together. A custom star map for
+              anniversary gifting does exactly that—by preserving a meaningful moment in the night sky and
+              turning it into art. It’s romantic, thoughtful, and timeless.
             </p>
             <p>
-              If you’re searching for an anniversary gift that truly speaks from the heart, few things compare to seeing
-              your love story written among the stars.
+              If you’re searching for an anniversary gift that truly speaks from the heart, few things compare
+              to seeing your love story written among the stars.
+            </p>
+            <p>
+              Planning a February surprise too? See our{" "}
+              <Link
+                href="/blog/most-meaningful-valentines-day-gift-custom-star-map"
+                className="text-amber-300 hover:underline"
+              >
+                Valentine's Day star map gift guide
+              </Link>{" "}
+              for high-impact ideas you can personalize quickly.
             </p>
           </section>
 
