@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { track } from "@/lib/analytics";
+
+const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 
 export default function SuccessClient() {
   const router = useRouter();
@@ -11,11 +13,70 @@ export default function SuccessClient() {
   const setPaid = useStore((s) => s.setPaid);
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
   const [message, setMessage] = useState<string | null>(null);
+  const [resolvedMapId, setResolvedMapId] = useState<string | null>(null);
+  const [accessLink, setAccessLink] = useState<string | null>(null);
+  const [accessLinkStatus, setAccessLinkStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [accessLinkCopied, setAccessLinkCopied] = useState(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoRedirectRef = useRef(true);
+
+  const pauseRedirect = useCallback(() => {
+    autoRedirectRef.current = false;
+    if (redirectTimerRef.current) {
+      clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = null;
+    }
+  }, []);
+
+  const createAccessLink = useCallback(async (force = false) => {
+    if (accessLinkStatus === "loading") return;
+    setAccessLinkStatus("loading");
+    try {
+      const res = await fetch("/api/entitlements/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: force ? JSON.stringify({ force: true }) : undefined,
+      });
+      if (!res.ok) throw new Error("link failed");
+      const data = (await res.json()) as { url?: string };
+      if (typeof data.url === "string" && data.url.trim()) {
+        setAccessLink(data.url.trim());
+        setAccessLinkStatus("ready");
+        return;
+      }
+      throw new Error("missing url");
+    } catch {
+      setAccessLinkStatus("error");
+    }
+  }, [accessLinkStatus]);
+
+  const handleCopyAccessLink = useCallback(async () => {
+    if (!accessLink) return;
+    pauseRedirect();
+    try {
+      await navigator.clipboard.writeText(accessLink);
+      setAccessLinkCopied(true);
+      window.setTimeout(() => setAccessLinkCopied(false), 2000);
+    } catch {
+      // ignore clipboard errors
+    }
+  }, [accessLink, pauseRedirect]);
+
+  const handleEmailAccessLink = useCallback(() => {
+    if (!accessLink) return;
+    pauseRedirect();
+    const subject = encodeURIComponent("Your StarMapCo access link");
+    const body = encodeURIComponent(
+      `Here’s your private access link:\\n\\n${accessLink}\\n\\nUse this link on any device to restore your downloads.`,
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }, [accessLink, pauseRedirect]);
 
   useEffect(() => {
     let active = true;
-    let redirectTimer: ReturnType<typeof setTimeout> | null = null;
+    redirectTimerRef.current = null;
     const sessionId = searchParams.get("session_id");
+    const mapIdParam = searchParams.get("map_id")?.trim() || null;
     if (!sessionId) {
       setStatus("error");
       setMessage("Missing payment session. Please contact support.");
@@ -28,23 +89,34 @@ export default function SuccessClient() {
       for (let attempt = 0; attempt < 6; attempt += 1) {
         if (!active) return;
         try {
-          const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionId)}`);
-          const data = (await res.json()) as { paid?: boolean };
+          const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionId)}`, {
+            cache: "no-store",
+          });
+          const data = (await res.json()) as { paid?: boolean; mapId?: string };
           if (data.paid) {
             setPaid(true);
             track("purchase_success", { isPaid: true });
             setStatus("success");
+            const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
+            setResolvedMapId(resolvedMapId);
+            void createAccessLink();
             if (typeof window !== "undefined") {
               try {
-                // Ensure paid users auto-download after redirect back to the editor
-                localStorage.setItem("star-map-auto-export", "hd");
+                // Let users manually trigger the HD download on the download page.
+                if (resolvedMapId) {
+                  localStorage.setItem(CHECKOUT_MAP_KEY, resolvedMapId);
+                }
               } catch {
                 // ignore storage errors (e.g., privacy mode)
               }
             }
-            redirectTimer = setTimeout(() => {
-              router.replace("/download");
-            }, 1200);
+            redirectTimerRef.current = setTimeout(() => {
+              if (!autoRedirectRef.current) return;
+              const nextUrl = resolvedMapId
+                ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
+                : "/download";
+              router.replace(nextUrl);
+            }, 1800);
             return;
           }
         } catch (err) {
@@ -60,9 +132,9 @@ export default function SuccessClient() {
     verify();
     return () => {
       active = false;
-      if (redirectTimer) clearTimeout(redirectTimer);
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
-  }, [router, searchParams, setPaid]);
+  }, [createAccessLink, router, searchParams, setPaid]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
@@ -109,15 +181,81 @@ export default function SuccessClient() {
                   <svg className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Verified - redirecting...
+                  Access unlocked — redirecting...
                 </span>
               ) : (
                 "Unlocking your HD download..."
               )}
             </div>
             <p className="relative mt-3 text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
-              You will be redirected shortly
+              Redirecting to your download page
             </p>
+            {status === "success" && (
+              <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Access link</p>
+                    <p className="mt-1 text-xs text-amber-100/80">Use this link on another device anytime.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyAccessLink}
+                      disabled={!accessLink || accessLinkStatus === "loading"}
+                      className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {accessLinkStatus === "loading"
+                        ? "Generating..."
+                        : accessLinkCopied
+                          ? "Link copied"
+                          : "Copy link"}
+                    </button>
+                    {accessLink && accessLinkStatus === "ready" && (
+                      <button
+                        type="button"
+                        onClick={handleEmailAccessLink}
+                        className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
+                      >
+                        Email link
+                      </button>
+                    )}
+                    {accessLink && accessLinkStatus === "ready" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          pauseRedirect();
+                          void createAccessLink(true);
+                        }}
+                        className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
+                      >
+                        New link
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] text-amber-100/70">
+                  Keep this link private — anyone with it can access your downloads.
+                </p>
+                {accessLinkStatus === "error" && (
+                  <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      pauseRedirect();
+                      const nextUrl = resolvedMapId
+                        ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
+                        : "/download";
+                      router.replace(nextUrl);
+                    }}
+                    className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
+                  >
+                    Go to download now
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

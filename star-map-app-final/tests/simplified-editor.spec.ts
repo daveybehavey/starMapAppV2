@@ -1,15 +1,25 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("SimplifiedEditor", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+      localStorage.setItem("cookiesAccepted", "true");
+      localStorage.setItem("analytics-consent", "true");
+    });
+  });
+
   test("should display sample preview and enable customization", async ({
     page,
   }) => {
+    test.setTimeout(60_000);
     // Navigate to the simplified editor test page
     await page.goto("/simple-test");
     await page.waitForLoadState("networkidle");
-
-    // Wait for canvas to render
-    await page.waitForTimeout(2000);
+    await expect(page.getByRole("button", { name: /start customizing your star map|make it yours/i })).toBeVisible({
+      timeout: 15000,
+    });
 
     // Take screenshot of initial state
     await page.screenshot({
@@ -18,7 +28,7 @@ test.describe("SimplifiedEditor", () => {
     });
 
     // Check "Make it yours" button is visible
-    const makeItYoursBtn = page.locator("text=Make it yours");
+    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i });
     await expect(makeItYoursBtn).toBeVisible();
 
     // Check action buttons are disabled initially
@@ -28,8 +38,11 @@ test.describe("SimplifiedEditor", () => {
     await expect(hdBtn).toBeDisabled();
 
     // Click "Make it yours"
-    await makeItYoursBtn.click();
-    await page.waitForTimeout(500);
+    const dateInput = page.locator("input[type='date']");
+    if (await dateInput.isDisabled().catch(() => false)) {
+      await makeItYoursBtn.click();
+    }
+    await expect(dateInput).toBeEnabled({ timeout: 15000 });
 
     // Take screenshot after entering customization mode
     await page.screenshot({
@@ -38,18 +51,17 @@ test.describe("SimplifiedEditor", () => {
     });
 
     // Check date input is now enabled
-    const dateInput = page.locator("input[type='date']");
     await expect(dateInput).toBeEnabled();
 
     // Change style to Vintage
     const vintageBtn = page.locator("button:has-text('Vintage')");
     await vintageBtn.click();
-    await page.waitForTimeout(500);
+    await expect(vintageBtn).toHaveAttribute("aria-checked", "true");
 
     // Change shape to Heart
     const heartBtn = page.locator("button:has-text('Heart')");
     await heartBtn.click();
-    await page.waitForTimeout(2000);
+    await expect(heartBtn).toHaveAttribute("aria-checked", "true");
 
     // Take screenshot after style/shape changes
     await page.screenshot({
@@ -61,9 +73,8 @@ test.describe("SimplifiedEditor", () => {
     await expect(freePreviewBtn).toBeDisabled();
 
     // Open "Customize more" panel
-    const customizeMoreBtn = page.locator("button:has-text('Customize more')");
+    const customizeMoreBtn = page.locator("button:has-text('Customize more'), button:has-text('Less options')");
     await customizeMoreBtn.click();
-    await page.waitForTimeout(500);
 
     // Take screenshot with advanced options
     await page.screenshot({
@@ -79,22 +90,21 @@ test.describe("SimplifiedEditor", () => {
   test("should enable export buttons when location is entered", async ({
     page,
   }) => {
+    test.setTimeout(60_000);
     await page.goto("/simple-test");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
 
     // Enter customization mode
-    const makeItYoursBtn = page.locator("text=Make it yours");
+    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i });
     await makeItYoursBtn.click();
-    await page.waitForTimeout(500);
+    await expect(page.getByRole("heading", { name: /your moment/i })).toBeVisible({ timeout: 15000 });
 
     // Enter a date
     const dateInput = page.locator("input[type='date']");
     await dateInput.fill("2024-06-15");
-    await page.waitForTimeout(500);
 
     // Find and fill location input
-    const locationInput = page.locator('input[placeholder*="city"]').first();
+    const locationInput = page.getByRole("combobox", { name: /Location search/i }).first();
     await locationInput.fill("London, UK");
     await page.waitForTimeout(1500);
 

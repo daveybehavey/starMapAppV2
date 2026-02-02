@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { blogPosts } from "@/lib/blogPosts";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
   title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
   description:
@@ -13,14 +15,14 @@ export const metadata: Metadata = {
     "anniversary star map ideas",
     "wedding star map tips",
   ],
-  alternates: { canonical: "https://starmapco.com/blog" },
+  alternates: { canonical: `${siteUrl}/blog` },
   openGraph: {
     title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
     description:
       "Read our blog for ideas on anniversary, birthday, and wedding star maps, plus astronomy tips.",
     images: [
       {
-        url: "https://starmapco.com/custom-star-map-anniversary.webp",
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
         width: 1200,
         height: 630,
         alt: "StarMapCo blog open graph image",
@@ -31,7 +33,7 @@ export const metadata: Metadata = {
     title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
     description:
       "Read our blog for ideas on anniversary, birthday, and wedding star maps, plus astronomy tips.",
-    images: ["https://starmapco.com/custom-star-map-anniversary.webp"],
+    images: [`${siteUrl}/custom-star-map-anniversary.webp`],
     card: "summary_large_image",
   },
 };

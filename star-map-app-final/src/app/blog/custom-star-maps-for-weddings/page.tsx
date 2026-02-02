@@ -180,7 +180,8 @@ export default function WeddingsPostPage() {
                 heart or circle.
               </li>
               <li>
-                <strong>Is this a one-time purchase?</strong> Yes—premium unlock is a one-time $0.99 per device/browser.
+                <strong>Is this a one-time purchase?</strong> You can buy a single HD download, a 3-pack, or choose an
+                unlimited monthly subscription.
               </li>
               <li>
                 <strong>Is it print-ready?</strong> Yes—export up to 6000x6000 for posters and frames.

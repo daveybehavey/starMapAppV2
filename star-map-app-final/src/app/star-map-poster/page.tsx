@@ -41,7 +41,7 @@ export default function StarMapPosterPage() {
           <li>Accurate night sky based on real astronomical data</li>
           <li>High-resolution digital download for framing</li>
           <li>Clean typography and customizable text</li>
-          <li>One-time unlock, no subscription</li>
+          <li>Flexible pricing: single, bundle, or subscription</li>
         </ul>
       </section>
 

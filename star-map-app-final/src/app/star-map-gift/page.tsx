@@ -3,16 +3,18 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400;
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
   title: "Star Map Gift",
   description:
     "Give a star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
-  alternates: { canonical: "https://starmapco.com/star-map-gift" },
+  alternates: { canonical: `${siteUrl}/star-map-gift` },
   openGraph: {
     title: "Star Map Gift | StarMapCo",
     description:
       "Give a star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
-    url: "https://starmapco.com/star-map-gift",
+    url: `${siteUrl}/star-map-gift`,
     images: [{ url: "/og-default.png", width: 1200, height: 630 }],
     type: "website",
   },

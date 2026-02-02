@@ -25,10 +25,20 @@ import {
 
 // Current fonts
 const playfair = Playfair_Display({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-playfair" });
-const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-cinzel" });
-const greatVibes = Great_Vibes({ subsets: ["latin"], weight: ["400"], variable: "--font-script" });
-const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-cormorant" });
-const montserrat = Montserrat({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-montserrat" });
+const cinzel = Cinzel({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-cinzel", preload: false });
+const greatVibes = Great_Vibes({ subsets: ["latin"], weight: ["400"], variable: "--font-script", preload: false });
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-cormorant",
+  preload: false,
+});
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-montserrat",
+  preload: false,
+});
 
 // Premium fonts - Serif
 const libreBaskerville = Libre_Baskerville({
@@ -98,17 +108,19 @@ const abrilFatface = Abril_Fatface({
   preload: false,
 });
 
-// Revalidate pages every hour to keep promos fresh
+// Revalidate pages every hour to keep pricing data fresh
 export const revalidate = 3600;
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://starmapco.com"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Custom Star Map & Constellation Map | StarMapCo",
     template: "%s | StarMapCo",
   },
   description:
-    "Create a custom star map or constellation map of any date and location. Instant preview, print-ready download, and one-time unlock at StarMapCo.",
+    "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo.",
   keywords: [
     "custom star map",
     "star map",
@@ -122,12 +134,12 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready download, and one-time unlock.",
-    url: "https://starmapco.com",
+      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+    url: siteUrl,
     siteName: "StarMapCo",
     images: [
       {
-        url: "https://starmapco.com/custom-star-map-anniversary.webp",
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
@@ -147,8 +159,8 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready download, and one-time unlock.",
-    images: ["https://starmapco.com/custom-star-map-anniversary.png"],
+      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+    images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },
 };
 
@@ -163,14 +175,14 @@ const siteSchema = {
     {
       "@type": "Organization",
       name: "StarMapCo",
-      url: "https://starmapco.com",
-      logo: "https://starmapco.com/favicon.png",
+      url: siteUrl,
+      logo: `${siteUrl}/favicon.png`,
       email: "support@starmapco.com",
     },
     {
       "@type": "WebSite",
       name: "StarMapCo",
-      url: "https://starmapco.com",
+      url: siteUrl,
     },
   ],
 };

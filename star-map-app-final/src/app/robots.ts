@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const base = "https://starmapco.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
   return {
     rules: {
       userAgent: "*",

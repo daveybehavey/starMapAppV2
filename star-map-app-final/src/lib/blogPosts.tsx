@@ -322,33 +322,6 @@ export const blogPosts: BlogPost[] = [
     ],
     content: () => (
       <article className="prose prose-neutral max-w-none text-neutral-800 prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <img
-            src="https://m.media-amazon.com/images/I/71adHw4K47L._AC_UF894%2C1000_QL80_.jpg"
-            alt="Framed star map print on wall"
-            className="rounded-xl border border-white/10 shadow"
-            loading="lazy"
-          />
-          <img
-            src="https://i.etsystatic.com/18585117/r/il/2a1779/1766785914/il_570xN.1766785914_s3d5.jpg"
-            alt="Personalized star map with names and date"
-            className="rounded-xl border border-white/10 shadow"
-            loading="lazy"
-          />
-          <img
-            src="https://m.media-amazon.com/images/I/914oXUOM9zL.jpg"
-            alt="Star map print displayed in living room"
-            className="rounded-xl border border-white/10 shadow"
-            loading="lazy"
-          />
-          <img
-            src="https://m.media-amazon.com/images/I/71s5DQE0KfL._AC_UF894%2C1000_QL80_.jpg"
-            alt="Black and gold star map close-up"
-            className="rounded-xl border border-white/10 shadow"
-            loading="lazy"
-          />
-        </div>
-
         <p>
           The New Year is one of the few moments shared across cultures, time zones, and generations. No matter where you
           are in the world, the turning of the calendar represents renewal, reflection, and possibility. Fireworks fade,

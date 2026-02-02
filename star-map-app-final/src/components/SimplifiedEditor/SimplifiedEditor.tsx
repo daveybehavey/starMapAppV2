@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { buildRecipeFromState, renderStarMap, aspectRatioToNumber, type MapRecipe } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";
+import { applyStyleDefaults } from "@/lib/styleDefaults";
 import dynamic from "next/dynamic";
 import { LocationInput } from "./LocationInput";
 import { AdvancedOptionsPanel } from "./AdvancedOptionsPanel";
@@ -77,17 +78,25 @@ const SAMPLE_RECIPE: MapRecipe = {
 
 type EditorMode = "sample" | "customizing";
 
+const DRAFT_STORAGE_KEY = "starmap-simplified-draft";
+
 export function SimplifiedEditor() {
   const [mode, setMode] = useState<EditorMode>("sample");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [hdExporting, setHdExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [dateTouched, setDateTouched] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const hdExportInFlightRef = useRef(false);
+  const makeItYoursTimerRef = useRef<number | null>(null);
+  const draftSaveTimerRef = useRef<number | null>(null);
+  const draftLoadedRef = useRef(false);
 
   // Generate unique IDs for form elements (accessibility)
-  const formId = useRef(`simplified-editor-${Math.random().toString(36).slice(2, 9)}`).current;
+  const formId = useId();
 
   const {
     dateTime,
@@ -101,6 +110,7 @@ export function SimplifiedEditor() {
     setDateTime,
     setLocation,
     setStyle,
+    setAspectRatio,
     setShape,
     setTextBoxes,
     setRenderOptions,
@@ -119,6 +129,7 @@ export function SimplifiedEditor() {
       setDateTime: state.setDateTime,
       setLocation: state.setLocation,
       setStyle: state.setStyle,
+      setAspectRatio: state.setAspectRatio,
       setShape: state.setShape,
       setTextBoxes: state.setTextBoxes,
       setRenderOptions: state.setRenderOptions,
@@ -128,46 +139,157 @@ export function SimplifiedEditor() {
   );
 
   // Get title and subtitle from textBoxes
-  const titleBox = textBoxes.find((tb) => tb.id === "title");
-  const subtitleBox = textBoxes.find((tb) => tb.id === "subtitle");
-  const title = titleBox?.text || "";
-  const subtitle = subtitleBox?.text || "";
-  const showSubtitle = Boolean(subtitleBox);
+  const { title, subtitle, showSubtitle } = useMemo(() => {
+    const titleBox = textBoxes.find((tb) => tb.id === "title");
+    const subtitleBox = textBoxes.find((tb) => tb.id === "subtitle");
+    return {
+      title: titleBox?.text || "",
+      subtitle: subtitleBox?.text || "",
+      showSubtitle: Boolean(subtitleBox),
+    };
+  }, [textBoxes]);
+
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        dateTime?: string;
+        location?: { name?: string; latitude?: number; longitude?: number; timezone?: string };
+        textBoxes?: typeof textBoxes;
+        selectedStyle?: StyleId;
+        aspectRatio?: typeof aspectRatio;
+        shape?: Shape;
+        renderOptions?: typeof renderOptions;
+      };
+      if (typeof parsed.dateTime === "string") {
+        setDateTime(parsed.dateTime);
+      }
+      if (parsed.location && typeof parsed.location.name === "string") {
+        setLocation({
+          name: parsed.location.name,
+          latitude: typeof parsed.location.latitude === "number" ? parsed.location.latitude : 0,
+          longitude: typeof parsed.location.longitude === "number" ? parsed.location.longitude : 0,
+          timezone: typeof parsed.location.timezone === "string" ? parsed.location.timezone : "UTC",
+        });
+      }
+      if (Array.isArray(parsed.textBoxes)) {
+        setTextBoxes(parsed.textBoxes);
+      }
+      if (parsed.selectedStyle) {
+        setStyle(parsed.selectedStyle);
+      }
+      if (parsed.aspectRatio) {
+        setAspectRatio(parsed.aspectRatio);
+      }
+      if (parsed.shape) {
+        setShape(parsed.shape);
+      }
+      if (parsed.renderOptions) {
+        setRenderOptions(parsed.renderOptions);
+      }
+      setMode("customizing");
+    } catch {
+      // ignore draft parse errors
+    }
+  }, [aspectRatio, renderOptions, setAspectRatio, setDateTime, setLocation, setRenderOptions, setShape, setStyle, setTextBoxes]);
+
+  const maxDateValue = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    if (!draftLoadedRef.current) return;
+    if (mode === "sample" && !location.name) return;
+    if (draftSaveTimerRef.current) {
+      window.clearTimeout(draftSaveTimerRef.current);
+    }
+    draftSaveTimerRef.current = window.setTimeout(() => {
+      try {
+        localStorage.setItem(
+          DRAFT_STORAGE_KEY,
+          JSON.stringify({
+            dateTime,
+            location,
+            textBoxes,
+            selectedStyle,
+            aspectRatio,
+            shape,
+            renderOptions,
+          })
+        );
+      } catch {
+        // ignore storage errors
+      }
+    }, 300);
+    return () => {
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+      }
+    };
+  }, [aspectRatio, dateTime, location, mode, renderOptions, selectedStyle, shape, textBoxes]);
 
   const handleMakeItYours = useCallback(() => {
     setMode("customizing");
     // Scroll to form
-    setTimeout(() => {
+    if (makeItYoursTimerRef.current) {
+      window.clearTimeout(makeItYoursTimerRef.current);
+    }
+    makeItYoursTimerRef.current = window.setTimeout(() => {
       formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (makeItYoursTimerRef.current) {
+        window.clearTimeout(makeItYoursTimerRef.current);
+      }
+    };
   }, []);
 
   const handleDateChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newDate = new Date(e.target.value);
+      const nextValue = e.target.value;
+      setDateTouched(true);
+      if (nextValue > maxDateValue) {
+        setDateError("Please choose a past date.");
+        return;
+      }
+      setDateError(null);
+      const newDate = new Date(nextValue);
       if (!isNaN(newDate.getTime())) {
         setDateTime(newDate.toISOString());
       }
     },
-    [setDateTime]
+    [maxDateValue, setDateTime]
   );
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newTitle = e.target.value;
+      if (!titleTouched) {
+        setTitleTouched(true);
+      }
       const updatedBoxes = textBoxes.map((tb) =>
         tb.id === "title" ? { ...tb, text: newTitle } : tb
       );
       setTextBoxes(updatedBoxes);
     },
-    [textBoxes, setTextBoxes]
+    [textBoxes, setTextBoxes, titleTouched]
   );
 
   const handleStyleChange = useCallback(
     (style: StyleId) => {
       setStyle(style);
+      const defaults = applyStyleDefaults(style, textBoxes);
+      if (Object.keys(defaults.renderOptions).length) {
+        setRenderOptions(defaults.renderOptions);
+      }
+      if (defaults.textBoxes !== textBoxes) {
+        setTextBoxes(defaults.textBoxes);
+      }
     },
-    [setStyle]
+    [setRenderOptions, setStyle, setTextBoxes, textBoxes]
   );
 
   const handleShapeChange = useCallback(
@@ -245,22 +367,46 @@ export function SimplifiedEditor() {
       const watermark = mode !== "hd";
       const premium = premiumOverride ?? paid;
 
-      // Render the map
-      await renderStarMap({
-        recipe,
-        canvas,
-        width,
-        height,
-        watermark,
-        quality: mode === "hd" ? "export" : "preview",
-        premium,
-      });
+      let timeoutId: number | null = null;
+      try {
+        const timeoutPromise = new Promise<void>((_, reject) => {
+          timeoutId = window.setTimeout(() => reject(new Error("Export timed out")), 30000);
+        });
+        await Promise.race([
+          renderStarMap({
+            recipe,
+            canvas,
+            width,
+            height,
+            watermark,
+            quality: mode === "hd" ? "export" : "preview",
+            premium,
+          }),
+          timeoutPromise,
+        ]);
+      } finally {
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+        }
+      }
 
-      const url = canvas.toDataURL("image/png");
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => {
+          if (result) {
+            resolve(result);
+          } else {
+            reject(new Error("Failed to generate image"));
+          }
+        }, "image/png");
+      });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.download = mode === "hd" ? "star-map-hd.png" : "star-map-preview.png";
       link.href = url;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     },
     [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]
   );
@@ -342,11 +488,15 @@ export function SimplifiedEditor() {
       const checkoutPayload: { mapId?: string; plan: string } = { plan: "single" };
       if (mapId) checkoutPayload.mapId = mapId;
 
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 30000);
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(checkoutPayload),
+        signal: controller.signal,
       });
+      window.clearTimeout(timeout);
 
       if (!res.ok) {
         throw new Error("Checkout failed");
@@ -354,8 +504,15 @@ export function SimplifiedEditor() {
 
       const data = (await res.json()) as { url?: string };
       if (data.url) {
-        window.location.href = data.url;
-        return;
+        try {
+          const nextUrl = new URL(data.url);
+          if (nextUrl.protocol.startsWith("http")) {
+            window.location.href = nextUrl.toString();
+            return;
+          }
+        } catch {
+          // fall through to error
+        }
       }
       throw new Error("No checkout URL");
     } catch (err) {
@@ -370,6 +527,7 @@ export function SimplifiedEditor() {
   // Check if we have enough data to show custom preview
   // User has entered a location if name is set and coordinates aren't default
   const hasValidLocation = Boolean(location.name && location.latitude !== 0);
+  const locationIsValid = hasValidLocation && location.name.trim().length >= 3;
   // For simplified editor, only switch to store-based preview when user enters location
   const canShowCustomPreview = hasValidLocation;
 
@@ -398,6 +556,12 @@ export function SimplifiedEditor() {
   const dateInputValue = dateTime
     ? new Date(dateTime).toISOString().split("T")[0]
     : "";
+  const titleTrimmed = title.trim();
+  const titleIsValid = titleTrimmed.length > 0 && titleTrimmed.length <= 100;
+  const dateIsValid = !dateError && (!dateInputValue || dateInputValue <= maxDateValue);
+  const canExport = mode !== "sample" && locationIsValid && titleIsValid && dateIsValid;
+  const showTitleError = mode === "customizing" && titleTouched && !titleIsValid;
+  const showDateError = mode === "customizing" && dateTouched && Boolean(dateError);
 
   // Dynamic recipe that applies user's style/shape/renderOptions choices to the sample preview
   const dynamicRecipe: MapRecipe = useMemo(() => {
@@ -413,14 +577,14 @@ export function SimplifiedEditor() {
 
   return (
     <div
-      className="flex flex-col gap-6 lg:flex-row lg:gap-8"
+      className="flex flex-col gap-7 md:flex-row md:gap-6 lg:gap-8"
       role="region"
       aria-label="Star map editor"
     >
       {/* Preview Section */}
       <div className="relative flex-1">
         <div
-          className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-[#070b1b] shadow-2xl"
+          className="animate-float aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-[#070b1b] shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_30px_rgba(241,194,125,0.1)]"
           role="img"
           aria-label={canShowCustomPreview ? "Your custom star map preview" : "Sample star map preview"}
         >
@@ -433,11 +597,13 @@ export function SimplifiedEditor() {
 
         {/* Make it yours overlay - only show in sample mode */}
         {mode === "sample" && (
-          <div className="absolute inset-0 flex items-end justify-center pb-8">
+          <div className="absolute inset-0 flex items-end justify-center pb-10">
+            {/* Gradient fade at bottom */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 rounded-b-2xl bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
             <button
               type="button"
               onClick={handleMakeItYours}
-              className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-[#0b1433] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b]"
+              className="animate-pulse-subtle relative z-10 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 px-8 py-4 text-base font-bold text-[#0b1433] shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all hover:-translate-y-1 hover:scale-105 hover:shadow-[0_0_40px_rgba(251,191,36,0.7)] max-[374px]:px-6 max-[374px]:py-3.5 max-[374px]:text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b]"
               aria-label="Start customizing your star map"
             >
               ✨ Make it yours
@@ -449,17 +615,17 @@ export function SimplifiedEditor() {
       {/* Form Section */}
       <div
         ref={formRef}
-        className={`flex flex-col gap-4 lg:w-80 ${
-          mode === "sample" ? "opacity-50" : "opacity-100"
-        } transition-opacity`}
+        className={`flex flex-col gap-5 lg:w-[380px] xl:w-[420px] ${
+          mode === "sample" ? "opacity-60" : "opacity-100"
+        } transition-opacity duration-300`}
         aria-disabled={mode === "sample"}
       >
         <form
-          className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur"
+          className="glass-panel rounded-2xl p-5 sm:p-6"
           onSubmit={(e) => e.preventDefault()}
           aria-label="Star map customization form"
         >
-          <h3 className="mb-4 text-lg font-semibold text-white" id={`${formId}-heading`}>
+          <h3 className="mb-5 text-xl font-semibold text-white max-[374px]:text-lg" id={`${formId}-heading`}>
             {mode === "sample" ? "Customize your moment" : "Your moment"}
           </h3>
 
@@ -467,7 +633,7 @@ export function SimplifiedEditor() {
           <div className="mb-4">
             <label
               htmlFor={`${formId}-date`}
-              className="mb-1.5 block text-xs font-medium text-amber-100/70"
+              className="mb-1.5 block text-sm font-medium text-amber-100/80"
             >
               When was it?
             </label>
@@ -476,20 +642,28 @@ export function SimplifiedEditor() {
               type="date"
               value={dateInputValue}
               onChange={handleDateChange}
+              onBlur={() => setDateTouched(true)}
+              max={maxDateValue}
               disabled={mode === "sample"}
-              aria-describedby={`${formId}-date-hint`}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-invalid={showDateError}
+              aria-describedby={`${formId}-date-hint${showDateError ? ` ${formId}-date-error` : ""}`}
+              className="input-glow w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
             <span id={`${formId}-date-hint`} className="sr-only">
               Select the date of your special moment
             </span>
+            {showDateError && (
+              <p id={`${formId}-date-error`} className="mt-1 text-[10px] text-red-300">
+                {dateError ?? "Please choose a valid date."}
+              </p>
+            )}
           </div>
 
           {/* Location Input */}
           <div className="mb-4">
             <label
               htmlFor={`${formId}-location`}
-              className="mb-1.5 block text-xs font-medium text-amber-100/70"
+              className="mb-1.5 block text-sm font-medium text-amber-100/80"
             >
               Where were you?
             </label>
@@ -500,7 +674,7 @@ export function SimplifiedEditor() {
           <div className="mb-4">
             <label
               htmlFor={`${formId}-title`}
-              className="mb-1.5 block text-xs font-medium text-amber-100/70"
+              className="mb-1.5 block text-sm font-medium text-amber-100/80"
             >
               Title
             </label>
@@ -509,22 +683,30 @@ export function SimplifiedEditor() {
               type="text"
               value={title}
               onChange={handleTitleChange}
+              onBlur={() => setTitleTouched(true)}
               disabled={mode === "sample"}
+              maxLength={100}
               placeholder="Our Night Sky"
-              aria-describedby={`${formId}-title-hint`}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-invalid={showTitleError}
+              aria-describedby={`${formId}-title-hint${showTitleError ? ` ${formId}-title-error` : ""}`}
+              className="input-glow w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
             <span id={`${formId}-title-hint`} className="sr-only">
               Enter a title for your star map
             </span>
+            {showTitleError && (
+              <p id={`${formId}-title-error`} className="mt-1 text-[10px] text-red-300">
+                Title is required (1-100 characters).
+              </p>
+            )}
           </div>
 
           {/* Subtitle Input */}
-          <div className="mb-4">
+          <div className="mb-5">
             <div className="mb-1.5 flex items-center justify-between">
               <label
                 htmlFor={`${formId}-subtitle`}
-                className="text-xs font-medium text-amber-100/70"
+                className="text-sm font-medium text-amber-100/80"
               >
                 Subtitle
               </label>
@@ -534,7 +716,7 @@ export function SimplifiedEditor() {
                 disabled={mode === "sample"}
                 aria-pressed={showSubtitle}
                 aria-label={showSubtitle ? "Remove subtitle" : "Add subtitle"}
-                className="text-[10px] text-amber-400/70 hover:text-amber-400 focus:outline-none focus:underline disabled:opacity-50"
+                className="text-xs text-amber-400/70 hover:text-amber-400 focus:outline-none focus:underline disabled:opacity-50"
               >
                 {showSubtitle ? "Remove" : "+ Add subtitle"}
               </button>
@@ -546,24 +728,25 @@ export function SimplifiedEditor() {
                 value={subtitle}
                 onChange={handleSubtitleChange}
                 disabled={mode === "sample"}
+                maxLength={150}
                 placeholder="June 15, 2024 • New York"
                 aria-describedby={`${formId}-subtitle-hint`}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+                className="input-glow w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               />
             )}
             {showSubtitle && mode === "customizing" && (
-              <p id={`${formId}-subtitle-hint`} className="mt-1 text-[10px] text-white/40">
+              <p id={`${formId}-subtitle-hint`} className="mt-1 text-xs text-white/50">
                 Tip: Drag text on the preview to reposition
               </p>
             )}
           </div>
 
           {/* Style Picker */}
-          <fieldset className="mb-4">
-            <legend className="mb-2 block text-xs font-medium text-amber-100/70">
+          <fieldset className="mb-5">
+            <legend className="mb-2 block text-sm font-medium text-amber-100/80">
               Style
             </legend>
-            <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Map style">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Map style">
               {styles.map((style) => (
                 <button
                   key={style.id}
@@ -571,8 +754,7 @@ export function SimplifiedEditor() {
                   role="radio"
                   aria-checked={selectedStyle === style.id}
                   onClick={() => handleStyleChange(style.id)}
-                  disabled={mode === "sample"}
-                  className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${
+                  className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 transition focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${
                     selectedStyle === style.id
                       ? "border-amber-400 bg-amber-400/10"
                       : "border-white/10 bg-white/5 hover:border-white/30"
@@ -593,7 +775,7 @@ export function SimplifiedEditor() {
             <legend className="mb-2 block text-xs font-medium text-amber-100/70">
               Shape
             </legend>
-            <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Map shape">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Map shape">
               {shapes.map((shapeOption) => (
                 <button
                   key={shapeOption.id}
@@ -601,8 +783,7 @@ export function SimplifiedEditor() {
                   role="radio"
                   aria-checked={shape === shapeOption.id}
                   onClick={() => handleShapeChange(shapeOption.id)}
-                  disabled={mode === "sample"}
-                  className={`flex flex-col items-center gap-1 rounded-lg border p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${
+                  className={`flex flex-col items-center gap-1 rounded-lg border p-3 transition focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${
                     shape === shapeOption.id
                       ? "border-amber-400 bg-amber-400/10"
                       : "border-white/10 bg-white/5 hover:border-white/30"
@@ -666,10 +847,10 @@ export function SimplifiedEditor() {
           <button
             type="button"
             onClick={handleFreePreview}
-            disabled={mode === "sample" || !canShowCustomPreview || exporting}
+            disabled={!canExport || exporting}
             aria-busy={exporting}
             aria-describedby={`${formId}-preview-hint`}
-            className="w-full rounded-full bg-white/10 py-3.5 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-full bg-white/10 py-4 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50 sm:py-3.5"
           >
             {exporting ? (
               <>
@@ -687,10 +868,10 @@ export function SimplifiedEditor() {
           <button
             type="button"
             onClick={handleHdDownload}
-            disabled={mode === "sample" || !canShowCustomPreview || hdExporting}
+            disabled={!canExport || hdExporting}
             aria-busy={hdExporting}
             aria-describedby={`${formId}-hd-hint`}
-            className="w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 py-3.5 text-sm font-semibold text-[#0b1433] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 py-4 text-sm font-semibold text-[#0b1433] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50 sm:py-3.5"
           >
             {hdExporting ? (
               <>
@@ -710,7 +891,9 @@ export function SimplifiedEditor() {
 
         {/* Status hint for screen readers */}
         <div aria-live="polite" className="sr-only">
-          {!canShowCustomPreview && mode === "customizing" && "Enter a location to enable downloads"}
+          {!locationIsValid && mode === "customizing" && "Enter a location to enable downloads"}
+          {showTitleError && "Enter a title to enable downloads"}
+          {showDateError && "Choose a valid date to enable downloads"}
           {exporting && "Generating preview..."}
           {hdExporting && "Processing download..."}
         </div>

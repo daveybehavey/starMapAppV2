@@ -8,9 +8,13 @@ test.describe("Error Handling", () => {
     await page.waitForTimeout(2000);
 
     // Enter customization mode
-    const makeItYoursBtn = page.locator("text=Make it yours");
-    await makeItYoursBtn.click();
-    await page.waitForTimeout(500);
+    const makeItYoursBtn = page
+      .getByRole("button", { name: /Start customizing your star map/i })
+      .or(page.locator("button", { hasText: /Make it yours/i }).first());
+    if (await makeItYoursBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await makeItYoursBtn.click();
+      await page.waitForTimeout(500);
+    }
 
     // Enter a date
     const dateInput = page.locator("input[type='date']");
@@ -63,9 +67,13 @@ test.describe("Error Handling", () => {
     await page.waitForTimeout(2000);
 
     // Re-enter customization mode and set up location
-    const makeItYoursBtn = page.locator("text=Make it yours");
-    await makeItYoursBtn.click();
-    await page.waitForTimeout(500);
+    const makeItYoursBtn = page
+      .getByRole("button", { name: /Start customizing your star map/i })
+      .or(page.locator("button", { hasText: /Make it yours/i }).first());
+    if (await makeItYoursBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await makeItYoursBtn.click();
+      await page.waitForTimeout(500);
+    }
 
     // Fill in the form again
     const dateInput = page.locator("input[type='date']");

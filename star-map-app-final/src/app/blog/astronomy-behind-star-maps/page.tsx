@@ -2,21 +2,23 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 const title = "Astronomy Behind Star Maps - How Science Makes Them Accurate | StarMapCo Blog";
 const description =
   "Curious about the astronomy behind star maps? Explore how real data from catalogs and calculations create precise night sky recreations for custom gifts.";
-const ogImage = "https://starmapco.com/custom-star-map-anniversary.webp";
+const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
 const keywords = ["astronomy behind star maps", "accurate star map data", "custom star map science"];
 
 export const metadata: Metadata = {
   title,
   description,
   keywords,
-  alternates: { canonical: "https://starmapco.com/blog/astronomy-behind-star-maps" },
+  alternates: { canonical: `${siteUrl}/blog/astronomy-behind-star-maps` },
   openGraph: {
     title,
     description,
-    url: "https://starmapco.com/blog/astronomy-behind-star-maps",
+    url: `${siteUrl}/blog/astronomy-behind-star-maps`,
     type: "article",
     publishedTime: "2025-12-31",
     images: [{ url: ogImage }],
@@ -42,9 +44,9 @@ export default function AstronomyBehindStarMaps() {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+      logo: { "@type": "ImageObject", url: `${siteUrl}/favicon.png` },
     },
-    mainEntityOfPage: "https://starmapco.com/blog/astronomy-behind-star-maps",
+    mainEntityOfPage: `${siteUrl}/blog/astronomy-behind-star-maps`,
   };
 
   return (

@@ -19,6 +19,7 @@
 # next.js
 /.next/
 /.next.bak-*/
+/.next.bak.*/
 /.open-next/
 /out/
 
@@ -37,6 +38,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+build.last.log
 
 # env files (can opt-in for committing if needed)
 .env*

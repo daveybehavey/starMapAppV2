@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useId, useState } from "react";
 import type { RenderOptions, TextBox } from "@/lib/store";
 import { visualModes, constellationPresets, fontOptions } from "@/lib/config";
 import FontSelector from "@/components/FontSelector";
@@ -16,11 +16,13 @@ interface AdvancedOptionsPanelProps {
 
 // Reusable collapsible section
 function CollapsibleSection({
+  id,
   title,
   badge,
   defaultOpen = false,
   children,
 }: {
+  id: string;
   title: string;
   badge?: string;
   defaultOpen?: boolean;
@@ -33,6 +35,7 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-controls={id}
         className="flex w-full items-center justify-between py-2.5 text-xs font-medium text-amber-100/80 transition hover:text-amber-100"
         aria-expanded={isOpen}
       >
@@ -46,7 +49,11 @@ function CollapsibleSection({
         </span>
         <span className="text-white/40">{isOpen ? "−" : "+"}</span>
       </button>
-      {isOpen && <div className="pb-3 pt-1">{children}</div>}
+      {isOpen && (
+        <div id={id} className="pb-3 pt-1">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -125,22 +132,24 @@ export function AdvancedOptionsPanel({
   paid,
   onPremiumClick,
 }: AdvancedOptionsPanelProps) {
-  const handleFontChange = (boxId: string, fontFamily: TextBox["fontFamily"]) => {
+  const handleFontChange = useCallback((boxId: string, fontFamily: TextBox["fontFamily"]) => {
     setTextBoxes(
       textBoxes.map((tb) => (tb.id === boxId ? { ...tb, fontFamily } : tb))
     );
-  };
+  }, [setTextBoxes, textBoxes]);
 
-  const handleColorChange = (boxId: string, color: string) => {
+  const handleColorChange = useCallback((boxId: string, color: string) => {
     setTextBoxes(
       textBoxes.map((tb) => (tb.id === boxId ? { ...tb, color } : tb))
     );
-  };
+  }, [setTextBoxes, textBoxes]);
+
+  const baseId = useId();
 
   return (
     <div className="mt-4 border-t border-white/10 pt-2">
       {/* Sky Details - Default Open */}
-      <CollapsibleSection title="Sky Details" defaultOpen>
+      <CollapsibleSection id={`${baseId}-sky`} title="Sky Details" defaultOpen>
         <div className="space-y-3">
           {/* Visual Mode */}
           <div>
@@ -186,7 +195,7 @@ export function AdvancedOptionsPanel({
       </CollapsibleSection>
 
       {/* Constellations */}
-      <CollapsibleSection title="Constellations">
+      <CollapsibleSection id={`${baseId}-constellations`} title="Constellations">
         <div className="space-y-3">
           {/* Lines */}
           <div>
@@ -223,7 +232,7 @@ export function AdvancedOptionsPanel({
       </CollapsibleSection>
 
       {/* Premium Effects */}
-      <CollapsibleSection title="Premium Effects" badge="PRO">
+      <CollapsibleSection id={`${baseId}-premium`} title="Premium Effects" badge="PRO">
         <div className="space-y-3">
           {/* Premium Stars */}
           <div>
@@ -277,7 +286,7 @@ export function AdvancedOptionsPanel({
 
       {/* Text Styling */}
       {textBoxes.length > 0 && (
-        <CollapsibleSection title="Text Styling">
+        <CollapsibleSection id={`${baseId}-text`} title="Text Styling">
           <div className="space-y-4">
             {textBoxes.map((box) => (
               <div key={box.id} className="space-y-2">

@@ -47,35 +47,67 @@ function HomeInner() {
   const { ref: examplesRef, isVisible: examplesVisible } = useInView();
   const { ref: howItWorksRef, isVisible: howItWorksVisible } = useInView();
   const { ref: blogRef, isVisible: blogVisible } = useInView();
+  const latestPosts = useMemo(
+    () => [...blogPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6),
+    []
+  );
+  const useFeaturedBlogLayout = latestPosts.length >= 5;
+  const blogGridClassName =
+    latestPosts.length <= 1
+      ? "grid grid-cols-1 gap-4"
+      : latestPosts.length === 2
+        ? "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6"
+        : "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3";
 
   return (
-    <main className="flex flex-col items-center px-6 md:px-8 lg:px-12 py-4 md:py-8 lg:py-0">
+    <main className="flex flex-col items-center px-4 py-6 sm:px-6 sm:py-8 md:px-8 lg:px-12 lg:py-10">
       {/* Hero Section with SimplifiedEditor */}
-      <section className="mx-auto w-full max-w-7xl py-8 sm:py-10 lg:py-12">
-        <div className="mb-6 space-y-3 text-center lg:mb-8">
-          <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[42px]">
-            Create a custom star map of the night sky
+      <section className="particles-bg mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20">
+        <div className="mb-8 space-y-5 text-center lg:mb-10">
+          <h1 className="max-[374px]:text-[1.75rem] text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
+            Create a custom{" "}
+            <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 bg-clip-text text-transparent animate-shimmer">
+              star map
+            </span>{" "}
+            of the night sky
           </h1>
           <p className="mx-auto max-w-2xl text-base text-neutral-200 sm:text-lg">
             See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds.
           </p>
-          <p className="text-xs text-neutral-300">
-            HD from {priceLabels.single} • {priceLabels.pack3} for 3 • {priceLabels.subscription}/mo unlimited
-          </p>
+
+          {/* Pricing Cards */}
+          <div className="mx-auto grid w-full max-w-sm grid-cols-1 gap-3 pt-2 sm:max-w-lg sm:grid-cols-3">
+            <div className="pricing-card max-[374px]:px-4 max-[374px]:py-4 text-center">
+              <div className="text-xs uppercase tracking-wide text-neutral-400">Single Map</div>
+              <div className="text-lg font-bold text-white">{priceLabels.single}</div>
+            </div>
+            <div className="pricing-card featured max-[374px]:px-4 max-[374px]:py-4 text-center">
+              <div className="text-xs uppercase tracking-wide text-amber-300">3-Pack</div>
+              <div className="text-lg font-bold text-white">{priceLabels.pack3}</div>
+              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">Best Value</div>
+            </div>
+            <div className="pricing-card max-[374px]:px-4 max-[374px]:py-4 text-center">
+              <div className="text-xs uppercase tracking-wide text-neutral-400">Unlimited</div>
+              <div className="text-lg font-bold text-white">{priceLabels.subscription}<span className="text-sm font-normal text-neutral-400">/mo</span></div>
+            </div>
+          </div>
         </div>
         <SimplifiedEditor />
       </section>
 
-      <section ref={examplesRef} className={`mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-10 fade-in-up ${examplesVisible ? 'visible' : ''}`}>
-        <div className="space-y-5 lg:space-y-3">
-          <div className="space-y-2 lg:space-y-1">
+      {/* Section Divider */}
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section ref={examplesRef} className={`mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up ${examplesVisible ? 'visible' : ''}`}>
+        <div className="space-y-6 lg:space-y-8">
+          <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">What your map could look like</p>
-            <h2 className="text-3xl font-semibold text-white sm:text-4xl lg:text-[32px] lg:leading-tight">See finished examples before you start</h2>
-            <p className="max-w-3xl text-base text-neutral-200 sm:text-lg lg:text-sm lg:leading-snug">
+            <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">See finished examples before you start</h2>
+            <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
               Real outputs from our presets and render modes—so you know exactly what you can create in seconds.
             </p>
           </div>
-          <div className={`grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-2 stagger-children ${examplesVisible ? 'visible' : ''}`}>
+          <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 lg:grid-cols-3 lg:gap-6 stagger-children ${examplesVisible ? 'visible' : ''}`}>
             {[
               {
                 imageSrc: "/examples/example-wedding-cinematic-heart.webp",
@@ -122,28 +154,28 @@ function HomeInner() {
             ].map((item, idx) => (
               <div
                 key={`${item.imageSrc}-${idx}`}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30 transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/30 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(241,194,125,0.15)]"
+                className="card-hover-glow group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30"
               >
                 <div className="relative aspect-square overflow-hidden">
                   <Image
                     src={item.imageSrc}
                     alt={`${item.occasion} · ${item.renderMode}`}
                     fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-105"
                     sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                     loading="lazy"
                   />
                 </div>
-                <div className="border-t border-white/10 px-4 py-3 text-white lg:px-3 lg:py-1.5">
-                  <div className="flex items-center justify-between text-sm font-semibold leading-tight lg:text-xs">
+                <div className="border-t border-white/10 px-4 py-3 text-white">
+                  <div className="flex items-center justify-between text-sm font-semibold leading-tight">
                     <span>
                       {item.occasion} · {item.renderMode}
                     </span>
-                    <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-amber-200 lg:text-[10px]">
+                    <span className="badge-glow rounded-full border border-amber-300/40 bg-amber-400/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-200">
                       {item.badge}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-neutral-200 lg:mt-0.5 lg:line-clamp-1 lg:text-[10px]">{item.caption}</p>
+                  <p className="mt-1 text-xs text-neutral-300">{item.caption}</p>
                 </div>
               </div>
             ))}
@@ -154,47 +186,64 @@ function HomeInner() {
         </div>
       </section>
 
-      <section ref={howItWorksRef} className={`mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-16 fade-in-up ${howItWorksVisible ? 'visible' : ''}`}>
-        <div className="space-y-6">
+      {/* Section Divider */}
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section ref={howItWorksRef} className={`mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up ${howItWorksVisible ? 'visible' : ''}`}>
+        <div className="space-y-8">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">How it works</p>
-            <h2 className="text-3xl font-semibold text-white sm:text-4xl">From date to finished star map</h2>
+            <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">From date to finished star map</h2>
             <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
               Pick a meaningful moment, see the night sky instantly, personalize, and export a print-ready map in minutes.
             </p>
           </div>
-          <div className={`grid gap-4 md:grid-cols-3 stagger-children ${howItWorksVisible ? 'visible' : ''}`}>
+          <div className={`relative grid gap-6 md:grid-cols-3 md:gap-8 stagger-children ${howItWorksVisible ? 'visible' : ''}`}>
+            {/* Connecting line (desktop only) */}
+            <div className="connecting-line hidden md:block" />
+
             {[
               {
+                icon: "📅",
                 title: "Choose your moment",
                 desc: "Select a preset or set the exact date, time, and location.",
               },
               {
+                icon: "✨",
                 title: "Preview instantly",
                 desc: "Accurate astronomy data renders the sky as it truly appeared.",
               },
               {
+                icon: "⬇️",
                 title: "Unlock & export",
                 desc: "Download a high-resolution, print-ready file with flexible pricing options.",
               },
-            ].map((item) => (
+            ].map((item, index) => (
               <div
                 key={item.title}
-                className="tilt-card rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm shadow-black/20 transition-all duration-300 hover:border-white/20 hover:bg-white/8 hover:shadow-md"
+                className="relative rounded-2xl border border-white/15 bg-gradient-to-br from-white/10 to-white/5 p-5 pt-8 shadow-lg shadow-black/20 transition-all duration-300 hover:border-amber-400/50 hover:shadow-[0_0_25px_rgba(251,191,36,0.15)]"
               >
+                {/* Step number badge */}
+                <div className="step-badge absolute -top-4 left-5 flex h-10 w-10 items-center justify-center rounded-full text-base font-bold text-midnight">
+                  {index + 1}
+                </div>
+                <div className="mb-2 text-2xl">{item.icon}</div>
                 <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm text-neutral-200">{item.desc}</p>
+                <p className="mt-2 text-sm text-neutral-300">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl py-12 sm:py-14 lg:py-16">
-        <div className="cosmic-panel rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:px-10">
+      {/* Section Divider */}
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section className="mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20">
+        <div className="cosmic-panel-enhanced cosmic-panel rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10">
           <div className="space-y-6 text-neutral-800">
             <div className="space-y-3">
-              <h2 className="text-3xl font-semibold text-midnight sm:text-4xl">What Is a Custom Star Map?</h2>
+              <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">What Is a Custom Star Map?</h2>
               <p className="text-base leading-relaxed text-neutral-800 sm:text-lg">
                 A custom star map (sometimes called a starmap or constellation map) shows the exact night sky from a
                 specific date, time, and location. We turn that real sky into a print-ready design you can gift or
@@ -262,143 +311,220 @@ function HomeInner() {
 
       {/* SimplifiedEditor is now in hero section above */}
 
-      <section id="accuracy" className="cosmic-panel mx-auto mb-8 mt-8 w-full max-w-7xl rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.9)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
-        <div className="space-y-4 text-neutral-800">
-          <h2 className="text-3xl font-semibold text-midnight sm:text-4xl">Why is this accurate?</h2>
-          <details className="group rounded-2xl border border-amber-200/60 bg-white/80 p-4">
-            <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">Data Sources</summary>
-            <p className="mt-2 text-sm sm:text-base">
-              Yale Bright Star Catalog and astronomy-engine (Skyfield-based) for stellar positions across hemispheres.
-            </p>
-          </details>
-          <details className="group rounded-2xl border border-amber-200/60 bg-white/80 p-4">
-            <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">Calculations</summary>
-            <p className="mt-2 text-sm sm:text-base">
-              Precession, time zones, latitude/longitude, and horizon transforms (alt/az) for true-to-time skies.
-            </p>
-          </details>
-          <details className="group rounded-2xl border border-amber-200/60 bg-white/80 p-4">
-            <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">Verification</summary>
-            <p className="mt-2 text-sm sm:text-base">
-              Compare with Stellarium or other planetarium tools—your rendered sky should match within arcminutes.
-            </p>
-          </details>
+      {/* Section Divider */}
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section id="accuracy" className="cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
+        <div className="space-y-5 text-neutral-800">
+          <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Why is this accurate?</h2>
+          {[
+            {
+              icon: "📊",
+              title: "Data Sources",
+              content: "Yale Bright Star Catalog and astronomy-engine (Skyfield-based) for stellar positions across hemispheres.",
+            },
+            {
+              icon: "🧮",
+              title: "Calculations",
+              content: "Precession, time zones, latitude/longitude, and horizon transforms (alt/az) for true-to-time skies.",
+            },
+            {
+              icon: "✓",
+              title: "Verification",
+              content: "Compare with Stellarium or other planetarium tools—your rendered sky should match within arcminutes.",
+            },
+          ].map((item) => (
+            <details key={item.title} className="details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] bg-white/80">
+              <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
+                <span className="flex items-center gap-2">
+                  <span className="text-lg">{item.icon}</span>
+                  {item.title}
+                </span>
+                <span className="summary-arrow text-amber-600">▼</span>
+              </summary>
+              <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.content}</p>
+            </details>
+          ))}
         </div>
       </section>
 
-      <section className="cosmic-panel mx-auto mb-8 mt-8 w-full max-w-7xl rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
+      {/* Section Divider */}
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section className="cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
         <div className="space-y-6 text-neutral-800">
           <div className="space-y-3">
-            <h2 className="text-3xl font-semibold text-midnight sm:text-4xl">Frequently Asked Questions</h2>
+            <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Frequently Asked Questions</h2>
             <p className="text-base leading-relaxed sm:text-lg">
-              Everything you need to know about creating and sharing a custom star map with StarMapCo—accuracy, styling,
-              pricing, printing, and more.
+              Everything you need to know about creating and sharing a custom star map with StarMapCo.
             </p>
           </div>
 
-          <div className="space-y-3">
-            {[
-              {
-                q: "How accurate are StarMapCo custom star maps?",
-                a: "Extremely accurate—using professional astronomy libraries based on skyfield and Yale catalogs for precise star positions.",
-              },
-              {
-                q: "What data sources do you use for the night sky?",
-                a: "Real astronomical data from trusted sources like the Yale Bright Star Catalog to calculate exact positions for your date, time, and location.",
-              },
-              {
-                q: "Can I customize text, styles, and shapes?",
-                a: "Yes—add titles, subtitles, or dedications; choose from four styles (navy gold, vintage, parchment, minimal) and shapes (rectangle free, heart/circle/star premium) plus visual modes and constellations.",
-              },
-              {
-                q: "What is included in the free version vs. premium unlock?",
-                a: `Free: basic preview and watermarked export. Premium unlocks start at ${priceLabels.single} for an HD download, with 3-packs and unlimited monthly options.`,
-              },
-              {
-                q: "How do I export or download my star map?",
-                a: "After premium unlock, download a high-resolution PNG directly from the app.",
-              },
-              {
-                q: "Is this a one-time purchase or subscription?",
-                a: `Both options are available: one-time HD downloads or an unlimited monthly subscription.`,
-              },
-              {
-                q: "Are the maps suitable for printing?",
-                a: "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
-              },
-              {
-                q: "Can I share my custom star map with others?",
-                a: "Generate and share images or links now; public sharing options are coming soon.",
-              },
-              {
-                q: "What if I enter the wrong date or location?",
-                a: "Edit inputs anytime before export—the preview updates in real time so you can correct details.",
-              },
-              {
-                q: "Why choose StarMapCo over other star map generators?",
-                a: "Instant real-time preview, accurate science, premium visuals, and flexible pricing for one-time or unlimited access.",
-              },
-              {
-                q: "Can I try a demo?",
-                a: "Yes—use the demo button to auto-fill a sample moment and preview without payment.",
-              },
-            ].map((item) => (
-              <details key={item.q} className="group rounded-2xl border border-amber-200/60 bg-white/70 p-4">
-                <summary className="cursor-pointer text-base font-semibold text-midnight sm:text-lg">{item.q}</summary>
-                <p className="mt-2 text-sm text-neutral-800 sm:text-base">{item.a}</p>
-              </details>
-            ))}
+          <div className="space-y-8">
+            {/* Accuracy & Data Category */}
+            <div className="space-y-3">
+              <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-midnight">
+                <span>🔬</span> Accuracy & Data
+              </h3>
+              <div className="space-y-3">
+                {[
+                  {
+                    q: "How accurate are StarMapCo custom star maps?",
+                    a: "Extremely accurate—using professional astronomy libraries based on skyfield and Yale catalogs for precise star positions.",
+                  },
+                  {
+                    q: "What data sources do you use for the night sky?",
+                    a: "Real astronomical data from trusted sources like the Yale Bright Star Catalog to calculate exact positions for your date, time, and location.",
+                  },
+                ].map((item, index) => (
+                  <details key={item.q} className={`details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] ${index % 2 === 0 ? 'bg-white/70' : 'bg-white/60'}`}>
+                    <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
+                      <span>{item.q}</span>
+                      <span className="summary-arrow ml-2 flex-shrink-0 text-amber-600">▼</span>
+                    </summary>
+                    <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.a}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+
+            {/* Customization Category */}
+            <div className="space-y-3">
+              <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-midnight">
+                <span>🎨</span> Customization
+              </h3>
+              <div className="space-y-3">
+                {[
+                  {
+                    q: "Can I customize text, styles, and shapes?",
+                    a: "Yes—add titles, subtitles, or dedications; choose from four styles (navy gold, vintage, parchment, minimal) and shapes (rectangle free, heart/circle/star premium) plus visual modes and constellations.",
+                  },
+                  {
+                    q: "What if I enter the wrong date or location?",
+                    a: "Edit inputs anytime before export—the preview updates in real time so you can correct details.",
+                  },
+                  {
+                    q: "Can I try a demo?",
+                    a: "Yes—use the demo button to auto-fill a sample moment and preview without payment.",
+                  },
+                ].map((item, index) => (
+                  <details key={item.q} className={`details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] ${index % 2 === 0 ? 'bg-white/70' : 'bg-white/60'}`}>
+                    <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
+                      <span>{item.q}</span>
+                      <span className="summary-arrow ml-2 flex-shrink-0 text-amber-600">▼</span>
+                    </summary>
+                    <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.a}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+
+            {/* Pricing & Downloads Category */}
+            <div className="space-y-3">
+              <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-midnight">
+                <span>💰</span> Pricing & Downloads
+              </h3>
+              <div className="space-y-3">
+                {[
+                  {
+                    q: "What is included in the free version vs. premium unlock?",
+                    a: `Free: basic preview and watermarked export. Premium unlocks start at ${priceLabels.single} for an HD download, with 3-packs and unlimited monthly options.`,
+                  },
+                  {
+                    q: "How do I export or download my star map?",
+                    a: "After premium unlock, download a high-resolution PNG directly from the app.",
+                  },
+                  {
+                    q: "Is this a one-time purchase or subscription?",
+                    a: "Both options are available: one-time HD downloads or an unlimited monthly subscription.",
+                  },
+                  {
+                    q: "Are the maps suitable for printing?",
+                    a: "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
+                  },
+                  {
+                    q: "Can I share my custom star map with others?",
+                    a: "Generate and share images or links now; public sharing options are coming soon.",
+                  },
+                  {
+                    q: "Why choose StarMapCo over other star map generators?",
+                    a: "Instant real-time preview, accurate science, premium visuals, and flexible pricing for one-time or unlimited access.",
+                  },
+                ].map((item, index) => (
+                  <details key={item.q} className={`details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] ${index % 2 === 0 ? 'bg-white/70' : 'bg-white/60'}`}>
+                    <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
+                      <span>{item.q}</span>
+                      <span className="summary-arrow ml-2 flex-shrink-0 text-amber-600">▼</span>
+                    </summary>
+                    <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.a}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+
             <div className="pt-2">
               <Link
                 href="#preview"
-                className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
+                className="cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-midnight shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
               >
-                Ready to create yours? Start now
+                Ready to create yours? Start now →
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      <section ref={blogRef} className={`cosmic-panel mb-8 mt-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.88)] px-5 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10 fade-in-up ${blogVisible ? 'visible' : ''}`}>
-        <div className="space-y-4">
-          <h2 className="text-3xl font-semibold text-midnight sm:text-4xl">Latest from the Blog</h2>
+      {/* Section Divider */}
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section ref={blogRef} className={`cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up ${blogVisible ? 'visible' : ''}`}>
+        <div className="space-y-6">
+          <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Latest from the Blog</h2>
           <p className="text-base text-neutral-800 sm:text-lg">
             Guides and inspiration for anniversaries, birthdays, and accurate astronomy behind your custom star map.
           </p>
-          <div className={`grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children ${blogVisible ? 'visible' : ''}`}>
-            {[...blogPosts]
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .slice(0, 6)
-              .map((post) => (
+          <div className={`${blogGridClassName} mx-auto w-full stagger-children ${blogVisible ? 'visible' : ''}`}>
+            {latestPosts.map((post, index) => (
                 <article
                   key={post.slug}
-                  className="group flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-white/80 text-midnight shadow-md transition-all duration-300 hover:-translate-y-2 hover:border-amber-300 hover:shadow-[0_25px_50px_rgba(0,0,0,0.15)]"
+                  className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-white/80 text-midnight shadow-md transition-all duration-300 hover:-translate-y-3 hover:border-amber-300 hover:shadow-[0_30px_60px_rgba(0,0,0,0.2)] ${
+                    index === 0 && useFeaturedBlogLayout ? "sm:col-span-2 lg:col-span-1 lg:row-span-2" : ""
+                  }`}
                 >
-                  <div className="relative h-24 w-full overflow-hidden sm:h-32">
+                  <div
+                    className={`relative w-full overflow-hidden ${
+                      index === 0 && useFeaturedBlogLayout ? "h-40 lg:h-full lg:min-h-[200px]" : "h-32"
+                    }`}
+                  >
                     <Image
                       src="/custom-star-map-anniversary.webp"
                       alt={post.title}
                       fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-105"
                       loading="lazy"
                       sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                     />
+                    {index === 0 && (
+                      <div className="absolute left-3 top-3 rounded bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-midnight shadow">
+                        Featured
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-1 flex-col p-3 sm:p-4">
-                    <div className="text-[10px] uppercase tracking-wide text-amber-700 sm:text-xs">
-                      {new Date(post.date).toDateString()}
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide sm:text-xs">
+                      <span className="rounded bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">Guide</span>
+                      <span className="text-amber-700">{new Date(post.date).toDateString()}</span>
                     </div>
-                    <h3 className="mt-1 text-base font-semibold line-clamp-2 sm:text-lg">
+                    <h3 className={`mt-2 font-semibold line-clamp-2 ${index === 0 ? "text-lg sm:text-xl" : "text-base sm:text-lg"}`}>
                       <Link href={`/blog/${post.slug}`} className="hover:underline">
                         {post.title}
                       </Link>
                     </h3>
-                    <p className="mt-2 hidden line-clamp-2 text-sm text-neutral-700 sm:block">{post.description}</p>
+                    <p className={`mt-2 text-sm text-neutral-700 ${index === 0 ? "line-clamp-3" : "line-clamp-2"}`}>{post.description}</p>
                     <div className="mt-auto pt-3">
                       <Link
                         href={`/blog/${post.slug}`}
-                        className="inline-flex items-center gap-2 text-xs font-semibold text-amber-700 transition-colors hover:text-amber-900 hover:underline sm:text-sm"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-amber-700 transition-colors hover:text-amber-900 hover:underline"
                       >
                         Read more →
                       </Link>
@@ -410,15 +536,25 @@ function HomeInner() {
         </div>
       </section>
 
-      <section className="cosmic-panel mb-8 mt-8 rounded-[28px] border border-amber-200/60 bg-[rgba(247,241,227,0.92)] px-5 py-6 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:px-7 lg:mb-10 lg:px-10">
-        <h3 className="text-xl font-semibold text-midnight sm:text-2xl">Who builds StarMapCo?</h3>
-        <p className="mt-2 text-sm text-neutral-800 sm:text-base">
-          Built by an independent developer passionate about astronomy. Accuracy-first design with flexible pricing and
-          real sky data for meaningful maps.
-        </p>
-        <p className="mt-1 text-xs font-semibold text-neutral-700">
-          Early access: We're building reviews organically based on real customer experiences.
-        </p>
+      {/* Section Divider */}
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section className="cosmic-panel-enhanced cosmic-panel mx-auto mb-10 w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:mb-14 lg:px-10 lg:py-14">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:gap-5">
+          <div className="avatar-gradient flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-2xl">
+            👨‍💻
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-midnight sm:text-2xl">Built by a solo developer</h3>
+            <p className="mt-1 text-sm text-amber-700 sm:text-base">Passionate about astronomy and meaningful gifts</p>
+            <p className="mt-3 text-sm text-neutral-800 sm:text-base">
+              StarMapCo is built with accuracy-first design, flexible pricing, and real sky data to help you create maps that truly matter.
+            </p>
+            <p className="mt-2 text-xs font-semibold text-neutral-600">
+              🌟 Early access: Building reviews organically based on real customer experiences.
+            </p>
+          </div>
+        </div>
       </section>
     </main>
   );

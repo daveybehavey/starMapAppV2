@@ -3,15 +3,17 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map",
   description:
     "Create a personalized wedding star map from your ceremony date and location. Astronomically accurate and print-ready — a meaningful keepsake or gift.",
-  alternates: { canonical: "https://starmapco.com/wedding" },
+  alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map | StarMapCo",
     description: "Capture the exact night sky from your wedding day and place. Print-ready star map keepsake.",
-    url: "https://starmapco.com/wedding",
+    url: `${siteUrl}/wedding`,
     images: [{ url: "/og-default.png", width: 1200, height: 630 }],
     type: "website",
   },
@@ -69,8 +71,8 @@ export default function WeddingPage() {
         <h2 className="text-lg font-semibold text-midnight">What makes it special</h2>
         <p className="text-sm text-neutral-700 sm:text-base">
           Every map uses the same rendering engine for preview and HD export, so what you see is exactly what you receive.
-          You can toggle constellations, glow, labels, and choose fonts to match your wedding aesthetic. No subscriptions—just
-          a one-time purchase for a keepsake you can print forever.
+          You can toggle constellations, glow, labels, and choose fonts to match your wedding aesthetic. Flexible pricing
+          includes single downloads, bundles, or an unlimited subscription.
         </p>
         <div className="flex gap-3 text-sm text-neutral-700">
           <Link href="/anniversary" className="text-gold underline hover:text-amber-600">

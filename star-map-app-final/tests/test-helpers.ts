@@ -56,7 +56,7 @@ export const mockGeocode = async (page: Page) => {
 };
 
 export const waitForEditor = async (page: Page, isDesktop?: boolean) => {
-  const editor = page.locator("section#editor");
+  const editor = page.locator("#editor");
   await editor.waitFor({ state: "attached", timeout: 60000 });
   await expect(editor).toBeVisible({ timeout: 60000 });
   if (typeof isDesktop === "boolean") {
@@ -69,7 +69,7 @@ export const gotoEditor = async (
   page: Page,
   options: { path?: string; force?: "desktop" | "mobile" } = {},
 ) => {
-  const { path = "/", force = "desktop" } = options;
+  const { path = "/editor", force = "desktop" } = options;
   await primeLocalStorage(page);
   await page.goto(`${path}?force=${force}`, { waitUntil: "domcontentloaded", timeout: 60000 });
   await waitForEditor(page, force === "desktop");

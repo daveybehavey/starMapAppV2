@@ -3,16 +3,18 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
   title: "Personalized Star Map",
   description:
     "Create a personalized star map with names, dates, and locations. Accurate, print-ready, and instantly previewed.",
-  alternates: { canonical: "https://starmapco.com/personalized-star-map" },
+  alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
     title: "Personalized Star Map | StarMapCo",
     description:
       "Create a personalized star map with names, dates, and locations. Accurate, print-ready, and instantly previewed.",
-    url: "https://starmapco.com/personalized-star-map",
+    url: `${siteUrl}/personalized-star-map`,
     images: [{ url: "/og-default.png", width: 1200, height: 630 }],
     type: "website",
   },
@@ -40,7 +42,7 @@ export default function PersonalizedStarMapPage() {
           <li>Accurate night sky based on real astronomical data</li>
           <li>Custom text, fonts, and layout options</li>
           <li>Instant preview so you can fine-tune details</li>
-          <li>One-time unlock for HD download</li>
+          <li>Flexible pricing options for HD download</li>
         </ul>
       </section>
 

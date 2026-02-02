@@ -6,6 +6,7 @@ import { type TextBox, type StyleId, type RenderOptions } from "@/lib/store";
 import { type MapRecipe } from "@/lib/renderSky";
 import type { AspectRatio, Shape } from "@/lib/types";
 import Link from "next/link";
+import { formatPrice, getPricingTiers } from "@/lib/pricing";
 
 type ApiRecipe = {
   version: number;
@@ -77,6 +78,11 @@ export function ViewClient({ id, searchParams }: Props) {
     };
   }, [apiRecipe]);
 
+  const pricingLabel = useMemo(() => {
+    const tiers = getPricingTiers();
+    return formatPrice(tiers.single.amountCents, tiers.single.currency);
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -92,7 +98,7 @@ export function ViewClient({ id, searchParams }: Props) {
         setApiRecipe(data);
         setStatus("ready");
       } catch (e) {
-        console.error(e);
+        console.error(`Failed to load star map (id: ${id}):`, e);
         setStatus("error");
       }
     };
@@ -191,7 +197,7 @@ export function ViewClient({ id, searchParams }: Props) {
             className="inline-flex flex-col items-center justify-center gap-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
           >
             <span>✨ Create your own star map</span>
-            <span className="text-xs text-midnight/70 font-normal">Free preview · $0.99 HD unlock</span>
+            <span className="text-xs text-midnight/70 font-normal">Free preview · HD from {pricingLabel}</span>
           </Link>
         </div>
 

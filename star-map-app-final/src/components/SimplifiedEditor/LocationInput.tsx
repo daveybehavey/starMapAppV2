@@ -33,21 +33,33 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const blurTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setQuery(location.name);
   }, [location.name]);
 
   useEffect(() => {
-    if (disabled || query.trim().length < 3) {
+    if (disabled) {
       setResults([]);
       setDropdownOpen(false);
+      setErrorMessage(null);
+      return;
+    }
+    if (query.trim().length < 3) {
+      setResults([]);
+      setDropdownOpen(false);
+      if (!query.trim()) {
+        setErrorMessage(null);
+      }
       return;
     }
 
     setLoading(true);
+    setErrorMessage(null);
     if (controllerRef.current) {
       controllerRef.current.abort();
     }
@@ -55,8 +67,14 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
     controllerRef.current = controller;
 
     let mounted = true;
+    let requestTimeout: number | null = null;
+    let timedOut = false;
     const timer = setTimeout(async () => {
       try {
+        requestTimeout = window.setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, 30000);
         const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
           signal: controller.signal,
         });
@@ -66,10 +84,19 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
         setResults(data);
         if (isFocused && data.length > 0) setDropdownOpen(true);
       } catch (err) {
-        if ((err as Error).name === "AbortError") return;
+        if ((err as Error).name === "AbortError") {
+          if (timedOut && mounted) {
+            setErrorMessage("Location search timed out. Please try again.");
+          }
+          return;
+        }
         if (!mounted) return;
         setResults([]);
+        setErrorMessage("Location search failed. Please try again.");
       } finally {
+        if (requestTimeout) {
+          window.clearTimeout(requestTimeout);
+        }
         if (mounted) setLoading(false);
       }
     }, 250);
@@ -77,6 +104,9 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
     return () => {
       mounted = false;
       clearTimeout(timer);
+      if (requestTimeout) {
+        window.clearTimeout(requestTimeout);
+      }
       controller.abort();
     };
   }, [query, isFocused, disabled]);
@@ -96,6 +126,7 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
         longitude,
         timezone,
       });
+      setErrorMessage(null);
       onLocationChange?.();
       setDropdownOpen(false);
       setHighlightedIndex(-1);
@@ -118,7 +149,10 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
 
   const applyTypedLocation = useCallback(async () => {
     const trimmed = query.trim();
-    if (trimmed.length < 3) return;
+    if (trimmed.length < 3) {
+      setErrorMessage("Enter at least 3 characters.");
+      return;
+    }
 
     if (results.length > 0) {
       applyLocation(results[0]);
@@ -127,11 +161,25 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
 
     try {
       setLoading(true);
-      const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
-      if (!res.ok) return;
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`, {
+        signal: controller.signal,
+      });
+      window.clearTimeout(timeout);
+      if (!res.ok) {
+        setErrorMessage("Location search failed. Please try again.");
+        return;
+      }
       const data = (await res.json()) as GeocodeResult[];
       if (data.length > 0) {
         applyLocation(data[0]);
+      } else {
+        setErrorMessage("No matches found. Try another name.");
+      }
+    } catch (err) {
+      if ((err as Error).name === "AbortError") {
+        setErrorMessage("Location search timed out. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -185,6 +233,14 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
 
   const hasResults = results.length > 0;
 
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) {
+        window.clearTimeout(blurTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="relative">
       <input
@@ -196,12 +252,16 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
         onChange={(e) => {
           setQuery(e.target.value);
           setDropdownOpen(true);
+          setErrorMessage(null);
         }}
         onBlur={() => {
           setIsFocused(false);
           void applyTypedLocation();
           // Delay closing to allow click on dropdown
-          setTimeout(() => setDropdownOpen(false), 150);
+          if (blurTimeoutRef.current) {
+            window.clearTimeout(blurTimeoutRef.current);
+          }
+          blurTimeoutRef.current = window.setTimeout(() => setDropdownOpen(false), 150);
         }}
         onKeyDown={handleKeyDown}
         onFocus={() => {
@@ -214,11 +274,18 @@ export function LocationInput({ disabled, onLocationChange, inputId }: LocationI
         aria-expanded={dropdownOpen}
         aria-controls={dropdownOpen ? listId : undefined}
         aria-activedescendant={
-          highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined
+          highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : ""
         }
         aria-label="Location search"
-        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-invalid={Boolean(errorMessage)}
+        aria-describedby={errorMessage ? `${listId}-error` : undefined}
+        className="input-glow w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
       />
+      {errorMessage && (
+        <p id={`${listId}-error`} className="mt-1 text-[10px] text-red-300">
+          {errorMessage}
+        </p>
+      )}
 
       {loading && !disabled && (
         <div className="absolute inset-y-0 right-3 flex items-center">

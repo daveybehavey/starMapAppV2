@@ -33,9 +33,9 @@ export default function PrivacyPage() {
                 anonymized.
               </li>
               <li>
-                <strong>Payment Data (via Stripe):</strong> For premium unlocks ($0.99 one-time), Stripe processes
-                payment details (card info, billing address if provided). We do not store or access full payment
-                data—Stripe handles it securely under their privacy policy.
+                <strong>Payment Data (via Stripe):</strong> For premium unlocks (single downloads, bundles, or
+                subscriptions), Stripe processes payment details (card info, billing address if provided). We do not
+                store or access full payment data—Stripe handles it securely under their privacy policy.
               </li>
               <li>
                 <strong>Local Browser Storage:</strong> Draft inputs (localStorage) and premium unlock status (cookie for

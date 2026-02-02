@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
+import type { CheckoutPlan } from "@/lib/pricing";
+
+type SessionRecord = {
+  paid?: boolean;
+  revoked?: boolean;
+  plan?: CheckoutPlan;
+  creditsRemaining?: number;
+  subscriptionActive?: boolean;
+};
+
+const sessionKey = (id: string) => `stripe:session:${id}`;
 
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
@@ -16,9 +27,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const record = await kv.get<{ paid?: boolean }>(`stripe:session:${sessionId}`);
+    const record = await kv.get<SessionRecord>(sessionKey(sessionId));
+    const subscriptionActive = Boolean(record?.subscriptionActive);
+    const creditsRemaining = record?.creditsRemaining ?? 0;
+    const hasCredits = creditsRemaining > 0;
+    // If user has credits, they're paid regardless of plan type
+    // Only check subscription/paid fields if no credits remain
+    const paid =
+      !record?.revoked &&
+      (hasCredits || (record?.plan === "subscription" ? subscriptionActive : Boolean(record?.paid)));
     return NextResponse.json(
-      { paid: Boolean(record?.paid) },
+      {
+        paid,
+        plan: record?.plan ?? null,
+        creditsRemaining: record?.plan === "subscription" ? null : creditsRemaining,
+        subscriptionActive: record?.plan === "subscription" ? subscriptionActive : null,
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

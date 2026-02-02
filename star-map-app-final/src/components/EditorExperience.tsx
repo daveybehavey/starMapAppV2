@@ -6,7 +6,8 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/
 import { getShapeData } from "@/lib/shapeUtils";
 import type { AspectRatio, Shape } from "@/lib/types";
 import { track } from "@/lib/analytics";
-import { formatPrice, getPricingInfo, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
+import { formatPrice, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
+import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import {
@@ -152,19 +153,16 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const [currentPlan, setCurrentPlan] = useState<CheckoutPlan | null>(null);
 
   // Compute pricing labels once (never change during session)
-  const pricing = useMemo(() => getPricingInfo(), []);
-  const { activePriceLabel, basePriceLabel, priceLabels } = useMemo(() => {
+  const { priceLabels } = useMemo(() => {
     const tiers = getPricingTiers();
     return {
-      activePriceLabel: formatPrice(pricing.activeAmountCents, pricing.currency),
-      basePriceLabel: formatPrice(pricing.baseAmountCents, pricing.currency),
       priceLabels: {
         single: formatPrice(tiers.single.amountCents, tiers.single.currency),
         pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
         subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
       },
     };
-  }, [pricing]);
+  }, []);
 
   const hdCreditLabel =
     currentPlan === "subscription"
@@ -1336,7 +1334,16 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                                             <button
                                               key={style.id}
                                               type="button"
-                                              onClick={() => setStyle(style.id)}
+                                              onClick={() => {
+                                                setStyle(style.id);
+                                                const defaults = applyStyleDefaults(style.id, textBoxes);
+                                                if (Object.keys(defaults.renderOptions).length) {
+                                                  setRenderOptions(defaults.renderOptions);
+                                                }
+                                                if (defaults.textBoxes !== textBoxes) {
+                                                  setTextBoxes(defaults.textBoxes);
+                                                }
+                                              }}
                                               className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
                                                 styleClasses[style.id as keyof typeof styleClasses]
                                               } ${selectedStyle === style.id ? "btn-selection-pulse" : ""}`}
@@ -1763,14 +1770,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
                         <p className="text-xs text-neutral-600">1 print-ready download</p>
                       </div>
                       <div className="text-right text-sm font-semibold text-amber-800">
-                        {pricing.promoActive && pricing.promoAmountCents != null ? (
-                          <span>
-                            <span className="line-through opacity-70">{basePriceLabel}</span>{" "}
-                            <span>{activePriceLabel}</span>
-                          </span>
-                        ) : (
-                          <span>{priceLabels.single}</span>
-                        )}
+                        <span>{priceLabels.single}</span>
                       </div>
                     </div>
                     <button

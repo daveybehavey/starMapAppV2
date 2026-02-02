@@ -1,10 +1,20 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Homepage with SimplifiedEditor", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+      localStorage.setItem("cookiesAccepted", "true");
+      localStorage.setItem("analytics-consent", "true");
+    });
+  });
+
   test("should display sample preview in hero section", async ({ page }) => {
+    test.setTimeout(60_000);
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(3000); // Wait for canvas to render
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(/custom star map/i);
 
     // Take screenshot of initial homepage
     await page.screenshot({
@@ -12,30 +22,32 @@ test.describe("Homepage with SimplifiedEditor", () => {
       fullPage: false,
     });
 
-    // Check heading is visible
-    const heading = page.locator("h1");
-    await expect(heading).toContainText("custom star map");
+    // Check "Make it yours" CTA is visible (from SimplifiedEditor)
+    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first();
+    await expect(makeItYoursBtn).toBeVisible({ timeout: 15000 });
 
-    // Check "Make it yours" button is visible (from SimplifiedEditor)
-    const makeItYoursBtn = page.locator("text=Make it yours");
-    await expect(makeItYoursBtn).toBeVisible();
-
-    // Check pricing info is visible
-    const pricingText = page.locator("text=HD from");
-    await expect(pricingText).toBeVisible();
+    // Check pricing cards are visible
+    await expect(page.getByText("Single Map").first()).toBeVisible();
+    await expect(page.getByText("3-Pack").first()).toBeVisible();
+    await expect(page.getByText("Unlimited").first()).toBeVisible();
 
     console.log("✓ Homepage loads with SimplifiedEditor in hero");
   });
 
   test("should allow customization from homepage", async ({ page }) => {
+    test.setTimeout(60_000);
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(3000);
 
     // Click "Make it yours"
-    const makeItYoursBtn = page.locator("text=Make it yours");
-    await makeItYoursBtn.click();
-    await page.waitForTimeout(500);
+    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first();
+    const dateInput = page.locator("input[type='date']");
+    if (await dateInput.isDisabled().catch(() => false)) {
+      if (await makeItYoursBtn.isVisible({ timeout: 15000 }).catch(() => false)) {
+        await makeItYoursBtn.click();
+      }
+    }
+    await expect(dateInput).toBeEnabled({ timeout: 15000 });
 
     // Take screenshot after entering customization mode
     await page.screenshot({
@@ -44,7 +56,6 @@ test.describe("Homepage with SimplifiedEditor", () => {
     });
 
     // Check date input is now enabled
-    const dateInput = page.locator("input[type='date']");
     await expect(dateInput).toBeEnabled();
 
     // Check style buttons are enabled
@@ -53,7 +64,7 @@ test.describe("Homepage with SimplifiedEditor", () => {
 
     // Change style
     await vintageBtn.click();
-    await page.waitForTimeout(1000);
+    await expect(vintageBtn).toHaveAttribute("aria-checked", "true");
 
     // Take screenshot after style change
     await page.screenshot({
@@ -67,22 +78,27 @@ test.describe("Homepage with SimplifiedEditor", () => {
   test("should have functional action buttons after location entry", async ({
     page,
   }) => {
+    test.setTimeout(60_000);
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(3000);
 
     // Enter customization mode
-    const makeItYoursBtn = page.locator("text=Make it yours");
-    await makeItYoursBtn.click();
-    await page.waitForTimeout(500);
+    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first();
+    const dateInput = page.locator("input[type='date']");
+    if (await dateInput.isDisabled().catch(() => false)) {
+      if (await makeItYoursBtn.isVisible({ timeout: 15000 }).catch(() => false)) {
+        await makeItYoursBtn.click();
+      }
+    }
+    await expect(dateInput).toBeEnabled({ timeout: 15000 });
 
     // Check that Free preview button exists but is disabled (no location yet)
-    const freePreviewBtn = page.locator("button:has-text('Free preview')");
+    const freePreviewBtn = page.getByRole("button", { name: /free preview/i }).first();
     await expect(freePreviewBtn).toBeVisible();
     await expect(freePreviewBtn).toBeDisabled();
 
     // Check that HD button exists but is disabled
-    const hdBtn = page.locator("button").filter({ hasText: /Unlock HD|HD download/ });
+    const hdBtn = page.getByRole("button", { name: /unlock hd|hd/i }).first();
     await expect(hdBtn).toBeVisible();
     await expect(hdBtn).toBeDisabled();
 

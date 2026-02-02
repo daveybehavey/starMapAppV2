@@ -3,16 +3,18 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400;
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
   title: "Media Kit",
   description:
     "Press and media resources for StarMapCo, including logos, product images, and a short brand description.",
-  alternates: { canonical: "https://starmapco.com/media-kit" },
+  alternates: { canonical: `${siteUrl}/media-kit` },
   openGraph: {
     title: "StarMapCo Media Kit",
     description:
       "Press and media resources for StarMapCo, including logos, product images, and a short brand description.",
-    url: "https://starmapco.com/media-kit",
+    url: `${siteUrl}/media-kit`,
     images: [{ url: "/og-default.png", width: 1200, height: 630 }],
     type: "website",
   },

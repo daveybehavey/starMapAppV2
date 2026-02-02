@@ -12,14 +12,6 @@ const REQUIRED = [
 ];
 
 const OPTIONAL = [
-  "PROMO_PRICE_CENTS",
-  "PROMO_START",
-  "PROMO_END",
-  "STRIPE_PROMO_CODE_ID",
-  "NEXT_PUBLIC_PROMO_PRICE_CENTS",
-  "NEXT_PUBLIC_PROMO_START",
-  "NEXT_PUBLIC_PROMO_END",
-  "NEXT_PUBLIC_PROMO_ACTIVE",
   "NEXT_PUBLIC_POSTHOG_KEY",
   "NEXT_PUBLIC_POSTHOG_HOST",
   "NEXT_PUBLIC_GA_ID",
@@ -72,9 +64,7 @@ const checkInt = (key) => {
 };
 
 checkInt("PRICE_CENTS");
-checkInt("PROMO_PRICE_CENTS");
 checkInt("NEXT_PUBLIC_PRICE_CENTS");
-checkInt("NEXT_PUBLIC_PROMO_PRICE_CENTS");
 
 const checkDate = (key) => {
   const val = process.env[key];
@@ -85,17 +75,6 @@ const checkDate = (key) => {
   }
 };
 
-checkDate("PROMO_START");
-checkDate("PROMO_END");
-checkDate("NEXT_PUBLIC_PROMO_START");
-checkDate("NEXT_PUBLIC_PROMO_END");
-
-const promoSet = Boolean(process.env.PROMO_PRICE_CENTS);
-if (promoSet) {
-  if (isMissing("PROMO_START") || isMissing("PROMO_END")) {
-    errors.push("PROMO_PRICE_CENTS set but PROMO_START/END missing");
-  }
-}
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 if (stripeKey && !/^sk_(live|test)_/.test(stripeKey)) {

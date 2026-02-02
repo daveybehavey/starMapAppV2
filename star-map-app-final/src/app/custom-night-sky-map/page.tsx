@@ -40,7 +40,7 @@ export default function CustomNightSkyMapPage() {
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700 sm:text-base">
           <li>Accurate star positions for any date and location</li>
           <li>Custom styles, labels, and typography</li>
-          <li>Instant preview with a one-time unlock for download</li>
+          <li>Instant preview with flexible HD download options</li>
           <li>Print-ready, high-resolution file</li>
         </ul>
       </section>

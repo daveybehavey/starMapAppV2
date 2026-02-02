@@ -3,15 +3,17 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
   title: "Personalized Birthday Star Map",
   description:
     "Celebrate a birthday with a personalized star map showing the exact night sky from their special date and place. Astronomically accurate, print-ready, and memorable.",
-  alternates: { canonical: "https://starmapco.com/birthday" },
+  alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
     title: "Personalized Birthday Star Map | StarMapCo",
     description: "Capture the night sky from their birthday—accurate, print-ready, and gift-worthy.",
-    url: "https://starmapco.com/birthday",
+    url: `${siteUrl}/birthday`,
     images: [{ url: "/og-default.png", width: 1200, height: 630 }],
     type: "website",
   },
@@ -70,8 +72,8 @@ export default function BirthdayPage() {
         <h2 className="text-lg font-semibold text-midnight">What you get</h2>
         <p className="text-sm text-neutral-700 sm:text-base">
           Preview and HD export share the same rendering engine, so the final download matches what you see. Toggle
-          constellations, glow, labels, and choose fonts to fit their style. One-time purchase—no subscriptions—so you can print
-          and gift it forever.
+          constellations, glow, labels, and choose fonts to fit their style. Flexible pricing lets you choose single
+          downloads, bundles, or an unlimited subscription.
         </p>
         <div className="flex gap-3 text-sm text-neutral-700">
           <Link href="/wedding" className="text-gold underline hover:text-amber-600">

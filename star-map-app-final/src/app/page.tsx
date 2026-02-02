@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import HomeClient from "./HomeClient";
-import { formatPrice, getPricingInfo } from "@/lib/pricing";
+import { formatPrice, getPricingInfo, getPricingTiers } from "@/lib/pricing";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
 export const metadata: Metadata = {
   title: "Custom Star Map & Constellation Map",
   description:
-    "Create a custom star map or constellation map of any date and location. Instant preview, print-ready download, and one-time unlock at StarMapCo.",
-  alternates: { canonical: "https://starmapco.com/" },
+    "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo.",
+  alternates: { canonical: `${siteUrl}/` },
   openGraph: {
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready download, and one-time unlock.",
-    url: "https://starmapco.com/",
+      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+    url: `${siteUrl}/`,
     images: [
       {
-        url: "https://starmapco.com/custom-star-map-anniversary.webp",
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
@@ -26,24 +28,29 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready download, and one-time unlock.",
-    images: ["https://starmapco.com/custom-star-map-anniversary.png"],
+      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+    images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },
 };
 
 export default function HomePage() {
   const pricingInfo = getPricingInfo();
+  const tiers = getPricingTiers();
   const priceLabel = formatPrice(
-    pricingInfo.activeAmountCents,
-    (pricingInfo.currency || "USD").toUpperCase()
+    tiers.single.amountCents,
+    (tiers.single.currency || "USD").toUpperCase()
   );
-  const schemaPrice = (pricingInfo.activeAmountCents / 100).toFixed(2);
-  const schemaCurrency = (pricingInfo.currency || "USD").toUpperCase();
+  const packLabel = formatPrice(
+    tiers.pack3.amountCents,
+    (tiers.pack3.currency || "USD").toUpperCase()
+  );
+  const subscriptionLabel = formatPrice(
+    tiers.subscription.amountCents,
+    (tiers.subscription.currency || "USD").toUpperCase()
+  );
+  const schemaPrice = (tiers.single.amountCents / 100).toFixed(2);
+  const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
   const priceValidUntil = (() => {
-    const promoEnd = pricingInfo.promoEnd;
-    if (promoEnd && promoEnd.getTime() > Date.now()) {
-      return promoEnd.toISOString().slice(0, 10);
-    }
     const now = new Date();
     const nextYear = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
     return nextYear.toISOString().slice(0, 10);
@@ -57,14 +64,14 @@ export default function HomePage() {
         name: "Custom Star Map",
         description: "Personalized star map generator for special dates and locations.",
         brand: { "@type": "Brand", name: "StarMapCo" },
-        image: ["https://starmapco.com/custom-star-map-anniversary.webp"],
+        image: [`${siteUrl}/custom-star-map-anniversary.webp`],
         offers: {
           "@type": "Offer",
           priceCurrency: schemaCurrency,
           price: schemaPrice,
           priceValidUntil,
           availability: "https://schema.org/InStock",
-          url: "https://starmapco.com/",
+          url: `${siteUrl}/`,
         },
       },
       {
@@ -99,7 +106,7 @@ export default function HomePage() {
             name: "What is included in the free version vs. premium unlock?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: `Free offers a basic preview and watermarked export. Premium (${priceLabel} one-time) gives HD no-watermark PNG and advanced visuals.`,
+              text: `Free offers a basic preview and watermarked export. Premium unlocks start at ${priceLabel} per HD download, with ${packLabel} for 3 or ${subscriptionLabel}/mo unlimited options.`,
             },
           },
           {
@@ -115,7 +122,7 @@ export default function HomePage() {
             name: "Is this a one-time purchase or subscription?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: `One-time ${priceLabel} unlock per device/browser, stored locally—no subscriptions.`,
+              text: "Both: one-time HD downloads or an unlimited monthly subscription.",
             },
           },
           {
@@ -147,7 +154,7 @@ export default function HomePage() {
             name: "Why choose StarMapCo over other star map generators?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Instant real-time preview, accurate science, premium visuals, and an affordable one-time unlock with no subscriptions.",
+              text: "Instant real-time preview, accurate science, premium visuals, and flexible pricing for one-time or unlimited access.",
             },
           },
         ],

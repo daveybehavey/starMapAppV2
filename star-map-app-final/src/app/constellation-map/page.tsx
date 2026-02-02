@@ -3,16 +3,18 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+
 export const metadata: Metadata = {
   title: "Custom Constellation Map",
   description:
     "Create a custom constellation map of any date and location. Accurate star positions, instant preview, and print-ready digital download.",
-  alternates: { canonical: "https://starmapco.com/constellation-map" },
+  alternates: { canonical: `${siteUrl}/constellation-map` },
   openGraph: {
     title: "Custom Constellation Map | StarMapCo",
     description:
       "Create a custom constellation map of any date and location. Accurate star positions, instant preview, and print-ready download.",
-    url: "https://starmapco.com/constellation-map",
+    url: `${siteUrl}/constellation-map`,
     images: [{ url: "/og-default.png", width: 1200, height: 630 }],
     type: "website",
   },
@@ -42,7 +44,7 @@ export default function ConstellationMapPage() {
           <li>Accurate to the date, time, and location you choose</li>
           <li>Instant preview so you can refine details before download</li>
           <li>Elegant styles and clean layouts for framing or gifting</li>
-          <li>One-time unlock for a print-ready digital file</li>
+          <li>Flexible pricing for a print-ready digital file</li>
         </ul>
       </section>
 
