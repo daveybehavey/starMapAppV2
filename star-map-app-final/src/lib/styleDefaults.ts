@@ -51,7 +51,7 @@ const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
   midnightMinimal: {
     renderOptions: {
       visualMode: "enhanced",
-      starIntensity: "subtle",
+      starIntensity: "bold",
       starGlow: false,
       constellationLines: "off",
       constellationLabels: false,
@@ -63,7 +63,7 @@ const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
       showMoon: false,
       moonSize: "normal",
       frameEnabled: false,
-      backgroundColor: "#0c0f1a",
+      backgroundColor: "",
       constellationColor: "",
       constellationLineScale: 1,
     },

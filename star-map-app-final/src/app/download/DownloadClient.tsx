@@ -11,8 +11,10 @@ import { track } from "@/lib/analytics";
 import type { CheckoutPlan } from "@/lib/pricing";
 
 const DRAFT_KEY = "star-map-draft";
+const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
+const LEGACY_CHECKOUT_MAP_KEY = "checkout-map-id";
 
 type Status = "checking" | "ready" | "downloading" | "error" | "no-draft" | "not-paid";
 type PreviewStatus = "idle" | "rendering" | "ready" | "error";
@@ -72,7 +74,7 @@ function readDraft(): MapRecipe | null {
   if (typeof window === "undefined") return null;
   let raw: string | null = null;
   try {
-    raw = localStorage.getItem(DRAFT_KEY);
+    raw = localStorage.getItem(DRAFT_KEY) || localStorage.getItem(LEGACY_SIMPLIFIED_DRAFT_KEY);
   } catch {
     return null;
   }
@@ -110,7 +112,7 @@ function readDraft(): MapRecipe | null {
 function readStoredMapId(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const value = localStorage.getItem(CHECKOUT_MAP_KEY);
+    const value = localStorage.getItem(CHECKOUT_MAP_KEY) || localStorage.getItem(LEGACY_CHECKOUT_MAP_KEY);
     return value ? value.trim() : null;
   } catch {
     return null;
@@ -431,7 +433,8 @@ export default function DownloadClient() {
           width: baseWidth,
           height: baseHeight,
           watermark: false,
-          quality: "preview",
+          // Match export styling as closely as possible (lower resolution only).
+          quality: "export",
           premium: true,
           pixelRatio,
         });

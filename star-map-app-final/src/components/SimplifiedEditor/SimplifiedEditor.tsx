@@ -85,6 +85,8 @@ const SAMPLE_RECIPE: MapRecipe = {
 type EditorMode = "sample" | "customizing";
 
 const DRAFT_STORAGE_KEY = "starmap-simplified-draft";
+const SHARED_DRAFT_STORAGE_KEY = "star-map-draft";
+const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const DEFAULT_EXACT_TIME = "00:00:00";
 
 export function SimplifiedEditor() {
@@ -214,6 +216,15 @@ export function SimplifiedEditor() {
     }
     draftSaveTimerRef.current = window.setTimeout(() => {
       try {
+        const sharedDraft = buildRecipeFromState({
+          dateTime,
+          location,
+          textBoxes,
+          selectedStyle,
+          aspectRatio,
+          shape,
+          renderOptions,
+        });
         localStorage.setItem(
           DRAFT_STORAGE_KEY,
           JSON.stringify({
@@ -226,6 +237,7 @@ export function SimplifiedEditor() {
             renderOptions,
           })
         );
+        localStorage.setItem(SHARED_DRAFT_STORAGE_KEY, JSON.stringify(sharedDraft));
       } catch {
         // ignore storage errors
       }
@@ -499,7 +511,7 @@ export function SimplifiedEditor() {
           if (typeof data.id === "string" && data.id.trim()) {
             mapId = data.id.trim();
             try {
-              localStorage.setItem("checkout-map-id", mapId);
+              localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
             } catch {
               // ignore storage errors
             }
@@ -563,11 +575,11 @@ export function SimplifiedEditor() {
     }
   }, [hasValidLocation, revealed, setRevealed]);
 
-  const styles: { id: StyleId; name: string; preview: string }[] = [
-    { id: "navyGold", name: "Navy & Gold", preview: "bg-[#070b1b]" },
-    { id: "vintageEngraving", name: "Vintage", preview: "bg-[#1b1b1b]" },
-    { id: "parchmentScroll", name: "Parchment", preview: "bg-[#f5f0e6]" },
-    { id: "midnightMinimal", name: "Minimal", preview: "bg-[#0c0f1a]" },
+  const styles: { id: StyleId; name: string; swatchClass: string }[] = [
+    { id: "navyGold", name: "Navy & Gold", swatchClass: "bg-[#070b1b] border-[#d4af37]" },
+    { id: "vintageEngraving", name: "Vintage", swatchClass: "bg-[#564531] border-[#c7a56d]" },
+    { id: "parchmentScroll", name: "Parchment", swatchClass: "bg-[#e8d48b] border-[#111111]" },
+    { id: "midnightMinimal", name: "Minimal", swatchClass: "bg-[#050505] border-white" },
   ];
 
   const shapes: { id: Shape; name: string; icon: string }[] = [
@@ -828,7 +840,8 @@ export function SimplifiedEditor() {
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                 >
                   <div
-                    className={`h-8 w-8 rounded-full ${style.preview} border border-white/20`}
+                    className={`h-8 w-8 rounded-full border-2 ${style.swatchClass}`}
+                    style={style.id === "parchmentScroll" ? { borderColor: "#000000", borderWidth: 3 } : undefined}
                     aria-hidden="true"
                   />
                   <span className="text-[10px] text-white/70">{style.name}</span>

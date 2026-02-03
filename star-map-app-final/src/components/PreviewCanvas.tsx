@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
-import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, clamp, type MapRecipe } from "@/lib/renderSky";
+import {
+  aspectRatioToNumber,
+  buildRecipeFromState,
+  renderStarMap,
+  clamp,
+  type MapRecipe,
+} from "@/lib/renderSky";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 
@@ -25,35 +31,53 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly = false, externalRecipe }: Props) {
+export default function PreviewCanvas({
+  onRendered,
+  fullscreen = false,
+  readOnly = false,
+  externalRecipe,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const dragRafRef = useRef<number | null>(null);
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const pendingDragRef = useRef<{ x: number; y: number } | null>(null);
+  const dragBoundsRef = useRef<DOMRect | null>(null);
   const dragActiveRef = useRef(false);
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
-    new Map(),
+    new Map()
   );
-  const { selectedStyle, textBoxes, dateTime, location, renderOptions, paid, updateTextBox, aspectRatio, shape, previewFidelity } =
-    useStore(
-      useShallow((state) => ({
-        selectedStyle: state.selectedStyle,
-        textBoxes: state.textBoxes,
-        dateTime: state.dateTime,
-        location: state.location,
-        renderOptions: state.renderOptions,
-        paid: state.paid,
-        aspectRatio: state.aspectRatio,
-        shape: state.shape,
-        updateTextBox: state.updateTextBox,
-        previewFidelity: state.previewFidelity,
-      })),
-    );
+  const {
+    selectedStyle,
+    textBoxes,
+    dateTime,
+    location,
+    renderOptions,
+    paid,
+    updateTextBox,
+    aspectRatio,
+    shape,
+    previewFidelity,
+  } = useStore(
+    useShallow((state) => ({
+      selectedStyle: state.selectedStyle,
+      textBoxes: state.textBoxes,
+      dateTime: state.dateTime,
+      location: state.location,
+      renderOptions: state.renderOptions,
+      paid: state.paid,
+      aspectRatio: state.aspectRatio,
+      shape: state.shape,
+      updateTextBox: state.updateTextBox,
+      previewFidelity: state.previewFidelity,
+    }))
+  );
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [activeBox, setActiveBox] = useState<string | null>(null);
-  const [boxRect, setBoxRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [boxRect, setBoxRect] = useState<{ x: number; y: number; width: number; height: number } | null>(
+    null
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -76,7 +100,16 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
         aspectRatio,
         shape,
       }),
-    [externalRecipe, debouncedDateTime, debouncedLocation, textBoxes, selectedStyle, renderOptions, aspectRatio, shape]
+    [
+      externalRecipe,
+      debouncedDateTime,
+      debouncedLocation,
+      textBoxes,
+      selectedStyle,
+      renderOptions,
+      aspectRatio,
+      shape,
+    ]
   );
 
   // Use external recipe's aspect ratio and shape when provided
@@ -105,7 +138,8 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
       const { width, height } = dimensions;
       const deviceRatio = window.devicePixelRatio || 1;
       const fidelityBoost = previewFidelity === "high" ? 2 : 1;
-      const pixelRatio = Math.min(deviceRatio * fidelityBoost, 3);
+      // Drag updates happen frequently, so reduce resolution while dragging for smoother mobile interaction.
+      const pixelRatio = isDragging ? 1 : Math.min(deviceRatio * fidelityBoost, 3);
       renderStarMap({
         recipe,
         canvas,
@@ -113,7 +147,7 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
         height,
         watermark: !paid,
         quality: "preview",
-        premium: paid,
+        premium: isDragging ? false : paid,
         pixelRatio,
         textBounds: textBoundsRef.current,
       });
@@ -128,7 +162,7 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [dimensions, activeBox, recipe, paid, previewFidelity, onRendered]);
+  }, [dimensions, activeBox, recipe, paid, previewFidelity, isDragging, onRendered]);
 
   useEffect(() => {
     if (readOnly) return;
@@ -148,6 +182,8 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
           offsetX: x - hit.centerX,
           offsetY: y - hit.centerY,
         };
+        pendingDragRef.current = { x, y };
+        dragBoundsRef.current = bounds;
         dragActiveRef.current = false;
         setIsDragging(false);
         setActiveBox(hit.id);
@@ -170,7 +206,7 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
         dragActiveRef.current = true;
         setIsDragging(true);
       }
-      const bounds = canvas.getBoundingClientRect();
+      const bounds = dragBoundsRef.current ?? canvas.getBoundingClientRect();
       pendingDragRef.current = {
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
@@ -180,37 +216,42 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
         dragRafRef.current = null;
         const drag = dragRef.current;
         const pending = pendingDragRef.current;
-        if (!drag || !pending || !canvas) return;
+        const dragBounds = dragBoundsRef.current;
+        if (!drag || !pending || !canvas || !dragBounds) return;
 
-        // Recalculate bounds fresh each frame for accuracy
-        const bounds = canvas.getBoundingClientRect();
         const centerX = pending.x - drag.offsetX;
         const centerY = pending.y - drag.offsetY;
-        const newX = clamp(centerX / bounds.width, 0.05, 0.95);
-        const newY = clamp(centerY / bounds.height, 0.1, 0.95);
-        updateTextBox(drag.id, { position: { x: newX, y: newY } });
         const rect = textBoundsRef.current.get(drag.id);
-        if (rect) setBoxRect(rect);
+        const { x: newX, y: newY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect);
+        updateTextBox(drag.id, { position: { x: newX, y: newY } });
+        const nextRect = textBoundsRef.current.get(drag.id);
+        if (nextRect) setBoxRect(nextRect);
       });
     };
 
     const handlePointerUp = (event: PointerEvent) => {
-      if (dragRef.current) {
+      if (!dragRef.current) return;
+      if (canvas.hasPointerCapture(event.pointerId)) {
         canvas.releasePointerCapture(event.pointerId);
       }
+
       dragRef.current = null;
+      pendingDragRef.current = null;
+      dragBoundsRef.current = null;
       dragActiveRef.current = false;
       setIsDragging(false);
     };
 
-    canvas.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerdown", handlePointerDown, { passive: false });
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
 
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
       if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
     };
   }, [readOnly, updateTextBox]);
@@ -238,16 +279,16 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
       aria-label={readOnly ? "Star map preview" : "Star map preview - drag text boxes to reposition"}
       className={`relative overflow-hidden rounded-2xl shadow-2xl ${
         fullscreen
-          ? "max-w-[90vmin] max-h-[90vmin] border-2 border-[#d7b56c]/80 shadow-black/40"
-          : "w-full border-2 border-[#d7b56c]/80 shadow-black/20 min-h-[280px] sm:min-h-[360px] md:min-h-[420px] lg:min-h-[520px]"
+          ? "max-h-[90vmin] max-w-[90vmin] border-2 border-[#d7b56c]/80 shadow-black/40"
+          : "min-h-[280px] w-full border-2 border-[#d7b56c]/80 shadow-black/20 sm:min-h-[360px] md:min-h-[420px] lg:min-h-[520px]"
       }`}
       style={{ aspectRatio: `${aspectRatioToNumber(effectiveAspectRatio)} / 1` }}
     >
       <canvas
         ref={canvasRef}
-        className={`absolute inset-0 w-full h-full transition-opacity duration-500 ${
+        className={`absolute inset-0 h-full w-full transition-opacity duration-500 ${
           readOnly ? "" : "touch-none"
-        } ${isLoading ? "opacity-0" : "opacity-100 canvas-twinkle"}`}
+        } ${isLoading ? "opacity-0" : "canvas-twinkle opacity-100"}`}
       />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0b0f24]">
@@ -256,13 +297,13 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
               <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
               <div className="absolute inset-0 animate-ping rounded-full border border-amber-400/20" />
             </div>
-            <span className="text-xs text-neutral-400 animate-pulse">Rendering stars...</span>
+            <span className="animate-pulse text-xs text-neutral-400">Rendering stars...</span>
           </div>
         </div>
       )}
       {isDragging && (
         <div
-          className={`pointer-events-none absolute inset-[7%] border border-dashed border-white/30 bg-white/5 ${
+          className={`pointer-events-none absolute inset-[2%] border border-dashed border-white/30 bg-white/5 ${
             effectiveShape === "circle" ? "rounded-full" : "rounded-2xl"
           }`}
         />
@@ -283,10 +324,30 @@ export default function PreviewCanvas({ onRendered, fullscreen = false, readOnly
   );
 }
 
+function clampPositionToCanvas(
+  centerX: number,
+  centerY: number,
+  bounds: Pick<DOMRect, "width" | "height">,
+  textRect?: { width: number; height: number }
+) {
+  const width = Math.max(bounds.width, 1);
+  const height = Math.max(bounds.height, 1);
+  const halfWidth = textRect ? textRect.width / (width * 2) : 0;
+  const halfHeight = textRect ? textRect.height / (height * 2) : 0;
+  const minX = clamp(halfWidth, 0, 0.5);
+  const maxX = clamp(1 - halfWidth, 0.5, 1);
+  const minY = clamp(halfHeight, 0, 0.5);
+  const maxY = clamp(1 - halfHeight, 0.5, 1);
+  return {
+    x: clamp(centerX / width, minX, maxX),
+    y: clamp(centerY / height, minY, maxY),
+  };
+}
+
 function hitTestText(
   bounds: Map<string, { x: number; y: number; width: number; height: number }>,
   x: number,
-  y: number,
+  y: number
 ) {
   for (const [id, rect] of Array.from(bounds.entries()).reverse()) {
     if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) {

@@ -67,10 +67,10 @@ const STYLE_THEME: Record<
     glow: "rgba(110, 88, 73, 0)",
   },
   midnightMinimal: {
-    background: "#0c0f1a",
-    vignette: "rgba(0, 0, 0, 0)",
-    accent: "#e0e0e0",
-    star: "#e0e0e0",
+    background: "#070a14",
+    vignette: "rgba(2, 6, 18, 0.68)",
+    accent: "#d7e4ff",
+    star: "#f5f8ff",
     glow: "rgba(0, 0, 0, 0)",
   },
 };
@@ -114,6 +114,8 @@ type CanvasLike = {
   style?: { width?: string; height?: string };
   getContext: (type: "2d") => CanvasRenderingContext2D | null;
 };
+
+type RenderQuality = "preview" | "og" | "export";
 
 type ModeSettings = {
   glowBlur: number;
@@ -210,7 +212,7 @@ export function renderStarMap({
   width: number;
   height: number;
   watermark: boolean;
-  quality: "preview" | "og" | "export";
+  quality: RenderQuality;
   premium?: boolean;
   pixelRatio?: number;
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
@@ -272,7 +274,7 @@ export function renderStarMap({
     recipe.renderOptions?.backgroundColor,
   );
   if (recipe.selectedStyle === "parchmentScroll") {
-    drawPaperTexture(ctx, width, targetHeight);
+    drawPaperTexture(ctx, width, targetHeight, quality);
   }
   drawSky(ctx, width, targetHeight, recipe, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale, premium);
   if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
@@ -296,7 +298,7 @@ export function renderStarMap({
   drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
   drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
   if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
-    drawFilmGrain(ctx, width, targetHeight, mode);
+    drawFilmGrain(ctx, width, targetHeight, mode, quality);
   }
   ctx.restore();
 }
@@ -532,8 +534,11 @@ function drawSky(
   const isParchment = styleId === "parchmentScroll";
   const useFixedStarColor = isMinimal || isParchment;
   const allowGlow = !isMinimal && !isParchment;
-  const parchmentAlphaFloor = isParchment ? 0.07 : 0.02;
+  const starAlphaFloor = isParchment ? 0.07 : isMinimal ? 0.015 : 0.02;
   const parchmentSizeBoost = isParchment ? 1.18 : 1;
+  const minimalVisibilityCutoff = isMinimal ? 0.09 : 0;
+  const minimalAlphaBoost = isMinimal ? 1.16 : 1;
+  const minimalSizeBoost = isMinimal ? 1.08 : 1;
 
   // Apply starIntensity to affect star brightness and size
   // subtle = smaller/dimmer, normal = default, bold = larger/brighter
@@ -586,13 +591,28 @@ function drawSky(
     const baseAlpha = brightnessFromMagnitude(star.magnitude);
     if (!Number.isFinite(baseAlpha)) continue;
     // Apply intensity alpha boost
-    const alpha = clamp(baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost, parchmentAlphaFloor, 1);
+    const alpha = clamp(
+      baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost * minimalAlphaBoost,
+      starAlphaFloor,
+      1,
+    );
     if (!Number.isFinite(alpha)) continue;
+    if (isMinimal && alpha < minimalVisibilityCutoff) continue;
     // Apply intensity size factor
     const jitter = 0.92 + randFromSeed((i + 1) * 17) * 0.18;
     const radius =
-      starRadiusFromMagnitude(star.magnitude) * (mode?.starSizeFactor ?? 1) * intensityFactor * parchmentSizeBoost * jitter * scale;
+      starRadiusFromMagnitude(star.magnitude) *
+      (mode?.starSizeFactor ?? 1) *
+      intensityFactor *
+      parchmentSizeBoost *
+      minimalSizeBoost *
+      jitter *
+      scale;
     if (!Number.isFinite(radius) || radius <= 0) continue;
+    if (isMinimal) {
+      const dropChance = star.magnitude > 4.6 ? 0.78 : star.magnitude > 3.4 ? 0.55 : star.magnitude > 2.3 ? 0.28 : 0;
+      if (dropChance > 0 && randFromSeed((i + 1) * 43.73) < dropChance) continue;
+    }
     if (premiumStars && star.magnitude <= premiumThreshold) {
       const color = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
       drawPremiumStar(ctx, star.x, star.y, radius, alpha, color, star.magnitude, i);
@@ -721,8 +741,16 @@ function drawPremiumVignette(
   ctx.restore();
 }
 
-function drawFilmGrain(ctx: CanvasRenderingContext2D, width: number, height: number, mode?: ModeSettings) {
-  const strength = clamp(0.08 + (mode?.vignetteStrength ?? 1) * 0.02, 0.06, 0.14);
+function drawFilmGrain(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  mode: ModeSettings | undefined,
+  quality: RenderQuality,
+) {
+  // Keep paid exports clean for print; grain remains a preview/OG-only effect.
+  if (quality === "export") return;
+  const strength = clamp(0.05 + (mode?.vignetteStrength ?? 1) * 0.015, 0.04, 0.09);
   const grainSize = Math.max(1, Math.round(Math.min(width, height) / FILM_GRAIN_SIZE_DIVISOR));
   const cols = Math.ceil(width / grainSize);
   const rows = Math.ceil(height / grainSize);
@@ -738,8 +766,12 @@ function drawFilmGrain(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.restore();
 }
 
-function drawPaperTexture(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const grainSize = Math.max(1, Math.round(Math.min(width, height) / 180));
+function drawPaperTexture(ctx: CanvasRenderingContext2D, width: number, height: number, quality: RenderQuality) {
+  // Avoid large block artifacts on high-res exports by increasing paper texture detail.
+  const divisor = quality === "export" ? 500 : 180;
+  const grainSize = Math.max(1, Math.round(Math.min(width, height) / divisor));
+  const alphaBase = quality === "export" ? 0.018 : 0.05;
+  const alphaRange = quality === "export" ? 0.038 : 0.08;
   const cols = Math.ceil(width / grainSize);
   const rows = Math.ceil(height / grainSize);
   ctx.save();
@@ -747,7 +779,7 @@ function drawPaperTexture(ctx: CanvasRenderingContext2D, width: number, height: 
     for (let x = 0; x < cols; x += 1) {
       const seed = (x + 3) * 4099 ^ (y + 7) * 1319;
       const n = randFromSeed(seed);
-      const alpha = 0.05 + n * 0.08;
+      const alpha = alphaBase + n * alphaRange;
       ctx.fillStyle = `rgba(104, 76, 38, ${alpha})`;
       ctx.fillRect(x * grainSize, y * grainSize, grainSize, grainSize);
     }

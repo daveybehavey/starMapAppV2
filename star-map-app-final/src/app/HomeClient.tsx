@@ -303,113 +303,112 @@ function HomeInner() {
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
       <section className="mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20">
-        <div className="cosmic-panel-enhanced cosmic-panel rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10">
-          <div className="space-y-6 text-neutral-800">
-            <div className="space-y-3">
-              <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">What Is a Custom Star Map?</h2>
-              <p className="text-base leading-relaxed text-neutral-800 sm:text-lg">
-                A custom star map (sometimes called a starmap or constellation map) shows the exact night sky from a
-                specific date, time, and location. We turn that real sky into a print-ready design you can gift or
-                frame. Every map is unique to the moment it represents.
-              </p>
-              <p className="text-sm text-neutral-700 sm:text-base">
-                Need printing help? Read our{" "}
-                <Link href="/how-to-print-star-map" className="font-semibold text-amber-700 hover:underline">
-                  star map printing guide
-                </Link>
-                .
-              </p>
-              <p className="text-sm text-neutral-700 sm:text-base">
-                Popular occasions:{" "}
-                <Link href="/anniversary" className="font-semibold text-amber-700 hover:underline">
-                  Anniversary star maps
-                </Link>
-                ,{" "}
-                <Link href="/birthday" className="font-semibold text-amber-700 hover:underline">
-                  Birthday star maps
-                </Link>
-                ,{" "}
-                <Link href="/wedding" className="font-semibold text-amber-700 hover:underline">
-                  Wedding star maps
-                </Link>
-                .
-              </p>
-              <p className="text-sm text-neutral-700 sm:text-base">
-                Popular searches:{" "}
-                <Link href="/constellation-map" className="font-semibold text-amber-700 hover:underline">
-                  Constellation map
-                </Link>
-                ,{" "}
-                <Link href="/star-map-poster" className="font-semibold text-amber-700 hover:underline">
-                  Star map poster
-                </Link>
-                ,{" "}
-                <Link href="/night-sky-map-gift" className="font-semibold text-amber-700 hover:underline">
-                  Night sky map gift
-                </Link>
-                ,{" "}
-                <Link href="/star-map-generator" className="font-semibold text-amber-700 hover:underline">
-                  Star map generator
-                </Link>
-                ,{" "}
-                <Link href="/star-map-gift" className="font-semibold text-amber-700 hover:underline">
-                  Star map gift
-                </Link>
-                .
-              </p>
-            </div>
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+          <div className="cosmic-panel-enhanced cosmic-panel rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10">
+            <div className="space-y-6 text-neutral-800">
+              <div className="space-y-3">
+                <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">What Is a Custom Star Map?</h2>
+                <p className="text-base leading-relaxed text-neutral-800 sm:text-lg">
+                  A custom star map (sometimes called a starmap or constellation map) shows the exact night sky from a
+                  specific date, time, and location. We turn that real sky into a print-ready design you can gift or
+                  frame. Every map is unique to the moment it represents.
+                </p>
+                <p className="text-sm text-neutral-700 sm:text-base">
+                  Need printing help? Read our{" "}
+                  <Link href="/how-to-print-star-map" className="font-semibold text-amber-700 hover:underline">
+                    star map printing guide
+                  </Link>
+                  .
+                </p>
+                <p className="text-sm text-neutral-700 sm:text-base">
+                  Popular occasions:{" "}
+                  <Link href="/anniversary" className="font-semibold text-amber-700 hover:underline">
+                    Anniversary star maps
+                  </Link>
+                  ,{" "}
+                  <Link href="/birthday" className="font-semibold text-amber-700 hover:underline">
+                    Birthday star maps
+                  </Link>
+                  ,{" "}
+                  <Link href="/wedding" className="font-semibold text-amber-700 hover:underline">
+                    Wedding star maps
+                  </Link>
+                  .
+                </p>
+                <p className="text-sm text-neutral-700 sm:text-base">
+                  Popular searches:{" "}
+                  <Link href="/constellation-map" className="font-semibold text-amber-700 hover:underline">
+                    Constellation map
+                  </Link>
+                  ,{" "}
+                  <Link href="/star-map-poster" className="font-semibold text-amber-700 hover:underline">
+                    Star map poster
+                  </Link>
+                  ,{" "}
+                  <Link href="/night-sky-map-gift" className="font-semibold text-amber-700 hover:underline">
+                    Night sky map gift
+                  </Link>
+                  ,{" "}
+                  <Link href="/star-map-generator" className="font-semibold text-amber-700 hover:underline">
+                    Star map generator
+                  </Link>
+                  ,{" "}
+                  <Link href="/star-map-gift" className="font-semibold text-amber-700 hover:underline">
+                    Star map gift
+                  </Link>
+                  .
+                </p>
+              </div>
 
-            <div className="space-y-3">
-              <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">How StarMapCo Works</h2>
-              <ol className="list-decimal space-y-2 pl-5 text-base leading-relaxed text-neutral-800 sm:text-lg">
-                <li>Choose the date and location that matter most.</li>
-                <li>Preview the sky instantly with accurate star positions.</li>
-                <li>Personalize style, shape, and text.</li>
-                <li>Unlock and export a high-res, print-ready file.</li>
-              </ol>
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold text-midnight sm:text-3xl">How StarMapCo Works</h2>
+                <ol className="list-decimal space-y-2 pl-5 text-base leading-relaxed text-neutral-800 sm:text-lg">
+                  <li>Choose the date and location that matter most.</li>
+                  <li>Preview the sky instantly with accurate star positions.</li>
+                  <li>Personalize style, shape, and text.</li>
+                  <li>Unlock and export a high-res, print-ready file.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div id="accuracy" className="cosmic-panel-enhanced cosmic-panel rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
+            <div className="space-y-5 text-neutral-800">
+              <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Why is this accurate?</h2>
+              {[
+                {
+                  icon: "📊",
+                  title: "Data Sources",
+                  content: "Yale Bright Star Catalog and astronomy-engine (Skyfield-based) for stellar positions across hemispheres.",
+                },
+                {
+                  icon: "🧮",
+                  title: "Calculations",
+                  content: "Precession, time zones, latitude/longitude, and horizon transforms (alt/az) for true-to-time skies.",
+                },
+                {
+                  icon: "✓",
+                  title: "Verification",
+                  content: "Compare with Stellarium or other planetarium tools—your rendered sky should match within arcminutes.",
+                },
+              ].map((item) => (
+                <details key={item.title} className="details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] bg-white/80">
+                  <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
+                    <span className="flex items-center gap-2">
+                      <span className="text-lg">{item.icon}</span>
+                      {item.title}
+                    </span>
+                    <span className="summary-arrow text-amber-600">▼</span>
+                  </summary>
+                  <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.content}</p>
+                </details>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
       {/* SimplifiedEditor is now in hero section above */}
-
-      {/* Section Divider */}
-      <div className="section-divider my-12 sm:my-14 lg:my-16" />
-
-      <section id="accuracy" className="cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
-        <div className="space-y-5 text-neutral-800">
-          <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Why is this accurate?</h2>
-          {[
-            {
-              icon: "📊",
-              title: "Data Sources",
-              content: "Yale Bright Star Catalog and astronomy-engine (Skyfield-based) for stellar positions across hemispheres.",
-            },
-            {
-              icon: "🧮",
-              title: "Calculations",
-              content: "Precession, time zones, latitude/longitude, and horizon transforms (alt/az) for true-to-time skies.",
-            },
-            {
-              icon: "✓",
-              title: "Verification",
-              content: "Compare with Stellarium or other planetarium tools—your rendered sky should match within arcminutes.",
-            },
-          ].map((item) => (
-            <details key={item.title} className="details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] bg-white/80">
-              <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
-                <span className="flex items-center gap-2">
-                  <span className="text-lg">{item.icon}</span>
-                  {item.title}
-                </span>
-                <span className="summary-arrow text-amber-600">▼</span>
-              </summary>
-              <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.content}</p>
-            </details>
-          ))}
-        </div>
-      </section>
 
       {/* Section Divider */}
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
