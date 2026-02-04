@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getFunnelDashboard } from "@/lib/funnel";
+import { FunnelCsvDownloader } from "@/components/funnel/FunnelCsvDownloader";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -111,6 +112,13 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
             {dropAlert}
           </div>
         ) : null}
+        <div className="mt-4">
+          <FunnelCsvDownloader
+            rows={dashboard.rows}
+            daily={dashboard.daily}
+            generatedAt={dashboard.generatedAt}
+          />
+        </div>
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Landing conversion</p>
