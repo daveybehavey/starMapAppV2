@@ -1,6 +1,7 @@
 import posthog from "posthog-js";
+import type { FunnelStep } from "./funnelSteps";
 
-type EventProps = Record<string, string | number | boolean | undefined>;
+export type EventProps = Record<string, string | number | boolean | undefined | null>;
 
 export const ANALYTICS_STORAGE_KEY = "analytics-consent";
 
@@ -15,13 +16,29 @@ declare global {
   }
 }
 
+function canTrackAnalytics() {
+  if (typeof window === "undefined") return false;
+  if (!hasAnalyticsConsent()) return false;
+  if (isDoNotTrackEnabled()) return false;
+  return true;
+}
+
+function removeUndefinedValues<T extends Record<string, unknown>>(value: T): T {
+  const out = {} as T;
+  for (const [key, field] of Object.entries(value)) {
+    if (field !== undefined) {
+      (out as Record<string, unknown>)[key] = field;
+    }
+  }
+  return out;
+}
+
 export function track(event: string, props?: EventProps) {
-  if (typeof window === "undefined") return;
-  if (!hasAnalyticsConsent() || isDoNotTrackEnabled()) return;
-  const payload = {
+  if (!canTrackAnalytics()) return;
+  const payload = removeUndefinedValues({
     ...props,
     route: window.location.pathname,
-  };
+  });
   try {
     if (posthog?.capture) {
       posthog.capture(event, payload);
@@ -35,6 +52,75 @@ export function track(event: string, props?: EventProps) {
   } catch {
     // silently ignore tracking errors
   }
+}
+
+function postFunnelCounter(payload: {
+  step: FunnelStep;
+  source?: string;
+  plan?: string;
+  experiment?: string;
+  variant?: string;
+}) {
+  if (typeof window === "undefined") return;
+  const body = JSON.stringify(removeUndefinedValues(payload));
+  try {
+    if (typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([body], { type: "application/json" });
+      navigator.sendBeacon("/api/analytics/funnel", blob);
+      return;
+    }
+  } catch {
+    // Fallback to fetch below.
+  }
+  void fetch("/api/analytics/funnel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+type FunnelEventProps = EventProps & {
+  source?: string;
+  plan?: string;
+  experiment?: string;
+  variant?: string;
+};
+
+export function trackFunnelStep(step: FunnelStep, props?: FunnelEventProps) {
+  if (!canTrackAnalytics()) return;
+  const payload = removeUndefinedValues({
+    step,
+    ...props,
+  });
+  track("funnel_step", payload);
+  postFunnelCounter({
+    step,
+    source: typeof payload.source === "string" ? payload.source : undefined,
+    plan: typeof payload.plan === "string" ? payload.plan : undefined,
+    experiment: typeof payload.experiment === "string" ? payload.experiment : undefined,
+    variant: typeof payload.variant === "string" ? payload.variant : undefined,
+  });
+}
+
+export function trackExperimentExposure(
+  experiment: string,
+  variant: string,
+  props?: EventProps,
+) {
+  if (!canTrackAnalytics()) return;
+  const dedupeKey = `exp:${experiment}:${variant}:seen`;
+  try {
+    if (sessionStorage.getItem(dedupeKey) === "true") return;
+    sessionStorage.setItem(dedupeKey, "true");
+  } catch {
+    // Ignore storage failures and continue tracking.
+  }
+  track("experiment_exposure", {
+    experiment,
+    variant,
+    ...props,
+  });
 }
 
 export function isDoNotTrackEnabled() {

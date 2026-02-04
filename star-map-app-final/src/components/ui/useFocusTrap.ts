@@ -31,7 +31,6 @@ export function useFocusTrap<T extends HTMLElement>(
     // Focus the first focusable element in the container
     const focusableElements = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS);
     const firstFocusable = focusableElements[0];
-    const lastFocusable = focusableElements[focusableElements.length - 1];
 
     if (firstFocusable) {
       firstFocusable.focus();

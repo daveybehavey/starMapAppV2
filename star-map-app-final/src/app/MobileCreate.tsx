@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore, type TextBox, type RenderOptions } from "@/lib/store";
+import { type TextBox, type RenderOptions } from "@/lib/store";
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
@@ -41,10 +41,7 @@ export function MobileCreate({
   const {
     dateTime,
     setDateTime,
-    location,
-    setLocation,
     textBoxes,
-    setTextBoxes,
     updateTextBox,
     removeTextBox,
     addTextBox,
@@ -64,7 +61,6 @@ export function MobileCreate({
     // Local editor state from hook
     renderMode,
     setRenderMode,
-    intensity,
     setIntensity,
     intensityDisplay,
     setIntensityDisplay,
@@ -73,10 +69,7 @@ export function MobileCreate({
     customOccasion,
     setCustomOccasion,
     presetHint,
-    setPresetHint,
     // Derived state
-    locationName,
-    hasDate,
     canReveal,
     // Actions
     applyVisualOptions,
@@ -150,7 +143,7 @@ export function MobileCreate({
         // Ignore parse errors
       }
     }
-  }, []);
+  }, [setCustomOccasion, setSelectedOccasion]);
 
   // Sync selectedOccasion to draft when it changes
   useEffect(() => {
@@ -188,7 +181,7 @@ export function MobileCreate({
       setIntensity(value);
       applyVisualOptions(renderMode, value);
     },
-    [paid, renderMode, applyVisualOptions],
+    [applyVisualOptions, paid, renderMode, setIntensity, setIntensityDisplay],
   );
 
   // Handle render mode change
@@ -205,7 +198,7 @@ export function MobileCreate({
       applyVisualOptions(mode, targetLevel);
       track("render_mode_changed", { mode });
     },
-    [paid, intensityDisplay, applyVisualOptions],
+    [applyVisualOptions, intensityDisplay, paid, setIntensity, setIntensityDisplay, setRenderMode],
   );
 
   const handleStartPreset = useCallback(() => {
@@ -217,7 +210,7 @@ export function MobileCreate({
     setCustomOccasion(false);
     setRevealed(false);
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [setRevealed]);
+  }, [setCustomOccasion, setRevealed, setSelectedOccasion]);
 
   const handleDateTimeChange = useCallback(
     (iso: string) => {
@@ -227,7 +220,7 @@ export function MobileCreate({
         setSelectedOccasion(null);
       }
     },
-    [selectedOccasion, setDateTime],
+    [selectedOccasion, setCustomOccasion, setDateTime, setSelectedOccasion],
   );
 
   const handleLocationChange = useCallback(() => {
@@ -235,7 +228,7 @@ export function MobileCreate({
     if (selectedOccasion) {
       setSelectedOccasion(null);
     }
-  }, [selectedOccasion]);
+  }, [selectedOccasion, setCustomOccasion, setSelectedOccasion]);
 
   const applySampleMoment = useCallback(() => {
     const preset = occasionPresets.find((item) => item.id === "wedding") ?? occasionPresets[0];
@@ -288,7 +281,7 @@ export function MobileCreate({
     setIntensity(lockedIntensity);
     setIntensityDisplay(lockedIntensity);
     applyVisualOptions("cinematic", lockedIntensity);
-  }, [applyVisualOptions, isQuick]);
+  }, [applyVisualOptions, isQuick, setIntensity, setIntensityDisplay, setRenderMode]);
 
   const handleCustomizeMore = useCallback(() => {
     if (isQuick) {

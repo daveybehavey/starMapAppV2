@@ -18,8 +18,14 @@ if (!(globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).
 }
 
 async function getCloudflareKv(): Promise<CloudflareKvNamespace | null> {
+  const timeoutMs = 120;
   try {
-    const { env } = await getCloudflareContext({ async: true });
+    const cloudflareContext = await Promise.race([
+      getCloudflareContext({ async: true }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+    if (!cloudflareContext) return null;
+    const { env } = cloudflareContext;
     const bindings = env as unknown as Record<string, unknown> | undefined;
     return (bindings?.[CLOUDFLARE_KV_BINDING] as CloudflareKvNamespace | undefined) ?? null;
   } catch {

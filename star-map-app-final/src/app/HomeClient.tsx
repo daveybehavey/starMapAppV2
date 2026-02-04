@@ -3,10 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { blogPosts } from "@/lib/blogPosts";
 import { formatPrice, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
 import { useInView } from "@/hooks/useInView";
+import {
+  track,
+  trackExperimentExposure,
+  trackFunnelStep,
+} from "@/lib/analytics";
+import {
+  getHeroCheckoutVariant,
+  HERO_CHECKOUT_EXPERIMENT,
+  type HeroCheckoutVariant,
+} from "@/lib/experiments";
 
 // Lazy load SimplifiedEditor for the hero section
 const SimplifiedEditor = nextDynamic(
@@ -36,19 +46,71 @@ function HomeInner() {
   // Compute price labels once (they never change during session)
   const priceLabels = useMemo(() => {
     const tiers = getPricingTiers();
+    const packSavingsPercent =
+      tiers.single.amountCents > 0
+        ? Math.max(
+            0,
+            Math.round(
+              (1 - tiers.pack3.amountCents / Math.max(1, tiers.single.amountCents * 3)) * 100,
+            ),
+          )
+        : 0;
     return {
       single: formatPrice(tiers.single.amountCents, tiers.single.currency),
       pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
       subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
+      packSavingsPercent,
     };
   }, []);
+  const heroCheckoutVariant = useMemo<HeroCheckoutVariant>(() => getHeroCheckoutVariant(), []);
+  const heroCheckoutCopy = useMemo(() => {
+    if (heroCheckoutVariant === "value") {
+      return {
+        singleLabel: "One HD map",
+        singleCta: "Get 1 HD map",
+        packLabel: priceLabels.packSavingsPercent > 0 ? `Save ${priceLabels.packSavingsPercent}%` : "Best value",
+        packCta: "Get 3 HD maps",
+        subscriptionLabel: "Unlimited HD exports",
+        subscriptionCta: "Go unlimited",
+      };
+    }
+    return {
+      singleLabel: "Single Map",
+      singleCta: "Buy single",
+      packLabel: "Best value",
+      packCta: "Get 3-pack",
+      subscriptionLabel: "Unlimited",
+      subscriptionCta: "Start unlimited",
+    };
+  }, [heroCheckoutVariant, priceLabels.packSavingsPercent]);
   const [heroCheckoutPlan, setHeroCheckoutPlan] = useState<CheckoutPlan | null>(null);
   const [heroCheckoutError, setHeroCheckoutError] = useState<string | null>(null);
+
+  useEffect(() => {
+    trackExperimentExposure(HERO_CHECKOUT_EXPERIMENT, heroCheckoutVariant, { source: "home" });
+    trackFunnelStep("landing_view", {
+      source: "home",
+      experiment: HERO_CHECKOUT_EXPERIMENT,
+      variant: heroCheckoutVariant,
+    });
+  }, [heroCheckoutVariant]);
 
   const startHeroCheckout = useCallback(
     async (plan: CheckoutPlan) => {
       if (heroCheckoutPlan) return;
 
+      trackFunnelStep("hero_plan_click", {
+        source: "home",
+        plan,
+        experiment: HERO_CHECKOUT_EXPERIMENT,
+        variant: heroCheckoutVariant,
+      });
+      trackFunnelStep("checkout_started", {
+        source: "home",
+        plan,
+        experiment: HERO_CHECKOUT_EXPERIMENT,
+        variant: heroCheckoutVariant,
+      });
       setHeroCheckoutPlan(plan);
       setHeroCheckoutError(null);
 
@@ -68,14 +130,27 @@ function HomeInner() {
           throw new Error("invalid checkout url");
         }
 
+        trackFunnelStep("checkout_redirected", {
+          source: "home",
+          plan,
+          experiment: HERO_CHECKOUT_EXPERIMENT,
+          variant: heroCheckoutVariant,
+        });
         window.location.assign(checkoutUrl.toString());
       } catch (err) {
         console.error("Hero checkout error", err);
+        track("checkout_failed", {
+          source: "home",
+          plan,
+          reason: (err as Error)?.message ?? "unknown",
+          experiment: HERO_CHECKOUT_EXPERIMENT,
+          variant: heroCheckoutVariant,
+        });
         setHeroCheckoutError("Unable to start checkout right now. Please try again.");
         setHeroCheckoutPlan(null);
       }
     },
-    [heroCheckoutPlan]
+    [heroCheckoutPlan, heroCheckoutVariant]
   );
 
   // Scroll-triggered animation hooks
@@ -119,10 +194,10 @@ function HomeInner() {
               aria-busy={heroCheckoutPlan === "single"}
               className="pricing-card max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              <div className="text-xs uppercase tracking-wide text-neutral-400">Single Map</div>
+              <div className="text-xs uppercase tracking-wide text-neutral-400">{heroCheckoutCopy.singleLabel}</div>
               <div className="text-lg font-bold text-white">{priceLabels.single}</div>
               <div className="mt-1 text-[11px] font-semibold text-amber-300">
-                {heroCheckoutPlan === "single" ? "Starting checkout..." : "Buy single"}
+                {heroCheckoutPlan === "single" ? "Starting checkout..." : heroCheckoutCopy.singleCta}
               </div>
             </button>
             <button
@@ -134,9 +209,11 @@ function HomeInner() {
             >
               <div className="text-xs uppercase tracking-wide text-amber-300">3-Pack</div>
               <div className="text-lg font-bold text-white">{priceLabels.pack3}</div>
-              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">Best Value</div>
+              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                {heroCheckoutCopy.packLabel}
+              </div>
               <div className="mt-1 text-[11px] font-semibold text-amber-300">
-                {heroCheckoutPlan === "pack3" ? "Starting checkout..." : "Get 3-pack"}
+                {heroCheckoutPlan === "pack3" ? "Starting checkout..." : heroCheckoutCopy.packCta}
               </div>
             </button>
             <button
@@ -146,10 +223,10 @@ function HomeInner() {
               aria-busy={heroCheckoutPlan === "subscription"}
               className="pricing-card max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              <div className="text-xs uppercase tracking-wide text-neutral-400">Unlimited</div>
+              <div className="text-xs uppercase tracking-wide text-neutral-400">{heroCheckoutCopy.subscriptionLabel}</div>
               <div className="text-lg font-bold text-white">{priceLabels.subscription}<span className="text-sm font-normal text-neutral-400">/mo</span></div>
               <div className="mt-1 text-[11px] font-semibold text-amber-300">
-                {heroCheckoutPlan === "subscription" ? "Starting checkout..." : "Start unlimited"}
+                {heroCheckoutPlan === "subscription" ? "Starting checkout..." : heroCheckoutCopy.subscriptionCta}
               </div>
             </button>
           </div>

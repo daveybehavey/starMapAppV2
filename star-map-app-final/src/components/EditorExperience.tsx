@@ -1,11 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { TextBox, useStore, RenderOptions, StyleId } from "@/lib/store";
+import { TextBox, useStore } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
-import type { AspectRatio, Shape } from "@/lib/types";
-import { track } from "@/lib/analytics";
+import type { Shape } from "@/lib/types";
+import { track, trackExperimentExposure, trackFunnelStep } from "@/lib/analytics";
 import { formatPrice, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
@@ -17,12 +17,17 @@ import {
   shapeSymbols,
   shapeSymbolScale,
 } from "@/lib/config";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
+import {
+  getPaywallCopyVariant,
+  PAYWALL_COPY_EXPERIMENT,
+  type PaywallCopyVariant,
+} from "@/lib/experiments";
+import { PaywallModal } from "@/components/PaywallModal";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -117,7 +122,6 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     // Local editor state from hook
     renderMode,
     setRenderMode,
-    intensity,
     setIntensity,
     intensityDisplay,
     setIntensityDisplay,
@@ -126,13 +130,10 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     customOccasion,
     setCustomOccasion,
     presetHint,
-    setPresetHint,
     // Derived state
-    locationName,
     hasDate,
     canReveal,
     // Actions
-    applyVisualOptions,
     applyPreset: hookApplyPreset,
     applyProPreset,
   } = useEditorLogic({ variant, onVisualOptionsApplied });
@@ -163,6 +164,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       },
     };
   }, []);
+  const paywallVariant = useMemo<PaywallCopyVariant>(() => getPaywallCopyVariant(), []);
 
   const hdCreditLabel =
     currentPlan === "subscription"
@@ -200,6 +202,11 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const consumePromiseRef = useRef<Promise<boolean> | null>(null);
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!paywallOpen) return;
+    trackExperimentExposure(PAYWALL_COPY_EXPERIMENT, paywallVariant, { source: "editor" });
+  }, [paywallOpen, paywallVariant]);
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -261,7 +268,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     setCustomOccasion(false);
     setRevealed(false);
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [setRevealed]);
+  }, [setCustomOccasion, setRevealed, setSelectedOccasion]);
 
   const handleDateTimeChange = useCallback(
     (iso: string) => {
@@ -271,7 +278,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
         setSelectedOccasion(null);
       }
     },
-    [selectedOccasion, setDateTime],
+    [selectedOccasion, setCustomOccasion, setDateTime, setSelectedOccasion],
   );
 
   const handleLocationChange = useCallback(() => {
@@ -279,7 +286,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     if (selectedOccasion) {
       setSelectedOccasion(null);
     }
-  }, [selectedOccasion]);
+  }, [selectedOccasion, setCustomOccasion, setSelectedOccasion]);
 
   const refreshPaidStatus = useCallback(async () => {
     try {
@@ -398,6 +405,8 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     setLocation,
     setRenderOptions,
     setRevealed,
+    setCustomOccasion,
+    setSelectedOccasion,
     setStyle,
     setTextBoxes,
     setAspectRatio,
@@ -447,6 +456,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     // Auto-collapse Date & Location after generating map
     setCollapsedCards((prev) => ({ ...prev, dateLocation: true }));
     track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
+    trackFunnelStep("editor_reveal", { source: "editor" });
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(REVEALED_FLAG, "true");
@@ -457,7 +467,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     requestAnimationFrame(() => {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, [canReveal, hasDate, setRevealed]);
+  }, [canReveal, hasDate, paid, renderOptions.visualMode, setRevealed]);
 
   const applySampleMoment = useCallback(() => {
     const preset = occasionPresets.find((item) => item.id === "wedding") ?? occasionPresets[0];
@@ -577,8 +587,16 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
           setPendingExport(mode);
           setPaywallOpen(true);
           setCheckoutError(null);
-          track("paywall_view", { visualMode: renderOptions.visualMode });
-          track("paywall_opened", { visualMode: renderOptions.visualMode });
+          track("paywall_view", {
+            visualMode: renderOptions.visualMode,
+            experiment: PAYWALL_COPY_EXPERIMENT,
+            variant: paywallVariant,
+          });
+          track("paywall_opened", {
+            visualMode: renderOptions.visualMode,
+            experiment: PAYWALL_COPY_EXPERIMENT,
+            variant: paywallVariant,
+          });
           if (typeof window !== "undefined") {
             try {
               localStorage.setItem(AUTO_EXPORT_KEY, mode);
@@ -604,8 +622,10 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
             visualMode: renderOptions.visualMode,
             exportResolution: 6000,
           });
+          trackFunnelStep("download_started", { source: "editor" });
           track("export_download", { type: "hd" });
           await exportImage("hd", true);
+          trackFunnelStep("download_completed", { source: "editor" });
           return;
         }
         track("export_free_clicked", {
@@ -622,7 +642,15 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
         }
       }
     },
-    [consumeHdCredit, exportImage, paid, refreshPaidStatus, renderOptions.visualMode, revealed],
+    [
+      consumeHdCredit,
+      exportImage,
+      paid,
+      paywallVariant,
+      refreshPaidStatus,
+      renderOptions.visualMode,
+      revealed,
+    ],
   );
 
   const startCheckout = useCallback(async (plan: CheckoutPlan) => {
@@ -632,6 +660,12 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       setCheckoutInFlight(true);
       setCheckoutError(null);
       track("checkout_started", { visualMode: renderOptions.visualMode, plan });
+      trackFunnelStep("checkout_started", {
+        source: "editor",
+        plan,
+        experiment: PAYWALL_COPY_EXPERIMENT,
+        variant: paywallVariant,
+      });
       let mapId: string | null = null;
       try {
         const recipe = buildRecipeFromState({
@@ -675,6 +709,12 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       if (!res.ok) throw new Error("checkout failed");
       const data = (await res.json()) as { url?: string };
       if (data.url) {
+        trackFunnelStep("checkout_redirected", {
+          source: "editor",
+          plan,
+          experiment: PAYWALL_COPY_EXPERIMENT,
+          variant: paywallVariant,
+        });
         window.location.href = data.url;
         return;
       }
@@ -682,7 +722,12 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     } catch (err) {
       console.error(err);
       setCheckoutError("Checkout is unavailable right now. Please try again shortly.");
-      track("checkout_failed", { reason: (err as Error)?.message ?? "unknown" });
+      track("checkout_failed", {
+        reason: (err as Error)?.message ?? "unknown",
+        plan,
+        experiment: PAYWALL_COPY_EXPERIMENT,
+        variant: paywallVariant,
+      });
       checkoutInFlightRef.current = false;
       setCheckoutInFlight(false);
     }
@@ -694,7 +739,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     selectedStyle,
     shape,
     textBoxes,
-    renderOptions.visualMode,
+    paywallVariant,
   ]);
 
   const handleShare = useCallback(async () => {
@@ -1750,108 +1795,20 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
       </section>
       {paywallOpen && mounted && typeof document !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8 overflow-y-auto">
-              <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-lg font-semibold text-midnight">Download your print-ready star map</h3>
-                <p className="mt-2 text-xs text-neutral-700">
-                  Choose the option that fits how many HD downloads you need right now.
-                </p>
-                <ul className="mt-3 space-y-1 text-xs text-neutral-700">
-                  <li>• 6000px high resolution (poster quality)</li>
-                  <li>• No watermark</li>
-                  <li>• Instant digital download</li>
-                </ul>
-
-                <div className="mt-4 grid gap-3 text-sm">
-                  <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-midnight">Single HD</p>
-                        <p className="text-xs text-neutral-600">1 print-ready download</p>
-                      </div>
-                      <div className="text-right text-sm font-semibold text-amber-800">
-                        <span>{priceLabels.single}</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void startCheckout("single")}
-                      disabled={checkoutInFlight}
-                      className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                    >
-                      {checkoutInFlight ? "Starting checkout..." : "Continue with single"}
-                    </button>
-                  </div>
-
-                  <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-midnight">3-pack</p>
-                        <p className="text-xs text-neutral-600">3 HD downloads</p>
-                      </div>
-                      <div className="text-right text-sm font-semibold text-amber-800">
-                        {priceLabels.pack3}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void startCheckout("pack3")}
-                      disabled={checkoutInFlight}
-                      className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                    >
-                      Get 3 downloads
-                    </button>
-                  </div>
-
-                  <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-midnight">Unlimited monthly</p>
-                          <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-midnight">
-                            Best value
-                          </span>
-                        </div>
-                        <p className="text-xs text-neutral-700">Unlimited HD exports • cancel anytime</p>
-                      </div>
-                      <div className="text-right text-sm font-semibold text-amber-900">
-                        {priceLabels.subscription}
-                        <span className="text-xs text-amber-900/70">/mo</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void startCheckout("subscription")}
-                      disabled={checkoutInFlight}
-                      className="mt-3 w-full rounded-full bg-[#0b1433] px-4 py-2 text-sm font-semibold text-amber-100 shadow-md transition hover:-translate-y-[1px] hover:bg-[#0b1a40] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                    >
-                      {checkoutInFlight ? "Starting checkout..." : "Start unlimited"}
-                    </button>
-                  </div>
-                </div>
-
-                <p className="mt-3 text-[11px] text-neutral-600">
-                  Secure checkout. Subscription can be canceled anytime. Need help? Email support@starmapco.com.
-                </p>
-                <p className="mt-2 text-xs font-semibold text-neutral-600">
-                  Early access: No reviews yet—we focus on accuracy and your satisfaction.
-                </p>
-                <div className="mt-4 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaywallOpen(false);
-                      setPendingExport(null);
-                      setCheckoutError(null);
-                    }}
-                    className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                {checkoutError && <p className="mt-2 text-sm font-semibold text-rose-700">{checkoutError}</p>}
-              </div>
-            </div>,
+            <PaywallModal
+              checkoutInFlight={checkoutInFlight}
+              checkoutError={checkoutError}
+              priceLabels={priceLabels}
+              variant={paywallVariant}
+              onStartCheckout={(plan) => {
+                void startCheckout(plan);
+              }}
+              onClose={() => {
+                setPaywallOpen(false);
+                setPendingExport(null);
+                setCheckoutError(null);
+              }}
+            />,
             document.body,
           )
         : null}

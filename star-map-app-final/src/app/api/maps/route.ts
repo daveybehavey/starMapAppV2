@@ -9,7 +9,6 @@ const MAX_TEXT_LENGTH = 240;
 const MAX_LABEL_LENGTH = 60;
 const MAX_NAME_LENGTH = 200;
 const MAX_ID_LENGTH = 120;
-const MAX_STYLE_LENGTH = 60;
 const MAX_TZ_LENGTH = 64;
 const MIN_FONT_SIZE = 8;
 const MAX_FONT_SIZE = 200;

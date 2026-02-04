@@ -31,7 +31,7 @@ export default function PosthogProvider({ enabled = true }: Props) {
     return () => {
       posthog.reset?.();
     };
-  }, [enabled, host, key]);
+  }, [enabled]);
 
   return null;
 }

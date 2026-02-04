@@ -57,7 +57,7 @@ test.describe("View Surface (/m/[id])", () => {
     await expect(page.getByRole("link", { name: /Create your own/i })).toBeVisible();
   });
 
-  test("has Share button and no edit controls", async ({ page }) => {
+  test("has Share button and no edit controls", async () => {
     // This test assumes there's at least one valid shared map in the system
     // For a new deployment, this test would need a fixture map or would be skipped
 

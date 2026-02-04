@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { dismissOverlays, mockGeocode, primeLocalStorage } from "./test-helpers";
 
+const paywallHeadingPattern = /Download your print-ready star map|Unlock HD exports in seconds/i;
+
 test.describe("Manual Flow Check", () => {
   test("homepage → customize → preview → checkout", async ({ page }) => {
     test.setTimeout(90_000);
@@ -52,7 +54,7 @@ test.describe("Manual Flow Check", () => {
     await expect(hdBtn).toBeVisible({ timeout: 15000 });
     await expect(hdBtn).toBeEnabled({ timeout: 15000 });
     await hdBtn.click();
-    const paywallHeading = page.getByText(/Download your print-ready star map/i).first();
+    const paywallHeading = page.getByRole("heading", { name: paywallHeadingPattern }).first();
     const checkoutRequestSeen = await page
       .waitForRequest("**/api/checkout", { timeout: 12000 })
       .then(() => true)

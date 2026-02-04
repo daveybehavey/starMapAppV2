@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { track } from "@/lib/analytics";
+import { track, trackFunnelStep } from "@/lib/analytics";
+import type { CheckoutPlan } from "@/lib/pricing";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 
@@ -14,9 +15,12 @@ export default function SuccessClient() {
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
   const [message, setMessage] = useState<string | null>(null);
   const [resolvedMapId, setResolvedMapId] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<CheckoutPlan | null>(null);
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessLinkStatus, setAccessLinkStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [accessLinkCopied, setAccessLinkCopied] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
 
@@ -72,6 +76,26 @@ export default function SuccessClient() {
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }, [accessLink, pauseRedirect]);
 
+  const handleManageBilling = useCallback(async () => {
+    if (portalLoading) return;
+    pauseRedirect();
+    setPortalLoading(true);
+    setPortalError(null);
+    track("billing_portal_opened", { source: "success" });
+    try {
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("portal_failed");
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) throw new Error("missing_url");
+      window.location.assign(data.url);
+    } catch {
+      setPortalError("We couldn't open billing settings. Please try again in a moment.");
+      setPortalLoading(false);
+    }
+  }, [pauseRedirect, portalLoading]);
+
   useEffect(() => {
     let active = true;
     redirectTimerRef.current = null;
@@ -92,11 +116,20 @@ export default function SuccessClient() {
           const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionId)}`, {
             cache: "no-store",
           });
-          const data = (await res.json()) as { paid?: boolean; mapId?: string };
+          const data = (await res.json()) as { paid?: boolean; mapId?: string; plan?: CheckoutPlan | null };
           if (data.paid) {
             setPaid(true);
             track("purchase_success", { isPaid: true });
+            trackFunnelStep("payment_verified", {
+              source: "success",
+              plan: typeof data.plan === "string" ? data.plan : undefined,
+            });
             setStatus("success");
+            setCurrentPlan(
+              data.plan === "single" || data.plan === "pack3" || data.plan === "subscription"
+                ? data.plan
+                : null,
+            );
             const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
             setResolvedMapId(resolvedMapId);
             void createAccessLink();
@@ -253,7 +286,18 @@ export default function SuccessClient() {
                   >
                     Go to download now
                   </button>
+                  {currentPlan === "subscription" && (
+                    <button
+                      type="button"
+                      onClick={() => void handleManageBilling()}
+                      disabled={portalLoading}
+                      className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {portalLoading ? "Opening billing..." : "Manage subscription"}
+                    </button>
+                  )}
                 </div>
+                {portalError && <p className="mt-2 text-xs text-rose-200">{portalError}</p>}
               </div>
             )}
           </>

@@ -18,6 +18,15 @@ export default defineConfig({
     command: webServerCommand,
     url: "http://127.0.0.1:3004",
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 300_000,
+    env: {
+      ...process.env,
+      // Use in-memory KV for deterministic, fast API tests.
+      KV_REST_API_URL: "",
+      KV_REST_API_TOKEN: "",
+      // Keep Stripe routes enabled without requiring real credentials.
+      STRIPE_SECRET_KEY: "sk_test_playwright_dummy",
+      STRIPE_WEBHOOK_SECRET: "whsec_playwright_dummy",
+    },
   },
 });

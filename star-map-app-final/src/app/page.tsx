@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import HomeClient from "./HomeClient";
-import { formatPrice, getPricingInfo, getPricingTiers } from "@/lib/pricing";
+import { formatPrice, getPricingTiers } from "@/lib/pricing";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -34,7 +34,6 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  const pricingInfo = getPricingInfo();
   const tiers = getPricingTiers();
   const priceLabel = formatPrice(
     tiers.single.amountCents,

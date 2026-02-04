@@ -124,7 +124,7 @@ function combineDateTime(date: string, time: string, timezone?: string) {
   // This ensures user input is interpreted in the location's timezone, not browser's
   try {
     const [yearStr, monthStr, dayStr] = date.split("-");
-    const [hourStr, minuteStr, secondStr] = normalizedTime.split(":");
+    const [hourStr, minuteStr] = normalizedTime.split(":");
     const year = Number(yearStr);
     const month = Number(monthStr);
     const day = Number(dayStr);
@@ -178,23 +178,6 @@ function normalizeTimeInput(time: string) {
   if (!time) return DEFAULT_TIME;
   if (time.length === 5) return `${time}:00`;
   return time;
-}
-
-function humanDate(date: Date) {
-  if (!Number.isFinite(date.getTime())) return "";
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatTimeLabel(time: string) {
-  const [h, m] = time.split(":").map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return "12:00 AM";
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour12 = ((h + 11) % 12) + 1;
-  return `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
 function toISODate(date: Date) {

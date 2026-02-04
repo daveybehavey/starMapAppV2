@@ -28,6 +28,7 @@ type SessionRecord = {
   creditsTotal?: number;
   subscriptionId?: string | null;
   subscriptionActive?: boolean;
+  customerId?: string | null;
 };
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
@@ -70,6 +71,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   const credits = getCredits(session, plan);
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+  const customerId = typeof session.customer === "string" ? session.customer : null;
   if (paymentIntentId) {
     const revokedRecord = await kv.get<{ revoked?: boolean; reason?: string }>(
       revokedPaymentIntentKey(paymentIntentId),
@@ -91,6 +93,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     creditsTotal: credits || undefined,
     subscriptionId: subscriptionId ?? undefined,
     subscriptionActive: plan === "subscription" ? true : undefined,
+    customerId: customerId ?? undefined,
   });
 
   if (paymentIntentId) {

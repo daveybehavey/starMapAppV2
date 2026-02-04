@@ -4,8 +4,10 @@ import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store
 import { SHAPE_PATHS } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
+import { formatDateTimeForLocation } from "@/lib/dateTime";
 
 export type { AspectRatio, Shape } from "@/lib/types";
+export { formatDateTimeForLocation } from "@/lib/dateTime";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -206,6 +208,8 @@ export function renderStarMap({
   premium = false,
   pixelRatio = 1,
   textBounds,
+  skyOverride,
+  skipSkyCompute = false,
 }: {
   recipe: MapRecipe;
   canvas: CanvasLike;
@@ -216,6 +220,8 @@ export function renderStarMap({
   premium?: boolean;
   pixelRatio?: number;
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
+  skyOverride?: VisibleSky | null;
+  skipSkyCompute?: boolean;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -224,7 +230,7 @@ export function renderStarMap({
   const rawShape = recipe.shape || recipe.renderOptions?.shapeMask;
   const shapeName: Shape = (rawShape && validShapes.has(rawShape)) ? rawShape as Shape : "rectangle";
   const targetHeight = height || Math.round(width / aspectRatioToNumber(recipe.aspectRatio));
-  const sky = computeSky(recipe, width, targetHeight);
+  const sky = skyOverride ?? (skipSkyCompute ? null : computeSky(recipe, width, targetHeight));
   const mode = resolveVisualMode(recipe.renderOptions?.visualMode, recipe.selectedStyle);
 
   // Defensive check for invalid dimensions
@@ -301,33 +307,6 @@ export function renderStarMap({
     drawFilmGrain(ctx, width, targetHeight, mode, quality);
   }
   ctx.restore();
-}
-
-export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
-  const date = new Date(dateTime);
-  if (!Number.isFinite(date.getTime())) return null;
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timeZone || "UTC",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  const parts = formatter.formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPart["type"]) =>
-    parts.find((p) => p.type === type)?.value;
-
-  const year = get("year");
-  const month = get("month");
-  const day = get("day");
-  const hour = get("hour");
-  const minute = get("minute");
-
-  if (!year || !month || !day || !hour || !minute) return null;
-  return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
 }
 
 import { LRUCache } from "./lruCache";
@@ -1012,7 +991,7 @@ function drawConstellations(
   sky: VisibleSky,
   accentColor: string,
   lineWidth = 0.8,
-  _showLabels = false, // TODO: Implement constellation label rendering
+  showLabels = false,
   lineAlpha = 0.3,
   premium = false,
   dashed = false,
@@ -1068,6 +1047,76 @@ function drawConstellations(
     ctx.restore();
   } else {
     drawLines();
+  }
+
+  ctx.restore();
+
+  if (!showLabels) return;
+
+  const placed: Array<{ x: number; y: number; width: number; height: number }> = [];
+  const overlaps = (a: { x: number; y: number; width: number; height: number }) =>
+    placed.some((b) => {
+      const paddedA = {
+        x: a.x - 4 * scale,
+        y: a.y - 3 * scale,
+        width: a.width + 8 * scale,
+        height: a.height + 6 * scale,
+      };
+      return !(
+        paddedA.x + paddedA.width < b.x ||
+        b.x + b.width < paddedA.x ||
+        paddedA.y + paddedA.height < b.y ||
+        b.y + b.height < paddedA.y
+      );
+    });
+
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = accentColor;
+  ctx.globalAlpha = clamp(lineAlpha + 0.28, 0.35, 0.85);
+  ctx.font = `${Math.max(10, 11 * scale)}px "Cinzel", serif`;
+  if (premium) {
+    ctx.shadowColor = toRgba(accentColor, 0.5);
+    ctx.shadowBlur = Math.max(2, 5 * scale);
+  }
+
+  for (const constellation of sky.constellations) {
+    if (constellation.lines.length < 2) continue;
+    const indexes = new Set<number>();
+    for (const [a, b] of constellation.lines) {
+      indexes.add(a);
+      indexes.add(b);
+    }
+    if (indexes.size < 3) continue;
+
+    let xTotal = 0;
+    let yTotal = 0;
+    let count = 0;
+    for (const index of indexes) {
+      const point = sky.stars[index];
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+      xTotal += point.x;
+      yTotal += point.y;
+      count += 1;
+    }
+    if (count < 3) continue;
+
+    const labelX = xTotal / count;
+    const labelY = yTotal / count - 10 * scale;
+    const label = constellation.name.toUpperCase();
+    const metrics = ctx.measureText(label);
+    const bounds = {
+      x: labelX - metrics.width / 2,
+      y: labelY - 6 * scale,
+      width: metrics.width,
+      height: 12 * scale,
+    };
+    if (overlaps(bounds)) continue;
+
+    placed.push(bounds);
+    ctx.fillText(label, labelX, labelY);
   }
 
   ctx.restore();

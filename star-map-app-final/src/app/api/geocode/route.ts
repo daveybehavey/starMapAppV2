@@ -106,7 +106,16 @@ export async function GET(request: NextRequest) {
 
     scored.sort((a, b) => b.score - a.score);
 
-    const trimmed = scored.map(({ score, ...rest }) => rest);
+    const trimmed = scored.map((item) => ({
+      id: item.id,
+      name: item.name,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      category: item.category,
+      type: item.type,
+      countryCode: item.countryCode,
+      state: item.state,
+    }));
 
     return Response.json(trimmed, {
       status: 200,

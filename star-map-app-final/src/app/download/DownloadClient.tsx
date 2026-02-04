@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, type MapRecip
 import { FONT_STACKS } from "@/lib/fonts";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
-import { track } from "@/lib/analytics";
+import { track, trackFunnelStep } from "@/lib/analytics";
 import type { CheckoutPlan } from "@/lib/pricing";
 
 const DRAFT_KEY = "star-map-draft";
@@ -145,6 +146,8 @@ export default function DownloadClient() {
   >(null);
   const [downloadInFlight, setDownloadInFlight] = useState(false);
   const downloadInFlightRef = useRef(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
 
   const setPaidState = useCallback((value: boolean) => {
     paidRef.current = value;
@@ -346,6 +349,10 @@ export default function DownloadClient() {
 
         setStatus("downloading");
         setMessage(source === "auto" ? "Preparing your HD file..." : null);
+        trackFunnelStep("download_started", {
+          source: "download",
+          plan: currentPlan ?? undefined,
+        });
 
         await ensureFontsLoaded(activeRecipe);
 
@@ -396,6 +403,10 @@ export default function DownloadClient() {
           setMessage("Download started. Check your downloads folder.");
         }
         track("export_download", { type: "hd", source });
+        trackFunnelStep("download_completed", {
+          source: "download",
+          plan: currentPlan ?? undefined,
+        });
         // Refresh paid status to keep verification badge in sync
         void refreshPaidStatus();
       } catch (err) {
@@ -410,7 +421,7 @@ export default function DownloadClient() {
         setDownloadInFlight(false);
       }
     },
-    [consumeHdCredit, recipe, refreshPaidStatus, resolveShapeAndRatio, setPreviewFromCanvas],
+    [consumeHdCredit, currentPlan, recipe, refreshPaidStatus, resolveShapeAndRatio, setPreviewFromCanvas],
   );
 
   const renderPreview = useCallback(
@@ -578,6 +589,23 @@ export default function DownloadClient() {
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }, [accessLink]);
 
+  const handleManageBilling = useCallback(async () => {
+    if (portalLoading) return;
+    setPortalLoading(true);
+    setPortalError(null);
+    track("billing_portal_opened", { source: "download" });
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      if (!res.ok) throw new Error("portal_failed");
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) throw new Error("missing_url");
+      window.location.assign(data.url);
+    } catch {
+      setPortalError("Unable to open billing settings right now.");
+      setPortalLoading(false);
+    }
+  }, [portalLoading]);
+
   const statusLabel = (() => {
     switch (status) {
       case "checking":
@@ -679,7 +707,14 @@ export default function DownloadClient() {
             <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#0b0f24]/90">
               <div className="relative w-full" style={{ aspectRatio: previewAspect }}>
                 {previewUrl ? (
-                  <img src={previewUrl} alt="Star map preview" className="h-full w-full object-contain" />
+                  <Image
+                    src={previewUrl}
+                    alt="Star map preview"
+                    fill
+                    unoptimized
+                    className="object-contain"
+                    sizes="(max-width: 1024px) 100vw, 55vw"
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
                     <div className="flex flex-col items-center gap-3 text-xs text-neutral-300">
@@ -786,6 +821,23 @@ export default function DownloadClient() {
                 <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
               )}
             </div>
+            {currentPlan === "subscription" && (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <h4 className="text-sm font-semibold text-white">Manage subscription</h4>
+                <p className="mt-1 text-xs text-neutral-200">
+                  Update payment details or cancel anytime in Stripe billing settings.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleManageBilling()}
+                  disabled={portalLoading}
+                  className="mt-3 inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {portalLoading ? "Opening billing..." : "Manage subscription"}
+                </button>
+                {portalError && <p className="mt-2 text-xs text-rose-200">{portalError}</p>}
+              </div>
+            )}
           </div>
         </section>
       </div>

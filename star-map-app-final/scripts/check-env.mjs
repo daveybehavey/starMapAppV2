@@ -66,16 +66,6 @@ const checkInt = (key) => {
 checkInt("PRICE_CENTS");
 checkInt("NEXT_PUBLIC_PRICE_CENTS");
 
-const checkDate = (key) => {
-  const val = process.env[key];
-  if (!val) return;
-  const date = new Date(val);
-  if (!Number.isFinite(date.getTime())) {
-    errors.push(`Invalid ${key} (expected ISO date)`);
-  }
-};
-
-
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 if (stripeKey && !/^sk_(live|test)_/.test(stripeKey)) {
   warnings.push("STRIPE_SECRET_KEY does not look like a Stripe secret key");

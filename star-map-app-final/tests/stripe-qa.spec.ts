@@ -8,6 +8,8 @@ import { test, chromium } from '@playwright/test';
 const SITE_URL = 'https://starmapco.com';
 const PROMO_CODE = 'GBTRYGVB';
 const RUN_STRIPE_QA = process.env.PLAYWRIGHT_STRIPE_QA === 'true';
+const PAYWALL_HEADING_PATTERN = /Download your print-ready star map|Unlock HD exports in seconds/i;
+const PAYWALL_SINGLE_CTA_PATTERN = /Continue with single|Get 1 HD map/i;
 
 test.describe('Stripe QA Tests', () => {
   test.skip(!RUN_STRIPE_QA, 'Manual QA only. Set PLAYWRIGHT_STRIPE_QA=true to run.');
@@ -116,13 +118,13 @@ test.describe('Stripe QA Tests', () => {
     await page.screenshot({ path: '/tmp/qa-05-paywall.png' });
 
     // Check if paywall modal appeared
-    const paywallTitle = page.locator('text=Download your print-ready star map').first();
+    const paywallTitle = page.getByRole('heading', { name: PAYWALL_HEADING_PATTERN }).first();
     if (await paywallTitle.isVisible({ timeout: 5000 })) {
       console.log('✅ Paywall modal opened');
 
       // Click "Continue with single" to start checkout
       console.log('→ Clicking "Continue with single"...');
-      const singleBtn = page.locator('text=Continue with single').first();
+      const singleBtn = page.getByRole('button', { name: PAYWALL_SINGLE_CTA_PATTERN }).first();
       if (await singleBtn.isVisible({ timeout: 3000 })) {
         await singleBtn.click();
         console.log('→ Waiting for Stripe redirect...');

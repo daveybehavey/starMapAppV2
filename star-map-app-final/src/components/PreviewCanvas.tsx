@@ -10,6 +10,7 @@ import {
 } from "@/lib/renderSky";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
+import { useAstronomyWorker } from "@/hooks/useAstronomyWorker";
 
 type Props = {
   onRendered?: () => void;
@@ -41,9 +42,10 @@ export default function PreviewCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const dragRafRef = useRef<number | null>(null);
-  const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const dragRef = useRef<{ id: string; offsetX: number; offsetY: number; pointerId: number } | null>(null);
   const pendingDragRef = useRef<{ x: number; y: number } | null>(null);
   const dragBoundsRef = useRef<DOMRect | null>(null);
+  const dragPreviewRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const dragActiveRef = useRef(false);
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map()
@@ -78,6 +80,9 @@ export default function PreviewCanvas({
   const [boxRect, setBoxRect] = useState<{ x: number; y: number; width: number; height: number } | null>(
     null
   );
+  const [dragPreviewPosition, setDragPreviewPosition] = useState<{ id: string; x: number; y: number } | null>(
+    null
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -85,6 +90,18 @@ export default function PreviewCanvas({
   // Text box changes render immediately for responsive drag feedback
   const debouncedDateTime = useDebounce(dateTime, 150);
   const debouncedLocation = useDebounce(location, 150);
+  const effectiveTextBoxes = useMemo(() => {
+    if (!dragPreviewPosition) return textBoxes;
+    return textBoxes.map((box) =>
+      box.id === dragPreviewPosition.id
+        ? { ...box, position: { x: dragPreviewPosition.x, y: dragPreviewPosition.y } }
+        : box
+    );
+  }, [dragPreviewPosition, textBoxes]);
+
+  useEffect(() => {
+    dragPreviewRef.current = dragPreviewPosition;
+  }, [dragPreviewPosition]);
 
   // Memoize the recipe to avoid recalculating when only render-related props change
   // When externalRecipe is provided (read-only mode), use it directly instead of store state
@@ -94,7 +111,7 @@ export default function PreviewCanvas({
       buildRecipeFromState({
         dateTime: debouncedDateTime,
         location: debouncedLocation,
-        textBoxes,
+        textBoxes: effectiveTextBoxes,
         selectedStyle,
         renderOptions,
         aspectRatio,
@@ -104,7 +121,7 @@ export default function PreviewCanvas({
       externalRecipe,
       debouncedDateTime,
       debouncedLocation,
-      textBoxes,
+      effectiveTextBoxes,
       selectedStyle,
       renderOptions,
       aspectRatio,
@@ -115,6 +132,40 @@ export default function PreviewCanvas({
   // Use external recipe's aspect ratio and shape when provided
   const effectiveAspectRatio = externalRecipe?.aspectRatio ?? aspectRatio;
   const effectiveShape = externalRecipe?.shape ?? shape;
+  const skyHeight = useMemo(() => {
+    if (dimensions.height > 0) return Math.round(dimensions.height);
+    if (dimensions.width > 0) {
+      return Math.max(1, Math.round(dimensions.width / aspectRatioToNumber(effectiveAspectRatio)));
+    }
+    return 0;
+  }, [dimensions.height, dimensions.width, effectiveAspectRatio]);
+  const skyWorkerInput = useMemo(
+    () => ({
+      dateTime: recipe.datetimeISO,
+      location: {
+        latitude: recipe.location.latitude,
+        longitude: recipe.location.longitude,
+        timezone: recipe.location.timezone,
+      },
+      width: Math.max(0, Math.round(dimensions.width)),
+      height: Math.max(0, skyHeight),
+      showConstellations: recipe.renderOptions?.constellationLines !== "off",
+      enabled: true,
+    }),
+    [
+      dimensions.width,
+      recipe.datetimeISO,
+      recipe.location.latitude,
+      recipe.location.longitude,
+      recipe.location.timezone,
+      recipe.renderOptions?.constellationLines,
+      skyHeight,
+    ],
+  );
+  const { sky: workerSky, pending: skyPending, supported: skySupported, error: skyWorkerError } =
+    useAstronomyWorker(skyWorkerInput);
+  const shouldSkipMainThreadSkyCompute =
+    skySupported && !skyWorkerError && workerSky !== null;
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -132,6 +183,7 @@ export default function PreviewCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
+    if (skySupported && skyPending && !workerSky) return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     rafRef.current = requestAnimationFrame(() => {
@@ -150,6 +202,8 @@ export default function PreviewCanvas({
         premium: isDragging ? false : paid,
         pixelRatio,
         textBounds: textBoundsRef.current,
+        skyOverride: workerSky,
+        skipSkyCompute: shouldSkipMainThreadSkyCompute,
       });
       if (activeBox) {
         const rect = textBoundsRef.current.get(activeBox);
@@ -162,7 +216,19 @@ export default function PreviewCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [dimensions, activeBox, recipe, paid, previewFidelity, isDragging, onRendered]);
+  }, [
+    dimensions,
+    activeBox,
+    recipe,
+    paid,
+    previewFidelity,
+    isDragging,
+    onRendered,
+    skyPending,
+    shouldSkipMainThreadSkyCompute,
+    skySupported,
+    workerSky,
+  ]);
 
   useEffect(() => {
     if (readOnly) return;
@@ -170,6 +236,7 @@ export default function PreviewCanvas({
     if (!canvas) return;
 
     const handlePointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary) return;
       const bounds = canvas.getBoundingClientRect();
       const x = event.clientX - bounds.left;
       const y = event.clientY - bounds.top;
@@ -181,6 +248,7 @@ export default function PreviewCanvas({
           id: hit.id,
           offsetX: x - hit.centerX,
           offsetY: y - hit.centerY,
+          pointerId: event.pointerId,
         };
         pendingDragRef.current = { x, y };
         dragBoundsRef.current = bounds;
@@ -193,13 +261,16 @@ export default function PreviewCanvas({
       } else {
         setActiveBox(null);
         setBoxRect(null);
+        setDragPreviewPosition(null);
         dragActiveRef.current = false;
         setIsDragging(false);
       }
     };
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (!dragRef.current) return;
+      if (!event.isPrimary) return;
+      const drag = dragRef.current;
+      if (!drag) return;
       // Prevent touchmove from being treated as a scroll on mobile.
       event.preventDefault();
       if (!dragActiveRef.current) {
@@ -214,42 +285,66 @@ export default function PreviewCanvas({
       if (dragRafRef.current) return;
       dragRafRef.current = requestAnimationFrame(() => {
         dragRafRef.current = null;
-        const drag = dragRef.current;
+        const activeDrag = dragRef.current;
         const pending = pendingDragRef.current;
         const dragBounds = dragBoundsRef.current;
-        if (!drag || !pending || !canvas || !dragBounds) return;
+        if (!activeDrag || !pending || !canvas || !dragBounds) return;
 
-        const centerX = pending.x - drag.offsetX;
-        const centerY = pending.y - drag.offsetY;
-        const rect = textBoundsRef.current.get(drag.id);
+        const centerX = pending.x - activeDrag.offsetX;
+        const centerY = pending.y - activeDrag.offsetY;
+        const rect = textBoundsRef.current.get(activeDrag.id);
         const { x: newX, y: newY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect);
-        updateTextBox(drag.id, { position: { x: newX, y: newY } });
-        const nextRect = textBoundsRef.current.get(drag.id);
+        setDragPreviewPosition((current) => {
+          if (
+            current &&
+            current.id === activeDrag.id &&
+            Math.abs(current.x - newX) < 0.0005 &&
+            Math.abs(current.y - newY) < 0.0005
+          ) {
+            return current;
+          }
+          return { id: activeDrag.id, x: newX, y: newY };
+        });
+        const nextRect = textBoundsRef.current.get(activeDrag.id);
         if (nextRect) setBoxRect(nextRect);
       });
     };
 
-    const handlePointerUp = (event: PointerEvent) => {
+    const handlePointerUp = () => {
       if (!dragRef.current) return;
-      if (canvas.hasPointerCapture(event.pointerId)) {
-        canvas.releasePointerCapture(event.pointerId);
+      if (canvas.hasPointerCapture(dragRef.current.pointerId)) {
+        canvas.releasePointerCapture(dragRef.current.pointerId);
+      }
+      if (
+        dragActiveRef.current &&
+        dragPreviewRef.current &&
+        dragPreviewRef.current.id === dragRef.current.id
+      ) {
+        updateTextBox(dragRef.current.id, {
+          position: { x: dragPreviewRef.current.x, y: dragPreviewRef.current.y },
+        });
       }
 
       dragRef.current = null;
       pendingDragRef.current = null;
       dragBoundsRef.current = null;
+      setDragPreviewPosition(null);
       dragActiveRef.current = false;
       setIsDragging(false);
     };
 
     canvas.addEventListener("pointerdown", handlePointerDown, { passive: false });
-    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    canvas.addEventListener("pointermove", handlePointerMove, { passive: false });
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointercancel", handlePointerUp);
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
 
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", handlePointerUp);
+      canvas.removeEventListener("pointercancel", handlePointerUp);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
       if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
@@ -264,6 +359,7 @@ export default function PreviewCanvas({
       if (!canvas.contains(event.target as Node)) {
         setActiveBox(null);
         setBoxRect(null);
+        setDragPreviewPosition(null);
         dragActiveRef.current = false;
         setIsDragging(false);
       }
@@ -289,6 +385,7 @@ export default function PreviewCanvas({
         className={`absolute inset-0 h-full w-full transition-opacity duration-500 ${
           readOnly ? "" : "touch-none"
         } ${isLoading ? "opacity-0" : "canvas-twinkle opacity-100"}`}
+        style={{ touchAction: readOnly ? "auto" : "none" }}
       />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0b0f24]">

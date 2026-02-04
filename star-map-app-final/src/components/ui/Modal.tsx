@@ -36,9 +36,10 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
       className = "",
       ...props
     },
-    _ref
+    ref
   ) => {
     const containerRef = useFocusTrap<HTMLDivElement>(isOpen);
+    void ref;
 
     // Handle Escape key
     useEffect(() => {

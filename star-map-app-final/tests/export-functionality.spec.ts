@@ -3,6 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { applySampleMoment, gotoEditor, mockGeocode, waitForPreview } from "./test-helpers";
 
+const paywallHeadingPattern = /Download your print-ready star map|Unlock HD exports in seconds/i;
+
 const setupEditor = async (page: Parameters<typeof gotoEditor>[0]) => {
   await gotoEditor(page, { path: "/editor", force: "desktop" });
   await applySampleMoment(page);
@@ -60,7 +62,7 @@ test.describe("Export Functionality", () => {
     await hdExportButton.click();
 
     // Verify paywall modal appears
-    await expect(page.getByRole("heading", { name: /Download your print-ready star map/i })).toBeVisible({
+    await expect(page.getByRole("heading", { name: paywallHeadingPattern })).toBeVisible({
       timeout: 5000,
     });
   });
