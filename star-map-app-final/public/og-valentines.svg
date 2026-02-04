@@ -1,0 +1,28 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff7d7d" />
+      <stop offset="100%" stop-color="#6f32c1" />
+    </linearGradient>
+    <linearGradient id="heart" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffd1dc" />
+      <stop offset="100%" stop-color="#ff5f8f" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grad)" />
+  <g transform="translate(200,200)">
+    <path d="M120 0C120-45 45-100 0-65C-45-100-120-45-120 0C-120 55 0 150 0 150C0 150 120 55 120 0Z" fill="url(#heart)" opacity="0.8" />
+  </g>
+  <g transform="translate(650,250)">
+    <path d="M120 0C120-45 45-100 0-65C-45-100-120-45-120 0C-120 55 0 150 0 150C0 150 120 55 120 0Z" fill="#fff5f5" opacity="0.9" />
+  </g>
+  <g transform="translate(430,220)">
+    <path d="M120 0C120-45 45-100 0-65C-45-100-120-45-120 0C-120 55 0 150 0 150C0 150 120 55 120 0Z" fill="url(#heart)" />
+  </g>
+  <text x="50%" y="520" text-anchor="middle" fill="#fff" font-family="'Playfair Display', serif" font-size="64" font-weight="700">
+    StarMapCo Valentine’s Day
+  </text>
+  <text x="50%" y="580" text-anchor="middle" fill="#ffe4f1" font-family="'Montserrat', sans-serif" font-size="28">
+    Turn your story into the night sky
+  </text>
+</svg>
