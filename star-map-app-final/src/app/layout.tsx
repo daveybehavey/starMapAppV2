@@ -117,10 +117,6 @@ const abrilFatface = Abril_Fatface({
 export const revalidate = 3600;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-const showFunnelLink = process.env.NEXT_PUBLIC_ENABLE_FUNNEL_LINK === "true";
-const funnelPath = (process.env.NEXT_PUBLIC_FUNNEL_DASHBOARD_PATH || "/funnel").trim();
-const safeFunnelPath = funnelPath.startsWith("/") ? funnelPath : "/funnel";
-
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -211,16 +207,8 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-6xl items-center justify-between">
             <span>© {new Date().getFullYear()} StarMapCo</span>
             <div className="flex items-center gap-4">
-              {showFunnelLink ? (
-                <Link href={safeFunnelPath} className="font-semibold text-midnight hover:underline">
-                  Funnel
-                </Link>
-              ) : null}
               <Link href="/blog" className="font-semibold text-midnight hover:underline">
                 Blog
-              </Link>
-              <Link href="/media-kit" className="font-semibold text-midnight hover:underline">
-                Media Kit
               </Link>
               <Link href="/privacy" className="font-semibold text-midnight hover:underline">
                 Privacy Policy
