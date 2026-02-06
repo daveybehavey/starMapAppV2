@@ -15,6 +15,11 @@ const OPTIONAL = [
   "NEXT_PUBLIC_POSTHOG_KEY",
   "NEXT_PUBLIC_POSTHOG_HOST",
   "NEXT_PUBLIC_GA_ID",
+  "PROMOTION_COUPON_CODE",
+  "PROMOTION_EMAIL_FROM",
+  "RESEND_API_KEY",
+  "SENDGRID_API_KEY",
+  "PROMOTION_AUTOMATION_WEBHOOK_URL",
 ];
 
 const loadEnvFile = (filename) => {
@@ -83,6 +88,29 @@ if (siteUrl && !/^https?:\/\//.test(siteUrl)) {
 const currency = process.env.CURRENCY || process.env.NEXT_PUBLIC_CURRENCY;
 if (currency && !/^[a-z]{3}$/i.test(currency)) {
   errors.push("CURRENCY must be a 3-letter code (e.g., usd)");
+}
+
+const promotionPercent = process.env.PROMOTION_COUPON_PERCENT;
+if (promotionPercent) {
+  const parsed = Number.parseFloat(promotionPercent);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 100) {
+    errors.push("PROMOTION_COUPON_PERCENT must be between 0 and 100");
+  }
+}
+
+if (process.env.RESEND_API_KEY && !process.env.PROMOTION_EMAIL_FROM) {
+  warnings.push("PROMOTION_EMAIL_FROM is required when RESEND_API_KEY is set");
+}
+
+if (process.env.SENDGRID_API_KEY && !process.env.PROMOTION_EMAIL_FROM) {
+  warnings.push("PROMOTION_EMAIL_FROM is required when SENDGRID_API_KEY is set");
+}
+
+const hasAutomation = Boolean(
+  process.env.RESEND_API_KEY || process.env.SENDGRID_API_KEY || process.env.PROMOTION_AUTOMATION_WEBHOOK_URL,
+);
+if (!hasAutomation) {
+  warnings.push("No promotion automation configured (set RESEND_API_KEY, SENDGRID_API_KEY, or PROMOTION_AUTOMATION_WEBHOOK_URL)");
 }
 
 console.log("Env sanity check:");

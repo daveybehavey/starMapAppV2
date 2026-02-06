@@ -28,9 +28,8 @@ export default function PrivacyPage() {
               <li>
                 <strong>Automatically Collected (via Analytics):</strong> Usage data like IP address, browser type,
                 device info, pages viewed, time spent, referral sources, and interactions (e.g., inputs for previews).
-                Collected via Posthog (self-hosted/open-source analytics) and Vercel Analytics for site improvement and
-                performance monitoring. No personally identifiable information (PII) tied to individuals unless
-                anonymized.
+                Collected via Posthog (self-hosted/open-source analytics) for site improvement and performance monitoring.
+                No personally identifiable information (PII) tied to individuals unless anonymized.
               </li>
               <li>
                 <strong>Payment Data (via Stripe):</strong> For premium unlocks (single downloads, bundles, or
@@ -43,7 +42,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Cookies:</strong> Essential cookies for site function (e.g., premium status, cookie consent
-                banner). Analytics cookies via Posthog/Vercel (anonymous). No marketing/third-party advertising cookies.
+                banner). Analytics cookies via Posthog (anonymous). No marketing/third-party advertising cookies.
               </li>
             </ul>
             <p>We do not collect names, emails, or other direct PII unless voluntarily provided (none currently requested).</p>
@@ -54,7 +53,7 @@ export default function PrivacyPage() {
             <ul className="list-disc space-y-2 pl-5">
               <li>Provide and improve the service (generate accurate star maps using astronomy libraries).</li>
               <li>Process payments securely via Stripe.</li>
-              <li>Analyze anonymous usage (Posthog/Vercel) to fix bugs, optimize performance, and understand features.</li>
+              <li>Analyze anonymous usage (Posthog) to fix bugs, optimize performance, and understand features.</li>
               <li>Comply with legal obligations.</li>
             </ul>
             <p>No data sold or shared for marketing.</p>
@@ -72,7 +71,7 @@ export default function PrivacyPage() {
                 privacy.
               </li>
               <li>
-                <strong>Vercel/Cloudflare:</strong> Hosting/analytics. Anonymous metrics only.
+                <strong>Cloudflare:</strong> Hosting and edge infrastructure.
               </li>
               <li>
                 <strong>Astronomy Libraries:</strong> Client-side processing (no data sent).

@@ -1,8 +1,8 @@
 "use client";
 
-import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
 
-type InputVariant = "default" | "dark" | "light";
+export type InputVariant = "default" | "dark" | "light";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   variant?: InputVariant;
@@ -45,7 +45,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const inputId = id || `input-${Math.random().toString(36).slice(2, 9)}`;
+    const generatedId = useId();
+    const inputId = id || generatedId;
     const hasError = Boolean(error);
 
     return (

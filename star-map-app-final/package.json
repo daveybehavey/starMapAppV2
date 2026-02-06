@@ -16,11 +16,10 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "check:env": "node scripts/check-env.mjs"
+    "check:env": "node scripts/check-env.mjs",
+    "promo:setup": "node scripts/setup-promotion-code.mjs"
   },
   "dependencies": {
-    "@vercel/analytics": "^1.6.1",
-    "@vercel/kv": "^1.0.0",
     "astronomy-engine": "^2.1.19",
     "date-fns": "^4.1.0",
     "next": "16.1.6",

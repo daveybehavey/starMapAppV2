@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import PosthogProvider from "./PosthogProvider";
-import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 import { ANALYTICS_STORAGE_KEY, hasAnalyticsConsent, isDoNotTrackEnabled } from "@/lib/analytics";
 
 const COOKIE_KEY = "cookiesAccepted";
@@ -69,7 +68,6 @@ export default function CookieBanner() {
               </Script>
             </>
           ) : null}
-          <VercelAnalytics />
         </>
       ) : null}
 

@@ -17,6 +17,7 @@ import {
   HERO_CHECKOUT_EXPERIMENT,
   type HeroCheckoutVariant,
 } from "@/lib/experiments";
+import PromotionSignup from "@/components/PromotionSignup";
 
 // Lazy load SimplifiedEditor for the hero section
 const SimplifiedEditor = nextDynamic(
@@ -62,7 +63,7 @@ function HomeInner() {
       packSavingsPercent,
     };
   }, []);
-  const heroCheckoutVariant = useMemo<HeroCheckoutVariant>(() => getHeroCheckoutVariant(), []);
+  const [heroCheckoutVariant, setHeroCheckoutVariant] = useState<HeroCheckoutVariant>("control");
   const heroCheckoutCopy = useMemo(() => {
     if (heroCheckoutVariant === "value") {
       return {
@@ -87,13 +88,18 @@ function HomeInner() {
   const [heroCheckoutError, setHeroCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
-    trackExperimentExposure(HERO_CHECKOUT_EXPERIMENT, heroCheckoutVariant, { source: "home" });
+    // Resolve experiment variant only on the client after hydration,
+    // so initial server/client markup stays identical.
+    const resolvedVariant = getHeroCheckoutVariant();
+    setHeroCheckoutVariant(resolvedVariant);
+
+    trackExperimentExposure(HERO_CHECKOUT_EXPERIMENT, resolvedVariant, { source: "home" });
     trackFunnelStep("landing_view", {
       source: "home",
       experiment: HERO_CHECKOUT_EXPERIMENT,
-      variant: heroCheckoutVariant,
+      variant: resolvedVariant,
     });
-  }, [heroCheckoutVariant]);
+  }, []);
 
   const startHeroCheckout = useCallback(
     async (plan: CheckoutPlan) => {
@@ -233,6 +239,10 @@ function HomeInner() {
           {heroCheckoutError && <p className="text-xs font-medium text-rose-300">{heroCheckoutError}</p>}
         </div>
         <SimplifiedEditor />
+      </section>
+
+      <section className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <PromotionSignup />
       </section>
 
       {/* Section Divider */}

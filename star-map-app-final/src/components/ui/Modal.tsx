@@ -8,6 +8,8 @@ interface ModalProps extends HTMLAttributes<HTMLDivElement> {
   onClose: () => void;
   title?: string;
   description?: string;
+  titleClassName?: string;
+  descriptionClassName?: string;
   size?: "sm" | "md" | "lg";
   showCloseButton?: boolean;
   closeOnOverlayClick?: boolean;
@@ -28,6 +30,8 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
       onClose,
       title,
       description,
+      titleClassName = "",
+      descriptionClassName = "",
       size = "md",
       showCloseButton = true,
       closeOnOverlayClick = true,
@@ -88,7 +92,7 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
           className={`
             relative w-full ${sizeStyles[size]} animate-[scale-in_0.3s_ease-out]
             rounded-3xl border border-white/20 bg-gradient-to-br from-[#0f1f3a] via-[#0a1427] to-[#050915]
-            p-6 shadow-2xl shadow-black/50
+            p-6 text-white shadow-2xl shadow-black/50
             ${className}
           `.trim().replace(/\s+/g, " ")}
           {...props}
@@ -108,14 +112,17 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
           {title && (
             <h2
               id="modal-title"
-              className="mb-2 pr-8 text-xl font-bold text-white sm:text-2xl"
+              className={`mb-2 pr-8 text-xl font-bold text-current sm:text-2xl ${titleClassName}`}
             >
               {title}
             </h2>
           )}
 
           {description && (
-            <p id="modal-description" className="mb-4 text-sm text-neutral-300">
+            <p
+              id="modal-description"
+              className={`mb-4 text-sm text-current opacity-80 ${descriptionClassName}`}
+            >
               {description}
             </p>
           )}
@@ -137,8 +144,12 @@ export const LightModal = forwardRef<HTMLDivElement, LightModalProps>(
     return (
       <Modal
         ref={ref}
+        titleClassName="!text-midnight"
+        descriptionClassName="!text-neutral-700"
         className={`
-          !border-amber-400 !bg-gradient-to-br !from-amber-50 !via-white !to-amber-50
+          !border-amber-400 !bg-gradient-to-br !from-amber-50 !via-white !to-amber-50 !text-midnight
+          [&>button]:!bg-amber-100 [&>button]:!text-amber-900
+          [&>button:hover]:!bg-amber-200 [&>button:hover]:!text-amber-950
           ${className}
         `.trim().replace(/\s+/g, " ")}
         {...props}

@@ -55,10 +55,6 @@ Create a `.dev.vars` file for local development:
 # Stripe
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Cloudflare KV (for local dev, uses in-memory fallback)
-KV_REST_API_URL=...
-KV_REST_API_TOKEN=...
 ```
 
 ### Development
@@ -116,3 +112,12 @@ Configure environment variables in the Cloudflare dashboard.
 - Premium features are gated by `paid` state
 - Entitlements are stored in Cloudflare KV with session-based access
 - Supports single purchase, 3-pack, and subscription plans
+
+### Promotion email capture
+
+- `PromotionSignup` and `PromotionEmailPopup` collect email addresses for the 20% off waitlist and POST to `/api/promotions/subscribe`.
+- Submissions are deduplicated via `promotions:emails` in Cloudflare KV and rate-limited per IP. Coupon sends are tracked in `promotions:coupon-sent` to avoid duplicate sends.
+- The subscribe API returns the configured coupon code and delivery status so UI can show "instant 20% off" feedback.
+- Automation provider priority is: `RESEND_API_KEY` + `PROMOTION_EMAIL_FROM` → `SENDGRID_API_KEY` + `PROMOTION_EMAIL_FROM` → `PROMOTION_AUTOMATION_WEBHOOK_URL`.
+- One-time Stripe setup: run `npm run promo:setup` to create or reuse the `PROMOTION_COUPON_CODE` promotion in Stripe and write `STRIPE_PROMO_CODE_ID` to `.env.local`.
+- Full setup checklist: `PROMOTION-AUTOMATION-SETUP.md`.

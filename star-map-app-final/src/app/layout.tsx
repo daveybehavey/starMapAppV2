@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
 import CookieBanner from "@/components/CookieBanner";
-import PromoBanner from "@/components/PromoBanner";
-import PromoPopup from "@/components/PromoPopup";
+import PromotionEmailPopup from "@/components/PromotionEmailPopup";
 import { PageTransition } from "@/components/PageTransition";
 import {
   Playfair_Display,
@@ -199,7 +198,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${cormorant.variable} ${montserrat.variable} ${libreBaskerville.variable} ${ebGaramond.variable} ${crimsonText.variable} ${lora.variable} ${raleway.variable} ${poppins.variable} ${dancingScript.variable} ${parisienne.variable} ${bebasNeue.variable} ${abrilFatface.variable}`}>
-        <PromoBanner />
         <div className="cosmic-backdrop">
           <PageTransition>{children}</PageTransition>
         </div>
@@ -220,7 +218,7 @@ export default function RootLayout({
           </div>
         </footer>
         <CookieBanner />
-        <PromoPopup />
+        <PromotionEmailPopup />
         <script
           id="site-schema"
           type="application/ld+json"

@@ -1,7 +1,6 @@
-import { kv as vercelKv } from "@vercel/kv";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-type KvSetOptions = Parameters<typeof vercelKv.set>[2];
+type KvSetOptions = { ex?: number; px?: number };
 type KvIncrOptions = { ex?: number; px?: number };
 type CloudflareKvNamespace = {
   get<T>(key: string, type: "json"): Promise<T | null>;
@@ -9,7 +8,6 @@ type CloudflareKvNamespace = {
 };
 
 const CLOUDFLARE_KV_BINDING = "STAR_MAP_KV";
-const hasVercelEnv = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 const memoryStore: Map<string, unknown> =
   (globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv ?? new Map();
 
@@ -48,10 +46,7 @@ export const kv = {
     if (cfKv) {
       return await cfKv.get<T>(key, "json");
     }
-    if (!hasVercelEnv) {
-      return memoryStore.has(key) ? (memoryStore.get(key) as T) : null;
-    }
-    return vercelKv.get<T>(key);
+    return memoryStore.has(key) ? (memoryStore.get(key) as T) : null;
   },
   async set<T>(key: string, value: T, options?: KvSetOptions): Promise<"OK"> {
     const cfKv = await getCloudflareKv();
@@ -60,11 +55,8 @@ export const kv = {
       await cfKv.put(key, JSON.stringify(value), ttl ? { expirationTtl: ttl } : undefined);
       return "OK";
     }
-    if (!hasVercelEnv) {
-      memoryStore.set(key, value);
-      return "OK";
-    }
-    return (await vercelKv.set<T>(key, value, options)) as "OK";
+    memoryStore.set(key, value);
+    return "OK";
   },
   async incr(key: string, by = 1, options?: KvIncrOptions): Promise<number> {
     const cfKv = await getCloudflareKv();
@@ -75,17 +67,9 @@ export const kv = {
       await cfKv.put(key, JSON.stringify(next), ttl ? { expirationTtl: ttl } : undefined);
       return next;
     }
-    if (!hasVercelEnv) {
-      const current = Number(memoryStore.get(key) ?? 0);
-      const next = current + by;
-      memoryStore.set(key, next);
-      return next;
-    }
-
-    // Best effort TTL initialization for the first write in this window.
-    if (ttl) {
-      await vercelKv.set(key, 0, { ex: ttl, nx: true });
-    }
-    return vercelKv.incrby(key, by);
+    const current = Number(memoryStore.get(key) ?? 0);
+    const next = current + by;
+    memoryStore.set(key, next);
+    return next;
   },
 };

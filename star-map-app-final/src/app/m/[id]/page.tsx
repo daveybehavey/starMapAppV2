@@ -28,8 +28,14 @@ function siteOrigin() {
   return process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const recipe = await loadRecipe(params.id);
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams?: Record<string, string>;
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const recipe = await loadRecipe(id);
   const titleText = recipe?.textBoxes?.[0]?.text || "Star Map";
   const description =
     recipe?.location?.name && recipe?.datetimeISO
@@ -39,7 +45,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
           year: "numeric",
         }).format(new Date(recipe.datetimeISO))}`
       : "A captured night sky moment.";
-  const image = `${siteOrigin()}/m/${params.id}/opengraph-image`;
+  const image = `${siteOrigin()}/m/${id}/opengraph-image`;
 
   return {
     title: `${titleText} | StarMapCo`,
@@ -60,12 +66,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default function ViewPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: Record<string, string>;
-}) {
-  return <ViewClient id={params.id} searchParams={searchParams} />;
+export default async function ViewPage({ params, searchParams }: PageProps) {
+  const { id } = await params;
+  return <ViewClient id={id} searchParams={searchParams} />;
 }
