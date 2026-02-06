@@ -13,8 +13,10 @@ test.describe("SimplifiedEditor draft autosave", () => {
       });
     });
 
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("button", { name: /start customizing your star map|make it yours/i }),
+    ).toBeVisible({ timeout: 15000 });
 
     await page.getByRole("button", { name: /start customizing your star map|make it yours/i }).click();
     await expect(page.getByRole("heading", { name: /your moment/i })).toBeVisible({ timeout: 15000 });
@@ -32,8 +34,7 @@ test.describe("SimplifiedEditor draft autosave", () => {
 
     await page.waitForTimeout(900);
 
-    await page.reload();
-    await page.waitForLoadState("networkidle");
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /your moment/i })).toBeVisible({ timeout: 15000 });
 
     const restoredDateInput = page.locator("input[type='date']");

@@ -1,20 +1,28 @@
 import { test, expect } from '@playwright/test';
 
+const enterCustomizationMode = async (page) => {
+  const makeItYoursButton = page.getByRole('button', {
+    name: /start customizing your star map|make it yours/i,
+  });
+  await expect(makeItYoursButton).toBeVisible({ timeout: 15000 });
+  await makeItYoursButton.click();
+  await expect(page.locator('input[type="date"]')).toBeEnabled({ timeout: 15000 });
+};
+
+const openAdvancedPanel = async (page) => {
+  await enterCustomizationMode(page);
+  const customizeMoreButton = page.getByRole('button', { name: /customize more|less options/i });
+  await customizeMoreButton.click();
+  await expect(page.getByText('Sky Details')).toBeVisible({ timeout: 15000 });
+};
+
 test.describe('SimplifiedEditor Advanced Panel', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/simple-test');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await page.goto('/simple-test', { waitUntil: 'domcontentloaded' });
   });
 
   test('should expand advanced panel and show sections', async ({ page }) => {
-    // Click "Make it yours" to enable form
-    await page.locator('text=Make it yours').click();
-    await page.waitForTimeout(500);
-
-    // Click "Customize more" to expand advanced panel
-    await page.locator('text=Customize more').click();
-    await page.waitForTimeout(500);
+    await openAdvancedPanel(page);
 
     // Verify Sky Details section is visible (default open)
     await expect(page.locator('text=Sky Details')).toBeVisible();
@@ -26,10 +34,7 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
   });
 
   test('should update preview when changing visual mode', async ({ page }) => {
-    // Enable form and expand advanced
-    await page.locator('text=Make it yours').click();
-    await page.locator('text=Customize more').click();
-    await page.waitForTimeout(500);
+    await openAdvancedPanel(page);
 
     // Click Illustrated mode
     const illustratedBtn = page.locator('button:has-text("Illustrated")');
@@ -41,26 +46,24 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
   });
 
   test('should toggle moon on/off', async ({ page }) => {
-    await page.locator('text=Make it yours').click();
-    await page.locator('text=Customize more').click();
-    await page.waitForTimeout(500);
+    await openAdvancedPanel(page);
 
     // Find and click Moon toggle
-    const moonToggle = page.locator('button:has-text("Moon")');
-    const initialState = await moonToggle.textContent();
+    const moonToggle = page.getByRole('button', { name: /^Moon$/i });
+    const initialPressed = await moonToggle.getAttribute('aria-pressed');
+    expect(initialPressed).not.toBeNull();
 
     await moonToggle.click();
-    await page.waitForTimeout(500);
 
     // State should change
-    const newState = await moonToggle.textContent();
-    expect(newState).not.toBe(initialState);
+    await expect(moonToggle).toHaveAttribute(
+      'aria-pressed',
+      initialPressed === 'true' ? 'false' : 'true',
+    );
   });
 
   test('should expand/collapse constellation section', async ({ page }) => {
-    await page.locator('text=Make it yours').click();
-    await page.locator('text=Customize more').click();
-    await page.waitForTimeout(500);
+    await openAdvancedPanel(page);
 
     // Constellations section header
     const constellationsHeader = page.locator('button:has-text("Constellations")');
@@ -76,9 +79,7 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
   });
 
   test('sections should toggle via keyboard', async ({ page }) => {
-    await page.locator('text=Make it yours').click();
-    await page.locator('text=Customize more').click();
-    await page.waitForTimeout(500);
+    await openAdvancedPanel(page);
 
     const constellationsHeader = page.locator('button:has-text("Constellations")');
     await constellationsHeader.focus();
@@ -92,9 +93,7 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
   });
 
   test('should show premium lock icons for unpaid users', async ({ page }) => {
-    await page.locator('text=Make it yours').click();
-    await page.locator('text=Customize more').click();
-    await page.waitForTimeout(500);
+    await openAdvancedPanel(page);
 
     // Expand Premium Effects section
     await page.locator('button:has-text("Premium Effects")').click();

@@ -1,20 +1,19 @@
 import { test, expect } from "@playwright/test";
+import { primeLocalStorage } from "./test-helpers";
 
 test.describe("Error Handling", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the test page and enter customization mode
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
+    await primeLocalStorage(page);
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
 
     // Enter customization mode
     const makeItYoursBtn = page
       .getByRole("button", { name: /Start customizing your star map/i })
       .or(page.locator("button", { hasText: /Make it yours/i }).first());
-    if (await makeItYoursBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await makeItYoursBtn.click();
-      await page.waitForTimeout(500);
-    }
+    await expect(makeItYoursBtn).toBeVisible({ timeout: 15000 });
+    await makeItYoursBtn.click();
+    await expect(page.locator("input[type='date']")).toBeEnabled({ timeout: 15000 });
 
     // Enter a date
     const dateInput = page.locator("input[type='date']");
@@ -62,18 +61,16 @@ test.describe("Error Handling", () => {
     });
 
     // Reload the page with the mock in place
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
+    await primeLocalStorage(page);
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
 
     // Re-enter customization mode and set up location
     const makeItYoursBtn = page
       .getByRole("button", { name: /Start customizing your star map/i })
       .or(page.locator("button", { hasText: /Make it yours/i }).first());
-    if (await makeItYoursBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await makeItYoursBtn.click();
-      await page.waitForTimeout(500);
-    }
+    await expect(makeItYoursBtn).toBeVisible({ timeout: 15000 });
+    await makeItYoursBtn.click();
+    await expect(page.locator("input[type='date']")).toBeEnabled({ timeout: 15000 });
 
     // Fill in the form again
     const dateInput = page.locator("input[type='date']");
@@ -297,14 +294,15 @@ test.describe("Error Handling", () => {
 
 test.describe("Screen Reader Announcements", () => {
   test("should have live region for status updates", async ({ page }) => {
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
+    await primeLocalStorage(page);
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
 
     // Click Make it yours
-    const makeItYoursBtn = page.locator("text=Make it yours");
+    const makeItYoursBtn = page.getByRole("button", {
+      name: /start customizing your star map|make it yours/i,
+    });
+    await expect(makeItYoursBtn).toBeVisible({ timeout: 15000 });
     await makeItYoursBtn.click();
-    await page.waitForTimeout(500);
 
     // Check for aria-live region
     const liveRegion = page.locator('[aria-live="polite"]');
@@ -315,8 +313,8 @@ test.describe("Screen Reader Announcements", () => {
   });
 
   test("error messages should be announced", async ({ page }) => {
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
+    await primeLocalStorage(page);
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
 
     // Check that error alert has role="alert"
     // (This ensures screen readers will announce it when it appears)

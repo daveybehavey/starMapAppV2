@@ -1,12 +1,16 @@
 import { test, expect } from "@playwright/test";
+import { primeLocalStorage } from "./test-helpers";
 
 test.describe("LocationInput Keyboard & Search Behavior", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(1000);
-    await page.locator("text=Make it yours").click();
-    await page.waitForTimeout(300);
+    await primeLocalStorage(page);
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
+    const makeItYoursButton = page.getByRole("button", {
+      name: /start customizing your star map|make it yours/i,
+    });
+    await expect(makeItYoursButton).toBeVisible({ timeout: 15000 });
+    await makeItYoursButton.click();
+    await expect(page.locator("input[type='date']")).toBeEnabled({ timeout: 15000 });
   });
 
   test("arrow keys highlight options and Enter selects", async ({ page }) => {
@@ -23,7 +27,7 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
 
     const locationInput = page.getByRole("combobox", { name: /Location search/i });
     await locationInput.fill("Par");
-    await page.waitForTimeout(500);
+    await expect(page.getByRole("option").first()).toBeVisible({ timeout: 10000 });
 
     await locationInput.press("ArrowDown");
     await expect(locationInput).toHaveAttribute("aria-activedescendant", /-option-0$/);
@@ -50,6 +54,7 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
     });
 
     const locationInput = page.getByRole("combobox", { name: /Location search/i });
+    await locationInput.click();
     await locationInput.fill("P");
     await page.waitForTimeout(50);
     await locationInput.fill("Pa");
@@ -60,9 +65,9 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
     await page.waitForTimeout(50);
     await locationInput.fill("Paris");
 
-    await page.waitForTimeout(600);
+    await expect.poll(() => requestCount, { timeout: 5000 }).toBeGreaterThan(0);
+    await expect.poll(() => lastQuery, { timeout: 5000 }).toBe("Paris");
     expect(requestCount).toBeLessThanOrEqual(2);
-    expect(lastQuery).toBe("Paris");
   });
 
   test("invalid timezone lookup falls back without crashing", async ({ page }) => {

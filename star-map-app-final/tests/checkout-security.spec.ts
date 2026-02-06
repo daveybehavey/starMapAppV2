@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { primeLocalStorage } from "./test-helpers";
 
 test.describe("Checkout Security", () => {
   test("no premium access after clicking checkout but not completing payment", async ({ page }) => {
@@ -9,10 +10,13 @@ test.describe("Checkout Security", () => {
 
     // Clear all cookies first
     await page.context().clearCookies();
+    await primeLocalStorage(page);
 
     console.log("→ Going to homepage...");
-    await page.goto("/", { waitUntil: "networkidle" });
-    await page.waitForTimeout(2000);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("heading", { name: /custom star map/i }).first(),
+    ).toBeVisible({ timeout: 15000 });
 
     // Check initial premium status
     console.log("→ Checking initial premium status...");
@@ -25,8 +29,8 @@ test.describe("Checkout Security", () => {
 
     // Navigate to editor and try to open paywall
     console.log("→ Going to editor...");
-    await page.goto("/editor", { waitUntil: "networkidle" });
-    await page.waitForTimeout(3000);
+    await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
+    await page.locator("#editor").waitFor({ state: "visible", timeout: 60000 });
 
     // Click "Try a sample moment" if visible
     const sampleBtn = page.locator("text=Try a sample moment").first();
@@ -49,8 +53,10 @@ test.describe("Checkout Security", () => {
 
     // Now simulate "going back" by navigating away and returning
     console.log("→ Navigating to homepage (simulating back)...");
-    await page.goto("/", { waitUntil: "networkidle" });
-    await page.waitForTimeout(2000);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("heading", { name: /custom star map/i }).first(),
+    ).toBeVisible({ timeout: 15000 });
 
     // Check premium status again - should still be unpaid
     console.log("→ Checking premium status after 'navigation back'...");
@@ -63,8 +69,8 @@ test.describe("Checkout Security", () => {
 
     // Try to access download page
     console.log("→ Trying to access download page...");
-    await page.goto("/download", { waitUntil: "networkidle" });
-    await page.waitForTimeout(3000);
+    await page.goto("/download", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1000);
     await page.screenshot({ path: "/tmp/checkout-security-test.png" });
 
     const downloadButton = page.locator("button").filter({ hasText: /Download/ }).first();
@@ -80,6 +86,7 @@ test.describe("Checkout Security", () => {
     console.log("=".repeat(60));
 
     await page.context().clearCookies();
+    await primeLocalStorage(page);
 
     // Check cookies before any payment
     let cookies = await page.context().cookies();
@@ -88,10 +95,12 @@ test.describe("Checkout Security", () => {
     expect(premiumCookie).toBeUndefined();
 
     // Navigate around the site
-    await page.goto("/editor", { waitUntil: "networkidle" });
-    await page.waitForTimeout(2000);
-    await page.goto("/", { waitUntil: "networkidle" });
-    await page.waitForTimeout(1000);
+    await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
+    await page.locator("#editor").waitFor({ state: "visible", timeout: 60000 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first(),
+    ).toBeVisible({ timeout: 15000 });
 
     // Check cookies again - should still be none
     cookies = await page.context().cookies();

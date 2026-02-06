@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { applySampleMoment, gotoEditor } from "./test-helpers";
 
 test.describe("Worker fallback", () => {
+  test.describe.configure({ timeout: 60000 });
+
   test("preview renders when Web Worker is unavailable", async ({ page }) => {
     await page.addInitScript(() => {
       // Force the no-worker code path so preview must render via main-thread compute.

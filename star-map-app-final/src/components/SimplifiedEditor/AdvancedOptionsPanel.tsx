@@ -114,6 +114,7 @@ function Toggle({
     <button
       type="button"
       onClick={() => onChange(!value)}
+      aria-pressed={value}
       className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-xs font-medium transition ${
         value
           ? "border-amber-300 bg-amber-100 text-[#0b1433]"

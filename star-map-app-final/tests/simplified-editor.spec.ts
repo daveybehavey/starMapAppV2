@@ -15,8 +15,7 @@ test.describe("SimplifiedEditor", () => {
   }) => {
     test.setTimeout(60_000);
     // Navigate to the simplified editor test page
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: /start customizing your star map|make it yours/i })).toBeVisible({
       timeout: 15000,
     });
@@ -91,8 +90,7 @@ test.describe("SimplifiedEditor", () => {
     page,
   }) => {
     test.setTimeout(60_000);
-    await page.goto("/simple-test");
-    await page.waitForLoadState("networkidle");
+    await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
 
     // Enter customization mode
     const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i });
