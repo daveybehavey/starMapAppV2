@@ -144,10 +144,10 @@ export const LightModal = forwardRef<HTMLDivElement, LightModalProps>(
     return (
       <Modal
         ref={ref}
-        titleClassName="!text-midnight"
+        titleClassName="!text-neutral-900"
         descriptionClassName="!text-neutral-700"
         className={`
-          !border-amber-400 !bg-gradient-to-br !from-amber-50 !via-white !to-amber-50 !text-midnight
+          !border-amber-400 !bg-gradient-to-br !from-amber-50 !via-white !to-amber-50 !text-neutral-900
           [&>button]:!bg-amber-100 [&>button]:!text-amber-900
           [&>button:hover]:!bg-amber-200 [&>button:hover]:!text-amber-950
           ${className}

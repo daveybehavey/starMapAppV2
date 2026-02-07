@@ -64,8 +64,10 @@ function HomeInner() {
     };
   }, []);
   const [heroCheckoutVariant, setHeroCheckoutVariant] = useState<HeroCheckoutVariant>("control");
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const resolvedHeroVariant = hasHydrated ? heroCheckoutVariant : "control";
   const heroCheckoutCopy = useMemo(() => {
-    if (heroCheckoutVariant === "value") {
+    if (resolvedHeroVariant === "value") {
       return {
         singleLabel: "One HD map",
         singleCta: "Get 1 HD map",
@@ -83,13 +85,14 @@ function HomeInner() {
       subscriptionLabel: "Unlimited",
       subscriptionCta: "Start unlimited",
     };
-  }, [heroCheckoutVariant, priceLabels.packSavingsPercent]);
+  }, [resolvedHeroVariant, priceLabels.packSavingsPercent]);
   const [heroCheckoutPlan, setHeroCheckoutPlan] = useState<CheckoutPlan | null>(null);
   const [heroCheckoutError, setHeroCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     // Resolve experiment variant only on the client after hydration,
     // so initial server/client markup stays identical.
+    setHasHydrated(true);
     const resolvedVariant = getHeroCheckoutVariant();
     setHeroCheckoutVariant(resolvedVariant);
 

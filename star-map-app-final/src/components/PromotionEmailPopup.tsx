@@ -81,10 +81,11 @@ export default function PromotionEmailPopup() {
       title="Instant 20% off code"
       description="Give us your email and we’ll send a one-time 20% off coupon plus rare updates."
       size="md"
+      className="!shadow-[0_24px_60px_rgba(12,18,36,0.25)]"
     >
-      <div className="space-y-3">
+      <div className="space-y-3 text-neutral-800">
         <p className="text-sm text-neutral-700">
-          Save on your next star map, get sneak peeks on new presets, and be first to see limited releases.
+          Join the list for a one-time 20% off code.
         </p>
         <PromotionForm
           buttonLabel="Send me the 20% code"
@@ -93,7 +94,7 @@ export default function PromotionEmailPopup() {
           source="popup_modal"
           onSuccess={handleSuccess}
         />
-        <p className="text-[11px] text-neutral-600">
+        <p className="text-[11px] text-neutral-500">
           By submitting, you agree to receive marketing emails. You can unsubscribe anytime.
         </p>
       </div>
