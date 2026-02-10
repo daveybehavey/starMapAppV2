@@ -39,6 +39,15 @@ function removeUndefinedValues<T extends Record<string, unknown>>(value: T): T {
   return out;
 }
 
+export function runWhenIdle(task: () => void, timeout = 1200) {
+  if (typeof window === "undefined") return;
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(() => task(), { timeout });
+  } else {
+    window.setTimeout(task, timeout);
+  }
+}
+
 export function track(event: string, props?: EventProps) {
   if (!canTrackAnalytics()) return;
   const payload = removeUndefinedValues({

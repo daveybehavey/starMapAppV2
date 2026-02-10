@@ -342,6 +342,64 @@ export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeS
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
+      <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="rounded-3xl border border-amber-200/60 bg-white/80 p-6 text-midnight shadow-lg shadow-black/15 sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600">Popular searches</p>
+              <h2 className="text-2xl font-semibold sm:text-3xl">Explore star map styles</h2>
+              <p className="text-sm text-neutral-700 sm:text-base">
+                Jump straight to high-intent pages for gifts, posters, and instant star map generators.
+              </p>
+              <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+                {[
+                  { href: "/star-map-generator", label: "Star map generator" },
+                  { href: "/constellation-map", label: "Constellation map" },
+                  { href: "/custom-night-sky-map", label: "Custom night sky map" },
+                  { href: "/star-map-poster", label: "Star map poster" },
+                  { href: "/star-map-gift", label: "Star map gift" },
+                  { href: "/night-sky-map-gift", label: "Night sky map gift" },
+                  { href: "/personalized-star-map", label: "Personalized star map" },
+                  { href: "/how-to-print-star-map", label: "How to print a star map" },
+                ].map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600">Helpful guides</p>
+              <h3 className="text-xl font-semibold sm:text-2xl">Gift ideas & inspiration</h3>
+              <p className="text-sm text-neutral-700 sm:text-base">
+                Planning a special moment? These guides cover anniversaries, birthdays, weddings, and the astronomy behind your map.
+              </p>
+              <ul className="space-y-2 text-sm font-semibold text-amber-700">
+                {[
+                  { href: "/blog/custom-star-map-for-anniversary", label: "Anniversary star map ideas" },
+                  { href: "/blog/personalized-star-map-birthday-gift", label: "Birthday star map gifting guide" },
+                  { href: "/blog/custom-star-maps-for-weddings", label: "Wedding star map inspiration" },
+                  { href: "/blog/valentines-day-star-map", label: "Valentine’s Day star map gifts" },
+                  { href: "/blog/astronomy-behind-star-maps", label: "Astronomy behind star maps" },
+                ].map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className="transition hover:text-amber-900 hover:underline">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
       <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
         <div className="space-y-6">
           <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Latest from the Blog</h2>

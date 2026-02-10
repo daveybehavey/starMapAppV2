@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
-import { track, trackExperimentExposure, trackFunnelStep } from "@/lib/analytics";
+import { runWhenIdle, track, trackExperimentExposure, trackFunnelStep } from "@/lib/analytics";
 import {
   getHeroCheckoutVariant,
   HERO_CHECKOUT_EXPERIMENT,
@@ -53,11 +53,13 @@ export default function HeroCheckoutButtons({ priceLabels }: HeroCheckoutButtons
     const resolvedVariant = getHeroCheckoutVariant();
     setHeroCheckoutVariant(resolvedVariant);
 
-    trackExperimentExposure(HERO_CHECKOUT_EXPERIMENT, resolvedVariant, { source: "home" });
-    trackFunnelStep("landing_view", {
-      source: "home",
-      experiment: HERO_CHECKOUT_EXPERIMENT,
-      variant: resolvedVariant,
+    runWhenIdle(() => {
+      trackExperimentExposure(HERO_CHECKOUT_EXPERIMENT, resolvedVariant, { source: "home" });
+      trackFunnelStep("landing_view", {
+        source: "home",
+        experiment: HERO_CHECKOUT_EXPERIMENT,
+        variant: resolvedVariant,
+      });
     });
   }, []);
 

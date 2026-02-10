@@ -28,19 +28,33 @@ const playfair = Playfair_Display({
   display: "swap",
   preload: true,
 });
-const cinzel = Cinzel({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-cinzel", preload: false });
-const greatVibes = Great_Vibes({ subsets: ["latin"], weight: ["400"], variable: "--font-script", preload: false });
+const cinzel = Cinzel({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-cinzel",
+  preload: false,
+  display: "swap",
+});
+const greatVibes = Great_Vibes({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-script",
+  preload: false,
+  display: "swap",
+});
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-cormorant",
   preload: false,
+  display: "swap",
 });
 const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-montserrat",
   preload: false,
+  display: "swap",
 });
 
 // Premium fonts - Serif
@@ -49,24 +63,28 @@ const libreBaskerville = Libre_Baskerville({
   weight: ["400", "700"],
   variable: "--font-libre-baskerville",
   preload: false,
+  display: "swap",
 });
 const ebGaramond = EB_Garamond({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-eb-garamond",
   preload: false,
+  display: "swap",
 });
 const crimsonText = Crimson_Text({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-crimson-text",
   preload: false,
+  display: "swap",
 });
 const lora = Lora({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-lora",
   preload: false,
+  display: "swap",
 });
 
 // Premium fonts - Sans-serif
@@ -75,12 +93,14 @@ const raleway = Raleway({
   weight: ["400", "600", "700"],
   variable: "--font-raleway",
   preload: false,
+  display: "swap",
 });
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-poppins",
   preload: false,
+  display: "swap",
 });
 
 // Premium fonts - Script/Decorative
@@ -89,12 +109,14 @@ const dancingScript = Dancing_Script({
   weight: ["400", "700"],
   variable: "--font-dancing-script",
   preload: false,
+  display: "swap",
 });
 const parisienne = Parisienne({
   subsets: ["latin"],
   weight: ["400"],
   variable: "--font-parisienne",
   preload: false,
+  display: "swap",
 });
 
 // Premium fonts - Display
@@ -103,12 +125,14 @@ const bebasNeue = Bebas_Neue({
   weight: ["400"],
   variable: "--font-bebas-neue",
   preload: false,
+  display: "swap",
 });
 const abrilFatface = Abril_Fatface({
   subsets: ["latin"],
   weight: ["400"],
   variable: "--font-abril-fatface",
   preload: false,
+  display: "swap",
 });
 
 // Revalidate pages every hour to keep pricing data fresh
