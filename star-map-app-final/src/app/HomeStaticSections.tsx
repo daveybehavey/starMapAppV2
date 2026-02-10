@@ -12,6 +12,8 @@ type PriceLabels = {
 type HomeStaticSectionsProps = {
   priceLabels: PriceLabels;
   blogSummaries: BlogSummary[];
+  promoStatus?: "success" | "error";
+  promoCode?: string;
 };
 
 const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -28,7 +30,12 @@ const formatBlogDate = (date: string) => {
   return blogDateFormatter.format(parsed);
 };
 
-export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeStaticSectionsProps) {
+export default function HomeStaticSections({
+  priceLabels,
+  blogSummaries,
+  promoStatus,
+  promoCode,
+}: HomeStaticSectionsProps) {
   const latestPosts = [...blogSummaries]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 6);
@@ -43,7 +50,7 @@ export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeS
   return (
     <>
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
-        <PromotionSignup />
+        <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />

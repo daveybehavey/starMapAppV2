@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PromotionForm } from "@/components/PromotionSignup";
+import { PromotionForm } from "@/components/PromotionForm";
 import { LightModal } from "@/components/ui/Modal";
 import { getPricingInfo } from "@/lib/pricing";
 import { track } from "@/lib/analytics";

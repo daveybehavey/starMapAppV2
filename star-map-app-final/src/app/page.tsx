@@ -35,7 +35,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+type HomePageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+export default function HomePage({ searchParams }: HomePageProps) {
   const tiers = getPricingTiers();
   const priceLabel = formatPrice(
     tiers.single.amountCents,
@@ -178,6 +182,11 @@ export default function HomePage() {
     ],
   };
 
+  const promoParam = searchParams?.promo;
+  const promoStatus =
+    promoParam === "success" || promoParam === "error" ? promoParam : undefined;
+  const promoCode = typeof searchParams?.code === "string" ? searchParams.code : undefined;
+
   return (
     <>
       <script
@@ -186,7 +195,12 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
       <HomeHero priceLabels={priceLabels} />
-      <HomeStaticSections priceLabels={priceLabels} blogSummaries={blogSummaries} />
+      <HomeStaticSections
+        priceLabels={priceLabels}
+        blogSummaries={blogSummaries}
+        promoStatus={promoStatus}
+        promoCode={promoCode}
+      />
     </>
   );
 }

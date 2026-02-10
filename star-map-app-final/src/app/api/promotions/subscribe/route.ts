@@ -10,6 +10,28 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+async function readEmail(req: NextRequest) {
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      const payload = (await req.json()) as { email?: string };
+      const email = typeof payload?.email === "string" ? payload.email.trim().toLowerCase() : "";
+      return { email, error: email ? null : "invalid_email" };
+    } catch {
+      return { email: "", error: "invalid_json" };
+    }
+  }
+
+  try {
+    const formData = await req.formData();
+    const raw = formData.get("email");
+    const email = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    return { email, error: email ? null : "invalid_email" };
+  } catch {
+    return { email: "", error: "invalid_email" };
+  }
+}
+
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
   const rateLimit = await checkRateLimit(`promotions:subscribe:${ip}`, 30, 60);
@@ -17,15 +39,18 @@ export async function POST(req: NextRequest) {
     return rateLimitResponse(rateLimit.resetIn);
   }
 
-  let payload: { email?: string } | null = null;
-  try {
-    payload = (await req.json()) as { email?: string };
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  const { email, error } = await readEmail(req);
+  if (error) {
+    if (req.nextUrl.searchParams.get("redirect") === "1") {
+      return NextResponse.redirect(new URL("/?promo=error", req.url), { status: 303 });
+    }
+    return NextResponse.json({ ok: false, error }, { status: 400 });
   }
 
-  const email = typeof payload?.email === "string" ? payload.email.trim().toLowerCase() : "";
   if (!email || !isValidEmail(email)) {
+    if (req.nextUrl.searchParams.get("redirect") === "1") {
+      return NextResponse.redirect(new URL("/?promo=error", req.url), { status: 303 });
+    }
     return NextResponse.json({ ok: false, error: "invalid_email" }, { status: 400 });
   }
 
@@ -54,6 +79,13 @@ export async function POST(req: NextRequest) {
     if (!sentEmails.includes(email)) {
       await kv.set(SENT_KEY, [...sentEmails, email]);
     }
+  }
+
+  if (req.nextUrl.searchParams.get("redirect") === "1") {
+    const redirectUrl = new URL("/", req.url);
+    redirectUrl.searchParams.set("promo", "success");
+    redirectUrl.searchParams.set("code", PROMOTION_COUPON_CODE);
+    return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
   return NextResponse.json({

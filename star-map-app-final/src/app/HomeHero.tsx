@@ -1,4 +1,3 @@
-import HeroCheckoutButtons from "@/components/HeroCheckoutButtons";
 import HeroEditorDeferred from "@/components/HeroEditorDeferred";
 
 type PriceLabels = {
@@ -28,7 +27,38 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
             See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds.
           </p>
 
-          <HeroCheckoutButtons priceLabels={priceLabels} />
+          <div className="mx-auto grid w-full max-w-sm grid-cols-1 gap-3 pt-2 sm:max-w-lg sm:grid-cols-3">
+            <a
+              href="/api/checkout?plan=single"
+              className="pricing-card max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent"
+            >
+              <div className="text-xs uppercase tracking-wide text-neutral-400">Single Map</div>
+              <div className="text-lg font-bold text-white">{priceLabels.single}</div>
+              <div className="mt-1 text-[11px] font-semibold text-amber-300">Buy single</div>
+            </a>
+            <a
+              href="/api/checkout?plan=pack3"
+              className="pricing-card featured max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent"
+            >
+              <div className="text-xs uppercase tracking-wide text-amber-300">3-Pack</div>
+              <div className="text-lg font-bold text-white">{priceLabels.pack3}</div>
+              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                {priceLabels.packSavingsPercent > 0 ? `Save ${priceLabels.packSavingsPercent}%` : "Best value"}
+              </div>
+              <div className="mt-1 text-[11px] font-semibold text-amber-300">Get 3-pack</div>
+            </a>
+            <a
+              href="/api/checkout?plan=subscription"
+              className="pricing-card max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent"
+            >
+              <div className="text-xs uppercase tracking-wide text-neutral-400">Unlimited</div>
+              <div className="text-lg font-bold text-white">
+                {priceLabels.subscription}
+                <span className="text-sm font-normal text-neutral-400">/mo</span>
+              </div>
+              <div className="mt-1 text-[11px] font-semibold text-amber-300">Start unlimited</div>
+            </a>
+          </div>
         </div>
         <HeroEditorDeferred />
       </section>
