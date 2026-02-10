@@ -88,8 +88,12 @@ function HeroEditorPlaceholder({ onActivate }: HeroEditorPlaceholderProps) {
   );
 }
 
-export default function HeroEditorIsland() {
-  const [showHeroEditor, setShowHeroEditor] = useState(false);
+type HeroEditorIslandProps = {
+  initialOpen?: boolean;
+};
+
+export default function HeroEditorIsland({ initialOpen = false }: HeroEditorIslandProps) {
+  const [showHeroEditor, setShowHeroEditor] = useState(initialOpen);
 
   const handleHeroEditorActivate = useCallback(() => {
     setShowHeroEditor(true);

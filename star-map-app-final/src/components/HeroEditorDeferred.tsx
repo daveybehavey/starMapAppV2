@@ -2,13 +2,11 @@
 
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 const HeroEditorIsland = dynamic(() => import("./HeroEditorIsland"), { ssr: false });
 
-const IDLE_TIMEOUT_MS = 2000;
-
-function HeroEditorFallback() {
+function HeroEditorFallback({ onActivate }: { onActivate: () => void }) {
   return (
     <div className="flex flex-col gap-7 md:flex-row md:gap-6 lg:gap-8">
       <div className="relative flex-1">
@@ -27,9 +25,8 @@ function HeroEditorFallback() {
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 rounded-b-2xl bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            className="relative z-10 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 px-8 py-4 text-base font-bold text-[#0b1433] opacity-70 shadow-[0_0_30px_rgba(251,191,36,0.5)] max-[374px]:px-6 max-[374px]:py-3.5 max-[374px]:text-sm"
+            onClick={onActivate}
+            className="relative z-10 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 px-8 py-4 text-base font-bold text-[#0b1433] shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all hover:-translate-y-1 hover:scale-105 hover:shadow-[0_0_40px_rgba(251,191,36,0.7)] max-[374px]:px-6 max-[374px]:py-3.5 max-[374px]:text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b]"
           >
             ✨ Make it yours
           </button>
@@ -58,14 +55,13 @@ function HeroEditorFallback() {
           </div>
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            className="w-full rounded-full bg-amber-400 px-4 py-3 text-sm font-semibold text-[#0b1433] opacity-70 shadow-sm"
+            onClick={onActivate}
+            className="w-full rounded-full bg-amber-400 px-4 py-3 text-sm font-semibold text-[#0b1433] shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-300"
           >
             Start customizing
           </button>
           <p className="mt-3 text-xs text-amber-100/60">
-            Loading the live editor…
+            Loads the live editor when you’re ready — no payment needed.
           </p>
         </div>
       </div>
@@ -75,54 +71,11 @@ function HeroEditorFallback() {
 
 export default function HeroEditorDeferred() {
   const [ready, setReady] = useState(false);
-  const cleanupRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    if (ready || typeof window === "undefined") return;
-
-    let settled = false;
-    const activate = () => {
-      if (settled) return;
-      settled = true;
-      cleanupRef.current?.();
-      cleanupRef.current = null;
-      setReady(true);
-    };
-
-    const onUserIntent = () => activate();
-
-    const idleWindow = window as unknown as {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    const idleHandle = idleWindow.requestIdleCallback
-      ? idleWindow.requestIdleCallback(activate, { timeout: IDLE_TIMEOUT_MS })
-      : window.setTimeout(activate, IDLE_TIMEOUT_MS);
-
-    window.addEventListener("pointerdown", onUserIntent, { passive: true });
-    window.addEventListener("keydown", onUserIntent);
-    window.addEventListener("scroll", onUserIntent, { passive: true });
-
-    cleanupRef.current = () => {
-      if (idleWindow.cancelIdleCallback) {
-        idleWindow.cancelIdleCallback(idleHandle as number);
-      } else {
-        window.clearTimeout(idleHandle as number);
-      }
-      window.removeEventListener("pointerdown", onUserIntent);
-      window.removeEventListener("keydown", onUserIntent);
-      window.removeEventListener("scroll", onUserIntent);
-    };
-
-    return () => {
-      cleanupRef.current?.();
-      cleanupRef.current = null;
-    };
-  }, [ready]);
+  const handleActivate = () => setReady(true);
 
   if (!ready) {
-    return <HeroEditorFallback />;
+    return <HeroEditorFallback onActivate={handleActivate} />;
   }
 
-  return <HeroEditorIsland />;
+  return <HeroEditorIsland initialOpen />;
 }
