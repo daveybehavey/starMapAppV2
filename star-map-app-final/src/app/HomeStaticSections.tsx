@@ -48,6 +48,42 @@ export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeS
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
+      <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 text-white shadow-lg shadow-black/30">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Explore by occasion</p>
+            <h2 className="text-2xl font-semibold sm:text-3xl">Find the perfect custom star map</h2>
+            <p className="text-sm text-neutral-200 sm:text-base">
+              Browse by intent and style — star map gifts, constellation maps, and poster-ready downloads.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3 text-sm font-semibold text-amber-100">
+            {[
+              { href: "/star-map-generator", label: "Star map generator" },
+              { href: "/star-map-poster", label: "Star map poster" },
+              { href: "/constellation-map", label: "Constellation map" },
+              { href: "/custom-night-sky-map", label: "Custom night sky map" },
+              { href: "/night-sky-map-gift", label: "Night sky map gift" },
+              { href: "/anniversary", label: "Anniversary star map" },
+              { href: "/birthday", label: "Birthday star map" },
+              { href: "/wedding", label: "Wedding star map" },
+              { href: "/personalized-star-map", label: "Personalized star map" },
+              { href: "/star-map-gift", label: "Star map gift" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded-full border border-white/15 bg-white/10 px-4 py-2 transition hover:border-amber-300/60 hover:bg-amber-300/10"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
       <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
         <div className="space-y-6 lg:space-y-8">
           <div className="space-y-2">
