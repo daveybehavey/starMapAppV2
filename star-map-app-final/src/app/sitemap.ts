@@ -57,10 +57,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
     },
     {
-      url: `${baseUrl}/media-kit`,
-      lastModified: now,
-    },
-    {
       url: `${baseUrl}/star-map-gift`,
       lastModified: now,
     },
