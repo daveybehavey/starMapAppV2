@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import nextDynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 
@@ -27,11 +28,17 @@ function HeroEditorPlaceholder({ onActivate }: HeroEditorPlaceholderProps) {
   return (
     <div className="flex flex-col gap-7 md:flex-row md:gap-6 lg:gap-8">
       <div className="relative flex-1">
-        <div
-          className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-[#070b1b] shadow-[0_10px_24px_rgba(0,0,0,0.2)] bg-cover bg-center"
-          style={{ backgroundImage: "url('/examples/example-wedding-cinematic-heart.webp')" }}
-          aria-label="Sample star map preview"
-        />
+        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-[#070b1b] shadow-[0_10px_24px_rgba(0,0,0,0.2)]">
+          <Image
+            src="/examples/example-wedding-cinematic-heart.webp"
+            alt="Sample star map preview"
+            fill
+            priority
+            sizes="(min-width: 1280px) 45vw, (min-width: 1024px) 55vw, (min-width: 768px) 70vw, 100vw"
+            className="object-cover"
+            quality={70}
+          />
+        </div>
         <div className="absolute inset-0 flex items-end justify-center pb-10">
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 rounded-b-2xl bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
           <button
