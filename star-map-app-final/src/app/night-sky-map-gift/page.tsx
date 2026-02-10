@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Night Sky Map Gift",
@@ -15,10 +16,10 @@ export const metadata: Metadata = {
     description:
       "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Accurate, personal, and print-ready in minutes.",
     url: `${siteUrl}/night-sky-map-gift`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function NightSkyMapGiftPage() {
@@ -28,8 +29,8 @@ export default function NightSkyMapGiftPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Night Sky Map Gift</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          A night sky map gift captures the exact stars from a meaningful date and place. It is personal, timeless, and
-          ready to print.
+          A night sky map gift captures the exact stars from a meaningful date and place. This personalized star map gift is
+          timeless and ready to print.
         </p>
       </header>
 
@@ -80,6 +81,24 @@ export default function NightSkyMapGiftPage() {
           <Link href="/birthday" className="text-gold underline hover:text-amber-600">
             Birthday star maps
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Night sky map gift FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">How fast do I receive a night sky map gift?</h3>
+            <p>
+              You can preview your night sky map instantly. After unlocking, the HD file downloads right away for printing.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What makes this a personalized gift?</h3>
+            <p>
+              Every map is generated from the exact date and location you choose, plus custom text like names and a message.
+            </p>
+          </div>
         </div>
       </section>
     </main>

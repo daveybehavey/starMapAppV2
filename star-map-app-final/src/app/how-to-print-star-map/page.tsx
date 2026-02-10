@@ -3,20 +3,23 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
+
 export const metadata: Metadata = {
   title: "How to Print a Star Map",
   description:
     "Learn how to print a star map with the best sizes, paper, and framing tips. Get a crisp, frame-ready star map print.",
-  alternates: { canonical: "https://starmapco.com/how-to-print-star-map" },
+  alternates: { canonical: `${siteUrl}/how-to-print-star-map` },
   openGraph: {
     title: "How to Print a Star Map | StarMapCo",
     description:
       "Learn how to print a star map with the best sizes, paper, and framing tips. Get a crisp, frame-ready print.",
-    url: "https://starmapco.com/how-to-print-star-map",
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    url: `${siteUrl}/how-to-print-star-map`,
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "article",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function HowToPrintStarMapPage() {

@@ -3,20 +3,23 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
+
 export const metadata: Metadata = {
   title: "Custom Night Sky Map",
   description:
     "Create a custom night sky map from any date and location. Accurate star positions, instant preview, and print-ready download.",
-  alternates: { canonical: "https://starmapco.com/custom-night-sky-map" },
+  alternates: { canonical: `${siteUrl}/custom-night-sky-map` },
   openGraph: {
     title: "Custom Night Sky Map | StarMapCo",
     description:
       "Create a custom night sky map from any date and location. Accurate star positions, instant preview, and print-ready download.",
-    url: "https://starmapco.com/custom-night-sky-map",
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    url: `${siteUrl}/custom-night-sky-map`,
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function CustomNightSkyMapPage() {
@@ -26,8 +29,8 @@ export default function CustomNightSkyMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Custom Night Sky Map</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Design a custom night sky map that reflects the exact stars above you on a meaningful date. Personalized, accurate,
-          and ready to print.
+          Design a custom night sky map (star map) that reflects the exact stars above you on a meaningful date.
+          Personalized, accurate, and ready to print.
         </p>
       </header>
 
@@ -75,6 +78,25 @@ export default function CustomNightSkyMapPage() {
           <Link href="/star-map-generator" className="text-gold underline hover:text-amber-600">
             Star map generator
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Custom night sky map FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">What is a custom night sky map?</h3>
+            <p>
+              A custom night sky map is a star map created from a specific date and location, showing the real sky from that
+              moment.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I preview the night sky map before buying?</h3>
+            <p>
+              Yes. You can preview the map for free, then unlock the HD download when you are ready.
+            </p>
+          </div>
         </div>
       </section>
     </main>

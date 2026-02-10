@@ -3,20 +3,23 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
+
 export const metadata: Metadata = {
   title: "Star Map Poster",
   description:
-    "Design a star map poster for any date and location. High-resolution digital download, ready for printing and framing.",
-  alternates: { canonical: "https://starmapco.com/star-map-poster" },
+    "Design a star map poster (night sky poster) for any date and location. High-resolution digital download, ready for printing and framing.",
+  alternates: { canonical: `${siteUrl}/star-map-poster` },
   openGraph: {
     title: "Star Map Poster | StarMapCo",
     description:
-      "Design a star map poster for any date and location. High-resolution digital download, ready for printing and framing.",
-    url: "https://starmapco.com/star-map-poster",
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+      "Design a star map poster (night sky poster) for any date and location. High-resolution digital download, ready for printing and framing.",
+    url: `${siteUrl}/star-map-poster`,
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function StarMapPosterPage() {
@@ -26,8 +29,8 @@ export default function StarMapPosterPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Star Map Poster</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Create a star map poster from the exact night sky of a special moment. Download a print-ready file that looks
-          beautiful in a frame.
+          Create a star map poster from the exact night sky of a special moment. This night sky poster is a print-ready
+          download that looks beautiful in a frame.
         </p>
       </header>
 
@@ -76,6 +79,26 @@ export default function StarMapPosterPage() {
           <Link href="/anniversary" className="text-gold underline hover:text-amber-600">
             Anniversary star maps
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Star map poster FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">Is this a physical star map poster?</h3>
+            <p>
+              It is a digital download. You receive a high-resolution star map poster file that you can print locally or
+              with an online print service.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What size is the star map poster file?</h3>
+            <p>
+              The HD export is a 6000×6000px PNG designed for crisp prints and posters. You can print multiple sizes from
+              the same file.
+            </p>
+          </div>
         </div>
       </section>
     </main>

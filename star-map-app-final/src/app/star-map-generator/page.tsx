@@ -3,20 +3,23 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
+
 export const metadata: Metadata = {
   title: "Star Map Generator",
   description:
-    "Use a star map generator to create a custom night sky map from any date and location. Instant preview and print-ready download.",
-  alternates: { canonical: "https://starmapco.com/star-map-generator" },
+    "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview and print-ready download.",
+  alternates: { canonical: `${siteUrl}/star-map-generator` },
   openGraph: {
     title: "Star Map Generator | StarMapCo",
     description:
-      "Use a star map generator to create a custom night sky map from any date and location. Instant preview and print-ready download.",
-    url: "https://starmapco.com/star-map-generator",
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+      "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview and print-ready download.",
+    url: `${siteUrl}/star-map-generator`,
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function StarMapGeneratorPage() {
@@ -26,8 +29,8 @@ export default function StarMapGeneratorPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Star Map Generator</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Build a custom star map from any moment with our star map generator. Enter the date, time, and location to preview
-          the exact night sky instantly.
+          Build a custom star map with our star map generator. Enter the date, time, and location to preview the exact night
+          sky map instantly.
         </p>
       </header>
 
@@ -76,6 +79,26 @@ export default function StarMapGeneratorPage() {
           <Link href="/star-map-poster" className="text-gold underline hover:text-amber-600">
             Star map poster
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Star map generator FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">How accurate is the star map generator?</h3>
+            <p>
+              The star map generator uses real astronomical data, so star positions and constellations match your chosen
+              date, time, and location.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I create a star map for any date and location?</h3>
+            <p>
+              Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before
+              downloading.
+            </p>
+          </div>
         </div>
       </section>
     </main>

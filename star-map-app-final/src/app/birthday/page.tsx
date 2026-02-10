@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Personalized Birthday Star Map",
@@ -14,10 +15,10 @@ export const metadata: Metadata = {
     title: "Personalized Birthday Star Map | StarMapCo",
     description: "Capture the night sky from their birthday—accurate, print-ready, and gift-worthy.",
     url: `${siteUrl}/birthday`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function BirthdayPage() {
@@ -27,8 +28,8 @@ export default function BirthdayPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Personalized Birthday Star Map</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Mark a birthday with the exact night sky from their birth date and location. A keepsake that feels personal, timeless,
-          and ready to frame.
+          Mark a birthday with a birthday star map gift showing the exact night sky from their birth date and location. A
+          keepsake that feels personal, timeless, and ready to frame.
         </p>
       </header>
 
@@ -82,6 +83,25 @@ export default function BirthdayPage() {
           <Link href="/anniversary" className="text-gold underline hover:text-amber-600">
             Anniversary star maps
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Birthday star map FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">Do I need the exact birth time?</h3>
+            <p>
+              The exact time makes the sky most precise, but you can still create a beautiful birthday star map with just
+              the date and location.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Is this good for milestone birthdays?</h3>
+            <p>
+              Yes. Birthday star maps are popular for 18th, 21st, 30th, 40th, 50th, and other milestone celebrations.
+            </p>
+          </div>
         </div>
       </section>
     </main>

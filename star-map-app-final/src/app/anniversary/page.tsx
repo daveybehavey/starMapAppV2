@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Personalized Anniversary Star Map",
@@ -14,10 +15,10 @@ export const metadata: Metadata = {
     title: "Personalized Anniversary Star Map | StarMapCo",
     description: "Commemorate your anniversary with the exact night sky from your milestone. Print-ready star map keepsake.",
     url: `${siteUrl}/anniversary`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function AnniversaryPage() {
@@ -27,8 +28,8 @@ export default function AnniversaryPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Personalized Anniversary Star Map</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Mark your milestone with the night sky from the date and place that shaped your story. A keepsake that grows more
-          meaningful each year.
+          Mark your milestone with an anniversary star map gift showing the night sky from the date and place that shaped
+          your story. A keepsake that grows more meaningful each year.
         </p>
       </header>
 
@@ -82,6 +83,24 @@ export default function AnniversaryPage() {
           <Link href="/birthday" className="text-gold underline hover:text-amber-600">
             Birthday star maps
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Anniversary star map FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">What date should I use for an anniversary star map?</h3>
+            <p>
+              Most couples use their wedding date or the night they first met. Any meaningful date works.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Is this a good couples gift?</h3>
+            <p>
+              Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment.
+            </p>
+          </div>
         </div>
       </section>
     </main>

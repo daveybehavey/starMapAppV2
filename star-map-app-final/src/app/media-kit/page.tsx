@@ -4,21 +4,23 @@ import type { Metadata } from "next";
 export const revalidate = 86400;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Media Kit",
   description:
     "Press and media resources for StarMapCo, including logos, product images, and a short brand description.",
   alternates: { canonical: `${siteUrl}/media-kit` },
+  robots: { index: false, follow: false },
   openGraph: {
     title: "StarMapCo Media Kit",
     description:
       "Press and media resources for StarMapCo, including logos, product images, and a short brand description.",
     url: `${siteUrl}/media-kit`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function MediaKitPage() {

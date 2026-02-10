@@ -4,21 +4,22 @@ import type { Metadata } from "next";
 export const revalidate = 86400;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Star Map Gift",
   description:
-    "Give a star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
+    "Give a personalized star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
   alternates: { canonical: `${siteUrl}/star-map-gift` },
   openGraph: {
     title: "Star Map Gift | StarMapCo",
     description:
-      "Give a star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
+      "Give a personalized star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
     url: `${siteUrl}/star-map-gift`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function StarMapGiftPage() {
@@ -28,7 +29,8 @@ export default function StarMapGiftPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Star Map Gift</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          A star map gift captures the exact sky from a meaningful moment. It is personal, timeless, and ready to print.
+          A personalized star map gift captures the exact sky from a meaningful moment. It is personal, timeless, and ready
+          to print.
         </p>
       </header>
 
@@ -76,6 +78,26 @@ export default function StarMapGiftPage() {
           <Link href="/personalized-star-map" className="text-gold underline hover:text-amber-600">
             Personalized star map
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Star map gift FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">Is a star map a good couples gift?</h3>
+            <p>
+              Yes. A custom star map gift is one of the most meaningful couples gifts because it captures the exact sky from
+              a shared moment.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I add names and a date?</h3>
+            <p>
+              You can personalize the star map with names, a title, a date line, and a dedication before downloading the HD
+              file.
+            </p>
+          </div>
         </div>
       </section>
     </main>

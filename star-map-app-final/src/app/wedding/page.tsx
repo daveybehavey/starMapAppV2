@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map",
@@ -14,10 +15,10 @@ export const metadata: Metadata = {
     title: "Personalized Wedding Star Map | StarMapCo",
     description: "Capture the exact night sky from your wedding day and place. Print-ready star map keepsake.",
     url: `${siteUrl}/wedding`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function WeddingPage() {
@@ -27,7 +28,8 @@ export default function WeddingPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Personalized Wedding Star Map</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Capture the exact night sky from your wedding day and place. A keepsake that feels as timeless as your vows.
+          Capture the exact night sky from your wedding day and place. A wedding star map gift that feels as timeless as
+          your vows.
         </p>
       </header>
 
@@ -81,6 +83,25 @@ export default function WeddingPage() {
           <Link href="/birthday" className="text-gold underline hover:text-amber-600">
             Birthday star maps
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Wedding star map FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">Can I use the ceremony location?</h3>
+            <p>
+              Yes. Use the venue city or exact coordinates to generate a wedding star map that matches your ceremony.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Is this a good couples gift?</h3>
+            <p>
+              Definitely. A wedding star map is one of the most meaningful couples gifts because it captures a shared
+              moment under the stars.
+            </p>
+          </div>
         </div>
       </section>
     </main>

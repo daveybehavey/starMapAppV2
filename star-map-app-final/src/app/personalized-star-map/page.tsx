@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Personalized Star Map",
@@ -15,10 +16,10 @@ export const metadata: Metadata = {
     description:
       "Create a personalized star map with names, dates, and locations. Accurate, print-ready, and instantly previewed.",
     url: `${siteUrl}/personalized-star-map`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function PersonalizedStarMapPage() {
@@ -28,7 +29,7 @@ export default function PersonalizedStarMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Personalized Star Map</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Personalize a star map with names, a date, and a location to capture the exact sky from a meaningful moment.
+          Personalize a star map with names, a date, and a location to capture the exact night sky from a meaningful moment.
         </p>
       </header>
 
@@ -76,6 +77,24 @@ export default function PersonalizedStarMapPage() {
           <Link href="/birthday" className="text-gold underline hover:text-amber-600">
             Birthday star maps
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Personalized star map FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">What can I customize on a personalized star map?</h3>
+            <p>
+              You can add names, a title, a date line, a dedication, and choose styles, fonts, shapes, and labels.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Is the personalized star map print-ready?</h3>
+            <p>
+              Yes. The HD file is high resolution and designed for crisp prints and framing.
+            </p>
+          </div>
         </div>
       </section>
     </main>

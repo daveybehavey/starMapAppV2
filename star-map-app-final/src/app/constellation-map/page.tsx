@@ -4,21 +4,22 @@ import type { Metadata } from "next";
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   title: "Custom Constellation Map",
   description:
-    "Create a custom constellation map of any date and location. Accurate star positions, instant preview, and print-ready digital download.",
+    "Create a custom constellation map (star map of constellations) for any date and location. Accurate star positions, instant preview, and print-ready download.",
   alternates: { canonical: `${siteUrl}/constellation-map` },
   openGraph: {
     title: "Custom Constellation Map | StarMapCo",
     description:
-      "Create a custom constellation map of any date and location. Accurate star positions, instant preview, and print-ready download.",
+      "Create a custom constellation map (star map of constellations) for any date and location. Accurate star positions, instant preview, and print-ready download.",
     url: `${siteUrl}/constellation-map`,
-    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og-default.png"] },
+  twitter: { card: "summary_large_image", images: [ogImage] },
 };
 
 export default function ConstellationMapPage() {
@@ -28,8 +29,8 @@ export default function ConstellationMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
         <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Custom Constellation Map</h1>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Capture the exact constellation layout from any date and place. A personal night sky map you can preview instantly
-          and download in high resolution.
+          Capture the exact constellation layout from any date and place. This custom constellation map is a personal night
+          sky map you can preview instantly and download in high resolution.
         </p>
       </header>
 
@@ -79,6 +80,25 @@ export default function ConstellationMapPage() {
           <Link href="/wedding" className="text-gold underline hover:text-amber-600">
             Wedding star maps
           </Link>
+        </div>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Constellation map FAQ</h2>
+        <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
+          <div>
+            <h3 className="font-semibold text-midnight">What is a constellation map?</h3>
+            <p>
+              A constellation map is a star map that highlights the constellation layout for a specific date and location,
+              showing how the sky looked at that moment.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I personalize a constellation map?</h3>
+            <p>
+              Yes. Add names, a date line, and a dedication, then choose styles and labels before downloading the HD file.
+            </p>
+          </div>
         </div>
       </section>
     </main>
