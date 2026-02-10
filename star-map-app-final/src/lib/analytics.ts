@@ -41,10 +41,12 @@ function removeUndefinedValues<T extends Record<string, unknown>>(value: T): T {
 
 export function runWhenIdle(task: () => void, timeout = 1200) {
   if (typeof window === "undefined") return;
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(() => task(), { timeout });
+  type IdleCallback = (cb: () => void, opts?: { timeout?: number }) => number;
+  const idleCallback = (window as Window & { requestIdleCallback?: IdleCallback }).requestIdleCallback;
+  if (typeof idleCallback === "function") {
+    idleCallback(() => task(), { timeout });
   } else {
-    window.setTimeout(task, timeout);
+    setTimeout(task, timeout);
   }
 }
 
