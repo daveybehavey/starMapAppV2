@@ -91,15 +91,12 @@ export default function HeroEditorDeferred() {
 
     const onUserIntent = () => activate();
 
-    const idleCallback = (
-      window as Window & {
-        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      }
-    ).requestIdleCallback;
-    const cancelIdleCallback = (window as Window & { cancelIdleCallback?: (handle: number) => void })
-      .cancelIdleCallback;
-    const idleHandle = idleCallback
-      ? idleCallback(activate, { timeout: IDLE_TIMEOUT_MS })
+    const idleWindow = window as unknown as {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    const idleHandle = idleWindow.requestIdleCallback
+      ? idleWindow.requestIdleCallback(activate, { timeout: IDLE_TIMEOUT_MS })
       : window.setTimeout(activate, IDLE_TIMEOUT_MS);
 
     window.addEventListener("pointerdown", onUserIntent, { passive: true });
@@ -107,8 +104,8 @@ export default function HeroEditorDeferred() {
     window.addEventListener("scroll", onUserIntent, { passive: true });
 
     cleanupRef.current = () => {
-      if (idleCallback && cancelIdleCallback) {
-        cancelIdleCallback(idleHandle as number);
+      if (idleWindow.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleHandle as number);
       } else {
         window.clearTimeout(idleHandle as number);
       }
