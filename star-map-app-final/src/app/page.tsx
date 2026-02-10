@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import HomeClient from "./HomeClient";
+import HomeHero from "./HomeHero";
 import HomeStaticSections from "./HomeStaticSections";
 import { blogSummaries } from "@/lib/blogPosts";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
@@ -185,7 +185,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
-      <HomeClient priceLabels={priceLabels} />
+      <HomeHero priceLabels={priceLabels} />
       <HomeStaticSections priceLabels={priceLabels} blogSummaries={blogSummaries} />
     </>
   );
