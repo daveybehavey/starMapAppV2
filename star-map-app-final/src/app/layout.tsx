@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import "./globals.css";
-import CookieBanner from "@/components/CookieBanner";
-import PromotionEmailPopup from "@/components/PromotionEmailPopup";
-import { PageTransition } from "@/components/PageTransition";
 import {
   Playfair_Display,
   Cinzel,
@@ -27,7 +25,8 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-playfair",
-  preload: false,
+  display: "swap",
+  preload: true,
 });
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-cinzel", preload: false });
 const greatVibes = Great_Vibes({ subsets: ["latin"], weight: ["400"], variable: "--font-script", preload: false });
@@ -111,6 +110,9 @@ const abrilFatface = Abril_Fatface({
   variable: "--font-abril-fatface",
   preload: false,
 });
+
+const CookieBanner = dynamic(() => import("@/components/CookieBanner"), { ssr: false });
+const PromotionEmailPopup = dynamic(() => import("@/components/PromotionEmailPopup"), { ssr: false });
 
 // Revalidate pages every hour to keep pricing data fresh
 export const revalidate = 3600;
@@ -199,7 +201,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${cormorant.variable} ${montserrat.variable} ${libreBaskerville.variable} ${ebGaramond.variable} ${crimsonText.variable} ${lora.variable} ${raleway.variable} ${poppins.variable} ${dancingScript.variable} ${parisienne.variable} ${bebasNeue.variable} ${abrilFatface.variable}`}>
         <div className="cosmic-backdrop">
-          <PageTransition>{children}</PageTransition>
+          {children}
         </div>
         <footer className="bg-[rgba(247,241,227,0.92)] px-6 py-4 text-sm text-neutral-800 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
           <div className="mx-auto flex max-w-6xl items-center justify-between">
