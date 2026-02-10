@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import HomeClient from "./HomeClient";
+import HomeStaticSections from "./HomeStaticSections";
 import { blogSummaries } from "@/lib/blogPosts";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 
@@ -48,6 +49,21 @@ export default function HomePage() {
     tiers.subscription.amountCents,
     (tiers.subscription.currency || "USD").toUpperCase()
   );
+  const packSavingsPercent =
+    tiers.single.amountCents > 0
+      ? Math.max(
+          0,
+          Math.round(
+            (1 - tiers.pack3.amountCents / Math.max(1, tiers.single.amountCents * 3)) * 100,
+          ),
+        )
+      : 0;
+  const priceLabels = {
+    single: priceLabel,
+    pack3: packLabel,
+    subscription: subscriptionLabel,
+    packSavingsPercent,
+  };
   const schemaPrice = (tiers.single.amountCents / 100).toFixed(2);
   const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
   const priceValidUntil = (() => {
@@ -169,7 +185,8 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
-      <HomeClient blogSummaries={blogSummaries} />
+      <HomeClient priceLabels={priceLabels} />
+      <HomeStaticSections priceLabels={priceLabels} blogSummaries={blogSummaries} />
     </>
   );
 }
