@@ -758,10 +758,6 @@ input[type="range"]:hover::-moz-range-thumb {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.enhanced-visuals .glass-panel {
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
 
 /* Enhanced input focus glow */
 .input-glow:focus {
@@ -926,12 +922,4 @@ input[type="range"]:hover::-moz-range-thumb {
     radial-gradient(2px 2px at 90% 80%, rgba(255, 255, 255, 0.3), transparent);
   pointer-events: none;
   opacity: 0.6;
-}
-
-.enhanced-visuals .cosmic-backdrop::before {
-  animation: drift-stars 60s linear infinite;
-}
-
-.enhanced-visuals .particles-bg::before {
-  animation: drift-stars 120s linear infinite;
 }

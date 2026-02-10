@@ -16,17 +16,11 @@ export default function ClientOverlays() {
       | undefined;
 
     if (typeof idleCallback === "function") {
-      const handle = idleCallback(() => {
-        document.body.classList.add("enhanced-visuals");
-        setReady(true);
-      }, { timeout: 2000 });
+      const handle = idleCallback(() => setReady(true), { timeout: 2000 });
       return () => window.cancelIdleCallback?.(handle);
     }
 
-    const handle = window.setTimeout(() => {
-      document.body.classList.add("enhanced-visuals");
-      setReady(true);
-    }, 2000);
+    const handle = window.setTimeout(() => setReady(true), 2000);
     return () => window.clearTimeout(handle);
   }, []);
 
