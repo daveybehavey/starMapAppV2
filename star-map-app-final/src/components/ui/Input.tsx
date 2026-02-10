@@ -55,7 +55,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <label
             htmlFor={inputId}
             className={`block text-xs font-semibold ${
-              variant === "dark" ? "text-neutral-700" : "text-white"
+              variant === "default" ? "text-white" : "text-neutral-700"
             }`}
           >
             {label}
@@ -96,7 +96,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {hint && !error && (
           <p
             id={`${inputId}-hint`}
-            className={`text-xs ${variant === "dark" ? "text-neutral-500" : "text-white/60"}`}
+            className={`text-xs ${variant === "default" ? "text-white/60" : "text-neutral-600"}`}
           >
             {hint}
           </p>

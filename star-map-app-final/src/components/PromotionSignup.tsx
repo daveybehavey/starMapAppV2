@@ -167,7 +167,7 @@ export function PromotionForm({
       )}
 
       {!hideDisclaimer && (
-        <p className="mt-4 text-xs text-neutral-600">
+        <p className="mt-4 text-xs text-neutral-700">
           No spam—just occasional updates about new looks, sales, and restocks. You can unsubscribe at any time.
         </p>
       )}

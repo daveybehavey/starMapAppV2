@@ -110,7 +110,7 @@ export default function PromotionEmailPopup() {
           source="popup_modal"
           onSuccess={handleSuccess}
         />
-        <p className="text-[11px] text-neutral-500">
+        <p className="text-[11px] text-neutral-600">
           By submitting, you agree to receive marketing emails. You can unsubscribe anytime.
         </p>
       </div>
