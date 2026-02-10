@@ -49,8 +49,8 @@ export default function MediaKitPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700 sm:text-base">
           <li>
-            <a href="/favicon.png" className="font-semibold text-amber-700 underline hover:text-amber-900">
-              Logo (PNG)
+            <a href="/favicon.ico" className="font-semibold text-amber-700 underline hover:text-amber-900">
+              Logo (ICO)
             </a>
           </li>
           <li>

@@ -46,7 +46,7 @@ export default function ChooseDateLocationPost() {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
     },
     mainEntityOfPage: "https://starmapco.com/blog/choose-date-location-custom-star-map",
   };
@@ -202,7 +202,7 @@ export default function ChooseDateLocationPost() {
               loading="lazy"
             />
             <Image
-              src="/favicon.png"
+              src="/favicon.ico"
               alt="Select location for accurate star map"
               width={900}
               height={650}

@@ -48,7 +48,7 @@ export default function AnniversaryPostPage() {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
     },
     mainEntityOfPage: "https://starmapco.com/blog/custom-star-map-for-anniversary",
   };

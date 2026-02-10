@@ -46,7 +46,7 @@ export default function ValentinesStarMapPage() {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
     },
     mainEntityOfPage: "https://starmapco.com/blog/valentines-day-star-map",
   };

@@ -46,7 +46,7 @@ export default function PersonalizedBirthdayPost() {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
     },
     mainEntityOfPage: "https://starmapco.com/blog/personalized-star-map-birthday-gift",
   };
@@ -275,7 +275,7 @@ export default function PersonalizedBirthdayPost() {
               loading="lazy"
             />
             <Image
-              src="/favicon.png"
+              src="/favicon.ico"
               alt="Framed birthday star map gift"
               width={900}
               height={650}

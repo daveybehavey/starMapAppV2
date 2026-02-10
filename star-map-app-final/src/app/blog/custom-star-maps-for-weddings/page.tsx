@@ -46,7 +46,7 @@ export default function WeddingsPostPage() {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.png" },
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
     },
     mainEntityOfPage: "https://starmapco.com/blog/custom-star-maps-for-weddings",
   };
@@ -224,7 +224,7 @@ export default function WeddingsPostPage() {
               loading="lazy"
             />
             <Image
-              src="/favicon.png"
+              src="/favicon.ico"
               alt="Styled custom star map for wedding décor"
               width={900}
               height={650}

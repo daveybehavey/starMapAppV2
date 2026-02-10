@@ -44,7 +44,7 @@ export default function AstronomyBehindStarMaps() {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: `${siteUrl}/favicon.png` },
+      logo: { "@type": "ImageObject", url: `${siteUrl}/favicon.ico` },
     },
     mainEntityOfPage: `${siteUrl}/blog/astronomy-behind-star-maps`,
   };
@@ -219,7 +219,7 @@ export default function AstronomyBehindStarMaps() {
               loading="lazy"
             />
             <Image
-              src="/favicon.png"
+              src="/favicon.ico"
               alt="Custom star map science schematic"
               width={900}
               height={650}

@@ -1,5 +1,5 @@
 import HeroCheckoutButtons from "@/components/HeroCheckoutButtons";
-import HeroEditorIsland from "@/components/HeroEditorIsland";
+import HeroEditorDeferred from "@/components/HeroEditorDeferred";
 
 type PriceLabels = {
   single: string;
@@ -30,7 +30,7 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
 
           <HeroCheckoutButtons priceLabels={priceLabels} />
         </div>
-        <HeroEditorIsland />
+        <HeroEditorDeferred />
       </section>
     </main>
   );

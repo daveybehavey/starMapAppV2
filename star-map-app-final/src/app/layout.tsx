@@ -174,11 +174,8 @@ export const metadata: Metadata = {
     type: "website",
   },
   icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon.png", type: "image/png" },
-    ],
-    apple: "/favicon.png",
+    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    apple: "/favicon.ico",
     shortcut: "/favicon.ico",
   },
   twitter: {
@@ -202,7 +199,7 @@ const siteSchema = {
       "@type": "Organization",
       name: "StarMapCo",
       url: siteUrl,
-      logo: `${siteUrl}/favicon.png`,
+      logo: `${siteUrl}/favicon.ico`,
       email: "support@starmapco.com",
     },
     {
