@@ -42,13 +42,13 @@ export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeS
 
   return (
     <>
-      <section className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <PromotionSignup />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
+      <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
         <div className="space-y-6 lg:space-y-8">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">What your map could look like</p>
@@ -139,7 +139,7 @@ export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeS
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
+      <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
         <div className="space-y-8">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">How it works</p>
@@ -180,7 +180,7 @@ export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeS
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
+      <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)] lg:items-start">
           <div className="space-y-6 text-midnight">
             <div>
@@ -306,7 +306,7 @@ export default function HomeStaticSections({ priceLabels, blogSummaries }: HomeS
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
+      <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
         <div className="space-y-6">
           <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Latest from the Blog</h2>
           <p className="text-base text-neutral-800 sm:text-lg">

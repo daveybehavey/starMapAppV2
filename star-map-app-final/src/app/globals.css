@@ -37,6 +37,11 @@ html {
   scrollbar-gutter: stable;
 }
 
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 900px;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
