@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections from "./HomeStaticSections";
-import { blogSummaries } from "@/lib/blogPosts";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
@@ -197,7 +196,6 @@ export default function HomePage({ searchParams }: HomePageProps) {
       <HomeHero priceLabels={priceLabels} />
       <HomeStaticSections
         priceLabels={priceLabels}
-        blogSummaries={blogSummaries}
         promoStatus={promoStatus}
         promoCode={promoCode}
       />

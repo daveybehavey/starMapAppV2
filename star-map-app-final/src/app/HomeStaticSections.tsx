@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { BlogSummary } from "@/lib/blogPosts";
 import PromotionSignup from "@/components/PromotionSignup";
 
 type PriceLabels = {
@@ -11,42 +10,15 @@ type PriceLabels = {
 
 type HomeStaticSectionsProps = {
   priceLabels: PriceLabels;
-  blogSummaries: BlogSummary[];
   promoStatus?: "success" | "error";
   promoCode?: string;
 };
 
-const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-const formatBlogDate = (date: string) => {
-  if (!date) return "";
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return blogDateFormatter.format(parsed);
-};
-
 export default function HomeStaticSections({
   priceLabels,
-  blogSummaries,
   promoStatus,
   promoCode,
 }: HomeStaticSectionsProps) {
-  const latestPosts = [...blogSummaries]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 6);
-  const useFeaturedBlogLayout = latestPosts.length >= 5;
-  const blogGridClassName =
-    latestPosts.length <= 1
-      ? "grid grid-cols-1 gap-4"
-      : latestPosts.length === 2
-        ? "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6"
-        : "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3";
-
   return (
     <>
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
@@ -122,27 +94,6 @@ export default function HomeStaticSections({
                 renderMode: "Classic",
                 caption: "Tokyo, Japan · July 7, 1995",
                 badge: "CLASSIC",
-              },
-              {
-                imageSrc: "/examples/example-birth-classic.webp",
-                occasion: "Birth",
-                renderMode: "Classic",
-                caption: "Toronto, Canada · February 14, 2023",
-                badge: "CLASSIC",
-              },
-              {
-                imageSrc: "/examples/example-memorial-blueprint.webp",
-                occasion: "Memorial",
-                renderMode: "Blueprint",
-                caption: "London, UK · November 11, 2018",
-                badge: "BLUEPRINT",
-              },
-              {
-                imageSrc: "/examples/example-graduation-luxe.webp",
-                occasion: "Graduation",
-                renderMode: "Luxe",
-                caption: "Boston, USA · May 25, 2024",
-                badge: "LUXE",
               },
             ].map((item, idx) => (
               <div
@@ -224,125 +175,46 @@ export default function HomeStaticSections({
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
       <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)] lg:items-start">
-          <div className="space-y-6 text-midnight">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">FAQ</p>
-              <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Everything you need to know</h2>
-              <p className="mt-3 text-sm text-neutral-700 sm:text-base">
-                Clear answers about accuracy, customization, and downloads.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-midnight">
-                <span>🧭</span> Accuracy & Quality
-              </h3>
-              <div className="space-y-3">
-                {[
-                  {
-                    q: "How accurate are StarMapCo star maps?",
-                    a: "Extremely accurate—using professional astronomy libraries based on skyfield and Yale catalogs for precise star positions.",
-                  },
-                  {
-                    q: "What data sources do you use?",
-                    a: "We rely on real astronomical data from trusted sources like the Yale Bright Star Catalog.",
-                  },
-                  {
-                    q: "Does it include planets and constellations?",
-                    a: "Yes—planets, optional constellation lines, and labels can all be toggled.",
-                  },
-                ].map((item, index) => (
-                  <details key={item.q} className={`details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] ${index % 2 === 0 ? 'bg-white/70' : 'bg-white/60'}`}>
-                    <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
-                      <span>{item.q}</span>
-                      <span className="summary-arrow ml-2 flex-shrink-0 text-amber-600">▼</span>
-                    </summary>
-                    <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.a}</p>
-                  </details>
-                ))}
+        <div className="space-y-6 text-midnight">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">FAQ</p>
+            <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Quick answers</h2>
+            <p className="mt-3 text-sm text-neutral-700 sm:text-base">
+              Fast clarity on accuracy, customization, and downloads.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              {
+                q: "How accurate are StarMapCo star maps?",
+                a: "Extremely accurate—using professional astronomy libraries for precise star positions.",
+              },
+              {
+                q: "Can I customize the text and styles?",
+                a: "Yes—add titles and dedications, plus multiple styles and constellation options.",
+              },
+              {
+                q: "What does premium unlock include?",
+                a: `HD downloads start at ${priceLabels.single}, with 3-packs and unlimited monthly options.`,
+              },
+              {
+                q: "Are the maps print-ready?",
+                a: "Yes—high-resolution files designed for poster printing.",
+              },
+            ].map((item) => (
+              <div key={item.q} className="rounded-2xl border border-amber-200/60 bg-white/70 p-4">
+                <h3 className="text-base font-semibold text-midnight">{item.q}</h3>
+                <p className="mt-2 text-sm text-neutral-700">{item.a}</p>
               </div>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-midnight">
-                <span>🎨</span> Customization
-              </h3>
-              <div className="space-y-3">
-                {[
-                  {
-                    q: "Can I customize text, styles, and shapes?",
-                    a: "Yes—add titles, subtitles, or dedications; choose from four styles (navy gold, vintage, parchment, minimal) and shapes (rectangle free, heart/circle/star premium) plus visual modes and constellations.",
-                  },
-                  {
-                    q: "What if I enter the wrong date or location?",
-                    a: "Edit inputs anytime before export—the preview updates in real time so you can correct details.",
-                  },
-                  {
-                    q: "Can I try a demo?",
-                    a: "Yes—use the demo button to auto-fill a sample moment and preview without payment.",
-                  },
-                ].map((item, index) => (
-                  <details key={item.q} className={`details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] ${index % 2 === 0 ? 'bg-white/70' : 'bg-white/60'}`}>
-                    <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
-                      <span>{item.q}</span>
-                      <span className="summary-arrow ml-2 flex-shrink-0 text-amber-600">▼</span>
-                    </summary>
-                    <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.a}</p>
-                  </details>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-midnight">
-                <span>💰</span> Pricing & Downloads
-              </h3>
-              <div className="space-y-3">
-                {[
-                  {
-                    q: "What is included in the free version vs. premium unlock?",
-                    a: `Free: basic preview and watermarked export. Premium unlocks start at ${priceLabels.single} for an HD download, with 3-packs and unlimited monthly options.`,
-                  },
-                  {
-                    q: "How do I export or download my star map?",
-                    a: "After premium unlock, download a high-resolution PNG directly from the app.",
-                  },
-                  {
-                    q: "Is this a one-time purchase or subscription?",
-                    a: "Both options are available: one-time HD downloads or an unlimited monthly subscription.",
-                  },
-                  {
-                    q: "Are the maps suitable for printing?",
-                    a: "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
-                  },
-                  {
-                    q: "Can I share my custom star map with others?",
-                    a: "Generate and share images or links now; public sharing options are coming soon.",
-                  },
-                  {
-                    q: "Why choose StarMapCo over other star map generators?",
-                    a: "Instant real-time preview, accurate science, premium visuals, and flexible pricing for one-time or unlimited access.",
-                  },
-                ].map((item, index) => (
-                  <details key={item.q} className={`details-enhanced group rounded-2xl border border-amber-200/60 p-4 max-[374px]:py-[1.125rem] ${index % 2 === 0 ? 'bg-white/70' : 'bg-white/60'}`}>
-                    <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-midnight sm:text-lg">
-                      <span>{item.q}</span>
-                      <span className="summary-arrow ml-2 flex-shrink-0 text-amber-600">▼</span>
-                    </summary>
-                    <p className="mt-3 text-sm text-neutral-700 sm:text-base">{item.a}</p>
-                  </details>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Link
-                href="#preview"
-                className="cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-midnight shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
-              >
-                Ready to create yours? Start now →
-              </Link>
-            </div>
+            ))}
+          </div>
+          <div className="pt-2">
+            <Link
+              href="#preview"
+              className="cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-midnight shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
+            >
+              Ready to create yours? Start now →
+            </Link>
           </div>
         </div>
       </section>
@@ -407,63 +279,19 @@ export default function HomeStaticSections({
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
-        <div className="space-y-6">
-          <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-midnight sm:text-4xl">Latest from the Blog</h2>
-          <p className="text-base text-neutral-800 sm:text-lg">
-            Guides and inspiration for anniversaries, birthdays, and accurate astronomy behind your custom star map.
+      <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="rounded-3xl border border-amber-200/60 bg-white/80 p-6 text-midnight shadow-md sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600">From the blog</p>
+          <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">More gift guides and inspiration</h2>
+          <p className="mt-3 text-sm text-neutral-700 sm:text-base">
+            Read the full library of star map gift ideas, printing tips, and astronomy explainers.
           </p>
-          <div className={`${blogGridClassName} mx-auto w-full stagger-children visible`}>
-            {latestPosts.map((post, index) => (
-              <article
-                key={post.slug}
-                className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-white/80 text-midnight shadow-md transition-all duration-300 hover:-translate-y-3 hover:border-amber-300 hover:shadow-[0_30px_60px_rgba(0,0,0,0.2)] ${
-                  index === 0 && useFeaturedBlogLayout ? "sm:col-span-2 lg:col-span-1 lg:row-span-2" : ""
-                }`}
-              >
-                <div
-                  className={`relative w-full overflow-hidden ${
-                    index === 0 && useFeaturedBlogLayout ? "h-40 lg:h-full lg:min-h-[200px]" : "h-32"
-                  }`}
-                >
-                  <Image
-                    src="/custom-star-map-anniversary.webp"
-                    alt={post.title}
-                    fill
-                    className="object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-105"
-                    loading="lazy"
-                    sizes="(min-width: 1280px) 30vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                    quality={70}
-                  />
-                  {index === 0 && (
-                    <div className="absolute left-3 top-3 rounded bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-midnight shadow">
-                      Featured
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col p-4">
-                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide sm:text-xs">
-                    <span className="rounded bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">Guide</span>
-                    <span className="text-amber-700">{formatBlogDate(post.date)}</span>
-                  </div>
-                  <h3 className={`mt-2 font-semibold line-clamp-2 ${index === 0 ? "text-lg sm:text-xl" : "text-base sm:text-lg"}`}>
-                    <Link href={`/blog/${post.slug}`} className="hover:underline">
-                      {post.title}
-                    </Link>
-                  </h3>
-                  <p className={`mt-2 text-sm text-neutral-700 ${index === 0 ? "line-clamp-3" : "line-clamp-2"}`}>{post.description}</p>
-                  <div className="mt-auto pt-3">
-                    <Link
-                      href={`/blog/${post.slug}`}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-amber-700 transition-colors hover:text-amber-900 hover:underline"
-                    >
-                      Read more →
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+          <Link
+            href="/blog"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-amber-700 transition hover:text-amber-900 hover:underline"
+          >
+            Browse the blog →
+          </Link>
         </div>
       </section>
 
