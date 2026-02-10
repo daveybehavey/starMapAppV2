@@ -8,6 +8,20 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
+const articleDateFormatter = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+const formatArticleDate = (date: string) => {
+  if (!date) return "";
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return articleDateFormatter.format(parsed);
+};
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = getPost(slug);
@@ -83,13 +97,7 @@ export default async function BlogPostPage({ params }: Props) {
         ← Back to blog
       </Link>
       <article className="space-y-4 rounded-3xl border border-amber-200 bg-[rgba(247,241,227,0.95)] px-5 py-6 shadow-lg">
-        <div className="text-sm tracking-wide text-amber-700 uppercase">
-          {new Date(post.date).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </div>
+        <div className="text-sm tracking-wide text-amber-700 uppercase">{formatArticleDate(post.date)}</div>
         <h1 className="text-midnight text-3xl font-semibold sm:text-4xl">{post.title}</h1>
         <p className="text-base text-neutral-800">{post.description}</p>
         <div className="[&_h2]:text-midnight [&_h3]:text-midnight text-[1.02rem] leading-7 text-neutral-800 [&_a]:font-medium [&_a]:text-amber-700 hover:[&_a]:text-amber-900 hover:[&_a]:underline [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-7 [&_h3]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:my-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-4 [&_p:first-child]:mt-0 [&_table]:my-6 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-amber-200/40 [&_td]:p-2 [&_td]:align-top [&_th]:border [&_th]:border-amber-200/50 [&_th]:bg-amber-50/50 [&_th]:p-2 [&_th]:text-left [&_th]:text-sm [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5">

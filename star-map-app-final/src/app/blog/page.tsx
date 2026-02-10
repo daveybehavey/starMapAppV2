@@ -122,6 +122,20 @@ const indexPosts: IndexPost[] = [
   },
 ];
 
+const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const formatBlogDate = (date: string) => {
+  if (!date || date === "#") return "Coming Soon";
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return blogDateFormatter.format(parsed);
+};
+
 export default function BlogIndex() {
   return (
     <main className="bg-[#050915] px-4 pt-10 pb-16 text-white">
@@ -154,9 +168,7 @@ export default function BlogIndex() {
                 />
               </div>
               <div className="flex flex-1 flex-col p-4">
-                <div className="text-xs tracking-wide text-amber-700 uppercase">
-                  {post.date === "#" ? "Coming Soon" : new Date(post.date).toDateString()}
-                </div>
+                <div className="text-xs tracking-wide text-amber-700 uppercase">{formatBlogDate(post.date)}</div>
                 <h2 className="text-midnight mt-2 text-xl font-semibold">
                   {post.slug !== "#" ? (
                     <Link href={`/blog/${post.slug}`} className="hover:underline">
