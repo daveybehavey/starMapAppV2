@@ -6,7 +6,7 @@ const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date().toISOString();
 
-  const blogEntries = blogPosts.map((post) => ({
+  const blogEntries: MetadataRoute.Sitemap = blogPosts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
     lastModified: post.date,
     changeFrequency: "monthly",
