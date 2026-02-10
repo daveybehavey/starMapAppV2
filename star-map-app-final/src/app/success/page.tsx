@@ -20,7 +20,7 @@ export default function SuccessPage() {
               Verifying payment
             </h1>
             <p className="mt-2 text-sm text-amber-100/90">
-              Loading payment status...
+              Confirming your payment with Stripe. This can take up to 45 seconds.
             </p>
           </div>
         </main>

@@ -21,6 +21,7 @@ export default function SuccessClient() {
   const [accessLinkCopied, setAccessLinkCopied] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [verificationRunId, setVerificationRunId] = useState(0);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
 
@@ -108,9 +109,13 @@ export default function SuccessClient() {
     }
 
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const attempts = 12;
+    const delayForAttempt = (attempt: number) => Math.min(1500 + attempt * 500, 4500);
 
     const verify = async () => {
-      for (let attempt = 0; attempt < 6; attempt += 1) {
+      setStatus("verifying");
+      setMessage(null);
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
         if (!active) return;
         try {
           const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionId)}`, {
@@ -149,17 +154,19 @@ export default function SuccessClient() {
                 ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
                 : "/download";
               router.replace(nextUrl);
-            }, 1800);
+            }, 3500);
             return;
           }
         } catch (err) {
           console.error("Payment verification failed", err);
         }
-        await wait(1500);
+        await wait(delayForAttempt(attempt));
       }
       if (!active) return;
       setStatus("error");
-      setMessage("Payment verification is taking longer than expected. Please refresh or contact support.");
+      setMessage(
+        "Payment verification is taking longer than expected. Please try again or contact support@starmapco.com.",
+      );
     };
 
     verify();
@@ -167,7 +174,7 @@ export default function SuccessClient() {
       active = false;
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
-  }, [createAccessLink, router, searchParams, setPaid]);
+  }, [createAccessLink, router, searchParams, setPaid, verificationRunId]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
@@ -190,7 +197,7 @@ export default function SuccessClient() {
           ))}
         </div>
       )}
-      <div className={`relative overflow-hidden rounded-3xl border border-amber-200/30 bg-white/10 px-8 py-7 text-center shadow-2xl backdrop-blur md:px-10 md:py-9 ${status === "success" ? 'animate-[scale-in_0.4s_ease-out]' : ''}`}>
+      <div className={`relative overflow-hidden rounded-3xl border border-amber-200/30 bg-white/10 px-8 py-7 text-center shadow-2xl backdrop-blur transition-opacity duration-300 md:px-10 md:py-9 ${status === "success" ? 'animate-[scale-in_0.4s_ease-out]' : ''}`}>
         <div className="pointer-events-none absolute inset-0">
           <div className={`absolute -left-10 -top-16 h-36 w-36 rounded-full bg-amber-300/15 blur-3xl ${status === "success" ? 'animate-pulse' : ''}`} />
           <div className={`absolute -bottom-14 right-0 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl ${status === "success" ? 'animate-pulse' : ''}`} />
@@ -199,12 +206,19 @@ export default function SuccessClient() {
           StarMapCo
         </div>
         <h1 className="relative mt-4 text-2xl font-semibold text-white md:text-3xl">
-          {status === "error" ? "Payment verification" : "Payment successful"}
+          {status === "success"
+            ? "Payment successful"
+            : status === "error"
+              ? "Payment verification"
+              : "Verifying payment"}
         </h1>
         <p className="relative mt-2 text-sm text-amber-100/90">
           {status === "error"
-            ? message
-            : "We are preparing your print-ready star map. This will only take a moment."}
+            ? message ??
+              "Payment verification is taking longer than expected. Please refresh or contact support@starmapco.com."
+            : status === "success"
+              ? "We are preparing your print-ready star map. This will only take a moment."
+              : "Confirming your payment with Stripe. This can take up to 45 seconds."}
         </p>
         {status !== "error" && (
           <>
@@ -217,11 +231,22 @@ export default function SuccessClient() {
                   Access unlocked — redirecting...
                 </span>
               ) : (
-                "Unlocking your HD download..."
+                "Checking payment status..."
               )}
             </div>
+            {status === "success" && (
+              <p className="relative mt-2 text-xs text-amber-100/80">
+                {currentPlan === "subscription"
+                  ? "Unlimited HD downloads unlocked."
+                  : currentPlan === "pack3"
+                    ? "3 HD downloads unlocked."
+                    : "1 HD download unlocked."}
+              </p>
+            )}
             <p className="relative mt-3 text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
-              Redirecting to your download page
+              {status === "success"
+                ? "Redirecting to your download page"
+                : "Redirecting once your payment is confirmed"}
             </p>
             {status === "success" && (
               <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
@@ -301,6 +326,24 @@ export default function SuccessClient() {
               </div>
             )}
           </>
+        )}
+        {status === "error" && (
+          <div className="relative mt-4 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setVerificationRunId((prev) => prev + 1)}
+              className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
+            >
+              Retry verification
+            </button>
+            <button
+              type="button"
+              onClick={() => router.replace("/")}
+              className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
+            >
+              Back to home
+            </button>
+          </div>
         )}
       </div>
     </main>
