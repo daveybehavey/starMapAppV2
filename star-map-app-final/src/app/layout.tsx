@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import "./globals.css";
+import ClientOverlays from "@/components/ClientOverlays";
 import {
   Playfair_Display,
   Cinzel,
@@ -111,9 +111,6 @@ const abrilFatface = Abril_Fatface({
   preload: false,
 });
 
-const CookieBanner = dynamic(() => import("@/components/CookieBanner"), { ssr: false });
-const PromotionEmailPopup = dynamic(() => import("@/components/PromotionEmailPopup"), { ssr: false });
-
 // Revalidate pages every hour to keep pricing data fresh
 export const revalidate = 3600;
 
@@ -219,8 +216,7 @@ export default function RootLayout({
             </div>
           </div>
         </footer>
-        <CookieBanner />
-        <PromotionEmailPopup />
+        <ClientOverlays />
         <script
           id="site-schema"
           type="application/ld+json"
