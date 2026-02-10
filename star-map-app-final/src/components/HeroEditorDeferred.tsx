@@ -91,7 +91,11 @@ export default function HeroEditorDeferred() {
 
     const onUserIntent = () => activate();
 
-    const idleCallback = (window as Window & { requestIdleCallback?: IdleCallback }).requestIdleCallback;
+    const idleCallback = (
+      window as Window & {
+        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      }
+    ).requestIdleCallback;
     const cancelIdleCallback = (window as Window & { cancelIdleCallback?: (handle: number) => void })
       .cancelIdleCallback;
     const idleHandle = idleCallback
