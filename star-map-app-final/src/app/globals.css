@@ -96,7 +96,6 @@ a {
   inset: 0;
   background-image: var(--starscape);
   opacity: 0.45;
-  animation: drift-stars 60s linear infinite;
   pointer-events: none;
 }
 
@@ -755,10 +754,13 @@ input[type="range"]:hover::-moz-range-thumb {
 /* Glassmorphism panel */
 .glass-panel {
   background: rgba(7, 11, 27, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.enhanced-visuals .glass-panel {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 /* Enhanced input focus glow */
@@ -922,7 +924,14 @@ input[type="range"]:hover::-moz-range-thumb {
     radial-gradient(2px 2px at 80% 50%, rgba(255, 255, 255, 0.35), transparent),
     radial-gradient(1px 1px at 10% 60%, rgba(251, 191, 36, 0.3), transparent),
     radial-gradient(2px 2px at 90% 80%, rgba(255, 255, 255, 0.3), transparent);
-  animation: drift-stars 120s linear infinite;
   pointer-events: none;
   opacity: 0.6;
+}
+
+.enhanced-visuals .cosmic-backdrop::before {
+  animation: drift-stars 60s linear infinite;
+}
+
+.enhanced-visuals .particles-bg::before {
+  animation: drift-stars 120s linear infinite;
 }
