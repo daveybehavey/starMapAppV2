@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
-import PosthogProvider from "./PosthogProvider";
+import dynamic from "next/dynamic";
 import { ANALYTICS_STORAGE_KEY, hasAnalyticsConsent, isDoNotTrackEnabled } from "@/lib/analytics";
 
 const COOKIE_KEY = "cookiesAccepted";
 const gaId = process.env.NEXT_PUBLIC_GA_ID;
+const PosthogProvider = dynamic(() => import("./PosthogProvider"), { ssr: false });
 const safeGet = (key: string) => {
   try {
     return localStorage.getItem(key);

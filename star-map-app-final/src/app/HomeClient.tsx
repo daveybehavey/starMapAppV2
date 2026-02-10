@@ -35,6 +35,68 @@ const SimplifiedEditor = nextDynamic(
   }
 );
 
+type HeroEditorPlaceholderProps = {
+  onActivate: () => void;
+};
+
+function HeroEditorPlaceholder({ onActivate }: HeroEditorPlaceholderProps) {
+  return (
+    <div className="flex flex-col gap-7 md:flex-row md:gap-6 lg:gap-8">
+      <div className="relative flex-1">
+        <div
+          className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-[#070b1b] shadow-[0_10px_24px_rgba(0,0,0,0.2)] bg-cover bg-center"
+          style={{ backgroundImage: "url('/examples/example-wedding-cinematic-heart.webp')" }}
+          aria-label="Sample star map preview"
+        />
+        <div className="absolute inset-0 flex items-end justify-center pb-10">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 rounded-b-2xl bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
+          <button
+            type="button"
+            onClick={onActivate}
+            className="animate-pulse-subtle relative z-10 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 px-8 py-4 text-base font-bold text-[#0b1433] shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all hover:-translate-y-1 hover:scale-105 hover:shadow-[0_0_40px_rgba(251,191,36,0.7)] max-[374px]:px-6 max-[374px]:py-3.5 max-[374px]:text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b]"
+            aria-label="Start customizing your star map"
+          >
+            ✨ Make it yours
+          </button>
+        </div>
+      </div>
+
+      <div className="min-w-0 flex flex-col gap-5 lg:w-[380px] xl:w-[420px]">
+        <div className="glass-panel min-w-0 rounded-2xl p-5 sm:p-6">
+          <h3 className="mb-5 text-xl font-semibold text-white max-[374px]:text-lg">Customize your moment</h3>
+          <div className="mb-4 min-w-0">
+            <label className="mb-1.5 block text-sm font-medium text-amber-100/80">When was it?</label>
+            <input
+              type="date"
+              disabled
+              className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white/60 placeholder:text-white/40 opacity-60"
+            />
+          </div>
+          <div className="mb-6 min-w-0">
+            <label className="mb-1.5 block text-sm font-medium text-amber-100/80">Where was it?</label>
+            <input
+              type="text"
+              disabled
+              placeholder="Search city, landmark, or address"
+              className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white/60 placeholder:text-white/40 opacity-60"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onActivate}
+            className="w-full rounded-full bg-amber-400 px-4 py-3 text-sm font-semibold text-[#0b1433] shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+          >
+            Start customizing
+          </button>
+          <p className="mt-3 text-xs text-amber-100/60">
+            Loads the live editor when you’re ready — no payment needed.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomeClient() {
   return (
     <Suspense fallback={null}>
@@ -88,6 +150,11 @@ function HomeInner() {
   }, [resolvedHeroVariant, priceLabels.packSavingsPercent]);
   const [heroCheckoutPlan, setHeroCheckoutPlan] = useState<CheckoutPlan | null>(null);
   const [heroCheckoutError, setHeroCheckoutError] = useState<string | null>(null);
+  const [showHeroEditor, setShowHeroEditor] = useState(false);
+
+  const handleHeroEditorActivate = useCallback(() => {
+    setShowHeroEditor(true);
+  }, []);
 
   useEffect(() => {
     // Resolve experiment variant only on the client after hydration,
@@ -260,7 +327,7 @@ function HomeInner() {
           </div>
           {heroCheckoutError && <p className="text-xs font-medium text-rose-300">{heroCheckoutError}</p>}
         </div>
-        <SimplifiedEditor />
+        {showHeroEditor ? <SimplifiedEditor /> : <HeroEditorPlaceholder onActivate={handleHeroEditorActivate} />}
       </section>
 
       <section className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">

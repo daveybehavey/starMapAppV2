@@ -1,9 +1,17 @@
-import posthog from "posthog-js";
 import type { FunnelStep } from "./funnelSteps";
 
 export type EventProps = Record<string, string | number | boolean | undefined | null>;
 
 export const ANALYTICS_STORAGE_KEY = "analytics-consent";
+
+let posthogPromise: Promise<typeof import("posthog-js").default> | null = null;
+
+export const loadPosthogClient = async () => {
+  if (!posthogPromise) {
+    posthogPromise = import("posthog-js").then((mod) => mod.default);
+  }
+  return posthogPromise;
+};
 
 // Type declarations for third-party analytics on window
 type GtagFunction = (command: string, eventName: string, params?: Record<string, unknown>) => void;
@@ -38,9 +46,9 @@ export function track(event: string, props?: EventProps) {
     route: window.location.pathname,
   });
   try {
-    if (posthog?.capture) {
-      posthog.capture(event, payload);
-    }
+    void loadPosthogClient().then((posthog) => {
+      posthog.capture?.(event, payload);
+    });
     if (typeof window.gtag === "function") {
       window.gtag("event", event, payload);
     }
