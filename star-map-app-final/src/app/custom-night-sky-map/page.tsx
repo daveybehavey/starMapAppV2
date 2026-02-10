@@ -26,9 +26,9 @@ export default function CustomNightSkyMapPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Custom Night Sky Map</h1>
-        <p className="text-sm text-neutral-700 sm:text-base">
+        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Night Sky Map</h1>
+        <p className="text-sm text-neutral-200 sm:text-base">
           Design a custom night sky map (star map) that reflects the exact stars above you on a meaningful date.
           Personalized, accurate, and ready to print.
         </p>
@@ -72,10 +72,10 @@ export default function CustomNightSkyMapPage() {
           Looking for a specific format? Explore these popular options.
         </p>
         <div className="flex gap-3 text-sm text-neutral-700">
-          <Link href="/night-sky-map-gift" className="text-gold underline hover:text-amber-600">
+          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
             Night sky map gift
           </Link>
-          <Link href="/star-map-generator" className="text-gold underline hover:text-amber-600">
+          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
             Star map generator
           </Link>
         </div>

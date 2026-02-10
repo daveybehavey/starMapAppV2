@@ -26,9 +26,9 @@ export default function NightSkyMapGiftPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Night Sky Map Gift</h1>
-        <p className="text-sm text-neutral-700 sm:text-base">
+        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Night Sky Map Gift</h1>
+        <p className="text-sm text-neutral-200 sm:text-base">
           A night sky map gift captures the exact stars from a meaningful date and place. This personalized star map gift is
           timeless and ready to print.
         </p>
@@ -72,13 +72,13 @@ export default function NightSkyMapGiftPage() {
           Choose the moment you want to celebrate and create a keepsake that is truly one of a kind.
         </p>
         <div className="flex gap-3 text-sm text-neutral-700">
-          <Link href="/anniversary" className="text-gold underline hover:text-amber-600">
+          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
             Anniversary star maps
           </Link>
-          <Link href="/wedding" className="text-gold underline hover:text-amber-600">
+          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
             Wedding star maps
           </Link>
-          <Link href="/birthday" className="text-gold underline hover:text-amber-600">
+          <Link href="/birthday" className="text-amber-700 underline hover:text-amber-800">
             Birthday star maps
           </Link>
         </div>

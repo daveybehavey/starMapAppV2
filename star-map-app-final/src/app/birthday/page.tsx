@@ -25,9 +25,9 @@ export default function BirthdayPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Personalized Birthday Star Map</h1>
-        <p className="text-sm text-neutral-700 sm:text-base">
+        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Birthday Star Map</h1>
+        <p className="text-sm text-neutral-200 sm:text-base">
           Mark a birthday with a birthday star map gift showing the exact night sky from their birth date and location. A
           keepsake that feels personal, timeless, and ready to frame.
         </p>
@@ -77,10 +77,10 @@ export default function BirthdayPage() {
           downloads, bundles, or an unlimited subscription.
         </p>
         <div className="flex gap-3 text-sm text-neutral-700">
-          <Link href="/wedding" className="text-gold underline hover:text-amber-600">
+          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
             Wedding star maps
           </Link>
-          <Link href="/anniversary" className="text-gold underline hover:text-amber-600">
+          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
             Anniversary star maps
           </Link>
         </div>

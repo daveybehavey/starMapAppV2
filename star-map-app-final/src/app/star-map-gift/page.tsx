@@ -26,9 +26,9 @@ export default function StarMapGiftPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-gold">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-midnight sm:text-4xl">Star Map Gift</h1>
-        <p className="text-sm text-neutral-700 sm:text-base">
+        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gift</h1>
+        <p className="text-sm text-neutral-200 sm:text-base">
           A personalized star map gift captures the exact sky from a meaningful moment. It is personal, timeless, and ready
           to print.
         </p>
@@ -72,10 +72,10 @@ export default function StarMapGiftPage() {
           Explore these popular variations when searching for the perfect gift.
         </p>
         <div className="flex gap-3 text-sm text-neutral-700">
-          <Link href="/night-sky-map-gift" className="text-gold underline hover:text-amber-600">
+          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
             Night sky map gift
           </Link>
-          <Link href="/personalized-star-map" className="text-gold underline hover:text-amber-600">
+          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
             Personalized star map
           </Link>
         </div>
