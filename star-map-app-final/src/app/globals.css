@@ -48,13 +48,7 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   background-color: var(--cosmic-midnight);
-  background-image:
-    radial-gradient(circle at 20% 20%, rgba(241, 194, 125, 0.12), transparent 32%),
-    radial-gradient(circle at 80% 12%, rgba(96, 161, 255, 0.18), transparent 28%),
-    var(--nebula-gradient),
-    var(--starscape),
-    var(--noise-texture);
-  background-blend-mode: screen, screen, normal, screen, soft-light;
+  background-image: var(--nebula-gradient);
   color: #0c1021;
   font-family: var(--font-playfair), "Playfair Display", serif;
 }
@@ -91,24 +85,11 @@ a {
 }
 
 .cosmic-backdrop::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: var(--starscape);
-  opacity: 0.45;
-  pointer-events: none;
+  content: none;
 }
 
 .cosmic-backdrop::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 30% 40%, rgba(241, 194, 125, 0.08), transparent 35%),
-    radial-gradient(circle at 75% 20%, rgba(83, 142, 255, 0.08), transparent 25%),
-    var(--noise-texture);
-  opacity: 0.55;
-  mix-blend-mode: screen;
-  pointer-events: none;
+  content: none;
 }
 
 .cosmic-panel {
@@ -910,16 +891,5 @@ input[type="range"]:hover::-moz-range-thumb {
 }
 
 .particles-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(2px 2px at 40% 70%, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(1px 1px at 60% 20%, rgba(251, 191, 36, 0.4), transparent),
-    radial-gradient(2px 2px at 80% 50%, rgba(255, 255, 255, 0.35), transparent),
-    radial-gradient(1px 1px at 10% 60%, rgba(251, 191, 36, 0.3), transparent),
-    radial-gradient(2px 2px at 90% 80%, rgba(255, 255, 255, 0.3), transparent);
-  pointer-events: none;
-  opacity: 0.6;
+  content: none;
 }
