@@ -32,16 +32,32 @@ export default function PromotionEmailPopup() {
     }
 
     let mounted = true;
-    const timer = window.setTimeout(() => {
-      if (mounted) {
-        setIsOpen(true);
-        track("promotion_popup_viewed", { source: "modal" });
-      }
-    }, 3200);
+    let timer: number | null = null;
+
+    const openPopup = () => {
+      if (!mounted) return;
+      setIsOpen(true);
+      track("promotion_popup_viewed", { source: "modal" });
+    };
+
+    const handleIntent = () => {
+      if (timer !== null) return;
+      timer = window.setTimeout(openPopup, 1200);
+      window.removeEventListener("scroll", handleIntent);
+      window.removeEventListener("pointerdown", handleIntent);
+      window.removeEventListener("keydown", handleIntent);
+    };
+
+    window.addEventListener("scroll", handleIntent, { passive: true });
+    window.addEventListener("pointerdown", handleIntent, { passive: true });
+    window.addEventListener("keydown", handleIntent);
 
     return () => {
       mounted = false;
-      window.clearTimeout(timer);
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener("scroll", handleIntent);
+      window.removeEventListener("pointerdown", handleIntent);
+      window.removeEventListener("keydown", handleIntent);
     };
   }, [disablePopup, pricing.promoActive]);
 
