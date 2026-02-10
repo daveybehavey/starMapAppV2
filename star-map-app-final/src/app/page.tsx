@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import HomeClient from "./HomeClient";
+import { blogSummaries } from "@/lib/blogPosts";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
@@ -168,7 +169,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
-      <HomeClient />
+      <HomeClient blogSummaries={blogSummaries} />
     </>
   );
 }

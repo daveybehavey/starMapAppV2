@@ -10,6 +10,8 @@ export type BlogPost = {
   content: () => ReactNode;
 };
 
+export type BlogSummary = Pick<BlogPost, "slug" | "title" | "description" | "date">;
+
 export const blogPosts: BlogPost[] = [
   {
     slug: "most-meaningful-valentines-day-gift-custom-star-map",
@@ -839,6 +841,13 @@ export const blogPosts: BlogPost[] = [
     ),
   },
 ];
+
+export const blogSummaries: BlogSummary[] = blogPosts.map((post) => ({
+  slug: post.slug,
+  title: post.title,
+  description: post.description,
+  date: post.date,
+}));
 
 export function getPost(slug: string) {
   return blogPosts.find((post) => post.slug === slug);

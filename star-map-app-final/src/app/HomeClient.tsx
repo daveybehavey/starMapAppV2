@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { blogPosts } from "@/lib/blogPosts";
+import type { BlogSummary } from "@/lib/blogPosts";
 import { formatPrice, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
 import { useInView } from "@/hooks/useInView";
 import {
@@ -97,15 +97,23 @@ function HeroEditorPlaceholder({ onActivate }: HeroEditorPlaceholderProps) {
   );
 }
 
-export default function HomeClient() {
+type HomeClientProps = {
+  blogSummaries: BlogSummary[];
+};
+
+export default function HomeClient({ blogSummaries }: HomeClientProps) {
   return (
     <Suspense fallback={null}>
-      <HomeInner />
+      <HomeInner blogSummaries={blogSummaries} />
     </Suspense>
   );
 }
 
-function HomeInner() {
+type HomeInnerProps = {
+  blogSummaries: BlogSummary[];
+};
+
+function HomeInner({ blogSummaries }: HomeInnerProps) {
   // Compute price labels once (they never change during session)
   const priceLabels = useMemo(() => {
     const tiers = getPricingTiers();
@@ -234,8 +242,8 @@ function HomeInner() {
   const { ref: howItWorksRef, isVisible: howItWorksVisible } = useInView();
   const { ref: blogRef, isVisible: blogVisible } = useInView();
   const latestPosts = useMemo(
-    () => [...blogPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6),
-    []
+    () => [...blogSummaries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6),
+    [blogSummaries]
   );
   const blogDateFormatter = useMemo(
     () =>
@@ -401,8 +409,9 @@ function HomeInner() {
                     alt={`${item.occasion} · ${item.renderMode}`}
                     fill
                     className="object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-105"
-                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                    sizes="(min-width: 1280px) 30vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                     loading="lazy"
+                    quality={70}
                   />
                 </div>
                 <div className="border-t border-white/10 px-4 py-3 text-white">
@@ -740,7 +749,8 @@ function HomeInner() {
                       fill
                       className="object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-105"
                       loading="lazy"
-                      sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                      sizes="(min-width: 1280px) 30vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                      quality={70}
                     />
                     {index === 0 && (
                       <div className="absolute left-3 top-3 rounded bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-midnight shadow">
