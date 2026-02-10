@@ -170,6 +170,25 @@ function HomeInner() {
     () => [...blogPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6),
     []
   );
+  const blogDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+    []
+  );
+  const formatBlogDate = useCallback(
+    (date: string) => {
+      if (!date) return "";
+      const parsed = new Date(`${date}T00:00:00Z`);
+      if (Number.isNaN(parsed.getTime())) return date;
+      return blogDateFormatter.format(parsed);
+    },
+    [blogDateFormatter]
+  );
   const useFeaturedBlogLayout = latestPosts.length >= 5;
   const blogGridClassName =
     latestPosts.length <= 1
@@ -665,7 +684,7 @@ function HomeInner() {
                   <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide sm:text-xs">
                       <span className="rounded bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">Guide</span>
-                      <span className="text-amber-700">{new Date(post.date).toDateString()}</span>
+                      <span className="text-amber-700">{formatBlogDate(post.date)}</span>
                     </div>
                     <h3 className={`mt-2 font-semibold line-clamp-2 ${index === 0 ? "text-lg sm:text-xl" : "text-base sm:text-lg"}`}>
                       <Link href={`/blog/${post.slug}`} className="hover:underline">
