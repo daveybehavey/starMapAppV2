@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import nextDynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useStore } from "@/lib/store";
 
 // Lazy load SimplifiedEditor for the hero section
 const SimplifiedEditor = nextDynamic(
@@ -90,10 +91,31 @@ function HeroEditorPlaceholder({ onActivate }: HeroEditorPlaceholderProps) {
 
 type HeroEditorIslandProps = {
   initialOpen?: boolean;
+  prefill?: {
+    dateValue: string;
+    locationValue: string;
+  };
 };
 
-export default function HeroEditorIsland({ initialOpen = false }: HeroEditorIslandProps) {
+export default function HeroEditorIsland({ initialOpen = false, prefill }: HeroEditorIslandProps) {
   const [showHeroEditor, setShowHeroEditor] = useState(initialOpen);
+
+  useEffect(() => {
+    if (!prefill) return;
+    const { setDateTime, setLocation } = useStore.getState();
+
+    if (prefill.dateValue) {
+      const parsed = new Date(`${prefill.dateValue}T00:00:00`);
+      if (!Number.isNaN(parsed.getTime())) {
+        setDateTime(parsed.toISOString());
+      }
+    }
+
+    const trimmedLocation = prefill.locationValue.trim();
+    if (trimmedLocation) {
+      setLocation({ name: trimmedLocation });
+    }
+  }, [prefill]);
 
   const handleHeroEditorActivate = useCallback(() => {
     setShowHeroEditor(true);
