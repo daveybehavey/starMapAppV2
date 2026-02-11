@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
-import ClientOverlays from "@/components/ClientOverlays";
 import { Playfair_Display } from "next/font/google";
 
 const playfair = Playfair_Display({
@@ -114,7 +113,6 @@ export default function RootLayout({
             </div>
           </div>
         </footer>
-        <ClientOverlays />
         <script
           id="site-schema"
           type="application/ld+json"
