@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import EditorFontShell from "@/components/EditorFontShell";
 
 const EditorExperience = dynamic(
   () => import("@/components/EditorExperience").then((mod) => mod.EditorExperience),
@@ -19,8 +20,10 @@ const EditorExperience = dynamic(
 
 export default function EditorPageClient() {
   return (
-    <main className="flex flex-col items-center px-6 py-4 md:px-8 md:py-8 lg:px-12 lg:py-0">
-      <EditorExperience variant="full" />
-    </main>
+    <EditorFontShell>
+      <main className="flex flex-col items-center px-6 py-4 md:px-8 md:py-8 lg:px-12 lg:py-0">
+        <EditorExperience variant="full" />
+      </main>
+    </EditorFontShell>
   );
 }

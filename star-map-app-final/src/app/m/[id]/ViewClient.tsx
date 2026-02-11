@@ -7,6 +7,7 @@ import { type MapRecipe } from "@/lib/renderSky";
 import type { AspectRatio, Shape } from "@/lib/types";
 import Link from "next/link";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
+import EditorFontShell from "@/components/EditorFontShell";
 
 type ApiRecipe = {
   version: number;
@@ -107,29 +108,33 @@ export function ViewClient({ id, searchParams }: Props) {
 
   if (status === "loading") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0b0f3b] text-amber-50">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent"></div>
-          <p className="mt-3 text-sm">Loading your star map…</p>
-        </div>
-      </main>
+      <EditorFontShell>
+        <main className="flex min-h-screen items-center justify-center bg-[#0b0f3b] text-amber-50">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent"></div>
+            <p className="mt-3 text-sm">Loading your star map…</p>
+          </div>
+        </main>
+      </EditorFontShell>
     );
   }
 
   if (status === "error") {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-[#0b0f3b] px-4 text-amber-50">
-        <div className="text-center max-w-md">
-          <p className="text-2xl font-semibold mb-2">Map not found</p>
-          <p className="text-neutral-300 mb-6">This star map doesn't exist or has been removed.</p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-base font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
-          >
-            ✨ Create your own star map
-          </Link>
-        </div>
-      </main>
+      <EditorFontShell>
+        <main className="flex min-h-screen flex-col items-center justify-center bg-[#0b0f3b] px-4 text-amber-50">
+          <div className="text-center max-w-md">
+            <p className="text-2xl font-semibold mb-2">Map not found</p>
+            <p className="text-neutral-300 mb-6">This star map doesn't exist or has been removed.</p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-base font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
+            >
+              ✨ Create your own star map
+            </Link>
+          </div>
+        </main>
+      </EditorFontShell>
     );
   }
 
@@ -166,7 +171,8 @@ export function ViewClient({ id, searchParams }: Props) {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#0b0f3b] to-[#1a1f3a] text-amber-50">
+    <EditorFontShell>
+      <main className="min-h-screen bg-gradient-to-b from-[#0b0f3b] to-[#1a1f3a] text-amber-50">
       {/* Hero Section */}
       <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
         {/* Header */}
@@ -303,6 +309,7 @@ export function ViewClient({ id, searchParams }: Props) {
           </p>
         </div>
       </footer>
-    </main>
+      </main>
+    </EditorFontShell>
   );
 }

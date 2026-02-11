@@ -4,6 +4,7 @@ import Image from "next/image";
 import nextDynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
+import EditorFontShell from "@/components/EditorFontShell";
 
 // Lazy load SimplifiedEditor for the hero section
 const SimplifiedEditor = nextDynamic(
@@ -122,7 +123,9 @@ export default function HeroEditorIsland({ initialOpen = false, prefill }: HeroE
   }, []);
 
   return showHeroEditor ? (
-    <SimplifiedEditor />
+    <EditorFontShell>
+      <SimplifiedEditor />
+    </EditorFontShell>
   ) : (
     <HeroEditorPlaceholder onActivate={handleHeroEditorActivate} />
   );

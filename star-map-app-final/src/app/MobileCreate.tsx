@@ -6,6 +6,7 @@ import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
 import { EditorDrawer } from "@/components/EditorDrawer";
+import EditorFontShell from "@/components/EditorFontShell";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
@@ -292,7 +293,8 @@ export function MobileCreate({
   }, [isQuick, onCustomizeMore]);
 
   return (
-    <div className="space-y-4">
+    <EditorFontShell>
+      <div className="space-y-4">
       {/* Section 1: Header */}
       {showGuidedForm && (
         <div className="space-y-2">
@@ -1108,6 +1110,7 @@ export function MobileCreate({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </EditorFontShell>
   );
 }

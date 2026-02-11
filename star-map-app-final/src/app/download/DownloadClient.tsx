@@ -10,6 +10,7 @@ import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import type { CheckoutPlan } from "@/lib/pricing";
+import EditorFontShell from "@/components/EditorFontShell";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -624,7 +625,8 @@ export default function DownloadClient() {
   })();
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 py-8 text-amber-50 sm:px-6 sm:py-12 lg:px-10 lg:py-14">
+    <EditorFontShell>
+      <main className="min-h-screen bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 py-8 text-amber-50 sm:px-6 sm:py-12 lg:px-10 lg:py-14">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 lg:gap-10">
         <section className="relative overflow-hidden rounded-3xl border border-amber-200/30 bg-white/10 px-6 py-8 shadow-2xl backdrop-blur sm:px-8 sm:py-10 md:px-12">
           <div className="pointer-events-none absolute inset-0">
@@ -841,6 +843,7 @@ export default function DownloadClient() {
           </div>
         </section>
       </div>
-    </main>
+      </main>
+    </EditorFontShell>
   );
 }
