@@ -82,9 +82,14 @@ export type EditorExperienceVariant = "quick" | "full";
 interface EditorExperienceProps {
   variant?: EditorExperienceVariant;
   editorRef?: RefObject<HTMLDivElement | null>;
+  allowAdvancedInQuick?: boolean;
 }
 
-export function EditorExperience({ variant = "quick", editorRef }: EditorExperienceProps) {
+export function EditorExperience({
+  variant = "quick",
+  editorRef,
+  allowAdvancedInQuick = false,
+}: EditorExperienceProps) {
   // Loading state callback for visual options
   const [isUpdating, setIsUpdating] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
@@ -202,6 +207,7 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const consumePromiseRef = useRef<Promise<boolean> | null>(null);
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
+  const prefillAppliedRef = useRef(false);
 
   useEffect(() => {
     if (!paywallOpen) return;
@@ -229,7 +235,8 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   const editorReady = mounted || Boolean(forceViewport);
 
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
-  const showAdvanced = isQuick ? false : showAdvancedState;
+  const allowAdvanced = !isQuick || allowAdvancedInQuick;
+  const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const previewRef = useRef<HTMLDivElement>(null);
   const inputsRef = useRef<HTMLDivElement>(null);
   const presetRailRef = useRef<HTMLDivElement>(null);
@@ -413,6 +420,34 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
     setShape,
     refreshPaidStatus,
   ]);
+
+  useEffect(() => {
+    if (!restored || prefillAppliedRef.current) return;
+    const dateParam = searchParams.get("date");
+    const locationParam = searchParams.get("location");
+    if (!dateParam && !locationParam) return;
+
+    let hasValidDate = false;
+    if (dateParam) {
+      const parsed = new Date(`${dateParam}T00:00:00`);
+      if (!Number.isNaN(parsed.getTime())) {
+        setDateTime(parsed.toISOString());
+        hasValidDate = true;
+      }
+    }
+
+    let hasLocation = false;
+    if (locationParam && locationParam.trim()) {
+      setLocation({ name: locationParam.trim() });
+      hasLocation = true;
+    }
+
+    if (hasValidDate && hasLocation) {
+      setRevealed(true);
+    }
+
+    prefillAppliedRef.current = true;
+  }, [restored, searchParams, setDateTime, setLocation, setRevealed]);
 
   useEffect(() => {
     if (!autoExportPending || paid) return;
@@ -835,13 +870,13 @@ export function EditorExperience({ variant = "quick", editorRef }: EditorExperie
   }, [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]);
 
   const handleCustomizeMore = useCallback(() => {
-    if (isQuick) {
+    if (isQuick && !allowAdvancedInQuick) {
       router.push("/editor");
       return;
     }
     setShowAdvancedState(true);
     requestAnimationFrame(() => handleEditScroll());
-  }, [handleEditScroll, isQuick, router]);
+  }, [handleEditScroll, isQuick, router, allowAdvancedInQuick]);
 
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;

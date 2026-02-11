@@ -22,7 +22,7 @@ export default function EditorPageClient() {
   return (
     <EditorFontShell>
       <main className="flex flex-col items-center px-6 py-4 md:px-8 md:py-8 lg:px-12 lg:py-0">
-        <EditorExperience variant="full" />
+        <EditorExperience variant="quick" allowAdvancedInQuick />
       </main>
     </EditorFontShell>
   );
