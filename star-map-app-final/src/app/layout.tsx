@@ -102,19 +102,19 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-6xl items-center justify-between">
             <span>© {new Date().getFullYear()} StarMapCo</span>
             <div className="flex items-center gap-4">
-              <Link href="/star-map-gallery" className="font-semibold text-midnight hover:underline">
+              <Link href="/star-map-gallery" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Gallery
               </Link>
-              <Link href="/star-map-gift-ideas" className="font-semibold text-midnight hover:underline">
+              <Link href="/star-map-gift-ideas" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Gift Ideas
               </Link>
-              <Link href="/blog" className="font-semibold text-midnight hover:underline">
+              <Link href="/blog" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Blog
               </Link>
-              <Link href="/privacy" className="font-semibold text-midnight hover:underline">
+              <Link href="/privacy" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Privacy Policy
               </Link>
-              <Link href="/returns" className="font-semibold text-midnight hover:underline">
+              <Link href="/returns" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Returns &amp; Refunds
               </Link>
             </div>

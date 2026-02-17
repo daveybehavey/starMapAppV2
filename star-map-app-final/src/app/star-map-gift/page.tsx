@@ -73,6 +73,7 @@ export default function StarMapGiftPage() {
         <div className="pt-2">
           <Link
             href="/editor?mode=quick"
+            prefetch={false}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
             Make a star map gift
@@ -86,13 +87,13 @@ export default function StarMapGiftPage() {
           Explore these popular variations when searching for the perfect gift.
         </p>
         <div className="flex gap-3 text-sm text-neutral-800">
-          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/night-sky-map-gift" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
             Night sky map gift
           </Link>
-          <Link href="/star-map-gift-ideas" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/star-map-gift-ideas" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
             Star map gift ideas
           </Link>
-          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/personalized-star-map" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
             Personalized star map
           </Link>
         </div>
@@ -136,7 +137,7 @@ export default function StarMapGiftPage() {
           ))}
         </div>
         <div className="text-sm">
-          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/star-map-gallery" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
             View full gallery
           </Link>
         </div>

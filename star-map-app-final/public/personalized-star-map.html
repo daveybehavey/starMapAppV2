@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Personalized Star Map | StarMapCo</title>
+    <meta
+      name="description"
+      content="Create a personalized star map with names, date, and location. Accurate astronomy, instant preview, and print-ready HD download."
+    />
+    <link rel="canonical" href="https://starmapco.com/personalized-star-map" />
+    <meta property="og:title" content="Personalized Star Map | StarMapCo" />
+    <meta
+      property="og:description"
+      content="Create a personalized star map with names, date, and location. Accurate astronomy, instant preview, and print-ready HD download."
+    />
+    <meta property="og:url" content="https://starmapco.com/personalized-star-map" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://starmapco.com/og-default.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="theme-color" content="#050915" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Personalized Star Map | StarMapCo" />
+    <meta
+      name="twitter:description"
+      content="Create a personalized star map with names, date, and location. Accurate astronomy, instant preview, and print-ready HD download."
+    />
+    <meta name="twitter:image" content="https://starmapco.com/og-default.png" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
+    <style>
+      :root {
+        color-scheme: light;
+        --midnight: #050915;
+        --amber: #f1c27d;
+        --pale: #f7f1e3;
+        --text: #111827;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Playfair Display", "Times New Roman", Georgia, serif;
+        color: var(--pale);
+        background: radial-gradient(circle at 15% 15%, rgba(241, 194, 125, 0.12), transparent 28%),
+          radial-gradient(circle at 80% 10%, rgba(83, 142, 255, 0.16), transparent 22%),
+          linear-gradient(135deg, rgba(5, 9, 21, 0.94), rgba(15, 31, 58, 0.9));
+        min-height: 100vh;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .container {
+        width: min(1040px, 92vw);
+        margin: 0 auto;
+      }
+      .content-visibility-auto {
+        content-visibility: auto;
+        contain-intrinsic-size: 1px 900px;
+      }
+      .site-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 0 12px;
+      }
+      .brand {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.75);
+      }
+      .site-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        font-size: 0.9rem;
+      }
+      .site-nav a {
+        color: rgba(255, 255, 255, 0.75);
+      }
+      .site-nav .cta-link {
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(241, 194, 125, 0.6);
+        color: #fbd38d;
+        font-weight: 700;
+      }
+      .hero {
+        padding: 64px 0 32px;
+        text-align: center;
+      }
+      .hero h1 {
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        margin: 0 0 12px;
+      }
+      .hero p {
+        margin: 0 auto 24px;
+        max-width: 680px;
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .hero-form {
+        margin: 0 auto;
+        max-width: 640px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 20px;
+        padding: 18px;
+        background: rgba(7, 11, 27, 0.8);
+      }
+      .form-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .hero-form input {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+      }
+      .hero-form button {
+        margin-top: 12px;
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #fbbf24, #f1c27d);
+        font-weight: 700;
+        color: #1f2937;
+      }
+      .section {
+        padding: 26px 0;
+      }
+      .panel {
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .panel.light {
+        background: rgba(247, 241, 227, 0.95);
+        color: var(--text);
+        border-color: rgba(241, 194, 125, 0.35);
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .links a {
+        border-radius: 999px;
+        padding: 6px 12px;
+        border: 1px solid rgba(241, 194, 125, 0.5);
+        background: rgba(247, 241, 227, 0.95);
+        color: #92400e;
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+      footer {
+        margin-top: 40px;
+        padding: 20px 0 30px;
+        background: rgba(247, 241, 227, 0.92);
+        color: #1f2937;
+        font-size: 0.9rem;
+      }
+      footer .container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <header class="site-header">
+        <div class="brand">StarMapCo</div>
+        <nav class="site-nav">
+          <a href="/">Home</a>
+          <a href="/star-map-generator">Generator</a>
+          <a href="/custom-night-sky-map">Night sky map</a>
+          <a href="/star-map-gift">Gifts</a>
+          <a class="cta-link" href="/editor?mode=quick&source=personalized-static-nav">Start now</a>
+        </nav>
+      </header>
+      <section class="hero">
+        <h1>Personalized Star Map</h1>
+        <p>Create a personalized star map with names, date, and location. Preview instantly, then download a print-ready HD file.</p>
+        <form class="hero-form" action="/editor" method="GET">
+          <input type="hidden" name="mode" value="quick" />
+          <input type="hidden" name="source" value="personalized-star-map-static" />
+          <div class="form-grid">
+            <input name="date" type="date" aria-label="Date" autocomplete="bday" />
+            <input name="location" type="text" placeholder="City or address" aria-label="Location" autocomplete="address-level2" />
+          </div>
+          <button type="submit">Start personalizing your map</button>
+        </form>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <div class="panel">
+          <h2>Personalized without complexity</h2>
+          <p>
+            Build from a real sky and then add names, dedication text, and style choices. The flow is fast, but customization stays flexible in the editor.
+          </p>
+          <ul>
+            <li>Real date and location astronomy</li>
+            <li>Names, date lines, and dedication text</li>
+            <li>Preview before checkout</li>
+            <li>6000x6000 HD export for prints and frames</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <div class="panel light">
+          <h2>High-intent pages to explore next</h2>
+          <div class="links">
+            <a href="/star-map-gift">Star map gift</a>
+            <a href="/star-map-poster">Star map poster</a>
+            <a href="/constellation-map">Constellation map</a>
+            <a href="/star-map-for/wedding">Wedding maps</a>
+            <a href="/star-map-for/engagement">Engagement maps</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <div class="panel light">
+          <h2>Personalized star map FAQ</h2>
+          <p><strong>What can I personalize?</strong><br />Add names, title text, date lines, and dedication text.</p>
+          <p><strong>Can I use this as a gift?</strong><br />Yes. It is one of the most popular anniversary and couples gifts.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <span>&copy; 2026 StarMapCo</span>
+        <div class="links">
+          <a href="/star-map-gallery">Gallery</a>
+          <a href="/star-map-gift-ideas">Gift ideas</a>
+          <a href="/blog">Blog</a>
+          <a href="/privacy">Privacy Policy</a>
+        </div>
+      </div>
+    </footer>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What can I personalize?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Add names, title text, date lines, and dedication text."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I use this as a gift?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. It is one of the most popular anniversary and couples gifts."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </body>
+</html>

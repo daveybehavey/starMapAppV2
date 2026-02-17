@@ -19,7 +19,7 @@ export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
         {items.map((item, index) => (
           <li key={`${item.href}-${item.label}`} className="flex items-center gap-2">
             {index > 0 && <span className="text-white/30">/</span>}
-            <Link href={item.href} className="transition hover:text-amber-200">
+            <Link href={item.href} prefetch={false} className="transition hover:text-amber-200">
               {item.label}
             </Link>
           </li>

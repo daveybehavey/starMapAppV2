@@ -22,6 +22,7 @@ export default function OccasionLinks() {
           <Link
             key={occasion.href}
             href={occasion.href}
+            prefetch={false}
             className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
           >
             {occasion.label}
@@ -29,15 +30,15 @@ export default function OccasionLinks() {
         ))}
       </div>
       <div className="pt-3 text-sm">
-        <Link href="/star-map-for" className="text-amber-700 underline hover:text-amber-800">
+        <Link href="/star-map-for" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
           See all occasions
         </Link>
         <span className="mx-2 text-neutral-400">·</span>
-        <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
+        <Link href="/star-map-gallery" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
           View gallery
         </Link>
         <span className="mx-2 text-neutral-400">·</span>
-        <Link href="/star-map-gift-ideas" className="text-amber-700 underline hover:text-amber-800">
+        <Link href="/star-map-gift-ideas" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
           Gift ideas
         </Link>
       </div>
