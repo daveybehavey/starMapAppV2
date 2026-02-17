@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <div className="mx-auto max-w-4xl rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.92)] p-6 text-midnight shadow-2xl sm:p-8">
         <p className="text-sm uppercase tracking-[0.25em] text-amber-700">Privacy</p>
         <h1 className="mt-2 text-3xl font-bold text-midnight sm:text-4xl">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-neutral-700">Last Updated: December 31, 2025</p>
+        <p className="mt-2 text-sm text-neutral-700">Last Updated: February 12, 2026</p>
 
         <div className="mt-6 space-y-6 text-neutral-900 sm:text-lg">
           <p>
@@ -37,6 +37,11 @@ export default function PrivacyPage() {
                 store or access full payment data—Stripe handles it securely under their privacy policy.
               </li>
               <li>
+                <strong>Voluntary Email Submissions:</strong> If you submit your email for a discount or updates, we store
+                your email address and send a welcome email plus occasional follow-ups (e.g., printing tips). You can
+                unsubscribe at any time.
+              </li>
+              <li>
                 <strong>Local Browser Storage:</strong> Draft inputs (localStorage) and premium unlock status (cookie for
                 functionality, e.g., auto-save previews). Stored only on your device; not transmitted to us.
               </li>
@@ -45,7 +50,9 @@ export default function PrivacyPage() {
                 banner). Analytics cookies via Posthog (anonymous). No marketing/third-party advertising cookies.
               </li>
             </ul>
-            <p>We do not collect names, emails, or other direct PII unless voluntarily provided (none currently requested).</p>
+            <p>
+              We only collect direct PII (like email addresses) when you voluntarily provide it for promotions or updates.
+            </p>
           </section>
 
           <section className="space-y-3">

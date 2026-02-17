@@ -1,6 +1,7 @@
 export const FUNNEL_STEPS = [
   "landing_view",
   "hero_plan_click",
+  "preview_started",
   "editor_reveal",
   "checkout_started",
   "checkout_redirected",

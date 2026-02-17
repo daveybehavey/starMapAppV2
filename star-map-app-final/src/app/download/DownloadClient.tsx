@@ -25,6 +25,16 @@ const PREVIEW_BASE_WIDTH = 1200;
 const PREVIEW_MAX_DIM = 2200;
 const PREVIEW_MAX_DPR = 2;
 
+function getPreviewSource() {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = sessionStorage.getItem("preview_source");
+    return stored?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 function getPreviewPixelRatio(width: number, height: number) {
   if (typeof window === "undefined") return 1;
   const deviceRatio = Math.min(PREVIEW_MAX_DPR, window.devicePixelRatio || 1);
@@ -350,8 +360,9 @@ export default function DownloadClient() {
 
         setStatus("downloading");
         setMessage(source === "auto" ? "Preparing your HD file..." : null);
+        const previewSource = getPreviewSource() ?? "download";
         trackFunnelStep("download_started", {
-          source: "download",
+          source: previewSource,
           plan: currentPlan ?? undefined,
         });
 
@@ -405,7 +416,7 @@ export default function DownloadClient() {
         }
         track("export_download", { type: "hd", source });
         trackFunnelStep("download_completed", {
-          source: "download",
+          source: previewSource,
           plan: currentPlan ?? undefined,
         });
         // Refresh paid status to keep verification badge in sync

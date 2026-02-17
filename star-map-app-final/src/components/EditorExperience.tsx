@@ -208,6 +208,15 @@ export function EditorExperience({
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
   const prefillAppliedRef = useRef(false);
+  const getPreviewSource = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = sessionStorage.getItem("preview_source");
+      return stored?.trim() || null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!paywallOpen) return;
@@ -446,6 +455,20 @@ export function EditorExperience({
       setRevealed(true);
     }
 
+    const sourceParam = searchParams.get("source");
+    trackFunnelStep("preview_started", {
+      source: sourceParam ?? "unknown",
+      hasDate: hasValidDate,
+      hasLocation,
+    });
+    try {
+      if (sourceParam) {
+        sessionStorage.setItem("preview_source", sourceParam);
+      }
+    } catch {
+      // ignore storage errors
+    }
+
     prefillAppliedRef.current = true;
   }, [restored, searchParams, setDateTime, setLocation, setRevealed]);
 
@@ -491,7 +514,7 @@ export function EditorExperience({
     // Auto-collapse Date & Location after generating map
     setCollapsedCards((prev) => ({ ...prev, dateLocation: true }));
     track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
-    trackFunnelStep("editor_reveal", { source: "editor" });
+    trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(REVEALED_FLAG, "true");
@@ -502,7 +525,7 @@ export function EditorExperience({
     requestAnimationFrame(() => {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, [canReveal, hasDate, paid, renderOptions.visualMode, setRevealed]);
+  }, [canReveal, getPreviewSource, hasDate, paid, renderOptions.visualMode, setRevealed]);
 
   const applySampleMoment = useCallback(() => {
     const preset = occasionPresets.find((item) => item.id === "wedding") ?? occasionPresets[0];
@@ -690,13 +713,14 @@ export function EditorExperience({
 
   const startCheckout = useCallback(async (plan: CheckoutPlan) => {
     if (checkoutInFlightRef.current) return;
+    const previewSource = getPreviewSource() ?? "editor";
     try {
       checkoutInFlightRef.current = true;
       setCheckoutInFlight(true);
       setCheckoutError(null);
       track("checkout_started", { visualMode: renderOptions.visualMode, plan });
       trackFunnelStep("checkout_started", {
-        source: "editor",
+        source: previewSource,
         plan,
         experiment: PAYWALL_COPY_EXPERIMENT,
         variant: paywallVariant,
@@ -745,7 +769,7 @@ export function EditorExperience({
       const data = (await res.json()) as { url?: string };
       if (data.url) {
         trackFunnelStep("checkout_redirected", {
-          source: "editor",
+          source: previewSource,
           plan,
           experiment: PAYWALL_COPY_EXPERIMENT,
           variant: paywallVariant,
@@ -758,6 +782,7 @@ export function EditorExperience({
       console.error(err);
       setCheckoutError("Checkout is unavailable right now. Please try again shortly.");
       track("checkout_failed", {
+        source: previewSource,
         reason: (err as Error)?.message ?? "unknown",
         plan,
         experiment: PAYWALL_COPY_EXPERIMENT,
@@ -770,6 +795,7 @@ export function EditorExperience({
     aspectRatio,
     dateTime,
     location,
+    getPreviewSource,
     renderOptions,
     selectedStyle,
     shape,

@@ -77,10 +77,8 @@ a {
   background-image:
     radial-gradient(circle at 15% 15%, rgba(241, 194, 125, 0.12), transparent 28%),
     radial-gradient(circle at 80% 10%, rgba(83, 142, 255, 0.16), transparent 22%),
-    radial-gradient(circle at 50% 70%, rgba(241, 194, 125, 0.08), transparent 32%),
-    var(--nebula-gradient),
-    var(--noise-texture);
-  background-blend-mode: screen, screen, screen, normal, soft-light;
+    var(--nebula-gradient);
+  background-blend-mode: screen, screen, normal;
   overflow: hidden;
 }
 
@@ -892,4 +890,15 @@ input[type="range"]:hover::-moz-range-thumb {
 
 .particles-bg::before {
   content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

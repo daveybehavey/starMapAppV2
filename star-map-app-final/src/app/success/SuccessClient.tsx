@@ -8,6 +8,16 @@ import type { CheckoutPlan } from "@/lib/pricing";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 
+function getPreviewSource() {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = sessionStorage.getItem("preview_source");
+    return stored?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SuccessClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -126,7 +136,7 @@ export default function SuccessClient() {
             setPaid(true);
             track("purchase_success", { isPaid: true });
             trackFunnelStep("payment_verified", {
-              source: "success",
+              source: getPreviewSource() ?? "success",
               plan: typeof data.plan === "string" ? data.plan : undefined,
             });
             setStatus("success");

@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 type PromotionSignupProps = {
   promoStatus?: "success" | "error";
   promoCode?: string;
@@ -29,7 +27,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
         <form
           className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
           method="POST"
-          action="/api/promotions/subscribe?redirect=1"
+          action="/api/promotions/subscribe?redirect=editor"
         >
           <label className="sr-only" htmlFor="promo-email">
             Email address
@@ -63,9 +61,9 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
         <p className="mt-4 text-xs text-neutral-700">
           No spam—just occasional updates about new looks, sales, and restocks. You can unsubscribe at any time.
           <span className="ml-2">
-            <Link href="/privacy" className="underline text-amber-700 hover:text-amber-900">
+            <a href="/privacy" className="underline text-amber-700 hover:text-amber-900">
               Privacy Policy
-            </Link>
+            </a>
           </span>
         </p>
       </div>

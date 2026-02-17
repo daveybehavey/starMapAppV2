@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
-import { PROMOTION_COUPON_CODE, runPromotionAutomation } from "@/lib/promotions";
+import { PROMOTION_COUPON_CODE, runPromotionAutomation, runPromotionFollowup } from "@/lib/promotions";
 
 const SUBSCRIPTION_KEY = "promotions:emails";
 const SENT_KEY = "promotions:coupon-sent";
+const FOLLOWUP_KEY = "promotions:print-tips-sent";
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -39,16 +40,32 @@ export async function POST(req: NextRequest) {
     return rateLimitResponse(rateLimit.resetIn);
   }
 
+  const redirectTarget = req.nextUrl.searchParams.get("redirect");
+  const shouldRedirectHome = redirectTarget === "1";
+  const shouldRedirectEditor = redirectTarget === "editor";
+
   const { email, error } = await readEmail(req);
   if (error) {
-    if (req.nextUrl.searchParams.get("redirect") === "1") {
+    if (shouldRedirectEditor) {
+      const redirectUrl = new URL("/editor", req.url);
+      redirectUrl.searchParams.set("mode", "quick");
+      redirectUrl.searchParams.set("promo", "error");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
+    if (shouldRedirectHome) {
       return NextResponse.redirect(new URL("/?promo=error", req.url), { status: 303 });
     }
     return NextResponse.json({ ok: false, error }, { status: 400 });
   }
 
   if (!email || !isValidEmail(email)) {
-    if (req.nextUrl.searchParams.get("redirect") === "1") {
+    if (shouldRedirectEditor) {
+      const redirectUrl = new URL("/editor", req.url);
+      redirectUrl.searchParams.set("mode", "quick");
+      redirectUrl.searchParams.set("promo", "error");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
+    if (shouldRedirectHome) {
       return NextResponse.redirect(new URL("/?promo=error", req.url), { status: 303 });
     }
     return NextResponse.json({ ok: false, error: "invalid_email" }, { status: 400 });
@@ -81,7 +98,38 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (req.nextUrl.searchParams.get("redirect") === "1") {
+  const followupAlreadySent = ((await kv.get<string[]>(FOLLOWUP_KEY)) ?? []).includes(email);
+  const shouldAttemptFollowup = !followupAlreadySent && (automationResult.delivered || alreadySent);
+  if (shouldAttemptFollowup) {
+    try {
+      const followupResult = await runPromotionFollowup(email, PROMOTION_COUPON_CODE);
+      if (!followupResult.delivered && followupResult.provider !== "none") {
+        console.error("promotion followup failed", {
+          provider: followupResult.provider,
+          error: followupResult.error ?? "unknown",
+          email,
+        });
+      }
+      if (followupResult.delivered) {
+        const sentFollowups = (await kv.get<string[]>(FOLLOWUP_KEY)) ?? [];
+        if (!sentFollowups.includes(email)) {
+          await kv.set(FOLLOWUP_KEY, [...sentFollowups, email]);
+        }
+      }
+    } catch (error) {
+      console.error("promotion followup scheduling failed", error);
+    }
+  }
+
+  if (shouldRedirectEditor) {
+    const redirectUrl = new URL("/editor", req.url);
+    redirectUrl.searchParams.set("mode", "quick");
+    redirectUrl.searchParams.set("promo", "success");
+    redirectUrl.searchParams.set("code", PROMOTION_COUPON_CODE);
+    return NextResponse.redirect(redirectUrl, { status: 303 });
+  }
+
+  if (shouldRedirectHome) {
     const redirectUrl = new URL("/", req.url);
     redirectUrl.searchParams.set("promo", "success");
     redirectUrl.searchParams.set("code", PROMOTION_COUPON_CODE);

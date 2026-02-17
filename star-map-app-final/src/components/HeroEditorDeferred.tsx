@@ -2,11 +2,13 @@ export default function HeroEditorDeferred() {
   return (
     <div className="mx-auto w-full max-w-2xl">
       <form
+        id="preview"
         action="/editor"
         method="GET"
         className="glass-panel min-w-0 rounded-2xl px-5 py-6 sm:px-6 sm:py-7"
       >
         <input type="hidden" name="mode" value="quick" />
+        <input type="hidden" name="source" value="home-hero" />
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/80">
             Create your map
@@ -22,6 +24,7 @@ export default function HeroEditorDeferred() {
               id="hero-date"
               name="date"
               type="date"
+              autoComplete="bday"
               className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40"
             />
           </div>
@@ -34,6 +37,7 @@ export default function HeroEditorDeferred() {
               name="location"
               type="text"
               placeholder="City or address"
+              autoComplete="address-level2"
               className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40"
             />
           </div>

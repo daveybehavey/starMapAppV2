@@ -9,12 +9,28 @@ type PromotionAutomationResult = {
 };
 
 const promotionSubject = process.env.PROMOTION_EMAIL_SUBJECT ?? "Your 20% off StarMapCo code";
+const promotionFollowupSubject =
+  process.env.PROMOTION_FOLLOWUP_SUBJECT ?? "Print tips for your star map (and your 20% off code)";
+const promotionFollowupDelayHours = Number.parseInt(
+  process.env.PROMOTION_FOLLOWUP_DELAY_HOURS ?? "24",
+  10,
+);
+const promotionFollowupDelaySeconds =
+  Number.isFinite(promotionFollowupDelayHours) && promotionFollowupDelayHours > 0
+    ? promotionFollowupDelayHours * 3600
+    : 24 * 3600;
 const promotionFromEmail = process.env.PROMOTION_EMAIL_FROM;
 const promotionReplyTo = process.env.PROMOTION_EMAIL_REPLY_TO;
 
 type ParsedEmailAddress = {
   email: string;
   name?: string;
+};
+
+type EmailCopy = {
+  subject: string;
+  text: string;
+  html: string;
 };
 
 function parseEmailAddress(value?: string): ParsedEmailAddress | null {
@@ -31,7 +47,7 @@ function parseEmailAddress(value?: string): ParsedEmailAddress | null {
   return { email: trimmed };
 }
 
-function getPromotionCopy(couponCode: string) {
+function getPromotionCopy(couponCode: string): EmailCopy {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
   const checkoutUrl = `${siteUrl}/`;
   const subject = promotionSubject;
@@ -65,13 +81,58 @@ function getPromotionCopy(couponCode: string) {
   return { subject, text, html };
 }
 
-async function deliverWithResend(email: string, couponCode: string): Promise<PromotionAutomationResult> {
+function getPromotionFollowupCopy(couponCode: string): EmailCopy {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
+  const checkoutUrl = `${siteUrl}/`;
+  const printGuideUrl = `${siteUrl}/how-to-print-star-map`;
+  const galleryUrl = `${siteUrl}/star-map-gallery`;
+  const subject = promotionFollowupSubject;
+  const text = [
+    "Quick print tips for your star map:",
+    "",
+    "1) Matte or fine‑art paper keeps the stars crisp.",
+    "2) Popular sizes: 11x14, 16x20, and 24x36.",
+    "3) A simple black or wood frame keeps it timeless.",
+    "",
+    `Full guide: ${printGuideUrl}`,
+    "",
+    `Your 20% off code still works: ${couponCode}`,
+    `Start or finish your map here: ${checkoutUrl}`,
+    "",
+    "Need help? Reply to this email and we can help.",
+    "",
+    "— StarMapCo",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
+      <p style="font-size: 18px; font-weight: 700; margin: 0 0 10px;">Quick print tips for your star map</p>
+      <ol style="padding-left: 18px; margin: 0 0 16px;">
+        <li>Matte or fine‑art paper keeps the stars crisp.</li>
+        <li>Popular sizes: 11x14, 16x20, and 24x36.</li>
+        <li>A simple black or wood frame keeps it timeless.</li>
+      </ol>
+      <p><a href="${printGuideUrl}" style="color: #b07d1b; font-weight: 700; text-decoration: none;">Read the full print guide</a></p>
+      <p style="margin-top: 18px;">Your 20% off code still works:</p>
+      <p style="font-size: 24px; font-weight: 700; margin: 0 0 14px; letter-spacing: 1px; color: #b07d1b;">${couponCode}</p>
+      <p><a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Continue your map</a></p>
+      <p style="font-size: 13px; color: #3f485b; margin-top: 14px;">
+        Need inspiration? Browse the <a href="${galleryUrl}" style="color: #b07d1b; text-decoration: none;">star map gallery</a>.
+      </p>
+      <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
+      <p style="margin-top: 18px;">— StarMapCo</p>
+    </div>
+  `;
+
+  return { subject, text, html };
+}
+
+async function sendWithResend(email: string, copy: EmailCopy): Promise<PromotionAutomationResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey || !promotionFromEmail) {
     return { delivered: false, provider: "none" };
   }
 
-  const copy = getPromotionCopy(couponCode);
   const payload: {
     from: string;
     to: string[];
@@ -108,14 +169,17 @@ async function deliverWithResend(email: string, couponCode: string): Promise<Pro
   return { delivered: true, provider: "resend" };
 }
 
-async function deliverWithSendgrid(email: string, couponCode: string): Promise<PromotionAutomationResult> {
+async function sendWithSendgrid(
+  email: string,
+  copy: EmailCopy,
+  sendAt?: number,
+): Promise<PromotionAutomationResult> {
   const sendgridApiKey = process.env.SENDGRID_API_KEY;
   const fromAddress = parseEmailAddress(promotionFromEmail);
   if (!sendgridApiKey || !fromAddress) {
     return { delivered: false, provider: "none" };
   }
 
-  const copy = getPromotionCopy(couponCode);
   const replyToAddress = parseEmailAddress(promotionReplyTo);
   const payload: {
     personalizations: Array<{ to: Array<{ email: string }> }>;
@@ -123,6 +187,7 @@ async function deliverWithSendgrid(email: string, couponCode: string): Promise<P
     subject: string;
     content: Array<{ type: "text/plain" | "text/html"; value: string }>;
     reply_to?: { email: string; name?: string };
+    send_at?: number;
   } = {
     personalizations: [{ to: [{ email }] }],
     from: fromAddress,
@@ -135,6 +200,10 @@ async function deliverWithSendgrid(email: string, couponCode: string): Promise<P
 
   if (replyToAddress) {
     payload.reply_to = replyToAddress;
+  }
+
+  if (sendAt) {
+    payload.send_at = sendAt;
   }
 
   const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -154,7 +223,11 @@ async function deliverWithSendgrid(email: string, couponCode: string): Promise<P
   return { delivered: true, provider: "sendgrid" };
 }
 
-async function notifyPromotionWebhook(email: string, couponCode: string): Promise<PromotionAutomationResult> {
+async function notifyPromotionWebhook(
+  email: string,
+  couponCode: string,
+  sequence: "welcome" | "print_tips",
+): Promise<PromotionAutomationResult> {
   const webhookUrl = process.env.PROMOTION_AUTOMATION_WEBHOOK_URL;
   if (!webhookUrl) {
     return { delivered: false, provider: "none" };
@@ -168,6 +241,7 @@ async function notifyPromotionWebhook(email: string, couponCode: string): Promis
       couponCode,
       list: "20_percent_waitlist",
       source: "promotion_signup",
+      sequence,
       timestamp: new Date().toISOString(),
     }),
   });
@@ -185,18 +259,43 @@ export async function runPromotionAutomation(
   couponCode: string,
 ): Promise<PromotionAutomationResult> {
   try {
-    const resendResult = await deliverWithResend(email, couponCode);
+    const copy = getPromotionCopy(couponCode);
+    const resendResult = await sendWithResend(email, copy);
     if (resendResult.provider !== "none") return resendResult;
 
-    const sendgridResult = await deliverWithSendgrid(email, couponCode);
+    const sendgridResult = await sendWithSendgrid(email, copy);
     if (sendgridResult.provider !== "none") return sendgridResult;
 
-    const webhookResult = await notifyPromotionWebhook(email, couponCode);
+    const webhookResult = await notifyPromotionWebhook(email, couponCode, "welcome");
     if (webhookResult.provider !== "none") return webhookResult;
 
     return { delivered: false, provider: "none", error: "No automation provider configured." };
   } catch (error) {
     console.error("promotion automation failed", error);
+    return { delivered: false, provider: "none", error: "automation_failed" };
+  }
+}
+
+export async function runPromotionFollowup(
+  email: string,
+  couponCode: string,
+): Promise<PromotionAutomationResult> {
+  try {
+    const copy = getPromotionFollowupCopy(couponCode);
+    const sendAt = Math.floor(Date.now() / 1000) + promotionFollowupDelaySeconds;
+
+    const resendResult = await sendWithResend(email, copy);
+    if (resendResult.provider !== "none") return resendResult;
+
+    const sendgridResult = await sendWithSendgrid(email, copy, sendAt);
+    if (sendgridResult.provider !== "none") return sendgridResult;
+
+    const webhookResult = await notifyPromotionWebhook(email, couponCode, "print_tips");
+    if (webhookResult.provider !== "none") return webhookResult;
+
+    return { delivered: false, provider: "none", error: "No automation provider configured." };
+  } catch (error) {
+    console.error("promotion followup failed", error);
     return { delivered: false, provider: "none", error: "automation_failed" };
   }
 }
