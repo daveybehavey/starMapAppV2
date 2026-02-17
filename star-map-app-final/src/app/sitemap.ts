@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 import { blogPosts } from "@/lib/blogPosts";
+import { seoLocations } from "@/data/seoLocations";
+import { seoOccasions } from "@/data/seoOccasions";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
 
@@ -87,6 +89,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.85,
     },
     {
+      url: `${baseUrl}/star-map-gallery`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.75,
+    },
+    {
+      url: `${baseUrl}/star-map-gift-ideas`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.75,
+    },
+    {
       url: `${baseUrl}/blog`,
       lastModified: now,
       changeFrequency: "weekly",
@@ -104,7 +118,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "yearly",
       priority: 0.2,
     },
+    {
+      url: `${baseUrl}/star-map-in`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/star-map-for`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
   ];
 
-  return [...staticEntries, ...blogEntries];
+  const locationEntries: MetadataRoute.Sitemap = seoLocations.map((location) => ({
+    url: `${baseUrl}/star-map-in/${location.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  const occasionEntries: MetadataRoute.Sitemap = seoOccasions.map((occasion) => ({
+    url: `${baseUrl}/star-map-for/${occasion.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  return [...staticEntries, ...locationEntries, ...occasionEntries, ...blogEntries];
 }

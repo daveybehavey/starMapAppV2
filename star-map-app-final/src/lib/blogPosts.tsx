@@ -7,6 +7,7 @@ export type BlogPost = {
   description: string;
   date: string;
   keywords: string[];
+  ogImage?: string;
   content: () => ReactNode;
 };
 
@@ -837,6 +838,232 @@ export const blogPosts: BlogPost[] = [
           instantly.
         </p>
         <p>Your moment happened once. The stars that night are still waiting to be remembered.</p>
+      </article>
+    ),
+  },
+  {
+    slug: "mothers-day-star-map-gift-ideas",
+    title: "Mother's Day Star Map Gift Ideas: A Personal Sky She'll Keep Forever",
+    description:
+      "Need a Mother's Day gift that feels personal? A custom star map captures the night she became a mom or any milestone worth remembering.",
+    date: "2026-02-12",
+    keywords: [
+      "mother's day star map",
+      "custom star map for mom",
+      "personalized mother's day gift",
+      "unique mother's day gift",
+      "star map gift ideas",
+      "gift for mom",
+    ],
+    ogImage: "/og-mothers-day.svg",
+    content: () => (
+      <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
+        <p>
+          Mother&apos;s Day gifts feel harder every year. Flowers are sweet but fleeting, and most store-bought ideas
+          fade fast. A custom star map is different—it turns a moment of her story into art she can keep forever.
+        </p>
+
+        <h2>Why a star map is a meaningful Mother&apos;s Day gift</h2>
+        <p>
+          The night sky never repeats. A star map recreates the exact sky from a date and location that mattered to her,
+          making the gift feel personal instead of generic.
+        </p>
+        <ul>
+          <li>It&apos;s thoughtful and specific, not another last-minute gift.</li>
+          <li>It captures a memory, not just an object.</li>
+          <li>It looks beautiful framed or shared digitally.</li>
+        </ul>
+
+        <h2>The best dates to choose for Mom</h2>
+        <p>Most people choose one of these moments:</p>
+        <ul>
+          <li>The night her first child was born</li>
+          <li>The day she became a mom (adoption, foster, blended family)</li>
+          <li>A family trip under the stars</li>
+          <li>Her wedding day or anniversary</li>
+        </ul>
+
+        <h2>Personalization ideas that feel heartfelt</h2>
+        <p>
+          The text makes the gift feel unmistakably hers. Try a title like{" "}
+          <em>The Night You Became Mom</em> or <em>Our Family Began</em>, then add names and a short line below.
+        </p>
+        <ul>
+          <li>Title line: &quot;The Night You Became Mom&quot;</li>
+          <li>Subtitle: &quot;Chicago • May 9, 2014&quot;</li>
+          <li>Dedication: &quot;Love you always, Emma &amp; Noah&quot;</li>
+        </ul>
+
+        <h2>How to create a Mother&apos;s Day star map in minutes</h2>
+        <ol>
+          <li>Enter the date and location that matter most.</li>
+          <li>Preview the sky instantly.</li>
+          <li>Customize the text and style.</li>
+          <li>Unlock the HD file for printing or sharing.</li>
+        </ol>
+        <p>
+          You can start with the{" "}
+          <Link href="/star-map-for/mothers-day">Mother&apos;s Day star map page</Link> or jump straight into the{" "}
+          <Link href="/editor?mode=quick">quick preview</Link>.
+        </p>
+
+        <h2>Printing tips for a gift-ready finish</h2>
+        <p>
+          Print on matte or fine-art paper for crisp stars and no glare. Need help with sizes and frames? Use our{" "}
+          <Link href="/how-to-print-star-map">star map printing guide</Link>.
+        </p>
+
+        <h2>More inspiration</h2>
+        <p>
+          Browse the <Link href="/star-map-gallery">star map gallery</Link> for real examples or explore more{" "}
+          <Link href="/star-map-gift-ideas">star map gift ideas</Link> for other occasions.
+        </p>
+      </article>
+    ),
+  },
+  {
+    slug: "fathers-day-star-map-gift-ideas",
+    title: "Father's Day Star Map Gift Ideas: Honor the Night He Became Dad",
+    description:
+      "Looking for a Father's Day gift with meaning? A custom star map celebrates the night he became a dad or another milestone worth honoring.",
+    date: "2026-02-12",
+    keywords: [
+      "father's day star map",
+      "custom star map for dad",
+      "personalized father's day gift",
+      "unique father's day gift",
+      "star map gift ideas",
+      "gift for dad",
+    ],
+    ogImage: "/og-fathers-day.svg",
+    content: () => (
+      <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
+        <p>
+          The best Father&apos;s Day gifts are personal. A custom star map turns a meaningful night into a gift he can
+          see every day—whether it&apos;s the night he became a dad or a memory you share.
+        </p>
+
+        <h2>Why a star map feels different from other Father&apos;s Day gifts</h2>
+        <p>
+          Most gifts are useful for a week. A star map is about memory and meaning. It shows the exact sky from a moment
+          that changed your family.
+        </p>
+        <ul>
+          <li>Personalized to a real date and location</li>
+          <li>Perfect for home office, study, or living room</li>
+          <li>Instant preview and print-ready file</li>
+        </ul>
+
+        <h2>Good date ideas for Father&apos;s Day</h2>
+        <ul>
+          <li>The birth of a child</li>
+          <li>A family trip or camping night</li>
+          <li>A graduation or big milestone</li>
+          <li>The night you moved into a new home</li>
+        </ul>
+
+        <h2>Personalization ideas</h2>
+        <p>Keep it short and meaningful:</p>
+        <ul>
+          <li>Title: &quot;The Night We Became Family&quot;</li>
+          <li>Subtitle: &quot;Austin • June 21, 2017&quot;</li>
+          <li>Dedication: &quot;Thanks for everything, Dad&quot;</li>
+        </ul>
+
+        <h2>How to make your Father&apos;s Day star map</h2>
+        <ol>
+          <li>Choose your date and location.</li>
+          <li>Preview the sky instantly.</li>
+          <li>Customize the text and style.</li>
+          <li>Unlock the HD download for printing.</li>
+        </ol>
+        <p>
+          Start on the{" "}
+          <Link href="/star-map-for/fathers-day">Father&apos;s Day star map page</Link> or go straight to the{" "}
+          <Link href="/editor?mode=quick">free preview</Link>.
+        </p>
+
+        <h2>Print tips for a clean finish</h2>
+        <p>
+          Matte paper keeps glare low and stars crisp. Use our{" "}
+          <Link href="/how-to-print-star-map">printing guide</Link> for recommended sizes and frames.
+        </p>
+
+        <h2>More gift inspiration</h2>
+        <p>
+          Need ideas for other occasions? Browse the <Link href="/star-map-gallery">gallery</Link> or explore{" "}
+          <Link href="/star-map-gift-ideas">gift ideas</Link>.
+        </p>
+      </article>
+    ),
+  },
+  {
+    slug: "graduation-star-map-gift",
+    title: "Graduation Star Map Gift: Celebrate the Night They Crossed the Stage",
+    description:
+      "A graduation star map captures the exact night of the ceremony. Personalized, accurate, and ready to print.",
+    date: "2026-02-12",
+    keywords: [
+      "graduation star map gift",
+      "custom star map graduation",
+      "personalized graduation gift",
+      "class of 2026 gift",
+      "unique graduation gift",
+    ],
+    ogImage: "/og-graduation.svg",
+    content: () => (
+      <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
+        <p>
+          Graduation is a once-in-a-lifetime milestone. A custom star map captures the exact sky from the night they
+          crossed the stage, turning the moment into a meaningful keepsake.
+        </p>
+
+        <h2>Why a graduation star map is a standout gift</h2>
+        <ul>
+          <li>It&apos;s personal to their school and ceremony date.</li>
+          <li>It feels timeless, not trendy.</li>
+          <li>It looks great framed in a dorm or home office.</li>
+        </ul>
+
+        <h2>Best dates and locations to choose</h2>
+        <ul>
+          <li>The exact graduation ceremony date and campus location</li>
+          <li>The night they got accepted</li>
+          <li>A graduation party or family trip</li>
+        </ul>
+
+        <h2>Personalization ideas</h2>
+        <p>Make it feel like a real achievement:</p>
+        <ul>
+          <li>Title: &quot;Class of 2026&quot;</li>
+          <li>Subtitle: &quot;Boston • May 25, 2026&quot;</li>
+          <li>Dedication: &quot;Ad Astra Per Aspera&quot;</li>
+        </ul>
+
+        <h2>Create the map in minutes</h2>
+        <ol>
+          <li>Enter the date and location.</li>
+          <li>Preview instantly.</li>
+          <li>Choose a style and add text.</li>
+          <li>Unlock the HD download.</li>
+        </ol>
+        <p>
+          You can start with the{" "}
+          <Link href="/star-map-for/graduation">graduation star map page</Link> or jump right into the{" "}
+          <Link href="/editor?mode=quick">free preview</Link>.
+        </p>
+
+        <h2>Print and framing tips</h2>
+        <p>
+          For a gift-ready look, print on matte paper and use a simple black or wood frame. The{" "}
+          <Link href="/how-to-print-star-map">print guide</Link> covers sizes and finishes.
+        </p>
+
+        <h2>Explore more examples</h2>
+        <p>
+          See real outputs in the <Link href="/star-map-gallery">star map gallery</Link> or explore{" "}
+          <Link href="/star-map-gift-ideas">gift ideas</Link> for other milestones.
+        </p>
       </article>
     ),
   },

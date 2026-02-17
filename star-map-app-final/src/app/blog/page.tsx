@@ -7,11 +7,14 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 export const metadata: Metadata = {
   title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
   description:
-    "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
+    "Read our blog for ideas on Valentine's Day, Mother's Day, Father's Day, graduation, and wedding star maps, plus astronomy tips.",
   keywords: [
     "custom star map blog",
     "personalized star map guides",
     "valentine's day star map gift ideas",
+    "mother's day star map gift ideas",
+    "father's day star map gift ideas",
+    "graduation star map gift ideas",
     "anniversary star map ideas",
     "wedding star map tips",
   ],
@@ -48,6 +51,33 @@ type IndexPost = {
 };
 
 const indexPosts: IndexPost[] = [
+  {
+    slug: "mothers-day-star-map-gift-ideas",
+    title: "Mother's Day Star Map Gift Ideas: A Personal Sky She'll Keep Forever",
+    excerpt:
+      "A custom star map captures the night she became a mom or another milestone that deserves to be remembered.",
+    date: "2026-02-12",
+    image: "/og-mothers-day.svg",
+    alt: "Mother's Day star map gift ideas",
+  },
+  {
+    slug: "fathers-day-star-map-gift-ideas",
+    title: "Father's Day Star Map Gift Ideas: Honor the Night He Became Dad",
+    excerpt:
+      "Celebrate a meaningful night with a personalized star map gift that feels thoughtful and timeless.",
+    date: "2026-02-12",
+    image: "/og-fathers-day.svg",
+    alt: "Father's Day star map gift ideas",
+  },
+  {
+    slug: "graduation-star-map-gift",
+    title: "Graduation Star Map Gift: Celebrate the Night They Crossed the Stage",
+    excerpt:
+      "A graduation star map captures the exact sky from their ceremony and turns it into a frame-worthy keepsake.",
+    date: "2026-02-12",
+    image: "/og-graduation.svg",
+    alt: "Graduation star map gift",
+  },
   {
     slug: "most-meaningful-valentines-day-gift-custom-star-map",
     title: "The Most Meaningful Valentine's Day Gift: A Custom Star Map of Your Love",
