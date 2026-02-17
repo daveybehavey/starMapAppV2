@@ -7,6 +7,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function EditorPage() {
-  return <EditorPageClient />;
+type EditorPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function EditorPage({ searchParams }: EditorPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const promoRaw = resolvedSearchParams.promo;
+  const codeRaw = resolvedSearchParams.code;
+  const promoStatus = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
+  const promoCode = Array.isArray(codeRaw) ? codeRaw[0] : codeRaw;
+
+  return <EditorPageClient promoStatus={promoStatus} promoCode={promoCode} />;
 }

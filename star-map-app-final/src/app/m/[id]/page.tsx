@@ -30,7 +30,7 @@ function siteOrigin() {
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Record<string, string>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -68,5 +68,23 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ViewPage({ params, searchParams }: PageProps) {
   const { id } = await params;
-  return <ViewClient id={id} searchParams={searchParams} />;
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const normalizedSearchParams: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
+    if (typeof value === "string") {
+      normalizedSearchParams[key] = value;
+      continue;
+    }
+    if (Array.isArray(value) && typeof value[0] === "string") {
+      normalizedSearchParams[key] = value[0];
+    }
+  }
+
+  return (
+    <ViewClient
+      id={id}
+      searchParams={Object.keys(normalizedSearchParams).length ? normalizedSearchParams : undefined}
+    />
+  );
 }

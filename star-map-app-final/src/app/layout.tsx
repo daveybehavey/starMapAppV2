@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
-import ClientOverlays from "@/components/ClientOverlays";
 import { Playfair_Display } from "next/font/google";
 
 const playfair = Playfair_Display({
@@ -42,7 +41,7 @@ export const metadata: Metadata = {
     siteName: "StarMapCo",
     images: [
       {
-        url: `${siteUrl}/custom-star-map-anniversary.webp`,
+        url: `${siteUrl}/custom-star-map-anniversary.png`,
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
@@ -65,9 +64,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
-}
+  themeColor: "#050915",
+};
 
 const siteSchema = {
   "@context": "https://schema.org",
@@ -102,6 +102,12 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-6xl items-center justify-between">
             <span>© {new Date().getFullYear()} StarMapCo</span>
             <div className="flex items-center gap-4">
+              <Link href="/star-map-gallery" className="font-semibold text-midnight hover:underline">
+                Gallery
+              </Link>
+              <Link href="/star-map-gift-ideas" className="font-semibold text-midnight hover:underline">
+                Gift Ideas
+              </Link>
               <Link href="/blog" className="font-semibold text-midnight hover:underline">
                 Blog
               </Link>
@@ -114,7 +120,6 @@ export default function RootLayout({
             </div>
           </div>
         </footer>
-        <ClientOverlays />
         <script
           id="site-schema"
           type="application/ld+json"

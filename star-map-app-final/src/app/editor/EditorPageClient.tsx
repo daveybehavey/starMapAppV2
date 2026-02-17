@@ -18,10 +18,28 @@ const EditorExperience = dynamic(
   },
 );
 
-export default function EditorPageClient() {
+type EditorPageClientProps = {
+  promoStatus?: string;
+  promoCode?: string;
+};
+
+export default function EditorPageClient({ promoStatus, promoCode }: EditorPageClientProps) {
+  const showPromo = promoStatus === "success" || promoStatus === "error";
+  const promoMessage =
+    promoStatus === "success"
+      ? promoCode
+        ? `You're on the list! Use code ${promoCode} at checkout.`
+        : "You're on the list! Watch your inbox for your 20% off code."
+      : "We couldn't save that email. Please try again.";
+
   return (
     <EditorFontShell>
       <main className="flex flex-col items-center px-6 py-4 md:px-8 md:py-8 lg:px-12 lg:py-0">
+        {showPromo ? (
+          <div className="mb-4 w-full max-w-4xl rounded-2xl border border-amber-200/60 bg-amber-50/90 px-4 py-3 text-sm font-semibold text-amber-900 shadow-sm">
+            {promoMessage}
+          </div>
+        ) : null}
         <EditorExperience variant="quick" allowAdvancedInQuick />
       </main>
     </EditorFontShell>

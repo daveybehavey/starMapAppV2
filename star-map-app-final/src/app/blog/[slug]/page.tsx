@@ -29,7 +29,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
   const url = `${siteUrl}/blog/${slug}`;
-  const ogImageUrl = `${url}/opengraph-image`;
+  const ogImageUrl = post.ogImage
+    ? post.ogImage.startsWith("http")
+      ? post.ogImage
+      : `${siteUrl}${post.ogImage}`
+    : `${siteUrl}/custom-star-map-anniversary.png`;
 
   return {
     title: post.title,
@@ -65,6 +69,11 @@ export default async function BlogPostPage({ params }: Props) {
   const post = getPost(slug);
   if (!post) return notFound();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+  const ogImageUrl = post.ogImage
+    ? post.ogImage.startsWith("http")
+      ? post.ogImage
+      : `${siteUrl}${post.ogImage}`
+    : `${siteUrl}/custom-star-map-anniversary.png`;
 
   const articleSchema = {
     "@context": "https://schema.org",
@@ -80,7 +89,7 @@ export default async function BlogPostPage({ params }: Props) {
       logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
     },
     mainEntityOfPage: `${siteUrl}/blog/${slug}`,
-    image: `${siteUrl}/blog/${slug}/opengraph-image`,
+    image: ogImageUrl,
   };
 
   return (

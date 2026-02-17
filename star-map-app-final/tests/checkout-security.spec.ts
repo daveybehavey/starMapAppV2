@@ -99,7 +99,7 @@ test.describe("Checkout Security", () => {
     await page.locator("#editor").waitFor({ state: "visible", timeout: 60000 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(
-      page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first(),
+      page.getByRole("heading", { name: /custom star map/i }).first(),
     ).toBeVisible({ timeout: 15000 });
 
     // Check cookies again - should still be none

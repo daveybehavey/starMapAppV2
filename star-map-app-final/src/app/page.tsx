@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     url: `${siteUrl}/`,
     images: [
       {
-        url: `${siteUrl}/custom-star-map-anniversary.webp`,
+        url: `${siteUrl}/custom-star-map-anniversary.png`,
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
@@ -35,10 +35,11 @@ export const metadata: Metadata = {
 };
 
 type HomePageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default function HomePage({ searchParams }: HomePageProps) {
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const tiers = getPricingTiers();
   const priceLabel = formatPrice(
     tiers.single.amountCents,
@@ -181,10 +182,13 @@ export default function HomePage({ searchParams }: HomePageProps) {
     ],
   };
 
-  const promoParam = searchParams?.promo;
+  const promoRaw = resolvedSearchParams.promo;
+  const promoParam = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
   const promoStatus =
     promoParam === "success" || promoParam === "error" ? promoParam : undefined;
-  const promoCode = typeof searchParams?.code === "string" ? searchParams.code : undefined;
+  const codeRaw = resolvedSearchParams.code;
+  const promoCode =
+    typeof codeRaw === "string" ? codeRaw : Array.isArray(codeRaw) ? codeRaw[0] : undefined;
 
   return (
     <>
