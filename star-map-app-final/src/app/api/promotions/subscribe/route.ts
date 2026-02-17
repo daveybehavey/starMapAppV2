@@ -3,12 +3,29 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PROMOTION_COUPON_CODE, runPromotionAutomation, runPromotionFollowup } from "@/lib/promotions";
 
-const SUBSCRIPTION_KEY = "promotions:emails";
-const SENT_KEY = "promotions:coupon-sent";
-const FOLLOWUP_KEY = "promotions:print-tips-sent";
+const LEGACY_SUBSCRIPTION_KEY = "promotions:emails";
+const LEGACY_SENT_KEY = "promotions:coupon-sent";
+const LEGACY_FOLLOWUP_KEY = "promotions:print-tips-sent";
+const EMAIL_STATE_PREFIX = "promotions:email:";
+
+type PromotionEmailState = {
+  subscribedAt: number;
+  couponSentAt?: number;
+  followupSentAt?: number;
+  updatedAt: number;
+};
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function emailStateKey(email: string) {
+  return `${EMAIL_STATE_PREFIX}${encodeURIComponent(email)}`;
+}
+
+async function inLegacyList(listKey: string, email: string) {
+  const list = await kv.get<string[]>(listKey);
+  return Boolean(list?.includes(email));
 }
 
 async function readEmail(req: NextRequest) {
@@ -71,14 +88,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_email" }, { status: 400 });
   }
 
-  const current = (await kv.get<string[]>(SUBSCRIPTION_KEY)) ?? [];
-  const isNewSubscriber = !current.includes(email);
-  if (isNewSubscriber) {
-    const next = [...current, email];
-    await kv.set(SUBSCRIPTION_KEY, next);
-  }
+  const now = Date.now();
+  const key = emailStateKey(email);
+  const existingState = await kv.get<PromotionEmailState>(key);
+  const [legacySubscribed, legacyCouponSent, legacyFollowupSent] = await Promise.all([
+    existingState?.subscribedAt ? Promise.resolve(false) : inLegacyList(LEGACY_SUBSCRIPTION_KEY, email),
+    existingState?.couponSentAt ? Promise.resolve(false) : inLegacyList(LEGACY_SENT_KEY, email),
+    existingState?.followupSentAt ? Promise.resolve(false) : inLegacyList(LEGACY_FOLLOWUP_KEY, email),
+  ]);
 
-  const alreadySent = ((await kv.get<string[]>(SENT_KEY)) ?? []).includes(email);
+  const hadSubscription = Boolean(existingState?.subscribedAt) || legacySubscribed;
+  const isNewSubscriber = !hadSubscription;
+
+  const nextState: PromotionEmailState = {
+    subscribedAt: existingState?.subscribedAt ?? now,
+    couponSentAt: existingState?.couponSentAt,
+    followupSentAt: existingState?.followupSentAt,
+    updatedAt: now,
+  };
+
+  const alreadySent = Boolean(nextState.couponSentAt) || legacyCouponSent;
   const automationResult = alreadySent
     ? { delivered: true, provider: "none" as const }
     : await runPromotionAutomation(email, PROMOTION_COUPON_CODE);
@@ -92,13 +121,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (!alreadySent && automationResult.delivered) {
-    const sentEmails = (await kv.get<string[]>(SENT_KEY)) ?? [];
-    if (!sentEmails.includes(email)) {
-      await kv.set(SENT_KEY, [...sentEmails, email]);
-    }
+    nextState.couponSentAt = now;
   }
 
-  const followupAlreadySent = ((await kv.get<string[]>(FOLLOWUP_KEY)) ?? []).includes(email);
+  const followupAlreadySent = Boolean(nextState.followupSentAt) || legacyFollowupSent;
   const shouldAttemptFollowup = !followupAlreadySent && (automationResult.delivered || alreadySent);
   if (shouldAttemptFollowup) {
     try {
@@ -111,15 +137,14 @@ export async function POST(req: NextRequest) {
         });
       }
       if (followupResult.delivered) {
-        const sentFollowups = (await kv.get<string[]>(FOLLOWUP_KEY)) ?? [];
-        if (!sentFollowups.includes(email)) {
-          await kv.set(FOLLOWUP_KEY, [...sentFollowups, email]);
-        }
+        nextState.followupSentAt = Date.now();
       }
     } catch (error) {
       console.error("promotion followup scheduling failed", error);
     }
   }
+
+  await kv.set(key, nextState);
 
   if (shouldRedirectEditor) {
     const redirectUrl = new URL("/editor", req.url);
