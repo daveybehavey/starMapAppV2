@@ -76,6 +76,14 @@ const DRAFT_KEY = "star-map-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
+const PROMO_CODE_KEY = "star-map-promo-code";
+
+function normalizePromoCode(raw: string | null | undefined) {
+  if (!raw) return null;
+  const normalized = raw.trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{3,40}$/.test(normalized)) return null;
+  return normalized;
+}
 
 export type EditorExperienceVariant = "quick" | "full";
 
@@ -208,6 +216,16 @@ export function EditorExperience({
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
   const prefillAppliedRef = useRef(false);
+  const queryPromoCode = normalizePromoCode(searchParams.get("code"));
+  const readStoredPromoCode = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return normalizePromoCode(window.localStorage.getItem(PROMO_CODE_KEY));
+    } catch {
+      return null;
+    }
+  }, []);
+  const getCheckoutPromoCode = useCallback(() => queryPromoCode ?? readStoredPromoCode(), [queryPromoCode, readStoredPromoCode]);
   const getPreviewSource = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -217,6 +235,15 @@ export function EditorExperience({
       return null;
     }
   }, []);
+
+  useEffect(() => {
+    if (!queryPromoCode || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(PROMO_CODE_KEY, queryPromoCode);
+    } catch {
+      // ignore storage errors
+    }
+  }, [queryPromoCode]);
 
   useEffect(() => {
     if (!paywallOpen) return;
@@ -714,14 +741,20 @@ export function EditorExperience({
   const startCheckout = useCallback(async (plan: CheckoutPlan) => {
     if (checkoutInFlightRef.current) return;
     const previewSource = getPreviewSource() ?? "editor";
+    const promoCode = getCheckoutPromoCode();
     try {
       checkoutInFlightRef.current = true;
       setCheckoutInFlight(true);
       setCheckoutError(null);
-      track("checkout_started", { visualMode: renderOptions.visualMode, plan });
+      track("checkout_started", {
+        visualMode: renderOptions.visualMode,
+        plan,
+        promoApplied: Boolean(promoCode),
+      });
       trackFunnelStep("checkout_started", {
         source: previewSource,
         plan,
+        promoApplied: Boolean(promoCode),
         experiment: PAYWALL_COPY_EXPERIMENT,
         variant: paywallVariant,
       });
@@ -756,8 +789,9 @@ export function EditorExperience({
         // Map persistence is best-effort; proceed to checkout even if it fails.
       }
 
-      const checkoutPayload: { mapId?: string; plan: CheckoutPlan } = { plan };
+      const checkoutPayload: { mapId?: string; plan: CheckoutPlan; promoCode?: string } = { plan };
       if (mapId) checkoutPayload.mapId = mapId;
+      if (promoCode) checkoutPayload.promoCode = promoCode;
       const checkoutInit: RequestInit = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -771,6 +805,7 @@ export function EditorExperience({
         trackFunnelStep("checkout_redirected", {
           source: previewSource,
           plan,
+          promoApplied: Boolean(promoCode),
           experiment: PAYWALL_COPY_EXPERIMENT,
           variant: paywallVariant,
         });
@@ -785,6 +820,7 @@ export function EditorExperience({
         source: previewSource,
         reason: (err as Error)?.message ?? "unknown",
         plan,
+        promoApplied: Boolean(promoCode),
         experiment: PAYWALL_COPY_EXPERIMENT,
         variant: paywallVariant,
       });
@@ -796,6 +832,7 @@ export function EditorExperience({
     dateTime,
     location,
     getPreviewSource,
+    getCheckoutPromoCode,
     renderOptions,
     selectedStyle,
     shape,

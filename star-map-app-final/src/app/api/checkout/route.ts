@@ -12,6 +12,8 @@ const stripePriceIds = {
   pack3: process.env.STRIPE_PRICE_ID_PACK3,
   subscription: process.env.STRIPE_PRICE_ID_SUBSCRIPTION,
 } as const;
+const configuredPromoCode = process.env.PROMOTION_COUPON_CODE?.trim().toUpperCase() ?? "";
+const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim() ?? "";
 
 // Use fetch-based HTTP client to work in Cloudflare Workers.
 const stripe =
@@ -26,7 +28,29 @@ function siteOrigin() {
   return siteUrl.replace(/\/+$/, "");
 }
 
-async function createCheckoutSession(plan: CheckoutPlan, mapId?: string) {
+function shouldRetryCheckoutWithoutDiscount(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const stripeError = error as { type?: string; code?: string; message?: string };
+  if (stripeError.type === "StripeInvalidRequestError") return true;
+  if (stripeError.code && stripeError.code.startsWith("parameter_invalid")) return true;
+  if (typeof stripeError.message === "string" && /promotion code|discount|coupon/i.test(stripeError.message)) {
+    return true;
+  }
+  return false;
+}
+
+function resolvePromotionCodeId(promoCode?: string) {
+  if (!promoCode || !configuredPromoCode || !configuredStripePromotionCodeId) return undefined;
+  return promoCode.trim().toUpperCase() === configuredPromoCode
+    ? configuredStripePromotionCodeId
+    : undefined;
+}
+
+async function createCheckoutSession(
+  plan: CheckoutPlan,
+  mapId?: string,
+  promotionCodeId?: string,
+) {
   if (!stripe) {
     throw new Error("Stripe not configured");
   }
@@ -40,11 +64,12 @@ async function createCheckoutSession(plan: CheckoutPlan, mapId?: string) {
   const metadata: Record<string, string> = { plan };
   if (mapId) metadata.map_id = mapId;
   if (tier.credits) metadata.credits = String(tier.credits);
+  if (promotionCodeId) metadata.promotion_code_id = promotionCodeId;
 
   const priceId = stripePriceIds[plan]?.trim();
   const usePriceId = Boolean(priceId);
 
-  const session = await stripe.checkout.sessions.create({
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: plan === "subscription" ? "subscription" : "payment",
     success_url: successUrl,
     cancel_url: cancelUrl,
@@ -84,7 +109,8 @@ async function createCheckoutSession(plan: CheckoutPlan, mapId?: string) {
     ],
     metadata,
     subscription_data: plan === "subscription" ? { metadata } : undefined,
-    allow_promotion_codes: plan !== "subscription",
+    ...(plan !== "subscription" && !promotionCodeId ? { allow_promotion_codes: true } : {}),
+    discounts: promotionCodeId ? [{ promotion_code: promotionCodeId }] : undefined,
     billing_address_collection: "auto",
     customer_email: undefined,
     phone_number_collection: {
@@ -106,7 +132,26 @@ async function createCheckoutSession(plan: CheckoutPlan, mapId?: string) {
     },
     payment_method_types: ["card"],
     shipping_address_collection: undefined,
-  });
+  };
+
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create(sessionParams);
+  } catch (error) {
+    if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error)) {
+      throw error;
+    }
+    console.warn("Checkout promo code rejected by Stripe; retrying without auto-applied discount.", {
+      promotionCodeId,
+      plan,
+    });
+    const fallbackParams: Stripe.Checkout.SessionCreateParams = {
+      ...sessionParams,
+      allow_promotion_codes: plan !== "subscription",
+      discounts: undefined,
+    };
+    session = await stripe.checkout.sessions.create(fallbackParams);
+  }
 
   return session.url ?? null;
 }
@@ -125,9 +170,11 @@ export async function GET(req: NextRequest) {
       ? (planParam as CheckoutPlan)
       : "single";
   const mapId = mapParam ? mapParam.slice(0, 120) : undefined;
+  const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
+  const promotionCodeId = plan === "subscription" ? undefined : resolvePromotionCodeId(promoCodeParam);
 
   try {
-    const sessionUrl = await createCheckoutSession(plan, mapId);
+    const sessionUrl = await createCheckoutSession(plan, mapId, promotionCodeId);
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
@@ -149,8 +196,9 @@ export async function POST(req: NextRequest) {
   try {
     let mapId: string | undefined;
     let plan: CheckoutPlan = "single";
+    let promoCode: string | undefined;
     try {
-      const body = (await req.json()) as { mapId?: string; plan?: CheckoutPlan } | null;
+      const body = (await req.json()) as { mapId?: string; plan?: CheckoutPlan; promoCode?: string } | null;
       if (body?.mapId && typeof body.mapId === "string") {
         const trimmed = body.mapId.trim();
         if (trimmed) {
@@ -160,11 +208,18 @@ export async function POST(req: NextRequest) {
       if (body?.plan && ["single", "pack3", "subscription"].includes(body.plan)) {
         plan = body.plan;
       }
+      if (body?.promoCode && typeof body.promoCode === "string") {
+        const trimmed = body.promoCode.trim();
+        if (trimmed) {
+          promoCode = trimmed.slice(0, 64);
+        }
+      }
     } catch {
       // ignore missing/invalid body
     }
 
-    const sessionUrl = await createCheckoutSession(plan, mapId);
+    const promotionCodeId = plan === "subscription" ? undefined : resolvePromotionCodeId(promoCode);
+    const sessionUrl = await createCheckoutSession(plan, mapId, promotionCodeId);
     return NextResponse.json({ url: sessionUrl });
   } catch (err) {
     console.error("Stripe checkout error", err);

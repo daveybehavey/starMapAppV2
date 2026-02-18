@@ -26,41 +26,41 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
           <p className="mx-auto max-w-2xl text-base text-neutral-200 sm:text-lg">
             See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds.
           </p>
+          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">No account required</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD export in seconds</span>
+          </div>
+        </div>
 
-          <div className="mx-auto grid w-full max-w-sm grid-cols-1 gap-3 pt-2 sm:max-w-lg sm:grid-cols-3">
+        <HeroEditorDeferred />
+
+        <div className="mx-auto mt-4 w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left sm:px-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80">
+            Ready to buy now?
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <a
               href="/api/checkout?plan=single"
-              className="pricing-card max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent"
+              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/15"
             >
-              <div className="text-xs uppercase tracking-wide text-neutral-400">Single Map</div>
-              <div className="text-lg font-bold text-white">{priceLabels.single}</div>
-              <div className="mt-1 text-[11px] font-semibold text-amber-300">Buy single</div>
+              Single {priceLabels.single}
             </a>
             <a
               href="/api/checkout?plan=pack3"
-              className="pricing-card featured max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent"
+              className="rounded-full border border-amber-300/40 bg-amber-300/15 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-amber-300/70 hover:bg-amber-300/20"
             >
-              <div className="text-xs uppercase tracking-wide text-amber-300">3-Pack</div>
-              <div className="text-lg font-bold text-white">{priceLabels.pack3}</div>
-              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                {priceLabels.packSavingsPercent > 0 ? `Save ${priceLabels.packSavingsPercent}%` : "Best value"}
-              </div>
-              <div className="mt-1 text-[11px] font-semibold text-amber-300">Get 3-pack</div>
+              3-pack {priceLabels.pack3}
+              {priceLabels.packSavingsPercent > 0 ? ` (${priceLabels.packSavingsPercent}% off)` : ""}
             </a>
             <a
               href="/api/checkout?plan=subscription"
-              className="pricing-card max-[374px]:px-4 max-[374px]:py-4 w-full text-center focus:outline-none focus:ring-2 focus:ring-amber-300/80 focus:ring-offset-2 focus:ring-offset-transparent"
+              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/15"
             >
-              <div className="text-xs uppercase tracking-wide text-neutral-400">Unlimited</div>
-              <div className="text-lg font-bold text-white">
-                {priceLabels.subscription}
-                <span className="text-sm font-normal text-neutral-400">/mo</span>
-              </div>
-              <div className="mt-1 text-[11px] font-semibold text-amber-300">Start unlimited</div>
+              Unlimited {priceLabels.subscription}/mo
             </a>
           </div>
         </div>
-        <HeroEditorDeferred />
       </section>
     </main>
   );

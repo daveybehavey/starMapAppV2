@@ -9,6 +9,11 @@ import { track } from "@/lib/analytics";
 const DISMISS_KEY = "starmap-20off-popup-dismissed";
 const SUBSCRIBED_KEY = "starmap-20off-popup-subscribed";
 const DISMISS_COOLDOWN_MS = 5 * 24 * 60 * 60 * 1000;
+const POPUP_DELAY_MS = 15_000;
+const FORCE_POPUP_DELAY_MS = 45_000;
+const MIN_SCROLL_PROGRESS = 0.35;
+const MIN_SCROLL_PX = 420;
+const EXIT_INTENT_TOP_PX = 20;
 
 export default function PromotionEmailPopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,31 +38,52 @@ export default function PromotionEmailPopup() {
 
     let mounted = true;
     let timer: number | null = null;
+    let forceTimer: number | null = null;
+    let opened = false;
+    let delayPassed = false;
 
-    const openPopup = () => {
-      if (!mounted) return;
+    const openPopup = (trigger: "scroll_depth" | "exit_intent" | "engaged_time") => {
+      if (!mounted || opened || !delayPassed) return;
+      opened = true;
       setIsOpen(true);
-      track("promotion_popup_viewed", { source: "modal" });
+      track("promotion_popup_viewed", { source: "modal", trigger });
     };
 
-    const handleIntent = () => {
-      if (timer !== null) return;
-      timer = window.setTimeout(openPopup, 1200);
-      window.removeEventListener("scroll", handleIntent);
-      window.removeEventListener("pointerdown", handleIntent);
-      window.removeEventListener("keydown", handleIntent);
+    const handleScroll = () => {
+      const doc = document.documentElement;
+      const maxScroll = Math.max(1, doc.scrollHeight - window.innerHeight);
+      const scrollProgress = window.scrollY / maxScroll;
+      if (scrollProgress >= MIN_SCROLL_PROGRESS || window.scrollY >= MIN_SCROLL_PX) {
+        openPopup("scroll_depth");
+      }
     };
 
-    window.addEventListener("scroll", handleIntent, { passive: true });
-    window.addEventListener("pointerdown", handleIntent, { passive: true });
-    window.addEventListener("keydown", handleIntent);
+    const handleMouseLeave = (event: MouseEvent) => {
+      if (event.clientY <= EXIT_INTENT_TOP_PX) {
+        openPopup("exit_intent");
+      }
+    };
+
+    timer = window.setTimeout(() => {
+      delayPassed = true;
+      handleScroll();
+    }, POPUP_DELAY_MS);
+    forceTimer = window.setTimeout(() => {
+      delayPassed = true;
+      openPopup("engaged_time");
+    }, FORCE_POPUP_DELAY_MS);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    if (window.matchMedia("(pointer: fine)").matches) {
+      document.addEventListener("mouseout", handleMouseLeave);
+    }
 
     return () => {
       mounted = false;
       if (timer !== null) window.clearTimeout(timer);
-      window.removeEventListener("scroll", handleIntent);
-      window.removeEventListener("pointerdown", handleIntent);
-      window.removeEventListener("keydown", handleIntent);
+      if (forceTimer !== null) window.clearTimeout(forceTimer);
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("mouseout", handleMouseLeave);
     };
   }, [disablePopup, pricing.promoActive]);
 

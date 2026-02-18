@@ -64,6 +64,8 @@ export function PromotionForm({
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<SubmissionStatus>("idle");
   const [responseMessage, setResponseMessage] = useState("");
+  const [successCoupon, setSuccessCoupon] = useState<string | null>(null);
+  const [couponCopied, setCouponCopied] = useState(false);
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     setEmail(event.target.value);
@@ -86,6 +88,8 @@ export function PromotionForm({
 
     setStatus("loading");
     setResponseMessage("");
+    setSuccessCoupon(null);
+    setCouponCopied(false);
     track("promotion_signup_submitted", { source });
 
     try {
@@ -113,6 +117,7 @@ export function PromotionForm({
         typeof json?.deliveryProvider === "string" ? json.deliveryProvider : undefined;
       setStatus("success");
       setResponseMessage(successMessageFor(json ?? { ok: true }));
+      setSuccessCoupon(coupon ?? null);
       setEmail("");
       track("promotion_signup_succeeded", {
         source,
@@ -126,6 +131,17 @@ export function PromotionForm({
       track("promotion_signup_failed", { source, reason: "network_error" });
       setStatus("error");
       setResponseMessage("We hit a snag. Please try again in a minute.");
+    }
+  };
+
+  const handleCopyCoupon = async () => {
+    if (!successCoupon) return;
+    try {
+      await navigator.clipboard.writeText(successCoupon);
+      setCouponCopied(true);
+      track("promotion_coupon_copied", { source, couponCode: successCoupon });
+    } catch {
+      track("promotion_coupon_copy_failed", { source, couponCode: successCoupon });
     }
   };
 
@@ -159,6 +175,24 @@ export function PromotionForm({
         >
           {responseMessage}
         </p>
+      )}
+      {status === "success" && successCoupon && (
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          <button
+            type="button"
+            onClick={handleCopyCoupon}
+            className="rounded-full border border-amber-300/70 bg-amber-100/40 px-3 py-1 font-semibold text-amber-900 transition hover:border-amber-400 hover:bg-amber-100/70"
+          >
+            {couponCopied ? "Code copied" : `Copy code ${successCoupon}`}
+          </button>
+          <a
+            href={`/editor?mode=quick&code=${encodeURIComponent(successCoupon)}&source=promo-signup`}
+            onClick={() => track("promotion_coupon_editor_clicked", { source, couponCode: successCoupon })}
+            className="rounded-full border border-neutral-300 bg-white/70 px-3 py-1 font-semibold text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+          >
+            Use it in editor
+          </a>
+        </div>
       )}
 
       {!hideDisclaimer && (

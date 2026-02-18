@@ -28,7 +28,7 @@ export default function EditorPageClient({ promoStatus, promoCode }: EditorPageC
   const promoMessage =
     promoStatus === "success"
       ? promoCode
-        ? `You're on the list! Use code ${promoCode} at checkout.`
+        ? `You're on the list! Code ${promoCode} is saved and will auto-apply at checkout.`
         : "You're on the list! Watch your inbox for your 20% off code."
       : "We couldn't save that email. Please try again.";
 

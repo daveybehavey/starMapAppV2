@@ -31,7 +31,7 @@ const PAYWALL_COPY: Record<
 > = {
   control: {
     title: "Download your print-ready star map",
-    subtitle: "Choose the option that fits how many HD downloads you need right now.",
+    subtitle: "Free preview stays available. Unlock HD only when you are ready to export.",
     singleCta: "Continue with single",
     packCta: "Get 3 downloads",
     subscriptionCta: "Start unlimited",
@@ -39,7 +39,7 @@ const PAYWALL_COPY: Record<
   },
   value_anchor: {
     title: "Unlock HD exports in seconds",
-    subtitle: "Most gift buyers pick 3-pack or unlimited to avoid repeat checkout.",
+    subtitle: "Most gift buyers pick 3-pack or unlimited to avoid repeat checkout later.",
     singleCta: "Get 1 HD map",
     packCta: "Get 3 HD maps",
     subscriptionCta: "Go unlimited",
@@ -65,6 +65,7 @@ export function PaywallModal({
         <ul className="mt-3 space-y-1 text-xs text-neutral-700">
           <li>• 6000px high resolution (poster quality)</li>
           <li>• No watermark</li>
+          <li>• Secure Stripe checkout</li>
           <li>• Instant digital download</li>
         </ul>
 
@@ -72,7 +73,7 @@ export function PaywallModal({
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-midnight">Single HD</p>
+                <p className="text-sm font-semibold text-midnight">One HD export</p>
                 <p className="text-xs text-neutral-600">1 print-ready download</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
@@ -139,8 +140,8 @@ export function PaywallModal({
         <p className="mt-3 text-[11px] text-neutral-600">
           Secure checkout. Subscription can be canceled anytime. Need help? Email support@starmapco.com.
         </p>
-        <p className="mt-2 text-xs font-semibold text-neutral-600">
-          Early access: No reviews yet—we focus on accuracy and your satisfaction.
+        <p className="mt-2 text-xs font-semibold text-neutral-700">
+          Have a promo code? It can be applied at checkout.
         </p>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
