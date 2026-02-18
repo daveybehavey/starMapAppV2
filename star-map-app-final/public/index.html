@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Custom Star Map & Constellation Map | StarMapCo</title>
+    <meta
+      name="description"
+      content="Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo."
+    />
+    <link rel="canonical" href="https://starmapco.com/" />
+    <meta property="og:title" content="Custom Star Map & Constellation Map | StarMapCo" />
+    <meta
+      property="og:description"
+      content="Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing."
+    />
+    <meta property="og:url" content="https://starmapco.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://starmapco.com/custom-star-map-anniversary.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="theme-color" content="#050915" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Custom Star Map & Constellation Map | StarMapCo" />
+    <meta
+      name="twitter:description"
+      content="Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing."
+    />
+    <meta name="twitter:image" content="https://starmapco.com/custom-star-map-anniversary.png" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
+    <style>
+      :root {
+        color-scheme: light;
+        --midnight: #050915;
+        --deep-blue: #0f1f3a;
+        --amber: #f1c27d;
+        --amber-strong: #fbbf24;
+        --pale: #f7f1e3;
+        --text: #111827;
+        --muted: #4b5563;
+        --line: rgba(241, 194, 125, 0.35);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Playfair Display", "Times New Roman", Georgia, serif;
+        color: var(--pale);
+        background: radial-gradient(circle at 15% 15%, rgba(241, 194, 125, 0.12), transparent 28%),
+          radial-gradient(circle at 80% 10%, rgba(83, 142, 255, 0.16), transparent 22%),
+          linear-gradient(135deg, rgba(5, 9, 21, 0.94), rgba(15, 31, 58, 0.9));
+        min-height: 100vh;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .container {
+        width: min(1120px, 92vw);
+        margin: 0 auto;
+      }
+      .content-visibility-auto {
+        content-visibility: auto;
+        contain-intrinsic-size: 1px 900px;
+      }
+      .site-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 0 12px;
+      }
+      .brand {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.75);
+      }
+      .site-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        font-size: 0.9rem;
+      }
+      .site-nav a {
+        color: rgba(255, 255, 255, 0.75);
+        border-bottom: 1px solid transparent;
+      }
+      .site-nav a:hover {
+        color: #fff;
+        border-color: rgba(241, 194, 125, 0.7);
+      }
+      .site-nav .cta-link {
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(241, 194, 125, 0.6);
+        color: #fbd38d;
+        font-weight: 700;
+      }
+      .site-nav .cta-link:hover {
+        color: #1f2937;
+        background: linear-gradient(90deg, #fbbf24, #f1c27d);
+        border-color: transparent;
+      }
+      .hero {
+        padding: 64px 0 48px;
+        text-align: center;
+      }
+      .hero h1 {
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        margin: 0 0 12px;
+        line-height: 1.15;
+      }
+      .hero p {
+        margin: 0 auto 24px;
+        max-width: 640px;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: clamp(1rem, 2vw, 1.125rem);
+      }
+      .pricing {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin: 20px auto 28px;
+        max-width: 720px;
+      }
+      .price-card {
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .price-card.featured {
+        border-color: rgba(251, 191, 36, 0.6);
+        background: rgba(251, 191, 36, 0.1);
+      }
+      .price-title {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: rgba(255, 255, 255, 0.6);
+      }
+      .price-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #fff;
+      }
+      .price-cta {
+        font-size: 0.75rem;
+        color: var(--amber-strong);
+        margin-top: 4px;
+      }
+      .hero-form {
+        margin: 0 auto;
+        max-width: 640px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 20px;
+        padding: 18px;
+        background: rgba(7, 11, 27, 0.8);
+      }
+      .form-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .hero-form input {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        font-size: 0.95rem;
+      }
+      .hero-form button {
+        margin-top: 12px;
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #fbbf24, #f1c27d);
+        font-weight: 700;
+        color: #1f2937;
+        cursor: pointer;
+      }
+      .hero-note {
+        margin-top: 10px;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.7);
+        text-align: center;
+      }
+      .hero-cta-row {
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        font-size: 0.9rem;
+      }
+      .hero-link {
+        color: rgba(251, 191, 36, 0.95);
+        font-weight: 700;
+        border-bottom: 1px solid rgba(251, 191, 36, 0.6);
+      }
+      .section {
+        padding: 40px 0;
+      }
+      .section h2 {
+        font-size: clamp(1.5rem, 3vw, 2.4rem);
+        margin: 0 0 12px;
+      }
+      .section p {
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .gallery {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .gallery figure {
+        margin: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .gallery img {
+        width: 100%;
+        display: block;
+        height: auto;
+      }
+      .gallery figcaption {
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.7);
+      }
+      .steps {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .step {
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .faq {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .faq-item {
+        border-radius: 16px;
+        padding: 14px;
+        border: 1px solid rgba(241, 194, 125, 0.35);
+        background: rgba(247, 241, 227, 0.95);
+        color: var(--text);
+      }
+      .faq-item p {
+        color: #4b5563;
+      }
+      .signup {
+        border-radius: 20px;
+        padding: 20px;
+        background: rgba(247, 241, 227, 0.95);
+        color: var(--text);
+        border: 1px solid rgba(241, 194, 125, 0.5);
+      }
+      .signup form {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 1fr auto;
+      }
+      .signup input {
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(241, 194, 125, 0.5);
+      }
+      .signup button {
+        padding: 12px 16px;
+        border-radius: 999px;
+        border: none;
+        background: linear-gradient(90deg, #fbbf24, #f1c27d);
+        font-weight: 700;
+        color: #1f2937;
+        cursor: pointer;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .links a {
+        border-radius: 999px;
+        padding: 6px 12px;
+        border: 1px solid rgba(241, 194, 125, 0.5);
+        background: rgba(247, 241, 227, 0.95);
+        color: #92400e;
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+      footer {
+        margin-top: 40px;
+        padding: 20px 0 30px;
+        background: rgba(247, 241, 227, 0.92);
+        color: #1f2937;
+        font-size: 0.9rem;
+      }
+      footer .container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      @media (max-width: 640px) {
+        .signup form {
+          grid-template-columns: 1fr;
+        }
+        .site-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        footer .container {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <header class="site-header">
+        <div class="brand">StarMapCo</div>
+        <nav class="site-nav">
+          <a href="/star-map-generator">Generator</a>
+          <a href="/constellation-map">Constellation</a>
+          <a href="/star-map-gift">Gifts</a>
+          <a href="/star-map-gallery">Gallery</a>
+          <a href="/blog">Blog</a>
+          <a class="cta-link" href="/editor?mode=quick">Start now</a>
+        </nav>
+      </header>
+      <section class="hero">
+        <h1>Create a custom star map of the night sky</h1>
+        <p>See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds.</p>
+        <div class="pricing">
+          <div class="price-card">
+            <div class="price-title">Single Map</div>
+            <div class="price-value">$9.00</div>
+            <div class="price-cta">Buy single</div>
+          </div>
+          <div class="price-card featured">
+            <div class="price-title">3-Pack</div>
+            <div class="price-value">$10.00</div>
+            <div class="price-cta">Best value</div>
+          </div>
+          <div class="price-card">
+            <div class="price-title">Unlimited</div>
+            <div class="price-value">$19.00/mo</div>
+            <div class="price-cta">Start unlimited</div>
+          </div>
+        </div>
+          <form class="hero-form" action="/editor" method="GET">
+            <input type="hidden" name="mode" value="quick" />
+            <input type="hidden" name="source" value="landing" />
+            <div class="form-grid">
+              <input name="date" type="date" aria-label="Date" autocomplete="bday" />
+              <input name="location" type="text" placeholder="City or address" aria-label="Location" autocomplete="address-level2" />
+            </div>
+            <button type="submit">Preview your map</button>
+          </form>
+          <p class="hero-note">Free preview · No account required.</p>
+        <div class="hero-cta-row">
+          <a class="hero-link" href="#signup">Get 20% off your first HD export</a>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <h2>Perfect for anniversaries, weddings, birthdays, and couples gifts</h2>
+        <p>Turn a once‑in‑a‑lifetime night into a gift that feels personal and timeless.</p>
+        <div class="links">
+          <a href="/star-map-for/anniversary">Anniversary star maps</a>
+          <a href="/star-map-for/wedding">Wedding star maps</a>
+          <a href="/star-map-for/engagement">Engagement star maps</a>
+          <a href="/star-map-for/birthday">Birthday star maps</a>
+          <a href="/star-map-for/valentines-day">Valentine's Day star maps</a>
+          <a href="/star-map-for/mothers-day">Mother's Day star maps</a>
+          <a href="/star-map-for/fathers-day">Father's Day star maps</a>
+          <a href="/star-map-gift-ideas">Star map gift ideas</a>
+          <a href="/star-map-gallery">Star map gallery</a>
+          <a href="/star-map-gift">Star map gift</a>
+          <a href="/night-sky-map-gift">Night sky map gift</a>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <h2>Finished examples</h2>
+        <p>Real outputs from our presets and render modes—so you know exactly what you can create.</p>
+        <div class="gallery">
+          <figure>
+            <img
+              src="/examples/example-wedding-cinematic-heart.webp"
+              alt="Wedding · Cinematic star map"
+              loading="lazy"
+              decoding="async"
+              width="900"
+              height="900"
+            />
+            <figcaption>Wedding · Cinematic — Santorini, Greece</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="/examples/example-anniversary-luxe.webp"
+              alt="Anniversary · Luxe star map"
+              loading="lazy"
+              decoding="async"
+              width="900"
+              height="900"
+            />
+            <figcaption>Anniversary · Luxe — Paris, France</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="/examples/example-birthday-classic.webp"
+              alt="Birthday · Classic star map"
+              loading="lazy"
+              decoding="async"
+              width="900"
+              height="900"
+            />
+            <figcaption>Birthday · Classic — Tokyo, Japan</figcaption>
+          </figure>
+        </div>
+        <div class="links">
+          <a href="/star-map-gallery">See the full gallery</a>
+          <a href="/star-map-gift-ideas">Explore gift ideas</a>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <h2>How it works</h2>
+        <div class="steps">
+          <div class="step">
+            <strong>Choose your moment</strong>
+            <p>Select the date, time, and location that matter.</p>
+          </div>
+          <div class="step">
+            <strong>Preview instantly</strong>
+            <p>Watch the stars render in real time as you personalize.</p>
+          </div>
+          <div class="step">
+            <strong>Export &amp; print</strong>
+            <p>Download a high-res file ready for framing or gifting.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto" id="signup">
+        <div class="signup">
+          <h2>Get 20% off your first HD export</h2>
+          <p>Join the insiders list for updates and a one-time 20% off code.</p>
+          <form method="POST" action="/api/promotions/subscribe?redirect=editor">
+            <input type="email" name="email" placeholder="you@email.com" required autocomplete="email" />
+            <button type="submit">Join &amp; save 20%</button>
+          </form>
+          <p style="margin-top:10px;font-size:0.75rem;color:#4b5563;">
+            No spam — just occasional updates. Unsubscribe anytime.
+          </p>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <h2>Quick answers</h2>
+        <div class="faq">
+          <div class="faq-item">
+            <strong>How accurate are StarMapCo star maps?</strong>
+            <p>Extremely accurate—using professional astronomy libraries for precise star positions.</p>
+          </div>
+          <div class="faq-item">
+            <strong>Can I customize the text and styles?</strong>
+            <p>Yes—add titles and dedications, plus multiple styles and constellation options.</p>
+          </div>
+          <div class="faq-item">
+            <strong>What does premium unlock include?</strong>
+            <p>HD downloads start at $9, with 3-packs and unlimited monthly options.</p>
+          </div>
+          <div class="faq-item">
+            <strong>Are the maps print-ready?</strong>
+            <p>Yes—high-resolution files designed for poster printing.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto">
+        <h2>Explore more</h2>
+        <p>Jump straight to high-intent pages for gifts, posters, and instant star map generators.</p>
+        <div class="links">
+          <a href="/star-map-generator">Star map generator</a>
+          <a href="/star-map-in">Star map by city</a>
+          <a href="/star-map-for">Star map by occasion</a>
+          <a href="/constellation-map">Constellation map</a>
+          <a href="/custom-night-sky-map">Custom night sky map</a>
+          <a href="/star-map-poster">Star map poster</a>
+          <a href="/star-map-gift">Star map gift</a>
+          <a href="/night-sky-map-gift">Night sky map gift</a>
+          <a href="/personalized-star-map">Personalized star map</a>
+          <a href="/how-to-print-star-map">How to print a star map</a>
+          <a href="/star-map-for/anniversary">Anniversary star map</a>
+          <a href="/star-map-for/wedding">Wedding star map</a>
+          <a href="/star-map-for/birthday">Birthday star map</a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <span>© 2026 StarMapCo</span>
+        <div class="links">
+          <a href="/star-map-gallery">Gallery</a>
+          <a href="/star-map-gift-ideas">Gift ideas</a>
+          <a href="/blog">Blog</a>
+          <a href="/privacy">Privacy Policy</a>
+          <a href="/returns">Returns &amp; Refunds</a>
+        </div>
+      </div>
+    </footer>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "StarMapCo",
+            "url": "https://starmapco.com",
+            "logo": "https://starmapco.com/favicon.ico"
+          },
+          {
+            "@type": "WebSite",
+            "name": "StarMapCo",
+            "url": "https://starmapco.com"
+          },
+          {
+            "@type": "Product",
+            "name": "Custom Star Map",
+            "description": "Personalized star map generator for special dates and locations.",
+            "brand": { "@type": "Brand", "name": "StarMapCo" },
+            "image": ["https://starmapco.com/custom-star-map-anniversary.webp"],
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "USD",
+              "price": "9.00",
+              "priceValidUntil": "2027-02-11",
+              "availability": "https://schema.org/InStock",
+              "url": "https://starmapco.com/"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How accurate are StarMapCo star maps?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Extremely accurate—using professional astronomy libraries for precise star positions."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I customize the text and styles?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes—add titles and dedications, plus multiple styles and constellation options."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What does premium unlock include?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "HD downloads start at $9, with 3-packs and unlimited monthly options."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Are the maps print-ready?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes—high-resolution files designed for poster printing."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </body>
+</html>

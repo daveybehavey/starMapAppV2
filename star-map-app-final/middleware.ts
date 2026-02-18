@@ -14,9 +14,6 @@ function rewriteStatic(request: NextRequest, pathname: string) {
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  if (pathname === "/") {
-    return rewriteStatic(request, "/landing.html");
-  }
   if (pathname === "/star-map-generator") {
     return rewriteStatic(request, "/star-map-generator.html");
   }
@@ -40,7 +37,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
     "/star-map-generator",
     "/constellation-map",
     "/star-map-gift",
