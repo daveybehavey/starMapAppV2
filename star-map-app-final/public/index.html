@@ -130,10 +130,22 @@
         max-width: 720px;
       }
       .price-card {
+        display: block;
         border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 16px;
         padding: 14px 16px;
         background: rgba(255, 255, 255, 0.06);
+        transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+      }
+      .price-card:hover {
+        transform: translateY(-1px);
+        border-color: rgba(241, 194, 125, 0.6);
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 24px rgba(3, 8, 20, 0.35);
+      }
+      .price-card:focus-visible {
+        outline: 2px solid rgba(251, 191, 36, 0.9);
+        outline-offset: 2px;
       }
       .price-card.featured {
         border-color: rgba(251, 191, 36, 0.6);
@@ -351,21 +363,21 @@
         <h1>Create a custom star map of the night sky</h1>
         <p>See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds.</p>
         <div class="pricing">
-          <div class="price-card">
+          <a class="price-card" href="/api/checkout?plan=single">
             <div class="price-title">Single Map</div>
             <div class="price-value">$9.00</div>
             <div class="price-cta">Buy single</div>
-          </div>
-          <div class="price-card featured">
+          </a>
+          <a class="price-card featured" href="/api/checkout?plan=pack3">
             <div class="price-title">3-Pack</div>
             <div class="price-value">$10.00</div>
             <div class="price-cta">Best value</div>
-          </div>
-          <div class="price-card">
+          </a>
+          <a class="price-card" href="/api/checkout?plan=subscription">
             <div class="price-title">Unlimited</div>
             <div class="price-value">$19.00/mo</div>
             <div class="price-cta">Start unlimited</div>
-          </div>
+          </a>
         </div>
           <form class="hero-form" action="/editor" method="GET">
             <input type="hidden" name="mode" value="quick" />

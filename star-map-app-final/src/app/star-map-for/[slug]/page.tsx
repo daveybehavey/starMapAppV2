@@ -13,15 +13,16 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
 
 type PageProps = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 export function generateStaticParams() {
   return seoOccasions.map((occasion) => ({ slug: occasion.slug }));
 }
 
-export function generateMetadata({ params }: PageProps): Metadata {
-  const occasion = getOccasion(params.slug);
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const occasion = getOccasion(slug);
   if (!occasion) return {};
 
   return {
@@ -39,8 +40,9 @@ export function generateMetadata({ params }: PageProps): Metadata {
   };
 }
 
-export default function StarMapForOccasionPage({ params }: PageProps) {
-  const occasion = getOccasion(params.slug);
+export default async function StarMapForOccasionPage({ params }: PageProps) {
+  const { slug } = await params;
+  const occasion = getOccasion(slug);
   if (!occasion) notFound();
 
   const breadcrumbs = [

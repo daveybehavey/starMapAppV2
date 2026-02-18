@@ -14,7 +14,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
 
 type PageProps = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 const getLocation = (slug: string) => seoLocations.find((item) => item.slug === slug);
@@ -23,8 +23,9 @@ export function generateStaticParams() {
   return seoLocations.map((location) => ({ slug: location.slug }));
 }
 
-export function generateMetadata({ params }: PageProps): Metadata {
-  const location = getLocation(params.slug);
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const location = getLocation(slug);
   if (!location) return {};
   const display = formatLocationDisplay(location);
 
@@ -43,8 +44,9 @@ export function generateMetadata({ params }: PageProps): Metadata {
   };
 }
 
-export default function StarMapLocationPage({ params }: PageProps) {
-  const location = getLocation(params.slug);
+export default async function StarMapLocationPage({ params }: PageProps) {
+  const { slug } = await params;
+  const location = getLocation(slug);
   if (!location) notFound();
 
   const display = formatLocationDisplay(location);

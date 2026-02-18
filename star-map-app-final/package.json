@@ -17,7 +17,10 @@
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "check:env": "node scripts/check-env.mjs",
-    "promo:setup": "node scripts/setup-promotion-code.mjs"
+    "promo:setup": "node scripts/setup-promotion-code.mjs",
+    "seo:scoreboard": "node scripts/seo-scoreboard.mjs",
+    "qa:live-conversion": "node scripts/live-conversion-qa.mjs",
+    "qa:sitemap-health": "node scripts/sitemap-health.mjs"
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",

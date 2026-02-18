@@ -1,0 +1,33 @@
+name: Sitemap Health
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "Site base URL (no trailing slash)"
+        required: false
+        default: "https://starmapco.com"
+  schedule:
+    - cron: "15 11 * * *"
+
+jobs:
+  check-sitemap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Run sitemap health check
+        env:
+          SITE_URL: ${{ github.event.inputs.site_url || 'https://starmapco.com' }}
+        run: |
+          npm run qa:sitemap-health -- --sitemap "${SITE_URL}/sitemap.xml" --concurrency 12
