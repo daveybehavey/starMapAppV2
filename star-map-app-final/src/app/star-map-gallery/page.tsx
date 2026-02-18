@@ -146,7 +146,10 @@ export default function StarMapGalleryPage() {
           <Link href="/star-map-for" className="text-amber-700 underline hover:text-amber-800">
             Browse by occasion
           </Link>
-          <Link href="/editor?mode=quick" className="text-amber-700 underline hover:text-amber-800">
+          <Link
+            href="/editor?mode=quick&source=star-map-gallery-inline-cta"
+            className="text-amber-700 underline hover:text-amber-800"
+          >
             Create your map
           </Link>
         </div>
@@ -162,7 +165,7 @@ export default function StarMapGalleryPage() {
         </ul>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick"
+            href="/editor?mode=quick&source=star-map-gallery-primary-cta"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
             Start a free preview
