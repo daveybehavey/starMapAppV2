@@ -12,7 +12,7 @@ import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
 import { proPresets } from "@/lib/proPresets";
-import { track } from "@/lib/analytics";
+import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan } from "@/lib/pricing";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
@@ -244,6 +244,7 @@ export function MobileCreate({
     if (!canReveal) return;
     setRevealed(true);
     track("preview_revealed", { source: "mobile" });
+    trackFunnelStep("editor_reveal", { source: "mobile" });
     setTimeout(() => {
       document.getElementById("mobile-preview")?.scrollIntoView({
         behavior: "smooth",

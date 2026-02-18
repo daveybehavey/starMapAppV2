@@ -432,9 +432,10 @@ export function EditorExperience({
 
   useEffect(() => {
     if (!restored || prefillAppliedRef.current) return;
+    const sourceParam = searchParams.get("source");
     const dateParam = searchParams.get("date");
     const locationParam = searchParams.get("location");
-    if (!dateParam && !locationParam) return;
+    if (!dateParam && !locationParam && !sourceParam) return;
 
     let hasValidDate = false;
     if (dateParam) {
@@ -455,9 +456,8 @@ export function EditorExperience({
       setRevealed(true);
     }
 
-    const sourceParam = searchParams.get("source");
     trackFunnelStep("preview_started", {
-      source: sourceParam ?? "unknown",
+      source: sourceParam ?? "editor-direct",
       hasDate: hasValidDate,
       hasLocation,
     });
