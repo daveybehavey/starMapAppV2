@@ -15,6 +15,7 @@
     "test:ui": "playwright test",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "deploy:safe": "node scripts/deploy-safe.mjs",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "check:env": "node scripts/check-env.mjs",
     "promo:setup": "node scripts/setup-promotion-code.mjs",
