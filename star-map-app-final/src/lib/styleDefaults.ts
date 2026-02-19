@@ -8,8 +8,8 @@ type StyleDefaults = {
 const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
   navyGold: {
     renderOptions: {
-      visualMode: "illustrated",
-      starIntensity: "bold",
+      visualMode: "enhanced",
+      starIntensity: "normal",
       starGlow: true,
       constellationLines: "thin",
       constellationLabels: false,

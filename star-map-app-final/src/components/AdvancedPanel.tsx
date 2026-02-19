@@ -1,9 +1,11 @@
 "use client";
 
 import { constellationPresets, visualModes } from "@/lib/config";
-import type { RenderOptions } from "@/lib/store";
+import { getRenderPresetOptions, renderPresets, resolveRenderPreset } from "@/lib/renderPresets";
+import type { RenderOptions, StyleId } from "@/lib/store";
 
 type AdvancedPanelProps = {
+  selectedStyle: StyleId;
   renderOptions: RenderOptions;
   setRenderOptions: (next: Partial<RenderOptions>) => void;
   previewFidelity: "standard" | "high";
@@ -13,6 +15,7 @@ type AdvancedPanelProps = {
 };
 
 export function AdvancedPanel({
+  selectedStyle,
   renderOptions,
   setRenderOptions,
   previewFidelity,
@@ -20,8 +23,30 @@ export function AdvancedPanel({
   paid,
   onPremiumPreview,
 }: AdvancedPanelProps) {
+  const activePreset = resolveRenderPreset(renderOptions, selectedStyle);
+
   return (
     <div className="mt-2 space-y-3">
+      <div className="space-y-1">
+        <label className="text-[10px] text-neutral-300">Quick Look</label>
+        <div className="grid grid-cols-2 gap-2">
+          {renderPresets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => setRenderOptions(getRenderPresetOptions(preset.id, selectedStyle))}
+              className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
+                activePreset === preset.id
+                  ? "border-amber-300 bg-amber-100 !text-midnight"
+                  : "border-white/15 bg-white/10 text-white"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-1">
         <label className="text-[10px] text-neutral-300">Constellation Lines</label>
         <div className="grid grid-cols-3 gap-2">

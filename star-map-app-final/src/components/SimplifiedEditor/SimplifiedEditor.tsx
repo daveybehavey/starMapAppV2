@@ -892,6 +892,7 @@ export function SimplifiedEditor() {
           <div id={`${formId}-advanced`} aria-hidden={!showAdvanced || mode === "sample"}>
             {showAdvanced && mode === "customizing" && (
               <AdvancedOptionsPanel
+                selectedStyle={selectedStyle}
                 renderOptions={renderOptions}
                 setRenderOptions={setRenderOptions}
                 textBoxes={textBoxes}

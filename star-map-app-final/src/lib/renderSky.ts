@@ -1,5 +1,5 @@
 import { Horizon, Observer } from "astronomy-engine";
-import { computeVisibleStars, type VisibleSky } from "@/lib/astronomy";
+import { computeVisibleStars, toUTCDateFromLocal, type VisibleSky } from "@/lib/astronomy";
 import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
 import { SHAPE_PATHS } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
@@ -20,6 +20,11 @@ const MILKY_WAY_BAND_WIDTH_FACTOR = 0.45;
 const MILKY_WAY_BAND_LENGTH_FACTOR = 1.6;
 const PROJECTION_RADIUS_FACTOR = 0.45;
 const VALID_SHAPES = new Set<Shape>(["rectangle", "heart", "circle", "star", "diamond"]);
+const STAR_INTENSITY_FACTORS = {
+  subtle: { size: 0.7, alpha: 0.8 },
+  normal: { size: 1, alpha: 1 },
+  bold: { size: 1.3, alpha: 1.15 },
+} as const;
 
 export type MapRecipe = {
   version: number;
@@ -138,6 +143,121 @@ type ModeSettings = {
     glow: string;
   }>;
 };
+
+type MinimalDropChances = {
+  faint: number;
+  mid: number;
+  bright: number;
+};
+
+type StyleRenderProfile = {
+  useFixedStarColor: boolean;
+  allowGlow: boolean;
+  starAlphaFloor: number;
+  starSizeBoost: number;
+  starVisibilityCutoff: number;
+  starAlphaBoost: number;
+  lineStrokeBoost: number;
+  lineAlphaMultiplier: number;
+  lineAlphaClamp: { min: number; max: number } | null;
+  lineDashed: boolean;
+  showMilkyWayBand: boolean;
+  planetFlatColor: boolean;
+  starJitterMin: number;
+  starJitterRange: number;
+  minimalDrop: MinimalDropChances | null;
+};
+
+const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
+  navyGold: {
+    useFixedStarColor: false,
+    allowGlow: true,
+    starAlphaFloor: 0.018,
+    starSizeBoost: 0.98,
+    starVisibilityCutoff: 0,
+    starAlphaBoost: 1,
+    lineStrokeBoost: 1,
+    lineAlphaMultiplier: 0.92,
+    lineAlphaClamp: null,
+    lineDashed: false,
+    showMilkyWayBand: true,
+    planetFlatColor: false,
+    starJitterMin: 0.94,
+    starJitterRange: 0.14,
+    minimalDrop: null,
+  },
+  vintageEngraving: {
+    useFixedStarColor: false,
+    allowGlow: false,
+    starAlphaFloor: 0.03,
+    starSizeBoost: 0.97,
+    starVisibilityCutoff: 0,
+    starAlphaBoost: 1,
+    lineStrokeBoost: 1,
+    lineAlphaMultiplier: 0.88,
+    lineAlphaClamp: null,
+    lineDashed: false,
+    showMilkyWayBand: true,
+    planetFlatColor: false,
+    starJitterMin: 0.95,
+    starJitterRange: 0.13,
+    minimalDrop: null,
+  },
+  parchmentScroll: {
+    useFixedStarColor: true,
+    allowGlow: false,
+    starAlphaFloor: 0.075,
+    starSizeBoost: 1.12,
+    starVisibilityCutoff: 0,
+    starAlphaBoost: 1,
+    lineStrokeBoost: 1.2,
+    lineAlphaMultiplier: 1.35,
+    lineAlphaClamp: { min: 0.45, max: 0.8 },
+    lineDashed: true,
+    showMilkyWayBand: false,
+    planetFlatColor: true,
+    starJitterMin: 0.92,
+    starJitterRange: 0.18,
+    minimalDrop: null,
+  },
+  midnightMinimal: {
+    useFixedStarColor: true,
+    allowGlow: false,
+    starAlphaFloor: 0.015,
+    starSizeBoost: 1.08,
+    starVisibilityCutoff: 0.09,
+    starAlphaBoost: 1.16,
+    lineStrokeBoost: 1,
+    lineAlphaMultiplier: 1,
+    lineAlphaClamp: null,
+    lineDashed: false,
+    showMilkyWayBand: false,
+    planetFlatColor: false,
+    // Keep minimalist mode sparse but slightly less aggressive for better readability.
+    starJitterMin: 0.94,
+    starJitterRange: 0.14,
+    minimalDrop: {
+      faint: 0.64,
+      mid: 0.42,
+      bright: 0.2,
+    },
+  },
+};
+
+function getMinimalDropChance(magnitude: number, drop: MinimalDropChances | null) {
+  if (!drop) return 0;
+  if (magnitude > 4.6) return drop.faint;
+  if (magnitude > 3.4) return drop.mid;
+  if (magnitude > 2.3) return drop.bright;
+  return 0;
+}
+
+function resolveStarIntensity(intensity: unknown): keyof typeof STAR_INTENSITY_FACTORS {
+  if (intensity === "subtle" || intensity === "normal" || intensity === "bold") {
+    return intensity;
+  }
+  return "normal";
+}
 
 function resolveVisualMode(mode?: string, styleId?: StyleId): ModeSettings {
   switch (mode) {
@@ -382,7 +502,7 @@ export function buildRecipeFromState(input: {
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
       visualMode: input.renderOptions?.visualMode ?? "illustrated",
-      starIntensity: input.renderOptions?.starIntensity ?? "bold",
+      starIntensity: input.renderOptions?.starIntensity ?? "normal",
       starGlow: input.renderOptions?.starGlow ?? true,
       constellationLines: input.renderOptions?.constellationLines ?? "thin",
       constellationLabels: input.renderOptions?.constellationLabels ?? false,
@@ -487,6 +607,231 @@ function drawBackground(
   }
 }
 
+type SkyPalette = {
+  background: string;
+  vignette: string;
+  accent: string;
+  star: string;
+  glow: string;
+};
+
+function drawConstellationLayer(
+  ctx: CanvasRenderingContext2D,
+  sky: VisibleSky,
+  renderOptions: MapRecipe["renderOptions"] | undefined,
+  mode: ModeSettings | undefined,
+  styleProfile: StyleRenderProfile,
+  palette: SkyPalette,
+  lineFactor: number,
+  scale: number,
+  premium: boolean,
+) {
+  if (renderOptions?.constellationLines === "off") return;
+
+  const constellationColor =
+    renderOptions?.constellationColor && renderOptions.constellationColor.trim().length > 0
+      ? renderOptions.constellationColor
+      : palette.accent;
+  const lineScale = clamp(renderOptions?.constellationLineScale ?? 1, 0.6, 1.6);
+  const lineWidth =
+    renderOptions?.constellationLines === "thick"
+      ? 1.2 * lineFactor
+      : renderOptions?.constellationLines === "thin"
+        ? 0.8 * lineFactor
+        : 0.8 * lineFactor;
+  const strokeWidth = lineWidth * lineScale * scale * styleProfile.lineStrokeBoost;
+  const rawLineAlpha = (mode?.lineAlpha ?? 0.3) * styleProfile.lineAlphaMultiplier;
+  const lineAlpha = styleProfile.lineAlphaClamp
+    ? clamp(rawLineAlpha, styleProfile.lineAlphaClamp.min, styleProfile.lineAlphaClamp.max)
+    : rawLineAlpha;
+
+  drawConstellations(
+    ctx,
+    sky,
+    constellationColor,
+    strokeWidth,
+    renderOptions?.constellationLabels ?? false,
+    lineAlpha,
+    premium,
+    styleProfile.lineDashed,
+    scale,
+  );
+}
+
+function drawStarLayer(
+  ctx: CanvasRenderingContext2D,
+  sky: VisibleSky,
+  renderOptions: MapRecipe["renderOptions"] | undefined,
+  mode: ModeSettings | undefined,
+  styleProfile: StyleRenderProfile,
+  palette: SkyPalette,
+  premiumStars: boolean,
+  premiumThreshold: number,
+  scale: number,
+) {
+  const starIntensity = resolveStarIntensity(renderOptions?.starIntensity);
+  const intensityFactor = STAR_INTENSITY_FACTORS[starIntensity].size;
+  const intensityAlphaBoost = STAR_INTENSITY_FACTORS[starIntensity].alpha;
+  const starGlowEnabled = renderOptions?.starGlow ?? true;
+  const baseGlow = mode?.glowBlur ?? 8;
+  const glow = (starGlowEnabled ? baseGlow + 4 : baseGlow) * scale;
+  const glowMagnitudeCutoff = 3.2;
+
+  ctx.save();
+  ctx.fillStyle = palette.star;
+  ctx.shadowColor = styleProfile.allowGlow ? palette.glow : "transparent";
+  ctx.shadowBlur = styleProfile.allowGlow && starGlowEnabled ? glow : 0;
+
+  for (let i = 0; i < sky.stars.length; i += 1) {
+    const star = sky.stars[i];
+    if (!Number.isFinite(star.x) || !Number.isFinite(star.y)) continue;
+    const baseAlpha = brightnessFromMagnitude(star.magnitude);
+    if (!Number.isFinite(baseAlpha)) continue;
+
+    const alpha = clamp(
+      baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost * styleProfile.starAlphaBoost,
+      styleProfile.starAlphaFloor,
+      1,
+    );
+    if (!Number.isFinite(alpha)) continue;
+    if (styleProfile.starVisibilityCutoff > 0 && alpha < styleProfile.starVisibilityCutoff) continue;
+
+    const jitter = styleProfile.starJitterMin + randFromSeed((i + 1) * 17) * styleProfile.starJitterRange;
+    const radius =
+      starRadiusFromMagnitude(star.magnitude) *
+      (mode?.starSizeFactor ?? 1) *
+      intensityFactor *
+      styleProfile.starSizeBoost *
+      jitter *
+      scale;
+    if (!Number.isFinite(radius) || radius <= 0) continue;
+
+    const dropChance = getMinimalDropChance(star.magnitude, styleProfile.minimalDrop);
+    if (dropChance > 0 && randFromSeed((i + 1) * 43.73) < dropChance) continue;
+
+    if (premiumStars && star.magnitude <= premiumThreshold) {
+      const premiumColor = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
+      drawPremiumStar(ctx, star.x, star.y, radius, alpha, premiumColor, star.magnitude, i);
+      continue;
+    }
+
+    const color = styleProfile.useFixedStarColor
+      ? palette.star
+      : (typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude));
+
+    if (styleProfile.allowGlow && starGlowEnabled && star.magnitude <= glowMagnitudeCutoff) {
+      const isBright = star.magnitude <= 1.2;
+      const isMidBrightness = star.magnitude <= 2.4;
+      const haloRadius = radius * (isBright ? 3.2 : isMidBrightness ? 2.5 : 2.1);
+      const haloCoreAlpha = isBright
+        ? Math.min(0.72, alpha * 0.92)
+        : isMidBrightness
+          ? Math.min(0.58, alpha * 0.72)
+          : Math.min(0.44, alpha * 0.58);
+      const haloMidAlpha = isBright ? alpha * 0.36 : isMidBrightness ? alpha * 0.28 : alpha * 0.2;
+
+      ctx.save();
+      ctx.shadowBlur = 0;
+      const halo = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, haloRadius);
+      halo.addColorStop(0, toRgba(color, haloCoreAlpha));
+      halo.addColorStop(0.45, toRgba(color, haloMidAlpha));
+      halo.addColorStop(1, toRgba(color, 0));
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, haloRadius, 0, TWO_PI);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, radius, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawPlanetaryLayer(
+  ctx: CanvasRenderingContext2D,
+  sky: VisibleSky,
+  renderOptions: MapRecipe["renderOptions"] | undefined,
+  mode: ModeSettings | undefined,
+  styleProfile: StyleRenderProfile,
+  palette: SkyPalette,
+  premiumPlanets: boolean,
+  themeGlowColor: string,
+  scale: number,
+) {
+  ctx.save();
+  ctx.shadowBlur = styleProfile.allowGlow ? 14 : 0;
+  ctx.shadowColor = styleProfile.allowGlow ? themeGlowColor : "transparent";
+  ctx.globalAlpha = 0.95;
+
+  if (renderOptions?.showPlanets ?? true) {
+    for (const planet of sky.planets) {
+      if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
+      const sizeBase = renderOptions?.planetEmphasis === "highlighted" ? 4.2 : 3.2;
+      const magnitudeSize = planetRadiusFromMagnitude(planet.magnitude, sizeBase);
+      const size = magnitudeSize * (mode?.planetSizeFactor ?? 1) * scale;
+      ctx.globalAlpha = (mode?.planetAlpha ?? 0.85) * (renderOptions?.planetEmphasis === "highlighted" ? 1 : 0.95);
+
+      if (premiumPlanets && renderOptions?.premiumPlanets === "realistic") {
+        drawPremiumPlanet(ctx, planet, size, palette);
+        continue;
+      }
+
+      const planetColor = styleProfile.planetFlatColor ? palette.star : (PLANET_COLORS[planet.name] ?? palette.accent);
+      if (!styleProfile.planetFlatColor) {
+        ctx.save();
+        const glowGradient = ctx.createRadialGradient(
+          planet.x, planet.y, size * 0.5,
+          planet.x, planet.y, size * 2.5
+        );
+        glowGradient.addColorStop(0, toRgba(planetColor, 0.25));
+        glowGradient.addColorStop(0.6, toRgba(planetColor, 0.08));
+        glowGradient.addColorStop(1, toRgba(planetColor, 0));
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(planet.x, planet.y, size * 2.5, 0, TWO_PI);
+        ctx.fill();
+        ctx.restore();
+
+        const bodyGradient = ctx.createRadialGradient(
+          planet.x - size * 0.3, planet.y - size * 0.3, size * 0.1,
+          planet.x, planet.y, size
+        );
+        bodyGradient.addColorStop(0, adjustColor(planetColor, 0.15));
+        bodyGradient.addColorStop(1, adjustColor(planetColor, -0.1));
+        ctx.fillStyle = bodyGradient;
+      } else {
+        ctx.fillStyle = planetColor;
+      }
+      ctx.beginPath();
+      ctx.arc(planet.x, planet.y, size, 0, TWO_PI);
+      ctx.fill();
+    }
+  }
+
+  if ((renderOptions?.showMoon ?? true) && sky.moon && Number.isFinite(sky.moon.x) && Number.isFinite(sky.moon.y)) {
+    const moonSizeMultiplier = renderOptions?.moonSize === "large" ? 1.4 : 1;
+    drawMoon(
+      ctx,
+      sky.moon.x,
+      sky.moon.y,
+      palette.background,
+      palette.star,
+      palette.accent,
+      sky.moon.phase,
+      moonSizeMultiplier * (mode?.planetSizeFactor ?? 1) * (mode?.moonSizeFactor ?? 1) * scale,
+    );
+  }
+
+  ctx.restore();
+}
+
 function drawSky(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -512,190 +857,36 @@ function drawSky(
   const premiumStars = premium && (renderOptions?.premiumStars ?? "off") !== "off";
   const premiumPlanets = premium && (renderOptions?.premiumPlanets ?? "off") !== "off";
   const premiumThreshold = (renderOptions?.premiumStars ?? "off") === "realistic" ? 2.2 : 0.6;
-  const isMinimal = styleId === "midnightMinimal";
-  const isParchment = styleId === "parchmentScroll";
-  const useFixedStarColor = isMinimal || isParchment;
-  const allowGlow = !isMinimal && !isParchment;
-  const starAlphaFloor = isParchment ? 0.07 : isMinimal ? 0.015 : 0.02;
-  const parchmentSizeBoost = isParchment ? 1.18 : 1;
-  const minimalVisibilityCutoff = isMinimal ? 0.09 : 0;
-  const minimalAlphaBoost = isMinimal ? 1.16 : 1;
-  const minimalSizeBoost = isMinimal ? 1.08 : 1;
+  const styleProfile = STYLE_RENDER_PROFILES[styleId];
+  drawConstellationLayer(ctx, sky, renderOptions, mode, styleProfile, palette, lineFactor, scale, premium);
 
-  // Apply starIntensity to affect star brightness and size
-  // subtle = smaller/dimmer, normal = default, bold = larger/brighter
-  const starIntensity = renderOptions?.starIntensity ?? "normal";
-  const intensityFactor = starIntensity === "subtle" ? 0.7 : starIntensity === "bold" ? 1.3 : 1.0;
-  const intensityAlphaBoost = starIntensity === "subtle" ? 0.8 : starIntensity === "bold" ? 1.15 : 1.0;
-
-  if (renderOptions?.constellationLines !== "off") {
-    const constellationColor =
-      renderOptions?.constellationColor && renderOptions.constellationColor.trim().length > 0
-        ? renderOptions.constellationColor
-        : palette.accent;
-    const lineScale = clamp(renderOptions?.constellationLineScale ?? 1, 0.6, 1.6);
-    const lineWidth =
-      renderOptions?.constellationLines === "thick"
-        ? 1.2 * lineFactor
-        : renderOptions?.constellationLines === "thin"
-          ? 0.8 * lineFactor
-          : 0.8 * lineFactor;
-    const strokeWidth = lineWidth * lineScale * scale * (isParchment ? 1.2 : 1);
-    const lineAlpha = isParchment ? clamp((mode?.lineAlpha ?? 0.3) * 1.5, 0.45, 0.8) : (mode?.lineAlpha ?? 0.3);
-    drawConstellations(
-      ctx,
-      sky,
-      constellationColor,
-      strokeWidth,
-      renderOptions?.constellationLabels ?? false,
-      lineAlpha,
-      premium,
-      isParchment,
-      scale,
-    );
-  }
-
-  if (premium && !isMinimal && !isParchment) {
+  if (premium && styleProfile.showMilkyWayBand) {
     const bandColor = resolveBandColor(palette.star);
     drawMilkyWayBand(ctx, width, height, recipe, bandColor, mode);
   }
 
-  ctx.save();
-  ctx.fillStyle = palette.star;
-  ctx.shadowColor = allowGlow ? palette.glow : "transparent";
-  const baseGlow = mode?.glowBlur ?? 8;
-  const glow = (renderOptions?.starGlow ? baseGlow + 4 : baseGlow) * scale;
-  ctx.shadowBlur = allowGlow && renderOptions?.starGlow ? glow : 0;
-
-  for (let i = 0; i < sky.stars.length; i += 1) {
-    const star = sky.stars[i];
-    if (!Number.isFinite(star.x) || !Number.isFinite(star.y)) continue;
-    const baseAlpha = brightnessFromMagnitude(star.magnitude);
-    if (!Number.isFinite(baseAlpha)) continue;
-    // Apply intensity alpha boost
-    const alpha = clamp(
-      baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost * minimalAlphaBoost,
-      starAlphaFloor,
-      1,
-    );
-    if (!Number.isFinite(alpha)) continue;
-    if (isMinimal && alpha < minimalVisibilityCutoff) continue;
-    // Apply intensity size factor
-    const jitter = 0.92 + randFromSeed((i + 1) * 17) * 0.18;
-    const radius =
-      starRadiusFromMagnitude(star.magnitude) *
-      (mode?.starSizeFactor ?? 1) *
-      intensityFactor *
-      parchmentSizeBoost *
-      minimalSizeBoost *
-      jitter *
-      scale;
-    if (!Number.isFinite(radius) || radius <= 0) continue;
-    if (isMinimal) {
-      const dropChance = star.magnitude > 4.6 ? 0.78 : star.magnitude > 3.4 ? 0.55 : star.magnitude > 2.3 ? 0.28 : 0;
-      if (dropChance > 0 && randFromSeed((i + 1) * 43.73) < dropChance) continue;
-    }
-    if (premiumStars && star.magnitude <= premiumThreshold) {
-      const color = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
-      drawPremiumStar(ctx, star.x, star.y, radius, alpha, color, star.magnitude, i);
-      continue;
-    }
-    const color = useFixedStarColor
-      ? palette.star
-      : (typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude));
-    const isBright = star.magnitude <= 1.2;
-
-    if (allowGlow && (renderOptions?.starGlow || isBright)) {
-      ctx.save();
-      ctx.shadowBlur = 0;
-      const haloRadius = radius * (isBright ? 3.2 : 2.4);
-      const halo = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, haloRadius);
-      halo.addColorStop(0, toRgba(color, Math.min(0.7, alpha * 0.9)));
-      halo.addColorStop(0.45, toRgba(color, alpha * 0.35));
-      halo.addColorStop(1, toRgba(color, 0));
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = halo;
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, haloRadius, 0, TWO_PI);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, radius, 0, TWO_PI);
-    ctx.fill();
-  }
-
-  ctx.shadowBlur = allowGlow ? 14 : 0;
-  ctx.shadowColor = allowGlow ? theme.glow : "transparent";
-  ctx.globalAlpha = 0.95;
-  if (renderOptions?.showPlanets ?? true) {
-    for (const planet of sky.planets) {
-      if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
-      const sizeBase = renderOptions?.planetEmphasis === "highlighted" ? 4.2 : 3.2;
-      // Apply magnitude-based sizing
-      const magnitudeSize = planetRadiusFromMagnitude(planet.magnitude, sizeBase);
-      const size = magnitudeSize * (mode?.planetSizeFactor ?? 1) * scale;
-      ctx.globalAlpha = (mode?.planetAlpha ?? 0.85) * (renderOptions?.planetEmphasis === "highlighted" ? 1 : 0.95);
-      if (premiumPlanets && renderOptions?.premiumPlanets === "realistic") {
-        drawPremiumPlanet(ctx, planet, size, palette);
-      } else {
-        // Use planet-specific color
-        const planetColor = isParchment ? palette.star : (PLANET_COLORS[planet.name] ?? palette.accent);
-
-        if (!isParchment) {
-          // Draw atmospheric glow
-          ctx.save();
-          const glowGradient = ctx.createRadialGradient(
-            planet.x, planet.y, size * 0.5,
-            planet.x, planet.y, size * 2.5
-          );
-          glowGradient.addColorStop(0, toRgba(planetColor, 0.25));
-          glowGradient.addColorStop(0.6, toRgba(planetColor, 0.08));
-          glowGradient.addColorStop(1, toRgba(planetColor, 0));
-          ctx.fillStyle = glowGradient;
-          ctx.beginPath();
-          ctx.arc(planet.x, planet.y, size * 2.5, 0, TWO_PI);
-          ctx.fill();
-          ctx.restore();
-
-          // Draw planet body with subtle gradient
-          const bodyGradient = ctx.createRadialGradient(
-            planet.x - size * 0.3, planet.y - size * 0.3, size * 0.1,
-            planet.x, planet.y, size
-          );
-          bodyGradient.addColorStop(0, adjustColor(planetColor, 0.15));
-          bodyGradient.addColorStop(1, adjustColor(planetColor, -0.1));
-          ctx.fillStyle = bodyGradient;
-        } else {
-          ctx.fillStyle = planetColor;
-        }
-        ctx.beginPath();
-        ctx.arc(planet.x, planet.y, size, 0, TWO_PI);
-        ctx.fill();
-      }
-    }
-  }
-
-  if (renderOptions?.showMoon ?? true) {
-    if (sky.moon && Number.isFinite(sky.moon.x) && Number.isFinite(sky.moon.y)) {
-      const moonSizeMultiplier = renderOptions?.moonSize === "large" ? 1.4 : 1;
-      drawMoon(
-        ctx,
-        sky.moon.x,
-        sky.moon.y,
-        palette.background,
-        palette.star,
-        palette.accent,
-        sky.moon.phase,
-        moonSizeMultiplier * (mode?.planetSizeFactor ?? 1) * (mode?.moonSizeFactor ?? 1) * scale,
-      );
-    }
-  }
-
-  ctx.restore();
+  drawStarLayer(
+    ctx,
+    sky,
+    renderOptions,
+    mode,
+    styleProfile,
+    palette,
+    premiumStars,
+    premiumThreshold,
+    scale,
+  );
+  drawPlanetaryLayer(
+    ctx,
+    sky,
+    renderOptions,
+    mode,
+    styleProfile,
+    palette,
+    premiumPlanets,
+    theme.glow,
+    scale,
+  );
 }
 
 function drawPremiumVignette(
@@ -837,58 +1028,6 @@ function projectRaDec(
   const y = height / 2 - r * Math.cos(angle) * radius;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return { x, y };
-}
-
-function toUTCDateFromLocal(dateStr: string, timeStr: string, timezone: string) {
-  const [yearRaw, monthRaw, dayRaw] = dateStr.split("-").map(Number);
-  if (!yearRaw || !monthRaw || !dayRaw) return null;
-  const [hourRaw, minuteRaw] = timeStr.split(":").map(Number);
-  if (Number.isNaN(hourRaw) || Number.isNaN(minuteRaw)) return null;
-
-  const hour = clamp(hourRaw, 0, 23);
-  const minute = clamp(minuteRaw, 0, 59);
-  const fallbackDate = new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
-
-  try {
-    const testDate = new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-
-    const parts = formatter.formatToParts(testDate);
-    const localYear = Number(parts.find(p => p.type === "year")?.value);
-    const localMonth = Number(parts.find(p => p.type === "month")?.value);
-    const localDay = Number(parts.find(p => p.type === "day")?.value);
-    const localHour = Number(parts.find(p => p.type === "hour")?.value);
-    const localMinute = Number(parts.find(p => p.type === "minute")?.value);
-    if (
-      !Number.isFinite(localYear) ||
-      !Number.isFinite(localMonth) ||
-      !Number.isFinite(localDay) ||
-      !Number.isFinite(localHour) ||
-      !Number.isFinite(localMinute)
-    ) {
-      return fallbackDate;
-    }
-
-    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
-    const utcMs = testDate.getTime();
-    const offsetMs = utcMs - localMs;
-    if (!Number.isFinite(offsetMs)) return fallbackDate;
-
-    const targetLocalMs = Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0);
-    const convertedDate = new Date(targetLocalMs + offsetMs);
-    return Number.isFinite(convertedDate.getTime()) ? convertedDate : fallbackDate;
-  } catch {
-    return fallbackDate;
-  }
 }
 
 function resolveBandColor(color: string) {

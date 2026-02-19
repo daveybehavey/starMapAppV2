@@ -30,27 +30,72 @@ function siteOrigin() {
 
 function shouldRetryCheckoutWithoutDiscount(error: unknown) {
   if (!error || typeof error !== "object") return false;
-  const stripeError = error as { type?: string; code?: string; message?: string };
-  if (stripeError.type === "StripeInvalidRequestError") return true;
-  if (stripeError.code && stripeError.code.startsWith("parameter_invalid")) return true;
+  const stripeError = error as { code?: string; message?: string; param?: string };
+  if (typeof stripeError.param === "string" && /promotion|discount|coupon/i.test(stripeError.param)) {
+    return true;
+  }
+  if (typeof stripeError.code === "string" && /promotion|discount|coupon|coupon_invalid/i.test(stripeError.code)) {
+    return true;
+  }
   if (typeof stripeError.message === "string" && /promotion code|discount|coupon/i.test(stripeError.message)) {
     return true;
   }
   return false;
 }
 
-function resolvePromotionCodeId(promoCode?: string) {
-  if (!promoCode || !configuredPromoCode || !configuredStripePromotionCodeId) return undefined;
-  return promoCode.trim().toUpperCase() === configuredPromoCode
-    ? configuredStripePromotionCodeId
-    : undefined;
+type PromotionResolution = {
+  promotionCodeId?: string;
+  invalid: boolean;
+  lookupFailed: boolean;
+};
+
+async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionResolution> {
+  const trimmed = promoCode?.trim();
+  if (!trimmed) return { invalid: false, lookupFailed: false };
+
+  if (configuredPromoCode && configuredStripePromotionCodeId && trimmed.toUpperCase() === configuredPromoCode) {
+    return { promotionCodeId: configuredStripePromotionCodeId, invalid: false, lookupFailed: false };
+  }
+
+  if (!stripe) {
+    return { invalid: false, lookupFailed: true };
+  }
+
+  try {
+    const list = await stripe.promotionCodes.list({
+      code: trimmed,
+      active: true,
+      limit: 10,
+    });
+
+    const matched = list.data.find((item) =>
+      item.active &&
+      item.coupon?.valid !== false &&
+      typeof item.code === "string" &&
+      item.code.trim().toUpperCase() === trimmed.toUpperCase(),
+    );
+
+    if (!matched?.id) {
+      return { invalid: true, lookupFailed: false };
+    }
+
+    return { promotionCodeId: matched.id, invalid: false, lookupFailed: false };
+  } catch (error) {
+    console.error("Promotion code lookup failed", error);
+    return { invalid: false, lookupFailed: true };
+  }
 }
+
+type CheckoutSessionResult = {
+  url: string | null;
+  discountRejected: boolean;
+};
 
 async function createCheckoutSession(
   plan: CheckoutPlan,
   mapId?: string,
   promotionCodeId?: string,
-) {
+): Promise<CheckoutSessionResult> {
   if (!stripe) {
     throw new Error("Stripe not configured");
   }
@@ -135,6 +180,7 @@ async function createCheckoutSession(
   };
 
   let session: Stripe.Checkout.Session;
+  let discountRejected = false;
   try {
     session = await stripe.checkout.sessions.create(sessionParams);
   } catch (error) {
@@ -150,10 +196,11 @@ async function createCheckoutSession(
       allow_promotion_codes: plan !== "subscription",
       discounts: undefined,
     };
+    discountRejected = true;
     session = await stripe.checkout.sessions.create(fallbackParams);
   }
 
-  return session.url ?? null;
+  return { url: session.url ?? null, discountRejected };
 }
 
 export async function GET(req: NextRequest) {
@@ -171,10 +218,13 @@ export async function GET(req: NextRequest) {
       : "single";
   const mapId = mapParam ? mapParam.slice(0, 120) : undefined;
   const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
-  const promotionCodeId = plan === "subscription" ? undefined : resolvePromotionCodeId(promoCodeParam);
+  const promotion = plan === "subscription"
+    ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
+    : await resolvePromotionCodeId(promoCodeParam);
+  const promotionCodeId = promotion.invalid ? undefined : promotion.promotionCodeId;
 
   try {
-    const sessionUrl = await createCheckoutSession(plan, mapId, promotionCodeId);
+    const { url: sessionUrl } = await createCheckoutSession(plan, mapId, promotionCodeId);
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
@@ -218,9 +268,29 @@ export async function POST(req: NextRequest) {
       // ignore missing/invalid body
     }
 
-    const promotionCodeId = plan === "subscription" ? undefined : resolvePromotionCodeId(promoCode);
-    const sessionUrl = await createCheckoutSession(plan, mapId, promotionCodeId);
-    return NextResponse.json({ url: sessionUrl });
+    const promotion = plan === "subscription"
+      ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
+      : await resolvePromotionCodeId(promoCode);
+    if (promoCode && promotion.invalid) {
+      return NextResponse.json(
+        { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
+        { status: 400 },
+      );
+    }
+
+    const session = await createCheckoutSession(plan, mapId, promotion.promotionCodeId);
+    if (promoCode && session.discountRejected) {
+      return NextResponse.json(
+        { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json({
+      url: session.url,
+      promoApplied: Boolean(promotion.promotionCodeId) && !session.discountRejected,
+      promoLookupFailed: promoCode ? promotion.lookupFailed : false,
+    });
   } catch (err) {
     console.error("Stripe checkout error", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });

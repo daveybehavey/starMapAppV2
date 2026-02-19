@@ -65,7 +65,7 @@ export type VisibleStarParams = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: string): Date | null => {
+export const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: string): Date | null => {
   const [yearRaw, monthRaw, dayRaw] = dateStr.split("-").map(Number);
   if (!yearRaw || !monthRaw || !dayRaw) return null;
   const [hourRaw, minuteRaw] = timeStr.split(":").map(Number);

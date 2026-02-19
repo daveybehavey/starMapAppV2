@@ -799,9 +799,18 @@ export function EditorExperience({
       };
 
       const res = await fetch("/api/checkout", checkoutInit);
-      if (!res.ok) throw new Error("checkout failed");
-      const data = (await res.json()) as { url?: string };
-      if (data.url) {
+      const data = (await res.json().catch(() => null)) as {
+        url?: string;
+        error?: string;
+        code?: string;
+      } | null;
+      if (!res.ok) {
+        if (data?.code === "invalid_promotion_code") {
+          throw new Error("invalid_promotion_code");
+        }
+        throw new Error(data?.error ?? "checkout failed");
+      }
+      if (data?.url) {
         trackFunnelStep("checkout_redirected", {
           source: previewSource,
           plan,
@@ -815,10 +824,15 @@ export function EditorExperience({
       throw new Error("no url");
     } catch (err) {
       console.error(err);
-      setCheckoutError("Checkout is unavailable right now. Please try again shortly.");
+      const reason = (err as Error)?.message ?? "unknown";
+      const checkoutErrorMessage =
+        reason === "invalid_promotion_code"
+          ? "That promo code is invalid or expired. Try another code."
+          : "Checkout is unavailable right now. Please try again shortly.";
+      setCheckoutError(checkoutErrorMessage);
       track("checkout_failed", {
         source: previewSource,
-        reason: (err as Error)?.message ?? "unknown",
+        reason,
         plan,
         promoApplied: Boolean(promoCode),
         experiment: PAYWALL_COPY_EXPERIMENT,
@@ -1635,6 +1649,7 @@ export function EditorExperience({
                                 </button>
                               {!collapsedCards.advanced && (
                                 <AdvancedPanel
+                                  selectedStyle={selectedStyle}
                                   renderOptions={renderOptions}
                                   setRenderOptions={setRenderOptions}
                                   previewFidelity={previewFidelity}
