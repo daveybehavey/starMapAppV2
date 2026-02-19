@@ -808,6 +808,9 @@ export function EditorExperience({
         if (data?.code === "invalid_promotion_code") {
           throw new Error("invalid_promotion_code");
         }
+        if (data?.code === "promotion_lookup_failed") {
+          throw new Error("promotion_lookup_failed");
+        }
         throw new Error(data?.error ?? "checkout failed");
       }
       if (data?.url) {
@@ -828,6 +831,8 @@ export function EditorExperience({
       const checkoutErrorMessage =
         reason === "invalid_promotion_code"
           ? "That promo code is invalid or expired. Try another code."
+          : reason === "promotion_lookup_failed"
+            ? "We couldn't verify your promo code right now. Please try again in a moment."
           : "Checkout is unavailable right now. Please try again shortly.";
       setCheckoutError(checkoutErrorMessage);
       track("checkout_failed", {

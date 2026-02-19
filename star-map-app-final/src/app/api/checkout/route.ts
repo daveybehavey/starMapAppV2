@@ -95,6 +95,7 @@ async function createCheckoutSession(
   plan: CheckoutPlan,
   mapId?: string,
   promotionCodeId?: string,
+  fallbackOnDiscountError = true,
 ): Promise<CheckoutSessionResult> {
   if (!stripe) {
     throw new Error("Stripe not configured");
@@ -184,7 +185,7 @@ async function createCheckoutSession(
   try {
     session = await stripe.checkout.sessions.create(sessionParams);
   } catch (error) {
-    if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error)) {
+    if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error) || !fallbackOnDiscountError) {
       throw error;
     }
     console.warn("Checkout promo code rejected by Stripe; retrying without auto-applied discount.", {
@@ -277,8 +278,19 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    if (promoCode && promotion.lookupFailed) {
+      return NextResponse.json(
+        { error: "Could not verify promotion code. Please try again.", code: "promotion_lookup_failed" },
+        { status: 503 },
+      );
+    }
 
-    const session = await createCheckoutSession(plan, mapId, promotion.promotionCodeId);
+    const session = await createCheckoutSession(
+      plan,
+      mapId,
+      promotion.promotionCodeId,
+      !promoCode,
+    );
     if (promoCode && session.discountRejected) {
       return NextResponse.json(
         { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
