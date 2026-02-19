@@ -19,6 +19,7 @@ function parseArgs(argv) {
     headless: true,
     out: "reports/live-conversion-qa.json",
     createPromo: true,
+    forcePromoField: false,
     checkoutOnly: false,
     promoCode: (process.env.QA_PROMO_CODE || "").trim(),
   };
@@ -53,6 +54,10 @@ function parseArgs(argv) {
       args.checkoutOnly = true;
       continue;
     }
+    if (token === "--promo-field") {
+      args.forcePromoField = true;
+      continue;
+    }
     if (token === "--help" || token === "-h") {
       args.help = true;
     }
@@ -62,9 +67,11 @@ function parseArgs(argv) {
 
 function usage() {
   return `Usage:
-  node scripts/live-conversion-qa.mjs [--site https://starmapco.com] [--out reports/live-conversion-qa.json] [--headed] [--no-promo] [--promo-code CODE] [--checkout-only]
+  node scripts/live-conversion-qa.mjs [--site https://starmapco.com] [--out reports/live-conversion-qa.json] [--headed] [--no-promo] [--promo-code CODE] [--promo-field] [--checkout-only]
 
 Notes:
+  - By default, promo QA uses a pre-discounted Checkout Session for stability.
+  - Use --promo-field to force testing Stripe's promo input field directly.
   - --promo-code uses an existing Stripe promo code (recommended for stable live QA)
   - QA_PROMO_CODE env var can provide a default promo code
 `;
@@ -80,10 +87,19 @@ async function waitForPaidVerification(site, sessionId, timeoutMs = 90_000) {
         cache: "no-store",
       });
       const body = await res.json();
-      attempts.push({ at: new Date().toISOString(), status: res.status, body });
+      const retryAfterRaw = res.headers.get("retry-after");
+      const retryAfterSeconds = retryAfterRaw ? Number.parseInt(retryAfterRaw, 10) : NaN;
+      attempts.push({
+        at: new Date().toISOString(),
+        status: res.status,
+        retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined,
+        body,
+      });
       if (res.ok && body?.paid) return { paid: true, attempts };
       if (res.status === 429) {
-        nextDelayMs = 7000;
+        nextDelayMs = Number.isFinite(retryAfterSeconds)
+          ? Math.max(3000, retryAfterSeconds * 1000 + 250)
+          : 12_500;
       } else {
         nextDelayMs = 2500;
       }
@@ -400,26 +416,43 @@ async function run() {
       }
 
       if (promo?.code) {
-        const promoResult = await applyPromoCode(page, promo.code);
-        report.stripe.promoApply = promoResult;
-        if (!promoResult.ok) {
-          if (!promo.promotionCodeId) {
-            throw new Error("Promo code remained invalid on Stripe Checkout");
-          }
-          const fallbackSession = await createDiscountedCheckoutSession(
+        if (promo.promotionCodeId && !args.forcePromoField) {
+          const discountedSession = await createDiscountedCheckoutSession(
             stripe,
             args.site,
             promo.promotionCodeId,
           );
-          report.steps.push("Promo field failed; switched to discounted fallback checkout session");
-          report.stripe.fallbackCheckoutSessionId = fallbackSession.id;
-          await page.goto(fallbackSession.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+          report.steps.push("Opened pre-discounted checkout session");
+          report.stripe.discountedCheckoutSessionId = discountedSession.id;
+          await page.goto(discountedSession.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
           await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
-          if (await emailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
-            await emailInput.fill(qaEmail);
+          const discountedEmailInput = page.locator("input[type='email'], input[name='email']").first();
+          if (await discountedEmailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
+            await discountedEmailInput.fill(qaEmail);
           }
         } else {
-          report.steps.push("Applied promo code");
+          const promoResult = await applyPromoCode(page, promo.code);
+          report.stripe.promoApply = promoResult;
+          if (!promoResult.ok) {
+            if (!promo.promotionCodeId) {
+              throw new Error("Promo code remained invalid on Stripe Checkout");
+            }
+            const fallbackSession = await createDiscountedCheckoutSession(
+              stripe,
+              args.site,
+              promo.promotionCodeId,
+            );
+            report.steps.push("Promo field failed; switched to discounted fallback checkout session");
+            report.stripe.fallbackCheckoutSessionId = fallbackSession.id;
+            await page.goto(fallbackSession.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+            await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
+            const fallbackEmailInput = page.locator("input[type='email'], input[name='email']").first();
+            if (await fallbackEmailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
+              await fallbackEmailInput.fill(qaEmail);
+            }
+          } else {
+            report.steps.push("Applied promo code");
+          }
         }
       }
 
