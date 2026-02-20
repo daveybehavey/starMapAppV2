@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-const title = "Personalized Star Map Birthday Gift - Capture the Stars on Their Special Day | StarMapCo Blog";
+const title = "Personalized Birthday Star Map Gift Guide";
 const description =
   "Searching for a unique birthday present? Learn how a personalized star map birthday gift recreates the night sky from their birth date, making it a thoughtful, custom keepsake for any age.";
 const ogImage = "https://starmapco.com/custom-star-map-anniversary.webp";

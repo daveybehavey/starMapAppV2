@@ -42,12 +42,14 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <a
               href="/api/checkout?plan=single"
+              rel="nofollow"
               className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/15"
             >
               Single {priceLabels.single}
             </a>
             <a
               href="/api/checkout?plan=pack3"
+              rel="nofollow"
               className="rounded-full border border-amber-300/40 bg-amber-300/15 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-amber-300/70 hover:bg-amber-300/20"
             >
               3-pack {priceLabels.pack3}
@@ -55,6 +57,7 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
             </a>
             <a
               href="/api/checkout?plan=subscription"
+              rel="nofollow"
               className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/15"
             >
               Unlimited {priceLabels.subscription}/mo

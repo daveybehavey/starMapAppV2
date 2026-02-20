@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-const title = "Valentine’s Day Star Map Gift Guide | StarMapCo";
+const title = "Valentine's Day Star Map Gift Guide";
 const description =
   "This Valentine's Day, give a present that feels cosmic—custom star map art that mirrors the sky from a meaningful moment. Discover ideas, personalization tips, and delivery timing to wow your partner.";
 const ogImage = "https://starmapco.com/og-valentines.svg";

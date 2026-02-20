@@ -4,7 +4,7 @@ import Link from "next/link";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
-const title = "Astronomy Behind Star Maps - How Science Makes Them Accurate | StarMapCo Blog";
+const title = "Astronomy Behind Star Maps: Science and Accuracy";
 const description =
   "Curious about the astronomy behind star maps? Explore how real data from catalogs and calculations create precise night sky recreations for custom gifts.";
 const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;

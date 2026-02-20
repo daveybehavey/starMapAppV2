@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-const title = "Custom Star Map for Anniversary: A Timeless Romantic Gift | StarMapCo";
+const title = "Custom Star Map for Anniversary Ideas";
 const description =
   "Discover why a custom star map for anniversary moments is one of the most romantic, personal, and unforgettable gifts you can give. Capture your special night sky.";
 const ogImage = "https://starmapco.com/custom-star-map-anniversary.webp";

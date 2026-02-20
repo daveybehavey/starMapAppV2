@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-const title = "Custom Star Maps for Weddings: How to Capture Your Night Sky | StarMapCo Blog";
+const title = "Custom Star Maps for Weddings Guide";
 const description =
   "Learn how to create a personalized star map for your wedding day, from choosing the exact time and location to styling and printing a keepsake-worthy design.";
 const ogImage = "https://starmapco.com/custom-star-map-anniversary.webp";

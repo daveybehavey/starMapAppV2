@@ -4,6 +4,7 @@ import Link from "next/link";
 export type BlogPost = {
   slug: string;
   title: string;
+  seoTitle?: string;
   description: string;
   date: string;
   keywords: string[];
@@ -17,6 +18,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "most-meaningful-valentines-day-gift-custom-star-map",
     title: "The Most Meaningful Valentine's Day Gift: A Custom Star Map of Your Love",
+    seoTitle: "Valentine's Day Star Map Gift Ideas",
     description:
       "Looking for a meaningful Valentine's Day gift? Discover why a custom star map is a romantic, personalized keepsake that captures your story under the stars.",
     date: "2026-02-02",
@@ -203,6 +205,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "custom-star-map-milestones-guide",
     title: "Custom Star Map Milestones Guide: Preserve Life's Moments With Meaningful Personalization",
+    seoTitle: "Custom Star Map Milestones Guide",
     description:
       "A step-by-step guide to creating a custom star map that captures engagements, graduations, and memorials, with astronomy basics and personalization ideas.",
     date: "2026-01-24",
@@ -373,6 +376,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "custom-star-maps-for-weddings",
     title: "Custom Star Maps for Weddings: How to Capture Your Night Sky",
+    seoTitle: "Wedding Star Map Guide",
     description:
       "Learn how to create a personalized star map for your wedding day, from choosing location and time to styling and printing.",
     date: "2024-06-01",
@@ -433,6 +437,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "custom-star-map-for-anniversary",
     title: "Custom Star Map for Anniversary: A Timeless Romantic Gift",
+    seoTitle: "Anniversary Star Map Gift Guide",
     description:
       "Discover why a custom star map for anniversary moments is one of the most romantic, personal, and unforgettable gifts you can give.",
     date: "2025-12-31",
@@ -459,6 +464,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "personalized-star-map-birthday-gift",
     title: "Personalized Star Map Birthday Gift - Capture the Stars on Their Special Day",
+    seoTitle: "Birthday Star Map Gift Guide",
     description:
       "A personalized star map birthday gift recreates the night sky from their birth date, time, and location to create a meaningful keepsake.",
     date: "2025-12-31",
@@ -480,6 +486,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "astronomy-behind-star-maps",
     title: "Astronomy Behind Star Maps - How Science Makes Them Accurate",
+    seoTitle: "Astronomy Behind Star Maps",
     description:
       "Explore how real data from catalogs and precise calculations create accurate custom star maps for gifts and education.",
     date: "2025-12-31",
@@ -496,6 +503,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "choose-date-location-custom-star-map",
     title: "Choose Date Location Custom Star Map - Tips for Perfect Accuracy",
+    seoTitle: "Choose Date and Location for a Star Map",
     description:
       "How to pick the right date and location for an accurate and meaningful custom star map, with tips on timing, coordinates, and common pitfalls.",
     date: "2025-12-31",
@@ -516,6 +524,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "new-year-star-map",
     title: "Celebrating the New Year Under the Stars: A Meaningful Way to Begin Again",
+    seoTitle: "New Year Star Map Ideas",
     description:
       "Capture the exact New Year sky with a custom star map—preserve the moment midnight struck and start the year with a keepsake that lasts.",
     date: "2025-01-01",
@@ -682,6 +691,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "meaningful-dates-star-map",
     title: "The Most Meaningful Dates to Turn Into a Star Map (And Why They Matter)",
+    seoTitle: "Meaningful Dates for a Star Map",
     description:
       "A guide to the most meaningful life moments to turn into a star map, and why those dates matter.",
     date: "2026-01-19",
@@ -844,6 +854,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "mothers-day-star-map-gift-ideas",
     title: "Mother's Day Star Map Gift Ideas: A Personal Sky She'll Keep Forever",
+    seoTitle: "Mother's Day Star Map Gift Ideas",
     description:
       "Need a Mother's Day gift that feels personal? A custom star map captures the night she became a mom or any milestone worth remembering.",
     date: "2026-02-12",
@@ -924,6 +935,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "fathers-day-star-map-gift-ideas",
     title: "Father's Day Star Map Gift Ideas: Honor the Night He Became Dad",
+    seoTitle: "Father's Day Star Map Gift Ideas",
     description:
       "Looking for a Father's Day gift with meaning? A custom star map celebrates the night he became a dad or another milestone worth honoring.",
     date: "2026-02-12",
@@ -1000,6 +1012,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "graduation-star-map-gift",
     title: "Graduation Star Map Gift: Celebrate the Night They Crossed the Stage",
+    seoTitle: "Graduation Star Map Gift Ideas",
     description:
       "A graduation star map captures the exact night of the ceremony. Personalized, accurate, and ready to print.",
     date: "2026-02-12",

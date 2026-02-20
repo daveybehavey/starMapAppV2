@@ -26,6 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = getPost(slug);
   if (!post) return {};
+  const seoTitle = post.seoTitle ?? post.title;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
   const url = `${siteUrl}/blog/${slug}`;
@@ -36,12 +37,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     : `${siteUrl}/custom-star-map-anniversary.png`;
 
   return {
-    title: post.title,
+    title: seoTitle,
     description: post.description,
     keywords: post.keywords,
     alternates: { canonical: url },
     openGraph: {
-      title: post.title,
+      title: seoTitle,
       description: post.description,
       url,
       type: "article",
@@ -57,7 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: post.title,
+      title: seoTitle,
       description: post.description,
       images: [ogImageUrl],
     },

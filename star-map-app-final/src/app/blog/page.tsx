@@ -5,7 +5,7 @@ import Link from "next/link";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
 export const metadata: Metadata = {
-  title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
+  title: "Blog: Custom Star Map Guides",
   description:
     "Read our blog for ideas on Valentine's Day, Mother's Day, Father's Day, graduation, and wedding star maps, plus astronomy tips.",
   keywords: [
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: `${siteUrl}/blog` },
   openGraph: {
-    title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
+    title: "Blog: Custom Star Map Guides",
     description:
       "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
     images: [
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
-    title: "StarMapCo Blog | Guides & Inspiration for Custom Star Maps",
+    title: "Blog: Custom Star Map Guides",
     description:
       "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
     images: [`${siteUrl}/custom-star-map-anniversary.webp`],

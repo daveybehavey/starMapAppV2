@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-const title = "Choose Date Location Custom Star Map - Tips for Perfect Accuracy | StarMapCo Blog";
+const title = "Choose Date and Location for a Custom Star Map";
 const description =
   "Learn how to choose date location custom star map details for the most accurate and meaningful result, including tips for special occasions.";
 const ogImage = "https://starmapco.com/custom-star-map-anniversary.webp";
