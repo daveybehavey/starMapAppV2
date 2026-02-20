@@ -6,7 +6,7 @@ import { formatPrice, getPricingTiers } from "@/lib/pricing";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
 export const metadata: Metadata = {
-  title: "Custom Star Map & Constellation Map",
+  title: "StarMapCo Custom Star Map & Constellation Map",
   description:
     "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo.",
   alternates: { canonical: `${siteUrl}/` },

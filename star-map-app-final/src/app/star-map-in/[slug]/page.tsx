@@ -6,6 +6,7 @@ import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
+import { isIndexableLocationSlug } from "@/data/seoIndexing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -20,7 +21,9 @@ type PageProps = {
 const getLocation = (slug: string) => seoLocations.find((item) => item.slug === slug);
 
 export function generateStaticParams() {
-  return seoLocations.map((location) => ({ slug: location.slug }));
+  return seoLocations
+    .filter((location) => isIndexableLocationSlug(location.slug))
+    .map((location) => ({ slug: location.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -28,11 +31,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const location = getLocation(slug);
   if (!location) return {};
   const display = formatLocationDisplay(location);
+  const shouldIndex = isIndexableLocationSlug(location.slug);
 
   return {
     title: `Star Map in ${display}`,
     description: `Create a custom star map in ${display}. Capture the exact night sky from your date and location with an instant preview.`,
     alternates: { canonical: `${siteUrl}/star-map-in/${location.slug}` },
+    robots: shouldIndex ? undefined : { index: false, follow: true },
     openGraph: {
       title: `Star Map in ${display} | StarMapCo`,
       description: `Create a custom star map in ${display}. Capture the exact night sky from your date and location with an instant preview.`,

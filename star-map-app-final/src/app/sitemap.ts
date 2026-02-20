@@ -2,6 +2,11 @@ import type { MetadataRoute } from "next";
 import { blogPosts } from "@/lib/blogPosts";
 import { seoLocations } from "@/data/seoLocations";
 import { seoOccasions } from "@/data/seoOccasions";
+import {
+  getCanonicalOccasionPath,
+  isIndexableLocationSlug,
+  isIndexableOccasionSlug,
+} from "@/data/seoIndexing";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
 
@@ -132,19 +137,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const locationEntries: MetadataRoute.Sitemap = seoLocations.map((location) => ({
-    url: `${baseUrl}/star-map-in/${location.slug}`,
-    lastModified: now,
-    changeFrequency: "monthly",
-    priority: 0.6,
-  }));
+  const locationEntries: MetadataRoute.Sitemap = seoLocations
+    .filter((location) => isIndexableLocationSlug(location.slug))
+    .map((location) => ({
+      url: `${baseUrl}/star-map-in/${location.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }));
 
-  const occasionEntries: MetadataRoute.Sitemap = seoOccasions.map((occasion) => ({
-    url: `${baseUrl}/star-map-for/${occasion.slug}`,
-    lastModified: now,
-    changeFrequency: "monthly",
-    priority: 0.6,
-  }));
+  const occasionEntries: MetadataRoute.Sitemap = seoOccasions
+    .filter((occasion) => isIndexableOccasionSlug(occasion.slug))
+    .filter((occasion) => !getCanonicalOccasionPath(occasion.slug))
+    .map((occasion) => ({
+      url: `${baseUrl}/star-map-for/${occasion.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }));
 
   return [...staticEntries, ...locationEntries, ...occasionEntries, ...blogEntries];
 }

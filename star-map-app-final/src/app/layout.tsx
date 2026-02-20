@@ -15,10 +15,14 @@ const playfair = Playfair_Display({
 export const revalidate = 3600;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const socialProfiles = (process.env.NEXT_PUBLIC_SOCIAL_LINKS ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter((value) => /^https?:\/\//i.test(value));
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Custom Star Map & Constellation Map | StarMapCo",
+    default: "StarMapCo | Custom Star Map & Constellation Map",
     template: "%s | StarMapCo",
   },
   description:
@@ -78,6 +82,14 @@ const siteSchema = {
       url: siteUrl,
       logo: `${siteUrl}/favicon.ico`,
       email: "support@starmapco.com",
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          contactType: "customer support",
+          email: "support@starmapco.com",
+        },
+      ],
+      ...(socialProfiles.length ? { sameAs: socialProfiles } : {}),
     },
     {
       "@type": "WebSite",
@@ -99,9 +111,9 @@ export default function RootLayout({
           {children}
         </div>
         <footer className="bg-[rgba(247,241,227,0.92)] px-6 py-4 text-sm text-neutral-800 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
-          <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>© {new Date().getFullYear()} StarMapCo</span>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
               <Link href="/star-map-gallery" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Gallery
               </Link>
@@ -117,6 +129,9 @@ export default function RootLayout({
               <Link href="/returns" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Returns &amp; Refunds
               </Link>
+              <a href="mailto:support@starmapco.com" className="font-semibold text-midnight hover:underline">
+                Contact
+              </a>
             </div>
           </div>
         </footer>

@@ -95,13 +95,13 @@ export default function StarMapGiftIdeasPage() {
           <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
             <h3 className="text-sm font-semibold text-midnight">1) Choose the occasion</h3>
             <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-              <Link href="/star-map-for/anniversary" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link href="/anniversary" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
                 Anniversary
               </Link>
-              <Link href="/star-map-for/wedding" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link href="/wedding" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
                 Wedding
               </Link>
-              <Link href="/star-map-for/birthday" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link href="/birthday" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
                 Birthday
               </Link>
               <Link href="/star-map-for/graduation" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">

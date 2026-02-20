@@ -1,6 +1,11 @@
 # Sitemap Health Check
 
-Checks every URL in your sitemap and fails on any non-2xx response.
+Checks every URL in your sitemap and fails when any of these are true:
+
+- URL returns non-2xx
+- sitemap includes parameterized URLs (`?foo=bar`)
+- canonical tag is missing or does not match the sitemap URL
+- page is in sitemap but has `noindex` in robots meta / `x-robots-tag`
 
 ## Run locally
 
@@ -18,6 +23,12 @@ Strict mode (also fail on redirects):
 
 ```bash
 npm run qa:sitemap-health -- --fail-on-redirect
+```
+
+Skip on-page canonical/robots checks (response status only):
+
+```bash
+npm run qa:sitemap-health -- --skip-onpage
 ```
 
 ## CI

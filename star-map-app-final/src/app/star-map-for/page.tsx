@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import { seoOccasions } from "@/data/seoOccasions";
+import { isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -20,9 +21,8 @@ const featuredOccasionSlugs = [
   "mothers-day",
   "fathers-day",
 ];
-const featuredOccasions = seoOccasions.filter((occasion) =>
-  featuredOccasionSlugs.includes(occasion.slug),
-);
+const featuredOccasions = seoOccasions.filter((occasion) => featuredOccasionSlugs.includes(occasion.slug));
+const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasionSlug(occasion.slug));
 
 export const metadata: Metadata = {
   title: "Star Map for Occasions",
@@ -61,7 +61,7 @@ export default function StarMapForOccasionsPage() {
           {featuredOccasions.map((occasion) => (
             <Link
               key={occasion.slug}
-              href={`/star-map-for/${occasion.slug}`}
+              href={resolveOccasionIntentPath(occasion.slug)}
               className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
             >
               {occasion.label}
@@ -73,13 +73,13 @@ export default function StarMapForOccasionsPage() {
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Choose your occasion</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Each page includes tailored copy, FAQs, and a direct path into the editor.
+          Start with the highest-intent pages, each with a direct path into the editor.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          {seoOccasions.map((occasion) => (
+          {indexableOccasions.map((occasion) => (
             <Link
               key={occasion.slug}
-              href={`/star-map-for/${occasion.slug}`}
+              href={resolveOccasionIntentPath(occasion.slug)}
               className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
             >
               {occasion.label}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
+import { isIndexableLocationSlug } from "@/data/seoIndexing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -29,6 +30,8 @@ export const metadata: Metadata = {
 };
 
 export default function StarMapByCityPage() {
+  const indexableLocations = seoLocations.filter((location) => isIndexableLocationSlug(location.slug));
+
   return (
     <main className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -46,7 +49,7 @@ export default function StarMapByCityPage() {
           Each page includes tailored examples, FAQs, and a direct path into the editor.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          {seoLocations.map((location) => (
+          {indexableLocations.map((location) => (
             <Link
               key={location.slug}
               href={`/star-map-in/${location.slug}`}

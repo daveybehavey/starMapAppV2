@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getOccasion, seoOccasions } from "@/data/seoOccasions";
+import { getCanonicalOccasionPath, isIndexableOccasionSlug } from "@/data/seoIndexing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -17,18 +18,29 @@ type PageProps = {
 };
 
 export function generateStaticParams() {
-  return seoOccasions.map((occasion) => ({ slug: occasion.slug }));
+  return seoOccasions
+    .filter((occasion) => isIndexableOccasionSlug(occasion.slug))
+    .map((occasion) => ({ slug: occasion.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const canonicalPath = getCanonicalOccasionPath(slug);
+  if (canonicalPath) {
+    return {
+      robots: { index: false, follow: true },
+      alternates: { canonical: `${siteUrl}${canonicalPath}` },
+    };
+  }
   const occasion = getOccasion(slug);
   if (!occasion) return {};
+  const shouldIndex = isIndexableOccasionSlug(occasion.slug);
 
   return {
     title: `Star Map for ${occasion.label}`,
     description: `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with an instant preview.`,
     alternates: { canonical: `${siteUrl}/star-map-for/${occasion.slug}` },
+    robots: shouldIndex ? undefined : { index: false, follow: true },
     openGraph: {
       title: `Star Map for ${occasion.label} | StarMapCo`,
       description: `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with an instant preview.`,
@@ -42,6 +54,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function StarMapForOccasionPage({ params }: PageProps) {
   const { slug } = await params;
+  const canonicalPath = getCanonicalOccasionPath(slug);
+  if (canonicalPath) permanentRedirect(canonicalPath);
   const occasion = getOccasion(slug);
   if (!occasion) notFound();
 
