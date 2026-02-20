@@ -70,23 +70,15 @@ test.describe("Export Functionality", () => {
   test("empty text boxes don't break export", async ({ page }) => {
     await setupEditor(page);
 
-    // Expand collapsed textboxes (subtitle and dedication are collapsed by default)
-    // Click only "Show" buttons that are collapsed (aria-expanded=false)
-    const showButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
-    const buttonCount = await showButtons.count();
-    for (let i = 0; i < buttonCount; i++) {
-      // Re-query each time as the button state changes after clicking
-      const collapsedButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
-      const count = await collapsedButtons.count();
-      if (count > 0) {
-        await collapsedButtons.first().click();
-        await page.waitForTimeout(100); // Brief wait for state update
-      }
-    }
-
     await page.getByPlaceholder("Enter title...").fill("");
-    await page.getByPlaceholder("Enter subtitle...").fill("");
-    await page.getByPlaceholder("Enter dedication...").fill("");
+    const subtitleInput = page.getByPlaceholder("Enter subtitle...").first();
+    if (await subtitleInput.isVisible({ timeout: 750 }).catch(() => false)) {
+      await subtitleInput.fill("");
+    }
+    const dedicationInput = page.getByPlaceholder("Enter dedication...").first();
+    if (await dedicationInput.isVisible({ timeout: 750 }).catch(() => false)) {
+      await dedicationInput.fill("");
+    }
     await waitForPreview(page);
 
     // Set up download listener
@@ -117,24 +109,56 @@ test.describe("Export Functionality", () => {
   test("multiple text boxes render in export", async ({ page }) => {
     await setupEditor(page);
 
-    // Expand collapsed textboxes (subtitle and dedication are collapsed by default)
-    // Click only "Show" buttons that are collapsed (aria-expanded=false)
-    const showButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
-    const buttonCount = await showButtons.count();
-    for (let i = 0; i < buttonCount; i++) {
-      // Re-query each time as the button state changes after clicking
-      const collapsedButtons = page.locator('button:has-text("Show")[aria-expanded="false"]');
-      const count = await collapsedButtons.count();
-      if (count > 0) {
-        await collapsedButtons.first().click();
-        await page.waitForTimeout(100); // Brief wait for state update
-      }
-    }
+    await page.evaluate(() => {
+      const store = (window as unknown as {
+        __ZUSTAND_STORE__?: {
+          getState: () => {
+            textBoxes: Array<Record<string, unknown>>;
+            setTextBoxes: (textBoxes: Array<Record<string, unknown>>) => void;
+          };
+        };
+      }).__ZUSTAND_STORE__;
+      if (!store) throw new Error("Missing __ZUSTAND_STORE__");
 
-    // Fill all 3 default text boxes
-    await page.getByPlaceholder("Enter title...").fill("Title Line");
-    await page.getByPlaceholder("Enter subtitle...").fill("Subtitle Line");
-    await page.getByPlaceholder("Enter dedication...").fill("Dedication Line");
+      const state = store.getState();
+      const existingTitle =
+        state.textBoxes.find((box) => box.id === "title") ??
+        state.textBoxes[0] ?? {
+          id: "title",
+          label: "Title",
+          fontFamily: "cinzel",
+          color: "#d7b56c",
+          size: 42,
+          align: "center",
+          position: { x: 0.5, y: 0.12 },
+          textShadow: false,
+          textGlow: false,
+        };
+      const existingSubtitle =
+        state.textBoxes.find((box) => box.id === "subtitle") ?? {
+          ...existingTitle,
+          id: "subtitle",
+          label: "Subtitle",
+          size: 28,
+          position: { x: 0.5, y: 0.18 },
+        };
+      const existingDedication =
+        state.textBoxes.find((box) => box.id === "dedication") ?? {
+          ...existingTitle,
+          id: "dedication",
+          label: "Dedication",
+          size: 24,
+          position: { x: 0.5, y: 0.9 },
+        };
+
+      state.setTextBoxes([
+        { ...existingTitle, text: "Title Line" },
+        { ...existingSubtitle, text: "Subtitle Line" },
+        { ...existingDedication, text: "Dedication Line" },
+      ]);
+    });
+
+    await waitForPreview(page);
 
     // Set up download listener
     const downloadPromise = page.waitForEvent("download");

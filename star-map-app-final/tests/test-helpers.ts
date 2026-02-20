@@ -82,8 +82,15 @@ export const waitForPreview = async (page: Page) => {
 };
 
 export const applySampleMoment = async (page: Page) => {
+  await dismissOverlays(page);
   const sampleButton = page.getByRole("button", { name: /Try a sample moment/i }).first();
   await expect(sampleButton).toBeVisible({ timeout: 15000 });
-  await sampleButton.click();
+  await sampleButton.scrollIntoViewIfNeeded();
+  try {
+    await sampleButton.click({ timeout: 5000, noWaitAfter: true });
+  } catch {
+    // Fallback for animated/transitioning layouts in CI where Playwright actionability can be too strict.
+    await sampleButton.click({ force: true, noWaitAfter: true });
+  }
   await waitForPreview(page);
 };

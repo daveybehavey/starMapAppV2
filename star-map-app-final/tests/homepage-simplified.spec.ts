@@ -21,56 +21,44 @@ test.describe("Homepage with SimplifiedEditor", () => {
       fullPage: false,
     });
 
-    // Check "Make it yours" CTA is visible (from SimplifiedEditor)
-    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first();
-    await expect(makeItYoursBtn).toBeVisible({ timeout: 15000 });
+    // Hero quick-start form is rendered on homepage.
+    await expect(page.locator("#preview")).toBeVisible();
+    await expect(page.locator("#hero-date")).toBeVisible();
+    await expect(page.locator("#hero-location")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Preview your map/i })).toBeVisible();
 
-    // Check pricing cards are visible
-    await expect(page.getByText(/Single Map|One HD map/i).first()).toBeVisible();
-    await expect(page.getByText(/3-Pack/i).first()).toBeVisible();
-    await expect(page.getByText(/Unlimited/i).first()).toBeVisible();
+    // Pricing CTAs are visible and ready for direct checkout.
+    await expect(page.locator('a[href="/api/checkout?plan=single"]')).toBeVisible();
+    await expect(page.locator('a[href="/api/checkout?plan=pack3"]')).toBeVisible();
+    await expect(page.locator('a[href="/api/checkout?plan=subscription"]')).toBeVisible();
 
-    console.log("✓ Homepage loads with SimplifiedEditor in hero");
+    console.log("✓ Homepage loads with quick-start hero and pricing CTAs");
   });
 
   test("should allow customization from homepage", async ({ page }) => {
     test.setTimeout(60_000);
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    // Click "Make it yours"
-    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first();
-    const dateInput = page.locator("input[type='date']");
-    if (await dateInput.isDisabled().catch(() => false)) {
-      if (await makeItYoursBtn.isVisible({ timeout: 15000 }).catch(() => false)) {
-        await makeItYoursBtn.click();
-      }
-    }
-    await expect(dateInput).toBeEnabled({ timeout: 15000 });
+    await page.locator("#hero-date").fill("2024-06-01");
+    await page.locator("#hero-location").fill("Paris, France");
+    await page.getByRole("button", { name: /Preview your map/i }).click();
+    await page.waitForURL("**/editor**", { timeout: 20000 });
+    await expect(page.locator("#editor")).toBeVisible({ timeout: 20000 });
+    await expect(page).toHaveURL(/mode=quick/);
 
-    // Take screenshot after entering customization mode
+    // Take screenshot after navigation to editor
     await page.screenshot({
       path: "tests/screenshots/homepage_2_customizing.png",
       fullPage: false,
     });
 
-    // Check date input is now enabled
-    await expect(dateInput).toBeEnabled();
-
-    // Check style buttons are enabled
-    const vintageBtn = page.locator("button:has-text('Vintage')");
-    await expect(vintageBtn).toBeEnabled();
-
-    // Change style
-    await vintageBtn.click();
-    await expect(vintageBtn).toHaveAttribute("aria-checked", "true");
-
-    // Take screenshot after style change
+    // Take screenshot once editor is loaded
     await page.screenshot({
       path: "tests/screenshots/homepage_3_style_changed.png",
       fullPage: false,
     });
 
-    console.log("✓ Customization works from homepage");
+    console.log("✓ Homepage quick-start opens editor");
   });
 
   test("should have functional action buttons after location entry", async ({
@@ -79,34 +67,18 @@ test.describe("Homepage with SimplifiedEditor", () => {
     test.setTimeout(60_000);
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    // Enter customization mode
-    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i }).first();
-    const dateInput = page.locator("input[type='date']");
-    const editorVariant = await makeItYoursBtn.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!editorVariant) {
-      // Pricing-only hero variant (no inline editor). Assert pricing CTAs instead.
-      await expect(page.getByRole("button", { name: /one hd map|single map/i }).first()).toBeVisible();
-      await expect(page.getByRole("button", { name: /3-pack/i }).first()).toBeVisible();
-      await expect(page.getByRole("button", { name: /unlimited/i }).first()).toBeVisible();
-      console.log("✓ Pricing CTA variant detected on homepage");
-      return;
-    }
+    const singleLink = page.locator('a[href="/api/checkout?plan=single"]');
+    const packLink = page.locator('a[href="/api/checkout?plan=pack3"]');
+    const subscriptionLink = page.locator('a[href="/api/checkout?plan=subscription"]');
 
-    if (await dateInput.isDisabled().catch(() => false)) {
-      await makeItYoursBtn.click();
-    }
-    await expect(dateInput).toBeEnabled({ timeout: 15000 });
+    await expect(singleLink).toBeVisible();
+    await expect(packLink).toBeVisible();
+    await expect(subscriptionLink).toBeVisible();
 
-    // Check that Free preview button exists but is disabled (no location yet)
-    const freePreviewBtn = page.getByRole("button", { name: /free preview/i }).first();
-    await expect(freePreviewBtn).toBeVisible();
-    await expect(freePreviewBtn).toBeDisabled();
+    await expect(singleLink).toHaveText(/single/i);
+    await expect(packLink).toHaveText(/3-pack/i);
+    await expect(subscriptionLink).toHaveText(/unlimited/i);
 
-    // Check that HD button exists but is disabled
-    const hdBtn = page.getByRole("button", { name: /unlock hd|hd download/i }).first();
-    await expect(hdBtn).toBeVisible();
-    await expect(hdBtn).toBeDisabled();
-
-    console.log("✓ Action buttons are properly disabled until location is entered");
+    console.log("✓ Homepage checkout links are visible and correctly targeted");
   });
 });

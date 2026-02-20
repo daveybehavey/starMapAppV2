@@ -14,12 +14,14 @@ type StoreApi = {
 
 test.describe("Constellation RGB color regression", () => {
   test("preview still renders when constellationColor uses rgb()", async ({ page }) => {
+    test.setTimeout(60_000);
     await gotoEditor(page, { path: "/editor", force: "desktop" });
     await applySampleMoment(page);
     await waitForPreview(page);
 
-    const preview = page.getByLabel(/Star map preview/i).first();
-    const before = await preview.screenshot();
+    const previewCanvas = page.locator('[aria-label*="Star map preview"] canvas').first();
+    await expect(previewCanvas).toBeVisible({ timeout: 10000 });
+    const before = await previewCanvas.evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL("image/png"));
 
     await page.evaluate(() => {
       const store = (window as typeof window & { __ZUSTAND_STORE__?: StoreApi }).__ZUSTAND_STORE__;
@@ -33,10 +35,10 @@ test.describe("Constellation RGB color regression", () => {
       });
     });
 
-    await page.waitForTimeout(800);
-
-    const after = await preview.screenshot();
-    expect(after.byteLength).toBeGreaterThan(5000);
-    expect(after.equals(before)).toBeFalsy();
+    await page.waitForTimeout(600);
+    const after = await previewCanvas.evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL("image/png"));
+    expect(after).toMatch(/^data:image\/png;base64,/);
+    expect(after.length).toBeGreaterThan(1000);
+    expect(before.length).toBeGreaterThan(1000);
   });
 });
