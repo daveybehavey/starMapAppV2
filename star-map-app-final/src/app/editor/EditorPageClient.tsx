@@ -34,7 +34,7 @@ export default function EditorPageClient({ promoStatus, promoCode }: EditorPageC
 
   return (
     <EditorFontShell>
-      <main className="flex flex-col items-center px-6 py-4 md:px-8 md:py-8 lg:px-12 lg:py-0">
+      <main className="flex w-full flex-col items-center px-4 py-4 sm:px-6 md:px-8 md:py-8 lg:px-12 lg:py-0">
         {showPromo ? (
           <div className="mb-4 w-full max-w-4xl rounded-2xl border border-amber-200/60 bg-amber-50/90 px-4 py-3 text-sm font-semibold text-amber-900 shadow-sm">
             {promoMessage}
