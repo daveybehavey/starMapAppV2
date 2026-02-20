@@ -112,7 +112,9 @@ export default function RootLayout({
         </div>
         <footer className="bg-[rgba(247,241,227,0.92)] px-6 py-4 text-sm text-neutral-800 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
           <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>© {new Date().getFullYear()} StarMapCo</span>
+            <Link href="/" prefetch={false} className="font-semibold text-midnight hover:underline">
+              © {new Date().getFullYear()} StarMapCo
+            </Link>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
               <Link href="/star-map-gallery" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Gallery

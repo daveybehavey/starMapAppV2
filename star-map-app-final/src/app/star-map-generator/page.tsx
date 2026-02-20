@@ -84,12 +84,30 @@ export default function StarMapGeneratorPage() {
           Star map generators are commonly used for anniversaries, weddings, births, and memorials. Add a title, names, and a
           short dedication to make it personal.
         </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
-          <Link href="/constellation-map" className="text-amber-700 underline hover:text-amber-800">
+        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link
+            href="/constellation-map"
+            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
+          >
             Constellation map
           </Link>
-          <Link href="/star-map-poster" className="text-amber-700 underline hover:text-amber-800">
+          <Link
+            href="/star-map-poster"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
             Star map poster
+          </Link>
+          <Link
+            href="/star-map-for"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Occasion hub
+          </Link>
+          <Link
+            href="/star-map-in"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Location hub
           </Link>
         </div>
       </section>
@@ -99,12 +117,24 @@ export default function StarMapGeneratorPage() {
         <p className="text-sm text-neutral-800 sm:text-base">
           Browse real examples or explore curated gift ideas before you build your own.
         </p>
-        <div className="flex flex-wrap gap-3 text-sm font-semibold">
-          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
+        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link
+            href="/star-map-gallery"
+            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
+          >
             Star map gallery
           </Link>
-          <Link href="/star-map-gift-ideas" className="text-amber-700 underline hover:text-amber-800">
+          <Link
+            href="/star-map-gift-ideas"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
             Star map gift ideas
+          </Link>
+          <Link
+            href="/blog"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Blog
           </Link>
         </div>
       </section>

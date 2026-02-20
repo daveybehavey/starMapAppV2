@@ -79,6 +79,39 @@ export default function StarMapPosterPage() {
         </div>
       </section>
 
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">More ways to explore</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Start from curated hubs or jump to adjacent intent pages.
+        </p>
+        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link
+            href="/star-map-for"
+            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
+          >
+            Occasion hub
+          </Link>
+          <Link
+            href="/star-map-in"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Location hub
+          </Link>
+          <Link
+            href="/star-map-generator"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Star map generator
+          </Link>
+          <Link
+            href="/star-map-gallery"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Star map gallery
+          </Link>
+        </div>
+      </section>
+
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
