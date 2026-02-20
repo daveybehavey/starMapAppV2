@@ -10,27 +10,22 @@ import { formatPrice, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
-import {
-  styles,
-  fontOptions,
-  shapes,
-  shapeSymbols,
-  shapeSymbolScale,
-} from "@/lib/config";
+import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale } from "@/lib/config";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
-import {
-  getPaywallCopyVariant,
-  PAYWALL_COPY_EXPERIMENT,
-  type PaywallCopyVariant,
-} from "@/lib/experiments";
+import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
+  loading: () => (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-neutral-300 shadow-sm shadow-black/30">
+      Loading editor...
+    </div>
+  ),
 });
 
 const DateTimeControls = dynamic(() => import("@/components/DateTimeControls"), {
@@ -49,9 +44,7 @@ const LocationSearch = dynamic(() => import("@/components/LocationSearch"), {
 
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
   ssr: false,
-  loading: () => (
-    <div className="h-full w-full rounded-xl border border-white/10 bg-white/5" />
-  ),
+  loading: () => <div className="h-full w-full rounded-xl border border-white/10 bg-white/5" />,
 });
 
 const ProPresetsPanel = dynamic(
@@ -59,18 +52,15 @@ const ProPresetsPanel = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="hidden lg:block rounded-2xl border border-white/15 bg-white/5 p-3 shadow-sm shadow-black/30" />
+      <div className="hidden rounded-2xl border border-white/15 bg-white/5 p-3 shadow-sm shadow-black/30 lg:block" />
     ),
-  },
+  }
 );
 
-const AdvancedPanel = dynamic(
-  () => import("@/components/AdvancedPanel").then((mod) => mod.AdvancedPanel),
-  {
-    ssr: false,
-    loading: () => <div className="mt-2 h-40 rounded-xl border border-white/15 bg-white/5" />,
-  },
-);
+const AdvancedPanel = dynamic(() => import("@/components/AdvancedPanel").then((mod) => mod.AdvancedPanel), {
+  ssr: false,
+  loading: () => <div className="mt-2 h-40 rounded-xl border border-white/15 bg-white/5" />,
+});
 
 const DRAFT_KEY = "star-map-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
@@ -192,10 +182,10 @@ export function EditorExperience({
 
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => ({
     dateLocation: false,
-    textStyling: false,
-    style: false,
-    shape: false,
-    frame: false,
+    textStyling: true,
+    style: true,
+    shape: true,
+    frame: true,
     advanced: true,
   }));
   const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
@@ -225,7 +215,10 @@ export function EditorExperience({
       return null;
     }
   }, []);
-  const getCheckoutPromoCode = useCallback(() => queryPromoCode ?? readStoredPromoCode(), [queryPromoCode, readStoredPromoCode]);
+  const getCheckoutPromoCode = useCallback(
+    () => queryPromoCode ?? readStoredPromoCode(),
+    [queryPromoCode, readStoredPromoCode]
+  );
   const getPreviewSource = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -321,7 +314,7 @@ export function EditorExperience({
         setSelectedOccasion(null);
       }
     },
-    [selectedOccasion, setCustomOccasion, setDateTime, setSelectedOccasion],
+    [selectedOccasion, setCustomOccasion, setDateTime, setSelectedOccasion]
   );
 
   const handleLocationChange = useCallback(() => {
@@ -344,7 +337,7 @@ export function EditorExperience({
       setPaid(nextPaid);
       setCreditsRemaining(typeof data.creditsRemaining === "number" ? data.creditsRemaining : null);
       setCurrentPlan(
-        data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null,
+        data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null
       );
       return nextPaid;
     } catch {
@@ -521,7 +514,17 @@ export function EditorExperience({
     } catch {
       // ignore storage errors (e.g. private browsing)
     }
-  }, [aspectRatio, dateTime, location, renderOptions, restored, selectedOccasion, selectedStyle, shape, textBoxes]);
+  }, [
+    aspectRatio,
+    dateTime,
+    location,
+    renderOptions,
+    restored,
+    selectedOccasion,
+    selectedStyle,
+    shape,
+    textBoxes,
+  ]);
 
   const toggleCard = (id: string) =>
     setCollapsedCards((prev) => ({
@@ -538,8 +541,16 @@ export function EditorExperience({
       return;
     }
     setRevealed(true);
-    // Auto-collapse Date & Location after generating map
-    setCollapsedCards((prev) => ({ ...prev, dateLocation: true }));
+    // Shift into edit mode with a compact default panel state.
+    setCollapsedCards((prev) => ({
+      ...prev,
+      dateLocation: true,
+      textStyling: true,
+      style: true,
+      shape: true,
+      frame: true,
+      advanced: true,
+    }));
     track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
     trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
     if (typeof window !== "undefined") {
@@ -613,7 +624,7 @@ export function EditorExperience({
       link.href = url;
       link.click();
     },
-    [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes],
+    [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]
   );
 
   useEffect(() => {
@@ -735,129 +746,132 @@ export function EditorExperience({
       refreshPaidStatus,
       renderOptions.visualMode,
       revealed,
-    ],
+    ]
   );
 
-  const startCheckout = useCallback(async (plan: CheckoutPlan) => {
-    if (checkoutInFlightRef.current) return;
-    const previewSource = getPreviewSource() ?? "editor";
-    const promoCode = getCheckoutPromoCode();
-    try {
-      checkoutInFlightRef.current = true;
-      setCheckoutInFlight(true);
-      setCheckoutError(null);
-      track("checkout_started", {
-        visualMode: renderOptions.visualMode,
-        plan,
-        promoApplied: Boolean(promoCode),
-      });
-      trackFunnelStep("checkout_started", {
-        source: previewSource,
-        plan,
-        promoApplied: Boolean(promoCode),
-        experiment: PAYWALL_COPY_EXPERIMENT,
-        variant: paywallVariant,
-      });
-      let mapId: string | null = null;
+  const startCheckout = useCallback(
+    async (plan: CheckoutPlan) => {
+      if (checkoutInFlightRef.current) return;
+      const previewSource = getPreviewSource() ?? "editor";
+      const promoCode = getCheckoutPromoCode();
       try {
-        const recipe = buildRecipeFromState({
-          dateTime,
-          location,
-          textBoxes,
-          selectedStyle,
-          aspectRatio,
-          shape,
-          renderOptions,
+        checkoutInFlightRef.current = true;
+        setCheckoutInFlight(true);
+        setCheckoutError(null);
+        track("checkout_started", {
+          visualMode: renderOptions.visualMode,
+          plan,
+          promoApplied: Boolean(promoCode),
         });
-        const mapRes = await fetch("/api/maps", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(recipe),
-        });
-        if (mapRes.ok) {
-          const data = (await mapRes.json()) as { id?: string };
-          if (typeof data.id === "string" && data.id.trim()) {
-            mapId = data.id.trim();
-            try {
-              localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
-            } catch {
-              // ignore storage errors (e.g. private browsing)
-            }
-          }
-        }
-      } catch {
-        // Map persistence is best-effort; proceed to checkout even if it fails.
-      }
-
-      const checkoutPayload: { mapId?: string; plan: CheckoutPlan; promoCode?: string } = { plan };
-      if (mapId) checkoutPayload.mapId = mapId;
-      if (promoCode) checkoutPayload.promoCode = promoCode;
-      const checkoutInit: RequestInit = {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(checkoutPayload),
-      };
-
-      const res = await fetch("/api/checkout", checkoutInit);
-      const data = (await res.json().catch(() => null)) as {
-        url?: string;
-        error?: string;
-        code?: string;
-      } | null;
-      if (!res.ok) {
-        if (data?.code === "invalid_promotion_code") {
-          throw new Error("invalid_promotion_code");
-        }
-        if (data?.code === "promotion_lookup_failed") {
-          throw new Error("promotion_lookup_failed");
-        }
-        throw new Error(data?.error ?? "checkout failed");
-      }
-      if (data?.url) {
-        trackFunnelStep("checkout_redirected", {
+        trackFunnelStep("checkout_started", {
           source: previewSource,
           plan,
           promoApplied: Boolean(promoCode),
           experiment: PAYWALL_COPY_EXPERIMENT,
           variant: paywallVariant,
         });
-        window.location.href = data.url;
-        return;
+        let mapId: string | null = null;
+        try {
+          const recipe = buildRecipeFromState({
+            dateTime,
+            location,
+            textBoxes,
+            selectedStyle,
+            aspectRatio,
+            shape,
+            renderOptions,
+          });
+          const mapRes = await fetch("/api/maps", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(recipe),
+          });
+          if (mapRes.ok) {
+            const data = (await mapRes.json()) as { id?: string };
+            if (typeof data.id === "string" && data.id.trim()) {
+              mapId = data.id.trim();
+              try {
+                localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+              } catch {
+                // ignore storage errors (e.g. private browsing)
+              }
+            }
+          }
+        } catch {
+          // Map persistence is best-effort; proceed to checkout even if it fails.
+        }
+
+        const checkoutPayload: { mapId?: string; plan: CheckoutPlan; promoCode?: string } = { plan };
+        if (mapId) checkoutPayload.mapId = mapId;
+        if (promoCode) checkoutPayload.promoCode = promoCode;
+        const checkoutInit: RequestInit = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(checkoutPayload),
+        };
+
+        const res = await fetch("/api/checkout", checkoutInit);
+        const data = (await res.json().catch(() => null)) as {
+          url?: string;
+          error?: string;
+          code?: string;
+        } | null;
+        if (!res.ok) {
+          if (data?.code === "invalid_promotion_code") {
+            throw new Error("invalid_promotion_code");
+          }
+          if (data?.code === "promotion_lookup_failed") {
+            throw new Error("promotion_lookup_failed");
+          }
+          throw new Error(data?.error ?? "checkout failed");
+        }
+        if (data?.url) {
+          trackFunnelStep("checkout_redirected", {
+            source: previewSource,
+            plan,
+            promoApplied: Boolean(promoCode),
+            experiment: PAYWALL_COPY_EXPERIMENT,
+            variant: paywallVariant,
+          });
+          window.location.href = data.url;
+          return;
+        }
+        throw new Error("no url");
+      } catch (err) {
+        console.error(err);
+        const reason = (err as Error)?.message ?? "unknown";
+        const checkoutErrorMessage =
+          reason === "invalid_promotion_code"
+            ? "That promo code is invalid or expired. Try another code."
+            : reason === "promotion_lookup_failed"
+              ? "We couldn't verify your promo code right now. Please try again in a moment."
+              : "Checkout is unavailable right now. Please try again shortly.";
+        setCheckoutError(checkoutErrorMessage);
+        track("checkout_failed", {
+          source: previewSource,
+          reason,
+          plan,
+          promoApplied: Boolean(promoCode),
+          experiment: PAYWALL_COPY_EXPERIMENT,
+          variant: paywallVariant,
+        });
+        checkoutInFlightRef.current = false;
+        setCheckoutInFlight(false);
       }
-      throw new Error("no url");
-    } catch (err) {
-      console.error(err);
-      const reason = (err as Error)?.message ?? "unknown";
-      const checkoutErrorMessage =
-        reason === "invalid_promotion_code"
-          ? "That promo code is invalid or expired. Try another code."
-          : reason === "promotion_lookup_failed"
-            ? "We couldn't verify your promo code right now. Please try again in a moment."
-          : "Checkout is unavailable right now. Please try again shortly.";
-      setCheckoutError(checkoutErrorMessage);
-      track("checkout_failed", {
-        source: previewSource,
-        reason,
-        plan,
-        promoApplied: Boolean(promoCode),
-        experiment: PAYWALL_COPY_EXPERIMENT,
-        variant: paywallVariant,
-      });
-      checkoutInFlightRef.current = false;
-      setCheckoutInFlight(false);
-    }
-  }, [
-    aspectRatio,
-    dateTime,
-    location,
-    getPreviewSource,
-    getCheckoutPromoCode,
-    renderOptions,
-    selectedStyle,
-    shape,
-    textBoxes,
-    paywallVariant,
-  ]);
+    },
+    [
+      aspectRatio,
+      dateTime,
+      location,
+      getPreviewSource,
+      getCheckoutPromoCode,
+      renderOptions,
+      selectedStyle,
+      shape,
+      textBoxes,
+      paywallVariant,
+    ]
+  );
 
   const handleShare = useCallback(async () => {
     const recipe = buildRecipeFromState({
@@ -971,7 +985,7 @@ export function EditorExperience({
       <section
         ref={editorSectionRef}
         id="editor"
-        className="mx-auto w-full max-w-7xl lg:max-w-none py-12 sm:py-14 lg:py-12"
+        className="mx-auto w-full max-w-7xl py-12 sm:py-14 lg:max-w-none lg:py-12"
         data-force={forceViewport || "none"}
         data-is-desktop={String(isDesktop)}
       >
@@ -982,64 +996,87 @@ export function EditorExperience({
           </div>
         ) : isDesktop ? (
           <div key="desktop" data-component="desktop">
-            <div className="space-y-4 lg:h-full font-[var(--font-montserrat)] text-neutral-100 text-[13px]">
+            <div className="space-y-4 text-[13px] font-[var(--font-montserrat)] text-neutral-100 lg:h-full">
               {/* Header section - above the grid */}
               {(showGuidedForm || showEditor) && (
                 <div ref={inputsRef} className="space-y-3">
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#d7b56c]">Create your star map</p>
-                    <h2 className="text-3xl font-semibold text-white sm:text-4xl font-[var(--font-playfair)] tracking-tight">
-                      Design your sky in seconds
-                    </h2>
-                    <p className="text-base text-neutral-200 sm:text-lg">
-                      Start from a preset, fine-tune the details, and see a finished map before you unlock.
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleStartPreset}
-                        className="rounded-full border border-amber-200/40 bg-amber-100/10 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:border-amber-200/70 hover:bg-amber-100/20"
-                      >
-                        Start with a preset
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleStartScratch}
-                        className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
-                      >
-                        Start from scratch
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={applySampleMoment}
-                      className="w-fit text-xs font-semibold text-amber-200/80 underline decoration-amber-200/40 underline-offset-4 transition hover:text-amber-100"
-                    >
-                      Try a sample moment
-                    </button>
-                    <p className="text-xs text-neutral-300">
-                      Preset optional · Add date + location · Add a line of text → Preview
-                    </p>
+                    {showGuidedForm ? (
+                      <>
+                        <p className="text-xs font-semibold tracking-[0.25em] text-[#d7b56c] uppercase">
+                          Create your star map
+                        </p>
+                        <h2 className="text-3xl font-[var(--font-playfair)] font-semibold tracking-tight text-white sm:text-4xl">
+                          Design your sky in seconds
+                        </h2>
+                        <p className="text-base text-neutral-200 sm:text-lg">
+                          Start from a preset, fine-tune the details, and see a finished map before you
+                          unlock.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleStartPreset}
+                            className="rounded-full border border-amber-200/40 bg-amber-100/10 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:border-amber-200/70 hover:bg-amber-100/20"
+                          >
+                            Start with a preset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleStartScratch}
+                            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
+                          >
+                            Start from scratch
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={applySampleMoment}
+                          className="w-fit text-xs font-semibold text-amber-200/80 underline decoration-amber-200/40 underline-offset-4 transition hover:text-amber-100"
+                        >
+                          Try a sample moment
+                        </button>
+                        <p className="text-xs text-neutral-300">
+                          Preset optional · Add date + location · Add a line of text → Preview
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                        <div>
+                          <p className="text-[10px] font-semibold tracking-[0.22em] text-amber-200/80 uppercase">
+                            Editing mode
+                          </p>
+                          <p className="text-sm font-semibold text-white">Refine your map</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleStartScratch}
+                          className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
+                        >
+                          Start over
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div
                     ref={presetRailRef}
-                    className="hidden lg:block rounded-2xl border border-[#d7b56c]/15 bg-[#0b1024]/85 p-3 shadow-lg backdrop-blur-sm ring-1 ring-white/5"
+                    className="hidden rounded-2xl border border-[#d7b56c]/15 bg-[#0b1024]/85 p-3 shadow-lg ring-1 ring-white/5 backdrop-blur-sm lg:block"
                   >
                     <div className="mb-2 flex items-center justify-between">
                       <p className="text-xs font-semibold text-neutral-300">Choose an occasion (optional)</p>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-200">
+                        <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-neutral-200 uppercase">
                           Presets optional
                         </span>
                         {customOccasion && (
-                          <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-200">
+                          <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-neutral-200 uppercase">
                             Custom
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-2">
                       <div className="flex flex-wrap gap-1.5">
                         {occasionPresets.map((preset) => {
                           const occasionStyles = {
@@ -1073,7 +1110,7 @@ export function EditorExperience({
                               onClick={() => applyPreset(preset.id)}
                               className={`rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-95 ${
                                 occasionStyles[preset.id as keyof typeof occasionStyles]
-                              } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70 btn-selection-pulse btn-selected-glow" : ""}`}
+                              } ${selectedOccasion === preset.id ? "btn-selection-pulse btn-selected-glow ring-2 ring-amber-300/70" : ""}`}
                             >
                               {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
                             </button>
@@ -1081,40 +1118,48 @@ export function EditorExperience({
                         })}
                       </div>
                       {showEditor && (
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { id: "classic", label: "Classic", premium: false },
-                            { id: "cinematic", label: "Enhanced", premium: true },
-                            { id: "blueprint", label: "Blueprint", premium: false },
-                            { id: "luxe", label: "Luxe", premium: true },
-                          ].map((mode) => (
-                            <button
-                              key={mode.id}
-                              type="button"
-                              onClick={() => {
-                                if (!paid && mode.premium) setPaywallOpen(true);
-                                const targetLevel =
-                                  mode.id === "cinematic"
-                                    ? Math.max(intensityDisplay, 60)
-                                    : intensityDisplay;
-                                setRenderMode(mode.id as RenderModeId);
-                                setIntensity(targetLevel);
-                                setIntensityDisplay(targetLevel);
-                              }}
-                              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow active:scale-95 ${
-                                renderMode === mode.id
-                                  ? "border-amber-400 bg-amber-200 !text-midnight btn-selection-pulse btn-selected-glow"
-                                  : "border-white/20 bg-white/10 text-white"
-                              }`}
-                              title={
-                                mode.premium && !paid
-                                  ? "Unlock to export Enhanced. Preview stays free."
-                                  : mode.label
-                              }
-                            >
-                              {mode.premium && "🔒"} {mode.label}
-                            </button>
-                          ))}
+                        <div className="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2">
+                          <div className="mb-1 flex items-center justify-between">
+                            <p className="text-[10px] font-semibold tracking-[0.18em] text-neutral-200 uppercase">
+                              Render mode
+                            </p>
+                            <p className="text-[10px] text-neutral-300">Tune the map mood</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { id: "classic", label: "Classic", premium: false },
+                              { id: "cinematic", label: "Enhanced", premium: true },
+                              { id: "blueprint", label: "Blueprint", premium: false },
+                              { id: "luxe", label: "Luxe", premium: true },
+                            ].map((mode) => (
+                              <button
+                                key={mode.id}
+                                type="button"
+                                onClick={() => {
+                                  if (!paid && mode.premium) setPaywallOpen(true);
+                                  const targetLevel =
+                                    mode.id === "cinematic"
+                                      ? Math.max(intensityDisplay, 60)
+                                      : intensityDisplay;
+                                  setRenderMode(mode.id as RenderModeId);
+                                  setIntensity(targetLevel);
+                                  setIntensityDisplay(targetLevel);
+                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow active:scale-95 ${
+                                  renderMode === mode.id
+                                    ? "!text-midnight btn-selection-pulse btn-selected-glow border-amber-400 bg-amber-200"
+                                    : "border-white/20 bg-white/10 text-white"
+                                }`}
+                                title={
+                                  mode.premium && !paid
+                                    ? "Unlock to export Enhanced. Preview stays free."
+                                    : mode.label
+                                }
+                              >
+                                {mode.premium && "🔒"} {mode.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1122,9 +1167,11 @@ export function EditorExperience({
 
                     {showEditor && (
                       <div className="mt-2 rounded-xl border border-white/15 bg-white/5 px-2.5 py-2 shadow-inner shadow-black/30 backdrop-blur-sm">
-                        <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                        <label className="flex items-center justify-between text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                           <span>Intensity</span>
-                          <span className="text-[10px] font-semibold text-amber-200/70">{intensityDisplay}%</span>
+                          <span className="text-[10px] font-semibold text-amber-200/70">
+                            {intensityDisplay}%
+                          </span>
                         </label>
                         <input
                           type="range"
@@ -1152,61 +1199,55 @@ export function EditorExperience({
               {/* Main grid - Pro Presets + Form on left, Preview on right */}
               <div
                 className={`grid gap-3 lg:gap-4 ${
-                  showGuidedForm || showEditor
-                    ? "lg:grid-cols-[3fr_2fr] lg:items-start"
-                    : "lg:grid-cols-1"
+                  showGuidedForm || showEditor ? "lg:grid-cols-[3fr_2fr] lg:items-start" : "lg:grid-cols-1"
                 }`}
               >
                 {(showGuidedForm || showEditor) && (
                   <div className="w-full">
                     <div className="space-y-2">
-                    {/* Date & Location - FIRST (required input) */}
-                    {(showGuidedForm || showEditor) && (
-                      <section
-                        ref={dateLocationRef}
-                        className="hidden lg:block rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleCard("dateLocation")}
-                          aria-expanded={!collapsedCards.dateLocation}
-                          className="flex w-full items-center justify-between text-left mb-1.5"
+                      {/* Date & Location - FIRST (required input) */}
+                      {(showGuidedForm || showEditor) && (
+                        <section
+                          ref={dateLocationRef}
+                          className="hidden rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm lg:block"
                         >
-                          <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
-                            Date & Location
-                          </h3>
-                          <span className="text-[11px] font-semibold text-amber-200/70">
-                            {collapsedCards.dateLocation ? "Show" : "Hide"}
-                          </span>
-                        </button>
-                        {!collapsedCards.dateLocation && (
-                          <div className="grid gap-2 md:grid-cols-2">
-                            <LocationSearch onLocationChange={handleLocationChange} />
-                            <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
-                          </div>
-                        )}
-                      </section>
-                    )}
+                          <button
+                            type="button"
+                            onClick={() => toggleCard("dateLocation")}
+                            aria-expanded={!collapsedCards.dateLocation}
+                            className="mb-1.5 flex w-full items-center justify-between text-left"
+                          >
+                            <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                              Date & Location
+                            </h3>
+                            <span className="text-[11px] font-semibold text-amber-100">
+                              {collapsedCards.dateLocation ? "Show" : "Hide"}
+                            </span>
+                          </button>
+                          {!collapsedCards.dateLocation && (
+                            <div className="grid gap-2 md:grid-cols-2">
+                              <LocationSearch onLocationChange={handleLocationChange} />
+                              <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
+                            </div>
+                          )}
+                        </section>
+                      )}
 
-                    {/* Pro Presets - SECOND (optional styling) */}
-                    {(showGuidedForm || showEditor) && (
-                      <ProPresetsPanel
-                        selectedOccasion={selectedOccasion}
-                        onSelect={applyProPreset}
-                      />
-                    )}
+                      {/* Pro Presets - SECOND (optional styling) */}
+                      {(showGuidedForm || showEditor) && (
+                        <ProPresetsPanel selectedOccasion={selectedOccasion} onSelect={applyProPreset} />
+                      )}
                     </div>
 
                     {/* Your Message + Editor sections */}
                     {(showGuidedForm || showEditor) && (
                       <div className="mt-2 space-y-2">
-
                         {showGuidedForm && (
                           <div className="space-y-2">
                             <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm">
                               <div className="mb-2 flex items-center gap-2">
                                 <span className="text-amber-300">✎</span>
-                                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                                   Your Message
                                 </h3>
                               </div>
@@ -1218,7 +1259,7 @@ export function EditorExperience({
                                       type="text"
                                       value={box.text}
                                       onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                                      className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                      className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                                       placeholder={`Enter ${box.label.toLowerCase()}...`}
                                     />
                                   </div>
@@ -1231,7 +1272,7 @@ export function EditorExperience({
                                 onClick={handleReveal}
                                 disabled={!canReveal}
                                 aria-label="Generate preview"
-                                className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] ${
+                                className={`text-midnight focus:ring-gold inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
                                   canReveal
                                     ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                                     : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
@@ -1281,7 +1322,7 @@ export function EditorExperience({
                               </button>
                             </div>
 
-                            <div className="w-full flex flex-col gap-2">
+                            <div className="flex w-full flex-col gap-2">
                               <div
                                 className={`flex flex-col gap-2 ${
                                   collapsedCards.textStyling ? "" : "lg:flex-row"
@@ -1299,157 +1340,196 @@ export function EditorExperience({
                                       aria-expanded={!collapsedCards.textStyling}
                                       className="flex w-full items-center justify-between text-left"
                                     >
-                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                                         Text Styling
                                       </h3>
-                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                      <span className="text-[11px] font-semibold text-amber-100">
                                         {collapsedCards.textStyling ? "Show" : "Hide"}
                                       </span>
                                     </button>
-                              {!collapsedCards.textStyling && (
-                                <div className="mt-2 space-y-3">
-                                  {textBoxes.map((box) => {
-                                    const isCollapsed = collapsedTextBoxes[box.id] ?? false;
+                                    {!collapsedCards.textStyling && (
+                                      <div className="mt-2 space-y-3">
+                                        {textBoxes.map((box) => {
+                                          const isCollapsed = collapsedTextBoxes[box.id] ?? false;
 
-                                    return (
-                                      <div key={box.id} className="rounded-lg border border-white/15 bg-white/5 p-3 space-y-2 backdrop-blur-sm">
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-xs font-semibold text-white">{box.label}</span>
-                                          <div className="flex items-center gap-2">
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                setCollapsedTextBoxes((prev) => ({
-                                                  ...prev,
-                                                  [box.id]: !isCollapsed,
-                                                }))
-                                              }
-                                              aria-expanded={!isCollapsed}
-                                              aria-controls={`text-style-${box.id}`}
-                                              className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
+                                          return (
+                                            <div
+                                              key={box.id}
+                                              className="space-y-2 rounded-lg border border-white/15 bg-white/5 p-3 backdrop-blur-sm"
                                             >
-                                              {isCollapsed ? "Show" : "Hide"}
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => removeTextBox(box.id)}
-                                              className="text-[10px] text-rose-300 hover:text-rose-200"
-                                            >
-                                              Remove
-                                            </button>
-                                          </div>
-                                        </div>
-                                        {!isCollapsed && (
-                                          <div id={`text-style-${box.id}`} className="space-y-2">
-                                            <input
-                                              type="text"
-                                              value={box.text}
-                                              onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                                              className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                              placeholder={`Enter ${box.label.toLowerCase()}...`}
-                                            />
-                                            <div className="grid grid-cols-2 gap-2">
-                                              <div className="space-y-1">
-                                                <label className="text-[10px] text-neutral-300">Font</label>
-                                                <select
-                                                  value={box.fontFamily}
-                                                  onChange={(e) => {
-                                                    const next = e.target.value as TextBox["fontFamily"];
-                                                    const fontMeta = fontOptions.find((opt) => opt.id === next);
-                                                    if (fontMeta?.premium && !paid) {
-                                                      setPaywallOpen(true);
-                                                      return;
+                                              <div className="flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-white">
+                                                  {box.label}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      setCollapsedTextBoxes((prev) => ({
+                                                        ...prev,
+                                                        [box.id]: !isCollapsed,
+                                                      }))
                                                     }
-                                                    updateTextBox(box.id, { fontFamily: next });
-                                                  }}
-                                                  className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                                  style={{ color: 'white' }}
-                                                >
-                                                  {fontOptions.map((opt) => (
-                                                    <option key={opt.id} value={opt.id} style={{ color: '#111827' }}>
-                                                      {opt.premium ? `🔒 ${opt.label}` : opt.label}
-                                                    </option>
-                                                  ))}
-                                                </select>
+                                                    aria-expanded={!isCollapsed}
+                                                    aria-controls={`text-style-${box.id}`}
+                                                    className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
+                                                  >
+                                                    {isCollapsed ? "Show" : "Hide"}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => removeTextBox(box.id)}
+                                                    className="text-[10px] text-rose-300 hover:text-rose-200"
+                                                  >
+                                                    Remove
+                                                  </button>
+                                                </div>
                                               </div>
-                                              <div className="space-y-1">
-                                                <label className="text-[10px] text-neutral-300">Size</label>
-                                                <input
-                                                  type="number"
-                                                  min={10}
-                                                  max={64}
-                                                  value={box.size}
-                                                  onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
-                                                  className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                                />
-                                              </div>
+                                              {!isCollapsed && (
+                                                <div id={`text-style-${box.id}`} className="space-y-2">
+                                                  <input
+                                                    type="text"
+                                                    value={box.text}
+                                                    onChange={(e) =>
+                                                      updateTextBox(box.id, { text: e.target.value })
+                                                    }
+                                                    className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                                    placeholder={`Enter ${box.label.toLowerCase()}...`}
+                                                  />
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                    <div className="space-y-1">
+                                                      <label className="text-[10px] text-neutral-300">
+                                                        Font
+                                                      </label>
+                                                      <select
+                                                        value={box.fontFamily}
+                                                        onChange={(e) => {
+                                                          const next = e.target
+                                                            .value as TextBox["fontFamily"];
+                                                          const fontMeta = fontOptions.find(
+                                                            (opt) => opt.id === next
+                                                          );
+                                                          if (fontMeta?.premium && !paid) {
+                                                            setPaywallOpen(true);
+                                                            return;
+                                                          }
+                                                          updateTextBox(box.id, { fontFamily: next });
+                                                        }}
+                                                        className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                        style={{ color: "white" }}
+                                                      >
+                                                        {fontOptions.map((opt) => (
+                                                          <option
+                                                            key={opt.id}
+                                                            value={opt.id}
+                                                            style={{ color: "#111827" }}
+                                                          >
+                                                            {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                                          </option>
+                                                        ))}
+                                                      </select>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                      <label className="text-[10px] text-neutral-300">
+                                                        Size
+                                                      </label>
+                                                      <input
+                                                        type="number"
+                                                        min={10}
+                                                        max={64}
+                                                        value={box.size}
+                                                        onChange={(e) =>
+                                                          updateTextBox(box.id, {
+                                                            size: Number(e.target.value),
+                                                          })
+                                                        }
+                                                        className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                    <div className="space-y-1">
+                                                      <label className="text-[10px] text-neutral-300">
+                                                        Color
+                                                      </label>
+                                                      <input
+                                                        type="color"
+                                                        value={box.color}
+                                                        onChange={(e) =>
+                                                          updateTextBox(box.id, { color: e.target.value })
+                                                        }
+                                                        className="h-8 w-full cursor-pointer rounded-md border border-white/15 bg-white/10"
+                                                      />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                      <label className="text-[10px] text-neutral-300">
+                                                        Align
+                                                      </label>
+                                                      <select
+                                                        value={box.align}
+                                                        onChange={(e) =>
+                                                          updateTextBox(box.id, {
+                                                            align: e.target.value as TextBox["align"],
+                                                          })
+                                                        }
+                                                        className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                        style={{ color: "white" }}
+                                                      >
+                                                        <option value="left" style={{ color: "#111827" }}>
+                                                          Left
+                                                        </option>
+                                                        <option value="center" style={{ color: "#111827" }}>
+                                                          Center
+                                                        </option>
+                                                        <option value="right" style={{ color: "#111827" }}>
+                                                          Right
+                                                        </option>
+                                                      </select>
+                                                    </div>
+                                                  </div>
+                                                  <div className="flex gap-2">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() =>
+                                                        updateTextBox(box.id, { textShadow: !box.textShadow })
+                                                      }
+                                                      className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                                        box.textShadow
+                                                          ? "!text-midnight border-amber-300 bg-amber-100"
+                                                          : "border-white/15 bg-white/10 text-white"
+                                                      }`}
+                                                    >
+                                                      Shadow
+                                                    </button>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() =>
+                                                        updateTextBox(box.id, { textGlow: !box.textGlow })
+                                                      }
+                                                      className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                                        box.textGlow
+                                                          ? "!text-midnight border-amber-300 bg-amber-100"
+                                                          : "border-white/15 bg-white/10 text-white"
+                                                      }`}
+                                                    >
+                                                      Glow
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )}
                                             </div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                              <div className="space-y-1">
-                                                <label className="text-[10px] text-neutral-300">Color</label>
-                                                <input
-                                                  type="color"
-                                                  value={box.color}
-                                                  onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                                                  className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
-                                                />
-                                              </div>
-                                              <div className="space-y-1">
-                                                <label className="text-[10px] text-neutral-300">Align</label>
-                                                <select
-                                                  value={box.align}
-                                                  onChange={(e) =>
-                                                    updateTextBox(box.id, { align: e.target.value as TextBox["align"] })
-                                                  }
-                                                  className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                                  style={{ color: 'white' }}
-                                                >
-                                                  <option value="left" style={{ color: '#111827' }}>Left</option>
-                                                  <option value="center" style={{ color: '#111827' }}>Center</option>
-                                                  <option value="right" style={{ color: '#111827' }}>Right</option>
-                                                </select>
-                                              </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                              <button
-                                                type="button"
-                                                onClick={() => updateTextBox(box.id, { textShadow: !box.textShadow })}
-                                                className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                                                  box.textShadow
-                                                    ? "border-amber-300 bg-amber-100 !text-midnight"
-                                                    : "border-white/15 bg-white/10 text-white"
-                                                }`}
-                                              >
-                                                Shadow
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => updateTextBox(box.id, { textGlow: !box.textGlow })}
-                                                className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                                                  box.textGlow
-                                                    ? "border-amber-300 bg-amber-100 !text-midnight"
-                                                    : "border-white/15 bg-white/10 text-white"
-                                                }`}
-                                              >
-                                                Glow
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
+                                          );
+                                        })}
+                                        <button
+                                          type="button"
+                                          onClick={addTextBox}
+                                          className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                                        >
+                                          + Add Text Line
+                                        </button>
                                       </div>
-                                    );
-                                  })}
-                                  <button
-                                    type="button"
-                                    onClick={addTextBox}
-                                    className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white hover:bg-white/10 transition"
-                                  >
-                                    + Add Text Line
-                                  </button>
-                                </div>
-                              )}
+                                    )}
                                   </section>
-
                                 </div>
                                 <div
                                   className={`flex flex-col gap-2 ${
@@ -1463,10 +1543,10 @@ export function EditorExperience({
                                       aria-expanded={!collapsedCards.style}
                                       className="flex w-full items-center justify-between text-left"
                                     >
-                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                                         Style
                                       </h3>
-                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                      <span className="text-[11px] font-semibold text-amber-100">
                                         {collapsedCards.style ? "Show" : "Hide"}
                                       </span>
                                     </button>
@@ -1511,7 +1591,7 @@ export function EditorExperience({
                                               } ${selectedStyle === style.id ? "btn-selection-pulse" : ""}`}
                                             >
                                               <div className="text-sm font-semibold">{style.name}</div>
-                                              <div className="text-xs opacity-80 mt-1">{style.note}</div>
+                                              <div className="mt-1 text-xs opacity-80">{style.note}</div>
                                             </button>
                                           );
                                         })}
@@ -1525,60 +1605,72 @@ export function EditorExperience({
                                       aria-expanded={!collapsedCards.shape}
                                       className="flex w-full items-center justify-between text-left"
                                     >
-                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                                         Shape
                                       </h3>
-                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                      <span className="text-[11px] font-semibold text-amber-100">
                                         {collapsedCards.shape ? "Show" : "Hide"}
                                       </span>
                                     </button>
-                              {!collapsedCards.shape && (
-                                <>
-                                  <div className="mt-2 grid grid-cols-4 gap-2">
-                                    {shapes.map((shapeOption) => {
-                                      const isPremium = shapeOption.id !== "rectangle" && shapeOption.id !== "circle";
-                                      const isSelected = shape === shapeOption.id;
+                                    {!collapsedCards.shape && (
+                                      <>
+                                        <div className="mt-2 grid grid-cols-4 gap-2">
+                                          {shapes.map((shapeOption) => {
+                                            const isPremium =
+                                              shapeOption.id !== "rectangle" && shapeOption.id !== "circle";
+                                            const isSelected = shape === shapeOption.id;
 
-                                      return (
-                                        <button
-                                          key={shapeOption.id}
-                                          type="button"
-                                          onClick={() => {
-                                            if (isPremium && !paid) {
-                                              // Allow preview, but note that HD export requires payment
-                                              setShape(shapeOption.id);
-                                            } else {
-                                              setShape(shapeOption.id);
-                                            }
-                                          }}
-                                          className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
-                                            isSelected
-                                              ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight shadow-amber-500/20"
-                                              : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
-                                          }`}
-                                        >
-                                          <span className="text-2xl mb-1" style={{ transform: shapeSymbolScale[shapeOption.id] }}>
-                                            {shapeSymbols[shapeOption.id]}
-                                          </span>
-                                          <span className="text-[10px]">{shapeOption.label}</span>
-                                          {isPremium && <span className="text-[9px] text-amber-400 mt-0.5">HD only</span>}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                  {shape !== "rectangle" && (
-                                    <div className="mt-2 space-y-1">
-                                      <label className="text-[10px] text-neutral-300">Background Color</label>
-                                      <input
-                                        type="color"
-                                        value={renderOptions.backgroundColor || "#0b1a30"}
-                                        onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}
-                                        className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
-                                      />
-                                    </div>
-                                  )}
-                                </>
-                              )}
+                                            return (
+                                              <button
+                                                key={shapeOption.id}
+                                                type="button"
+                                                onClick={() => {
+                                                  if (isPremium && !paid) {
+                                                    // Allow preview, but note that HD export requires payment
+                                                    setShape(shapeOption.id);
+                                                  } else {
+                                                    setShape(shapeOption.id);
+                                                  }
+                                                }}
+                                                className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                                  isSelected
+                                                    ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
+                                                    : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                                                }`}
+                                              >
+                                                <span
+                                                  className="mb-1 text-2xl"
+                                                  style={{ transform: shapeSymbolScale[shapeOption.id] }}
+                                                >
+                                                  {shapeSymbols[shapeOption.id]}
+                                                </span>
+                                                <span className="text-[10px]">{shapeOption.label}</span>
+                                                {isPremium && (
+                                                  <span className="mt-0.5 text-[9px] text-amber-400">
+                                                    HD only
+                                                  </span>
+                                                )}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                        {shape !== "rectangle" && (
+                                          <div className="mt-2 space-y-1">
+                                            <label className="text-[10px] text-neutral-300">
+                                              Background Color
+                                            </label>
+                                            <input
+                                              type="color"
+                                              value={renderOptions.backgroundColor || "#0b1a30"}
+                                              onChange={(e) =>
+                                                setRenderOptions({ backgroundColor: e.target.value })
+                                              }
+                                              className="h-8 w-full cursor-pointer rounded-md border border-white/15 bg-white/10"
+                                            />
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
                                   </section>
 
                                   <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
@@ -1588,52 +1680,56 @@ export function EditorExperience({
                                       aria-expanded={!collapsedCards.frame}
                                       className="flex w-full items-center justify-between text-left"
                                     >
-                                      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                                         Frame
                                       </h3>
-                                      <span className="text-[11px] font-semibold text-amber-200/70">
+                                      <span className="text-[11px] font-semibold text-amber-100">
                                         {collapsedCards.frame ? "Show" : "Hide"}
                                       </span>
                                     </button>
-                              {!collapsedCards.frame && (
-                                <>
-                                  <div className="mt-2 grid grid-cols-3 gap-2">
-                                    {[
-                                      { id: "square" as const, label: "Square" },
-                                      { id: "4:5" as const, label: "Poster" },
-                                      { id: "2:3" as const, label: "Wide" },
-                                    ].map((ratio) => {
-                                      const isSelected = aspectRatio === ratio.id;
+                                    {!collapsedCards.frame && (
+                                      <>
+                                        <div className="mt-2 grid grid-cols-3 gap-2">
+                                          {[
+                                            { id: "square" as const, label: "Square" },
+                                            { id: "4:5" as const, label: "Poster" },
+                                            { id: "2:3" as const, label: "Wide" },
+                                          ].map((ratio) => {
+                                            const isSelected = aspectRatio === ratio.id;
 
-                                      return (
+                                            return (
+                                              <button
+                                                key={ratio.id}
+                                                type="button"
+                                                onClick={() => setAspectRatio(ratio.id)}
+                                                className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                                  isSelected
+                                                    ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
+                                                    : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                                                }`}
+                                              >
+                                                <span className="text-[10px]">{ratio.label}</span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
                                         <button
-                                          key={ratio.id}
                                           type="button"
-                                          onClick={() => setAspectRatio(ratio.id)}
-                                          className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
-                                            isSelected
-                                              ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight shadow-amber-500/20"
-                                              : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                                          onClick={() =>
+                                            setRenderOptions({ frameEnabled: !renderOptions.frameEnabled })
+                                          }
+                                          className={`mt-2 w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                                            renderOptions.frameEnabled
+                                              ? "!text-midnight border-amber-300 bg-amber-100"
+                                              : "border-white/15 bg-white/10 text-white"
                                           }`}
                                         >
-                                          <span className="text-[10px]">{ratio.label}</span>
+                                          {renderOptions.frameEnabled
+                                            ? "Frame Border On"
+                                            : "Frame Border Off"}
                                         </button>
-                                      );
-                                    })}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setRenderOptions({ frameEnabled: !renderOptions.frameEnabled })}
-                                    className={`mt-2 w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                                      renderOptions.frameEnabled
-                                        ? "border-amber-300 bg-amber-100 !text-midnight"
-                                        : "border-white/15 bg-white/10 text-white"
-                                    }`}
-                                  >
-                                    {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
-                                  </button>
-                                </>
-                              )}
+                                      </>
+                                    )}
                                   </section>
                                 </div>
                               </div>
@@ -1645,26 +1741,29 @@ export function EditorExperience({
                                   aria-expanded={!collapsedCards.advanced}
                                   className="flex w-full items-center justify-between text-left"
                                 >
-                                  <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+                                  <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                                     Advanced
                                   </h3>
-                                  <span className="text-[11px] font-semibold text-amber-200/70">
-                                    {collapsedCards.advanced ? "Show" : "Hide"}
+                                  <span className="rounded-full border border-amber-200/35 bg-amber-100/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+                                    {collapsedCards.advanced ? "Open" : "Hide"}
                                   </span>
                                 </button>
-                              {!collapsedCards.advanced && (
-                                <AdvancedPanel
-                                  selectedStyle={selectedStyle}
-                                  renderOptions={renderOptions}
-                                  setRenderOptions={setRenderOptions}
-                                  previewFidelity={previewFidelity}
-                                  setPreviewFidelity={setPreviewFidelity}
-                                  paid={paid}
-                                  onPremiumPreview={(feature, level) =>
-                                    track("premium_preview_enabled", { feature, level })
-                                  }
-                                />
-                              )}
+                                <p className="mt-1 text-[11px] text-neutral-200">
+                                  Fine-tune realism, line behavior, and premium preview controls.
+                                </p>
+                                {!collapsedCards.advanced && (
+                                  <AdvancedPanel
+                                    selectedStyle={selectedStyle}
+                                    renderOptions={renderOptions}
+                                    setRenderOptions={setRenderOptions}
+                                    previewFidelity={previewFidelity}
+                                    setPreviewFidelity={setPreviewFidelity}
+                                    paid={paid}
+                                    onPremiumPreview={(feature, level) =>
+                                      track("premium_preview_enabled", { feature, level })
+                                    }
+                                  />
+                                )}
                               </section>
                             </div>
                           </div>
@@ -1674,12 +1773,16 @@ export function EditorExperience({
                   </div>
                 )}
 
-                <div ref={previewRef} id="preview" className="flex w-full flex-col gap-3 pb-4 lg:pb-0 order-1 lg:order-2">
+                <div
+                  ref={previewRef}
+                  id="preview"
+                  className="order-1 flex w-full flex-col gap-3 pb-4 lg:order-2 lg:pb-0"
+                >
                   <section className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[#0b0f24]/90 p-3 shadow-xl shadow-black/30 backdrop-blur">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-white">Preview</h3>
                       {revealed && (
-                        <div className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                        <div className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase shadow-sm">
                           {styles.find((s) => s.id === selectedStyle)?.name ?? "Style"}
                         </div>
                       )}
@@ -1710,13 +1813,13 @@ export function EditorExperience({
                       >
                         {!revealed && (
                           <div className="absolute inset-0 z-10">
-                            <div className="absolute left-1/2 top-[62%] flex w-full max-w-[320px] -translate-x-1/2 flex-col items-center gap-2 px-4 text-center">
+                            <div className="absolute top-[62%] left-1/2 flex w-full max-w-[320px] -translate-x-1/2 flex-col items-center gap-2 px-4 text-center">
                               {canReveal ? (
                                 <button
                                   type="button"
                                   onClick={handleReveal}
                                   aria-label="Generate preview"
-                                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30]"
+                                  className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                                 >
                                   Generate preview
                                 </button>
@@ -1741,14 +1844,17 @@ export function EditorExperience({
                             />
                             {(isUpdating || !canvasReady) && (
                               <div className="absolute inset-0 z-10 rounded-xl bg-gradient-to-b from-white/5 to-white/0 transition-opacity duration-300">
-                                <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
+                                <div className="absolute top-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase shadow-sm backdrop-blur">
                                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                                   Rendering sky…
                                 </div>
-                                <div className="pointer-events-none absolute inset-0 animate-pulse bg-[linear-gradient(110deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0)_100%)] bg-[length:200%_100%] opacity-60" style={{ animationDuration: "1.5s" }} />
+                                <div
+                                  className="pointer-events-none absolute inset-0 animate-pulse bg-[linear-gradient(110deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0)_100%)] bg-[length:200%_100%] opacity-60"
+                                  style={{ animationDuration: "1.5s" }}
+                                />
                               </div>
                             )}
-                            <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
+                            <div className="pointer-events-none absolute top-3 right-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase shadow-sm backdrop-blur">
                               <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
                               {isUpdating ? "Rendering…" : "Updated ✓"}
                             </div>
@@ -1756,7 +1862,7 @@ export function EditorExperience({
                             <button
                               type="button"
                               onClick={() => setIsFullscreen(true)}
-                              className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg text-white shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                              className="focus:ring-gold absolute right-3 bottom-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg text-white shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
                               aria-label="Open fullscreen"
                             >
                               ⤢
@@ -1765,7 +1871,7 @@ export function EditorExperience({
                               <button
                                 type="button"
                                 onClick={handleEditScroll}
-                                className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                                className="focus:ring-gold absolute top-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                               >
                                 ← Edit
                               </button>
@@ -1781,7 +1887,7 @@ export function EditorExperience({
                             type="button"
                             onClick={() => void handleExport("preview")}
                             aria-label="Free export"
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                           >
                             Free ⬇️
                           </button>
@@ -1790,7 +1896,7 @@ export function EditorExperience({
                             onClick={() => void handleExport("hd")}
                             aria-label="HD export"
                             disabled={hdExportInFlight}
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                            className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                             title="Unlock to export HD without watermark; preview stays free."
                           >
                             {hdExportInFlight ? "Preparing..." : `${!paid ? "🔒 " : ""}HD ⬇️`}
@@ -1803,7 +1909,7 @@ export function EditorExperience({
                           <button
                             type="button"
                             onClick={handleShareImage}
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                           >
                             🔗 Share
                           </button>
@@ -1811,86 +1917,36 @@ export function EditorExperience({
                             <button
                               type="button"
                               onClick={handleShare}
-                              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                             >
                               💾 Save & Remix
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={handleCustomizeMore}
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                          >
-                            Customize more
-                          </button>
+                          {!showEditor && (
+                            <button
+                              type="button"
+                              onClick={handleCustomizeMore}
+                              className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                            >
+                              Customize more
+                            </button>
+                          )}
                         </div>
+                        {(currentPlan === "subscription" || typeof creditsRemaining === "number") && (
+                          <p className="mt-2 text-[11px] text-neutral-300">
+                            {currentPlan === "subscription"
+                              ? "Unlimited HD downloads on your active subscription."
+                              : typeof creditsRemaining === "number"
+                                ? `${creditsRemaining} HD download${creditsRemaining === 1 ? "" : "s"} remaining.`
+                                : "HD downloads available."}
+                          </p>
+                        )}
                       </div>
                     )}
                   </section>
                 </div>
               </div>
             </div>
-            {revealed && (
-              <div className="mx-auto w-full max-w-[600px]">
-                <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-start">
-                  <button
-                    type="button"
-                    onClick={() => void handleExport("preview")}
-                    aria-label="Free export"
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                  >
-                    Free ⬇️
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleExport("hd")}
-                    aria-label="HD export"
-                    disabled={hdExportInFlight}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                    title="Unlock to export HD without watermark; preview stays free."
-                  >
-                    {hdExportInFlight ? "Preparing..." : `${!paid ? "🔒 " : ""}HD ⬇️`}
-                  </button>
-                  {hdCreditLabel && (
-                    <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
-                      {hdCreditLabel}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleShareImage}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                  >
-                    🔗 Share
-                  </button>
-                  {showEditor && (
-                    <button
-                      type="button"
-                      onClick={handleShare}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                    >
-                      💾 Save & Remix
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleCustomizeMore}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                  >
-                    Customize more
-                  </button>
-                </div>
-                {(currentPlan === "subscription" || typeof creditsRemaining === "number") && (
-                  <p className="mt-2 text-[11px] text-neutral-300">
-                    {currentPlan === "subscription"
-                      ? "Unlimited HD downloads on your active subscription."
-                      : typeof creditsRemaining === "number"
-                        ? `${creditsRemaining} HD download${creditsRemaining === 1 ? "" : "s"} remaining.`
-                        : "HD downloads available."}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         ) : (
           /* Mobile: Use MobileCreate component */
@@ -1927,7 +1983,7 @@ export function EditorExperience({
                 setCheckoutError(null);
               }}
             />,
-            document.body,
+            document.body
           )
         : null}
       {shareLink && (
@@ -1945,12 +2001,12 @@ export function EditorExperience({
                 previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
               });
             }}
-            className="absolute left-4 top-4 z-10 rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-4 py-2 text-sm font-semibold text-neutral-800 shadow transition hover:-translate-y-[1px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] sm:left-6 sm:top-6"
+            className="focus:ring-gold absolute top-4 left-4 z-10 rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-4 py-2 text-sm font-semibold text-neutral-800 shadow transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none sm:top-6 sm:left-6"
             aria-label="Exit fullscreen"
           >
             ⤡ Exit fullscreen
           </button>
-          <div className="relative w-[95vw] h-[95vh] max-w-[95vw] max-h-[95vh] flex items-center justify-center">
+          <div className="relative flex h-[95vh] max-h-[95vh] w-[95vw] max-w-[95vw] items-center justify-center">
             <PreviewCanvas fullscreen />
           </div>
         </div>
