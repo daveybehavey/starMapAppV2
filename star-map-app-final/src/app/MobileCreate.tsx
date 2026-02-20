@@ -92,6 +92,7 @@ export function MobileCreate({
 
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
+  const showSetupPanels = !revealed || showEditor;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
   const hdCreditLabel =
     currentPlan === "subscription"
@@ -295,9 +296,9 @@ export function MobileCreate({
 
   return (
     <EditorFontShell>
-      <div className="space-y-4">
+      <div className="space-y-3">
       {/* Section 1: Header */}
-      {showGuidedForm && (
+      {!revealed && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#d7b56c]">
             Create your star map
@@ -337,8 +338,8 @@ export function MobileCreate({
         </div>
       )}
 
-      {/* Section 2: Occasion Presets (Always Visible) */}
-      {(showGuidedForm || showEditor) && (
+      {/* Section 2: Occasion Presets */}
+      {showSetupPanels && (
         <section
           ref={presetRailRef}
           className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-sm shadow-black/30"
@@ -409,7 +410,7 @@ export function MobileCreate({
       )}
 
       {/* Pro Presets - SECOND (optional styling) */}
-      {(showGuidedForm || showEditor) && (
+      {showSetupPanels && (
         <section className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-sm shadow-black/30">
           <div className="flex items-center justify-between">
             <div>

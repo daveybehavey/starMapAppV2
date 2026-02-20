@@ -53,8 +53,28 @@ export default async function StarMapLocationPage({ params }: PageProps) {
   const { slug } = await params;
   const location = getLocation(slug);
   if (!location) notFound();
+  if (!isIndexableLocationSlug(location.slug)) notFound();
 
   const display = formatLocationDisplay(location);
+  const indexableLocations = seoLocations.filter((item) => isIndexableLocationSlug(item.slug));
+  const sameCountry = indexableLocations.filter(
+    (item) => item.slug !== location.slug && item.country && item.country === location.country
+  );
+  const sameRegion = indexableLocations.filter(
+    (item) =>
+      item.slug !== location.slug &&
+      item.region &&
+      location.region &&
+      item.region === location.region &&
+      !sameCountry.some((candidate) => candidate.slug === item.slug)
+  );
+  const otherLocations = indexableLocations.filter(
+    (item) =>
+      item.slug !== location.slug &&
+      !sameCountry.some((candidate) => candidate.slug === item.slug) &&
+      !sameRegion.some((candidate) => candidate.slug === item.slug)
+  );
+  const relatedLocations = [...sameRegion, ...sameCountry, ...otherLocations].slice(0, 4);
   const exampleLine = `${display} · June 12, 2024`;
   const breadcrumbs = [
     { href: "/", label: "Home" },
@@ -122,6 +142,30 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         <p className="mt-2 rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm font-semibold text-midnight">
           {exampleLine}
         </p>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Related locations</h2>
+        <p className="text-sm text-neutral-700 sm:text-base">
+          Browse nearby and popular cities:
+        </p>
+        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link
+            href="/star-map-in"
+            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
+          >
+            All locations
+          </Link>
+          {relatedLocations.map((item) => (
+            <Link
+              key={item.slug}
+              href={`/star-map-in/${item.slug}`}
+              className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+            >
+              {formatLocationDisplay(item)}
+            </Link>
+          ))}
+        </div>
       </section>
 
       <OccasionLinks />

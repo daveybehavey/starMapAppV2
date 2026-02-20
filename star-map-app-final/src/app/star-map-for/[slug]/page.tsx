@@ -5,7 +5,7 @@ import FaqSchema from "@/components/FaqSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getOccasion, seoOccasions } from "@/data/seoOccasions";
-import { getCanonicalOccasionPath, isIndexableOccasionSlug } from "@/data/seoIndexing";
+import { getCanonicalOccasionPath, isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -58,6 +58,13 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
   if (canonicalPath) permanentRedirect(canonicalPath);
   const occasion = getOccasion(slug);
   if (!occasion) notFound();
+  const indexableOccasions = seoOccasions.filter((item) => isIndexableOccasionSlug(item.slug));
+  const occasionIndex = indexableOccasions.findIndex((item) => item.slug === occasion.slug);
+  const rotatedOccasions =
+    occasionIndex >= 0
+      ? [...indexableOccasions.slice(occasionIndex + 1), ...indexableOccasions.slice(0, occasionIndex)]
+      : indexableOccasions;
+  const siblingOccasions = rotatedOccasions.slice(0, 4);
 
   const breadcrumbs = [
     { href: "/", label: "Home" },
@@ -132,17 +139,26 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Related ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Explore more ways to customize your map:
+          Browse related occasion pages and map formats:
         </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
-          <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
-            Star map gift
+        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link href="/star-map-for" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-100">
+            All occasions
           </Link>
-          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
+          {siblingOccasions.map((item) => (
+            <Link
+              key={item.slug}
+              href={resolveOccasionIntentPath(item.slug)}
+              className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50"
+            >
+              {item.label}
+            </Link>
+          ))}
+          <Link href="/star-map-generator" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
             Star map generator
           </Link>
-          <Link href="/star-map-in" className="text-amber-700 underline hover:text-amber-800">
-            Star map by city
+          <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
+            Star map gift
           </Link>
         </div>
       </section>

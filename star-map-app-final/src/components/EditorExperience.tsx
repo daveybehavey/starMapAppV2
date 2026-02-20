@@ -976,6 +976,7 @@ export function EditorExperience({
 
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
+  const showSetupPanels = !revealed || showEditor;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
   const cardIds = ["dateLocation", "textStyling", "style", "shape", "frame", "advanced"] as const;
   const allCardsCollapsed = cardIds.every((id) => collapsedCards[id]);
@@ -998,10 +999,10 @@ export function EditorExperience({
           <div key="desktop" data-component="desktop">
             <div className="space-y-4 text-[13px] font-[var(--font-montserrat)] text-neutral-100 lg:h-full">
               {/* Header section - above the grid */}
-              {(showGuidedForm || showEditor) && (
+              {showSetupPanels && (
                 <div ref={inputsRef} className="space-y-3">
                   <div className="space-y-2">
-                    {showGuidedForm ? (
+                    {!revealed ? (
                       <>
                         <p className="text-xs font-semibold tracking-[0.25em] text-[#d7b56c] uppercase">
                           Create your star map
@@ -1199,49 +1200,44 @@ export function EditorExperience({
               {/* Main grid - Pro Presets + Form on left, Preview on right */}
               <div
                 className={`grid gap-3 lg:gap-4 ${
-                  showGuidedForm || showEditor ? "lg:grid-cols-[3fr_2fr] lg:items-start" : "lg:grid-cols-1"
+                  showSetupPanels ? "lg:grid-cols-[3fr_2fr] lg:items-start" : "lg:grid-cols-1"
                 }`}
               >
-                {(showGuidedForm || showEditor) && (
+                {showSetupPanels && (
                   <div className="w-full">
                     <div className="space-y-2">
                       {/* Date & Location - FIRST (required input) */}
-                      {(showGuidedForm || showEditor) && (
-                        <section
-                          ref={dateLocationRef}
-                          className="hidden rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm lg:block"
+                      <section
+                        ref={dateLocationRef}
+                        className="hidden rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm lg:block"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleCard("dateLocation")}
+                          aria-expanded={!collapsedCards.dateLocation}
+                          className="mb-1.5 flex w-full items-center justify-between text-left"
                         >
-                          <button
-                            type="button"
-                            onClick={() => toggleCard("dateLocation")}
-                            aria-expanded={!collapsedCards.dateLocation}
-                            className="mb-1.5 flex w-full items-center justify-between text-left"
-                          >
-                            <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                              Date & Location
-                            </h3>
-                            <span className="text-[11px] font-semibold text-amber-100">
-                              {collapsedCards.dateLocation ? "Show" : "Hide"}
-                            </span>
-                          </button>
-                          {!collapsedCards.dateLocation && (
-                            <div className="grid gap-2 md:grid-cols-2">
-                              <LocationSearch onLocationChange={handleLocationChange} />
-                              <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
-                            </div>
-                          )}
-                        </section>
-                      )}
+                          <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                            Date & Location
+                          </h3>
+                          <span className="text-[11px] font-semibold text-amber-100">
+                            {collapsedCards.dateLocation ? "Show" : "Hide"}
+                          </span>
+                        </button>
+                        {!collapsedCards.dateLocation && (
+                          <div className="grid gap-2 md:grid-cols-2">
+                            <LocationSearch onLocationChange={handleLocationChange} />
+                            <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
+                          </div>
+                        )}
+                      </section>
 
                       {/* Pro Presets - SECOND (optional styling) */}
-                      {(showGuidedForm || showEditor) && (
-                        <ProPresetsPanel selectedOccasion={selectedOccasion} onSelect={applyProPreset} />
-                      )}
+                      <ProPresetsPanel selectedOccasion={selectedOccasion} onSelect={applyProPreset} />
                     </div>
 
                     {/* Your Message + Editor sections */}
-                    {(showGuidedForm || showEditor) && (
-                      <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-2">
                         {showGuidedForm && (
                           <div className="space-y-2">
                             <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm">
@@ -1769,7 +1765,6 @@ export function EditorExperience({
                           </div>
                         )}
                       </div>
-                    )}
                   </div>
                 )}
 
