@@ -15,10 +15,34 @@ const playfair = Playfair_Display({
 export const revalidate = 3600;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-const socialProfiles = (process.env.NEXT_PUBLIC_SOCIAL_LINKS ?? "")
+const defaultSocialLinks = [
+  { label: "Facebook", href: "https://www.facebook.com/profile.php?id=61584233102201" },
+  { label: "Pinterest", href: "https://ca.pinterest.com/StarMapCo/" },
+  { label: "X", href: "https://x.com/StarMapCo" },
+  { label: "TikTok", href: "https://www.tiktok.com/@starmapco" },
+] as const;
+
+function inferSocialLabel(url: string): string {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.includes("facebook.com")) return "Facebook";
+    if (hostname.includes("pinterest.com")) return "Pinterest";
+    if (hostname.includes("x.com") || hostname.includes("twitter.com")) return "X";
+    if (hostname.includes("tiktok.com")) return "TikTok";
+  } catch {
+    // Fallback below
+  }
+  return "Social";
+}
+
+const envSocialLinks = (process.env.NEXT_PUBLIC_SOCIAL_LINKS ?? "")
   .split(",")
   .map((value) => value.trim())
-  .filter((value) => /^https?:\/\//i.test(value));
+  .filter((value) => /^https?:\/\//i.test(value))
+  .map((href) => ({ label: inferSocialLabel(href), href }));
+
+const socialLinks = envSocialLinks.length ? envSocialLinks : defaultSocialLinks;
+const socialProfiles = socialLinks.map((item) => item.href);
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -131,6 +155,17 @@ export default function RootLayout({
               <Link href="/returns" prefetch={false} className="font-semibold text-midnight hover:underline">
                 Returns &amp; Refunds
               </Link>
+              {socialLinks.map((social) => (
+                <a
+                  key={social.href}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-midnight hover:underline"
+                >
+                  {social.label}
+                </a>
+              ))}
               <a href="mailto:support@starmapco.com" className="font-semibold text-midnight hover:underline">
                 Contact
               </a>
