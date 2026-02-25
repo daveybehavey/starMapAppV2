@@ -26,4 +26,13 @@ test("mobile create flow and reveal gating", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: /Less options/i })).toBeVisible();
   await expect(page.getByText(/Text Styling/i)).toBeVisible();
+
+  // Regression: switching away from parchment style must clear parchment background overrides.
+  await page.getByRole("button", { name: /^Circle$/i }).click();
+  await page.getByRole("button", { name: /Parchment Scroll/i }).click();
+  const backgroundColorInput = page.getByLabel("Background Color");
+  await expect(backgroundColorInput).toHaveValue("#e9d3a5");
+
+  await page.getByRole("button", { name: /Navy & Gold/i }).click();
+  await expect(backgroundColorInput).toHaveValue("#0b1a30");
 });

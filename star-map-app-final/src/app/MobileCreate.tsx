@@ -12,6 +12,7 @@ import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
 import { proPresets } from "@/lib/proPresets";
+import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan } from "@/lib/pricing";
@@ -304,6 +305,20 @@ export function MobileCreate({
       return next;
     });
   }, [allowAdvancedInQuick, isQuick, onCustomizeMore]);
+
+  const handleStyleChange = useCallback(
+    (styleId: typeof selectedStyle) => {
+      setStyle(styleId);
+      const defaults = applyStyleDefaults(styleId, textBoxes);
+      if (Object.keys(defaults.renderOptions).length) {
+        setRenderOptions(defaults.renderOptions);
+      }
+      if (defaults.textBoxes !== textBoxes) {
+        setTextBoxes(defaults.textBoxes);
+      }
+    },
+    [setRenderOptions, setStyle, textBoxes],
+  );
 
   return (
     <EditorFontShell>
@@ -756,7 +771,7 @@ export function MobileCreate({
                     <button
                       key={style.id}
                       type="button"
-                      onClick={() => setStyle(style.id)}
+                      onClick={() => handleStyleChange(style.id)}
                       className={`flex flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
                         styleClasses[style.id as keyof typeof styleClasses]
                       } ${selectedStyle === style.id ? "btn-selection-pulse" : ""}`}
@@ -790,8 +805,11 @@ export function MobileCreate({
               </div>
               {shape !== "rectangle" && (
                 <div className="mt-2 space-y-1">
-                  <label className="text-[10px] text-neutral-300">Background Color</label>
+                  <label htmlFor="shape-background-color" className="text-[10px] text-neutral-300">
+                    Background Color
+                  </label>
                   <input
+                    id="shape-background-color"
                     type="color"
                     value={renderOptions.backgroundColor || "#0b1a30"}
                     onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}

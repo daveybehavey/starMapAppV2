@@ -6,6 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { occasionPresets } from "@/lib/occasionPresets";
 import { proPresets } from "@/lib/proPresets";
 import { renderModes, type RenderModeId } from "@/lib/renderModes";
+import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track } from "@/lib/analytics";
 
 export interface UseEditorLogicOptions {
@@ -227,6 +228,10 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       // Always apply style, shape, textBoxes, and render options from preset
       setTextBoxes(preset.textBoxes);
       setStyle(preset.style);
+      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
+      if (Object.keys(styleDefaults.renderOptions).length) {
+        setRenderOptions(styleDefaults.renderOptions);
+      }
       setShape(preset.shape);
       setRenderMode(preset.renderMode);
       setIntensity(preset.intensity);
@@ -265,6 +270,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       locationName,
       setDateTime,
       setLocation,
+      setRenderOptions,
       setRevealed,
       setShape,
       setStyle,
@@ -283,6 +289,10 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       setSelectedOccasion(id);
       setCustomOccasion(false);
       setStyle(preset.style);
+      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
+      if (Object.keys(styleDefaults.renderOptions).length) {
+        setRenderOptions(styleDefaults.renderOptions);
+      }
       setShape(preset.shape);
       setAspectRatio(preset.aspectRatio);
       setTextBoxes(preset.textBoxes);
