@@ -46,6 +46,7 @@ export function MobileCreate({
     dateTime,
     setDateTime,
     textBoxes,
+    setTextBoxes,
     updateTextBox,
     removeTextBox,
     addTextBox,
@@ -317,7 +318,7 @@ export function MobileCreate({
         setTextBoxes(defaults.textBoxes);
       }
     },
-    [setRenderOptions, setStyle, textBoxes],
+    [setRenderOptions, setStyle, setTextBoxes, textBoxes],
   );
 
   return (
