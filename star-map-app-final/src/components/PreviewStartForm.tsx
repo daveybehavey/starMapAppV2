@@ -1,3 +1,8 @@
+"use client";
+
+import { type FormEvent, useCallback } from "react";
+import { track, trackFunnelStep } from "@/lib/analytics";
+
 type PreviewStartFormProps = {
   title?: string;
   description?: string;
@@ -11,11 +16,28 @@ export default function PreviewStartForm({
   buttonLabel = "Preview your map",
   source,
 }: PreviewStartFormProps) {
+  const resolvedSource = source?.trim() || "preview-start-form";
+  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    const formData = new FormData(event.currentTarget);
+    const hasDate = String(formData.get("date") ?? "").trim().length > 0;
+    const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
+
+    track("preview_start_submit", {
+      source: resolvedSource,
+      hasDate,
+      hasLocation,
+    });
+    trackFunnelStep("hero_plan_click", {
+      source: resolvedSource,
+      plan: "preview",
+    });
+  }, [resolvedSource]);
+
   return (
     <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
       <h2 className="text-lg font-semibold text-midnight">{title}</h2>
       <p className="mt-2 text-sm text-neutral-800 sm:text-base">{description}</p>
-      <form action="/editor" method="GET" className="mt-4">
+      <form action="/editor" method="GET" className="mt-4" onSubmit={handleSubmit}>
         <input type="hidden" name="mode" value="quick" />
         {source ? <input type="hidden" name="source" value={source} /> : null}
         <div className="grid gap-3 sm:grid-cols-2">

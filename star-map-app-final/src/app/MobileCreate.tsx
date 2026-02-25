@@ -23,6 +23,7 @@ interface MobileCreateProps {
   onShare: () => void;
   onCanvasReady?: () => void;
   variant?: "quick" | "full";
+  allowAdvancedInQuick?: boolean;
   onCustomizeMore?: () => void;
   creditsRemaining?: number | null;
   currentPlan?: CheckoutPlan | null;
@@ -34,6 +35,7 @@ export function MobileCreate({
   onShare,
   onCanvasReady,
   variant = "full",
+  allowAdvancedInQuick = false,
   onCustomizeMore,
   creditsRemaining = null,
   currentPlan = null,
@@ -80,7 +82,8 @@ export function MobileCreate({
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
-  const showAdvanced = isQuick ? false : showAdvancedState;
+  const allowAdvanced = !isQuick || allowAdvancedInQuick;
+  const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
     subtitle: true,
     dedication: true,
@@ -287,12 +290,20 @@ export function MobileCreate({
   }, [applyVisualOptions, isQuick, setIntensity, setIntensityDisplay, setRenderMode]);
 
   const handleCustomizeMore = useCallback(() => {
-    if (isQuick) {
+    if (isQuick && !allowAdvancedInQuick) {
       onCustomizeMore?.();
       return;
     }
-    setShowAdvancedState(true);
-  }, [isQuick, onCustomizeMore]);
+    setShowAdvancedState((prev) => {
+      const next = !prev;
+      if (next) {
+        requestAnimationFrame(() => {
+          dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+      return next;
+    });
+  }, [allowAdvancedInQuick, isQuick, onCustomizeMore]);
 
   return (
     <EditorFontShell>
@@ -1086,9 +1097,10 @@ export function MobileCreate({
               <button
                 type="button"
                 onClick={handleCustomizeMore}
+                aria-expanded={showEditor}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95"
               >
-                Customize more
+                {showEditor ? "Less options" : "Customize more"}
               </button>
             </div>
           </>

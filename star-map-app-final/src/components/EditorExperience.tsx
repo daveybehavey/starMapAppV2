@@ -1955,6 +1955,7 @@ export function EditorExperience({
                 setIsUpdating(false);
               }}
               variant={variant}
+              allowAdvancedInQuick={allowAdvancedInQuick}
               onCustomizeMore={handleCustomizeMore}
               creditsRemaining={creditsRemaining}
               currentPlan={currentPlan}

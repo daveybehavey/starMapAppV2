@@ -1,10 +1,32 @@
+"use client";
+
+import { type FormEvent, useCallback } from "react";
+import { track, trackFunnelStep } from "@/lib/analytics";
+
 export default function HeroEditorDeferred() {
+  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    const formData = new FormData(event.currentTarget);
+    const hasDate = String(formData.get("date") ?? "").trim().length > 0;
+    const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
+
+    track("hero_preview_submit", {
+      source: "home-hero",
+      hasDate,
+      hasLocation,
+    });
+    trackFunnelStep("hero_plan_click", {
+      source: "home-hero",
+      plan: "preview",
+    });
+  }, []);
+
   return (
     <div className="mx-auto w-full max-w-2xl">
       <form
         id="preview"
         action="/editor"
         method="GET"
+        onSubmit={handleSubmit}
         className="glass-panel min-w-0 rounded-2xl px-5 py-6 sm:px-6 sm:py-7"
       >
         <input type="hidden" name="mode" value="quick" />
