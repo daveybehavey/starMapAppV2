@@ -83,14 +83,33 @@ export const waitForPreview = async (page: Page) => {
 
 export const applySampleMoment = async (page: Page) => {
   await dismissOverlays(page);
-  const sampleButton = page.getByRole("button", { name: /Try a sample moment/i }).first();
-  await expect(sampleButton).toBeVisible({ timeout: 15000 });
-  await sampleButton.scrollIntoViewIfNeeded();
-  try {
-    await sampleButton.click({ timeout: 5000, noWaitAfter: true });
-  } catch {
-    // Fallback for animated/transitioning layouts in CI where Playwright actionability can be too strict.
-    await sampleButton.click({ force: true, noWaitAfter: true });
+
+  // Newer homepage/editor states can already have a rendered preview ready.
+  const freeExportButton = page.getByLabel("Free export").first();
+  if (await freeExportButton.isVisible({ timeout: 2500 }).catch(() => false)) {
+    await waitForPreview(page);
+    return;
+  }
+
+  const sampleButton = page
+    .getByRole("button", { name: /Try a sample moment|Try sample moment|Use sample moment/i })
+    .first();
+  if (await sampleButton.isVisible({ timeout: 6000 }).catch(() => false)) {
+    await sampleButton.scrollIntoViewIfNeeded();
+    try {
+      await sampleButton.click({ timeout: 5000, noWaitAfter: true });
+    } catch {
+      // Fallback for animated/transitioning layouts in CI where Playwright actionability can be too strict.
+      await sampleButton.click({ force: true, noWaitAfter: true });
+    }
+    await waitForPreview(page);
+    return;
+  }
+
+  // Fallback when sample CTA is removed/hidden but preview can still be generated.
+  const generateButton = page.getByRole("button", { name: /Generate preview|Preview your map/i }).first();
+  if (await generateButton.isVisible({ timeout: 4000 }).catch(() => false)) {
+    await generateButton.click({ timeout: 5000 }).catch(() => undefined);
   }
   await waitForPreview(page);
 };
