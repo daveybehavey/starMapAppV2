@@ -1,7 +1,10 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PreviewStartForm from "@/components/PreviewStartForm";
+import StickyCtaBar from "@/components/StickyCtaBar";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -14,7 +17,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Wedding Star Map",
+  title: "Personalized Wedding Star Map | StarMapCo",
   description:
     "Create a personalized wedding star map from your ceremony date and location. Astronomically accurate and print-ready — a meaningful keepsake or gift.",
   alternates: { canonical: `${siteUrl}/wedding` },
@@ -41,7 +44,10 @@ export default function WeddingPage() {
         </p>
       </header>
 
-      <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+      <PreviewStartForm source="wedding" />
+      <StickyCtaBar source="sticky-wedding" />
+
+      <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why couples love this gift</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
           The stars above you on the night you said “I do” are unrepeatable. Our maps use astronomically accurate data to
@@ -56,7 +62,7 @@ export default function WeddingPage() {
         </ul>
       </section>
 
-      <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Make yours in minutes</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter your wedding location (city or venue)</li>
@@ -77,14 +83,44 @@ export default function WeddingPage() {
         </div>
       </section>
 
-      <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-midnight">Wedding map examples</h2>
+          <p className="text-sm text-neutral-800 sm:text-base">
+            Start with a style you like, then personalize wording, date line, and frame feel for your own event.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { src: "/examples/example-wedding-cinematic-heart.webp", label: "Cinematic gold" },
+            { src: "/examples/example-anniversary-luxe.webp", label: "Luxe minimal" },
+            { src: "/examples/example-birthday-classic.webp", label: "Classic contrast" },
+          ].map((item) => (
+            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+              <div className="relative aspect-square">
+                <Image
+                  src={item.src}
+                  alt={item.label}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">What makes it special</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Every map uses the same rendering engine for preview and HD export, so what you see is exactly what you receive.
           You can toggle constellations, glow, labels, and choose fonts to match your wedding aesthetic. Flexible pricing
           includes single downloads, bundles, or an unlimited subscription.
         </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
             Anniversary star maps
           </Link>
@@ -94,9 +130,42 @@ export default function WeddingPage() {
         </div>
       </section>
 
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Before you buy</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          You can preview for free first. Upgrade only when both of you are happy with the layout and text.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+            <h3 className="text-sm font-semibold text-midnight sm:text-base">Checkout and files</h3>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
+              <li>Secure Stripe checkout</li>
+              <li>Instant HD download after payment</li>
+              <li>No watermark on paid exports</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+            <h3 className="text-sm font-semibold text-midnight sm:text-base">Print and support</h3>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
+              <li>High-resolution file up to 6000x6000</li>
+              <li>Designed for frame-ready printing</li>
+              <li>Help available at support@starmapco.com</li>
+            </ul>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
+            Print and frame guide
+          </Link>
+          <Link href="/returns" className="text-amber-700 underline hover:text-amber-800">
+            Returns and refunds
+          </Link>
+        </div>
+      </section>
+
       <OccasionLinks />
 
-      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Wedding star map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           <div>
@@ -112,6 +181,20 @@ export default function WeddingPage() {
               moment under the stars.
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Do I need the exact wedding time?</h3>
+            <p>
+              Exact time helps if you want maximum precision, but date + location still gives a beautiful and meaningful
+              result.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I print it locally?</h3>
+            <p>
+              Yes. Most customers print locally or online and frame it themselves. We include guidance for common print
+              sizes.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -124,6 +207,16 @@ export default function WeddingPage() {
             question: "Is this a good couples gift?",
             answer:
               "Definitely. A wedding star map is one of the most meaningful couples gifts because it captures a shared moment under the stars.",
+          },
+          {
+            question: "Do I need the exact wedding time?",
+            answer:
+              "Exact time helps if you want maximum precision, but date + location still gives a beautiful and meaningful result.",
+          },
+          {
+            question: "Can I print it locally?",
+            answer:
+              "Yes. Most customers print locally or online and frame it themselves. We include guidance for common print sizes.",
           },
         ]}
       />

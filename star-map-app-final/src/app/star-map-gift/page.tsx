@@ -17,7 +17,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Gift",
+  title: "Star Map Gift | StarMapCo",
   description:
     "Give a personalized star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
   alternates: { canonical: `${siteUrl}/star-map-gift` },
@@ -81,12 +81,45 @@ export default function StarMapGiftPage() {
         </div>
       </section>
 
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Confidence before checkout</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          You can build and share your preview for free. Pay only when you are ready to unlock the final HD file.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+            <h3 className="text-sm font-semibold text-midnight sm:text-base">What happens after payment</h3>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
+              <li>Secure Stripe checkout</li>
+              <li>Immediate HD unlock with no watermark</li>
+              <li>Download-ready for print or frame shops</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+            <h3 className="text-sm font-semibold text-midnight sm:text-base">Support and policy</h3>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
+              <li>Clear returns and refund policy</li>
+              <li>Step-by-step print guidance included</li>
+              <li>Direct support at support@starmapco.com</li>
+            </ul>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link href="/how-to-print-star-map" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+            Print and frame guide
+          </Link>
+          <Link href="/returns" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+            Returns and refunds
+          </Link>
+        </div>
+      </section>
+
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Related gift ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Explore these popular variations when searching for the perfect gift.
         </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/night-sky-map-gift" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
             Night sky map gift
           </Link>
@@ -162,6 +195,18 @@ export default function StarMapGiftPage() {
               file.
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I create it now and buy later?</h3>
+            <p>
+              Yes. You can design and preview first, then return to unlock HD only when you are fully happy with the result.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What if I need a quick gift turnaround?</h3>
+            <p>
+              This works well for same-day gifting because checkout and HD download are instant.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -175,6 +220,15 @@ export default function StarMapGiftPage() {
             question: "Can I add names and a date?",
             answer:
               "You can personalize the star map with names, a title, a date line, and a dedication before downloading the HD file.",
+          },
+          {
+            question: "Can I create it now and buy later?",
+            answer:
+              "Yes. You can design and preview first, then return to unlock HD only when you are fully happy with the result.",
+          },
+          {
+            question: "What if I need a quick gift turnaround?",
+            answer: "This works well for same-day gifting because checkout and HD download are instant.",
           },
         ]}
       />

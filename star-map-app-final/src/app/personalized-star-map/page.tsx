@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
@@ -16,7 +17,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Star Map",
+  title: "Personalized Star Map | StarMapCo",
   description:
     "Create a personalized star map with names, dates, and locations. Accurate, print-ready, and instantly previewed.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
@@ -78,6 +79,84 @@ export default function PersonalizedStarMapPage() {
         </div>
       </section>
 
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-midnight">Recent personalized map examples</h2>
+          <p className="text-sm text-neutral-800 sm:text-base">
+            These are real StarMapCo outputs. You can start from one of these looks and adjust fonts, lines, and text.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            {
+              src: "/examples/example-wedding-cinematic-heart.webp",
+              label: "Luxe wedding style",
+            },
+            {
+              src: "/examples/example-anniversary-luxe.webp",
+              label: "Classic anniversary style",
+            },
+            {
+              src: "/examples/example-birthday-classic.webp",
+              label: "Birthday keepsake style",
+            },
+          ].map((item) => (
+            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+              <div className="relative aspect-square">
+                <Image
+                  src={item.src}
+                  alt={item.label}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="text-sm">
+          <Link href="/star-map-gallery" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+            View full gallery
+          </Link>
+        </div>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Buy with confidence</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Preview first, then pay only when the design feels right. Checkout is handled securely, and you get your
+          watermark-free HD file immediately after payment.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+            <h3 className="text-sm font-semibold text-midnight sm:text-base">Checkout and delivery</h3>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
+              <li>Secure Stripe checkout</li>
+              <li>Instant HD download after successful payment</li>
+              <li>Single map, 3-pack, or unlimited plans</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+            <h3 className="text-sm font-semibold text-midnight sm:text-base">Print quality and support</h3>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
+              <li>Export up to 6000x6000 resolution</li>
+              <li>Built for poster-quality prints and framing</li>
+              <li>Email support at support@starmapco.com</li>
+            </ul>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
+            Print size and frame guide
+          </Link>
+          <Link href="/returns" className="text-amber-700 underline hover:text-amber-800">
+            Returns and refunds
+          </Link>
+        </div>
+      </section>
+
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -95,6 +174,19 @@ export default function PersonalizedStarMapPage() {
               Yes. The HD file is high resolution and designed for crisp prints and framing.
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What if I do not know the exact time?</h3>
+            <p>
+              You can still create a beautiful map using date + location only. If time is unknown, we default to midnight
+              and you can adjust later.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">How quickly do I get the HD file?</h3>
+            <p>
+              Immediately after checkout. You unlock the download in the app and can save your file right away.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -107,6 +199,15 @@ export default function PersonalizedStarMapPage() {
           {
             question: "Is the personalized star map print-ready?",
             answer: "Yes. The HD file is high resolution and designed for crisp prints and framing.",
+          },
+          {
+            question: "What if I do not know the exact time?",
+            answer:
+              "You can still create a beautiful map using date + location only. If time is unknown, we default to midnight and you can adjust later.",
+          },
+          {
+            question: "How quickly do I get the HD file?",
+            answer: "Immediately after checkout. You unlock the download in the app and can save your file right away.",
           },
         ]}
       />
