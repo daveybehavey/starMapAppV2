@@ -139,6 +139,11 @@ export const metadata: Metadata = {
       "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
     images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },
+  verification: {
+    other: {
+      "p:domain_verify": "789a8db329c08fe1a0a43fb579bf8611",
+    },
+  },
 };
 
 export const viewport: Viewport = {
