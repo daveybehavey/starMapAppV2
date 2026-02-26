@@ -15,11 +15,24 @@ const playfair = Playfair_Display({
 export const revalidate = 3600;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-const defaultSocialLinks = [
+type SocialLink = {
+  label: string;
+  href: string;
+};
+
+const defaultSocialLinks: SocialLink[] = [
   { label: "Facebook", href: "https://www.facebook.com/profile.php?id=61584233102201" },
   { label: "Pinterest", href: "https://ca.pinterest.com/StarMapCo/" },
   { label: "X", href: "https://x.com/StarMapCo" },
   { label: "TikTok", href: "https://www.tiktok.com/@starmapco" },
+];
+
+const footerLinks = [
+  { label: "Gallery", href: "/star-map-gallery" },
+  { label: "Gift Ideas", href: "/star-map-gift-ideas" },
+  { label: "Blog", href: "/blog" },
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Returns & Refunds", href: "/returns" },
 ] as const;
 
 function inferSocialLabel(url: string): string {
@@ -39,10 +52,47 @@ const envSocialLinks = (process.env.NEXT_PUBLIC_SOCIAL_LINKS ?? "")
   .split(",")
   .map((value) => value.trim())
   .filter((value) => /^https?:\/\//i.test(value))
-  .map((href) => ({ label: inferSocialLabel(href), href }));
+  .map((href) => ({ label: inferSocialLabel(href), href })) as SocialLink[];
 
 const socialLinks = envSocialLinks.length ? envSocialLinks : defaultSocialLinks;
 const socialProfiles = socialLinks.map((item) => item.href);
+
+function SocialIcon({ label }: { label: string }) {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("facebook")) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 fill-current">
+        <path d="M13.7 21v-8h2.6l.4-3h-3V8.2c0-.9.3-1.5 1.6-1.5h1.5V4c-.3 0-1.4-.1-2.6-.1-2.6 0-4.3 1.6-4.3 4.4V10H7.3v3h2.6v8h3.8z" />
+      </svg>
+    );
+  }
+  if (normalized.includes("pinterest")) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 fill-current">
+        <path d="M12 3.4c-4.6 0-7 3.3-7 6.1 0 1.7.6 3.2 2 3.8.2.1.3 0 .3-.2 0-.2.1-.8.1-.9 0-.1 0-.2-.1-.4-.4-.5-.7-1.2-.7-2.2 0-2.9 2.2-5.4 5.6-5.4 3 0 4.7 1.9 4.7 4.3 0 3.2-1.4 5.9-3.5 5.9-1.2 0-2-1-1.7-2.2.3-1.5 1-3.1 1-4.1 0-.9-.5-1.7-1.5-1.7-1.2 0-2.2 1.2-2.2 2.9 0 1 .4 1.8.4 1.8l-1.4 5.7c-.3 1.1 0 2.4 0 2.6 0 .1.1.2.2.1.2-.3 1-1.4 1.3-2.5.1-.3.5-2 .5-2 .3.6 1.4 1.2 2.5 1.2 3.3 0 5.6-3.1 5.6-7.2 0-3.1-2.6-5.9-6.6-5.9z" />
+      </svg>
+    );
+  }
+  if (normalized === "x" || normalized.includes("twitter")) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 fill-current">
+        <path d="M18.9 2.3h2.8l-6.2 7.1L23 21.7h-5.7l-4.5-5.9-5.2 5.9H4.8l6.7-7.7L1 2.3h5.8l4 5.3 4.7-5.3zm-1 17h1.6L6.8 4.6H5.1L17.9 19.3z" />
+      </svg>
+    );
+  }
+  if (normalized.includes("tiktok")) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 fill-current">
+        <path d="M15 2c.2 1.8 1.2 3.4 2.8 4.3.9.5 1.8.8 2.9.8v3.1c-1.2 0-2.4-.3-3.5-.9-.3-.2-.6-.3-.9-.5v6.5c0 3.3-2.7 6-6 6s-6-2.7-6-6 2.7-6 6-6h.7v3.2h-.7c-1.5 0-2.8 1.2-2.8 2.8s1.2 2.8 2.8 2.8 2.8-1.2 2.8-2.8V2h2.9z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 fill-current">
+      <path d="M12 3a9 9 0 100 18 9 9 0 000-18zm6.8 8h-2.9a15 15 0 00-1-5A7.2 7.2 0 0118.8 11zM12 4.8c.8 1.1 1.5 2.9 1.7 5.2h-3.4c.2-2.3.9-4.1 1.7-5.2zM8.1 6a15 15 0 00-1 5H4.2A7.2 7.2 0 018.1 6zm-3.9 7h2.9c.1 1.8.5 3.5 1 5A7.2 7.2 0 014.2 13zM12 19.2c-.8-1.1-1.5-2.9-1.7-5.2h3.4c-.2 2.3-.9 4.1-1.7 5.2zM15.9 18a15 15 0 001-5h2.9a7.2 7.2 0 01-3.9 5z" />
+    </svg>
+  );
+}
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -134,41 +184,58 @@ export default function RootLayout({
         <div className="cosmic-backdrop">
           {children}
         </div>
-        <footer className="bg-[rgba(247,241,227,0.92)] px-6 py-4 text-sm text-neutral-800 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
-          <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Link href="/" prefetch={false} className="font-semibold text-midnight hover:underline">
-              © {new Date().getFullYear()} StarMapCo
-            </Link>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
-              <Link href="/star-map-gallery" prefetch={false} className="font-semibold text-midnight hover:underline">
-                Gallery
+        <footer className="border-t border-[#b5934f]/40 bg-[linear-gradient(140deg,rgba(4,10,31,0.97),rgba(11,34,77,0.94))] text-[#f7f0e2] shadow-[0_-10px_30px_rgba(0,0,0,0.35)]">
+          <div className="mx-auto grid max-w-6xl gap-8 px-6 py-8 md:grid-cols-[1.2fr_1fr_1.2fr]">
+            <div>
+              <Link href="/" prefetch={false} className="inline-flex items-center text-base font-semibold tracking-wide text-[#f8e8bf]">
+                StarMapCo
               </Link>
-              <Link href="/star-map-gift-ideas" prefetch={false} className="font-semibold text-midnight hover:underline">
-                Gift Ideas
-              </Link>
-              <Link href="/blog" prefetch={false} className="font-semibold text-midnight hover:underline">
-                Blog
-              </Link>
-              <Link href="/privacy" prefetch={false} className="font-semibold text-midnight hover:underline">
-                Privacy Policy
-              </Link>
-              <Link href="/returns" prefetch={false} className="font-semibold text-midnight hover:underline">
-                Returns &amp; Refunds
-              </Link>
-              {socialLinks.map((social) => (
-                <a
-                  key={social.href}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-midnight hover:underline"
-                >
-                  {social.label}
-                </a>
-              ))}
-              <a href="mailto:support@starmapco.com" className="font-semibold text-midnight hover:underline">
-                Contact
+              <p className="mt-2 max-w-xs text-sm text-[#d6dcee]">
+                Personalized night sky maps for weddings, anniversaries, birthdays, and one-time moments.
+              </p>
+              <a
+                href="mailto:support@starmapco.com"
+                className="mt-3 inline-flex text-sm font-medium text-[#f8d475] transition hover:text-[#ffdf8d]"
+              >
+                support@starmapco.com
               </a>
+            </div>
+            <nav aria-label="Footer links" className="grid content-start gap-2 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#f8d475]">Explore</p>
+              {footerLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch={false}
+                  className="w-fit text-[#e8edf9] transition hover:text-[#ffffff]"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="grid content-start gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#f8d475]">Follow</p>
+              <div className="flex flex-wrap gap-2">
+                {socialLinks.map((social) => (
+                  <a
+                    key={social.href}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Follow StarMapCo on ${social.label}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#b5934f]/60 bg-[rgba(7,16,46,0.72)] px-3 py-1.5 text-xs font-semibold text-[#f7f0e2] transition hover:border-[#f8d475] hover:text-[#ffffff]"
+                  >
+                    <SocialIcon label={social.label} />
+                    <span>{social.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-white/12">
+            <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-3 text-xs text-[#c9d1e6] sm:flex-row sm:items-center sm:justify-between">
+              <span>© {new Date().getFullYear()} StarMapCo. All rights reserved.</span>
+              <span>Built for instant preview and print-ready exports.</span>
             </div>
           </div>
         </footer>
