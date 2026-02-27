@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import type { Metadata } from "next";
@@ -81,38 +82,23 @@ export default function StarMapGiftPage() {
         </div>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Confidence before checkout</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          You can build and share your preview for free. Pay only when you are ready to unlock the final HD file.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
-            <h3 className="text-sm font-semibold text-midnight sm:text-base">What happens after payment</h3>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-              <li>Secure Stripe checkout</li>
-              <li>Immediate HD unlock with no watermark</li>
-              <li>Download-ready for print or frame shops</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
-            <h3 className="text-sm font-semibold text-midnight sm:text-base">Support and policy</h3>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-              <li>Clear returns and refund policy</li>
-              <li>Step-by-step print guidance included</li>
-              <li>Direct support at support@starmapco.com</li>
-            </ul>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link href="/how-to-print-star-map" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
-            Print and frame guide
-          </Link>
-          <Link href="/returns" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
-            Returns and refunds
-          </Link>
-        </div>
-      </section>
+      <PurchaseTrustPanel
+        heading="Confidence before checkout"
+        intro="Build and share your preview for free. Pay only when you are ready to unlock the final HD file."
+        leftTitle="What happens after payment"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Immediate HD unlock with no watermark",
+          "Download-ready for print or frame shops",
+        ]}
+        rightTitle="Support and policy"
+        rightPoints={[
+          "Clear returns and refund policy",
+          "Step-by-step print guidance included",
+          "Direct support at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Related gift ideas</h2>

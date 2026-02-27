@@ -21,6 +21,7 @@
     "promo:setup": "node scripts/setup-promotion-code.mjs",
     "seo:scoreboard": "node scripts/seo-scoreboard.mjs",
     "qa:live-conversion": "node scripts/live-conversion-qa.mjs",
+    "qa:live-smoke": "node scripts/live-smoke.mjs --site https://starmapco.com",
     "qa:sitemap-health": "node scripts/sitemap-health.mjs",
     "qa:printful": "node scripts/printful-verify.mjs",
     "qa:go-no-go": "node scripts/qa-go-no-go.mjs",

@@ -73,6 +73,7 @@ Expect:
    - `print:order:<sessionId>`
 4. Confirm print order status becomes `sent` (or expected status in test flow).
 5. Confirm digital entitlement behavior is correct for print + digital add-on.
+6. Run `npm run qa:live-smoke` after deploy to verify production metadata/footer/API sanity.
 
 ## No-Go Conditions
 

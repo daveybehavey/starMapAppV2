@@ -82,6 +82,7 @@ Open [http://localhost:3000](http://localhost:3000)
 | `npm run preview` | Build and preview for Cloudflare |
 | `npm run deploy` | Deploy to Cloudflare Pages |
 | `npm run check:env` | Validate required environment variables |
+| `npm run qa:live-smoke` | Run lightweight post-deploy checks on production |
 | `npm run qa:sitemap-health` | Validate sitemap URL health |
 | `npm run qa:printful` | Validate Printful store and variant IDs |
 | `npm run qa:go-no-go` | Validate print launch flags and fulfillment readiness |

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import type { Metadata } from "next";
@@ -130,38 +131,23 @@ export default function WeddingPage() {
         </div>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Before you buy</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          You can preview for free first. Upgrade only when both of you are happy with the layout and text.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
-            <h3 className="text-sm font-semibold text-midnight sm:text-base">Checkout and files</h3>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-              <li>Secure Stripe checkout</li>
-              <li>Instant HD download after payment</li>
-              <li>No watermark on paid exports</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
-            <h3 className="text-sm font-semibold text-midnight sm:text-base">Print and support</h3>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-              <li>High-resolution file up to 6000x6000</li>
-              <li>Designed for frame-ready printing</li>
-              <li>Help available at support@starmapco.com</li>
-            </ul>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
-            Print and frame guide
-          </Link>
-          <Link href="/returns" className="text-amber-700 underline hover:text-amber-800">
-            Returns and refunds
-          </Link>
-        </div>
-      </section>
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only when both of you are happy with the layout and text."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "High-resolution file up to 6000x6000",
+          "Designed for frame-ready printing",
+          "Help available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <OccasionLinks />
 

@@ -1,0 +1,223 @@
+#!/usr/bin/env node
+
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const DEFAULT_SITE = "https://starmapco.com";
+const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_REPORT_PATH = "reports/live-smoke.json";
+
+function parseArgs(argv) {
+  const args = {
+    site: DEFAULT_SITE,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+    out: DEFAULT_REPORT_PATH,
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    const next = argv[i + 1];
+    if (token === "--site" && next) {
+      args.site = next.replace(/\/+$/, "");
+      i += 1;
+      continue;
+    }
+    if (token === "--timeout-ms" && next) {
+      const parsed = Number.parseInt(next, 10);
+      if (Number.isFinite(parsed) && parsed > 0) args.timeoutMs = parsed;
+      i += 1;
+      continue;
+    }
+    if (token === "--out" && next) {
+      args.out = next;
+      i += 1;
+      continue;
+    }
+    if (token === "-h" || token === "--help") {
+      console.log(`Usage: node scripts/live-smoke.mjs [--site <url>] [--timeout-ms <n>] [--out <file>]
+
+Lightweight post-deploy live checks for core UX + API routes.`);
+      process.exit(0);
+    }
+    throw new Error(`Unknown arg: ${token}`);
+  }
+
+  return args;
+}
+
+function createAbortSignal(timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    cleanup() {
+      clearTimeout(timer);
+    },
+  };
+}
+
+async function fetchWithTimeout(url, init, timeoutMs) {
+  const { signal, cleanup } = createAbortSignal(timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal });
+  } finally {
+    cleanup();
+  }
+}
+
+async function ensureDirFor(filePath) {
+  await fs.mkdir(path.dirname(path.resolve(process.cwd(), filePath)), { recursive: true });
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const checks = [];
+  const runCheck = (name, passed, details) => {
+    checks.push({ name, passed, details });
+    const prefix = passed ? "PASS" : "FAIL";
+    console.log(`[${prefix}] ${name}${details ? ` — ${details}` : ""}`);
+  };
+  const site = args.site;
+  let failed = false;
+
+  console.log(`Live smoke target: ${site}`);
+
+  try {
+    const homeRes = await fetchWithTimeout(`${site}/`, { cache: "no-store" }, args.timeoutMs);
+    const homeHtml = await homeRes.text();
+    const homeStatus = homeRes.status;
+    runCheck("Homepage responds 200", homeStatus === 200, `status=${homeStatus}`);
+    runCheck(
+      "Homepage title includes StarMapCo",
+      /<title>[^<]*StarMapCo[^<]*<\/title>/i.test(homeHtml),
+      "title check",
+    );
+    runCheck(
+      "Homepage footer includes social links",
+      homeHtml.includes("https://www.facebook.com/profile.php?id=61584233102201") &&
+        homeHtml.includes("https://ca.pinterest.com/StarMapCo/") &&
+        homeHtml.includes("https://x.com/StarMapCo") &&
+        homeHtml.includes("https://www.tiktok.com/@starmapco"),
+      "facebook+pinterest+x+tiktok",
+    );
+    runCheck(
+      "Homepage includes Pinterest domain verify meta",
+      homeHtml.includes('name="p:domain_verify"'),
+      "meta tag present",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Homepage checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const editorRes = await fetchWithTimeout(`${site}/editor`, { cache: "no-store" }, args.timeoutMs);
+    const editorHtml = await editorRes.text();
+    runCheck("Editor responds 200", editorRes.status === 200, `status=${editorRes.status}`);
+    runCheck(
+      "Editor route has noindex",
+      /<meta name="robots" content="noindex, nofollow"/i.test(editorHtml),
+      "robots meta",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Editor checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const premiumRes = await fetchWithTimeout(`${site}/api/premium`, { cache: "no-store" }, args.timeoutMs);
+    const premiumJson = await premiumRes.json();
+    const hasPaidBoolean = typeof premiumJson?.paid === "boolean";
+    runCheck("Premium endpoint responds 200", premiumRes.status === 200, `status=${premiumRes.status}`);
+    runCheck("Premium payload has paid boolean", hasPaidBoolean, JSON.stringify(premiumJson));
+  } catch (error) {
+    failed = true;
+    runCheck("Premium endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const printDisabledRes = await fetchWithTimeout(
+      `${site}/api/checkout`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          orderType: "print",
+          printVariant: "poster_unframed",
+        }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    const printDisabledJson = await printDisabledRes.json().catch(() => ({}));
+    const printStatusOk = [400, 503].includes(printDisabledRes.status);
+    runCheck("Print checkout safety gate responds safely", printStatusOk, `status=${printDisabledRes.status}`);
+    runCheck(
+      "Print checkout returns expected error code",
+      printDisabledJson?.code === "print_checkout_disabled" || printDisabledJson?.code === "missing_print_asset",
+      JSON.stringify(printDisabledJson),
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Print checkout safety checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const checkoutRes = await fetchWithTimeout(
+      `${site}/api/checkout`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plan: "single" }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    const checkoutJson = await checkoutRes.json().catch(() => ({}));
+    const checkoutUrl = typeof checkoutJson?.url === "string" ? checkoutJson.url : "";
+    runCheck("Digital checkout endpoint responds 200", checkoutRes.status === 200, `status=${checkoutRes.status}`);
+    runCheck(
+      "Digital checkout returns Stripe URL",
+      /^https:\/\/checkout\.stripe\.com\//.test(checkoutUrl),
+      checkoutUrl ? checkoutUrl.slice(0, 80) : "missing url",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Digital checkout checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const sitemapRes = await fetchWithTimeout(`${site}/sitemap.xml`, { cache: "no-store" }, args.timeoutMs);
+    const sitemapXml = await sitemapRes.text();
+    runCheck("Sitemap responds 200", sitemapRes.status === 200, `status=${sitemapRes.status}`);
+    runCheck("Sitemap has urlset", /<urlset/i.test(sitemapXml), "xml format");
+  } catch (error) {
+    failed = true;
+    runCheck("Sitemap checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  const summary = {
+    generatedAt: new Date().toISOString(),
+    site,
+    timeoutMs: args.timeoutMs,
+    passed: checks.every((item) => item.passed) && !failed,
+    checks,
+  };
+
+  await ensureDirFor(args.out);
+  await fs.writeFile(path.resolve(process.cwd(), args.out), `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+  console.log(`Report written: ${args.out}`);
+
+  if (!summary.passed) {
+    process.exitCode = 1;
+    console.error("Live smoke result: FAILED");
+    return;
+  }
+
+  console.log("Live smoke result: PASSED");
+}
+
+main().catch((error) => {
+  console.error("Live smoke failed:", error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

@@ -66,6 +66,12 @@ Additional manual checks required:
 4. Success page behavior for digital and print order modes.
 5. Referral link generation and reward credit flow.
 
+Post-deploy sanity:
+
+```bash
+npm run qa:live-smoke
+```
+
 ## Phase 4: Growth and Conversion (Planned)
 
 - Strengthen trust modules on money pages (reviews, quality guarantees, shipping clarity).

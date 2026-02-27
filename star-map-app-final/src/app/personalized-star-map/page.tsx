@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import type { Metadata } from "next";
@@ -123,39 +124,23 @@ export default function PersonalizedStarMapPage() {
         </div>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Buy with confidence</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Preview first, then pay only when the design feels right. Checkout is handled securely, and you get your
-          watermark-free HD file immediately after payment.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
-            <h3 className="text-sm font-semibold text-midnight sm:text-base">Checkout and delivery</h3>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-              <li>Secure Stripe checkout</li>
-              <li>Instant HD download after successful payment</li>
-              <li>Single map, 3-pack, or unlimited plans</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
-            <h3 className="text-sm font-semibold text-midnight sm:text-base">Print quality and support</h3>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-              <li>Export up to 6000x6000 resolution</li>
-              <li>Built for poster-quality prints and framing</li>
-              <li>Email support at support@starmapco.com</li>
-            </ul>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
-            Print size and frame guide
-          </Link>
-          <Link href="/returns" className="text-amber-700 underline hover:text-amber-800">
-            Returns and refunds
-          </Link>
-        </div>
-      </section>
+      <PurchaseTrustPanel
+        heading="Buy with confidence"
+        intro="Preview first, then pay only when the design feels right. Checkout is secure, and your watermark-free HD file unlocks immediately after payment."
+        leftTitle="Checkout and delivery"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after successful payment",
+          "Single map, 3-pack, or unlimited plans",
+        ]}
+        rightTitle="Print quality and support"
+        rightPoints={[
+          "Export up to 6000x6000 resolution",
+          "Built for poster-quality prints and framing",
+          "Email support at support@starmapco.com",
+        ]}
+        guideLabel="Print size and frame guide"
+      />
 
       <OccasionLinks />
 
