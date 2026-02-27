@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
-import type { CheckoutPlan } from "@/lib/pricing";
+import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
@@ -27,6 +27,9 @@ type SessionRecord = {
   subscriptionId?: string | null;
   subscriptionActive?: boolean;
   customerId?: string | null;
+  orderType?: CheckoutOrderType;
+  printVariant?: PrintVariant;
+  includesDigitalAddOn?: boolean;
 };
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
@@ -42,7 +45,28 @@ function getMapId(session: Stripe.Checkout.Session) {
   );
 }
 
-function getPlan(session: Stripe.Checkout.Session): CheckoutPlan {
+function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
+  return session.metadata?.order_type === "print" ? "print" : "digital";
+}
+
+function getPrintVariant(session: Stripe.Checkout.Session): PrintVariant | undefined {
+  if (session.metadata?.print_variant === "poster_framed") return "poster_framed";
+  if (session.metadata?.print_variant === "poster_unframed") return "poster_unframed";
+  return undefined;
+}
+
+function includesDigitalAddOn(session: Stripe.Checkout.Session): boolean {
+  return session.metadata?.print_include_digital === "true";
+}
+
+function getPlan(
+  session: Stripe.Checkout.Session,
+  orderType: CheckoutOrderType,
+  hasDigitalAddOn: boolean,
+): CheckoutPlan | undefined {
+  if (orderType === "print" && !hasDigitalAddOn) {
+    return undefined;
+  }
   const plan = typeof session.metadata?.plan === "string" ? session.metadata.plan : null;
   if (plan === "pack3" || plan === "subscription" || plan === "single") {
     return plan;
@@ -50,7 +74,8 @@ function getPlan(session: Stripe.Checkout.Session): CheckoutPlan {
   return session.mode === "subscription" ? "subscription" : "single";
 }
 
-function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan): number {
+function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan | undefined): number {
+  if (!plan) return 0;
   if (plan === "subscription") return 0;
   const raw = typeof session.metadata?.credits === "string" ? Number.parseInt(session.metadata.credits, 10) : NaN;
   if (Number.isFinite(raw) && raw > 0) return raw;
@@ -91,16 +116,27 @@ export async function GET(req: NextRequest) {
         plan: record.plan ?? null,
         creditsRemaining: record.creditsRemaining ?? null,
         subscriptionActive: record.subscriptionActive ?? null,
+        orderType: record.orderType ?? "digital",
+        printVariant: record.printVariant ?? null,
+        includesDigitalAddOn: Boolean(record.includesDigitalAddOn),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
-    response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: PREMIUM_COOKIE_TTL_SECONDS,
-    });
+    const hasDigitalEntitlement =
+      record.orderType === "print"
+        ? Boolean(record.includesDigitalAddOn) && ((record.creditsRemaining ?? 0) > 0 || Boolean(record.paid))
+        : record.plan === "subscription"
+          ? Boolean(record.subscriptionActive)
+          : (record.creditsRemaining ?? 0) > 0 || Boolean(record.paid);
+    if (hasDigitalEntitlement) {
+      response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: PREMIUM_COOKIE_TTL_SECONDS,
+      });
+    }
     return response;
   }
 
@@ -117,7 +153,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ paid: false }, { headers: { "Cache-Control": "no-store" } });
     }
 
-    const plan = getPlan(session);
+    const orderType = getOrderType(session);
+    const printVariant = getPrintVariant(session);
+    const hasDigitalAddOn = includesDigitalAddOn(session);
+    const plan = getPlan(session, orderType, hasDigitalAddOn);
     let credits = getCredits(session, plan);
     const existingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
     if (existingSessionId && existingSessionId !== sessionId && plan !== "subscription") {
@@ -153,6 +192,9 @@ export async function GET(req: NextRequest) {
       subscriptionId: subscriptionId ?? undefined,
       subscriptionActive: plan === "subscription" ? true : undefined,
       customerId: customerId ?? undefined,
+      orderType,
+      printVariant,
+      includesDigitalAddOn: hasDigitalAddOn,
     });
     if (paymentIntentId) {
       await kv.set(paymentIntentKey(paymentIntentId), sessionId);
@@ -176,19 +218,26 @@ export async function GET(req: NextRequest) {
       {
         paid: true,
         mapId,
-        plan,
+        plan: plan ?? null,
         creditsRemaining: credits || null,
         subscriptionActive: plan === "subscription",
+        orderType,
+        printVariant: printVariant ?? null,
+        includesDigitalAddOn: hasDigitalAddOn,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
-    response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: PREMIUM_COOKIE_TTL_SECONDS,
-    });
+    const hasDigitalEntitlement =
+      orderType === "print" ? hasDigitalAddOn && credits > 0 : plan === "subscription" ? true : credits > 0;
+    if (hasDigitalEntitlement) {
+      response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: PREMIUM_COOKIE_TTL_SECONDS,
+      });
+    }
     return response;
   } catch (err) {
     console.error("Stripe session verification failed", err);

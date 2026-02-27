@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
-import type { CheckoutPlan } from "@/lib/pricing";
+import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
 type SessionRecord = {
   paid?: boolean;
@@ -10,6 +10,8 @@ type SessionRecord = {
   plan?: CheckoutPlan;
   creditsRemaining?: number;
   subscriptionActive?: boolean;
+  orderType?: CheckoutOrderType;
+  includesDigitalAddOn?: boolean;
   lastConsumeToken?: string;
   lastConsumeRemaining?: number;
 };
@@ -31,6 +33,9 @@ export async function POST(req: NextRequest) {
   const record = await kv.get<SessionRecord>(sessionKey(sessionId));
   if (!record || record.revoked) {
     return NextResponse.json({ ok: false, error: "No active entitlement" }, { status: 403 });
+  }
+  if (record.orderType === "print" && !record.includesDigitalAddOn) {
+    return NextResponse.json({ ok: false, error: "No digital entitlement" }, { status: 402 });
   }
 
   let consumeToken: string | null = null;

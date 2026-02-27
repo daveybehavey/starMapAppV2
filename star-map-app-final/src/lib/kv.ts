@@ -1,4 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 type KvSetOptions = { ex?: number; px?: number };
 type KvIncrOptions = { ex?: number; px?: number };
@@ -10,9 +12,31 @@ type CloudflareKvNamespace = {
 const CLOUDFLARE_KV_BINDING = "STAR_MAP_KV";
 const memoryStore: Map<string, unknown> =
   (globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv ?? new Map();
+const fallbackKvDir = process.env.STARMAP_KV_DIR?.trim() || path.join(process.cwd(), ".tmp", "kv-store");
 
 if (!(globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv) {
   (globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv = memoryStore;
+}
+
+function fallbackFilePathForKey(key: string) {
+  const encoded = Buffer.from(key, "utf8").toString("base64url");
+  return path.join(fallbackKvDir, `${encoded}.json`);
+}
+
+async function readFallbackValue<T>(key: string): Promise<T | null> {
+  const filePath = fallbackFilePathForKey(key);
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function writeFallbackValue<T>(key: string, value: T): Promise<void> {
+  const filePath = fallbackFilePathForKey(key);
+  await fs.mkdir(fallbackKvDir, { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(value), "utf8");
 }
 
 async function getCloudflareKv(): Promise<CloudflareKvNamespace | null> {
@@ -46,7 +70,14 @@ export const kv = {
     if (cfKv) {
       return await cfKv.get<T>(key, "json");
     }
-    return memoryStore.has(key) ? (memoryStore.get(key) as T) : null;
+    if (memoryStore.has(key)) {
+      return memoryStore.get(key) as T;
+    }
+    const fallbackValue = await readFallbackValue<T>(key);
+    if (fallbackValue !== null) {
+      memoryStore.set(key, fallbackValue);
+    }
+    return fallbackValue;
   },
   async set<T>(key: string, value: T, options?: KvSetOptions): Promise<"OK"> {
     const cfKv = await getCloudflareKv();
@@ -56,6 +87,7 @@ export const kv = {
       return "OK";
     }
     memoryStore.set(key, value);
+    await writeFallbackValue(key, value);
     return "OK";
   },
   async incr(key: string, by = 1, options?: KvIncrOptions): Promise<number> {
@@ -67,9 +99,10 @@ export const kv = {
       await cfKv.put(key, JSON.stringify(next), ttl ? { expirationTtl: ttl } : undefined);
       return next;
     }
-    const current = Number(memoryStore.get(key) ?? 0);
+    const current = Number((await kv.get<number>(key)) ?? 0);
     const next = current + by;
     memoryStore.set(key, next);
+    await writeFallbackValue(key, next);
     return next;
   },
 };

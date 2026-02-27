@@ -17,6 +17,8 @@ export type PricingInfo = {
 };
 
 export type CheckoutPlan = "single" | "pack3" | "subscription";
+export type CheckoutOrderType = "digital" | "print";
+export type PrintVariant = "poster_unframed" | "poster_framed";
 
 export type PricingTier = {
   id: CheckoutPlan;
@@ -25,6 +27,14 @@ export type PricingTier = {
   currency: string;
   credits?: number;
   interval?: "month";
+};
+
+export type PrintPricingTier = {
+  id: PrintVariant;
+  label: string;
+  amountCents: number;
+  currency: string;
+  includesFrame: boolean;
 };
 
 function parseIntEnv(name: string, fallback: number): number {
@@ -43,6 +53,9 @@ function parseIntEnv(name: string, fallback: number): number {
     else if (name === 'PRICE_SINGLE_CENTS') raw = process.env.NEXT_PUBLIC_PRICE_SINGLE_CENTS;
     else if (name === 'PACK3_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PACK3_PRICE_CENTS;
     else if (name === 'SUBSCRIPTION_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_SUBSCRIPTION_PRICE_CENTS;
+    else if (name === 'PRINT_UNFRAMED_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS;
+    else if (name === 'PRINT_FRAMED_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS;
+    else if (name === 'PRINT_DIGITAL_ADDON_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS;
   }
 
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
@@ -110,6 +123,34 @@ export function getPricingTiers(opts?: { now?: Date }): Record<CheckoutPlan, Pri
       interval: "month",
     },
   };
+}
+
+export function getPrintPricingTiers(): Record<PrintVariant, PrintPricingTier> {
+  const env = readEnv();
+  const unframedPriceCents = parseIntEnv("PRINT_UNFRAMED_PRICE_CENTS", 4900);
+  const framedPriceCents = parseIntEnv("PRINT_FRAMED_PRICE_CENTS", 8900);
+  return {
+    poster_unframed: {
+      id: "poster_unframed",
+      label: "Museum-grade poster (unframed)",
+      amountCents: unframedPriceCents,
+      currency: env.currency,
+      includesFrame: false,
+    },
+    poster_framed: {
+      id: "poster_framed",
+      label: "Framed print",
+      amountCents: framedPriceCents,
+      currency: env.currency,
+      includesFrame: true,
+    },
+  };
+}
+
+export function getPrintDigitalAddOnPrice(): { amountCents: number; currency: string } {
+  const env = readEnv();
+  const amountCents = parseIntEnv("PRINT_DIGITAL_ADDON_PRICE_CENTS", 500);
+  return { amountCents, currency: env.currency };
 }
 
 export function formatPrice(amountCents: number, currency: string): string {

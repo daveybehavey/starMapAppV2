@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
-import type { CheckoutPlan } from "@/lib/pricing";
+import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
 type ClaimRecord = {
   sessionId: string;
@@ -17,6 +17,8 @@ type SessionRecord = {
   plan?: CheckoutPlan;
   creditsRemaining?: number;
   subscriptionActive?: boolean;
+  orderType?: CheckoutOrderType;
+  includesDigitalAddOn?: boolean;
   claimToken?: string;
 };
 
@@ -50,7 +52,10 @@ export async function GET(req: NextRequest) {
 
   const subscriptionActive = Boolean(record.subscriptionActive);
   const creditsRemaining = record.creditsRemaining ?? 0;
-  const paid = record.plan === "subscription" ? subscriptionActive : creditsRemaining > 0 || Boolean(record.paid);
+  const isPrintOnly = record.orderType === "print" && !record.includesDigitalAddOn;
+  const paid = !isPrintOnly && (
+    record.plan === "subscription" ? subscriptionActive : creditsRemaining > 0 || Boolean(record.paid)
+  );
 
   const response = NextResponse.json({
     ok: true,
@@ -61,13 +66,15 @@ export async function GET(req: NextRequest) {
     subscriptionActive: record.plan === "subscription" ? subscriptionActive : null,
   });
 
-  response.cookies.set(PREMIUM_COOKIE_NAME, claim.sessionId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: PREMIUM_COOKIE_TTL_SECONDS,
-  });
+  if (paid) {
+    response.cookies.set(PREMIUM_COOKIE_NAME, claim.sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: PREMIUM_COOKIE_TTL_SECONDS,
+    });
+  }
 
   return response;
 }

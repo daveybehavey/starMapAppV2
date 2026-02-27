@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
-import type { CheckoutPlan } from "@/lib/pricing";
+import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
 const CLAIM_TOKEN_TTL_SECONDS = PREMIUM_COOKIE_TTL_SECONDS;
 
@@ -13,6 +13,8 @@ type SessionRecord = {
   plan?: CheckoutPlan;
   creditsRemaining?: number;
   subscriptionActive?: boolean;
+  orderType?: CheckoutOrderType;
+  includesDigitalAddOn?: boolean;
   claimToken?: string;
 };
 
@@ -52,8 +54,10 @@ export async function POST(req: NextRequest) {
 
   const subscriptionActive = Boolean(record.subscriptionActive);
   const creditsRemaining = record.creditsRemaining ?? 0;
+  const isPrintOnly = record.orderType === "print" && !record.includesDigitalAddOn;
   const hasAccess =
-    record.plan === "subscription" ? subscriptionActive : creditsRemaining > 0 || Boolean(record.paid);
+    !isPrintOnly &&
+    (record.plan === "subscription" ? subscriptionActive : creditsRemaining > 0 || Boolean(record.paid));
 
   if (!hasAccess) {
     return NextResponse.json({ ok: false, error: "No active access" }, { status: 402 });

@@ -21,7 +21,14 @@
     "promo:setup": "node scripts/setup-promotion-code.mjs",
     "seo:scoreboard": "node scripts/seo-scoreboard.mjs",
     "qa:live-conversion": "node scripts/live-conversion-qa.mjs",
-    "qa:sitemap-health": "node scripts/sitemap-health.mjs"
+    "qa:sitemap-health": "node scripts/sitemap-health.mjs",
+    "qa:printful": "node scripts/printful-verify.mjs",
+    "qa:go-no-go": "node scripts/qa-go-no-go.mjs",
+    "qa:smoke": "playwright test tests/ui-smoke.spec.ts tests/export-functionality.spec.ts tests/api-route-regressions.spec.ts tests/checkout-security.spec.ts tests/premium-rendering.spec.ts",
+    "qa:release-gate": "node scripts/qa-release-gate.mjs",
+    "qa:release-gate:smoke": "node scripts/qa-release-gate.mjs --smoke",
+    "qa:release-gate:live": "node scripts/qa-release-gate.mjs --live --sitemap https://starmapco.com/sitemap.xml",
+    "qa:release-gate:live:smoke": "node scripts/qa-release-gate.mjs --smoke --live --sitemap https://starmapco.com/sitemap.xml"
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",

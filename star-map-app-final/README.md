@@ -14,7 +14,7 @@ A custom star map creation tool that renders accurate constellation maps for mea
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **State Management**: Zustand
 - **Styling**: Tailwind CSS 4
 - **Deployment**: Cloudflare Pages (via opennextjs-cloudflare)
@@ -44,7 +44,7 @@ src/
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm/pnpm/yarn
 
 ### Environment Variables
@@ -81,6 +81,15 @@ Open [http://localhost:3000](http://localhost:3000)
 | `npm run test:ui` | Run Playwright E2E tests |
 | `npm run preview` | Build and preview for Cloudflare |
 | `npm run deploy` | Deploy to Cloudflare Pages |
+| `npm run check:env` | Validate required environment variables |
+| `npm run qa:sitemap-health` | Validate sitemap URL health |
+| `npm run qa:printful` | Validate Printful store and variant IDs |
+| `npm run qa:go-no-go` | Validate print launch flags and fulfillment readiness |
+| `npm run qa:smoke` | Run core Playwright smoke suite |
+| `npm run qa:release-gate` | Run full local release gate checks |
+| `npm run qa:release-gate:smoke` | Release gate + Playwright smoke suite |
+| `npm run qa:release-gate:live` | Run full release gate including live checks |
+| `npm run qa:release-gate:live:smoke` | Full release gate + smoke suite + live checks |
 
 ## Deployment
 
@@ -121,3 +130,10 @@ Configure environment variables in the Cloudflare dashboard.
 - Automation provider priority is: `RESEND_API_KEY` + `PROMOTION_EMAIL_FROM` → `SENDGRID_API_KEY` + `PROMOTION_EMAIL_FROM` → `PROMOTION_AUTOMATION_WEBHOOK_URL`.
 - One-time Stripe setup: run `npm run promo:setup` to create or reuse the `PROMOTION_COUPON_CODE` promotion in Stripe and write `STRIPE_PROMO_CODE_ID` to `.env.local`.
 - Full setup checklist: `PROMOTION-AUTOMATION-SETUP.md`.
+
+### Print launch checklist
+
+- Before enabling live print checkout, run `npm run check:env` and `npm run qa:printful`.
+- Before production deploys, run `npm run qa:release-gate:smoke`.
+- Full go/no-go checklist: `docs/print-launch-checklist.md`.
+- Current phase/status tracker: `docs/roadmap-status.md`.

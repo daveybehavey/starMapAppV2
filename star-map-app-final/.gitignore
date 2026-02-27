@@ -34,6 +34,7 @@
 .wrangler/
 testzip.zip
 /exports/custom/
+/.tmp/
 
 # debug
 npm-debug.log*

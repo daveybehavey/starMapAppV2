@@ -55,4 +55,63 @@ test.describe("API route regressions", () => {
     expect(unknownCookieBody.error).toMatch(/no active entitlement/i);
   });
 
+  test("print asset API validates payload and supports round-trip retrieval", async ({ request }) => {
+    const invalidPayloadResponse = await request.post("/api/print/assets", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: {
+        mapId: "not-a-map-id",
+        dataUrl: "not-a-data-url",
+      },
+    });
+    expect(invalidPayloadResponse.status()).toBe(400);
+
+    // 1x1 transparent PNG data URL
+    const tinyPngDataUrl =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAn8B9pP7qgAAAABJRU5ErkJggg==";
+
+    const createResponse = await request.post("/api/print/assets", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: {
+        dataUrl: tinyPngDataUrl,
+        source: "editor",
+      },
+    });
+    expect(createResponse.status()).toBe(200);
+    const created = (await createResponse.json()) as { ok?: boolean; assetId?: string; assetUrl?: string };
+    expect(created.ok).toBe(true);
+    expect(created.assetId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(created.assetUrl).toContain("/api/print/assets?id=");
+
+    const queryFetch = await request.get(`/api/print/assets?id=${created.assetId}`, {
+      headers: { "x-forwarded-for": randomIp() },
+    });
+    expect(queryFetch.status()).toBe(200);
+    expect(queryFetch.headers()["content-type"]).toContain("image/png");
+    const bytes = await queryFetch.body();
+    expect(bytes.byteLength).toBeGreaterThan(20);
+
+    const compatibilityRedirect = await request.get(`/api/print/assets/${created.assetId}`, {
+      headers: { "x-forwarded-for": randomIp() },
+      maxRedirects: 0,
+    });
+    expect(compatibilityRedirect.status()).toBe(307);
+  });
+
+  test("print checkout is gated off when print flag is disabled", async ({ request }) => {
+    const response = await request.post("/api/checkout", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: {
+        plan: "single",
+        orderType: "print",
+        printVariant: "poster_unframed",
+        includeDigitalAddOn: false,
+        printAssetId: "123e4567-e89b-42d3-a456-426614174000",
+      },
+    });
+    expect(response.status()).toBe(503);
+    const body = (await response.json()) as { code?: string; error?: string };
+    expect(body.code).toBe("print_checkout_disabled");
+    expect(body.error).toMatch(/print checkout/i);
+  });
+
 });

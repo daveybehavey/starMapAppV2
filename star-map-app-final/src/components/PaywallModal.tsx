@@ -1,6 +1,7 @@
 "use client";
 
 import type { CheckoutPlan } from "@/lib/pricing";
+import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 
 type PriceLabels = {
@@ -13,8 +14,14 @@ type Props = {
   checkoutInFlight: boolean;
   checkoutError: string | null;
   priceLabels: PriceLabels;
+  printPriceLabels?: {
+    unframed: string;
+    framed: string;
+    digitalAddOn: string;
+  };
   variant: PaywallCopyVariant;
   onStartCheckout: (plan: CheckoutPlan) => void;
+  onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
   onClose: () => void;
 };
 
@@ -51,8 +58,10 @@ export function PaywallModal({
   checkoutInFlight,
   checkoutError,
   priceLabels,
+  printPriceLabels,
   variant,
   onStartCheckout,
+  onStartPrintCheckout,
   onClose,
 }: Props) {
   const copy = PAYWALL_COPY[variant];
@@ -135,6 +144,46 @@ export function PaywallModal({
               {checkoutInFlight ? "Starting checkout..." : copy.subscriptionCta}
             </button>
           </div>
+
+          {onStartPrintCheckout && printPriceLabels && (
+            <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">Prefer a physical print?</p>
+                <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                  New
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-amber-100/80">
+                Ships to your address. Add digital access now or later.
+              </p>
+              <div className="mt-3 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
+                  disabled={checkoutInFlight}
+                  className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Unframed print • {printPriceLabels.unframed}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
+                  disabled={checkoutInFlight}
+                  className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Framed print • {printPriceLabels.framed}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: true })}
+                  disabled={checkoutInFlight}
+                  className="w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Unframed + HD file • {printPriceLabels.unframed} + {printPriceLabels.digitalAddOn}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <p className="mt-3 text-[11px] text-neutral-600">

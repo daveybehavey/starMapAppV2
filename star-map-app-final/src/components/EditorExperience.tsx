@@ -6,7 +6,15 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track, trackExperimentExposure, trackFunnelStep } from "@/lib/analytics";
-import { formatPrice, getPricingTiers, type CheckoutPlan } from "@/lib/pricing";
+import {
+  formatPrice,
+  getPricingTiers,
+  getPrintDigitalAddOnPrice,
+  getPrintPricingTiers,
+  type CheckoutOrderType,
+  type CheckoutPlan,
+  type PrintVariant,
+} from "@/lib/pricing";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
@@ -18,6 +26,7 @@ import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
+import { normalizeReferralCode, REFERRAL_CODE_STORAGE_KEY } from "@/lib/referrals";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -157,17 +166,27 @@ export function EditorExperience({
   const [currentPlan, setCurrentPlan] = useState<CheckoutPlan | null>(null);
 
   // Compute pricing labels once (never change during session)
-  const { priceLabels } = useMemo(() => {
+  const { priceLabels, printPriceLabels } = useMemo(() => {
     const tiers = getPricingTiers();
+    const printTiers = getPrintPricingTiers();
+    const printAddOn = getPrintDigitalAddOnPrice();
     return {
       priceLabels: {
         single: formatPrice(tiers.single.amountCents, tiers.single.currency),
         pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
         subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
       },
+      printPriceLabels: {
+        unframed: formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
+        framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
+        digitalAddOn: formatPrice(printAddOn.amountCents, printAddOn.currency),
+      },
     };
   }, []);
   const paywallVariant = useMemo<PaywallCopyVariant>(() => getPaywallCopyVariant(), []);
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
 
   const hdCreditLabel =
     currentPlan === "subscription"
@@ -207,6 +226,7 @@ export function EditorExperience({
   const hdExportInFlightRef = useRef(false);
   const prefillAppliedRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
+  const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
   const readStoredPromoCode = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -215,9 +235,21 @@ export function EditorExperience({
       return null;
     }
   }, []);
+  const readStoredReferralCode = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return normalizeReferralCode(window.localStorage.getItem(REFERRAL_CODE_STORAGE_KEY));
+    } catch {
+      return null;
+    }
+  }, []);
   const getCheckoutPromoCode = useCallback(
     () => queryPromoCode ?? readStoredPromoCode(),
     [queryPromoCode, readStoredPromoCode]
+  );
+  const getCheckoutReferralCode = useCallback(
+    () => queryReferralCode ?? readStoredReferralCode(),
+    [queryReferralCode, readStoredReferralCode]
   );
   const getPreviewSource = useCallback(() => {
     if (typeof window === "undefined") return null;
@@ -237,6 +269,15 @@ export function EditorExperience({
       // ignore storage errors
     }
   }, [queryPromoCode]);
+
+  useEffect(() => {
+    if (!queryReferralCode || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(REFERRAL_CODE_STORAGE_KEY, queryReferralCode);
+    } catch {
+      // ignore storage errors
+    }
+  }, [queryReferralCode]);
 
   useEffect(() => {
     if (!paywallOpen) return;
@@ -750,10 +791,30 @@ export function EditorExperience({
   );
 
   const startCheckout = useCallback(
-    async (plan: CheckoutPlan) => {
+    async (
+      plan: CheckoutPlan,
+      options?: {
+        orderType?: CheckoutOrderType;
+        printVariant?: PrintVariant;
+        includeDigitalAddOn?: boolean;
+      },
+    ) => {
       if (checkoutInFlightRef.current) return;
       const previewSource = getPreviewSource() ?? "editor";
       const promoCode = getCheckoutPromoCode();
+      const referralCode = getCheckoutReferralCode();
+      const orderType = options?.orderType === "print" ? "print" : "digital";
+      const printVariant = options?.printVariant === "poster_framed" ? "poster_framed" : "poster_unframed";
+      const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
+      const recipeForCheckout = buildRecipeFromState({
+        dateTime,
+        location,
+        textBoxes,
+        selectedStyle,
+        aspectRatio,
+        shape,
+        renderOptions,
+      });
       try {
         checkoutInFlightRef.current = true;
         setCheckoutInFlight(true);
@@ -761,30 +822,26 @@ export function EditorExperience({
         track("checkout_started", {
           visualMode: renderOptions.visualMode,
           plan,
+          orderType,
+          printVariant: orderType === "print" ? printVariant : undefined,
+          includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
           promoApplied: Boolean(promoCode),
+          referralApplied: Boolean(referralCode),
         });
         trackFunnelStep("checkout_started", {
           source: previewSource,
           plan,
+          orderType,
           promoApplied: Boolean(promoCode),
           experiment: PAYWALL_COPY_EXPERIMENT,
           variant: paywallVariant,
         });
         let mapId: string | null = null;
         try {
-          const recipe = buildRecipeFromState({
-            dateTime,
-            location,
-            textBoxes,
-            selectedStyle,
-            aspectRatio,
-            shape,
-            renderOptions,
-          });
           const mapRes = await fetch("/api/maps", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(recipe),
+            body: JSON.stringify(recipeForCheckout),
           });
           if (mapRes.ok) {
             const data = (await mapRes.json()) as { id?: string };
@@ -801,9 +858,60 @@ export function EditorExperience({
           // Map persistence is best-effort; proceed to checkout even if it fails.
         }
 
-        const checkoutPayload: { mapId?: string; plan: CheckoutPlan; promoCode?: string } = { plan };
+        const checkoutPayload: {
+          mapId?: string;
+          plan: CheckoutPlan;
+          promoCode?: string;
+          orderType?: CheckoutOrderType;
+          printVariant?: PrintVariant;
+          includeDigitalAddOn?: boolean;
+          printAssetId?: string;
+          referralCode?: string;
+        } = { plan };
         if (mapId) checkoutPayload.mapId = mapId;
         if (promoCode) checkoutPayload.promoCode = promoCode;
+        if (referralCode) checkoutPayload.referralCode = referralCode;
+        if (orderType === "print") {
+          if (typeof document !== "undefined" && document.fonts) {
+            await document.fonts.ready;
+          }
+          const shapeData = await getShapeData(recipeForCheckout.shape).catch(() => null);
+          const ratio =
+            shapeData && shapeData.viewBox.height > 0
+              ? shapeData.viewBox.width / shapeData.viewBox.height
+              : aspectRatioToNumber(recipeForCheckout.aspectRatio);
+          const width = 6000;
+          const height = Math.max(1, Math.round(width / ratio));
+          const printCanvas = document.createElement("canvas");
+          await renderStarMap({
+            recipe: recipeForCheckout,
+            canvas: printCanvas,
+            width,
+            height,
+            watermark: false,
+            quality: "export",
+            premium: true,
+          });
+          const printAssetRes = await fetch("/api/print/assets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mapId: mapId ?? undefined,
+              dataUrl: printCanvas.toDataURL("image/png"),
+              source: "editor",
+            }),
+          });
+          const printAssetData = (await printAssetRes.json().catch(() => null)) as
+            | { assetId?: string; error?: string }
+            | null;
+          if (!printAssetRes.ok || !printAssetData?.assetId) {
+            throw new Error("print_asset_failed");
+          }
+          checkoutPayload.orderType = "print";
+          checkoutPayload.printVariant = printVariant;
+          checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
+          checkoutPayload.printAssetId = printAssetData.assetId;
+        }
         const checkoutInit: RequestInit = {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -823,13 +931,18 @@ export function EditorExperience({
           if (data?.code === "promotion_lookup_failed") {
             throw new Error("promotion_lookup_failed");
           }
+          if (data?.code === "print_checkout_disabled") {
+            throw new Error("print_checkout_disabled");
+          }
           throw new Error(data?.error ?? "checkout failed");
         }
         if (data?.url) {
           trackFunnelStep("checkout_redirected", {
             source: previewSource,
             plan,
+            orderType,
             promoApplied: Boolean(promoCode),
+            referralApplied: Boolean(referralCode),
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
@@ -845,13 +958,21 @@ export function EditorExperience({
             ? "That promo code is invalid or expired. Try another code."
             : reason === "promotion_lookup_failed"
               ? "We couldn't verify your promo code right now. Please try again in a moment."
+              : reason === "print_asset_failed"
+                ? "We couldn't prepare your print file. Please try again."
+                : reason === "print_checkout_disabled"
+                  ? "Print checkout is not live yet."
               : "Checkout is unavailable right now. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {
           source: previewSource,
           reason,
           plan,
+          orderType,
+          printVariant: orderType === "print" ? printVariant : undefined,
+          includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
           promoApplied: Boolean(promoCode),
+          referralApplied: Boolean(referralCode),
           experiment: PAYWALL_COPY_EXPERIMENT,
           variant: paywallVariant,
         });
@@ -865,6 +986,7 @@ export function EditorExperience({
       location,
       getPreviewSource,
       getCheckoutPromoCode,
+      getCheckoutReferralCode,
       renderOptions,
       selectedStyle,
       shape,
@@ -1969,10 +2091,22 @@ export function EditorExperience({
               checkoutInFlight={checkoutInFlight}
               checkoutError={checkoutError}
               priceLabels={priceLabels}
+              printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
               variant={paywallVariant}
               onStartCheckout={(plan) => {
                 void startCheckout(plan);
               }}
+              onStartPrintCheckout={
+                printCheckoutEnabled
+                  ? (options) => {
+                      void startCheckout("single", {
+                        orderType: "print",
+                        printVariant: options.variant,
+                        includeDigitalAddOn: options.includeDigitalAddOn,
+                      });
+                    }
+                  : undefined
+              }
               onClose={() => {
                 setPaywallOpen(false);
                 setPendingExport(null);

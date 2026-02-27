@@ -10,6 +10,34 @@ const setupEditor = async (page: Parameters<typeof gotoEditor>[0]) => {
   await applySampleMoment(page);
 };
 
+const setTextBoxValues = async (
+  page: Parameters<typeof gotoEditor>[0],
+  values: Partial<Record<"title" | "subtitle" | "dedication", string>>,
+) => {
+  await page.evaluate((textValues) => {
+    type TextBox = {
+      id: string;
+      text?: string;
+      [key: string]: unknown;
+    };
+    const store = (window as unknown as {
+      __ZUSTAND_STORE__?: {
+        getState: () => {
+          textBoxes: TextBox[];
+          setTextBoxes: (textBoxes: TextBox[]) => void;
+        };
+      };
+    }).__ZUSTAND_STORE__;
+    if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+    const state = store.getState();
+    const updated = state.textBoxes.map((box) => {
+      const next = textValues[box.id as "title" | "subtitle" | "dedication"];
+      return next === undefined ? box : { ...box, text: next };
+    });
+    state.setTextBoxes(updated);
+  }, values);
+};
+
 test.describe("Export Functionality", () => {
   test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
@@ -18,10 +46,7 @@ test.describe("Export Functionality", () => {
 
   test("text renders correctly in free export", async ({ page }) => {
     await setupEditor(page);
-
-    const titleInput = page.getByPlaceholder("Enter title...");
-    await expect(titleInput).toBeVisible();
-    await titleInput.fill("Our Special Night");
+    await setTextBoxValues(page, { title: "Our Special Night" });
     await waitForPreview(page);
 
     // Set up download listener
@@ -69,16 +94,7 @@ test.describe("Export Functionality", () => {
 
   test("empty text boxes don't break export", async ({ page }) => {
     await setupEditor(page);
-
-    await page.getByPlaceholder("Enter title...").fill("");
-    const subtitleInput = page.getByPlaceholder("Enter subtitle...").first();
-    if (await subtitleInput.isVisible({ timeout: 750 }).catch(() => false)) {
-      await subtitleInput.fill("");
-    }
-    const dedicationInput = page.getByPlaceholder("Enter dedication...").first();
-    if (await dedicationInput.isVisible({ timeout: 750 }).catch(() => false)) {
-      await dedicationInput.fill("");
-    }
+    await setTextBoxValues(page, { title: "", subtitle: "" });
     await waitForPreview(page);
 
     // Set up download listener

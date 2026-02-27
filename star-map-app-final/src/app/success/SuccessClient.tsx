@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { track, trackFunnelStep } from "@/lib/analytics";
-import type { CheckoutPlan } from "@/lib/pricing";
+import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 
@@ -26,14 +26,18 @@ export default function SuccessClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [resolvedMapId, setResolvedMapId] = useState<string | null>(null);
   const [currentPlan, setCurrentPlan] = useState<CheckoutPlan | null>(null);
+  const [orderType, setOrderType] = useState<CheckoutOrderType>("digital");
+  const [printVariant, setPrintVariant] = useState<PrintVariant | null>(null);
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessLinkStatus, setAccessLinkStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [accessLinkCopied, setAccessLinkCopied] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [digitalAddOnLoading, setDigitalAddOnLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
   const [verificationRunId, setVerificationRunId] = useState(0);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
+  const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
 
   const pauseRedirect = useCallback(() => {
     autoRedirectRef.current = false;
@@ -107,6 +111,37 @@ export default function SuccessClient() {
     }
   }, [pauseRedirect, portalLoading]);
 
+  const handleAddDigitalDownload = useCallback(async () => {
+    if (digitalAddOnLoading) return;
+    pauseRedirect();
+    setDigitalAddOnLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: "single",
+          orderType: "digital",
+          mapId: resolvedMapId ?? undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error ?? "checkout_failed");
+      }
+      track("digital_addon_started", {
+        source: "success",
+        orderType,
+        printVariant,
+      });
+      window.location.assign(data.url);
+    } catch {
+      setMessage("We couldn't start digital add-on checkout. Please try again.");
+      setDigitalAddOnLoading(false);
+    }
+  }, [digitalAddOnLoading, orderType, pauseRedirect, printVariant, resolvedMapId]);
+
   useEffect(() => {
     let active = true;
     redirectTimerRef.current = null;
@@ -131,40 +166,63 @@ export default function SuccessClient() {
           const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionId)}`, {
             cache: "no-store",
           });
-          const data = (await res.json()) as { paid?: boolean; mapId?: string; plan?: CheckoutPlan | null };
+          const data = (await res.json()) as {
+            paid?: boolean;
+            mapId?: string;
+            plan?: CheckoutPlan | null;
+            creditsRemaining?: number | null;
+            orderType?: CheckoutOrderType;
+            printVariant?: PrintVariant | null;
+            includesDigitalAddOn?: boolean;
+          };
           if (data.paid) {
-            setPaid(true);
-            track("purchase_success", { isPaid: true });
+            const verifiedPlan =
+              data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null;
+            const verifiedOrderType = data.orderType === "print" ? "print" : "digital";
+            const verifiedPrintVariant = data.printVariant === "poster_framed" || data.printVariant === "poster_unframed"
+              ? data.printVariant
+              : null;
+            const hasDigitalEntitlement =
+              verifiedPlan === "subscription" ||
+              (typeof data.creditsRemaining === "number" ? data.creditsRemaining > 0 : Boolean(verifiedPlan));
+
+            setPaid(hasDigitalEntitlement);
+            track("purchase_success", { isPaid: hasDigitalEntitlement, orderType: verifiedOrderType });
             trackFunnelStep("payment_verified", {
               source: getPreviewSource() ?? "success",
-              plan: typeof data.plan === "string" ? data.plan : undefined,
+              plan: verifiedPlan ?? undefined,
             });
             setStatus("success");
-            setCurrentPlan(
-              data.plan === "single" || data.plan === "pack3" || data.plan === "subscription"
-                ? data.plan
-                : null,
-            );
+            setCurrentPlan(verifiedPlan);
+            setOrderType(verifiedOrderType);
+            setPrintVariant(verifiedPrintVariant);
             const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
             setResolvedMapId(resolvedMapId);
-            void createAccessLink();
+            if (hasDigitalEntitlement) {
+              void createAccessLink();
+            } else {
+              setAccessLink(null);
+              setAccessLinkStatus("idle");
+            }
             if (typeof window !== "undefined") {
               try {
                 // Let users manually trigger the HD download on the download page.
-                if (resolvedMapId) {
+                if (resolvedMapId && hasDigitalEntitlement) {
                   localStorage.setItem(CHECKOUT_MAP_KEY, resolvedMapId);
                 }
               } catch {
                 // ignore storage errors (e.g., privacy mode)
               }
             }
-            redirectTimerRef.current = setTimeout(() => {
-              if (!autoRedirectRef.current) return;
-              const nextUrl = resolvedMapId
-                ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                : "/download";
-              router.replace(nextUrl);
-            }, 3500);
+            if (hasDigitalEntitlement) {
+              redirectTimerRef.current = setTimeout(() => {
+                if (!autoRedirectRef.current) return;
+                const nextUrl = resolvedMapId
+                  ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
+                  : "/download";
+                router.replace(nextUrl);
+              }, 3500);
+            }
             return;
           }
         } catch (err) {
@@ -185,6 +243,10 @@ export default function SuccessClient() {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
   }, [createAccessLink, router, searchParams, setPaid, verificationRunId]);
+
+  const hasDigitalEntitlement =
+    currentPlan === "single" || currentPlan === "pack3" || currentPlan === "subscription";
+  const isPrintOrder = orderType === "print";
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
@@ -217,7 +279,9 @@ export default function SuccessClient() {
         </div>
         <h1 className="relative mt-4 text-2xl font-semibold text-white md:text-3xl">
           {status === "success"
-            ? "Payment successful"
+            ? isPrintOrder
+              ? "Print order confirmed"
+              : "Payment successful"
             : status === "error"
               ? "Payment verification"
               : "Verifying payment"}
@@ -227,7 +291,11 @@ export default function SuccessClient() {
             ? message ??
               "Payment verification is taking longer than expected. Please refresh or contact support@starmapco.com."
             : status === "success"
-              ? "We are preparing your print-ready star map. This will only take a moment."
+              ? isPrintOrder
+                ? hasDigitalEntitlement
+                  ? "Your print order is placed and your HD file is unlocked."
+                  : "Your print order is placed. We'll produce and ship it to the address you entered."
+                : "We are preparing your print-ready star map. This will only take a moment."
               : "Confirming your payment with Stripe. This can take up to 45 seconds."}
         </p>
         {status !== "error" && (
@@ -238,7 +306,7 @@ export default function SuccessClient() {
                   <svg className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Access unlocked — redirecting...
+                  {hasDigitalEntitlement ? "Access unlocked — redirecting..." : "Order confirmed"}
                 </span>
               ) : (
                 "Checking payment status..."
@@ -246,81 +314,123 @@ export default function SuccessClient() {
             </div>
             {status === "success" && (
               <p className="relative mt-2 text-xs text-amber-100/80">
-                {currentPlan === "subscription"
-                  ? "Unlimited HD downloads unlocked."
-                  : currentPlan === "pack3"
-                    ? "3 HD downloads unlocked."
-                    : "1 HD download unlocked."}
+                {isPrintOrder
+                  ? hasDigitalEntitlement
+                    ? "Print order + HD digital add-on unlocked."
+                    : "Print order submitted. We'll email updates as it moves into production."
+                  : currentPlan === "subscription"
+                    ? "Unlimited HD downloads unlocked."
+                    : currentPlan === "pack3"
+                      ? "3 HD downloads unlocked."
+                      : "1 HD download unlocked."}
               </p>
             )}
             <p className="relative mt-3 text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
               {status === "success"
-                ? "Redirecting to your download page"
+                ? hasDigitalEntitlement
+                  ? "Redirecting to your download page"
+                  : "Order confirmation complete"
                 : "Redirecting once your payment is confirmed"}
             </p>
             {status === "success" && (
               <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">Access link</p>
-                    <p className="mt-1 text-xs text-amber-100/80">Use this link on another device anytime.</p>
+                    <p className="text-sm font-semibold text-white">
+                      {hasDigitalEntitlement ? "Access link" : "Need the HD file too?"}
+                    </p>
+                    <p className="mt-1 text-xs text-amber-100/80">
+                      {hasDigitalEntitlement
+                        ? "Use this link on another device anytime."
+                        : `Add an instant HD download for ${digitalPriceLabel}.`}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  {hasDigitalEntitlement ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCopyAccessLink}
+                        disabled={!accessLink || accessLinkStatus === "loading"}
+                        className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {accessLinkStatus === "loading"
+                          ? "Generating..."
+                          : accessLinkCopied
+                            ? "Link copied"
+                            : "Copy link"}
+                      </button>
+                      {accessLink && accessLinkStatus === "ready" && (
+                        <button
+                          type="button"
+                          onClick={handleEmailAccessLink}
+                          className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
+                        >
+                          Email link
+                        </button>
+                      )}
+                      {accessLink && accessLinkStatus === "ready" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            pauseRedirect();
+                            void createAccessLink(true);
+                          }}
+                          className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
+                        >
+                          New link
+                        </button>
+                      )}
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={handleCopyAccessLink}
-                      disabled={!accessLink || accessLinkStatus === "loading"}
+                      onClick={() => void handleAddDigitalDownload()}
+                      disabled={digitalAddOnLoading}
                       className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {accessLinkStatus === "loading"
-                        ? "Generating..."
-                        : accessLinkCopied
-                          ? "Link copied"
-                          : "Copy link"}
+                      {digitalAddOnLoading ? "Opening checkout..." : `Add HD download (${digitalPriceLabel})`}
                     </button>
-                    {accessLink && accessLinkStatus === "ready" && (
-                      <button
-                        type="button"
-                        onClick={handleEmailAccessLink}
-                        className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
-                      >
-                        Email link
-                      </button>
-                    )}
-                    {accessLink && accessLinkStatus === "ready" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          pauseRedirect();
-                          void createAccessLink(true);
-                        }}
-                        className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
-                      >
-                        New link
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
-                <p className="mt-2 text-[11px] text-amber-100/70">
-                  Keep this link private — anyone with it can access your downloads.
-                </p>
-                {accessLinkStatus === "error" && (
-                  <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
+                {hasDigitalEntitlement ? (
+                  <>
+                    <p className="mt-2 text-[11px] text-amber-100/70">
+                      Keep this link private — anyone with it can access your downloads.
+                    </p>
+                    {accessLinkStatus === "error" && (
+                      <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-2 text-[11px] text-amber-100/70">
+                    Your print order remains active either way. This adds instant file access.
+                  </p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      pauseRedirect();
-                      const nextUrl = resolvedMapId
-                        ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                        : "/download";
-                      router.replace(nextUrl);
-                    }}
-                    className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
-                  >
-                    Go to download now
-                  </button>
+                  {hasDigitalEntitlement && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pauseRedirect();
+                        const nextUrl = resolvedMapId
+                          ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
+                          : "/download";
+                        router.replace(nextUrl);
+                      }}
+                      className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
+                    >
+                      Go to download now
+                    </button>
+                  )}
+                  {!hasDigitalEntitlement && (
+                    <button
+                      type="button"
+                      onClick={() => router.replace("/editor")}
+                      className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
+                    >
+                      Back to editor
+                    </button>
+                  )}
                   {currentPlan === "subscription" && (
                     <button
                       type="button"

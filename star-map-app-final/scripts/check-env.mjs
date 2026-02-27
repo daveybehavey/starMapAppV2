@@ -20,6 +20,11 @@ const OPTIONAL = [
   "RESEND_API_KEY",
   "SENDGRID_API_KEY",
   "PROMOTION_AUTOMATION_WEBHOOK_URL",
+  "PRINTFUL_API_TOKEN",
+  "PRINTFUL_STORE_ID",
+  "PRINTFUL_VARIANT_ID_POSTER_UNFRAMED",
+  "PRINTFUL_VARIANT_ID_POSTER_FRAMED",
+  "PRINT_ORDER_SUBMISSION_ENABLED",
 ];
 
 const loadEnvFile = (filename) => {
@@ -68,8 +73,49 @@ const checkInt = (key) => {
   }
 };
 
+const parseBooleanEnv = (key) => {
+  const raw = process.env[key];
+  if (!raw || !raw.trim()) return null;
+  const value = raw.trim().toLowerCase();
+  if (["1", "true", "yes"].includes(value)) return true;
+  if (["0", "false", "no"].includes(value)) return false;
+  errors.push(`Invalid ${key} (expected true/false/1/0/yes/no)`);
+  return null;
+};
+
 checkInt("PRICE_CENTS");
 checkInt("NEXT_PUBLIC_PRICE_CENTS");
+checkInt("PRINTFUL_VARIANT_ID_POSTER_UNFRAMED");
+checkInt("PRINTFUL_VARIANT_ID_POSTER_FRAMED");
+
+const printCheckoutEnabled = parseBooleanEnv("PRINT_CHECKOUT_ENABLED");
+const clientPrintCheckoutEnabled = parseBooleanEnv("NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED");
+const printSubmissionEnabled = parseBooleanEnv("PRINT_ORDER_SUBMISSION_ENABLED");
+
+if (
+  printCheckoutEnabled !== null &&
+  clientPrintCheckoutEnabled !== null &&
+  printCheckoutEnabled !== clientPrintCheckoutEnabled
+) {
+  errors.push("PRINT_CHECKOUT_ENABLED and NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED must match");
+}
+
+if (clientPrintCheckoutEnabled === true && printCheckoutEnabled !== true) {
+  errors.push("NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=true requires PRINT_CHECKOUT_ENABLED=true");
+}
+
+if (printSubmissionEnabled === true) {
+  const hasWebhook = Boolean(process.env.PRINT_FULFILLMENT_WEBHOOK_URL?.trim());
+  const hasPrintful =
+    Boolean(process.env.PRINTFUL_API_TOKEN?.trim()) &&
+    Boolean(process.env.PRINTFUL_VARIANT_ID_POSTER_UNFRAMED?.trim()) &&
+    Boolean(process.env.PRINTFUL_VARIANT_ID_POSTER_FRAMED?.trim());
+  if (!hasWebhook && !hasPrintful) {
+    errors.push(
+      "PRINT_ORDER_SUBMISSION_ENABLED=true requires either PRINT_FULFILLMENT_WEBHOOK_URL or full PRINTFUL_* config",
+    );
+  }
+}
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 if (stripeKey && !/^sk_(live|test)_/.test(stripeKey)) {

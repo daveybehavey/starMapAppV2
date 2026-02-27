@@ -3,13 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, type MapRecipe } from "@/lib/renderSky";
 import { FONT_STACKS } from "@/lib/fonts";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
 import { track, trackFunnelStep } from "@/lib/analytics";
-import type { CheckoutPlan } from "@/lib/pricing";
+import {
+  formatPrice,
+  getPrintPricingTiers,
+  type CheckoutPlan,
+  type PrintVariant,
+} from "@/lib/pricing";
 import EditorFontShell from "@/components/EditorFontShell";
 
 const DRAFT_KEY = "star-map-draft";
@@ -24,6 +29,7 @@ type PreviewStatus = "idle" | "rendering" | "ready" | "error";
 const PREVIEW_BASE_WIDTH = 1200;
 const PREVIEW_MAX_DIM = 2200;
 const PREVIEW_MAX_DPR = 2;
+const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 
 function getPreviewSource() {
   if (typeof window === "undefined") return null;
@@ -159,6 +165,20 @@ export default function DownloadClient() {
   const downloadInFlightRef = useRef(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [printCheckoutLoading, setPrintCheckoutLoading] = useState(false);
+  const [printCheckoutError, setPrintCheckoutError] = useState<string | null>(null);
+  const [referralLink, setReferralLink] = useState<string | null>(null);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralError, setReferralError] = useState<string | null>(null);
+  const [referralCopied, setReferralCopied] = useState(false);
+
+  const printPriceLabels = useMemo(() => {
+    const printTiers = getPrintPricingTiers();
+    return {
+      unframed: formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
+      framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
+    };
+  }, []);
 
   const setPaidState = useCallback((value: boolean) => {
     paidRef.current = value;
@@ -618,6 +638,128 @@ export default function DownloadClient() {
     }
   }, [portalLoading]);
 
+  const handlePrintCheckout = useCallback(
+    async (variant: PrintVariant) => {
+      if (printCheckoutLoading) return;
+      if (!printCheckoutEnabled) {
+        setPrintCheckoutError("Print checkout is not live yet.");
+        return;
+      }
+      setPrintCheckoutLoading(true);
+      setPrintCheckoutError(null);
+      try {
+        const mapId = mapIdFromUrl || readStoredMapId();
+        const activeRecipe = recipe ?? readDraft();
+        if (!activeRecipe) {
+          throw new Error("missing_recipe");
+        }
+        await ensureFontsLoaded(activeRecipe);
+        const { shape, ratio } = await resolveShapeAndRatio(activeRecipe);
+        const width = 6000;
+        const height = Math.max(1, Math.round(width / ratio));
+        const canvas = document.createElement("canvas");
+        await renderStarMap({
+          recipe: { ...activeRecipe, shape },
+          canvas,
+          width,
+          height,
+          watermark: false,
+          quality: "export",
+          premium: true,
+        });
+        const assetRes = await fetch("/api/print/assets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mapId: mapId ?? undefined,
+            dataUrl: canvas.toDataURL("image/png"),
+            source: "download",
+          }),
+        });
+        const assetData = (await assetRes.json().catch(() => null)) as { assetId?: string; error?: string } | null;
+        if (!assetRes.ok || !assetData?.assetId) {
+          throw new Error("asset_upload_failed");
+        }
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            plan: "single",
+            orderType: "print",
+            printVariant: variant,
+            includeDigitalAddOn: false,
+            printAssetId: assetData.assetId,
+            mapId: mapId ?? undefined,
+          }),
+        });
+        const data = (await res.json().catch(() => null)) as
+          | { url?: string; error?: string; code?: string }
+          | null;
+        if (!res.ok || !data?.url) {
+          if (data?.code === "print_checkout_disabled") {
+            throw new Error("print_checkout_disabled");
+          }
+          if (data?.code === "missing_print_asset") {
+            throw new Error("missing_print_asset");
+          }
+          throw new Error(data?.error ?? "checkout_failed");
+        }
+        track("print_checkout_started", {
+          source: "download",
+          variant,
+          hasMapId: Boolean(mapId),
+        });
+        window.location.assign(data.url);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "checkout_failed";
+        const messageByReason =
+          reason === "missing_recipe"
+            ? "We couldn't find your saved map. Open the editor once, then try print checkout again."
+            : reason === "asset_upload_failed"
+              ? "We couldn't prepare your print file. Please try again."
+              : reason === "missing_print_asset"
+                ? "Could not attach your print file. Please retry print checkout."
+                : reason === "print_checkout_disabled"
+                  ? "Print checkout is not live yet."
+                  : "Print checkout is unavailable right now. Please try again.";
+        setPrintCheckoutError(messageByReason);
+        setPrintCheckoutLoading(false);
+      }
+    },
+    [mapIdFromUrl, printCheckoutLoading, recipe, resolveShapeAndRatio],
+  );
+
+  const handleCreateReferralLink = useCallback(async () => {
+    if (referralLoading) return;
+    setReferralLoading(true);
+    setReferralError(null);
+    try {
+      const res = await fetch("/api/referrals/link", { method: "POST" });
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error ?? "referral_failed");
+      }
+      setReferralLink(data.url);
+      track("referral_link_created", { source: "download" });
+    } catch {
+      setReferralError("Couldn't create referral link right now. Please try again.");
+    } finally {
+      setReferralLoading(false);
+    }
+  }, [referralLoading]);
+
+  const handleCopyReferralLink = useCallback(async () => {
+    if (!referralLink) return;
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setReferralCopied(true);
+      window.setTimeout(() => setReferralCopied(false), 2000);
+      track("referral_link_copied", { source: "download" });
+    } catch {
+      // ignore clipboard failures
+    }
+  }, [referralLink]);
+
   const statusLabel = (() => {
     switch (status) {
       case "checking":
@@ -785,6 +927,70 @@ export default function DownloadClient() {
                   </div>
                 </div>
               ))}
+            </div>
+            {printCheckoutEnabled ? (
+              <div className="mt-4 rounded-2xl border border-amber-200/35 bg-amber-400/10 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-sm font-semibold text-white">Want a physical print shipped to you?</h4>
+                  <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                    Print add-on
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-neutral-200">
+                  Start print checkout with your current map already attached.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => void handlePrintCheckout("poster_unframed")}
+                    disabled={printCheckoutLoading}
+                    className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Unframed • {printPriceLabels.unframed}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handlePrintCheckout("poster_framed")}
+                    disabled={printCheckoutLoading}
+                    className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Framed • {printPriceLabels.framed}
+                  </button>
+                </div>
+                {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}
+              </div>
+            ) : null}
+            <div className="mt-4 rounded-2xl border border-white/12 bg-white/6 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold text-white">Share and earn bonus HD credits</h4>
+                <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                  Referral
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-neutral-200">
+                Share your referral link. When someone completes checkout, you get 1 bonus HD credit.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleCreateReferralLink()}
+                  disabled={referralLoading}
+                  className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
+                </button>
+                {referralLink && (
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyReferralLink()}
+                    className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                  >
+                    {referralCopied ? "Copied" : "Copy link"}
+                  </button>
+                )}
+              </div>
+              {referralLink && <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p>}
+              {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
             </div>
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

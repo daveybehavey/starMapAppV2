@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
-import type { CheckoutPlan } from "@/lib/pricing";
+import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import {
+  normalizeReferralCode,
+  referralKey,
+  referralRewardedKey,
+  type ReferralRecord,
+} from "@/lib/referrals";
+import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
+import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 
 export const runtime = "nodejs";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const printFulfillmentWebhookUrl = process.env.PRINT_FULFILLMENT_WEBHOOK_URL?.trim() || "";
+const printOrderSubmissionEnabled = /^(1|true|yes)$/i.test(
+  (process.env.PRINT_ORDER_SUBMISSION_ENABLED || "").trim(),
+);
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 const stripe =
   stripeSecret &&
   new Stripe(stripeSecret, {
@@ -29,6 +42,32 @@ type SessionRecord = {
   subscriptionId?: string | null;
   subscriptionActive?: boolean;
   customerId?: string | null;
+  orderType?: CheckoutOrderType;
+  printVariant?: PrintVariant;
+  includesDigitalAddOn?: boolean;
+  printAssetId?: string;
+  referralCode?: string;
+};
+
+type PrintOrderRecord = {
+  status: "pending" | "sent" | "failed";
+  sessionId: string;
+  mapId?: string;
+  printVariant: PrintVariant;
+  includesDigitalAddOn: boolean;
+  amountTotal?: number | null;
+  currency?: string | null;
+  customerEmail?: string | null;
+  customerName?: string | null;
+  shippingDetails?: Stripe.Checkout.Session.ShippingDetails | null;
+  printAssetId?: string;
+  printAssetUrl?: string;
+  printfulOrderId?: string | number;
+  attempts: number;
+  webhookStatus?: number;
+  sentAt?: number;
+  error?: string;
+  createdAt: number;
 };
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
@@ -36,6 +75,7 @@ const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
+const printOrderKey = (id: string) => `print:order:${id}`;
 
 function getMapId(session: Stripe.Checkout.Session) {
   return (
@@ -45,7 +85,38 @@ function getMapId(session: Stripe.Checkout.Session) {
   );
 }
 
-function getPlan(session: Stripe.Checkout.Session): CheckoutPlan {
+function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
+  return session.metadata?.order_type === "print" ? "print" : "digital";
+}
+
+function getPrintVariant(session: Stripe.Checkout.Session): PrintVariant | undefined {
+  if (session.metadata?.print_variant === "poster_framed") return "poster_framed";
+  if (session.metadata?.print_variant === "poster_unframed") return "poster_unframed";
+  return undefined;
+}
+
+function includesDigitalAddOn(session: Stripe.Checkout.Session): boolean {
+  return session.metadata?.print_include_digital === "true";
+}
+
+function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
+  const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
+  if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
+  return raw;
+}
+
+function getPrintAssetUrl(assetId: string) {
+  return `${siteUrl}/api/print/assets?id=${encodeURIComponent(assetId)}`;
+}
+
+function getPlan(
+  session: Stripe.Checkout.Session,
+  orderType: CheckoutOrderType,
+  hasDigitalAddOn: boolean,
+): CheckoutPlan | undefined {
+  if (orderType === "print" && !hasDigitalAddOn) {
+    return undefined;
+  }
   const plan = typeof session.metadata?.plan === "string" ? session.metadata.plan : null;
   if (plan === "pack3" || plan === "subscription" || plan === "single") {
     return plan;
@@ -53,7 +124,8 @@ function getPlan(session: Stripe.Checkout.Session): CheckoutPlan {
   return session.mode === "subscription" ? "subscription" : "single";
 }
 
-function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan): number {
+function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan | undefined): number {
+  if (!plan) return 0;
   if (plan === "subscription") return 0;
   const raw = typeof session.metadata?.credits === "string" ? Number.parseInt(session.metadata.credits, 10) : NaN;
   if (Number.isFinite(raw) && raw > 0) return raw;
@@ -67,7 +139,11 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   const existing = await kv.get<SessionRecord>(sessionKey(session.id));
   if (existing?.revoked) return;
 
-  const plan = getPlan(session);
+  const orderType = getOrderType(session);
+  const printVariant = getPrintVariant(session);
+  const hasDigitalAddOn = includesDigitalAddOn(session);
+  const printAssetId = getPrintAssetId(session);
+  const plan = getPlan(session, orderType, hasDigitalAddOn);
   const credits = getCredits(session, plan);
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
@@ -94,6 +170,10 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     subscriptionId: subscriptionId ?? undefined,
     subscriptionActive: plan === "subscription" ? true : undefined,
     customerId: customerId ?? undefined,
+    orderType,
+    printVariant,
+    includesDigitalAddOn: hasDigitalAddOn,
+    printAssetId,
   });
 
   if (paymentIntentId) {
@@ -163,6 +243,204 @@ async function resolvePaymentIntentIdFromCharge(chargeId?: string | null) {
   }
 }
 
+async function applyReferralReward(session: Stripe.Checkout.Session) {
+  if (!session.id) return;
+  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") return;
+
+  const referralCode = normalizeReferralCode(session.metadata?.referral_code);
+  const referrerSessionId =
+    typeof session.metadata?.referrer_session_id === "string" ? session.metadata.referrer_session_id.trim() : "";
+  if (!referralCode || !referrerSessionId) return;
+  if (referrerSessionId === session.id) return;
+
+  const rewarded = await kv.get<{ rewarded?: boolean }>(referralRewardedKey(session.id));
+  if (rewarded?.rewarded) return;
+  await kv.set(referralRewardedKey(session.id), { rewarded: true, createdAt: Date.now() });
+
+  const referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
+
+  const orderType = getOrderType(session);
+  const hasDigitalAddOn = includesDigitalAddOn(session);
+  const rewardEligible = orderType === "digital" || hasDigitalAddOn;
+  let rewardGranted = 0;
+  if (rewardEligible) {
+    const referrer = await kv.get<SessionRecord>(sessionKey(referrerSessionId));
+    if (referrer && !referrer.revoked && referrer.plan !== "subscription") {
+      const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + 1;
+      await kv.set(sessionKey(referrerSessionId), {
+        ...referrer,
+        paid: true,
+        creditsRemaining: nextCredits,
+        creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
+      });
+      rewardGranted = 1;
+    }
+  }
+
+  if (referralRecord) {
+    await kv.set(referralKey(referralCode), {
+      ...referralRecord,
+      conversions: (referralRecord.conversions ?? 0) + 1,
+      rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
+      lastConvertedAt: Date.now(),
+    });
+  }
+}
+
+async function queuePrintOrder(session: Stripe.Checkout.Session) {
+  if (!session.id) return;
+  if (getOrderType(session) !== "print") return;
+
+  const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+  if (existing?.status === "sent") return;
+
+  const payload: PrintOrderRecord = {
+    status: "pending",
+    sessionId: session.id,
+    mapId: getMapId(session),
+    printVariant: getPrintVariant(session) ?? "poster_unframed",
+    includesDigitalAddOn: includesDigitalAddOn(session),
+    printAssetId: getPrintAssetId(session),
+    amountTotal: session.amount_total,
+    currency: session.currency,
+    customerEmail: session.customer_details?.email ?? session.customer_email ?? null,
+    customerName: session.customer_details?.name ?? null,
+    shippingDetails: session.shipping_details ?? null,
+    attempts: (existing?.attempts ?? 0) + 1,
+    createdAt: existing?.createdAt ?? Date.now(),
+  };
+  await kv.set(printOrderKey(session.id), payload);
+
+  const printAssetId = payload.printAssetId;
+  if (!printAssetId) {
+    await kv.set(printOrderKey(session.id), {
+      ...payload,
+      status: "failed",
+      error: "print_asset_missing",
+    });
+    return;
+  }
+
+  const printAssetUrl = getPrintAssetUrl(printAssetId);
+  const shippingAddress = session.shipping_details?.address;
+  const shippingName = session.shipping_details?.name?.trim() || session.customer_details?.name?.trim() || "";
+  const email = session.customer_details?.email?.trim() || session.customer_email?.trim() || "";
+  const phone = session.customer_details?.phone?.trim() || "";
+  if (
+    !shippingAddress ||
+    !shippingName ||
+    !shippingAddress.line1 ||
+    !shippingAddress.city ||
+    !shippingAddress.country ||
+    !shippingAddress.postal_code
+  ) {
+    await kv.set(printOrderKey(session.id), {
+      ...payload,
+      printAssetUrl,
+      status: "failed",
+      error: "shipping_details_missing",
+    });
+    return;
+  }
+
+  const recipient = {
+    name: shippingName,
+    email: email || undefined,
+    phone: phone || undefined,
+    address1: shippingAddress.line1,
+    address2: shippingAddress.line2 || undefined,
+    city: shippingAddress.city,
+    state_code: shippingAddress.state || undefined,
+    country_code: shippingAddress.country,
+    zip: shippingAddress.postal_code,
+  };
+
+  if (!printOrderSubmissionEnabled) {
+    await kv.set(printOrderKey(session.id), {
+      ...payload,
+      printAssetUrl,
+      status: "pending",
+      error: "submission_disabled",
+    });
+    return;
+  }
+
+  if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
+    await kv.set(printOrderKey(session.id), {
+      ...payload,
+      printAssetUrl,
+      status: "failed",
+      error: "fulfillment_not_configured",
+    });
+    return;
+  }
+
+  if (isPrintfulConfigured()) {
+    const printfulResult = await submitPrintfulOrder({
+      externalId: session.id,
+      variant: payload.printVariant,
+      fileUrl: printAssetUrl,
+      recipient,
+    });
+    if (!printfulResult.ok) {
+      await kv.set(printOrderKey(session.id), {
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        webhookStatus: printfulResult.status,
+        error: printfulResult.error ?? "printful_order_failed",
+      });
+      return;
+    }
+    await kv.set(printOrderKey(session.id), {
+      ...payload,
+      printAssetUrl,
+      status: "sent",
+      webhookStatus: printfulResult.status,
+      printfulOrderId: printfulResult.orderId,
+      sentAt: Date.now(),
+      error: undefined,
+    });
+  }
+
+  if (!printFulfillmentWebhookUrl) return;
+
+  try {
+    const response = await fetch(printFulfillmentWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...payload,
+        printAssetUrl,
+        recipient,
+      }),
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Webhook ${response.status}: ${body.slice(0, 280)}`);
+    }
+    if (!isPrintfulConfigured()) {
+      await kv.set(printOrderKey(session.id), {
+        ...payload,
+        printAssetUrl,
+        status: "sent",
+        webhookStatus: response.status,
+        sentAt: Date.now(),
+        error: undefined,
+      });
+    }
+  } catch (error) {
+    if (!isPrintfulConfigured()) {
+      await kv.set(printOrderKey(session.id), {
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: error instanceof Error ? error.message.slice(0, 320) : "webhook_failed",
+      });
+    }
+  }
+}
+
 export async function POST(req: Request) {
   if (!stripe || !webhookSecret) {
     return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 500 });
@@ -186,6 +464,8 @@ export async function POST(req: Request) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       await markSessionPaid(session);
+      await queuePrintOrder(session);
+      await applyReferralReward(session);
       break;
     }
     case "customer.subscription.updated":
