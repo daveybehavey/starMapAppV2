@@ -25,6 +25,7 @@ const OPTIONAL = [
   "PRINTFUL_VARIANT_ID_POSTER_UNFRAMED",
   "PRINTFUL_VARIANT_ID_POSTER_FRAMED",
   "PRINT_ORDER_SUBMISSION_ENABLED",
+  "STRIPE_REFERRAL_PROMO_CODE_ID",
 ];
 
 const loadEnvFile = (filename) => {
@@ -81,6 +82,14 @@ const parseBooleanEnv = (key) => {
   if (["0", "false", "no"].includes(value)) return false;
   errors.push(`Invalid ${key} (expected true/false/1/0/yes/no)`);
   return null;
+};
+
+const checkStripeIdPrefix = (key, prefix) => {
+  const value = process.env[key];
+  if (!value) return;
+  if (!value.startsWith(prefix)) {
+    errors.push(`Invalid ${key} (expected to start with ${prefix})`);
+  }
 };
 
 checkInt("PRICE_CENTS");
@@ -143,6 +152,9 @@ if (promotionPercent) {
     errors.push("PROMOTION_COUPON_PERCENT must be between 0 and 100");
   }
 }
+
+checkStripeIdPrefix("STRIPE_PROMO_CODE_ID", "promo_");
+checkStripeIdPrefix("STRIPE_REFERRAL_PROMO_CODE_ID", "promo_");
 
 if (process.env.RESEND_API_KEY && !process.env.PROMOTION_EMAIL_FROM) {
   warnings.push("PROMOTION_EMAIL_FROM is required when RESEND_API_KEY is set");

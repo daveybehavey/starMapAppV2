@@ -35,6 +35,11 @@ Updated: 2026-02-27
 
 - Print checkout payload and webhook wiring are implemented.
 - Referral program backend and UI paths are implemented.
+- Referral status endpoint and conversion stats UI are live on `/download` (visits, conversions, rewards).
+- Referral visit tracking now records on `/editor?ref=...` landings for cleaner attribution.
+- Referral attribution capture is now centralized at app layout level, so `?ref=` links are persisted and counted from any entry page.
+- Referral attribution is now time-bounded client-side (30-day window) instead of indefinite local storage.
+- Referral auto-offer can now be configured via `STRIPE_REFERRAL_PROMO_CODE_ID` with safe fallback when Stripe rejects discount application.
 - Current mode is `SAFE_OFF` for print launch to prevent accidental live fulfillment.
 
 ## Phase 3: Launch Readiness (Current Priority)
@@ -81,6 +86,20 @@ npm run qa:live-smoke
   - one top occasion page.
 - Build 2-3 authority assets for link earning.
 - Start social publishing cadence and UGC loops.
+
+### Current Phase 4 Progress
+
+- Added a reusable trust-depth section (`RevenueTrustModule`) with:
+  - checkout confidence cards
+  - print planning quick guide
+  - pre-purchase checklist
+  - direct links to print guide + returns
+- Applied this module on the three highest-intent pages:
+  - `/personalized-star-map`
+  - `/star-map-gift`
+  - `/wedding`
+- Added a reusable deliverables section (`WhatYouReceiveModule`) on the same three pages for explicit post-checkout expectations.
+- Added testimonial rendering scaffolding (`TestimonialHighlights` + `src/data/testimonials.ts`) that stays hidden until real, permissioned quotes are added.
 
 ## Phase 5: Print Scale (Planned)
 

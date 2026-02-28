@@ -67,11 +67,22 @@ export const waitForEditor = async (page: Page, isDesktop?: boolean) => {
 
 export const gotoEditor = async (
   page: Page,
-  options: { path?: string; force?: "desktop" | "mobile" } = {},
+  options: {
+    path?: string;
+    force?: "desktop" | "mobile";
+    query?: Record<string, string | undefined>;
+  } = {},
 ) => {
-  const { path = "/editor", force = "desktop" } = options;
+  const { path = "/editor", force = "desktop", query } = options;
   await primeLocalStorage(page);
-  await page.goto(`${path}?force=${force}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const search = new URLSearchParams({ force });
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (!value) continue;
+      search.set(key, value);
+    }
+  }
+  await page.goto(`${path}?${search.toString()}`, { waitUntil: "domcontentloaded", timeout: 60000 });
   await waitForEditor(page, force === "desktop");
   await dismissOverlays(page);
 };

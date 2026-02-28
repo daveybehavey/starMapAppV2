@@ -7,6 +7,20 @@ import { track, trackFunnelStep } from "@/lib/analytics";
 import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
+type ReferralStatus = "idle" | "loading" | "ready" | "error";
+type ReferralSummary = {
+  visits: number;
+  conversions: number;
+  rewardsGranted: number;
+  lastConvertedAt: number | null;
+};
+
+const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
+  visits: 0,
+  conversions: 0,
+  rewardsGranted: 0,
+  lastConvertedAt: null,
+};
 
 function getPreviewSource() {
   if (typeof window === "undefined") return null;
@@ -35,6 +49,12 @@ export default function SuccessClient() {
   const [digitalAddOnLoading, setDigitalAddOnLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
   const [verificationRunId, setVerificationRunId] = useState(0);
+  const [referralLink, setReferralLink] = useState<string | null>(null);
+  const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralError, setReferralError] = useState<string | null>(null);
+  const [referralCopied, setReferralCopied] = useState(false);
+  const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
@@ -142,6 +162,91 @@ export default function SuccessClient() {
     }
   }, [digitalAddOnLoading, orderType, pauseRedirect, printVariant, resolvedMapId]);
 
+  const loadReferralStatus = useCallback(async () => {
+    setReferralStatus("loading");
+    try {
+      const res = await fetch("/api/referrals/status", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            url?: string | null;
+            visits?: number;
+            conversions?: number;
+            rewardsGranted?: number;
+            lastConvertedAt?: number | null;
+          }
+        | null;
+      if (!res.ok || !data?.ok) {
+        throw new Error("status_failed");
+      }
+      setReferralLink(typeof data.url === "string" && data.url.trim() ? data.url.trim() : null);
+      setReferralSummary({
+        visits: typeof data.visits === "number" ? Math.max(0, data.visits) : 0,
+        conversions: typeof data.conversions === "number" ? Math.max(0, data.conversions) : 0,
+        rewardsGranted: typeof data.rewardsGranted === "number" ? Math.max(0, data.rewardsGranted) : 0,
+        lastConvertedAt:
+          typeof data.lastConvertedAt === "number" && Number.isFinite(data.lastConvertedAt)
+            ? data.lastConvertedAt
+            : null,
+      });
+      setReferralStatus("ready");
+    } catch {
+      setReferralStatus("error");
+    }
+  }, []);
+
+  const handleCreateReferralLink = useCallback(async () => {
+    if (referralLoading) return;
+    pauseRedirect();
+    setReferralLoading(true);
+    setReferralError(null);
+    try {
+      const res = await fetch("/api/referrals/link", { method: "POST" });
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error ?? "referral_failed");
+      }
+      setReferralLink(data.url);
+      track("referral_link_created", { source: "success" });
+      await loadReferralStatus();
+    } catch {
+      setReferralError("Couldn't create referral link right now. Please try again.");
+    } finally {
+      setReferralLoading(false);
+    }
+  }, [loadReferralStatus, pauseRedirect, referralLoading]);
+
+  const handleCopyReferralLink = useCallback(async () => {
+    if (!referralLink) return;
+    pauseRedirect();
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setReferralCopied(true);
+      window.setTimeout(() => setReferralCopied(false), 2000);
+      track("referral_link_copied", { source: "success" });
+    } catch {
+      // ignore clipboard failures
+    }
+  }, [pauseRedirect, referralLink]);
+
+  const handleShareReferralLink = useCallback(
+    (platform: "x" | "facebook") => {
+      if (!referralLink) return;
+      pauseRedirect();
+      const encodedUrl = encodeURIComponent(referralLink);
+      const encodedText = encodeURIComponent(
+        "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
+      );
+      const shareUrl =
+        platform === "x"
+          ? `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`
+          : `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+      window.open(shareUrl, "_blank", "noopener,noreferrer");
+      track("referral_link_shared", { source: "success", platform });
+    },
+    [pauseRedirect, referralLink],
+  );
+
   useEffect(() => {
     let active = true;
     redirectTimerRef.current = null;
@@ -247,6 +352,11 @@ export default function SuccessClient() {
   const hasDigitalEntitlement =
     currentPlan === "single" || currentPlan === "pack3" || currentPlan === "subscription";
   const isPrintOrder = orderType === "print";
+
+  useEffect(() => {
+    if (status !== "success" || !hasDigitalEntitlement) return;
+    void loadReferralStatus();
+  }, [hasDigitalEntitlement, loadReferralStatus, status]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
@@ -443,6 +553,82 @@ export default function SuccessClient() {
                   )}
                 </div>
                 {portalError && <p className="mt-2 text-xs text-rose-200">{portalError}</p>}
+                {hasDigitalEntitlement && (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
+                        Referral bonus
+                      </p>
+                      <p className="text-[11px] text-amber-100/70">
+                        {referralSummary.rewardsGranted} bonus credit{referralSummary.rewardsGranted === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-amber-100/80">
+                      Share your link. Each paid checkout adds 1 HD credit.
+                    </p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
+                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+                        <p className="text-amber-100/60">Visits</p>
+                        <p className="font-semibold text-white">{referralSummary.visits}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+                        <p className="text-amber-100/60">Sales</p>
+                        <p className="font-semibold text-white">{referralSummary.conversions}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+                        <p className="text-amber-100/60">Rewards</p>
+                        <p className="font-semibold text-white">{referralSummary.rewardsGranted}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateReferralLink()}
+                        disabled={referralLoading}
+                        className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {referralLoading ? "Generating..." : referralLink ? "Refresh link" : "Create link"}
+                      </button>
+                      {referralLink && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyReferralLink()}
+                            className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30"
+                          >
+                            {referralCopied ? "Copied" : "Copy link"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleShareReferralLink("x")}
+                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                          >
+                            Share X
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleShareReferralLink("facebook")}
+                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                          >
+                            Share Facebook
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {referralSummary.lastConvertedAt ? (
+                      <p className="mt-2 text-[11px] text-amber-100/70">
+                        Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
+                      </p>
+                    ) : null}
+                    {referralStatus === "loading" && (
+                      <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
+                    )}
+                    {referralStatus === "error" && (
+                      <p className="mt-2 text-[11px] text-rose-200">Couldn&apos;t load referral stats right now.</p>
+                    )}
+                    {referralError && <p className="mt-2 text-[11px] text-rose-200">{referralError}</p>}
+                  </div>
+                )}
               </div>
             )}
           </>

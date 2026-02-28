@@ -20,6 +20,7 @@ type Props = {
     digitalAddOn: string;
   };
   variant: PaywallCopyVariant;
+  showReferralHint?: boolean;
   onStartCheckout: (plan: CheckoutPlan) => void;
   onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
   onClose: () => void;
@@ -60,6 +61,7 @@ export function PaywallModal({
   priceLabels,
   printPriceLabels,
   variant,
+  showReferralHint = false,
   onStartCheckout,
   onStartPrintCheckout,
   onClose,
@@ -192,6 +194,11 @@ export function PaywallModal({
         <p className="mt-2 text-xs font-semibold text-neutral-700">
           Have a promo code? It can be applied at checkout.
         </p>
+        {showReferralHint && (
+          <p className="mt-1 text-[11px] text-neutral-600">
+            Referral offers apply automatically at checkout when available.
+          </p>
+        )}
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
             type="button"

@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import "./globals.css";
 import { Playfair_Display } from "next/font/google";
+import ReferralAttributionClient from "@/components/ReferralAttributionClient";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -186,6 +188,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable}`}>
+        <Suspense fallback={null}>
+          <ReferralAttributionClient />
+        </Suspense>
         <div className="cosmic-backdrop">
           {children}
         </div>

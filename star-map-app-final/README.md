@@ -130,6 +130,7 @@ Configure environment variables in the Cloudflare dashboard.
 - The subscribe API returns the configured coupon code and delivery status so UI can show "instant 20% off" feedback.
 - Automation provider priority is: `RESEND_API_KEY` + `PROMOTION_EMAIL_FROM` → `SENDGRID_API_KEY` + `PROMOTION_EMAIL_FROM` → `PROMOTION_AUTOMATION_WEBHOOK_URL`.
 - One-time Stripe setup: run `npm run promo:setup` to create or reuse the `PROMOTION_COUPON_CODE` promotion in Stripe and write `STRIPE_PROMO_CODE_ID` to `.env.local`.
+- Optional referral checkout offer: set `STRIPE_REFERRAL_PROMO_CODE_ID` to auto-apply a Stripe promotion code for referred digital purchases.
 - Full setup checklist: `PROMOTION-AUTOMATION-SETUP.md`.
 
 ### Print launch checklist

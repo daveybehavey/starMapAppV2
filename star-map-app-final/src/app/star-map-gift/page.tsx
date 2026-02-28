@@ -5,7 +5,11 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import TestimonialHighlights from "@/components/TestimonialHighlights";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { testimonialsByPage } from "@/data/testimonials";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -98,6 +102,19 @@ export default function StarMapGiftPage() {
           "Direct support at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading="What your gift purchase includes"
+        intro="Gift buyers usually want clarity on deliverables and timing. This is the exact package you unlock."
+      />
+      <RevenueTrustModule
+        heading="Gift-buyer confidence pack"
+        intro="If this is a gift, use this section to remove last-minute uncertainty around quality, print sizing, and final review before purchase."
+      />
+      <TestimonialHighlights
+        heading="Verified gift-buyer feedback"
+        intro="Real comments from gift buyers are shown here as they are collected."
+        testimonials={testimonialsByPage.gift}
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

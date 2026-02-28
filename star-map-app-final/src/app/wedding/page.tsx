@@ -5,7 +5,11 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import TestimonialHighlights from "@/components/TestimonialHighlights";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { testimonialsByPage } from "@/data/testimonials";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -147,6 +151,19 @@ export default function WeddingPage() {
           "Help available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading="What your wedding order includes"
+        intro="This is the exact handoff from your final preview to a frame-ready HD file."
+      />
+      <RevenueTrustModule
+        heading="Wedding keepsake confidence"
+        intro="Couples usually decide faster when size, frame plan, and final text checks are already settled. Use this block before checkout."
+      />
+      <TestimonialHighlights
+        heading="Verified wedding buyer feedback"
+        intro="Real wedding-buyer comments are shown here as they are collected."
+        testimonials={testimonialsByPage.wedding}
       />
 
       <OccasionLinks />

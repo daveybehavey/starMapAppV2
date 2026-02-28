@@ -26,7 +26,7 @@ import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
-import { normalizeReferralCode, REFERRAL_CODE_STORAGE_KEY } from "@/lib/referrals";
+import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -235,21 +235,13 @@ export function EditorExperience({
       return null;
     }
   }, []);
-  const readStoredReferralCode = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      return normalizeReferralCode(window.localStorage.getItem(REFERRAL_CODE_STORAGE_KEY));
-    } catch {
-      return null;
-    }
-  }, []);
   const getCheckoutPromoCode = useCallback(
     () => queryPromoCode ?? readStoredPromoCode(),
     [queryPromoCode, readStoredPromoCode]
   );
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
-    [queryReferralCode, readStoredReferralCode]
+    [queryReferralCode]
   );
   const getPreviewSource = useCallback(() => {
     if (typeof window === "undefined") return null;
@@ -269,15 +261,6 @@ export function EditorExperience({
       // ignore storage errors
     }
   }, [queryPromoCode]);
-
-  useEffect(() => {
-    if (!queryReferralCode || typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(REFERRAL_CODE_STORAGE_KEY, queryReferralCode);
-    } catch {
-      // ignore storage errors
-    }
-  }, [queryReferralCode]);
 
   useEffect(() => {
     if (!paywallOpen) return;
@@ -923,6 +906,8 @@ export function EditorExperience({
           url?: string;
           error?: string;
           code?: string;
+          promoApplied?: boolean;
+          referralOfferApplied?: boolean;
         } | null;
         if (!res.ok) {
           if (data?.code === "invalid_promotion_code") {
@@ -937,11 +922,15 @@ export function EditorExperience({
           throw new Error(data?.error ?? "checkout failed");
         }
         if (data?.url) {
+          const promoApplied = Boolean(data.promoApplied);
+          const referralOfferApplied = Boolean(data.referralOfferApplied);
           trackFunnelStep("checkout_redirected", {
             source: previewSource,
             plan,
             orderType,
-            promoApplied: Boolean(promoCode),
+            promoApplied,
+            referralOfferApplied,
+            promotionSource: referralOfferApplied ? "referral_auto" : promoApplied ? "manual" : "none",
             referralApplied: Boolean(referralCode),
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
@@ -2093,6 +2082,7 @@ export function EditorExperience({
               priceLabels={priceLabels}
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
               variant={paywallVariant}
+              showReferralHint={Boolean(getCheckoutReferralCode())}
               onStartCheckout={(plan) => {
                 void startCheckout(plan);
               }}

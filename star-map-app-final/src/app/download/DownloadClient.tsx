@@ -25,11 +25,24 @@ const LEGACY_CHECKOUT_MAP_KEY = "checkout-map-id";
 
 type Status = "checking" | "ready" | "downloading" | "error" | "no-draft" | "not-paid";
 type PreviewStatus = "idle" | "rendering" | "ready" | "error";
+type ReferralStatus = "idle" | "loading" | "ready" | "error";
+type ReferralSummary = {
+  visits: number;
+  conversions: number;
+  rewardsGranted: number;
+  lastConvertedAt: number | null;
+};
 
 const PREVIEW_BASE_WIDTH = 1200;
 const PREVIEW_MAX_DIM = 2200;
 const PREVIEW_MAX_DPR = 2;
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
+const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
+  visits: 0,
+  conversions: 0,
+  rewardsGranted: 0,
+  lastConvertedAt: null,
+};
 
 function getPreviewSource() {
   if (typeof window === "undefined") return null;
@@ -171,6 +184,8 @@ export default function DownloadClient() {
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
+  const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
 
   const printPriceLabels = useMemo(() => {
     const printTiers = getPrintPricingTiers();
@@ -729,6 +744,40 @@ export default function DownloadClient() {
     [mapIdFromUrl, printCheckoutLoading, recipe, resolveShapeAndRatio],
   );
 
+  const loadReferralStatus = useCallback(async () => {
+    if (!paidRef.current) return;
+    setReferralStatus("loading");
+    try {
+      const res = await fetch("/api/referrals/status", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            url?: string | null;
+            visits?: number;
+            conversions?: number;
+            rewardsGranted?: number;
+            lastConvertedAt?: number | null;
+          }
+        | null;
+      if (!res.ok || !data?.ok) {
+        throw new Error("status_failed");
+      }
+      setReferralLink(typeof data.url === "string" && data.url.trim() ? data.url.trim() : null);
+      setReferralSummary({
+        visits: typeof data.visits === "number" ? Math.max(0, data.visits) : 0,
+        conversions: typeof data.conversions === "number" ? Math.max(0, data.conversions) : 0,
+        rewardsGranted: typeof data.rewardsGranted === "number" ? Math.max(0, data.rewardsGranted) : 0,
+        lastConvertedAt:
+          typeof data.lastConvertedAt === "number" && Number.isFinite(data.lastConvertedAt)
+            ? data.lastConvertedAt
+            : null,
+      });
+      setReferralStatus("ready");
+    } catch {
+      setReferralStatus("error");
+    }
+  }, []);
+
   const handleCreateReferralLink = useCallback(async () => {
     if (referralLoading) return;
     setReferralLoading(true);
@@ -741,12 +790,13 @@ export default function DownloadClient() {
       }
       setReferralLink(data.url);
       track("referral_link_created", { source: "download" });
+      await loadReferralStatus();
     } catch {
       setReferralError("Couldn't create referral link right now. Please try again.");
     } finally {
       setReferralLoading(false);
     }
-  }, [referralLoading]);
+  }, [loadReferralStatus, referralLoading]);
 
   const handleCopyReferralLink = useCallback(async () => {
     if (!referralLink) return;
@@ -759,6 +809,28 @@ export default function DownloadClient() {
       // ignore clipboard failures
     }
   }, [referralLink]);
+
+  const handleShareReferralLink = useCallback(
+    (platform: "x" | "facebook") => {
+      if (!referralLink) return;
+      const encodedUrl = encodeURIComponent(referralLink);
+      const encodedText = encodeURIComponent(
+        "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
+      );
+      const shareUrl =
+        platform === "x"
+          ? `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`
+          : `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+      window.open(shareUrl, "_blank", "noopener,noreferrer");
+      track("referral_link_shared", { source: "download", platform });
+    },
+    [referralLink],
+  );
+
+  useEffect(() => {
+    if (!paid) return;
+    void loadReferralStatus();
+  }, [loadReferralStatus, paid]);
 
   const statusLabel = (() => {
     switch (status) {
@@ -960,38 +1032,87 @@ export default function DownloadClient() {
                 {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}
               </div>
             ) : null}
-            <div className="mt-4 rounded-2xl border border-white/12 bg-white/6 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold text-white">Share and earn bonus HD credits</h4>
-                <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                  Referral
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-neutral-200">
-                Share your referral link. When someone completes checkout, you get 1 bonus HD credit.
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleCreateReferralLink()}
-                  disabled={referralLoading}
-                  className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
-                </button>
-                {referralLink && (
+            {paid ? (
+              <div className="mt-4 rounded-2xl border border-white/12 bg-white/6 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-sm font-semibold text-white">Share and earn bonus HD credits</h4>
+                  <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                    Referral
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-neutral-200">
+                  Share your referral link. Each paid checkout through your link adds 1 bonus HD credit.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-amber-100/70">Visits</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{referralSummary.visits}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-amber-100/70">Conversions</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{referralSummary.conversions}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-amber-100/70">Bonus credits</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{referralSummary.rewardsGranted}</p>
+                  </div>
+                </div>
+                {referralSummary.lastConvertedAt ? (
+                  <p className="mt-2 text-[11px] text-amber-100/70">
+                    Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => void handleCopyReferralLink()}
-                    className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                    onClick={() => void handleCreateReferralLink()}
+                    disabled={referralLoading}
+                    className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {referralCopied ? "Copied" : "Copy link"}
+                    {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
                   </button>
+                  {referralLink ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyReferralLink()}
+                        className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                      >
+                        {referralCopied ? "Copied" : "Copy link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleShareReferralLink("x")}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        Share on X
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleShareReferralLink("facebook")}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        Share on Facebook
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+                {referralLink ? (
+                  <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p>
+                ) : (
+                  <p className="mt-2 text-[11px] text-amber-100/70">
+                    Create your referral link once and use it everywhere.
+                  </p>
                 )}
+                {referralStatus === "loading" && (
+                  <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
+                )}
+                {referralStatus === "error" && (
+                  <p className="mt-2 text-xs text-rose-200">Couldn't load referral stats. You can still create a link.</p>
+                )}
+                {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
               </div>
-              {referralLink && <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p>}
-              {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
-            </div>
+            ) : null}
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>

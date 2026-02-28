@@ -55,6 +55,46 @@ test.describe("API route regressions", () => {
     expect(unknownCookieBody.error).toMatch(/no active entitlement/i);
   });
 
+  test("referral endpoints block missing or unknown entitlements", async ({ request }) => {
+    const noCookieStatus = await request.get("/api/referrals/status", {
+      headers: { "x-forwarded-for": randomIp() },
+    });
+    expect(noCookieStatus.status()).toBe(401);
+    const noCookieStatusBody = (await noCookieStatus.json()) as ErrorBody;
+    expect(noCookieStatusBody.error).toMatch(/missing entitlement/i);
+
+    const noCookieLink = await request.post("/api/referrals/link", {
+      headers: { "x-forwarded-for": randomIp() },
+    });
+    expect(noCookieLink.status()).toBe(401);
+    const noCookieLinkBody = (await noCookieLink.json()) as ErrorBody;
+    expect(noCookieLinkBody.error).toMatch(/missing entitlement/i);
+
+    const unknownStatus = await request.get("/api/referrals/status", {
+      headers: {
+        "x-forwarded-for": randomIp(),
+        cookie: `${PREMIUM_COOKIE_NAME}=missing_session_for_test`,
+      },
+    });
+    expect(unknownStatus.status()).toBe(403);
+    const unknownStatusBody = (await unknownStatus.json()) as ErrorBody;
+    expect(unknownStatusBody.error).toMatch(/no active entitlement/i);
+  });
+
+  test("referral visit endpoint validates payload", async ({ request }) => {
+    const invalidResponse = await request.post("/api/referrals/visit", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: { code: "bad code!" },
+    });
+    expect(invalidResponse.status()).toBe(400);
+
+    const missingRecordResponse = await request.post("/api/referrals/visit", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: { code: "ABCD1234" },
+    });
+    expect(missingRecordResponse.status()).toBe(404);
+  });
+
   test("print asset API validates payload and supports round-trip retrieval", async ({ request }) => {
     const invalidPayloadResponse = await request.post("/api/print/assets", {
       headers: { "x-forwarded-for": randomIp() },

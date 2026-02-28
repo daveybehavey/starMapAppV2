@@ -12,6 +12,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { normalizeReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
+import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,7 @@ const stripePrintPriceIds = {
 } as const;
 const configuredPromoCode = process.env.PROMOTION_COUPON_CODE?.trim().toUpperCase() ?? "";
 const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim() ?? "";
+const configuredReferralPromotionCodeId = process.env.STRIPE_REFERRAL_PROMO_CODE_ID?.trim() ?? "";
 const printAllowedCountries = parseAllowedShippingCountries(process.env.PRINT_ALLOWED_COUNTRIES);
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_CHECKOUT_ENABLED || "").trim());
 
@@ -142,10 +144,6 @@ async function resolveReferral(raw?: string): Promise<ReferralResolution> {
   if (!code) return {};
   const record = await kv.get<ReferralRecord>(referralKey(code));
   if (!record?.sessionId) return {};
-  await kv.set(referralKey(code), {
-    ...record,
-    visits: (record.visits ?? 0) + 1,
-  });
   return { code, referrerSessionId: record.sessionId };
 }
 
@@ -166,6 +164,7 @@ async function createCheckoutSession(
     includeDigitalAddOn?: boolean;
     referralCode?: string;
     referrerSessionId?: string;
+    promotionSource?: PromotionSource;
   },
 ): Promise<CheckoutSessionResult> {
   const {
@@ -179,6 +178,7 @@ async function createCheckoutSession(
     includeDigitalAddOn = false,
     referralCode,
     referrerSessionId,
+    promotionSource = "none",
   } = input;
   if (!stripe) {
     throw new Error("Stripe not configured");
@@ -215,6 +215,7 @@ async function createCheckoutSession(
     if (tier.credits) metadata.credits = String(tier.credits);
   }
   if (promotionCodeId) metadata.promotion_code_id = promotionCodeId;
+  if (promotionSource === "referral_auto") metadata.referral_offer_applied = "true";
   if (referralCode) metadata.referral_code = referralCode;
   if (referrerSessionId) metadata.referrer_session_id = referrerSessionId;
 
@@ -342,10 +343,18 @@ async function createCheckoutSession(
       promotionCodeId,
       plan,
     });
+    const fallbackMetadata = { ...metadata };
+    delete fallbackMetadata.promotion_code_id;
+    delete fallbackMetadata.referral_offer_applied;
     const fallbackParams: Stripe.Checkout.SessionCreateParams = {
       ...sessionParams,
       allow_promotion_codes: allowPromotionCodes,
       discounts: undefined,
+      metadata: fallbackMetadata,
+      subscription_data:
+        !isPrintOrder && effectivePlan === "subscription"
+          ? { metadata: fallbackMetadata }
+          : undefined,
     };
     discountRejected = true;
     session = await stripe.checkout.sessions.create(fallbackParams);
@@ -386,7 +395,13 @@ export async function GET(req: NextRequest) {
   const promotion = orderType === "digital" && plan === "subscription"
     ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
     : await resolvePromotionCodeId(promoCodeParam);
-  const promotionCodeId = promotion.invalid ? undefined : promotion.promotionCodeId;
+  const selectedPromotion = selectCheckoutPromotion({
+    manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
+    referralCode: referral.code,
+    referralPromotionCodeId: configuredReferralPromotionCodeId,
+    orderType,
+    plan,
+  });
   if (orderType === "print" && !printCheckoutEnabled) {
     return NextResponse.json(
       { error: "Print checkout is not enabled yet.", code: "print_checkout_disabled" },
@@ -405,7 +420,8 @@ export async function GET(req: NextRequest) {
       plan,
       mapId,
       printAssetId,
-      promotionCodeId,
+      promotionCodeId: selectedPromotion.promotionCodeId,
+      promotionSource: selectedPromotion.source,
       orderType,
       printVariant,
       includeDigitalAddOn,
@@ -512,12 +528,20 @@ export async function POST(req: NextRequest) {
         { status: 503 },
       );
     }
+    const selectedPromotion = selectCheckoutPromotion({
+      manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
+      referralCode: referral.code,
+      referralPromotionCodeId: configuredReferralPromotionCodeId,
+      orderType,
+      plan,
+    });
 
     const session = await createCheckoutSession({
       plan,
       mapId,
       printAssetId,
-      promotionCodeId: promotion.promotionCodeId,
+      promotionCodeId: selectedPromotion.promotionCodeId,
+      promotionSource: selectedPromotion.source,
       fallbackOnDiscountError: !promoCode,
       orderType,
       printVariant,
@@ -534,7 +558,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       url: session.url,
-      promoApplied: Boolean(promotion.promotionCodeId) && !session.discountRejected,
+      promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
+      referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
     });
   } catch (err) {

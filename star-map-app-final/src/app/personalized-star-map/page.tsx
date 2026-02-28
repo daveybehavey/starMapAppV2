@@ -5,7 +5,11 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import TestimonialHighlights from "@/components/TestimonialHighlights";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { testimonialsByPage } from "@/data/testimonials";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -140,6 +144,19 @@ export default function PersonalizedStarMapPage() {
           "Email support at support@starmapco.com",
         ]}
         guideLabel="Print size and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading="What you receive with your personalized map"
+        intro="Your paid export package is designed to go straight from checkout to print planning."
+      />
+      <RevenueTrustModule
+        heading="Personalized order confidence"
+        intro="This is built for gifting quality, not just a quick screenshot. Use the quick guide below to lock in print size and framing before you checkout."
+      />
+      <TestimonialHighlights
+        heading="Verified personalized map feedback"
+        intro="Real comments from buyers are shown here as they are collected."
+        testimonials={testimonialsByPage.personalized}
       />
 
       <OccasionLinks />

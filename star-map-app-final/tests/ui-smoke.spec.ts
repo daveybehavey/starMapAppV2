@@ -104,3 +104,43 @@ test("customize more reveals advanced editor controls", async ({ page }) => {
   await expect(saveRemixButton).toBeVisible();
   await expect(textStylingCard).toBeVisible();
 });
+
+test("referral landing logs one visit per browser session", async ({ page }) => {
+  let referralVisitCalls = 0;
+  await page.route("**/api/referrals/visit", async (route) => {
+    referralVisitCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await gotoEditor(page, { force: "desktop", query: { ref: "ABCD1234" } });
+  await page.waitForTimeout(600);
+  expect(referralVisitCalls).toBe(1);
+
+  await page.reload();
+  await page.waitForTimeout(600);
+  expect(referralVisitCalls).toBe(1);
+});
+
+test("homepage referral query logs one visit per browser session", async ({ page }) => {
+  let referralVisitCalls = 0;
+  await page.route("**/api/referrals/visit", async (route) => {
+    referralVisitCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await page.goto("/?ref=ABCD1234");
+  await page.waitForTimeout(1800);
+  expect(referralVisitCalls).toBe(1);
+
+  await page.reload();
+  await page.waitForTimeout(1800);
+  expect(referralVisitCalls).toBe(1);
+});
