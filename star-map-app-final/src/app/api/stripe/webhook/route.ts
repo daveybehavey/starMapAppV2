@@ -8,6 +8,7 @@ import {
   referralRewardedKey,
   type ReferralRecord,
 } from "@/lib/referrals";
+import { appendReferralEvent } from "@/lib/referralLedger";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 
@@ -267,7 +268,14 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   await kv.set(referralRewardedKey(session.id), { rewarded: true, createdAt: Date.now() });
 
   const referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
-  if (!referralRecord || referralRecord.sessionId !== referrerSessionId) return;
+  if (!referralRecord || referralRecord.sessionId !== referrerSessionId) {
+    await appendReferralEvent({
+      code: referralCode,
+      type: "reward_skipped",
+      details: { reason: "code_mismatch_or_missing", checkoutSessionId: session.id },
+    });
+    return;
+  }
 
   const orderType = getOrderType(session);
   const hasDigitalAddOn = includesDigitalAddOn(session);
@@ -277,15 +285,28 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   const checkoutCustomerId = typeof session.customer === "string" ? session.customer.trim() : "";
   const checkoutCustomerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
   const referrer = await kv.get<SessionRecord>(sessionKey(referrerSessionId));
-  if (!referrer || referrer.revoked) return;
+  if (!referrer || referrer.revoked) {
+    await appendReferralEvent({
+      code: referralCode,
+      type: "reward_skipped",
+      details: { reason: "referrer_inactive", checkoutSessionId: session.id },
+    });
+    return;
+  }
 
   const sameCustomerId = Boolean(referrer.customerId && checkoutCustomerId && referrer.customerId === checkoutCustomerId);
   const referrerEmail = normalizeEmail(referrer.customerEmail);
   const sameEmail = Boolean(referrerEmail && checkoutCustomerEmail && referrerEmail === checkoutCustomerEmail);
   if (sameCustomerId || sameEmail) {
+    await appendReferralEvent({
+      code: referralCode,
+      type: "reward_skipped",
+      details: { reason: "self_referral", checkoutSessionId: session.id },
+    });
     return;
   }
 
+  let rewardSkipReason: string | undefined;
   if (rewardEligible) {
     if (referrer.plan !== "subscription") {
       const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + 1;
@@ -296,15 +317,54 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
         creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
       });
       rewardGranted = 1;
+    } else {
+      rewardSkipReason = "subscription_referrer";
     }
+  } else {
+    rewardSkipReason = "ineligible_order";
   }
 
+  const timestamp = Date.now();
   await kv.set(referralKey(referralCode), {
     ...referralRecord,
     conversions: (referralRecord.conversions ?? 0) + 1,
     rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
-    lastConvertedAt: Date.now(),
+    lastConvertedAt: timestamp,
   });
+
+  await appendReferralEvent({
+    code: referralCode,
+    type: "conversion_recorded",
+    createdAt: timestamp,
+    details: {
+      checkoutSessionId: session.id,
+      orderType,
+      amountTotal,
+      rewardGranted,
+    },
+  });
+
+  if (rewardGranted > 0) {
+    await appendReferralEvent({
+      code: referralCode,
+      type: "reward_granted",
+      createdAt: timestamp,
+      details: {
+        checkoutSessionId: session.id,
+        rewardGranted,
+      },
+    });
+  } else {
+    await appendReferralEvent({
+      code: referralCode,
+      type: "reward_skipped",
+      createdAt: timestamp,
+      details: {
+        checkoutSessionId: session.id,
+        reason: rewardSkipReason ?? "not_eligible",
+      },
+    });
+  }
 }
 
 async function queuePrintOrder(session: Stripe.Checkout.Session) {

@@ -3,6 +3,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { referralKey, type ReferralRecord } from "@/lib/referrals";
+import { getReferralEvents } from "@/lib/referralLedger";
 import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
 export const runtime = "nodejs";
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
       conversions: 0,
       rewardsGranted: 0,
       lastConvertedAt: null,
+      events: [],
     });
   }
 
@@ -66,10 +68,12 @@ export async function GET(req: NextRequest) {
       conversions: 0,
       rewardsGranted: 0,
       lastConvertedAt: null,
+      events: [],
     });
   }
 
   const origin = new URL(req.url).origin;
+  const events = await getReferralEvents(code, 12);
   return NextResponse.json({
     ok: true,
     code,
@@ -78,5 +82,6 @@ export async function GET(req: NextRequest) {
     conversions: record.conversions ?? 0,
     rewardsGranted: record.rewardsGranted ?? 0,
     lastConvertedAt: record.lastConvertedAt ?? null,
+    events,
   });
 }

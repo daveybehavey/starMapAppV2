@@ -4,6 +4,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { normalizeReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
+import { appendReferralEvent } from "@/lib/referralLedger";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,11 @@ export async function POST(req: NextRequest) {
 
   const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
   if (currentSessionId && currentSessionId === record.sessionId) {
+    await appendReferralEvent({
+      code,
+      type: "visit_deduped",
+      details: { reason: "self_visit" },
+    });
     return NextResponse.json({ ok: true, deduped: true });
   }
 
@@ -49,6 +55,11 @@ export async function POST(req: NextRequest) {
   const fingerprint = fingerprintVisitor(ip, userAgent);
   const duplicate = await kv.get<{ seen?: boolean }>(dedupeKey(code, fingerprint));
   if (duplicate?.seen) {
+    await appendReferralEvent({
+      code,
+      type: "visit_deduped",
+      details: { reason: "recent_duplicate" },
+    });
     return NextResponse.json({ ok: true, deduped: true });
   }
 
@@ -61,6 +72,10 @@ export async function POST(req: NextRequest) {
   await kv.set(referralKey(code), {
     ...record,
     visits: (record.visits ?? 0) + 1,
+  });
+  await appendReferralEvent({
+    code,
+    type: "visit_recorded",
   });
 
   return NextResponse.json({ ok: true, deduped: false });

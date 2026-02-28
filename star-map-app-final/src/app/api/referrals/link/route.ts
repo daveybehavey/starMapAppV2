@@ -3,6 +3,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { createReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
+import { appendReferralEvent } from "@/lib/referralLedger";
 import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
 export const runtime = "nodejs";
@@ -81,6 +82,11 @@ export async function POST(req: NextRequest) {
   await kv.set(sessionKey(sessionId), {
     ...record,
     referralCode: generated,
+  });
+  await appendReferralEvent({
+    code: generated,
+    type: "link_created",
+    details: { sessionId },
   });
 
   const origin = new URL(req.url).origin;

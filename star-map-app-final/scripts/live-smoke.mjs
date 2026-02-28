@@ -173,6 +173,22 @@ async function main() {
       referralVisitRes.status === 400,
       `status=${referralVisitRes.status}`,
     );
+
+    const referralAttributionRes = await fetchWithTimeout(
+      `${site}/api/referrals/attribution`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: "not-valid!!" }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Referral attribution endpoint validates payload",
+      referralAttributionRes.status === 400,
+      `status=${referralAttributionRes.status}`,
+    );
   } catch (error) {
     failed = true;
     runCheck("Referral endpoint checks", false, error instanceof Error ? error.message : String(error));
