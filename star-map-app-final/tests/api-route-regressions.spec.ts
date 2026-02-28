@@ -95,6 +95,20 @@ test.describe("API route regressions", () => {
     expect(missingRecordResponse.status()).toBe(404);
   });
 
+  test("referral attribution endpoint validates payload", async ({ request }) => {
+    const invalidResponse = await request.post("/api/referrals/attribution", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: { code: "bad code!" },
+    });
+    expect(invalidResponse.status()).toBe(400);
+
+    const missingRecordResponse = await request.post("/api/referrals/attribution", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: { code: "ABCD1234" },
+    });
+    expect(missingRecordResponse.status()).toBe(404);
+  });
+
   test("print asset API validates payload and supports round-trip retrieval", async ({ request }) => {
     const invalidPayloadResponse = await request.post("/api/print/assets", {
       headers: { "x-forwarded-for": randomIp() },

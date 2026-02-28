@@ -42,6 +42,7 @@ type SessionRecord = {
   subscriptionId?: string | null;
   subscriptionActive?: boolean;
   customerId?: string | null;
+  customerEmail?: string | null;
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant;
   includesDigitalAddOn?: boolean;
@@ -76,6 +77,12 @@ const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
 const printOrderKey = (id: string) => `print:order:${id}`;
+
+function normalizeEmail(raw: unknown) {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim().toLowerCase();
+  return trimmed || null;
+}
 
 function getMapId(session: Stripe.Checkout.Session) {
   return (
@@ -148,6 +155,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
   const customerId = typeof session.customer === "string" ? session.customer : null;
+  const customerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
   if (paymentIntentId) {
     const revokedRecord = await kv.get<{ revoked?: boolean; reason?: string }>(
       revokedPaymentIntentKey(paymentIntentId),
@@ -170,6 +178,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     subscriptionId: subscriptionId ?? undefined,
     subscriptionActive: plan === "subscription" ? true : undefined,
     customerId: customerId ?? undefined,
+    customerEmail: customerEmail ?? undefined,
     orderType,
     printVariant,
     includesDigitalAddOn: hasDigitalAddOn,
@@ -258,14 +267,27 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   await kv.set(referralRewardedKey(session.id), { rewarded: true, createdAt: Date.now() });
 
   const referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
+  if (!referralRecord || referralRecord.sessionId !== referrerSessionId) return;
 
   const orderType = getOrderType(session);
   const hasDigitalAddOn = includesDigitalAddOn(session);
-  const rewardEligible = orderType === "digital" || hasDigitalAddOn;
+  const amountTotal = typeof session.amount_total === "number" ? session.amount_total : 0;
+  const rewardEligible = (orderType === "digital" || hasDigitalAddOn) && amountTotal > 0;
   let rewardGranted = 0;
+  const checkoutCustomerId = typeof session.customer === "string" ? session.customer.trim() : "";
+  const checkoutCustomerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
+  const referrer = await kv.get<SessionRecord>(sessionKey(referrerSessionId));
+  if (!referrer || referrer.revoked) return;
+
+  const sameCustomerId = Boolean(referrer.customerId && checkoutCustomerId && referrer.customerId === checkoutCustomerId);
+  const referrerEmail = normalizeEmail(referrer.customerEmail);
+  const sameEmail = Boolean(referrerEmail && checkoutCustomerEmail && referrerEmail === checkoutCustomerEmail);
+  if (sameCustomerId || sameEmail) {
+    return;
+  }
+
   if (rewardEligible) {
-    const referrer = await kv.get<SessionRecord>(sessionKey(referrerSessionId));
-    if (referrer && !referrer.revoked && referrer.plan !== "subscription") {
+    if (referrer.plan !== "subscription") {
       const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + 1;
       await kv.set(sessionKey(referrerSessionId), {
         ...referrer,
@@ -277,14 +299,12 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     }
   }
 
-  if (referralRecord) {
-    await kv.set(referralKey(referralCode), {
-      ...referralRecord,
-      conversions: (referralRecord.conversions ?? 0) + 1,
-      rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
-      lastConvertedAt: Date.now(),
-    });
-  }
+  await kv.set(referralKey(referralCode), {
+    ...referralRecord,
+    conversions: (referralRecord.conversions ?? 0) + 1,
+    rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
+    lastConvertedAt: Date.now(),
+  });
 }
 
 async function queuePrintOrder(session: Stripe.Checkout.Session) {

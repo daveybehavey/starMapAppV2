@@ -15,6 +15,14 @@ export default function ReferralAttributionClient() {
     lastHandledCodeRef.current = queryReferralCode;
     writeStoredReferralCode(queryReferralCode);
 
+    void fetch("/api/referrals/attribution", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: queryReferralCode }),
+    }).catch(() => {
+      // ignore attribution failures; checkout still has localStorage fallback
+    });
+
     const marker = `referral-visit:${queryReferralCode}`;
     try {
       if (window.sessionStorage.getItem(marker) === "1") {

@@ -11,8 +11,10 @@ import {
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { normalizeReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
+import { parseReferralCookieValue, REFERRAL_COOKIE_NAME } from "@/lib/referralCookie";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
+import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 
 export const runtime = "nodejs";
 
@@ -139,11 +141,17 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
   }
 }
 
-async function resolveReferral(raw?: string): Promise<ReferralResolution> {
+function readReferralCodeFromCookie(req: NextRequest) {
+  const parsed = parseReferralCookieValue(req.cookies.get(REFERRAL_COOKIE_NAME)?.value ?? null);
+  return parsed?.code;
+}
+
+async function resolveReferral(raw?: string, currentSessionId?: string): Promise<ReferralResolution> {
   const code = normalizeReferralCode(raw);
   if (!code) return {};
   const record = await kv.get<ReferralRecord>(referralKey(code));
   if (!record?.sessionId) return {};
+  if (currentSessionId && record.sessionId === currentSessionId) return {};
   return { code, referrerSessionId: record.sessionId };
 }
 
@@ -391,7 +399,9 @@ export async function GET(req: NextRequest) {
     printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim()) ? printAssetIdParam.trim() : undefined;
   const mapId = mapParam ? mapParam.slice(0, 120) : undefined;
   const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
-  const referral = await resolveReferral(referralParam);
+  const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
+  const fallbackReferralCode = readReferralCodeFromCookie(req);
+  const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const promotion = orderType === "digital" && plan === "subscription"
     ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
     : await resolvePromotionCodeId(promoCodeParam);
@@ -500,7 +510,9 @@ export async function POST(req: NextRequest) {
       // ignore missing/invalid body
     }
 
-    const referral = await resolveReferral(referralCode);
+    const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
+    const fallbackReferralCode = readReferralCodeFromCookie(req);
+    const referral = await resolveReferral(referralCode ?? fallbackReferralCode, currentSessionId);
     if (orderType === "print" && !printCheckoutEnabled) {
       return NextResponse.json(
         { error: "Print checkout is not enabled yet.", code: "print_checkout_disabled" },

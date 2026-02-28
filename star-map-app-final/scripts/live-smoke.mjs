@@ -136,6 +136,49 @@ async function main() {
   }
 
   try {
+    const referralStatusRes = await fetchWithTimeout(
+      `${site}/api/referrals/status`,
+      { cache: "no-store" },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Referral status endpoint blocks unauthenticated access",
+      referralStatusRes.status === 401,
+      `status=${referralStatusRes.status}`,
+    );
+
+    const referralLinkRes = await fetchWithTimeout(
+      `${site}/api/referrals/link`,
+      { method: "POST", cache: "no-store" },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Referral link endpoint blocks unauthenticated access",
+      referralLinkRes.status === 401,
+      `status=${referralLinkRes.status}`,
+    );
+
+    const referralVisitRes = await fetchWithTimeout(
+      `${site}/api/referrals/visit`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: "not-valid!!" }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Referral visit endpoint validates payload",
+      referralVisitRes.status === 400,
+      `status=${referralVisitRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Referral endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const printDisabledRes = await fetchWithTimeout(
       `${site}/api/checkout`,
       {
