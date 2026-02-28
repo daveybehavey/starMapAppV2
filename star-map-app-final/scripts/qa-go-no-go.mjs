@@ -29,6 +29,7 @@ const hasPrintful =
   hasValue("PRINTFUL_VARIANT_ID_POSTER_FRAMED");
 const hasWebhookFulfillment = hasValue("PRINT_FULFILLMENT_WEBHOOK_URL");
 const fulfillmentConfigured = hasPrintful || hasWebhookFulfillment;
+const hasPrintAdminToken = hasValue("PRINT_ADMIN_TOKEN");
 
 if (printCheckoutEnabled !== publicPrintCheckoutEnabled) {
   issues.push("PRINT_CHECKOUT_ENABLED and NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED must match.");
@@ -42,6 +43,10 @@ if (printSubmissionEnabled && !fulfillmentConfigured) {
 
 if (printSubmissionEnabled && !printCheckoutEnabled) {
   warnings.push("Print submission is enabled while print checkout is disabled.");
+}
+
+if (printSubmissionEnabled && !hasPrintAdminToken) {
+  warnings.push("PRINT_ADMIN_TOKEN is not set. Admin retry/status endpoints cannot be used securely.");
 }
 
 if (printCheckoutEnabled && !hasValue("STRIPE_SECRET_KEY")) {

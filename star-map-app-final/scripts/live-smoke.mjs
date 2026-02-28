@@ -195,6 +195,38 @@ async function main() {
   }
 
   try {
+    const printStatusAdminRes = await fetchWithTimeout(
+      `${site}/api/print/orders/status?session_id=test`,
+      { cache: "no-store" },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Print admin status endpoint requires auth",
+      printStatusAdminRes.status === 401,
+      `status=${printStatusAdminRes.status}`,
+    );
+
+    const printRetryAdminRes = await fetchWithTimeout(
+      `${site}/api/print/orders/retry`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: "test" }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Print admin retry endpoint requires auth",
+      printRetryAdminRes.status === 401,
+      `status=${printRetryAdminRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Print admin endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const printDisabledRes = await fetchWithTimeout(
       `${site}/api/checkout`,
       {

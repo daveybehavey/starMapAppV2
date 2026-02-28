@@ -11,6 +11,12 @@ import {
 import { appendReferralEvent } from "@/lib/referralLedger";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
+import {
+  buildPrintAssetUrl,
+  getPrintRecipient,
+  printOrderKey,
+  type PrintOrderRecord,
+} from "@/lib/printOrders";
 
 export const runtime = "nodejs";
 
@@ -51,33 +57,11 @@ type SessionRecord = {
   referralCode?: string;
 };
 
-type PrintOrderRecord = {
-  status: "pending" | "sent" | "failed";
-  sessionId: string;
-  mapId?: string;
-  printVariant: PrintVariant;
-  includesDigitalAddOn: boolean;
-  amountTotal?: number | null;
-  currency?: string | null;
-  customerEmail?: string | null;
-  customerName?: string | null;
-  shippingDetails?: Stripe.Checkout.Session.ShippingDetails | null;
-  printAssetId?: string;
-  printAssetUrl?: string;
-  printfulOrderId?: string | number;
-  attempts: number;
-  webhookStatus?: number;
-  sentAt?: number;
-  error?: string;
-  createdAt: number;
-};
-
 const sessionKey = (id: string) => `stripe:session:${id}`;
 const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
-const printOrderKey = (id: string) => `print:order:${id}`;
 
 function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -111,10 +95,6 @@ function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
   const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
   return raw;
-}
-
-function getPrintAssetUrl(assetId: string) {
-  return `${siteUrl}/api/print/assets?id=${encodeURIComponent(assetId)}`;
 }
 
 function getPlan(
@@ -401,19 +381,9 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const printAssetUrl = getPrintAssetUrl(printAssetId);
-  const shippingAddress = session.shipping_details?.address;
-  const shippingName = session.shipping_details?.name?.trim() || session.customer_details?.name?.trim() || "";
-  const email = session.customer_details?.email?.trim() || session.customer_email?.trim() || "";
-  const phone = session.customer_details?.phone?.trim() || "";
-  if (
-    !shippingAddress ||
-    !shippingName ||
-    !shippingAddress.line1 ||
-    !shippingAddress.city ||
-    !shippingAddress.country ||
-    !shippingAddress.postal_code
-  ) {
+  const printAssetUrl = buildPrintAssetUrl(siteUrl, printAssetId);
+  const recipient = getPrintRecipient(payload);
+  if (!recipient) {
     await kv.set(printOrderKey(session.id), {
       ...payload,
       printAssetUrl,
@@ -422,18 +392,6 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     });
     return;
   }
-
-  const recipient = {
-    name: shippingName,
-    email: email || undefined,
-    phone: phone || undefined,
-    address1: shippingAddress.line1,
-    address2: shippingAddress.line2 || undefined,
-    city: shippingAddress.city,
-    state_code: shippingAddress.state || undefined,
-    country_code: shippingAddress.country,
-    zip: shippingAddress.postal_code,
-  };
 
   if (!printOrderSubmissionEnabled) {
     await kv.set(printOrderKey(session.id), {

@@ -168,4 +168,21 @@ test.describe("API route regressions", () => {
     expect(body.error).toMatch(/print checkout/i);
   });
 
+  test("print admin endpoints require admin token", async ({ request }) => {
+    const statusRes = await request.get("/api/print/orders/status?session_id=test", {
+      headers: { "x-forwarded-for": randomIp() },
+    });
+    expect(statusRes.status()).toBe(401);
+    const statusBody = (await statusRes.json()) as { error?: string };
+    expect(statusBody.error).toMatch(/unauthorized/i);
+
+    const retryRes = await request.post("/api/print/orders/retry", {
+      headers: { "x-forwarded-for": randomIp() },
+      data: { sessionId: "test" },
+    });
+    expect(retryRes.status()).toBe(401);
+    const retryBody = (await retryRes.json()) as { error?: string };
+    expect(retryBody.error).toMatch(/unauthorized/i);
+  });
+
 });
