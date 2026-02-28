@@ -78,7 +78,19 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     ],
   };
 
-  const ordersUrl = `${baseUrl}/orders${storeId ? `?store_id=${encodeURIComponent(storeId)}` : ""}`;
+  const autoConfirmRaw = (process.env.PRINTFUL_AUTO_CONFIRM ?? "true").trim().toLowerCase();
+  const autoConfirm = !(autoConfirmRaw === "0" || autoConfirmRaw === "false" || autoConfirmRaw === "no");
+  const query = new URLSearchParams();
+  if (storeId) {
+    query.set("store_id", storeId);
+  }
+  // `update_existing=1` keeps retries idempotent when an external_id already exists.
+  query.set("update_existing", "1");
+  if (autoConfirm) {
+    // Explicitly confirm API-created orders for fulfillment.
+    query.set("confirm", "1");
+  }
+  const ordersUrl = `${baseUrl}/orders?${query.toString()}`;
 
   try {
     const response = await fetch(ordersUrl, {
