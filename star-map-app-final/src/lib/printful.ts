@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { PrintVariant } from "@/lib/pricing";
 
 type PrintfulOrderRecipient = {
@@ -37,6 +38,13 @@ function getVariantId(variant: PrintVariant) {
   return variant === "poster_framed" ? framed : unframed;
 }
 
+function normalizeExternalId(raw: string) {
+  const trimmed = raw.trim();
+  if (/^[A-Za-z0-9_-]{1,32}$/.test(trimmed)) return trimmed;
+  const digest = crypto.createHash("sha256").update(trimmed).digest("hex").slice(0, 24);
+  return `smc_${digest}`;
+}
+
 export function isPrintfulConfigured() {
   const token = process.env.PRINTFUL_API_TOKEN?.trim();
   const unframed = parseVariantId(process.env.PRINTFUL_VARIANT_ID_POSTER_UNFRAMED);
@@ -66,7 +74,7 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
   }
 
   const body = {
-    external_id: input.externalId,
+    external_id: normalizeExternalId(input.externalId),
     shipping: "STANDARD",
     recipient: input.recipient,
     items: [
