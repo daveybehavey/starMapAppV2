@@ -103,6 +103,15 @@ function parseDateParamToIso(dateParam: string) {
   return parsed.toISOString();
 }
 
+function parsePrintVariantParam(raw: string | null | undefined): PrintVariant | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed === "poster_framed" || trimmed === "poster_unframed") return trimmed;
+  return null;
+}
+
+type PaywallIntent = "digital" | "print";
+
 export type EditorExperienceVariant = "quick" | "full";
 
 interface EditorExperienceProps {
@@ -232,6 +241,8 @@ export function EditorExperience({
   }));
   const [restored, setRestored] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
+  const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutInFlight, setCheckoutInFlight] = useState(false);
@@ -244,6 +255,7 @@ export function EditorExperience({
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
   const prefillAppliedRef = useRef(false);
+  const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
   const readStoredPromoCode = useCallback(() => {
@@ -498,7 +510,9 @@ export function EditorExperience({
     const sourceParam = searchParams.get("source");
     const dateParam = searchParams.get("date");
     const locationParam = searchParams.get("location");
-    if (!dateParam && !locationParam && !sourceParam) return;
+    const checkoutParam = searchParams.get("checkout");
+    const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
+    if (!dateParam && !locationParam && !sourceParam && !checkoutParam && !printVariantParam) return;
 
     let hasValidDate = false;
     if (dateParam) {
@@ -519,6 +533,17 @@ export function EditorExperience({
       setRevealed(true);
     }
 
+    if (printVariantParam) {
+      setPreferredPrintVariant(printVariantParam);
+    }
+    if (
+      checkoutParam === "print" ||
+      sourceParam === "home-delivery-print-framed" ||
+      sourceParam === "home-delivery-print-unframed"
+    ) {
+      setPaywallIntent("print");
+    }
+
     trackFunnelStep("preview_started", {
       source: sourceParam ?? "editor-direct",
       hasDate: hasValidDate,
@@ -534,6 +559,30 @@ export function EditorExperience({
 
     prefillAppliedRef.current = true;
   }, [restored, searchParams, setDateTime, setLocation, setRevealed]);
+
+  useEffect(() => {
+    if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
+    const checkoutParam = searchParams.get("checkout");
+    const sourceParam = searchParams.get("source");
+    if (
+      checkoutParam !== "print" &&
+      sourceParam !== "home-delivery-print-framed" &&
+      sourceParam !== "home-delivery-print-unframed"
+    ) {
+      return;
+    }
+
+    printIntentHandledRef.current = true;
+    setPaywallIntent("print");
+    setPaywallOpen(true);
+    setCheckoutError(null);
+    track("paywall_opened", {
+      visualMode: renderOptions.visualMode,
+      experiment: PAYWALL_COPY_EXPERIMENT,
+      variant: paywallVariant,
+      intent: "print",
+    });
+  }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams]);
 
   useEffect(() => {
     if (!autoExportPending || paid) return;
@@ -724,6 +773,7 @@ export function EditorExperience({
         hasAccess = await refreshPaidStatus();
         if (!hasAccess) {
           setPendingExport(mode);
+          setPaywallIntent("digital");
           setPaywallOpen(true);
           setCheckoutError(null);
           track("paywall_view", {
@@ -752,6 +802,7 @@ export function EditorExperience({
           const consumed = await consumeHdCredit();
           if (!consumed) {
             setPendingExport(mode);
+            setPaywallIntent("digital");
             setPaywallOpen(true);
             setCheckoutError("No HD downloads remaining. Choose a new pack or subscription.");
             return;
@@ -1007,8 +1058,9 @@ export function EditorExperience({
     (options: {
       variant: PrintVariant;
       includeDigitalAddOn: boolean;
-      source: "editor_print_panel" | "paywall_modal" | "mobile_preview";
+      source: "editor_print_panel" | "paywall_modal" | "mobile_preview" | "preview_primary_print_cta";
     }) => {
+      setPreferredPrintVariant(options.variant);
       track("print_option_clicked", {
         source: options.source,
         variant: options.variant,
@@ -1287,7 +1339,10 @@ export function EditorExperience({
                                 key={mode.id}
                                 type="button"
                                 onClick={() => {
-                                  if (!paid && mode.premium) setPaywallOpen(true);
+                                  if (!paid && mode.premium) {
+                                    setPaywallIntent("digital");
+                                    setPaywallOpen(true);
+                                  }
                                   const targetLevel =
                                     mode.id === "cinematic"
                                       ? Math.max(intensityDisplay, 60)
@@ -1333,6 +1388,7 @@ export function EditorExperience({
                             let next = Number(e.target.value);
                             if (!paid && next > 60) {
                               next = 60;
+                              setPaywallIntent("digital");
                               setPaywallOpen(true);
                             }
                             setIntensityDisplay(next);
@@ -1556,6 +1612,7 @@ export function EditorExperience({
                                                             (opt) => opt.id === next
                                                           );
                                                           if (fontMeta?.premium && !paid) {
+                                                            setPaywallIntent("digital");
                                                             setPaywallOpen(true);
                                                             return;
                                                           }
@@ -2051,6 +2108,25 @@ export function EditorExperience({
                           >
                             {hdExportInFlight ? "Preparing..." : `${!paid ? "🔒 " : ""}HD ⬇️`}
                           </button>
+                          {printCheckoutEnabled && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPaywallIntent("print");
+                                setPaywallOpen(true);
+                                setCheckoutError(null);
+                                track("print_option_clicked", {
+                                  source: "preview_primary_print_cta",
+                                  variant: preferredPrintVariant,
+                                  includeDigitalAddOn: false,
+                                });
+                              }}
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-300/25 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/35 focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              title="Buy a printed star map with framing options."
+                            >
+                              🖼️ Print & frame
+                            </button>
+                          )}
                           {hdCreditLabel && (
                             <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
                               {hdCreditLabel}
@@ -2094,15 +2170,29 @@ export function EditorExperience({
                         {printCheckoutEnabled && (
                           <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-amber-100">Get your star map printed and shipped</p>
+                              <p className="text-xs font-semibold text-amber-100">Buy a physical gift from this exact preview</p>
                               <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                                Poster or framed
+                                Framed recommended
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Checkout is secure in Stripe. We send print orders automatically after payment.
+                              Secure Stripe checkout. Print production starts automatically after payment.
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  startPrintCheckout({
+                                    source: "editor_print_panel",
+                                    variant: "poster_framed",
+                                    includeDigitalAddOn: false,
+                                  })
+                                }
+                                disabled={checkoutInFlight}
+                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/30 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/40 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Framed • {printPriceLabels.framed}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2123,27 +2213,13 @@ export function EditorExperience({
                                   startPrintCheckout({
                                     source: "editor_print_panel",
                                     variant: "poster_framed",
-                                    includeDigitalAddOn: false,
-                                  })
-                                }
-                                disabled={checkoutInFlight}
-                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-300/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                              >
-                                Framed • {printPriceLabels.framed}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startPrintCheckout({
-                                    source: "editor_print_panel",
-                                    variant: "poster_unframed",
                                     includeDigitalAddOn: true,
                                   })
                                 }
                                 disabled={checkoutInFlight}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                Unframed + HD • {printPriceLabels.unframed} + {printPriceLabels.digitalAddOn}
+                                Framed + HD • {printPriceLabels.framed} + {printPriceLabels.digitalAddOn}
                               </button>
                             </div>
                           </div>
@@ -2196,8 +2272,11 @@ export function EditorExperience({
               priceLabels={priceLabels}
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
               variant={paywallVariant}
+              purchaseIntent={paywallIntent}
+              preferredPrintVariant={preferredPrintVariant}
               showReferralHint={Boolean(getCheckoutReferralCode())}
               onStartCheckout={(plan) => {
+                setPaywallIntent("digital");
                 void startCheckout(plan);
               }}
               onStartPrintCheckout={

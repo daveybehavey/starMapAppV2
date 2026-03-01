@@ -21,6 +21,18 @@ export default function HeroEditorDeferred() {
     });
   }, []);
 
+  const handleFramedPathClick = useCallback(() => {
+    track("print_options_clicked", {
+      source: "home-hero",
+      placement: "hero-form-footer",
+      intent: "framed",
+    });
+    trackFunnelStep("hero_plan_click", {
+      source: "home-hero",
+      plan: "delivery_print_framed",
+    });
+  }, []);
+
   return (
     <div className="mx-auto w-full max-w-2xl">
       <form
@@ -71,6 +83,16 @@ export default function HeroEditorDeferred() {
         >
           Preview your map
         </button>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/75">
+          <span>Want a physical gift?</span>
+          <a
+            href="/editor?mode=quick&source=home-hero-framed&checkout=print&print_variant=poster_framed"
+            onClick={handleFramedPathClick}
+            className="rounded-full border border-amber-300/60 bg-amber-300/20 px-3 py-1 font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+          >
+            Start framed checkout path
+          </a>
+        </div>
       </form>
     </div>
   );

@@ -86,11 +86,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <li>{printLabels.unframed}</li>
             </ul>
             <a
-              href="/editor?mode=quick&source=home-delivery-print-unframed"
+              href="/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed"
               onClick={() => handleDeliveryChoice("print_unframed")}
               className="mt-3 inline-flex rounded-full border border-amber-300/60 bg-amber-200/20 px-3.5 py-1.5 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30"
             >
-              Start free preview
+              Preview then buy unframed
             </a>
           </article>
 
@@ -108,11 +108,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <li>{printLabels.framed}</li>
             </ul>
             <a
-              href="/editor?mode=quick&source=home-delivery-print-framed"
+              href="/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed"
               onClick={() => handleDeliveryChoice("print_framed")}
               className="mt-3 inline-flex rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-1.5 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
             >
-              Start free preview
+              Preview then buy framed
             </a>
           </article>
         </div>
