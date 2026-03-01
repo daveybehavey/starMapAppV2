@@ -107,9 +107,9 @@ async function main() {
     );
     runCheck(
       "Homepage surfaces print and framed checkout options",
-      homeHtml.includes("Get your star map printed or framed") &&
+      homeHtml.includes("Print-ready exports") &&
         homeHtml.includes("/how-to-print-star-map"),
-      "print CTA visibility",
+      "print visibility",
     );
   } catch (error) {
     failed = true;

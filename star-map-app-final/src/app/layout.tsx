@@ -102,7 +102,7 @@ export const metadata: Metadata = {
     template: "%s | StarMapCo",
   },
   description:
-    "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo.",
+    "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options at StarMapCo.",
   keywords: [
     "custom star map",
     "star map",
@@ -116,7 +116,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+      "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options.",
     url: siteUrl,
     siteName: "StarMapCo",
     images: [
@@ -138,7 +138,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+      "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options.",
     images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },
   verification: {
