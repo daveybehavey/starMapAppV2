@@ -945,25 +945,41 @@ export function EditorExperience({
             quality: "export",
             premium: true,
           });
-          const printAssetRes = await fetch("/api/print/assets", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              mapId: mapId ?? undefined,
-              dataUrl: printCanvas.toDataURL("image/png"),
-              source: "editor",
-            }),
-          });
-          const printAssetData = (await printAssetRes.json().catch(() => null)) as
-            | { assetId?: string; error?: string }
-            | null;
-          if (!printAssetRes.ok || !printAssetData?.assetId) {
+          // Use JPEG for print asset upload to stay under API payload limits while preserving high quality.
+          // Retry once at a lower quality if the first upload exceeds size validation.
+          let uploadedAssetId: string | null = null;
+          const uploadQualities = [0.92, 0.82];
+          for (let index = 0; index < uploadQualities.length; index += 1) {
+            const quality = uploadQualities[index];
+            const printAssetRes = await fetch("/api/print/assets", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mapId: mapId ?? undefined,
+                dataUrl: printCanvas.toDataURL("image/jpeg", quality),
+                source: "editor",
+              }),
+            });
+            const printAssetData = (await printAssetRes.json().catch(() => null)) as
+              | { assetId?: string; error?: string }
+              | null;
+            if (printAssetRes.ok && printAssetData?.assetId) {
+              uploadedAssetId = printAssetData.assetId;
+              break;
+            }
+            const shouldRetryForSize =
+              index < uploadQualities.length - 1 &&
+              typeof printAssetData?.error === "string" &&
+              /16MB|base64|Invalid print asset/i.test(printAssetData.error);
+            if (!shouldRetryForSize) break;
+          }
+          if (!uploadedAssetId) {
             throw new Error("print_asset_failed");
           }
           checkoutPayload.orderType = "print";
           checkoutPayload.printVariant = printVariant;
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
-          checkoutPayload.printAssetId = printAssetData.assetId;
+          checkoutPayload.printAssetId = uploadedAssetId;
         }
         const checkoutInit: RequestInit = {
           method: "POST",
