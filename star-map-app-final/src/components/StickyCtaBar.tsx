@@ -17,6 +17,9 @@ export default function StickyCtaBar({
   buttonLabel = "Start free preview",
   className = "",
 }: StickyCtaBarProps) {
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
   const baseHref = "/editor?mode=quick";
   const resolvedSource = source?.trim() || "sticky-cta";
   const href = source ? `${baseHref}&source=${encodeURIComponent(source)}` : baseHref;
@@ -27,6 +30,16 @@ export default function StickyCtaBar({
         <div>
           <p className="text-sm font-semibold">{title}</p>
           <p className="text-xs text-neutral-600">{description}</p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-amber-200/70 bg-white/70 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-midnight">
+              HD export in seconds
+            </span>
+            {printCheckoutEnabled && (
+              <span className="rounded-full border border-amber-300/70 bg-amber-200/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-midnight">
+                Printed + framed checkout
+              </span>
+            )}
+          </div>
         </div>
         <a
           href={href}
