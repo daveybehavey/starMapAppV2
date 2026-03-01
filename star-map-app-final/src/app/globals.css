@@ -746,7 +746,10 @@ input[type="range"]:hover::-moz-range-thumb {
 
 /* Keep native iOS date/time controls inside card bounds on narrow screens. */
 .ios-form-control {
+  display: block;
+  box-sizing: border-box;
   min-width: 0;
+  min-inline-size: 0;
   width: 100%;
   max-width: 100%;
 }
@@ -756,11 +759,18 @@ input[type="range"]:hover::-moz-range-thumb {
   input[type="time"].ios-form-control {
     -webkit-appearance: none;
     appearance: none;
+    display: block;
+    box-sizing: border-box;
     width: 100%;
     min-width: 0;
     max-width: 100%;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
     -webkit-min-logical-width: 0;
-    padding-right: 2.3rem;
+    padding-right: 2.6rem;
+    padding-inline-end: 2.6rem;
+    -webkit-padding-end: 2.6rem;
     overflow: hidden;
   }
 
@@ -770,6 +780,9 @@ input[type="range"]:hover::-moz-range-thumb {
     width: 100%;
     min-width: 0;
     max-width: 100%;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
     text-align: left;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -779,12 +792,16 @@ input[type="range"]:hover::-moz-range-thumb {
   input[type="date"].ios-form-control::-webkit-datetime-edit,
   input[type="time"].ios-form-control::-webkit-datetime-edit {
     min-width: 0;
+    min-inline-size: 0;
+    max-inline-size: 100%;
     padding: 0;
   }
 
   input[type="date"].ios-form-control::-webkit-datetime-edit-fields-wrapper,
   input[type="time"].ios-form-control::-webkit-datetime-edit-fields-wrapper {
     min-width: 0;
+    min-inline-size: 0;
+    max-inline-size: 100%;
     padding: 0;
   }
 
