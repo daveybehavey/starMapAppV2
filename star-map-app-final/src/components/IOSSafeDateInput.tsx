@@ -29,7 +29,8 @@ function isValidIsoDate(value: string) {
 }
 
 export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
-  const [useTextFallback, setUseTextFallback] = useState(false);
+  // Start with text mode on first paint so iOS never flashes native date UI before detection.
+  const [useTextFallback, setUseTextFallback] = useState(true);
   const [isInvalid, setIsInvalid] = useState(false);
 
   useEffect(() => {

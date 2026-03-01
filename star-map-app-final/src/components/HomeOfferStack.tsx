@@ -46,7 +46,10 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
   };
 
   return (
-    <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-2 sm:px-6 lg:px-8">
+    <section
+      id="delivery-options"
+      className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-2 sm:px-6 lg:px-8"
+    >
       <div className="space-y-8 rounded-3xl border border-amber-300/30 bg-amber-300/10 p-6 text-white shadow-lg shadow-black/30">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Choose your format</p>

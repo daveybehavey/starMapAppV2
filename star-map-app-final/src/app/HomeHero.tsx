@@ -5,6 +5,17 @@ import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
 import { track, trackFunnelStep } from "@/lib/analytics";
 
 export default function HomeHero() {
+  const handlePrintOptionsClick = () => {
+    track("print_options_clicked", {
+      source: "home-hero",
+      placement: "hero-cta-row",
+    });
+    trackFunnelStep("hero_plan_click", {
+      source: "home-hero",
+      plan: "print_options",
+    });
+  };
+
   const handlePrintGuideClick = () => {
     track("print_guide_clicked", {
       source: "home-hero",
@@ -38,6 +49,21 @@ export default function HomeHero() {
             <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100">
               Printed + framed options
             </span>
+          </div>
+          <div className="mx-auto flex max-w-2xl flex-wrap justify-center gap-2 pt-2">
+            <a
+              href="#preview"
+              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
+            >
+              Start free preview
+            </a>
+            <a
+              href="#delivery-options"
+              onClick={handlePrintOptionsClick}
+              className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+            >
+              See print + framed options
+            </a>
           </div>
         </div>
 

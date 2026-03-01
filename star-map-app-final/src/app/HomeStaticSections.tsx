@@ -31,11 +31,22 @@ export default function HomeStaticSections({
 
   return (
     <>
+      <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} />
+
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
       </section>
 
-      <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} />
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="rounded-3xl border border-white/12 bg-white/5 px-5 py-4 text-center text-neutral-200 shadow-sm shadow-black/20 sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
+          <p className="mt-2 text-sm sm:text-base">
+            Instant HD digital download plus physical checkout options: unframed print and ready-to-hang framed print.
+          </p>
+        </div>
+      </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
