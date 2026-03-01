@@ -16,6 +16,9 @@ export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
+const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+  (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+);
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/wedding", label: "Wedding" },
@@ -47,6 +50,13 @@ export default function WeddingPage() {
           Capture the exact night sky from your wedding day and place. A wedding star map gift that feels as timeless as
           your vows.
         </p>
+        {printCheckoutEnabled && (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
+            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
+            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+          </div>
+        )}
       </header>
 
       <PreviewStartForm source="wedding" />
@@ -73,7 +83,7 @@ export default function WeddingPage() {
           <li>Enter your wedding location (city or venue)</li>
           <li>Select the wedding date (and time if you want to be exact)</li>
           <li>Choose a style and add your names or vows</li>
-          <li>Reveal the sky and download a print-ready file</li>
+          <li>{printCheckoutEnabled ? "Reveal the sky, then choose HD download, unframed print, or framed print at checkout" : "Reveal the sky and download a print-ready file"}</li>
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
           You can share a preview for free. Upgrade once to unlock the HD, watermark-free file for framing.

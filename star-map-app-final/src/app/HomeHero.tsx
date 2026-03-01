@@ -31,6 +31,17 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
     });
   };
 
+  const handlePrintIntentClick = (variant: "unframed" | "framed") => {
+    track("hero_print_intent_click", {
+      source: "home-hero",
+      variant,
+    });
+    trackFunnelStep("hero_plan_click", {
+      source: "home-hero",
+      plan: `print_${variant}`,
+    });
+  };
+
   return (
     <main className="flex flex-col items-center px-4 py-6 sm:px-6 sm:py-8 md:px-8 lg:px-12 lg:py-10">
       <LandingViewTracker source="home" />
@@ -64,6 +75,30 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80">
             Ready to buy now?
           </p>
+          {printCheckoutEnabled && (
+            <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
+              <p className="text-xs font-semibold text-amber-100">Prefer physical delivery?</p>
+              <p className="mt-1 text-[11px] text-amber-100/85">
+                You can order this map as an unframed print or a framed print right from checkout.
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <a
+                  href="/editor?mode=quick&source=home-print-unframed"
+                  onClick={() => handlePrintIntentClick("unframed")}
+                  className="rounded-full border border-amber-300/60 bg-amber-200/20 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30"
+                >
+                  Start unframed print
+                </a>
+                <a
+                  href="/editor?mode=quick&source=home-print-framed"
+                  onClick={() => handlePrintIntentClick("framed")}
+                  className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+                >
+                  Start framed print
+                </a>
+              </div>
+            </div>
+          )}
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <a
               href="/api/checkout?plan=single"

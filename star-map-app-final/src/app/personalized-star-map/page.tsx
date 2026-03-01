@@ -16,6 +16,9 @@ export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
+const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+  (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+);
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/personalized-star-map", label: "Personalized star map" },
@@ -47,6 +50,13 @@ export default function PersonalizedStarMapPage() {
         <p className="text-sm text-white/90 sm:text-base">
           Personalize a star map with names, a date, and a location to capture the exact night sky from a meaningful moment.
         </p>
+        {printCheckoutEnabled && (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital download</span>
+            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print checkout</span>
+            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print checkout</span>
+          </div>
+        )}
       </header>
 
       <PreviewStartForm source="personalized-star-map" />
@@ -72,7 +82,7 @@ export default function PersonalizedStarMapPage() {
           <li>Enter the date, time, and location</li>
           <li>Add names, a title, and a short message</li>
           <li>Preview the design instantly</li>
-          <li>Unlock and download the HD file</li>
+          <li>{printCheckoutEnabled ? "Choose HD download, unframed print, or framed print at checkout" : "Unlock and download the HD file"}</li>
         </ol>
         <div className="pt-2">
           <Link

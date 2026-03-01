@@ -4,16 +4,20 @@ import HomeStaticSections from "./HomeStaticSections";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+  (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+);
+const homepageDescription = printCheckoutEnabled
+  ? "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options at StarMapCo."
+  : "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo.";
 
 export const metadata: Metadata = {
   title: "Custom Star Map & Constellation Map | StarMapCo",
-  description:
-    "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo.",
+  description: homepageDescription,
   alternates: { canonical: `${siteUrl}/` },
   openGraph: {
     title: "Custom Star Map & Constellation Map | StarMapCo",
-    description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+    description: homepageDescription,
     url: `${siteUrl}/`,
     images: [
       {
@@ -28,8 +32,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Custom Star Map & Constellation Map | StarMapCo",
-    description:
-      "Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing.",
+    description: homepageDescription,
     images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },
 };
@@ -150,7 +153,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Are the maps suitable for printing?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
+              text: printCheckoutEnabled
+                ? "Yes—designed to be print-ready up to 6000x6000 resolution, with unframed and framed print checkout options."
+                : "Yes—designed to be print-ready up to 6000x6000 resolution for posters and frames.",
             },
           },
           {
