@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
+import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 
 export default function HeroEditorDeferred() {
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
@@ -42,11 +43,11 @@ export default function HeroEditorDeferred() {
             <label className="sr-only" htmlFor="hero-date">
               When was it?
             </label>
-            <input
+            <IOSSafeDateInput
               id="hero-date"
               name="date"
-              type="date"
               autoComplete="bday"
+              placeholder="YYYY-MM-DD"
               className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40"
             />
           </div>

@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
+import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 
 type PreviewStartFormProps = {
   title?: string;
@@ -45,11 +46,11 @@ export default function PreviewStartForm({
             <label className="sr-only" htmlFor="preview-date">
               Date
             </label>
-            <input
+            <IOSSafeDateInput
               id="preview-date"
               name="date"
-              type="date"
               autoComplete="bday"
+              placeholder="YYYY-MM-DD"
               className="ios-form-control min-w-0 w-full rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 placeholder:text-neutral-400 shadow-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-200"
             />
           </div>
