@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections from "./HomeStaticSections";
-import { formatPrice, getPricingTiers } from "@/lib/pricing";
+import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
@@ -40,6 +40,10 @@ type HomePageProps = {
 export default async function HomePage({ searchParams }: HomePageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const tiers = getPricingTiers();
+  const printTiers = getPrintPricingTiers();
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
   const priceLabel = formatPrice(
     tiers.single.amountCents,
     (tiers.single.currency || "USD").toUpperCase()
@@ -51,6 +55,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const subscriptionLabel = formatPrice(
     tiers.subscription.amountCents,
     (tiers.subscription.currency || "USD").toUpperCase()
+  );
+  const printUnframedLabel = formatPrice(
+    printTiers.poster_unframed.amountCents,
+    (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+  );
+  const printFramedLabel = formatPrice(
+    printTiers.poster_framed.amountCents,
+    (printTiers.poster_framed.currency || "USD").toUpperCase(),
   );
   const packSavingsPercent =
     tiers.single.amountCents > 0
@@ -81,17 +93,56 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       {
         "@type": "Product",
         name: "Custom Star Map",
-        description: "Personalized star map generator for special dates and locations.",
+        description:
+          "Personalized star map generator for special dates and locations with HD digital downloads and optional physical print checkout.",
         brand: { "@type": "Brand", name: "StarMapCo" },
         image: [`${siteUrl}/custom-star-map-anniversary.webp`],
-        offers: {
-          "@type": "Offer",
-          priceCurrency: schemaCurrency,
-          price: schemaPrice,
-          priceValidUntil,
-          availability: "https://schema.org/InStock",
-          url: `${siteUrl}/`,
-        },
+        category: "Personalized gifts",
+        additionalProperty: [
+          {
+            "@type": "PropertyValue",
+            name: "Export resolution",
+            value: "Up to 6000x6000 PNG",
+          },
+          {
+            "@type": "PropertyValue",
+            name: "Delivery",
+            value: printCheckoutEnabled ? "Instant digital + optional physical print checkout" : "Instant digital",
+          },
+        ],
+        offers: [
+          {
+            "@type": "Offer",
+            name: "Single HD download",
+            priceCurrency: schemaCurrency,
+            price: schemaPrice,
+            priceValidUntil,
+            availability: "https://schema.org/InStock",
+            url: `${siteUrl}/editor?mode=quick&source=home-schema-digital`,
+          },
+          ...(printCheckoutEnabled
+            ? [
+                {
+                  "@type": "Offer" as const,
+                  name: "Unframed print",
+                  priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+                  price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+                  priceValidUntil,
+                  availability: "https://schema.org/InStock",
+                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed`,
+                },
+                {
+                  "@type": "Offer" as const,
+                  name: "Framed print",
+                  priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
+                  price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+                  priceValidUntil,
+                  availability: "https://schema.org/InStock",
+                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-framed`,
+                },
+              ]
+            : []),
+        ],
       },
       {
         "@type": "FAQPage",
@@ -149,7 +200,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Are the maps suitable for printing?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes—designed to be print-ready up to 6000x6000 resolution, with unframed and framed print checkout options.",
+              text:
+                "Yes—designed to be print-ready up to 6000x6000 resolution for crisp posters and framed gifts.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Can I order a printed or framed version directly?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: printCheckoutEnabled
+                ? `Yes. Checkout supports unframed print (${printUnframedLabel}) and framed print (${printFramedLabel}) options in addition to HD digital downloads.`
+                : "Physical print checkout is in staged rollout. You can always download a print-ready HD file immediately after payment.",
             },
           },
           {

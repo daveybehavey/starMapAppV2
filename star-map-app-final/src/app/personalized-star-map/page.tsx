@@ -24,12 +24,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Star Map | StarMapCo",
   description:
-    "Create a personalized star map with names, dates, and locations. Accurate, print-ready, and instantly previewed.",
+    "Create a personalized star map with names, dates, and locations. Choose HD download, unframed print, or framed print at checkout.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
     title: "Personalized Star Map | StarMapCo",
     description:
-      "Create a personalized star map with names, dates, and locations. Accurate, print-ready, and instantly previewed.",
+      "Create a personalized star map with names, dates, and locations. Choose HD download, unframed print, or framed print at checkout.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -146,6 +146,7 @@ export default function PersonalizedStarMapPage() {
         rightPoints={[
           "Export up to 6000x6000 resolution",
           "Built for poster-quality prints and framing",
+          "Shipping costs and delivery estimate shown before payment for physical orders",
           "Email support at support@starmapco.com",
         ]}
         guideLabel="Print size and frame guide"
@@ -194,6 +195,12 @@ export default function PersonalizedStarMapPage() {
               Immediately after checkout. You unlock the download in the app and can save your file right away.
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I order a printed or framed version directly?</h3>
+            <p>
+              Yes. After preview, you can choose HD download, unframed print, or framed print during checkout.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -215,6 +222,10 @@ export default function PersonalizedStarMapPage() {
           {
             question: "How quickly do I get the HD file?",
             answer: "Immediately after checkout. You unlock the download in the app and can save your file right away.",
+          },
+          {
+            question: "Can I order a printed or framed version directly?",
+            answer: "Yes. After preview, you can choose HD download, unframed print, or framed print during checkout.",
           },
         ]}
       />

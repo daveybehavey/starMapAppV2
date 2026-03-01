@@ -24,11 +24,11 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map | StarMapCo",
   description:
-    "Create a personalized wedding star map from your ceremony date and location. Astronomically accurate and print-ready — a meaningful keepsake or gift.",
+    "Create a personalized wedding star map from your ceremony date and location. Choose HD download, unframed print, or framed print checkout.",
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map | StarMapCo",
-    description: "Capture the exact night sky from your wedding day and place. Print-ready star map keepsake.",
+    description: "Capture the exact night sky from your wedding day and place. HD, unframed print, and framed checkout options.",
     url: `${siteUrl}/wedding`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -153,6 +153,7 @@ export default function WeddingPage() {
         rightPoints={[
           "High-resolution file up to 6000x6000",
           "Designed for frame-ready printing",
+          "Physical shipping rates and delivery estimates shown before payment",
           "Help available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"
@@ -203,6 +204,12 @@ export default function WeddingPage() {
               sizes.
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I order a framed wedding print directly?</h3>
+            <p>
+              Yes. After preview, checkout includes both unframed and framed print options plus HD digital download.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -225,6 +232,10 @@ export default function WeddingPage() {
             question: "Can I print it locally?",
             answer:
               "Yes. Most customers print locally or online and frame it themselves. We include guidance for common print sizes.",
+          },
+          {
+            question: "Can I order a framed wedding print directly?",
+            answer: "Yes. After preview, checkout includes both unframed and framed print options plus HD digital download.",
           },
         ]}
       />

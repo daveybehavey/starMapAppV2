@@ -24,12 +24,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Gift | StarMapCo",
   description:
-    "Give a personalized star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
+    "Give a personalized star map gift that recreates the exact night sky from a special date. HD, unframed print, and framed print checkout options.",
   alternates: { canonical: `${siteUrl}/star-map-gift` },
   openGraph: {
     title: "Star Map Gift | StarMapCo",
     description:
-      "Give a personalized star map gift that recreates the exact night sky from a special date. Personal, accurate, and print-ready.",
+      "Give a personalized star map gift that recreates the exact night sky from a special date. HD, unframed print, and framed print checkout options.",
     url: `${siteUrl}/star-map-gift`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -103,6 +103,7 @@ export default function StarMapGiftPage() {
         rightTitle="Support and policy"
         rightPoints={[
           "Clear returns and refund policy",
+          "Shipping rate and delivery estimate shown before payment for physical orders",
           "Step-by-step print guidance included",
           "Direct support at support@starmapco.com",
         ]}
@@ -215,6 +216,12 @@ export default function StarMapGiftPage() {
               This works well for same-day gifting because checkout and HD download are instant.
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I send a physical print instead of digital only?</h3>
+            <p>
+              Yes. You can choose an unframed print or framed print in checkout after previewing your design.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -237,6 +244,10 @@ export default function StarMapGiftPage() {
           {
             question: "What if I need a quick gift turnaround?",
             answer: "This works well for same-day gifting because checkout and HD download are instant.",
+          },
+          {
+            question: "Can I send a physical print instead of digital only?",
+            answer: "Yes. You can choose an unframed print or framed print in checkout after previewing your design.",
           },
         ]}
       />
