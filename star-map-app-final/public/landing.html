@@ -6,14 +6,14 @@
     <title>Custom Star Map & Constellation Map | StarMapCo</title>
     <meta
       name="description"
-      content="Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing at StarMapCo."
+      content="Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus unframed and framed print checkout at StarMapCo."
     />
     <meta name="p:domain_verify" content="789a8db329c08fe1a0a43fb579bf8611" />
     <link rel="canonical" href="https://starmapco.com/" />
     <meta property="og:title" content="Custom Star Map & Constellation Map | StarMapCo" />
     <meta
       property="og:description"
-      content="Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing."
+      content="Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus unframed and framed print checkout."
     />
     <meta property="og:url" content="https://starmapco.com/" />
     <meta property="og:type" content="website" />
@@ -25,7 +25,7 @@
     <meta name="twitter:title" content="Custom Star Map & Constellation Map | StarMapCo" />
     <meta
       name="twitter:description"
-      content="Create a custom star map or constellation map of any date and location. Instant preview, print-ready downloads, and flexible pricing."
+      content="Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus unframed and framed print checkout."
     />
     <meta name="twitter:image" content="https://starmapco.com/custom-star-map-anniversary.png" />
     <link rel="icon" href="/favicon.ico" />
@@ -123,6 +123,29 @@
         color: rgba(255, 255, 255, 0.85);
         font-size: clamp(1rem, 2vw, 1.125rem);
       }
+      .hero-badges {
+        margin: 0 auto 18px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
+      .hero-badge {
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.9);
+        padding: 4px 10px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .hero-badge.print {
+        border-color: rgba(251, 191, 36, 0.6);
+        background: rgba(251, 191, 36, 0.22);
+        color: #fff2cd;
+      }
       .pricing {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -190,6 +213,10 @@
         color: #fff;
         font-size: 0.95rem;
       }
+      .hero-form input[type="text"] {
+        appearance: none;
+        -webkit-appearance: none;
+      }
       .hero-form button {
         margin-top: 12px;
         width: 100%;
@@ -210,6 +237,7 @@
       .hero-cta-row {
         margin-top: 12px;
         display: flex;
+        flex-wrap: wrap;
         justify-content: center;
         gap: 12px;
         font-size: 0.9rem;
@@ -218,6 +246,46 @@
         color: rgba(251, 191, 36, 0.95);
         font-weight: 700;
         border-bottom: 1px solid rgba(251, 191, 36, 0.6);
+      }
+      .hero-link.secondary {
+        border: 1px solid rgba(251, 191, 36, 0.7);
+        border-radius: 999px;
+        padding: 6px 12px;
+        background: rgba(251, 191, 36, 0.2);
+        border-bottom: 1px solid rgba(251, 191, 36, 0.7);
+      }
+      .delivery-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .delivery-card {
+        border-radius: 16px;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.07);
+      }
+      .delivery-card.popular {
+        border-color: rgba(251, 191, 36, 0.65);
+        background: rgba(251, 191, 36, 0.16);
+      }
+      .delivery-card h3 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .delivery-card p {
+        margin: 6px 0 10px;
+        font-size: 0.9rem;
+      }
+      .delivery-card ul {
+        margin: 0;
+        padding-left: 18px;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 0.83rem;
+        line-height: 1.4;
+      }
+      .delivery-card li + li {
+        margin-top: 4px;
       }
       .section {
         padding: 40px 0;
@@ -527,7 +595,13 @@
       </header>
       <section class="hero">
         <h1>Create a custom star map of the night sky</h1>
-        <p>See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds.</p>
+        <p>See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds. Download instantly in HD or choose unframed/framed physical checkout.</p>
+        <div class="hero-badges" aria-label="Offer highlights">
+          <span class="hero-badge">Free preview</span>
+          <span class="hero-badge">No account required</span>
+          <span class="hero-badge">HD export in seconds</span>
+          <span class="hero-badge print">Printed + framed available</span>
+        </div>
         <div class="pricing">
           <a class="price-card" href="/api/checkout?plan=single" rel="nofollow">
             <div class="price-title">Single Map</div>
@@ -549,14 +623,58 @@
             <input type="hidden" name="mode" value="quick" />
             <input type="hidden" name="source" value="landing" />
             <div class="form-grid">
-              <input name="date" type="date" aria-label="Date" autocomplete="bday" />
+              <input
+                name="date"
+                type="text"
+                aria-label="Date"
+                autocomplete="bday"
+                inputmode="numeric"
+                pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
+                placeholder="YYYY-MM-DD"
+                title="Use YYYY-MM-DD format"
+              />
               <input name="location" type="text" placeholder="City or address" aria-label="Location" autocomplete="address-level2" />
             </div>
             <button type="submit">Preview your map</button>
           </form>
-          <p class="hero-note">Free preview · No account required.</p>
+          <p class="hero-note">Free preview · No account required. Date format: YYYY-MM-DD</p>
         <div class="hero-cta-row">
+          <a class="hero-link secondary" href="#delivery-options">See print + framed options</a>
           <a class="hero-link" href="#signup">Get 20% off your first HD export</a>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto" id="delivery-options">
+        <h2>Delivery options</h2>
+        <p>Preview first, then choose the format that works best for your gift moment.</p>
+        <div class="delivery-grid">
+          <article class="delivery-card">
+            <h3>Instant digital — $9.00</h3>
+            <p>Unlock your HD file immediately after checkout.</p>
+            <ul>
+              <li>Up to 6000x6000 PNG</li>
+              <li>Perfect for local printing</li>
+              <li>No watermark on paid export</li>
+            </ul>
+          </article>
+          <article class="delivery-card">
+            <h3>Unframed print — $49.00</h3>
+            <p>Professionally printed poster, shipped to your door.</p>
+            <ul>
+              <li>Museum-quality poster stock</li>
+              <li>Best if you already have a frame</li>
+              <li>Shipping estimate at checkout</li>
+            </ul>
+          </article>
+          <article class="delivery-card popular">
+            <h3>Framed print — $89.00</h3>
+            <p>Ready-to-hang framed gift with premium presentation.</p>
+            <ul>
+              <li>Most popular physical option</li>
+              <li>Gift-ready out of the box</li>
+              <li>Optional HD add-on available</li>
+            </ul>
+          </article>
         </div>
       </section>
 
@@ -815,6 +933,42 @@
           }
         ]
       }
+    </script>
+    <script>
+      (function () {
+        const form = document.querySelector(".hero-form");
+        if (!form) return;
+        const dateInput = form.querySelector('input[name="date"]');
+        if (!(dateInput instanceof HTMLInputElement)) return;
+
+        form.addEventListener("submit", function (event) {
+          const value = String(dateInput.value || "").trim();
+          const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+          let isValid = false;
+          if (match) {
+            const year = Number(match[1]);
+            const month = Number(match[2]);
+            const day = Number(match[3]);
+            const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+            isValid =
+              parsed.getFullYear() === year &&
+              parsed.getMonth() === month - 1 &&
+              parsed.getDate() === day;
+          }
+
+          if (!isValid) {
+            event.preventDefault();
+            dateInput.setCustomValidity("Use a real date in YYYY-MM-DD format.");
+            dateInput.reportValidity();
+            return;
+          }
+          dateInput.setCustomValidity("");
+        });
+
+        dateInput.addEventListener("input", function () {
+          dateInput.setCustomValidity("");
+        });
+      })();
     </script>
   </body>
 </html>
