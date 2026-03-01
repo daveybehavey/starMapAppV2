@@ -778,10 +778,9 @@ export default function DownloadClient() {
     }
   }, []);
 
-  const handleCreateReferralLink = useCallback(async () => {
-    if (referralLoading) return;
+  const createReferralLink = useCallback(async (source: "manual" | "auto") => {
     setReferralLoading(true);
-    setReferralError(null);
+    if (source === "manual") setReferralError(null);
     try {
       const res = await fetch("/api/referrals/link", { method: "POST" });
       const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
@@ -789,14 +788,21 @@ export default function DownloadClient() {
         throw new Error(data?.error ?? "referral_failed");
       }
       setReferralLink(data.url);
-      track("referral_link_created", { source: "download" });
+      track("referral_link_created", { source: "download", trigger: source });
       await loadReferralStatus();
     } catch {
-      setReferralError("Couldn't create referral link right now. Please try again.");
+      if (source === "manual") {
+        setReferralError("Couldn't create referral link right now. Please try again.");
+      }
     } finally {
       setReferralLoading(false);
     }
-  }, [loadReferralStatus, referralLoading]);
+  }, [loadReferralStatus]);
+
+  const handleCreateReferralLink = useCallback(async () => {
+    if (referralLoading) return;
+    await createReferralLink("manual");
+  }, [createReferralLink, referralLoading]);
 
   const handleCopyReferralLink = useCallback(async () => {
     if (!referralLink) return;
@@ -811,14 +817,27 @@ export default function DownloadClient() {
   }, [referralLink]);
 
   const handleShareReferralLink = useCallback(
-    (platform: "x" | "facebook") => {
+    async (platform: "x" | "facebook" | "native") => {
       if (!referralLink) return;
+      if (platform === "native" && typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        try {
+          await navigator.share({
+            title: "Create your custom star map",
+            text: "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
+            url: referralLink,
+          });
+          track("referral_link_shared", { source: "download", platform: "native" });
+          return;
+        } catch {
+          // Fall through to web share URLs.
+        }
+      }
       const encodedUrl = encodeURIComponent(referralLink);
       const encodedText = encodeURIComponent(
         "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
       );
       const shareUrl =
-        platform === "x"
+        platform === "x" || platform === "native"
           ? `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`
           : `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
       window.open(shareUrl, "_blank", "noopener,noreferrer");
@@ -831,6 +850,11 @@ export default function DownloadClient() {
     if (!paid) return;
     void loadReferralStatus();
   }, [loadReferralStatus, paid]);
+
+  useEffect(() => {
+    if (!paid || referralStatus !== "ready" || referralLink || referralLoading) return;
+    void createReferralLink("auto");
+  }, [createReferralLink, paid, referralLink, referralLoading, referralStatus]);
 
   const statusLabel = (() => {
     switch (status) {
@@ -1079,6 +1103,13 @@ export default function DownloadClient() {
                         className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
                       >
                         {referralCopied ? "Copied" : "Copy link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleShareReferralLink("native")}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        Share link
                       </button>
                       <button
                         type="button"

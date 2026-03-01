@@ -195,11 +195,9 @@ export default function SuccessClient() {
     }
   }, []);
 
-  const handleCreateReferralLink = useCallback(async () => {
-    if (referralLoading) return;
-    pauseRedirect();
+  const createReferralLink = useCallback(async (source: "manual" | "auto") => {
     setReferralLoading(true);
-    setReferralError(null);
+    if (source === "manual") setReferralError(null);
     try {
       const res = await fetch("/api/referrals/link", { method: "POST" });
       const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
@@ -207,14 +205,22 @@ export default function SuccessClient() {
         throw new Error(data?.error ?? "referral_failed");
       }
       setReferralLink(data.url);
-      track("referral_link_created", { source: "success" });
+      track("referral_link_created", { source: "success", trigger: source });
       await loadReferralStatus();
     } catch {
-      setReferralError("Couldn't create referral link right now. Please try again.");
+      if (source === "manual") {
+        setReferralError("Couldn't create referral link right now. Please try again.");
+      }
     } finally {
       setReferralLoading(false);
     }
-  }, [loadReferralStatus, pauseRedirect, referralLoading]);
+  }, [loadReferralStatus]);
+
+  const handleCreateReferralLink = useCallback(async () => {
+    if (referralLoading) return;
+    pauseRedirect();
+    await createReferralLink("manual");
+  }, [createReferralLink, pauseRedirect, referralLoading]);
 
   const handleCopyReferralLink = useCallback(async () => {
     if (!referralLink) return;
@@ -230,15 +236,28 @@ export default function SuccessClient() {
   }, [pauseRedirect, referralLink]);
 
   const handleShareReferralLink = useCallback(
-    (platform: "x" | "facebook") => {
+    async (platform: "x" | "facebook" | "native") => {
       if (!referralLink) return;
       pauseRedirect();
+      if (platform === "native" && typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        try {
+          await navigator.share({
+            title: "Create your custom star map",
+            text: "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
+            url: referralLink,
+          });
+          track("referral_link_shared", { source: "success", platform: "native" });
+          return;
+        } catch {
+          // Fall through to web share URLs.
+        }
+      }
       const encodedUrl = encodeURIComponent(referralLink);
       const encodedText = encodeURIComponent(
         "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
       );
       const shareUrl =
-        platform === "x"
+        platform === "x" || platform === "native"
           ? `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`
           : `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
       window.open(shareUrl, "_blank", "noopener,noreferrer");
@@ -357,6 +376,12 @@ export default function SuccessClient() {
     if (status !== "success" || !hasDigitalEntitlement) return;
     void loadReferralStatus();
   }, [hasDigitalEntitlement, loadReferralStatus, status]);
+
+  useEffect(() => {
+    if (status !== "success" || !hasDigitalEntitlement) return;
+    if (referralStatus !== "ready" || referralLink || referralLoading) return;
+    void createReferralLink("auto");
+  }, [createReferralLink, hasDigitalEntitlement, referralLink, referralLoading, referralStatus, status]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
@@ -597,6 +622,13 @@ export default function SuccessClient() {
                             className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30"
                           >
                             {referralCopied ? "Copied" : "Copy link"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleShareReferralLink("native")}
+                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                          >
+                            Share link
                           </button>
                           <button
                             type="button"

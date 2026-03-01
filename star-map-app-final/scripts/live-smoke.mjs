@@ -105,9 +105,28 @@ async function main() {
       homeHtml.includes('name="p:domain_verify"'),
       "meta tag present",
     );
+    runCheck(
+      "Homepage surfaces print and framed checkout options",
+      homeHtml.includes("Start unframed print") && homeHtml.includes("Start framed print"),
+      "print CTA visibility",
+    );
   } catch (error) {
     failed = true;
     runCheck("Homepage checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const personalizedRes = await fetchWithTimeout(`${site}/personalized-star-map`, { cache: "no-store" }, args.timeoutMs);
+    const personalizedHtml = await personalizedRes.text();
+    runCheck("Personalized page responds 200", personalizedRes.status === 200, `status=${personalizedRes.status}`);
+    runCheck(
+      "Personalized page references framed print checkout",
+      personalizedHtml.includes("Framed print checkout"),
+      "print intent copy",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Personalized page checks", false, error instanceof Error ? error.message : String(error));
   }
 
   try {
