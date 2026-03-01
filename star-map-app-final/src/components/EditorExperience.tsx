@@ -84,6 +84,25 @@ function normalizePromoCode(raw: string | null | undefined) {
   return normalized;
 }
 
+function parseDateParamToIso(dateParam: string) {
+  const trimmed = dateParam.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed.toISOString();
+}
+
 export type EditorExperienceVariant = "quick" | "full";
 
 interface EditorExperienceProps {
@@ -483,9 +502,9 @@ export function EditorExperience({
 
     let hasValidDate = false;
     if (dateParam) {
-      const parsed = new Date(`${dateParam}T00:00:00`);
-      if (!Number.isNaN(parsed.getTime())) {
-        setDateTime(parsed.toISOString());
+      const parsedISO = parseDateParamToIso(dateParam);
+      if (parsedISO) {
+        setDateTime(parsedISO);
         hasValidDate = true;
       }
     }
