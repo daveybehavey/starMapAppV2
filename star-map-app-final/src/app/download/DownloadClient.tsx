@@ -817,7 +817,7 @@ export default function DownloadClient() {
   }, [referralLink]);
 
   const handleShareReferralLink = useCallback(
-    async (platform: "x" | "facebook" | "native") => {
+    async (platform: "x" | "facebook" | "pinterest" | "native") => {
       if (!referralLink) return;
       if (platform === "native" && typeof navigator !== "undefined" && typeof navigator.share === "function") {
         try {
@@ -836,10 +836,15 @@ export default function DownloadClient() {
       const encodedText = encodeURIComponent(
         "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
       );
-      const shareUrl =
-        platform === "x" || platform === "native"
-          ? `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`
-          : `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+      const shareUrl = (() => {
+        if (platform === "x" || platform === "native") {
+          return `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
+        }
+        if (platform === "pinterest") {
+          return `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedText}`;
+        }
+        return `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+      })();
       window.open(shareUrl, "_blank", "noopener,noreferrer");
       track("referral_link_shared", { source: "download", platform });
     },
@@ -1124,6 +1129,13 @@ export default function DownloadClient() {
                         className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
                       >
                         Share on Facebook
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleShareReferralLink("pinterest")}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        Share on Pinterest
                       </button>
                     </>
                   ) : null}
