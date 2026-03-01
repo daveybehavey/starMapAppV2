@@ -1,4 +1,5 @@
 import Image from "next/image";
+import HomeOfferStack from "@/components/HomeOfferStack";
 import PromotionSignup from "@/components/PromotionSignup";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
@@ -6,6 +7,7 @@ type PriceLabels = {
   single: string;
   pack3: string;
   subscription: string;
+  packSavingsPercent: number;
 };
 
 type HomeStaticSectionsProps = {
@@ -33,91 +35,7 @@ export default function HomeStaticSections({
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
       </section>
 
-      <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-2 sm:px-6 lg:px-8">
-        <div className="space-y-4 rounded-3xl border border-amber-300/30 bg-amber-300/10 p-6 text-white shadow-lg shadow-black/30">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Physical print checkout</p>
-            <h2 className="text-2xl font-semibold sm:text-3xl">Get your star map printed or framed</h2>
-            <p className="text-sm text-neutral-200 sm:text-base">
-              Choose your exact map in the editor, then checkout with physical delivery options.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-              <p className="text-sm font-semibold text-white">Unframed print</p>
-              <p className="mt-1 text-xs text-neutral-200">Best for custom frame choices</p>
-              <p className="mt-2 text-sm font-semibold text-amber-200">{printLabels.unframed}</p>
-            </div>
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-              <p className="text-sm font-semibold text-white">Framed print</p>
-              <p className="mt-1 text-xs text-neutral-200">Ready-to-display physical gift</p>
-              <p className="mt-2 text-sm font-semibold text-amber-200">{printLabels.framed}</p>
-            </div>
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-              <p className="text-sm font-semibold text-white">Digital add-on</p>
-              <p className="mt-1 text-xs text-neutral-200">Add the HD file to physical orders</p>
-              <p className="mt-2 text-sm font-semibold text-amber-200">+ {printLabels.digitalAddOn}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a
-              href="/editor?mode=quick&source=home-static-print-unframed"
-              className="rounded-full border border-amber-300/60 bg-amber-200/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30"
-            >
-              Start unframed print
-            </a>
-            <a
-              href="/editor?mode=quick&source=home-static-print-framed"
-              className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
-            >
-              Start framed print
-            </a>
-            <a
-              href="/how-to-print-star-map"
-              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
-            >
-              Print and frame guide
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider my-12 sm:my-14 lg:my-16" />
-
-      <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
-        <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 text-white shadow-lg shadow-black/30">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Explore by occasion</p>
-            <h2 className="text-2xl font-semibold sm:text-3xl">Find the perfect custom star map</h2>
-            <p className="text-sm text-neutral-200 sm:text-base">
-              Browse by intent and style — star map gifts, constellation maps, and poster-ready downloads.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3 text-sm font-semibold text-amber-100">
-            {[
-              { href: "/star-map-generator", label: "Star map generator" },
-              { href: "/star-map-for", label: "Star map by occasion" },
-              { href: "/star-map-poster", label: "Star map poster" },
-              { href: "/constellation-map", label: "Constellation map" },
-              { href: "/custom-night-sky-map", label: "Custom night sky map" },
-              { href: "/night-sky-map-gift", label: "Night sky map gift" },
-              { href: "/anniversary", label: "Anniversary star map" },
-              { href: "/birthday", label: "Birthday star map" },
-              { href: "/wedding", label: "Wedding star map" },
-              { href: "/personalized-star-map", label: "Personalized star map" },
-              { href: "/star-map-gift", label: "Star map gift" },
-            ].map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="rounded-full border border-white/15 bg-white/10 px-4 py-2 transition hover:border-amber-300/60 hover:bg-amber-300/10"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
+      <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} />
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 

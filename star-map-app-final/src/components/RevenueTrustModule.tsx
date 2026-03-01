@@ -43,7 +43,9 @@ export default function RevenueTrustModule({
         </div>
         <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
           <p className="text-sm font-semibold text-midnight">Print-ready quality</p>
-          <p className="mt-1 text-xs text-neutral-700">Exports up to 6000x6000 PNG so stars and text stay sharp in print.</p>
+          <p className="mt-1 text-xs text-neutral-700">
+            Exports up to 6000x6000 PNG so stars and text stay sharp in print, including large poster sizes.
+          </p>
         </div>
         <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
           <p className="text-sm font-semibold text-midnight">Clear policy + support</p>
@@ -85,6 +87,8 @@ export default function RevenueTrustModule({
           <li>Check title, subtitle, and dedication spelling.</li>
           <li>Confirm your preferred style and shape before checkout.</li>
           {printCheckoutEnabled && <li>If ordering physical print, choose unframed vs framed before payment.</li>}
+          {printCheckoutEnabled && <li>Review shipping cost and delivery estimate shown in checkout before paying.</li>}
+          {printCheckoutEnabled && <li>If a print arrives damaged, contact support@starmapco.com for replacement support.</li>}
           <li>Use the print guide if you need framing confidence.</li>
         </ul>
       </div>
