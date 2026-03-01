@@ -16,9 +16,6 @@ type HomeHeroProps = {
 };
 
 export default function HomeHero({ priceLabels }: HomeHeroProps) {
-  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
-  );
   const handleCheckoutClick = (plan: "single" | "pack3" | "subscription") => {
     track("hero_plan_click", {
       source: "home-hero",
@@ -61,11 +58,9 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">No account required</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD export in seconds</span>
-            {printCheckoutEnabled && (
-              <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100">
-                Printed + framed options
-              </span>
-            )}
+            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100">
+              Printed + framed options
+            </span>
           </div>
         </div>
 
@@ -75,30 +70,28 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80">
             Ready to buy now?
           </p>
-          {printCheckoutEnabled && (
-            <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
-              <p className="text-xs font-semibold text-amber-100">Prefer physical delivery?</p>
-              <p className="mt-1 text-[11px] text-amber-100/85">
-                You can order this map as an unframed print or a framed print right from checkout.
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <a
-                  href="/editor?mode=quick&source=home-print-unframed"
-                  onClick={() => handlePrintIntentClick("unframed")}
-                  className="rounded-full border border-amber-300/60 bg-amber-200/20 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30"
-                >
-                  Start unframed print
-                </a>
-                <a
-                  href="/editor?mode=quick&source=home-print-framed"
-                  onClick={() => handlePrintIntentClick("framed")}
-                  className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
-                >
-                  Start framed print
-                </a>
-              </div>
+          <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
+            <p className="text-xs font-semibold text-amber-100">Prefer physical delivery?</p>
+            <p className="mt-1 text-[11px] text-amber-100/85">
+              You can order this map as an unframed print or a framed print right from checkout.
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <a
+                href="/editor?mode=quick&source=home-print-unframed"
+                onClick={() => handlePrintIntentClick("unframed")}
+                className="rounded-full border border-amber-300/60 bg-amber-200/20 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30"
+              >
+                Start unframed print
+              </a>
+              <a
+                href="/editor?mode=quick&source=home-print-framed"
+                onClick={() => handlePrintIntentClick("framed")}
+                className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-center text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+              >
+                Start framed print
+              </a>
             </div>
-          )}
+          </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <a
               href="/api/checkout?plan=single"
@@ -126,12 +119,10 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
               Unlimited {priceLabels.subscription}/mo
             </a>
           </div>
-          {printCheckoutEnabled && (
-            <p className="mt-3 text-xs text-neutral-200">
-              Prefer physical delivery? Open the editor and choose <span className="font-semibold text-amber-200">Unframed print</span> or{" "}
-              <span className="font-semibold text-amber-200">Framed print</span> at checkout.
-            </p>
-          )}
+          <p className="mt-3 text-xs text-neutral-200">
+            Prefer physical delivery? Open the editor and choose <span className="font-semibold text-amber-200">Unframed print</span> or{" "}
+            <span className="font-semibold text-amber-200">Framed print</span> at checkout.
+          </p>
         </div>
       </section>
     </main>

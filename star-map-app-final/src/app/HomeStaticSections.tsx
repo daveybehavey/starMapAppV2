@@ -19,9 +19,6 @@ export default function HomeStaticSections({
   promoStatus,
   promoCode,
 }: HomeStaticSectionsProps) {
-  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
-  );
   const printTiers = getPrintPricingTiers();
   const printDigitalAddOn = getPrintDigitalAddOnPrice();
   const printLabels = {
@@ -36,56 +33,54 @@ export default function HomeStaticSections({
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
       </section>
 
-      {printCheckoutEnabled && (
-        <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-2 sm:px-6 lg:px-8">
-          <div className="space-y-4 rounded-3xl border border-amber-300/30 bg-amber-300/10 p-6 text-white shadow-lg shadow-black/30">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Physical print checkout</p>
-              <h2 className="text-2xl font-semibold sm:text-3xl">Get your star map printed or framed</h2>
-              <p className="text-sm text-neutral-200 sm:text-base">
-                Choose your exact map in the editor, then checkout with physical delivery options.
-              </p>
+      <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-2 sm:px-6 lg:px-8">
+        <div className="space-y-4 rounded-3xl border border-amber-300/30 bg-amber-300/10 p-6 text-white shadow-lg shadow-black/30">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Physical print checkout</p>
+            <h2 className="text-2xl font-semibold sm:text-3xl">Get your star map printed or framed</h2>
+            <p className="text-sm text-neutral-200 sm:text-base">
+              Choose your exact map in the editor, then checkout with physical delivery options.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+              <p className="text-sm font-semibold text-white">Unframed print</p>
+              <p className="mt-1 text-xs text-neutral-200">Best for custom frame choices</p>
+              <p className="mt-2 text-sm font-semibold text-amber-200">{printLabels.unframed}</p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                <p className="text-sm font-semibold text-white">Unframed print</p>
-                <p className="mt-1 text-xs text-neutral-200">Best for custom frame choices</p>
-                <p className="mt-2 text-sm font-semibold text-amber-200">{printLabels.unframed}</p>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                <p className="text-sm font-semibold text-white">Framed print</p>
-                <p className="mt-1 text-xs text-neutral-200">Ready-to-display physical gift</p>
-                <p className="mt-2 text-sm font-semibold text-amber-200">{printLabels.framed}</p>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                <p className="text-sm font-semibold text-white">Digital add-on</p>
-                <p className="mt-1 text-xs text-neutral-200">Add the HD file to physical orders</p>
-                <p className="mt-2 text-sm font-semibold text-amber-200">+ {printLabels.digitalAddOn}</p>
-              </div>
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+              <p className="text-sm font-semibold text-white">Framed print</p>
+              <p className="mt-1 text-xs text-neutral-200">Ready-to-display physical gift</p>
+              <p className="mt-2 text-sm font-semibold text-amber-200">{printLabels.framed}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href="/editor?mode=quick&source=home-static-print-unframed"
-                className="rounded-full border border-amber-300/60 bg-amber-200/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30"
-              >
-                Start unframed print
-              </a>
-              <a
-                href="/editor?mode=quick&source=home-static-print-framed"
-                className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
-              >
-                Start framed print
-              </a>
-              <a
-                href="/how-to-print-star-map"
-                className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
-              >
-                Print and frame guide
-              </a>
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+              <p className="text-sm font-semibold text-white">Digital add-on</p>
+              <p className="mt-1 text-xs text-neutral-200">Add the HD file to physical orders</p>
+              <p className="mt-2 text-sm font-semibold text-amber-200">+ {printLabels.digitalAddOn}</p>
             </div>
           </div>
-        </section>
-      )}
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/editor?mode=quick&source=home-static-print-unframed"
+              className="rounded-full border border-amber-300/60 bg-amber-200/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30"
+            >
+              Start unframed print
+            </a>
+            <a
+              href="/editor?mode=quick&source=home-static-print-framed"
+              className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+            >
+              Start framed print
+            </a>
+            <a
+              href="/how-to-print-star-map"
+              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
+            >
+              Print and frame guide
+            </a>
+          </div>
+        </div>
+      </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 

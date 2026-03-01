@@ -16,9 +16,6 @@ export default function PreviewStartForm({
   buttonLabel = "Preview your map",
   source,
 }: PreviewStartFormProps) {
-  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
-  );
   const resolvedSource = source?.trim() || "preview-start-form";
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     const formData = new FormData(event.currentTarget);
@@ -77,11 +74,9 @@ export default function PreviewStartForm({
           {buttonLabel}
         </button>
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
-        {printCheckoutEnabled && (
-          <p className="mt-1 text-xs font-semibold text-amber-700">
-            Physical checkout is available: unframed print, framed print, or print + HD file.
-          </p>
-        )}
+        <p className="mt-1 text-xs font-semibold text-amber-700">
+          Physical checkout is available: unframed print, framed print, or print + HD file.
+        </p>
       </form>
     </section>
   );
