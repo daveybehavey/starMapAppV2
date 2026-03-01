@@ -984,6 +984,26 @@ export function EditorExperience({
     ]
   );
 
+  const startPrintCheckout = useCallback(
+    (options: {
+      variant: PrintVariant;
+      includeDigitalAddOn: boolean;
+      source: "editor_print_panel" | "paywall_modal" | "mobile_preview";
+    }) => {
+      track("print_option_clicked", {
+        source: options.source,
+        variant: options.variant,
+        includeDigitalAddOn: options.includeDigitalAddOn,
+      });
+      void startCheckout("single", {
+        orderType: "print",
+        printVariant: options.variant,
+        includeDigitalAddOn: options.includeDigitalAddOn,
+      });
+    },
+    [startCheckout],
+  );
+
   const handleShare = useCallback(async () => {
     const recipe = buildRecipeFromState({
       dateTime,
@@ -1937,6 +1957,11 @@ export function EditorExperience({
                               {canReveal && (
                                 <p className="text-[11px] text-neutral-300">Free preview, HD optional.</p>
                               )}
+                              {canReveal && printCheckoutEnabled && (
+                                <p className="text-[11px] text-amber-100/90">
+                                  Printed and framed options unlock after preview.
+                                </p>
+                              )}
                             </div>
                           </div>
                         )}
@@ -2007,40 +2032,6 @@ export function EditorExperience({
                           >
                             {hdExportInFlight ? "Preparing..." : `${!paid ? "🔒 " : ""}HD ⬇️`}
                           </button>
-                          {printCheckoutEnabled && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void startCheckout("single", {
-                                    orderType: "print",
-                                    printVariant: "poster_unframed",
-                                    includeDigitalAddOn: false,
-                                  })
-                                }
-                                disabled={checkoutInFlight}
-                                className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-200/30 hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                                title={`Buy unframed print (${printPriceLabels.unframed})`}
-                              >
-                                🖼️ Unframed {printPriceLabels.unframed}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void startCheckout("single", {
-                                    orderType: "print",
-                                    printVariant: "poster_framed",
-                                    includeDigitalAddOn: false,
-                                  })
-                                }
-                                disabled={checkoutInFlight}
-                                className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-300/20 px-3 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30 hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                                title={`Buy framed print (${printPriceLabels.framed})`}
-                              >
-                                🖼️ Framed {printPriceLabels.framed}
-                              </button>
-                            </>
-                          )}
                           {hdCreditLabel && (
                             <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
                               {hdCreditLabel}
@@ -2081,6 +2072,63 @@ export function EditorExperience({
                                 : "HD downloads available."}
                           </p>
                         )}
+                        {printCheckoutEnabled && (
+                          <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-semibold text-amber-100">Get your star map printed and shipped</p>
+                              <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                Poster or framed
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[11px] text-amber-100/85">
+                              Checkout is secure in Stripe. We send print orders automatically after payment.
+                            </p>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  startPrintCheckout({
+                                    source: "editor_print_panel",
+                                    variant: "poster_unframed",
+                                    includeDigitalAddOn: false,
+                                  })
+                                }
+                                disabled={checkoutInFlight}
+                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Unframed • {printPriceLabels.unframed}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  startPrintCheckout({
+                                    source: "editor_print_panel",
+                                    variant: "poster_framed",
+                                    includeDigitalAddOn: false,
+                                  })
+                                }
+                                disabled={checkoutInFlight}
+                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-300/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Framed • {printPriceLabels.framed}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  startPrintCheckout({
+                                    source: "editor_print_panel",
+                                    variant: "poster_unframed",
+                                    includeDigitalAddOn: true,
+                                  })
+                                }
+                                disabled={checkoutInFlight}
+                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Unframed + HD • {printPriceLabels.unframed} + {printPriceLabels.digitalAddOn}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </section>
@@ -2109,9 +2157,9 @@ export function EditorExperience({
               onStartPrintCheckout={
                 printCheckoutEnabled
                   ? (options) => {
-                      void startCheckout("single", {
-                        orderType: "print",
-                        printVariant: options.variant,
+                      startPrintCheckout({
+                        source: "mobile_preview",
+                        variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                       });
                     }
@@ -2136,9 +2184,9 @@ export function EditorExperience({
               onStartPrintCheckout={
                 printCheckoutEnabled
                   ? (options) => {
-                      void startCheckout("single", {
-                        orderType: "print",
-                        printVariant: options.variant,
+                      startPrintCheckout({
+                        source: "paywall_modal",
+                        variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                       });
                     }

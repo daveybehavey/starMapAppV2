@@ -32,6 +32,7 @@ interface MobileCreateProps {
   printPriceLabels?: {
     unframed: string;
     framed: string;
+    digitalAddOn: string;
   };
   onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
 }
@@ -1066,6 +1067,11 @@ export function MobileCreate({
                     Generate preview
                   </button>
                   <p className="text-[10px] text-neutral-300">Free preview, HD optional.</p>
+                  {printCheckoutEnabled && (
+                    <p className="text-[10px] text-amber-100/90">
+                      Printed and framed options unlock after preview.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -1103,6 +1109,9 @@ export function MobileCreate({
             {printCheckoutEnabled && printPriceLabels && onStartPrintCheckout && (
               <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
                 <p className="text-[11px] font-semibold text-amber-100">Physical print options</p>
+                <p className="mt-1 text-[10px] text-amber-100/80">
+                  Get this exact map printed and shipped after secure checkout.
+                </p>
                 <div className="mt-2 flex flex-col gap-2">
                   <button
                     type="button"
@@ -1117,6 +1126,13 @@ export function MobileCreate({
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
                   >
                     🖼️ Framed print • {printPriceLabels.framed}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: true })}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
+                  >
+                    🖼️ Unframed + HD • {printPriceLabels.unframed} + {printPriceLabels.digitalAddOn}
                   </button>
                 </div>
               </div>
