@@ -16,6 +16,9 @@ type HomeHeroProps = {
 };
 
 export default function HomeHero({ priceLabels }: HomeHeroProps) {
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
   const handleCheckoutClick = (plan: "single" | "pack3" | "subscription") => {
     track("hero_plan_click", {
       source: "home-hero",
@@ -47,6 +50,11 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">No account required</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD export in seconds</span>
+            {printCheckoutEnabled && (
+              <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100">
+                Printed + framed options
+              </span>
+            )}
           </div>
         </div>
 
@@ -83,6 +91,12 @@ export default function HomeHero({ priceLabels }: HomeHeroProps) {
               Unlimited {priceLabels.subscription}/mo
             </a>
           </div>
+          {printCheckoutEnabled && (
+            <p className="mt-3 text-xs text-neutral-200">
+              Prefer physical delivery? Open the editor and choose <span className="font-semibold text-amber-200">Unframed print</span> or{" "}
+              <span className="font-semibold text-amber-200">Framed print</span> at checkout.
+            </p>
+          )}
         </div>
       </section>
     </main>
