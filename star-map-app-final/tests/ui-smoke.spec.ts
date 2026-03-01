@@ -144,3 +144,35 @@ test("homepage referral query logs one visit per browser session", async ({ page
   await page.waitForTimeout(1800);
   expect(referralVisitCalls).toBe(1);
 });
+
+test("print-intent landing handles print intent consistently", async ({ page }) => {
+  await gotoEditor(page, {
+    force: "desktop",
+    query: {
+      source: "home-delivery-print-framed",
+      checkout: "print",
+      print_variant: "poster_framed",
+    },
+  });
+
+  await applySampleMoment(page);
+
+  const printPrimaryCta = page.getByRole("button", { name: /Print & frame/i });
+  const printCtaVisible = await printPrimaryCta.isVisible({ timeout: 2500 }).catch(() => false);
+
+  if (printCtaVisible) {
+    const printedGiftTab = page.getByRole("button", { name: /Printed gift/i });
+    if (!(await printedGiftTab.isVisible({ timeout: 1500 }).catch(() => false))) {
+      await printPrimaryCta.click();
+    }
+    await expect(printedGiftTab).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole("button", { name: /Framed print \(recommended\)/i })).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/Shipping address is collected in Stripe checkout/i)).toBeVisible({ timeout: 8000 });
+    return;
+  }
+
+  // SAFE_OFF mode fallback: print checkout is intentionally hidden.
+  await page.getByLabel("HD export").click();
+  await expect(page.getByText(/One HD export/i)).toBeVisible({ timeout: 8000 });
+  await expect(page.getByRole("button", { name: /Printed gift/i })).toHaveCount(0);
+});
