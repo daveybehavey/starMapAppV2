@@ -97,6 +97,16 @@ function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
   return raw;
 }
 
+function extractShippingDetails(session: Stripe.Checkout.Session): Stripe.Checkout.Session.ShippingDetails | null {
+  if (session.shipping_details) return session.shipping_details;
+  const collected = (
+    session as Stripe.Checkout.Session & {
+      collected_information?: { shipping_details?: Stripe.Checkout.Session.ShippingDetails | null };
+    }
+  ).collected_information?.shipping_details;
+  return collected ?? null;
+}
+
 function getPlan(
   session: Stripe.Checkout.Session,
   orderType: CheckoutOrderType,
@@ -354,7 +364,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
   if (existing?.status === "sent") return;
 
-  const payload: PrintOrderRecord = {
+  let payload: PrintOrderRecord = {
     status: "pending",
     sessionId: session.id,
     mapId: getMapId(session),
@@ -365,7 +375,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     currency: session.currency,
     customerEmail: session.customer_details?.email ?? session.customer_email ?? null,
     customerName: session.customer_details?.name ?? null,
-    shippingDetails: session.shipping_details ?? null,
+    shippingDetails: extractShippingDetails(session),
     attempts: (existing?.attempts ?? 0) + 1,
     createdAt: existing?.createdAt ?? Date.now(),
   };
@@ -382,7 +392,22 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   const printAssetUrl = buildPrintAssetUrl(siteUrl, printAssetId);
-  const recipient = getPrintRecipient(payload);
+  let recipient = getPrintRecipient(payload);
+  if (!recipient && stripe) {
+    try {
+      const latest = await stripe.checkout.sessions.retrieve(session.id);
+      payload = {
+        ...payload,
+        customerEmail: latest.customer_details?.email ?? latest.customer_email ?? payload.customerEmail ?? null,
+        customerName: latest.customer_details?.name ?? payload.customerName ?? null,
+        shippingDetails: extractShippingDetails(latest),
+      };
+      await kv.set(printOrderKey(session.id), payload);
+      recipient = getPrintRecipient(payload);
+    } catch (error) {
+      console.warn("Print order recipient refresh failed", error);
+    }
+  }
   if (!recipient) {
     await kv.set(printOrderKey(session.id), {
       ...payload,
