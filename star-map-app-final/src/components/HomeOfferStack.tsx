@@ -117,6 +117,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </article>
         </div>
 
+        <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
+          <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
+            <li>Production typically takes 2-5 business days before shipping.</li>
+            <li>Shipping cost and delivery estimate are shown in checkout before payment.</li>
+            <li>If a print arrives damaged, contact support@starmapco.com for help.</li>
+            <li>You can add the HD digital file to a print order for {printLabels.digitalAddOn}.</li>
+          </ul>
+        </div>
+
         <div className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital HD plans</p>

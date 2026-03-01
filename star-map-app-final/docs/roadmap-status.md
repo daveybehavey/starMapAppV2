@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-02-27
+Updated: 2026-03-01
 
 ## Phase 0: Foundation (Done)
 
@@ -70,12 +70,26 @@ Additional manual checks required:
 3. Download page access/entitlement behavior.
 4. Success page behavior for digital and print order modes.
 5. Referral link generation and reward credit flow.
+6. Print internal matrix (unframed success, framed success, forced failure, admin retry).
 
 Post-deploy sanity:
 
 ```bash
 npm run qa:live-smoke
 ```
+
+Recent status:
+
+- `qa:smoke` (25 tests) passes locally.
+- `qa:release-gate` passes locally (env, static-home sync, lint, typecheck, build, go/no-go).
+- Added print operations monitor script: `npm run qa:print-ops`.
+- Added static homepage drift guard scripts:
+  - `npm run sync:static-home`
+  - `npm run check:static-home`
+- Fixed iOS-safe date handling in additional editor inputs:
+  - `DateTimeControls`
+  - `SimplifiedEditor`
+- Fixed a production SEO blocker in code (blog OG-image SVG fallback) that should clear live sitemap 503s after next deploy.
 
 ## Phase 4: Growth and Conversion (Planned)
 
@@ -108,6 +122,11 @@ npm run qa:live-smoke
   - digital -> print add-on
   - print -> digital add-on
 - Add operational visibility for print fulfillment errors/retries.
+
+### Phase 5 progress now
+
+- Operational visibility shipped via `qa:print-ops` (Stripe print sessions + KV order status correlation).
+- Admin retry/status endpoints are already live and token-protected.
 
 ## No-Go Conditions
 

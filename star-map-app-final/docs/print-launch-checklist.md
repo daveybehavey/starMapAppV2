@@ -52,6 +52,7 @@ npm run qa:printful
 npm run lint
 npx tsc --noEmit
 npm run qa:smoke
+npm run qa:print-ops -- --hours 336 --limit 50
 ```
 
 Expect:
@@ -60,6 +61,7 @@ Expect:
 - `qa:printful` validates store and variant IDs.
 - lint and typecheck pass.
 - smoke suite passes (editor/export/payment regression checks).
+- print ops report runs and is readable by the operator.
 
 ## Smoke Tests (Before Go-Live)
 
@@ -74,6 +76,7 @@ Expect:
 4. Confirm print order status becomes `sent` (or expected status in test flow).
 5. Confirm digital entitlement behavior is correct for print + digital add-on.
 6. Run `npm run qa:live-smoke` after deploy to verify production metadata/footer/API sanity.
+7. Run `npm run qa:print-ops -- --hours 72 --limit 50` to verify print order status visibility.
 
 ## No-Go Conditions
 

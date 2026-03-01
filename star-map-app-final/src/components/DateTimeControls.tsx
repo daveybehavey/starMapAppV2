@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 
 const DEFAULT_TIME = "00:00:00";
 
@@ -22,6 +23,7 @@ export default function DateTimeControls({ dateTime, onChange, timezone }: Props
 
   const handleDateChange = (value: string) => {
     if (!value) return;
+    if (!isValidIsoDateInput(value)) return;
     const iso = combineDateTime(value, timeValue, timezone);
     if (iso) onChange(iso);
   };
@@ -37,12 +39,12 @@ export default function DateTimeControls({ dateTime, onChange, timezone }: Props
         <label htmlFor="star-date" className="mb-1 block text-xs font-semibold text-white">
           Date
         </label>
-        <input
+        <IOSSafeDateInput
           id="star-date"
-          type="date"
           value={dateValue}
           onChange={(e) => handleDateChange(e.target.value)}
-          className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
+          placeholder="YYYY-MM-DD"
+          className="ios-form-control w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
         />
       </div>
 
@@ -78,6 +80,22 @@ function formatDateInput(date: Date) {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function isValidIsoDateInput(value: string) {
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+  const [yearStr, monthStr, dayStr] = trimmed.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return false;
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return (
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day
+  );
 }
 
 function formatTimeInput(date: Date) {

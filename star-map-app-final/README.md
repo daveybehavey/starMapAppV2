@@ -82,9 +82,12 @@ Open [http://localhost:3000](http://localhost:3000)
 | `npm run preview` | Build and preview for Cloudflare |
 | `npm run deploy` | Deploy to Cloudflare Pages |
 | `npm run check:env` | Validate required environment variables |
+| `npm run sync:static-home` | Sync `public/landing.html` from `public/index.html` |
+| `npm run check:static-home` | Fail if `public/index.html` and `public/landing.html` drift |
 | `npm run qa:live-smoke` | Run lightweight post-deploy checks on production |
 | `npm run qa:sitemap-health` | Validate sitemap URL health |
 | `npm run qa:printful` | Validate Printful store and variant IDs |
+| `npm run qa:print-ops` | Report recent print sessions + fulfillment status |
 | `npm run qa:go-no-go` | Validate print launch flags and fulfillment readiness |
 | `npm run qa:smoke` | Run core Playwright smoke suite |
 | `npm run qa:release-gate` | Run full local release gate checks |
@@ -117,6 +120,12 @@ Configure environment variables in the Cloudflare dashboard.
 3. `renderStarMap` uses astronomy-engine to calculate star positions
 4. Canvas rendering with shape masks, effects, and text overlays
 
+### Homepage Source of Truth
+
+- The live `/` landing page is served from `public/index.html` (and mirrored to `public/landing.html`).
+- Keep these two files synced with `npm run sync:static-home`.
+- Release gate now checks this automatically via `npm run check:static-home`.
+
 ### Premium Features
 
 - Premium features are gated by `paid` state
@@ -138,4 +147,5 @@ Configure environment variables in the Cloudflare dashboard.
 - Before enabling live print checkout, run `npm run check:env` and `npm run qa:printful`.
 - Before production deploys, run `npm run qa:release-gate:smoke`.
 - Full go/no-go checklist: `docs/print-launch-checklist.md`.
+- Day-2 operations + retry flow: `docs/print-ops-runbook.md`.
 - Current phase/status tracker: `docs/roadmap-status.md`.

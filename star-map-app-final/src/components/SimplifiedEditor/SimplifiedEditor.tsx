@@ -17,6 +17,7 @@ import { applyStyleDefaults } from "@/lib/styleDefaults";
 import dynamic from "next/dynamic";
 import { LocationInput } from "./LocationInput";
 import { AdvancedOptionsPanel } from "./AdvancedOptionsPanel";
+import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -269,8 +270,15 @@ export function SimplifiedEditor() {
 
   const handleDateChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const nextValue = e.target.value;
-      setDateTouched(true);
+      const nextValue = e.target.value.trim();
+      if (!nextValue) {
+        setDateError("Please choose a valid date.");
+        return;
+      }
+      if (!isValidIsoDateInput(nextValue)) {
+        setDateError("Use a real date in YYYY-MM-DD format.");
+        return;
+      }
       if (nextValue > maxDateValue) {
         setDateError("Please choose a past date.");
         return;
@@ -682,13 +690,13 @@ export function SimplifiedEditor() {
             >
               When was it?
             </label>
-            <input
+            <IOSSafeDateInput
               id={`${formId}-date`}
-              type="date"
               value={dateInputValue}
               onChange={handleDateChange}
               onBlur={() => setDateTouched(true)}
               max={maxDateValue}
+              placeholder="YYYY-MM-DD"
               disabled={mode === "sample"}
               aria-invalid={showDateError}
               aria-describedby={`${formId}-date-hint${showDateError ? ` ${formId}-date-error` : ""}`}
@@ -1070,6 +1078,22 @@ function normalizeTimeInput(time: string) {
   if (!time) return DEFAULT_EXACT_TIME;
   if (time.length === 5) return `${time}:00`;
   return time;
+}
+
+function isValidIsoDateInput(value: string) {
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+  const [yearStr, monthStr, dayStr] = trimmed.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return false;
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return (
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day
+  );
 }
 
 function toISODate(date: Date) {

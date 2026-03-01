@@ -185,4 +185,21 @@ test.describe("API route regressions", () => {
     expect(retryBody.error).toMatch(/unauthorized/i);
   });
 
+  test("seasonal blog pages render without 5xx errors", async ({ request }) => {
+    const seasonalSlugs = [
+      "mothers-day-star-map-gift-ideas",
+      "fathers-day-star-map-gift-ideas",
+      "graduation-star-map-gift",
+    ];
+
+    for (const slug of seasonalSlugs) {
+      const response = await request.get(`/blog/${slug}`, {
+        headers: { "x-forwarded-for": randomIp() },
+      });
+      expect(response.status(), `Expected /blog/${slug} to render successfully`).toBe(200);
+      const html = await response.text();
+      expect(html).toContain("<h1");
+    }
+  });
+
 });

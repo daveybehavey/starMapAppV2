@@ -1,0 +1,221 @@
+#!/usr/bin/env node
+
+import Stripe from "stripe";
+import dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env" });
+
+function parseArgs(argv) {
+  const args = {
+    site: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com",
+    hours: 168,
+    limit: 40,
+    json: false,
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--site") {
+      const next = argv[i + 1];
+      if (!next) throw new Error("Missing value for --site");
+      args.site = next;
+      i += 1;
+      continue;
+    }
+    if (token === "--hours") {
+      const next = Number(argv[i + 1]);
+      if (!Number.isFinite(next) || next <= 0) throw new Error("--hours must be a positive number");
+      args.hours = Math.floor(next);
+      i += 1;
+      continue;
+    }
+    if (token === "--limit") {
+      const next = Number(argv[i + 1]);
+      if (!Number.isFinite(next) || next <= 0) throw new Error("--limit must be a positive number");
+      args.limit = Math.min(200, Math.floor(next));
+      i += 1;
+      continue;
+    }
+    if (token === "--json") {
+      args.json = true;
+      continue;
+    }
+    if (token === "-h" || token === "--help") {
+      console.log(`Usage: node scripts/print-ops-report.mjs [--site <url>] [--hours <n>] [--limit <n>] [--json]
+
+Reports recent print checkout sessions from Stripe and cross-checks print order status through:
+  GET /api/print/orders/status?session_id=...
+
+Required env vars:
+  STRIPE_SECRET_KEY
+  PRINT_ADMIN_TOKEN
+`);
+      process.exit(0);
+    }
+    throw new Error(`Unknown arg: ${token}`);
+  }
+
+  args.site = args.site.replace(/\/+$/, "");
+  return args;
+}
+
+function toIso(tsSeconds) {
+  return new Date(tsSeconds * 1000).toISOString();
+}
+
+function maskEmail(email) {
+  if (!email || !email.includes("@")) return "";
+  const [name, domain] = email.split("@");
+  if (name.length <= 2) return `*@${domain}`;
+  return `${name.slice(0, 2)}***@${domain}`;
+}
+
+async function loadPrintSessions(stripe, args) {
+  const createdGte = Math.floor(Date.now() / 1000) - args.hours * 60 * 60;
+  const sessions = [];
+  let startingAfter = undefined;
+
+  while (sessions.length < args.limit) {
+    const page = await stripe.checkout.sessions.list({
+      limit: 100,
+      created: { gte: createdGte },
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+
+    for (const session of page.data) {
+      const metadata = session.metadata ?? {};
+      const orderType = String(metadata.orderType || metadata.order_type || "").trim().toLowerCase();
+      const hasPrintVariant = Boolean(metadata.printVariant || metadata.print_variant);
+      if (orderType === "print" || hasPrintVariant) {
+        sessions.push(session);
+      }
+      if (sessions.length >= args.limit) break;
+    }
+
+    if (!page.has_more || !page.data.length) break;
+    startingAfter = page.data[page.data.length - 1]?.id;
+    if (!startingAfter) break;
+  }
+
+  return sessions;
+}
+
+async function fetchStatus(site, adminToken, sessionId) {
+  const url = `${site}/api/print/orders/status?session_id=${encodeURIComponent(sessionId)}`;
+  const res = await fetch(url, {
+    headers: {
+      "x-print-admin-token": adminToken,
+      accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  const body = await res.json().catch(() => null);
+  if (res.status === 404) {
+    return { ok: false, status: "missing", details: "No KV print record" };
+  }
+  if (!res.ok || !body?.ok) {
+    const msg = body?.error || `HTTP ${res.status}`;
+    return { ok: false, status: "error", details: String(msg) };
+  }
+
+  const order = body.order ?? {};
+  return {
+    ok: true,
+    status: String(order.status || "unknown"),
+    attempts: Number(order.attempts || 0),
+    error: order.error ? String(order.error) : "",
+    printfulOrderId: order.printfulOrderId ? String(order.printfulOrderId) : "",
+    sentAt: order.sentAt ? new Date(order.sentAt).toISOString() : "",
+  };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+
+  const stripeSecret = process.env.STRIPE_SECRET_KEY?.trim() || "";
+  const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
+  if (!stripeSecret) throw new Error("Missing STRIPE_SECRET_KEY");
+  if (!adminToken) throw new Error("Missing PRINT_ADMIN_TOKEN");
+
+  const stripe = new Stripe(stripeSecret);
+  const sessions = await loadPrintSessions(stripe, args);
+
+  const rows = [];
+  const counts = {
+    sent: 0,
+    pending: 0,
+    failed: 0,
+    missing: 0,
+    error: 0,
+    unknown: 0,
+  };
+
+  for (const session of sessions) {
+    const sessionId = session.id;
+    const status = await fetchStatus(args.site, adminToken, sessionId);
+    const statusLabel = status.status in counts ? status.status : "unknown";
+    counts[statusLabel] += 1;
+
+    rows.push({
+      sessionId,
+      created: toIso(session.created),
+      amount: session.amount_total ?? 0,
+      currency: (session.currency || "").toUpperCase(),
+      email: maskEmail(session.customer_details?.email || session.customer_email || ""),
+      paid: session.payment_status,
+      status: status.status,
+      attempts: status.attempts ?? "",
+      printfulOrderId: status.printfulOrderId ?? "",
+      error: status.error || status.details || "",
+      sentAt: status.sentAt || "",
+    });
+  }
+
+  const report = {
+    site: args.site,
+    hours: args.hours,
+    limit: args.limit,
+    scannedPrintSessions: rows.length,
+    counts,
+    rows,
+  };
+
+  if (args.json) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  console.log("Print operations report");
+  console.log(`Site: ${report.site}`);
+  console.log(`Window: last ${report.hours} hours`);
+  console.log(`Scanned print sessions: ${report.scannedPrintSessions}`);
+  console.log(
+    `Status counts -> sent=${counts.sent} pending=${counts.pending} failed=${counts.failed} missing=${counts.missing} error=${counts.error}`,
+  );
+
+  if (!rows.length) {
+    console.log("No print checkout sessions found in this window.");
+    return;
+  }
+
+  console.table(
+    rows.map((row) => ({
+      sessionId: row.sessionId.slice(0, 18),
+      created: row.created.slice(0, 19).replace("T", " "),
+      amount: `${(Number(row.amount || 0) / 100).toFixed(2)} ${row.currency || "USD"}`,
+      paid: row.paid,
+      status: row.status,
+      attempts: row.attempts,
+      printfulOrderId: row.printfulOrderId,
+      error: row.error ? row.error.slice(0, 80) : "",
+    })),
+  );
+}
+
+main().catch((error) => {
+  console.error("Print operations report failed.");
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
