@@ -14,9 +14,7 @@ test.describe("Checkout Security", () => {
 
     console.log("→ Going to homepage...");
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(
-      page.getByRole("heading", { name: /custom star map/i }).first(),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("#preview")).toBeVisible({ timeout: 15000 });
 
     // Check initial premium status
     console.log("→ Checking initial premium status...");
@@ -54,9 +52,7 @@ test.describe("Checkout Security", () => {
     // Now simulate "going back" by navigating away and returning
     console.log("→ Navigating to homepage (simulating back)...");
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(
-      page.getByRole("heading", { name: /custom star map/i }).first(),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("#preview")).toBeVisible({ timeout: 15000 });
 
     // Check premium status again - should still be unpaid
     console.log("→ Checking premium status after 'navigation back'...");
@@ -98,9 +94,7 @@ test.describe("Checkout Security", () => {
     await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
     await page.locator("#editor").waitFor({ state: "visible", timeout: 60000 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(
-      page.getByRole("heading", { name: /custom star map/i }).first(),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("#preview")).toBeVisible({ timeout: 15000 });
 
     // Check cookies again - should still be none
     cookies = await page.context().cookies();

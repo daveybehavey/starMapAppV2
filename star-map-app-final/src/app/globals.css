@@ -754,13 +754,44 @@ input[type="range"]:hover::-moz-range-thumb {
 @supports (-webkit-touch-callout: none) {
   input[type="date"].ios-form-control,
   input[type="time"].ios-form-control {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    min-width: 0;
     max-width: 100%;
+    -webkit-min-logical-width: 0;
+    padding-right: 2.3rem;
+    overflow: hidden;
   }
 
   input[type="date"].ios-form-control::-webkit-date-and-time-value,
   input[type="time"].ios-form-control::-webkit-date-and-time-value {
+    display: block;
+    width: 100%;
     min-width: 0;
+    max-width: 100%;
     text-align: left;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  input[type="date"].ios-form-control::-webkit-datetime-edit,
+  input[type="time"].ios-form-control::-webkit-datetime-edit {
+    min-width: 0;
+    padding: 0;
+  }
+
+  input[type="date"].ios-form-control::-webkit-datetime-edit-fields-wrapper,
+  input[type="time"].ios-form-control::-webkit-datetime-edit-fields-wrapper {
+    min-width: 0;
+    padding: 0;
+  }
+
+  input[type="date"].ios-form-control::-webkit-calendar-picker-indicator,
+  input[type="time"].ios-form-control::-webkit-calendar-picker-indicator {
+    margin: 0;
+    padding: 0;
   }
 }
 

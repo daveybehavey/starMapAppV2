@@ -68,7 +68,11 @@ export const kv = {
   async get<T>(key: string): Promise<T | null> {
     const cfKv = await getCloudflareKv();
     if (cfKv) {
-      return await cfKv.get<T>(key, "json");
+      try {
+        return await cfKv.get<T>(key, "json");
+      } catch {
+        // Fall through to local fallback storage in dev/test or transient KV outages.
+      }
     }
     if (memoryStore.has(key)) {
       return memoryStore.get(key) as T;
@@ -83,8 +87,12 @@ export const kv = {
     const cfKv = await getCloudflareKv();
     if (cfKv) {
       const ttl = ttlFromOptions(options);
-      await cfKv.put(key, JSON.stringify(value), ttl ? { expirationTtl: ttl } : undefined);
-      return "OK";
+      try {
+        await cfKv.put(key, JSON.stringify(value), ttl ? { expirationTtl: ttl } : undefined);
+        return "OK";
+      } catch {
+        // Fall through to local fallback storage in dev/test or transient KV outages.
+      }
     }
     memoryStore.set(key, value);
     await writeFallbackValue(key, value);
@@ -94,10 +102,14 @@ export const kv = {
     const cfKv = await getCloudflareKv();
     const ttl = ttlFromOptions(options);
     if (cfKv) {
-      const current = (await cfKv.get<number>(key, "json")) ?? 0;
-      const next = current + by;
-      await cfKv.put(key, JSON.stringify(next), ttl ? { expirationTtl: ttl } : undefined);
-      return next;
+      try {
+        const current = (await cfKv.get<number>(key, "json")) ?? 0;
+        const next = current + by;
+        await cfKv.put(key, JSON.stringify(next), ttl ? { expirationTtl: ttl } : undefined);
+        return next;
+      } catch {
+        // Fall through to local fallback storage in dev/test or transient KV outages.
+      }
     }
     const current = Number((await kv.get<number>(key)) ?? 0);
     const next = current + by;
