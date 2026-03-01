@@ -15,6 +15,10 @@ export default function RevenueTrustModule({
   heading = "Confidence before checkout",
   intro = "Everything below is designed to remove guesswork before you buy.",
 }: RevenueTrustModuleProps) {
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
+
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <div className="space-y-2">
@@ -28,8 +32,14 @@ export default function RevenueTrustModule({
           <p className="mt-1 text-xs text-neutral-700">Stripe checkout with card security and explicit terms confirmation.</p>
         </div>
         <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
-          <p className="text-sm font-semibold text-midnight">Instant digital delivery</p>
-          <p className="mt-1 text-xs text-neutral-700">HD file unlocks immediately after successful payment verification.</p>
+          <p className="text-sm font-semibold text-midnight">
+            {printCheckoutEnabled ? "Digital + physical options" : "Instant digital delivery"}
+          </p>
+          <p className="mt-1 text-xs text-neutral-700">
+            {printCheckoutEnabled
+              ? "Unlock HD instantly, or choose unframed/framed physical print checkout from the editor."
+              : "HD file unlocks immediately after successful payment verification."}
+          </p>
         </div>
         <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
           <p className="text-sm font-semibold text-midnight">Print-ready quality</p>
@@ -74,6 +84,7 @@ export default function RevenueTrustModule({
           <li>Verify your date and location one last time in preview.</li>
           <li>Check title, subtitle, and dedication spelling.</li>
           <li>Confirm your preferred style and shape before checkout.</li>
+          {printCheckoutEnabled && <li>If ordering physical print, choose unframed vs framed before payment.</li>}
           <li>Use the print guide if you need framing confidence.</li>
         </ul>
       </div>
