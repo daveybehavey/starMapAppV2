@@ -36,6 +36,7 @@ type ReferralSummary = {
 const PREVIEW_BASE_WIDTH = 1200;
 const PREVIEW_MAX_DIM = 2200;
 const PREVIEW_MAX_DPR = 2;
+const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   visits: 0,
@@ -72,6 +73,14 @@ function getPreviewRenderSize(ratio: number) {
     width: Math.round(baseWidth * pixelRatio),
     height: Math.max(1, Math.round(baseHeight * pixelRatio)),
   };
+}
+
+function estimateDataUrlBytes(dataUrl: string) {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1) return Number.POSITIVE_INFINITY;
+  const base64 = dataUrl.slice(commaIndex + 1);
+  const paddingLength = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - paddingLength;
 }
 
 function normalizeRecipe(recipe: MapRecipe): MapRecipe {
@@ -670,29 +679,60 @@ export default function DownloadClient() {
         }
         await ensureFontsLoaded(activeRecipe);
         const { shape, ratio } = await resolveShapeAndRatio(activeRecipe);
-        const width = 6000;
-        const height = Math.max(1, Math.round(width / ratio));
-        const canvas = document.createElement("canvas");
-        await renderStarMap({
-          recipe: { ...activeRecipe, shape },
-          canvas,
-          width,
-          height,
-          watermark: false,
-          quality: "export",
-          premium: true,
-        });
-        const assetRes = await fetch("/api/print/assets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mapId: mapId ?? undefined,
-            dataUrl: canvas.toDataURL("image/png"),
-            source: "download",
-          }),
-        });
-        const assetData = (await assetRes.json().catch(() => null)) as { assetId?: string; error?: string } | null;
-        if (!assetRes.ok || !assetData?.assetId) {
+        let uploadedAssetId: string | null = null;
+        let lastAssetError: string | null = null;
+        const exportWidths = [6000, 5200];
+        const uploadQualities = [0.9, 0.8, 0.7, 0.6, 0.5];
+        for (const exportWidth of exportWidths) {
+          if (uploadedAssetId) break;
+          const exportHeight = Math.max(1, Math.round(exportWidth / ratio));
+          const canvas = document.createElement("canvas");
+          await renderStarMap({
+            recipe: { ...activeRecipe, shape },
+            canvas,
+            width: exportWidth,
+            height: exportHeight,
+            watermark: false,
+            quality: "export",
+            premium: true,
+          });
+          for (let index = 0; index < uploadQualities.length; index += 1) {
+            const quality = uploadQualities[index];
+            const dataUrl = canvas.toDataURL("image/jpeg", quality);
+            if (estimateDataUrlBytes(dataUrl) > MAX_PRINT_ASSET_BYTES) {
+              lastAssetError = "print_asset_too_large";
+              continue;
+            }
+            const assetRes = await fetch("/api/print/assets", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mapId: mapId ?? undefined,
+                dataUrl,
+                source: "download",
+              }),
+            });
+            const assetData = (await assetRes.json().catch(() => null)) as
+              | { assetId?: string; error?: string }
+              | null;
+            if (assetRes.ok && assetData?.assetId) {
+              uploadedAssetId = assetData.assetId;
+              break;
+            }
+            if (typeof assetData?.error === "string") {
+              lastAssetError = assetData.error;
+            }
+            const shouldRetryForSize =
+              index < uploadQualities.length - 1 &&
+              typeof assetData?.error === "string" &&
+              /16MB|base64|Invalid print asset/i.test(assetData.error);
+            if (!shouldRetryForSize) break;
+          }
+        }
+        if (!uploadedAssetId) {
+          if (lastAssetError === "print_asset_too_large") {
+            throw new Error("print_asset_too_large");
+          }
           throw new Error("asset_upload_failed");
         }
         const res = await fetch("/api/checkout", {
@@ -703,7 +743,7 @@ export default function DownloadClient() {
             orderType: "print",
             printVariant: variant,
             includeDigitalAddOn: false,
-            printAssetId: assetData.assetId,
+            printAssetId: uploadedAssetId,
             mapId: mapId ?? undefined,
           }),
         });
@@ -732,6 +772,8 @@ export default function DownloadClient() {
             ? "We couldn't find your saved map. Open the editor once, then try print checkout again."
             : reason === "asset_upload_failed"
               ? "We couldn't prepare your print file. Please try again."
+              : reason === "print_asset_too_large"
+                ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
               : reason === "missing_print_asset"
                 ? "Could not attach your print file. Please retry print checkout."
                 : reason === "print_checkout_disabled"

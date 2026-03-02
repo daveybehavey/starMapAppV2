@@ -76,6 +76,7 @@ const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const PROMO_CODE_KEY = "star-map-promo-code";
+const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 
 function normalizePromoCode(raw: string | null | undefined) {
   if (!raw) return null;
@@ -108,6 +109,14 @@ function parsePrintVariantParam(raw: string | null | undefined): PrintVariant | 
   const trimmed = raw.trim();
   if (trimmed === "poster_framed" || trimmed === "poster_unframed") return trimmed;
   return null;
+}
+
+function estimateDataUrlBytes(dataUrl: string) {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1) return Number.POSITIVE_INFINITY;
+  const base64 = dataUrl.slice(commaIndex + 1);
+  const paddingLength = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - paddingLength;
 }
 
 type PaywallIntent = "digital" | "print";
@@ -933,47 +942,62 @@ export function EditorExperience({
             shapeData && shapeData.viewBox.height > 0
               ? shapeData.viewBox.width / shapeData.viewBox.height
               : aspectRatioToNumber(recipeForCheckout.aspectRatio);
-          const width = 6000;
-          const height = Math.max(1, Math.round(width / ratio));
-          const printCanvas = document.createElement("canvas");
-          await renderStarMap({
-            recipe: recipeForCheckout,
-            canvas: printCanvas,
-            width,
-            height,
-            watermark: false,
-            quality: "export",
-            premium: true,
-          });
           // Use JPEG for print asset upload to stay under API payload limits while preserving high quality.
-          // Retry once at a lower quality if the first upload exceeds size validation.
+          // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
-          const uploadQualities = [0.92, 0.82];
-          for (let index = 0; index < uploadQualities.length; index += 1) {
-            const quality = uploadQualities[index];
-            const printAssetRes = await fetch("/api/print/assets", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                mapId: mapId ?? undefined,
-                dataUrl: printCanvas.toDataURL("image/jpeg", quality),
-                source: "editor",
-              }),
+          let lastAssetError: string | null = null;
+          const exportWidths = [6000, 5200];
+          const uploadQualities = [0.92, 0.82, 0.72, 0.62, 0.52];
+          for (const exportWidth of exportWidths) {
+            if (uploadedAssetId) break;
+            const exportHeight = Math.max(1, Math.round(exportWidth / ratio));
+            const printCanvas = document.createElement("canvas");
+            await renderStarMap({
+              recipe: recipeForCheckout,
+              canvas: printCanvas,
+              width: exportWidth,
+              height: exportHeight,
+              watermark: false,
+              quality: "export",
+              premium: true,
             });
-            const printAssetData = (await printAssetRes.json().catch(() => null)) as
-              | { assetId?: string; error?: string }
-              | null;
-            if (printAssetRes.ok && printAssetData?.assetId) {
-              uploadedAssetId = printAssetData.assetId;
-              break;
+            for (let index = 0; index < uploadQualities.length; index += 1) {
+              const quality = uploadQualities[index];
+              const dataUrl = printCanvas.toDataURL("image/jpeg", quality);
+              if (estimateDataUrlBytes(dataUrl) > MAX_PRINT_ASSET_BYTES) {
+                lastAssetError = "print_asset_too_large";
+                continue;
+              }
+              const printAssetRes = await fetch("/api/print/assets", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  mapId: mapId ?? undefined,
+                  dataUrl,
+                  source: "editor",
+                }),
+              });
+              const printAssetData = (await printAssetRes.json().catch(() => null)) as
+                | { assetId?: string; error?: string }
+                | null;
+              if (printAssetRes.ok && printAssetData?.assetId) {
+                uploadedAssetId = printAssetData.assetId;
+                break;
+              }
+              if (typeof printAssetData?.error === "string") {
+                lastAssetError = printAssetData.error;
+              }
+              const shouldRetryForSize =
+                index < uploadQualities.length - 1 &&
+                typeof printAssetData?.error === "string" &&
+                /16MB|base64|Invalid print asset/i.test(printAssetData.error);
+              if (!shouldRetryForSize) break;
             }
-            const shouldRetryForSize =
-              index < uploadQualities.length - 1 &&
-              typeof printAssetData?.error === "string" &&
-              /16MB|base64|Invalid print asset/i.test(printAssetData.error);
-            if (!shouldRetryForSize) break;
           }
           if (!uploadedAssetId) {
+            if (lastAssetError === "print_asset_too_large") {
+              throw new Error("print_asset_too_large");
+            }
             throw new Error("print_asset_failed");
           }
           checkoutPayload.orderType = "print";
@@ -1035,6 +1059,8 @@ export function EditorExperience({
               ? "We couldn't verify your promo code right now. Please try again in a moment."
               : reason === "print_asset_failed"
                 ? "We couldn't prepare your print file. Please try again."
+                : reason === "print_asset_too_large"
+                  ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
                 : reason === "print_checkout_disabled"
                   ? "Print checkout is not live yet."
               : "Checkout is unavailable right now. Please try again shortly.";
