@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
-import { hasValidAdminToken } from "@/lib/adminAuth";
+import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import {
   buildPrintAssetUrl,
@@ -27,19 +27,9 @@ const stripe =
     timeout: 20_000,
   });
 
-function readAdminToken(req: NextRequest) {
-  const headerToken = req.headers.get("x-print-admin-token")?.trim();
-  if (headerToken) return headerToken;
-  const auth = req.headers.get("authorization")?.trim() || "";
-  if (auth.toLowerCase().startsWith("bearer ")) {
-    return auth.slice(7).trim();
-  }
-  return null;
-}
-
 function requireAdmin(req: NextRequest) {
   const configured = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
-  const candidate = readAdminToken(req);
+  const candidate = readAdminTokenFromHeaders(req.headers);
   return hasValidAdminToken(candidate, configured);
 }
 
