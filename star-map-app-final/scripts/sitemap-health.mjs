@@ -4,6 +4,16 @@ import process from "node:process";
 
 const DEFAULT_SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://starmapco.com";
+const MAX_RETRIES = 3;
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status) {
+  return RETRYABLE_STATUS_CODES.has(status);
+}
 
 function printHelp() {
   console.log(`Usage: node scripts/sitemap-health.mjs [options]
@@ -141,11 +151,24 @@ function extractRobotsContent(html) {
 async function inspectOnPage(url, timeoutMs) {
   const issues = [];
   try {
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    let res = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+      const current = await fetch(url, {
+        method: "GET",
+        redirect: "manual",
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!isRetryableStatus(current.status) || attempt === MAX_RETRIES) {
+        res = current;
+        break;
+      }
+      await sleep(150 * attempt);
+    }
+
+    if (!res) {
+      return { canonical: null, robots: null, issues: ["on-page check failed (no response)"] };
+    }
+
     if (!(res.status >= 200 && res.status < 300)) {
       return { canonical: null, robots: null, issues };
     }
@@ -206,18 +229,36 @@ async function fetchSitemap(sitemapUrl, timeoutMs) {
 async function probeUrl(url, timeoutMs, checkOnPage) {
   const startedAt = Date.now();
   try {
-    let res = await fetch(url, {
-      method: "HEAD",
-      redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (res.status === 405 || res.status === 501) {
-      res = await fetch(url, {
-        method: "GET",
+    let res = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+      let current = await fetch(url, {
+        method: "HEAD",
         redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
       });
+      if (current.status === 405 || current.status === 501) {
+        current = await fetch(url, {
+          method: "GET",
+          redirect: "manual",
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      }
+      if (!isRetryableStatus(current.status) || attempt === MAX_RETRIES) {
+        res = current;
+        break;
+      }
+      await sleep(150 * attempt);
     }
+
+    if (!res) {
+      return {
+        url,
+        status: 0,
+        error: "no response",
+        durationMs: Date.now() - startedAt,
+      };
+    }
+
     const result = {
       url,
       status: res.status,
