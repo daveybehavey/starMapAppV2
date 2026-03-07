@@ -99,7 +99,7 @@ export function PaywallModal({
           <li>• 6000px high resolution (poster quality)</li>
           <li>• No watermark</li>
           <li>• Secure Stripe checkout</li>
-          <li>{activeIntent === "print" ? "• Production starts automatically after payment" : "• Instant digital download"}</li>
+          <li>{activeIntent === "print" ? "• Print order is created right after payment" : "• Instant digital download"}</li>
         </ul>
 
         {hasPrintOptions && (

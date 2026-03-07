@@ -2218,7 +2218,7 @@ export function EditorExperience({
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Print production starts automatically after payment.
+                              Secure Stripe checkout. Your print order is created right after payment with shipping details attached.
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <button

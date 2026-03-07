@@ -1110,7 +1110,7 @@ export function MobileCreate({
               <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
                 <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
                 <p className="mt-1 text-[10px] text-amber-100/80">
-                  Secure checkout collects shipping details and starts print production automatically.
+                  Secure checkout collects shipping details and creates your print order right after payment.
                 </p>
                 <div className="mt-2 flex flex-col gap-2">
                   <button
