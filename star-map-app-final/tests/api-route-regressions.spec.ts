@@ -49,6 +49,16 @@ test.describe("API route regressions", () => {
     expect(validResponse.status()).toBe(200);
     expect((await validResponse.json()) as { ok?: boolean }).toEqual({ ok: true });
 
+    const expiredResponse = await requestUntilReady(request, "/api/analytics/funnel", {
+      method: "POST",
+      data: {
+        step: "checkout_expired",
+        source: "playwright_api_test",
+      },
+    });
+    expect(expiredResponse.status()).toBe(200);
+    expect((await expiredResponse.json()) as { ok?: boolean }).toEqual({ ok: true });
+
     const invalidResponse = await requestUntilReady(request, "/api/analytics/funnel", {
       method: "POST",
       data: {

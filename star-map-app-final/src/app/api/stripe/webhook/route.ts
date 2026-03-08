@@ -17,8 +17,9 @@ import {
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
-import { recordPaymentVerifiedOnce } from "@/lib/funnel";
+import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderApprovalAlert } from "@/lib/printOrderAlerts";
+import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,11 @@ type SessionRecord = {
   includesDigitalAddOn?: boolean;
   printAssetId?: string;
   referralCode?: string;
+  expiredAt?: number;
+  recoveryUrl?: string | null;
+  recoveryEmailSentAt?: number;
+  recoveryEmailProvider?: string;
+  recoveryEmailError?: string;
 };
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
@@ -66,6 +72,8 @@ const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
+const recoveryEmailKey = (id: string) => `stripe:checkout_recovery:email:${id}`;
+const RECOVERY_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 
 function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -99,6 +107,10 @@ function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
   const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
   return raw;
+}
+
+function getRecoveryUrl(session: Stripe.Checkout.Session): string | null {
+  return session.after_expiration?.recovery?.url ?? null;
 }
 
 function extractShippingDetails(session: Stripe.Checkout.Session): Stripe.Checkout.Session.ShippingDetails | null {
@@ -531,6 +543,93 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 }
 
+async function hydrateExpiredSession(session: Stripe.Checkout.Session) {
+  const hasRecoveryUrl = Boolean(getRecoveryUrl(session));
+  const hasCustomerEmail = Boolean(normalizeEmail(session.customer_details?.email ?? session.customer_email));
+  if ((hasRecoveryUrl && hasCustomerEmail) || !stripe || !session.id) {
+    return session;
+  }
+
+  try {
+    return await stripe.checkout.sessions.retrieve(session.id);
+  } catch (error) {
+    console.warn("Stripe expired session refresh failed", error);
+    return session;
+  }
+}
+
+async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, eventCreated: number) {
+  if (!session.id) return;
+
+  const hydrated = await hydrateExpiredSession(session);
+  const orderType = getOrderType(hydrated);
+  const printVariant = getPrintVariant(hydrated);
+  const hasDigitalAddOn = includesDigitalAddOn(hydrated);
+  const plan = getPlan(hydrated, orderType, hasDigitalAddOn);
+  const recoveryUrl = getRecoveryUrl(hydrated);
+  const customerEmail = normalizeEmail(hydrated.customer_details?.email ?? hydrated.customer_email);
+  const customerId = typeof hydrated.customer === "string" ? hydrated.customer : null;
+  const expiresAtMs =
+    typeof hydrated.expires_at === "number" && Number.isFinite(hydrated.expires_at)
+      ? hydrated.expires_at * 1000
+      : eventCreated * 1000;
+  const existing = await kv.get<SessionRecord>(sessionKey(hydrated.id));
+
+  const nextRecord: SessionRecord = {
+    ...existing,
+    paid: false,
+    created:
+      existing?.created ??
+      (typeof hydrated.created === "number" && Number.isFinite(hydrated.created) ? hydrated.created * 1000 : Date.now()),
+    mapId: getMapId(hydrated),
+    paymentIntentId: typeof hydrated.payment_intent === "string" ? hydrated.payment_intent : existing?.paymentIntentId,
+    amountTotal: hydrated.amount_total ?? existing?.amountTotal ?? null,
+    currency: hydrated.currency ?? existing?.currency ?? null,
+    plan,
+    customerId: customerId ?? existing?.customerId ?? undefined,
+    customerEmail: customerEmail ?? existing?.customerEmail ?? undefined,
+    orderType,
+    printVariant,
+    includesDigitalAddOn: hasDigitalAddOn,
+    printAssetId: getPrintAssetId(hydrated) ?? existing?.printAssetId,
+    expiredAt: expiresAtMs,
+    recoveryUrl,
+  };
+
+  if (recoveryUrl && customerEmail && !existing?.recoveryEmailSentAt) {
+    const shouldSend = await kv.incr(recoveryEmailKey(hydrated.id), 1, { ex: RECOVERY_EMAIL_TTL_SECONDS });
+    if (shouldSend === 1) {
+      const alertResult = await sendCheckoutRecoveryAlert({
+        sessionId: hydrated.id,
+        email: customerEmail,
+        recoveryUrl,
+        orderType,
+        plan: plan ?? undefined,
+        printVariant,
+        includesDigitalAddOn: hasDigitalAddOn,
+        amountTotal: hydrated.amount_total,
+        currency: hydrated.currency,
+      });
+      if (alertResult.delivered) {
+        nextRecord.recoveryEmailSentAt = Date.now();
+        nextRecord.recoveryEmailProvider = alertResult.provider;
+        nextRecord.recoveryEmailError = undefined;
+      } else {
+        nextRecord.recoveryEmailProvider = alertResult.provider;
+        nextRecord.recoveryEmailError = alertResult.error;
+      }
+    }
+  }
+
+  await kv.set(sessionKey(hydrated.id), nextRecord);
+  await recordCheckoutExpiredOnce({
+    sessionId: hydrated.id,
+    source: orderType === "print" ? "stripe_checkout_expired_print" : "stripe_checkout_expired_digital",
+    plan: orderType === "print" ? printVariant : plan,
+    occurredAt: expiresAtMs,
+  });
+}
+
 export async function POST(req: Request) {
   if (!stripe || !webhookSecret) {
     return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 500 });
@@ -556,6 +655,11 @@ export async function POST(req: Request) {
       await markSessionPaid(session);
       await queuePrintOrder(session);
       await applyReferralReward(session);
+      break;
+    }
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handleExpiredCheckoutSession(session, event.created);
       break;
     }
     case "customer.subscription.updated":

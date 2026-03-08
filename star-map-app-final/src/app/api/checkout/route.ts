@@ -309,6 +309,12 @@ async function createCheckoutSession(
     mode: !isPrintOrder && effectivePlan === "subscription" ? "subscription" : "payment",
     success_url: successUrl,
     cancel_url: cancelUrl,
+    after_expiration: {
+      recovery: {
+        enabled: true,
+        ...(allowPromotionCodes ? { allow_promotion_codes: true } : {}),
+      },
+    },
     client_reference_id: mapId,
     line_items: lineItems,
     metadata,

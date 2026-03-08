@@ -53,6 +53,10 @@ function paymentVerifiedSessionKey(sessionId: string) {
   return `funnel:payment_verified:session:${sessionId}`;
 }
 
+function sessionScopedStepKey(step: FunnelStep, sessionId: string) {
+  return `funnel:${step}:session:${sessionId}`;
+}
+
 function utcDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
@@ -142,6 +146,30 @@ export async function recordPaymentVerifiedOnce(input: {
   if (seen !== 1) return;
   await recordFunnelStep({
     step: "payment_verified",
+    source: input.source,
+    plan: input.plan,
+    experiment: input.experiment,
+    variant: input.variant,
+    occurredAt: input.occurredAt,
+  });
+}
+
+export async function recordCheckoutExpiredOnce(input: {
+  sessionId: string;
+  source?: string;
+  plan?: string;
+  experiment?: string;
+  variant?: string;
+  occurredAt?: string | number | Date;
+}): Promise<void> {
+  const sessionId = input.sessionId.trim();
+  if (!sessionId) return;
+  const seen = await kv.incr(sessionScopedStepKey("checkout_expired", sessionId), 1, {
+    ex: SESSION_DEDUPE_TTL_SECONDS,
+  });
+  if (seen !== 1) return;
+  await recordFunnelStep({
+    step: "checkout_expired",
     source: input.source,
     plan: input.plan,
     experiment: input.experiment,
