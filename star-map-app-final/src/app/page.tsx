@@ -216,6 +216,22 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           },
           {
             "@type": "Question",
+            name: "When do I see shipping cost and delivery timing?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Before payment. Shipping rates and delivery estimates are shown inside checkout for physical orders.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "What if a print arrives damaged?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Contact support@starmapco.com and we will help resolve the issue.",
+            },
+          },
+          {
+            "@type": "Question",
             name: "Can I share my custom star map with others?",
             acceptedAnswer: {
               "@type": "Answer",

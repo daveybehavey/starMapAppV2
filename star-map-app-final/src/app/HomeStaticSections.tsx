@@ -1,6 +1,9 @@
 import Image from "next/image";
 import HomeOfferStack from "@/components/HomeOfferStack";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
+import RevenueTrustModule from "@/components/RevenueTrustModule";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type PriceLabels = {
@@ -35,6 +38,55 @@ export default function HomeStaticSections({
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
+      </section>
+
+      <div className="section-divider my-12 sm:my-14 lg:my-16" />
+
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
+        <PurchaseTrustPanel
+          heading="What happens when you pay"
+          intro="The free preview stays available until you are ready. Pay only when the design looks right, then choose how you want it delivered."
+          leftTitle="Checkout and access"
+          leftPoints={[
+            "Secure Stripe checkout on every order",
+            "HD file unlocks immediately after successful payment",
+            "Single map, 3-pack, or unlimited monthly access",
+          ]}
+          rightTitle="Print and delivery clarity"
+          rightPoints={[
+            "Choose digital only, unframed print, or framed print",
+            "Shipping cost and delivery estimate are shown before payment",
+            "Optional HD digital add-on is available on print orders",
+            "If a print arrives damaged, support@starmapco.com handles it",
+          ]}
+          guideLabel="See the print and frame guide"
+        />
+        <WhatYouReceiveModule
+          heading="Exactly what you receive"
+          intro="This is the handoff from free preview to final purchase, so there is no ambiguity around files, print quality, or timing."
+          items={[
+            {
+              title: "The same map you approved in preview",
+              detail: "Your final export is generated from the same design, date, and location shown in the editor.",
+            },
+            {
+              title: "HD watermark-free file",
+              detail: "Paid digital exports are high resolution and ready for local poster printing or framing.",
+            },
+            {
+              title: "Physical checkout when you want it",
+              detail: "Choose unframed or framed print from the same design without rebuilding your map.",
+            },
+            {
+              title: "Policy and support links before purchase",
+              detail: "Print guidance, returns details, and support contact are available before you pay.",
+            },
+          ]}
+        />
+        <RevenueTrustModule
+          heading="Remove the last-minute hesitation"
+          intro="Most buyers only need three things before checkout: confidence in the file, clarity on print delivery, and reassurance that support exists if anything goes wrong."
+        />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
@@ -166,7 +218,7 @@ export default function HomeStaticSections({
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">FAQ</p>
             <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Quick answers</h2>
             <p className="mt-3 text-sm text-neutral-700 sm:text-base">
-              Fast clarity on accuracy, customization, and downloads.
+              Fast clarity on accuracy, delivery, and what buyers actually receive.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -186,6 +238,18 @@ export default function HomeStaticSections({
               {
                 q: "Are the maps print-ready?",
                 a: "Yes—high-resolution files designed for poster printing.",
+              },
+              {
+                q: "Can I order a framed or unframed version directly?",
+                a: `Yes—checkout supports unframed prints from ${printLabels.unframed} and framed prints from ${printLabels.framed}.`,
+              },
+              {
+                q: "When do I see shipping cost and delivery timing?",
+                a: "Before payment. Shipping rates and delivery estimates are shown inside checkout for physical orders.",
+              },
+              {
+                q: "What if a print arrives damaged?",
+                a: "Email support@starmapco.com and we will help resolve the issue.",
               },
             ].map((item) => (
               <div key={item.q} className="rounded-2xl border border-amber-200/60 bg-white/70 p-4">
