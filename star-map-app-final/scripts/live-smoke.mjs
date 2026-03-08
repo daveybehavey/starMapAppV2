@@ -247,6 +247,27 @@ async function main() {
   }
 
   try {
+    const funnelReconcileRes = await fetchWithTimeout(
+      `${site}/api/analytics/funnel/reconcile`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ days: 14 }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Funnel reconcile endpoint requires auth",
+      funnelReconcileRes.status === 401,
+      `status=${funnelReconcileRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Funnel reconcile endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const printDisabledRes = await fetchWithTimeout(
       `${site}/api/checkout`,
       {

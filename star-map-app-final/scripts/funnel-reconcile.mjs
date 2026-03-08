@@ -11,6 +11,7 @@ function parseArgs(argv) {
     site: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com",
     days: 14,
     json: false,
+    repair: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -33,8 +34,12 @@ function parseArgs(argv) {
       args.json = true;
       continue;
     }
+    if (token === "--repair") {
+      args.repair = true;
+      continue;
+    }
     if (token === "-h" || token === "--help") {
-      console.log(`Usage: node scripts/funnel-reconcile.mjs [--site <url>] [--days <n>] [--json]
+      console.log(`Usage: node scripts/funnel-reconcile.mjs [--site <url>] [--days <n>] [--json] [--repair]
 
 Compares funnel payment_verified count with Stripe paid checkouts in the same time window.
 
@@ -43,6 +48,7 @@ Required env vars:
 
 Optional env vars:
   FUNNEL_DASHBOARD_TOKEN
+  PRINT_ADMIN_TOKEN (required when --repair is used)
 `);
       process.exit(0);
     }
@@ -123,6 +129,27 @@ async function getStripePaidSessions(days) {
   };
 }
 
+async function repairFunnelData(site, days) {
+  const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
+  if (!adminToken) {
+    throw new Error("Missing PRINT_ADMIN_TOKEN for --repair");
+  }
+  const res = await fetch(`${site}/api/analytics/funnel/reconcile`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-token": adminToken,
+    },
+    body: JSON.stringify({ days }),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body?.ok) {
+    throw new Error(`Failed to repair funnel data (${res.status})`);
+  }
+  return body;
+}
+
 function getFunnelPaymentVerifiedCount(data) {
   if (Array.isArray(data?.rows)) {
     const row = data.rows.find((entry) => entry.step === "payment_verified");
@@ -136,6 +163,11 @@ function getFunnelPaymentVerifiedCount(data) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+
+  let repairReport = null;
+  if (args.repair) {
+    repairReport = await repairFunnelData(args.site, args.days);
+  }
 
   const [funnelData, stripeData] = await Promise.all([
     getFunnelData(args.site, args.days),
@@ -152,6 +184,15 @@ async function main() {
     generatedAt: new Date().toISOString(),
     site: args.site,
     days: args.days,
+    repair: repairReport
+      ? {
+          dryRun: Boolean(repairReport.dryRun),
+          scanned: repairReport.scanned ?? 0,
+          eligible: repairReport.eligible ?? 0,
+          alreadyRecorded: repairReport.alreadyRecorded ?? 0,
+          repaired: repairReport.repaired ?? 0,
+        }
+      : null,
     funnelPaymentVerified,
     stripePaidSessions: stripeData.paid,
     stripePaidDigital: stripeData.digital,
@@ -169,6 +210,11 @@ async function main() {
   console.log("Funnel vs Stripe reconciliation");
   console.log(`Site: ${report.site}`);
   console.log(`Window: last ${report.days} days`);
+  if (report.repair) {
+    console.log(
+      `Repair: scanned=${report.repair.scanned} eligible=${report.repair.eligible} already_recorded=${report.repair.alreadyRecorded} repaired=${report.repair.repaired}`,
+    );
+  }
   console.log(`Funnel payment_verified: ${report.funnelPaymentVerified}`);
   console.log(`Stripe paid sessions: ${report.stripePaidSessions} (digital=${report.stripePaidDigital}, print=${report.stripePaidPrint})`);
   console.log(`Stripe sessions scanned: ${report.stripeSessionsScanned}`);
@@ -180,4 +226,3 @@ main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });
-

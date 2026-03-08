@@ -199,6 +199,16 @@ test.describe("API route regressions", () => {
     expect(retryBody.error).toMatch(/unauthorized/i);
   });
 
+  test("funnel reconcile endpoint requires admin token", async ({ request }) => {
+    const response = await requestUntilReady(request, "/api/analytics/funnel/reconcile", {
+      method: "POST",
+      data: { days: 14 },
+    });
+    expect(response.status()).toBe(401);
+    const body = (await response.json()) as { error?: string };
+    expect(body.error).toMatch(/unauthorized/i);
+  });
+
   test("seasonal blog pages render without 5xx errors", async ({ request }) => {
     const seasonalSlugs = [
       "mothers-day-star-map-gift-ideas",

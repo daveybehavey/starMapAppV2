@@ -7,6 +7,7 @@ export type FunnelRecordInput = {
   plan?: string;
   experiment?: string;
   variant?: string;
+  occurredAt?: string | number | Date;
 };
 
 export type FunnelDashboardRow = {
@@ -56,6 +57,21 @@ function utcDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function resolveOccurredAt(value: string | number | Date | undefined) {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value : new Date();
+  }
+  if (typeof value === "number") {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date : new Date();
+  }
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date : new Date();
+  }
+  return new Date();
+}
+
 function normalizeDimension(input: string | undefined, max = 48): string | null {
   if (!input) return null;
   const cleaned = input
@@ -93,7 +109,7 @@ export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> 
   const plan = normalizeDimension(input.plan);
   const experiment = normalizeDimension(input.experiment);
   const variant = normalizeDimension(input.variant);
-  const today = utcDateKey();
+  const today = utcDateKey(resolveOccurredAt(input.occurredAt));
   const tasks: Array<Promise<number>> = [
     kv.incr(totalKey(input.step), 1),
     kv.incr(dailyKey(today, input.step), 1, { ex: DAILY_TTL_SECONDS }),
@@ -118,6 +134,7 @@ export async function recordPaymentVerifiedOnce(input: {
   plan?: string;
   experiment?: string;
   variant?: string;
+  occurredAt?: string | number | Date;
 }): Promise<void> {
   const sessionId = input.sessionId.trim();
   if (!sessionId) return;
@@ -129,7 +146,15 @@ export async function recordPaymentVerifiedOnce(input: {
     plan: input.plan,
     experiment: input.experiment,
     variant: input.variant,
+    occurredAt: input.occurredAt,
   });
+}
+
+export async function hasPaymentVerifiedRecord(sessionId: string): Promise<boolean> {
+  const normalized = sessionId.trim();
+  if (!normalized) return false;
+  const seen = await kv.get<number>(paymentVerifiedSessionKey(normalized));
+  return typeof seen === "number" && seen > 0;
 }
 
 export async function getFunnelDashboard(days = 14): Promise<FunnelDashboardData> {
