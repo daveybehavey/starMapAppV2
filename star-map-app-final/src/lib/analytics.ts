@@ -1,10 +1,24 @@
 import type { FunnelStep } from "./funnelSteps";
+import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 
 export type EventProps = Record<string, string | number | boolean | undefined | null>;
 
 export const ANALYTICS_STORAGE_KEY = "analytics-consent";
 
 let posthogPromise: Promise<typeof import("posthog-js").default> | null = null;
+
+type CheckoutAnalyticsInput = {
+  plan?: CheckoutPlan | null;
+  orderType?: CheckoutOrderType;
+  printVariant?: PrintVariant | null;
+  includeDigitalAddOn?: boolean;
+  value?: number | null;
+  currency?: string | null;
+};
+
+type PurchaseAnalyticsInput = CheckoutAnalyticsInput & {
+  transactionId: string;
+};
 
 export const loadPosthogClient = async () => {
   if (!posthogPromise) {
@@ -32,6 +46,20 @@ function canTrackAnalytics() {
   if (isDoNotTrackEnabled()) return false;
   return true;
 }
+
+function getPublicNumber(name: string, fallback: number) {
+  const raw = (process.env as Record<string, string | undefined>)[name];
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+const DEFAULT_CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY || "usd").trim().toUpperCase();
+const DIGITAL_SINGLE_CENTS = getPublicNumber("NEXT_PUBLIC_PRICE_SINGLE_CENTS", 900);
+const DIGITAL_PACK3_CENTS = getPublicNumber("NEXT_PUBLIC_PACK3_PRICE_CENTS", 1000);
+const DIGITAL_SUBSCRIPTION_CENTS = getPublicNumber("NEXT_PUBLIC_SUBSCRIPTION_PRICE_CENTS", 1900);
+const PRINT_UNFRAMED_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", 4900);
+const PRINT_FRAMED_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", 8900);
+const PRINT_DIGITAL_ADDON_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS", 500);
 
 function canTrackFunnelCounters() {
   if (typeof window === "undefined") return false;
@@ -76,6 +104,83 @@ export function track(event: string, props?: EventProps) {
   } catch {
     // silently ignore tracking errors
   }
+}
+
+function getCheckoutItemId(input: CheckoutAnalyticsInput) {
+  if (input.orderType === "print") {
+    return input.printVariant === "poster_framed" ? "print_poster_framed" : "print_poster_unframed";
+  }
+  if (input.plan === "pack3") return "digital_pack3";
+  if (input.plan === "subscription") return "digital_subscription";
+  return "digital_single";
+}
+
+function getCheckoutItemName(input: CheckoutAnalyticsInput) {
+  if (input.orderType === "print") {
+    const label = input.printVariant === "poster_framed" ? "Custom Framed Star Map Print" : "Custom Star Map Print";
+    return input.includeDigitalAddOn ? `${label} + HD Download` : label;
+  }
+  if (input.plan === "pack3") return "HD Digital Download 3-Pack";
+  if (input.plan === "subscription") return "Unlimited HD Monthly";
+  return "Single HD Digital Download";
+}
+
+function estimateCheckoutValue(input: CheckoutAnalyticsInput) {
+  if (typeof input.value === "number" && Number.isFinite(input.value)) return input.value;
+  if (input.orderType === "print") {
+    const base = input.printVariant === "poster_framed" ? PRINT_FRAMED_CENTS : PRINT_UNFRAMED_CENTS;
+    const total = base + (input.includeDigitalAddOn ? PRINT_DIGITAL_ADDON_CENTS : 0);
+    return total / 100;
+  }
+  if (input.plan === "pack3") return DIGITAL_PACK3_CENTS / 100;
+  if (input.plan === "subscription") return DIGITAL_SUBSCRIPTION_CENTS / 100;
+  return DIGITAL_SINGLE_CENTS / 100;
+}
+
+function getCheckoutCurrency(input: CheckoutAnalyticsInput) {
+  return (input.currency || DEFAULT_CURRENCY).trim().toUpperCase();
+}
+
+function sendGaEvent(eventName: string, params: Record<string, unknown>) {
+  if (!canTrackAnalytics()) return;
+  if (typeof window.gtag !== "function") return;
+  window.gtag("event", eventName, removeUndefinedValues(params));
+}
+
+export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: string }) {
+  sendGaEvent("begin_checkout", {
+    currency: getCheckoutCurrency(input),
+    value: estimateCheckoutValue(input),
+    items: [
+      {
+        item_id: getCheckoutItemId(input),
+        item_name: getCheckoutItemName(input),
+        item_category: input.orderType === "print" ? "print" : "digital",
+        item_variant: input.orderType === "print" ? input.printVariant ?? undefined : input.plan ?? undefined,
+        quantity: 1,
+        price: estimateCheckoutValue(input),
+      },
+    ],
+    source: input.source,
+  });
+}
+
+export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
+  sendGaEvent("purchase", {
+    transaction_id: input.transactionId,
+    currency: getCheckoutCurrency(input),
+    value: estimateCheckoutValue(input),
+    items: [
+      {
+        item_id: getCheckoutItemId(input),
+        item_name: getCheckoutItemName(input),
+        item_category: input.orderType === "print" ? "print" : "digital",
+        item_variant: input.orderType === "print" ? input.printVariant ?? undefined : input.plan ?? undefined,
+        quantity: 1,
+        price: estimateCheckoutValue(input),
+      },
+    ],
+  });
 }
 
 function postFunnelCounter(payload: {

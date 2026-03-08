@@ -22,6 +22,8 @@ type SessionRecord = {
   mapId?: string;
   revoked?: boolean;
   paymentIntentId?: string | null;
+  amountTotal?: number | null;
+  currency?: string | null;
   plan?: CheckoutPlan;
   creditsRemaining?: number;
   creditsTotal?: number;
@@ -116,6 +118,8 @@ export async function GET(req: NextRequest) {
       {
         paid: true,
         mapId,
+        amountTotal: record.amountTotal ?? null,
+        currency: record.currency ?? null,
         plan: record.plan ?? null,
         creditsRemaining: record.creditsRemaining ?? null,
         subscriptionActive: record.subscriptionActive ?? null,
@@ -189,6 +193,8 @@ export async function GET(req: NextRequest) {
       mapId,
       revoked: false,
       paymentIntentId,
+      amountTotal: session.amount_total ?? null,
+      currency: session.currency ?? null,
       plan,
       creditsRemaining: credits || undefined,
       creditsTotal: credits || undefined,
@@ -228,6 +234,8 @@ export async function GET(req: NextRequest) {
       {
         paid: true,
         mapId,
+        amountTotal: session.amount_total ?? null,
+        currency: session.currency ?? null,
         plan: plan ?? null,
         creditsRemaining: credits || null,
         subscriptionActive: plan === "subscription",

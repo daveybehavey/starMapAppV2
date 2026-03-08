@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { track } from "@/lib/analytics";
+import { track, trackBeginCheckout, trackPurchaseCompleted } from "@/lib/analytics";
 import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
@@ -144,6 +144,11 @@ export default function SuccessClient() {
         source: "success",
         orderType,
         printVariant,
+      });
+      trackBeginCheckout({
+        source: "success",
+        plan: "single",
+        orderType: "digital",
       });
       window.location.assign(data.url);
     } catch {
@@ -300,6 +305,8 @@ export default function SuccessClient() {
           const data = (await res.json().catch(() => null)) as {
             paid?: boolean;
             mapId?: string;
+            amountTotal?: number | null;
+            currency?: string | null;
             plan?: CheckoutPlan | null;
             creditsRemaining?: number | null;
             orderType?: CheckoutOrderType;
@@ -319,6 +326,28 @@ export default function SuccessClient() {
 
             setPaid(hasDigitalEntitlement);
             track("purchase_success", { isPaid: hasDigitalEntitlement, orderType: verifiedOrderType });
+            if (typeof window !== "undefined") {
+              try {
+                const purchaseKey = `ga4:purchase:${sessionId}`;
+                if (sessionStorage.getItem(purchaseKey) !== "true") {
+                  trackPurchaseCompleted({
+                    transactionId: sessionId,
+                    plan: verifiedPlan,
+                    orderType: verifiedOrderType,
+                    printVariant: verifiedPrintVariant,
+                    includeDigitalAddOn: Boolean(data.includesDigitalAddOn),
+                    value:
+                      typeof data.amountTotal === "number" && Number.isFinite(data.amountTotal)
+                        ? data.amountTotal / 100
+                        : undefined,
+                    currency: typeof data.currency === "string" ? data.currency : undefined,
+                  });
+                  sessionStorage.setItem(purchaseKey, "true");
+                }
+              } catch {
+                // Ignore storage failures and continue.
+              }
+            }
             setStatus("success");
             setCurrentPlan(verifiedPlan);
             setOrderType(verifiedOrderType);

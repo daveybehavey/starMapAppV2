@@ -45,6 +45,8 @@ type SessionRecord = {
   reason?: string;
   mapId?: string;
   paymentIntentId?: string | null;
+  amountTotal?: number | null;
+  currency?: string | null;
   plan?: CheckoutPlan;
   creditsRemaining?: number;
   creditsTotal?: number;
@@ -166,6 +168,8 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     revoked: false,
     mapId: getMapId(session),
     paymentIntentId,
+    amountTotal: session.amount_total ?? null,
+    currency: session.currency ?? null,
     plan,
     creditsRemaining: credits || undefined,
     creditsTotal: credits || undefined,

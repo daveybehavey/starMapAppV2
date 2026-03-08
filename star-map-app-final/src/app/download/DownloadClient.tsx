@@ -8,7 +8,7 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, type MapRecip
 import { FONT_STACKS } from "@/lib/fonts";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
-import { track, trackFunnelStep } from "@/lib/analytics";
+import { track, trackBeginCheckout, trackFunnelStep } from "@/lib/analytics";
 import {
   formatPrice,
   getPrintPricingTiers,
@@ -763,6 +763,13 @@ export default function DownloadClient() {
           source: "download",
           variant,
           hasMapId: Boolean(mapId),
+        });
+        trackBeginCheckout({
+          source: "download",
+          plan: "single",
+          orderType: "print",
+          printVariant: variant,
+          includeDigitalAddOn: false,
         });
         window.location.assign(data.url);
       } catch (error) {

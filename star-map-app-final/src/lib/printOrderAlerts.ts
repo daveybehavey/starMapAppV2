@@ -13,6 +13,15 @@ type ParsedEmailAddress = {
   name?: string;
 };
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function parseEmailAddress(value?: string | null): ParsedEmailAddress | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -66,6 +75,13 @@ function getVariantLabel(order: PrintOrderRecord) {
   return order.printVariant === "poster_framed" ? "Framed print" : "Unframed print";
 }
 
+function getPrintfulReviewUrl(order: PrintOrderRecord) {
+  if (order.printfulOrderId) {
+    return `https://www.printful.com/dashboard/default/orders/${encodeURIComponent(String(order.printfulOrderId))}`;
+  }
+  return "https://www.printful.com/dashboard/default/orders";
+}
+
 function getSubject(order: PrintOrderRecord) {
   const prefix = order.includesDigitalAddOn ? "Print + HD" : "Print";
   return `New ${prefix} order ready for approval`;
@@ -83,6 +99,8 @@ function getCopy(order: PrintOrderRecord) {
   });
   const amount = formatAmount(order.amountTotal, order.currency);
   const destination = formatDestination(order);
+  const customer = order.customerName || order.customerEmail || "Unknown";
+  const printfulReviewUrl = getPrintfulReviewUrl(order);
   const subject = getSubject(order);
   const text = [
     subject,
@@ -94,34 +112,44 @@ function getCopy(order: PrintOrderRecord) {
     `Variant: ${getVariantLabel(order)}`,
     `Digital add-on: ${order.includesDigitalAddOn ? "Yes" : "No"}`,
     `Amount paid: ${amount}`,
-    `Customer: ${order.customerName || order.customerEmail || "Unknown"}`,
+    `Customer: ${customer}`,
     `Destination: ${destination}`,
     `Created: ${createdAt}`,
     "",
-    `Review in Printful: https://www.printful.com/dashboard/default/orders`,
+    `Review in Printful: ${printfulReviewUrl}`,
     `Site: ${siteUrl}`,
   ].join("\n");
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 620px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
-      <p style="font-size: 20px; font-weight: 700; margin: 0 0 12px;">${subject}</p>
-      <p style="margin: 0 0 16px;">${approvalMode}</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 0 0 18px;">
+      <div style="border: 1px solid #e6dcc8; border-radius: 20px; overflow: hidden; background: #fbf7ef;">
+        <div style="padding: 18px 22px; background: linear-gradient(135deg, #07112b, #11234d); color: #f7f1e6;">
+          <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.82;">StarMapCo Print Ops</div>
+          <p style="font-size: 24px; font-weight: 700; margin: 8px 0 0;">${escapeHtml(subject)}</p>
+          <p style="margin: 8px 0 0; color: #d9c78d;">${escapeHtml(approvalMode)}</p>
+        </div>
+        <div style="padding: 20px 22px;">
+          <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #f4c74e; color: #1b1b1b; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+            ${escapeHtml(getVariantLabel(order))}${order.includesDigitalAddOn ? " + HD" : ""}
+          </div>
+          <div style="margin: 16px 0 20px; font-size: 28px; font-weight: 700; color: #0b1324;">${escapeHtml(amount)}</div>
+          <table style="width: 100%; border-collapse: collapse; margin: 0 0 22px;">
         <tbody>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Session ID</td><td style="padding: 6px 0;">${order.sessionId}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Printful order ID</td><td style="padding: 6px 0;">${order.printfulOrderId ?? "Unknown"}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Variant</td><td style="padding: 6px 0;">${getVariantLabel(order)}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 700;">Customer</td><td style="padding: 6px 0;">${escapeHtml(customer)}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 700;">Destination</td><td style="padding: 6px 0;">${escapeHtml(destination)}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 700;">Created</td><td style="padding: 6px 0;">${escapeHtml(createdAt)}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 700;">Printful order ID</td><td style="padding: 6px 0;">${escapeHtml(String(order.printfulOrderId ?? "Unknown"))}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 700;">Session ID</td><td style="padding: 6px 0; font-size: 13px;">${escapeHtml(order.sessionId)}</td></tr>
           <tr><td style="padding: 6px 0; font-weight: 700;">Digital add-on</td><td style="padding: 6px 0;">${order.includesDigitalAddOn ? "Yes" : "No"}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Amount paid</td><td style="padding: 6px 0;">${amount}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Customer</td><td style="padding: 6px 0;">${order.customerName || order.customerEmail || "Unknown"}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Destination</td><td style="padding: 6px 0;">${destination}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Created</td><td style="padding: 6px 0;">${createdAt}</td></tr>
         </tbody>
-      </table>
-      <p>
-        <a href="https://www.printful.com/dashboard/default/orders" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Open Printful Orders</a>
-      </p>
-      <p style="font-size: 13px; color: #4c5364;">Site: <a href="${siteUrl}" style="color: #b07d1b; text-decoration: none;">${siteUrl}</a></p>
+          </table>
+          <p style="margin: 0 0 14px;">
+            <a href="${printfulReviewUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700; margin-right: 10px;">Review in Printful</a>
+            <a href="${siteUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; border: 1px solid #c7b481; color: #0b1324; text-decoration: none; font-weight: 700;">Open StarMapCo</a>
+          </p>
+          <p style="font-size: 12px; color: #5f6677; margin: 0;">Approve this draft in Printful when you are ready to submit it to fulfillment.</p>
+        </div>
+      </div>
     </div>
   `;
 
