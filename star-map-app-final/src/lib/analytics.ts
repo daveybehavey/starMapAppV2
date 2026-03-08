@@ -183,6 +183,25 @@ export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
   });
 }
 
+export function trackPageView(input?: {
+  path?: string;
+  search?: string;
+  title?: string;
+  location?: string;
+}) {
+  if (typeof window === "undefined") return;
+  const path = input?.path || window.location.pathname;
+  const search = typeof input?.search === "string" ? input.search : window.location.search;
+  const location =
+    input?.location ||
+    `${window.location.origin}${path}${search.startsWith("?") || search === "" ? search : `?${search}`}`;
+  sendGaEvent("page_view", {
+    page_path: path,
+    page_title: input?.title || document.title,
+    page_location: location,
+  });
+}
+
 function postFunnelCounter(payload: {
   step: FunnelStep;
   source?: string;

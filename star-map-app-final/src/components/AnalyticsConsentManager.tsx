@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import PosthogProvider from "@/components/PosthogProvider";
-import { ANALYTICS_STORAGE_KEY } from "@/lib/analytics";
+import { ANALYTICS_STORAGE_KEY, trackPageView } from "@/lib/analytics";
 
 type ConsentState = "granted" | "denied" | "unset";
 
@@ -52,6 +53,7 @@ function ensureGaBootstrap(gaId: string) {
   window.gtag("config", gaId, {
     anonymize_ip: true,
     allow_google_signals: false,
+    send_page_view: false,
   });
 }
 
@@ -64,6 +66,8 @@ function disableGa(gaId: string) {
 export default function AnalyticsConsentManager() {
   const [consent, setConsent] = useState<ConsentState>("unset");
   const gaId = useMemo(() => process.env.NEXT_PUBLIC_GA_ID?.trim() || "", []);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     setConsent(readConsentState());
@@ -77,6 +81,15 @@ export default function AnalyticsConsentManager() {
     }
     disableGa(gaId);
   }, [consent, gaId]);
+
+  useEffect(() => {
+    if (!gaId || consent !== "granted") return;
+    const search = searchParams?.toString();
+    trackPageView({
+      path: pathname || "/",
+      search: search ? `?${search}` : "",
+    });
+  }, [consent, gaId, pathname, searchParams]);
 
   const updateConsent = (next: Exclude<ConsentState, "unset">) => {
     setConsent(next);
