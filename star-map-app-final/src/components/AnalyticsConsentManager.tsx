@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import PosthogProvider from "@/components/PosthogProvider";
 import { ANALYTICS_STORAGE_KEY, trackPageView } from "@/lib/analytics";
@@ -67,7 +67,6 @@ export default function AnalyticsConsentManager() {
   const [consent, setConsent] = useState<ConsentState>("unset");
   const gaId = useMemo(() => process.env.NEXT_PUBLIC_GA_ID?.trim() || "", []);
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     setConsent(readConsentState());
@@ -84,12 +83,10 @@ export default function AnalyticsConsentManager() {
 
   useEffect(() => {
     if (!gaId || consent !== "granted") return;
-    const search = searchParams?.toString();
     trackPageView({
       path: pathname || "/",
-      search: search ? `?${search}` : "",
     });
-  }, [consent, gaId, pathname, searchParams]);
+  }, [consent, gaId, pathname]);
 
   const updateConsent = (next: Exclude<ConsentState, "unset">) => {
     setConsent(next);
