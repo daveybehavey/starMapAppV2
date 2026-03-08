@@ -128,6 +128,9 @@ async function fetchStatus(site, adminToken, sessionId) {
     error: order.error ? String(order.error) : "",
     printfulOrderId: order.printfulOrderId ? String(order.printfulOrderId) : "",
     sentAt: order.sentAt ? new Date(order.sentAt).toISOString() : "",
+    operatorAlertedAt: order.operatorAlertedAt ? new Date(order.operatorAlertedAt).toISOString() : "",
+    operatorAlertProvider: order.operatorAlertProvider ? String(order.operatorAlertProvider) : "",
+    operatorAlertError: order.operatorAlertError ? String(order.operatorAlertError) : "",
   };
 }
 
@@ -170,6 +173,9 @@ async function main() {
         printfulOrderId: "",
         error: "",
         sentAt: "",
+        operatorAlertedAt: "",
+        operatorAlertProvider: "",
+        operatorAlertError: "",
       });
       continue;
     }
@@ -190,6 +196,9 @@ async function main() {
       printfulOrderId: status.printfulOrderId ?? "",
       error: status.error || status.details || "",
       sentAt: status.sentAt || "",
+      operatorAlertedAt: status.operatorAlertedAt || "",
+      operatorAlertProvider: status.operatorAlertProvider || "",
+      operatorAlertError: status.operatorAlertError || "",
     });
   }
 
@@ -229,6 +238,7 @@ async function main() {
       status: row.status,
       attempts: row.attempts,
       printfulOrderId: row.printfulOrderId,
+      alert: row.operatorAlertedAt ? `${row.operatorAlertProvider || "sent"} @ ${row.operatorAlertedAt.slice(0, 19).replace("T", " ")}` : row.operatorAlertError ? `failed: ${row.operatorAlertError.slice(0, 32)}` : "",
       error: row.error ? row.error.slice(0, 80) : "",
     })),
   );

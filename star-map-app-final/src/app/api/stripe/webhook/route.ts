@@ -18,6 +18,7 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
+import { sendPrintOrderApprovalAlert } from "@/lib/printOrderAlerts";
 
 export const runtime = "nodejs";
 
@@ -465,7 +466,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       });
       return;
     }
-    await kv.set(printOrderKey(session.id), {
+    const sentRecord: PrintOrderRecord = {
       ...payload,
       printAssetUrl,
       status: "sent",
@@ -473,7 +474,19 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       printfulOrderId: printfulResult.orderId,
       sentAt: Date.now(),
       error: undefined,
-    });
+    };
+    if (!sentRecord.operatorAlertedAt) {
+      const alertResult = await sendPrintOrderApprovalAlert(sentRecord);
+      if (alertResult.delivered) {
+        sentRecord.operatorAlertedAt = Date.now();
+        sentRecord.operatorAlertProvider = alertResult.provider;
+        sentRecord.operatorAlertError = undefined;
+      } else {
+        sentRecord.operatorAlertProvider = alertResult.provider;
+        sentRecord.operatorAlertError = alertResult.error;
+      }
+    }
+    await kv.set(printOrderKey(session.id), sentRecord);
   }
 
   if (!printFulfillmentWebhookUrl) return;

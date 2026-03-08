@@ -18,6 +18,9 @@ export type PrintOrderRecord = {
   attempts: number;
   webhookStatus?: number;
   sentAt?: number;
+  operatorAlertedAt?: number;
+  operatorAlertProvider?: string;
+  operatorAlertError?: string;
   error?: string;
   createdAt: number;
 };

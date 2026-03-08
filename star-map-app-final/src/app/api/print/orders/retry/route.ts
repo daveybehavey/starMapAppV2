@@ -10,6 +10,7 @@ import {
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
+import { sendPrintOrderApprovalAlert } from "@/lib/printOrderAlerts";
 
 export const runtime = "nodejs";
 
@@ -100,6 +101,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Print order not found" }, { status: 404 });
   }
   if (existing.status === "sent") {
+    if (!existing.operatorAlertedAt) {
+      const alertResult = await sendPrintOrderApprovalAlert(existing);
+      const updated: PrintOrderRecord = {
+        ...existing,
+        operatorAlertedAt: alertResult.delivered ? Date.now() : existing.operatorAlertedAt,
+        operatorAlertProvider: alertResult.provider,
+        operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
+      };
+      await kv.set(printOrderKey(sessionId), updated);
+      return NextResponse.json({ ok: true, status: "already_sent", order: updated });
+    }
     return NextResponse.json({ ok: true, status: "already_sent", order: existing });
   }
 
@@ -157,7 +169,7 @@ export async function POST(req: NextRequest) {
       await kv.set(printOrderKey(sessionId), failed);
       return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 502 });
     }
-    const sent = {
+    const sent: PrintOrderRecord = {
       ...hydrated,
       status: "sent" as const,
       attempts,
@@ -167,6 +179,17 @@ export async function POST(req: NextRequest) {
       sentAt: now,
       error: undefined,
     };
+    if (!sent.operatorAlertedAt) {
+      const alertResult = await sendPrintOrderApprovalAlert(sent);
+      if (alertResult.delivered) {
+        sent.operatorAlertedAt = Date.now();
+        sent.operatorAlertProvider = alertResult.provider;
+        sent.operatorAlertError = undefined;
+      } else {
+        sent.operatorAlertProvider = alertResult.provider;
+        sent.operatorAlertError = alertResult.error;
+      }
+    }
     await kv.set(printOrderKey(sessionId), sent);
     return NextResponse.json({ ok: true, status: "sent", order: sent });
   }
