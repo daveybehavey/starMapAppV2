@@ -1092,19 +1092,19 @@ export default function DownloadClient() {
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
                     type="button"
+                    onClick={() => void handlePrintCheckout("poster_framed")}
+                    disabled={printCheckoutLoading}
+                    className="rounded-full border border-amber-200/60 bg-amber-400/20 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-amber-200 hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Framed print (recommended) • {printPriceLabels.framed}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void handlePrintCheckout("poster_unframed")}
                     disabled={printCheckoutLoading}
                     className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Unframed • {printPriceLabels.unframed}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePrintCheckout("poster_framed")}
-                    disabled={printCheckoutLoading}
-                    className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Framed • {printPriceLabels.framed}
                   </button>
                 </div>
                 {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}

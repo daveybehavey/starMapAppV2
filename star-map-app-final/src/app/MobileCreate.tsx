@@ -1115,24 +1115,24 @@ export function MobileCreate({
                 <div className="mt-2 flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/30 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/40"
+                    onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
                   >
-                    🖼️ Framed print (recommended) • {printPriceLabels.framed}
+                    🖼️ Framed + HD (recommended) • {printPriceLabels.framed} + {printPriceLabels.digitalAddOn}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+                  >
+                    🖼️ Framed print • {printPriceLabels.framed}
                   </button>
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
-                  >
-                    🖼️ Unframed print • {printPriceLabels.unframed}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
                   >
-                    🖼️ Framed + HD • {printPriceLabels.framed} + {printPriceLabels.digitalAddOn}
+                    🖼️ Unframed print • {printPriceLabels.unframed}
                   </button>
                 </div>
               </div>
