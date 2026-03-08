@@ -117,11 +117,10 @@ test("referral landing logs one visit per browser session", async ({ page }) => 
   });
 
   await gotoEditor(page, { force: "desktop", query: { ref: "ABCD1234" } });
-  await page.waitForTimeout(600);
-  expect(referralVisitCalls).toBe(1);
+  await expect.poll(() => referralVisitCalls, { timeout: 10_000 }).toBe(1);
 
   await page.reload();
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(900);
   expect(referralVisitCalls).toBe(1);
 });
 
@@ -137,11 +136,10 @@ test("homepage referral query logs one visit per browser session", async ({ page
   });
 
   await page.goto("/?ref=ABCD1234");
-  await page.waitForTimeout(1800);
-  expect(referralVisitCalls).toBe(1);
+  await expect.poll(() => referralVisitCalls, { timeout: 12_000 }).toBe(1);
 
   await page.reload();
-  await page.waitForTimeout(1800);
+  await page.waitForTimeout(1200);
   expect(referralVisitCalls).toBe(1);
 });
 

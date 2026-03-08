@@ -15,6 +15,7 @@ import { parseReferralCookieValue, REFERRAL_COOKIE_NAME } from "@/lib/referralCo
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
+import { recordFunnelStep } from "@/lib/funnel";
 
 export const runtime = "nodejs";
 
@@ -426,6 +427,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    await recordFunnelStep({
+      step: "checkout_started",
+      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+      plan: orderType === "print" ? printVariant : plan,
+    });
     const { url: sessionUrl } = await createCheckoutSession({
       plan,
       mapId,
@@ -441,6 +447,11 @@ export async function GET(req: NextRequest) {
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
+    await recordFunnelStep({
+      step: "checkout_redirected",
+      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+      plan: orderType === "print" ? printVariant : plan,
+    });
     return NextResponse.redirect(sessionUrl, { status: 303 });
   } catch (err) {
     console.error("Stripe checkout error", err);
@@ -548,6 +559,12 @@ export async function POST(req: NextRequest) {
       plan,
     });
 
+    await recordFunnelStep({
+      step: "checkout_started",
+      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+      plan: orderType === "print" ? printVariant : plan,
+    });
+
     const session = await createCheckoutSession({
       plan,
       mapId,
@@ -567,6 +584,12 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+
+    await recordFunnelStep({
+      step: "checkout_redirected",
+      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+      plan: orderType === "print" ? printVariant : plan,
+    });
 
     return NextResponse.json({
       url: session.url,

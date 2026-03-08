@@ -35,16 +35,18 @@ Default checks:
   - npm run check:env
   - npm run check:static-home
   - npm run lint
+  - npx next typegen
   - npx tsc --noEmit
   - npm run build
   - npm run qa:go-no-go
 
 Smoke mode (--smoke) also runs:
-  - npx playwright test tests/ui-smoke.spec.ts tests/export-functionality.spec.ts tests/api-route-regressions.spec.ts tests/checkout-security.spec.ts tests/premium-rendering.spec.ts
+  - npm run qa:smoke
 
 Live mode (--live) also runs:
   - npm run qa:printful
   - npm run qa:sitemap-health -- --sitemap <url> --concurrency 8 --timeout-ms 15000
+  - npm run qa:funnel-reconcile -- --days 14 (when STRIPE_SECRET_KEY is available)
 `);
       process.exit(0);
     }
@@ -74,25 +76,14 @@ function main() {
     ["Env check", "npm", ["run", "check:env"]],
     ["Static homepage sync check", "npm", ["run", "check:static-home"]],
     ["Lint", "npm", ["run", "lint"]],
+    ["Typegen", "npx", ["next", "typegen"]],
     ["Typecheck", "npx", ["tsc", "--noEmit"]],
     ["Build", "npm", ["run", "build"]],
     ["Go/No-Go", "npm", ["run", "qa:go-no-go"]],
   ];
 
   if (args.smoke) {
-    steps.push([
-      "Playwright smoke suite",
-      "npx",
-      [
-        "playwright",
-        "test",
-        "tests/ui-smoke.spec.ts",
-        "tests/export-functionality.spec.ts",
-        "tests/api-route-regressions.spec.ts",
-        "tests/checkout-security.spec.ts",
-        "tests/premium-rendering.spec.ts",
-      ],
-    ]);
+    steps.push(["Playwright smoke suite", "npm", ["run", "qa:smoke"]]);
   }
 
   if (args.live) {
@@ -112,6 +103,17 @@ function main() {
         "15000",
       ],
     ]);
+    if ((process.env.STRIPE_SECRET_KEY || "").trim()) {
+      steps.push([
+        "Funnel vs Stripe reconciliation",
+        "npm",
+        ["run", "qa:funnel-reconcile", "--", "--days", "14"],
+      ]);
+    } else {
+      console.warn(
+        "[release-gate] Skipping funnel reconciliation: STRIPE_SECRET_KEY not set in current environment.",
+      );
+    }
   }
 
   for (const [label, cmd, cmdArgs] of steps) {

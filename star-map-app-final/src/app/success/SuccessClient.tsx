@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { track, trackFunnelStep } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
 import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
@@ -21,16 +21,6 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   rewardsGranted: 0,
   lastConvertedAt: null,
 };
-
-function getPreviewSource() {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = sessionStorage.getItem("preview_source");
-    return stored?.trim() || null;
-  } catch {
-    return null;
-  }
-}
 
 export default function SuccessClient() {
   const router = useRouter();
@@ -285,6 +275,12 @@ export default function SuccessClient() {
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const attempts = 12;
     const delayForAttempt = (attempt: number) => Math.min(1500 + attempt * 500, 4500);
+    const parseRetryAfterMs = (value: string | null) => {
+      if (!value) return null;
+      const seconds = Number.parseInt(value, 10);
+      if (!Number.isFinite(seconds) || seconds <= 0) return null;
+      return seconds * 1000;
+    };
 
     const verify = async () => {
       setStatus("verifying");
@@ -295,7 +291,13 @@ export default function SuccessClient() {
           const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionId)}`, {
             cache: "no-store",
           });
-          const data = (await res.json()) as {
+          if (res.status === 429) {
+            const retryAfterMs = parseRetryAfterMs(res.headers.get("Retry-After"));
+            await wait(Math.min(15_000, Math.max(1_000, retryAfterMs ?? delayForAttempt(attempt))));
+            continue;
+          }
+
+          const data = (await res.json().catch(() => null)) as {
             paid?: boolean;
             mapId?: string;
             plan?: CheckoutPlan | null;
@@ -303,8 +305,8 @@ export default function SuccessClient() {
             orderType?: CheckoutOrderType;
             printVariant?: PrintVariant | null;
             includesDigitalAddOn?: boolean;
-          };
-          if (data.paid) {
+          } | null;
+          if (data?.paid) {
             const verifiedPlan =
               data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null;
             const verifiedOrderType = data.orderType === "print" ? "print" : "digital";
@@ -317,10 +319,6 @@ export default function SuccessClient() {
 
             setPaid(hasDigitalEntitlement);
             track("purchase_success", { isPaid: hasDigitalEntitlement, orderType: verifiedOrderType });
-            trackFunnelStep("payment_verified", {
-              source: getPreviewSource() ?? "success",
-              plan: verifiedPlan ?? undefined,
-            });
             setStatus("success");
             setCurrentPlan(verifiedPlan);
             setOrderType(verifiedOrderType);

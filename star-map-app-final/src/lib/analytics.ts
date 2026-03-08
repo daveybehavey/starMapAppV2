@@ -14,7 +14,11 @@ export const loadPosthogClient = async () => {
 };
 
 // Type declarations for third-party analytics on window
-type GtagFunction = (command: string, eventName: string, params?: Record<string, unknown>) => void;
+type GtagFunction = (
+  command: string,
+  eventName?: string | Date,
+  params?: Record<string, unknown>,
+) => void;
 
 declare global {
   interface Window {
@@ -25,6 +29,12 @@ declare global {
 function canTrackAnalytics() {
   if (typeof window === "undefined") return false;
   if (!hasAnalyticsConsent()) return false;
+  if (isDoNotTrackEnabled()) return false;
+  return true;
+}
+
+function canTrackFunnelCounters() {
+  if (typeof window === "undefined") return false;
   if (isDoNotTrackEnabled()) return false;
   return true;
 }
@@ -102,19 +112,22 @@ type FunnelEventProps = EventProps & {
 };
 
 export function trackFunnelStep(step: FunnelStep, props?: FunnelEventProps) {
-  if (!canTrackAnalytics()) return;
   const payload = removeUndefinedValues({
     step,
     ...props,
   });
-  track("funnel_step", payload);
-  postFunnelCounter({
-    step,
-    source: typeof payload.source === "string" ? payload.source : undefined,
-    plan: typeof payload.plan === "string" ? payload.plan : undefined,
-    experiment: typeof payload.experiment === "string" ? payload.experiment : undefined,
-    variant: typeof payload.variant === "string" ? payload.variant : undefined,
-  });
+  if (canTrackAnalytics()) {
+    track("funnel_step", payload);
+  }
+  if (canTrackFunnelCounters()) {
+    postFunnelCounter({
+      step,
+      source: typeof payload.source === "string" ? payload.source : undefined,
+      plan: typeof payload.plan === "string" ? payload.plan : undefined,
+      experiment: typeof payload.experiment === "string" ? payload.experiment : undefined,
+      variant: typeof payload.variant === "string" ? payload.variant : undefined,
+    });
+  }
 }
 
 export function trackExperimentExposure(

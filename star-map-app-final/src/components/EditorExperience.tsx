@@ -890,14 +890,6 @@ export function EditorExperience({
           promoApplied: Boolean(promoCode),
           referralApplied: Boolean(referralCode),
         });
-        trackFunnelStep("checkout_started", {
-          source: previewSource,
-          plan,
-          orderType,
-          promoApplied: Boolean(promoCode),
-          experiment: PAYWALL_COPY_EXPERIMENT,
-          variant: paywallVariant,
-        });
         let mapId: string | null = null;
         try {
           const mapRes = await fetch("/api/maps", {
@@ -1034,7 +1026,7 @@ export function EditorExperience({
         if (data?.url) {
           const promoApplied = Boolean(data.promoApplied);
           const referralOfferApplied = Boolean(data.referralOfferApplied);
-          trackFunnelStep("checkout_redirected", {
+          track("checkout_redirected", {
             source: previewSource,
             plan,
             orderType,
@@ -2214,13 +2206,27 @@ export function EditorExperience({
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="text-xs font-semibold text-amber-100">Buy a physical gift from this exact preview</p>
                               <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                                Framed recommended
+                                Framed + HD recommended
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Your print order is created right after payment with shipping details attached.
+                              Secure Stripe checkout. Your print order draft is created right after payment with shipping details attached.
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  startPrintCheckout({
+                                    source: "editor_print_panel",
+                                    variant: "poster_framed",
+                                    includeDigitalAddOn: true,
+                                  })
+                                }
+                                disabled={checkoutInFlight}
+                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/35 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/45 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Framed + HD • {printPriceLabels.framed} + {printPriceLabels.digitalAddOn}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2231,7 +2237,7 @@ export function EditorExperience({
                                   })
                                 }
                                 disabled={checkoutInFlight}
-                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/30 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/40 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 Framed • {printPriceLabels.framed}
                               </button>
@@ -2245,23 +2251,9 @@ export function EditorExperience({
                                   })
                                 }
                                 disabled={checkoutInFlight}
-                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                              >
-                                Unframed • {printPriceLabels.unframed}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startPrintCheckout({
-                                    source: "editor_print_panel",
-                                    variant: "poster_framed",
-                                    includeDigitalAddOn: true,
-                                  })
-                                }
-                                disabled={checkoutInFlight}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                Framed + HD • {printPriceLabels.framed} + {printPriceLabels.digitalAddOn}
+                                Unframed • {printPriceLabels.unframed}
                               </button>
                             </div>
                           </div>

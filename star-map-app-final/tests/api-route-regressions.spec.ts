@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
 const PREMIUM_COOKIE_NAME = "starmap_premium";
 
@@ -11,10 +11,36 @@ function randomIp() {
   return `${part()}.${part()}.${part()}.${part()}`;
 }
 
+async function requestUntilReady(
+  request: APIRequestContext,
+  path: string,
+  init: Parameters<APIRequestContext["fetch"]>[1] = {},
+) {
+  const startedAt = Date.now();
+  let lastResponse: Awaited<ReturnType<APIRequestContext["fetch"]>> | null = null;
+  while (Date.now() - startedAt < 30_000) {
+    const mergedHeaders = {
+      "x-forwarded-for": randomIp(),
+      ...(init.headers ?? {}),
+    };
+    const res = await request.fetch(path, {
+      ...init,
+      headers: mergedHeaders,
+      failOnStatusCode: false,
+    });
+    lastResponse = res;
+    if (res.status() !== 404) return res;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(
+    `Route stayed 404 during warmup: ${String(init.method ?? "GET")} ${path} (last status ${lastResponse?.status() ?? "none"})`,
+  );
+}
+
 test.describe("API route regressions", () => {
   test("funnel endpoint accepts valid steps and rejects invalid steps", async ({ request }) => {
-    const validResponse = await request.post("/api/analytics/funnel", {
-      headers: { "x-forwarded-for": randomIp() },
+    const validResponse = await requestUntilReady(request, "/api/analytics/funnel", {
+      method: "POST",
       data: {
         step: "landing_view",
         source: "playwright_api_test",
@@ -23,8 +49,8 @@ test.describe("API route regressions", () => {
     expect(validResponse.status()).toBe(200);
     expect((await validResponse.json()) as { ok?: boolean }).toEqual({ ok: true });
 
-    const invalidResponse = await request.post("/api/analytics/funnel", {
-      headers: { "x-forwarded-for": randomIp() },
+    const invalidResponse = await requestUntilReady(request, "/api/analytics/funnel", {
+      method: "POST",
       data: {
         step: "unknown_step",
       },
@@ -37,16 +63,14 @@ test.describe("API route regressions", () => {
   });
 
   test("stripe portal endpoint blocks missing or unknown entitlements", async ({ request }) => {
-    const noCookieResponse = await request.post("/api/stripe/portal", {
-      headers: { "x-forwarded-for": randomIp() },
-    });
+    const noCookieResponse = await requestUntilReady(request, "/api/stripe/portal", { method: "POST" });
     expect(noCookieResponse.status()).toBe(401);
     const noCookieBody = (await noCookieResponse.json()) as ErrorBody;
     expect(noCookieBody.error).toMatch(/missing entitlement/i);
 
-    const unknownCookieResponse = await request.post("/api/stripe/portal", {
+    const unknownCookieResponse = await requestUntilReady(request, "/api/stripe/portal", {
+      method: "POST",
       headers: {
-        "x-forwarded-for": randomIp(),
         cookie: `${PREMIUM_COOKIE_NAME}=missing_session_for_test`,
       },
     });
@@ -56,23 +80,18 @@ test.describe("API route regressions", () => {
   });
 
   test("referral endpoints block missing or unknown entitlements", async ({ request }) => {
-    const noCookieStatus = await request.get("/api/referrals/status", {
-      headers: { "x-forwarded-for": randomIp() },
-    });
+    const noCookieStatus = await requestUntilReady(request, "/api/referrals/status");
     expect(noCookieStatus.status()).toBe(401);
     const noCookieStatusBody = (await noCookieStatus.json()) as ErrorBody;
     expect(noCookieStatusBody.error).toMatch(/missing entitlement/i);
 
-    const noCookieLink = await request.post("/api/referrals/link", {
-      headers: { "x-forwarded-for": randomIp() },
-    });
+    const noCookieLink = await requestUntilReady(request, "/api/referrals/link", { method: "POST" });
     expect(noCookieLink.status()).toBe(401);
     const noCookieLinkBody = (await noCookieLink.json()) as ErrorBody;
     expect(noCookieLinkBody.error).toMatch(/missing entitlement/i);
 
-    const unknownStatus = await request.get("/api/referrals/status", {
+    const unknownStatus = await requestUntilReady(request, "/api/referrals/status", {
       headers: {
-        "x-forwarded-for": randomIp(),
         cookie: `${PREMIUM_COOKIE_NAME}=missing_session_for_test`,
       },
     });
@@ -110,8 +129,8 @@ test.describe("API route regressions", () => {
   });
 
   test("print asset API validates payload and supports round-trip retrieval", async ({ request }) => {
-    const invalidPayloadResponse = await request.post("/api/print/assets", {
-      headers: { "x-forwarded-for": randomIp() },
+    const invalidPayloadResponse = await requestUntilReady(request, "/api/print/assets", {
+      method: "POST",
       data: {
         mapId: "not-a-map-id",
         dataUrl: "not-a-data-url",
@@ -123,8 +142,8 @@ test.describe("API route regressions", () => {
     const tinyPngDataUrl =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAn8B9pP7qgAAAABJRU5ErkJggg==";
 
-    const createResponse = await request.post("/api/print/assets", {
-      headers: { "x-forwarded-for": randomIp() },
+    const createResponse = await requestUntilReady(request, "/api/print/assets", {
+      method: "POST",
       data: {
         dataUrl: tinyPngDataUrl,
         source: "editor",
@@ -136,24 +155,21 @@ test.describe("API route regressions", () => {
     expect(created.assetId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(created.assetUrl).toContain("/api/print/assets?id=");
 
-    const queryFetch = await request.get(`/api/print/assets?id=${created.assetId}`, {
-      headers: { "x-forwarded-for": randomIp() },
-    });
+    const queryFetch = await requestUntilReady(request, `/api/print/assets?id=${created.assetId}`);
     expect(queryFetch.status()).toBe(200);
     expect(queryFetch.headers()["content-type"]).toContain("image/png");
     const bytes = await queryFetch.body();
     expect(bytes.byteLength).toBeGreaterThan(20);
 
-    const compatibilityRedirect = await request.get(`/api/print/assets/${created.assetId}`, {
-      headers: { "x-forwarded-for": randomIp() },
+    const compatibilityRedirect = await requestUntilReady(request, `/api/print/assets/${created.assetId}`, {
       maxRedirects: 0,
     });
     expect(compatibilityRedirect.status()).toBe(307);
   });
 
   test("print checkout is gated off when print flag is disabled", async ({ request }) => {
-    const response = await request.post("/api/checkout", {
-      headers: { "x-forwarded-for": randomIp() },
+    const response = await requestUntilReady(request, "/api/checkout", {
+      method: "POST",
       data: {
         plan: "single",
         orderType: "print",
@@ -169,15 +185,13 @@ test.describe("API route regressions", () => {
   });
 
   test("print admin endpoints require admin token", async ({ request }) => {
-    const statusRes = await request.get("/api/print/orders/status?session_id=test", {
-      headers: { "x-forwarded-for": randomIp() },
-    });
+    const statusRes = await requestUntilReady(request, "/api/print/orders/status?session_id=test");
     expect(statusRes.status()).toBe(401);
     const statusBody = (await statusRes.json()) as { error?: string };
     expect(statusBody.error).toMatch(/unauthorized/i);
 
-    const retryRes = await request.post("/api/print/orders/retry", {
-      headers: { "x-forwarded-for": randomIp() },
+    const retryRes = await requestUntilReady(request, "/api/print/orders/retry", {
+      method: "POST",
       data: { sessionId: "test" },
     });
     expect(retryRes.status()).toBe(401);

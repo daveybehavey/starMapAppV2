@@ -26,6 +26,7 @@ export type FunnelDashboardData = {
 
 const DAILY_TTL_SECONDS = 400 * 24 * 60 * 60;
 const DIMENSION_TTL_SECONDS = 180 * 24 * 60 * 60;
+const SESSION_DEDUPE_TTL_SECONDS = 400 * 24 * 60 * 60;
 
 function totalKey(step: FunnelStep) {
   return `funnel:total:${step}`;
@@ -45,6 +46,10 @@ function planKey(step: FunnelStep, plan: string) {
 
 function variantKey(step: FunnelStep, experiment: string, variant: string) {
   return `funnel:variant:${step}:${experiment}:${variant}`;
+}
+
+function paymentVerifiedSessionKey(sessionId: string) {
+  return `funnel:payment_verified:session:${sessionId}`;
 }
 
 function utcDateKey(date = new Date()) {
@@ -105,6 +110,26 @@ export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> 
   }
 
   await Promise.all(tasks);
+}
+
+export async function recordPaymentVerifiedOnce(input: {
+  sessionId: string;
+  source?: string;
+  plan?: string;
+  experiment?: string;
+  variant?: string;
+}): Promise<void> {
+  const sessionId = input.sessionId.trim();
+  if (!sessionId) return;
+  const seen = await kv.incr(paymentVerifiedSessionKey(sessionId), 1, { ex: SESSION_DEDUPE_TTL_SECONDS });
+  if (seen !== 1) return;
+  await recordFunnelStep({
+    step: "payment_verified",
+    source: input.source,
+    plan: input.plan,
+    experiment: input.experiment,
+    variant: input.variant,
+  });
 }
 
 export async function getFunnelDashboard(days = 14): Promise<FunnelDashboardData> {

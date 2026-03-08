@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import { Playfair_Display } from "next/font/google";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
+import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -191,6 +192,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <ReferralAttributionClient />
         </Suspense>
+        <AnalyticsConsentManager />
         <div className="cosmic-backdrop">
           {children}
         </div>

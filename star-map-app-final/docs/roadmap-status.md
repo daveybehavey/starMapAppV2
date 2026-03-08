@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-01
+Updated: 2026-03-07
 
 ## Phase 0: Foundation (Done)
 
@@ -26,6 +26,20 @@ Updated: 2026-03-01
   - `POST /api/print/assets`
   - `GET /api/print/assets?id=...`
   - compatibility redirect `/api/print/assets/[assetId]`
+- Measurement foundation hardening:
+  - Added analytics consent manager and banner for app routes.
+  - Mounted PostHog provider in layout (consent-gated).
+  - Added GA4 bootstrap wiring (consent-gated) using `NEXT_PUBLIC_GA_ID`.
+  - Funnel counters now run as essential telemetry (blocked only by DNT), independent of optional analytics consent.
+  - Added server-side funnel recording on checkout create/redirect and Stripe payment verification.
+  - Payment verification funnel step is now idempotent (webhook retries no longer inflate counts).
+  - Added session-level dedupe for `payment_verified` across webhook and verify fallback paths.
+  - Reduced success-page verification flakiness by honoring `Retry-After` on `/api/stripe/verify` 429 responses and relaxing verify endpoint rate-limit for legitimate polling.
+- Static homepage instrumentation:
+  - Added anonymous funnel tracking for landing views and top CTA clicks in `public/index.html`.
+  - Added static cookie consent banner to persist analytics consent before editor transition.
+  - Added delivery-option CTAs that deep-link into print-intent editor states.
+  - Synced `public/landing.html` from `public/index.html`.
 
 ### In progress
 
@@ -71,6 +85,7 @@ Additional manual checks required:
 4. Success page behavior for digital and print order modes.
 5. Referral link generation and reward credit flow.
 6. Print internal matrix (unframed success, framed success, forced failure, admin retry).
+7. Funnel reconciliation check (`npm run qa:funnel-reconcile -- --days 14`) vs Stripe paid sessions.
 
 Post-deploy sanity:
 
@@ -82,7 +97,15 @@ Recent status:
 
 - `qa:smoke` (25 tests) passes locally.
 - `qa:release-gate` passes locally (env, static-home sync, lint, typecheck, build, go/no-go).
+- `qa:smoke` (27 tests) passes locally after measurement + conversion updates.
+- Smoke suite reliability tightened:
+  - `qa:smoke` now runs with a single worker for stability.
+  - `qa:release-gate --smoke` now calls `npm run qa:smoke` (same stable settings).
+- `qa:live-smoke` passes against `https://starmapco.com`.
+- `qa:sitemap-health` passes against live sitemap.
 - Added print operations monitor script: `npm run qa:print-ops`.
+- Added funnel reconciliation script: `npm run qa:funnel-reconcile`.
+- `qa:release-gate --live` now includes funnel reconciliation when Stripe credentials are present.
 - Added static homepage drift guard scripts:
   - `npm run sync:static-home`
   - `npm run check:static-home`
@@ -100,6 +123,21 @@ Recent status:
   - one top occasion page.
 - Build 2-3 authority assets for link earning.
 - Start social publishing cadence and UGC loops.
+
+### Immediate next execution batch (March 2026)
+
+1. Conversion instrumentation sanity check on live:
+   - confirm `landing_view -> preview_started -> checkout_started -> payment_verified` trend lines
+   - reconcile `payment_verified` against Stripe paid sessions for last 7/14 days
+2. Money-page conversion depth:
+   - keep trust modules active on `/personalized-star-map`, `/star-map-gift`, `/wedding`
+   - replace testimonial scaffolding with real customer-approved quotes/photos
+3. Print launch staging:
+   - keep `PRINT_ORDER_SUBMISSION_ENABLED=false` until internal matrix is rerun
+   - rerun print matrix (framed success, unframed success, forced failure, admin retry)
+4. Referral rollout hardening:
+   - verify attribution and reward credit flow after the measurement updates
+   - keep anti-abuse limits on before wider promotion
 
 ### Current Phase 4 Progress
 

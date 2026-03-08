@@ -287,6 +287,23 @@
       .delivery-card li + li {
         margin-top: 4px;
       }
+      .delivery-cta {
+        display: inline-flex;
+        margin-top: 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(251, 191, 36, 0.55);
+        background: rgba(251, 191, 36, 0.18);
+        color: #fff2cd;
+        padding: 7px 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+      }
+      .delivery-cta:hover {
+        transform: translateY(-1px);
+        background: rgba(251, 191, 36, 0.28);
+        border-color: rgba(251, 191, 36, 0.75);
+      }
       .delivery-trust {
         margin-top: 12px;
         border-radius: 14px;
@@ -597,9 +614,55 @@
           flex-direction: column;
           align-items: flex-start;
         }
-        .footer-bottom span:last-child {
-          display: none;
-        }
+      .footer-bottom span:last-child {
+        display: none;
+      }
+      }
+      .cookie-banner-static {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 60;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        border-top: 1px solid rgba(241, 194, 125, 0.35);
+        background: rgba(6, 12, 33, 0.97);
+        color: #f7f1e3;
+        padding: 12px 14px;
+      }
+      .cookie-banner-static.show {
+        display: flex;
+      }
+      .cookie-banner-static p {
+        margin: 0;
+        max-width: 760px;
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+      .cookie-banner-static .actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cookie-banner-static button {
+        border: 1px solid rgba(241, 194, 125, 0.55);
+        border-radius: 999px;
+        padding: 7px 13px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .cookie-banner-static .decline {
+        background: transparent;
+        color: #f7f1e3;
+      }
+      .cookie-banner-static .accept {
+        background: linear-gradient(90deg, #fbbf24, #f1c27d);
+        color: #1f2937;
       }
     </style>
   </head>
@@ -613,7 +676,13 @@
           <a href="/star-map-gift">Gifts</a>
           <a href="/star-map-gallery">Gallery</a>
           <a href="/blog">Blog</a>
-          <a class="cta-link" href="/editor?mode=quick&source=home-static-nav-cta">Start now</a>
+          <a
+            class="cta-link"
+            href="/editor?mode=quick&source=home-static-nav-cta"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_nav"
+            data-funnel-plan="start_now"
+          >Start now</a>
         </nav>
       </header>
       <section class="hero">
@@ -626,17 +695,38 @@
           <span class="hero-badge print">Printed + framed available</span>
         </div>
         <div class="pricing">
-          <a class="price-card" href="/api/checkout?plan=single" rel="nofollow">
+          <a
+            class="price-card"
+            href="/api/checkout?plan=single"
+            rel="nofollow"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_pricing"
+            data-funnel-plan="single"
+          >
             <div class="price-title">Single Map</div>
             <div class="price-value">$9.00</div>
             <div class="price-cta">Buy single</div>
           </a>
-          <a class="price-card featured" href="/api/checkout?plan=pack3" rel="nofollow">
+          <a
+            class="price-card featured"
+            href="/api/checkout?plan=pack3"
+            rel="nofollow"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_pricing"
+            data-funnel-plan="pack3"
+          >
             <div class="price-title">3-Pack</div>
             <div class="price-value">$10.00</div>
             <div class="price-cta">Best value</div>
           </a>
-          <a class="price-card" href="/api/checkout?plan=subscription" rel="nofollow">
+          <a
+            class="price-card"
+            href="/api/checkout?plan=subscription"
+            rel="nofollow"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_pricing"
+            data-funnel-plan="subscription"
+          >
             <div class="price-title">Unlimited</div>
             <div class="price-value">$19.00/mo</div>
             <div class="price-cta">Start unlimited</div>
@@ -644,7 +734,7 @@
         </div>
           <form class="hero-form" action="/editor" method="GET">
             <input type="hidden" name="mode" value="quick" />
-            <input type="hidden" name="source" value="landing" />
+            <input type="hidden" name="source" value="home-static-form" />
             <div class="form-grid">
               <input
                 name="date"
@@ -662,7 +752,13 @@
           </form>
           <p class="hero-note">Free preview · No account required. Date format: YYYY-MM-DD</p>
         <div class="hero-cta-row">
-          <a class="hero-link secondary" href="#delivery-options">See print + framed options</a>
+          <a
+            class="hero-link secondary"
+            href="#delivery-options"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_hero_row"
+            data-funnel-plan="print_options"
+          >See print + framed options</a>
           <a class="hero-link" href="#signup">Get 20% off your first HD export</a>
         </div>
       </section>
@@ -679,6 +775,13 @@
               <li>Perfect for local printing</li>
               <li>No watermark on paid export</li>
             </ul>
+            <a
+              class="delivery-cta"
+              href="/editor?mode=quick&source=home-delivery-digital"
+              data-funnel-step="hero_plan_click"
+              data-funnel-source="home_static_delivery"
+              data-funnel-plan="digital"
+            >Start digital preview</a>
           </article>
           <article class="delivery-card">
             <h3>Unframed print — $49.00</h3>
@@ -688,6 +791,13 @@
               <li>Best if you already have a frame</li>
               <li>Shipping estimate at checkout</li>
             </ul>
+            <a
+              class="delivery-cta"
+              href="/editor?mode=quick&source=home-delivery-print-unframed&intent=print&print_variant=poster_unframed"
+              data-funnel-step="hero_plan_click"
+              data-funnel-source="home_static_delivery"
+              data-funnel-plan="print_unframed"
+            >Start unframed print checkout</a>
           </article>
           <article class="delivery-card popular">
             <h3>Framed print — $89.00</h3>
@@ -697,6 +807,13 @@
               <li>Gift-ready out of the box</li>
               <li>Optional HD add-on available</li>
             </ul>
+            <a
+              class="delivery-cta"
+              href="/editor?mode=quick&source=home-delivery-print-framed&intent=print&print_variant=poster_framed"
+              data-funnel-step="hero_plan_click"
+              data-funnel-source="home_static_delivery"
+              data-funnel-plan="print_framed"
+            >Start framed print checkout</a>
           </article>
         </div>
         <div class="delivery-trust">
@@ -847,6 +964,17 @@
       </section>
     </main>
 
+    <aside id="cookie-banner-static" class="cookie-banner-static" role="dialog" aria-live="polite" aria-label="Cookie consent">
+      <p>
+        We use optional analytics to improve conversions and performance. Essential anonymous funnel counters are always on for checkout reliability.
+        <a href="/privacy" style="text-decoration:underline;color:#f8d475;">Privacy policy</a>.
+      </p>
+      <div class="actions">
+        <button type="button" class="decline" data-cookie-action="decline">Decline</button>
+        <button type="button" class="accept" data-cookie-action="accept">Accept analytics</button>
+      </div>
+    </aside>
+
     <footer class="site-footer">
       <div class="container">
         <div class="footer-top">
@@ -968,6 +1096,115 @@
     </script>
     <script>
       (function () {
+        const ANALYTICS_STORAGE_KEY = "analytics-consent";
+        const LANDING_VIEW_SEEN_KEY = "funnel:landing_view:seen";
+        const REFERRAL_VISIT_SEEN_PREFIX = "referral:visit:seen:";
+        const funnelEndpoint = "/api/analytics/funnel";
+        const referralVisitEndpoint = "/api/referrals/visit";
+
+        const postFunnel = function (payload) {
+          try {
+            const body = JSON.stringify(payload);
+            if (navigator && typeof navigator.sendBeacon === "function") {
+              const blob = new Blob([body], { type: "application/json" });
+              navigator.sendBeacon(funnelEndpoint, blob);
+              return;
+            }
+            fetch(funnelEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: body,
+              keepalive: true
+            }).catch(function () {});
+          } catch (_) {
+            // no-op
+          }
+        };
+
+        const trackStep = function (step, source, plan) {
+          const payload = { step: step };
+          if (typeof source === "string" && source) payload.source = source;
+          if (typeof plan === "string" && plan) payload.plan = plan;
+          postFunnel(payload);
+        };
+
+        const normalizeReferralCode = function (value) {
+          const code = String(value || "").trim().toUpperCase();
+          return /^[A-Z0-9]{6,32}$/.test(code) ? code : "";
+        };
+
+        const logReferralVisitOnce = function () {
+          let code = "";
+          try {
+            const params = new URLSearchParams(window.location.search || "");
+            code = normalizeReferralCode(params.get("ref"));
+          } catch (_) {
+            code = "";
+          }
+          if (!code) return;
+
+          const seenKey = REFERRAL_VISIT_SEEN_PREFIX + code;
+          try {
+            if (sessionStorage.getItem(seenKey) === "true") return;
+            sessionStorage.setItem(seenKey, "true");
+          } catch (_) {
+            // Continue; better to over-count than lose attribution entirely.
+          }
+
+          fetch(referralVisitEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: code }),
+            keepalive: true
+          }).catch(function () {});
+        };
+
+        try {
+          if (sessionStorage.getItem(LANDING_VIEW_SEEN_KEY) !== "true") {
+            sessionStorage.setItem(LANDING_VIEW_SEEN_KEY, "true");
+            trackStep("landing_view", "home_static", undefined);
+          }
+        } catch (_) {
+          trackStep("landing_view", "home_static", undefined);
+        }
+
+        logReferralVisitOnce();
+
+        const cookieBanner = document.getElementById("cookie-banner-static");
+        if (cookieBanner instanceof HTMLElement) {
+          let consentValue = null;
+          try {
+            consentValue = localStorage.getItem(ANALYTICS_STORAGE_KEY);
+          } catch (_) {
+            consentValue = null;
+          }
+          if (consentValue !== "true" && consentValue !== "false") {
+            cookieBanner.classList.add("show");
+          }
+          cookieBanner.addEventListener("click", function (event) {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const action = target.getAttribute("data-cookie-action");
+            if (action !== "accept" && action !== "decline") return;
+            try {
+              localStorage.setItem(ANALYTICS_STORAGE_KEY, action === "accept" ? "true" : "false");
+            } catch (_) {
+              // no-op
+            }
+            cookieBanner.classList.remove("show");
+          });
+        }
+
+        document.querySelectorAll("[data-funnel-step]").forEach(function (element) {
+          element.addEventListener("click", function () {
+            const step = element.getAttribute("data-funnel-step");
+            if (!step) return;
+            const source = element.getAttribute("data-funnel-source") || "home_static";
+            const plan = element.getAttribute("data-funnel-plan") || undefined;
+            trackStep(step, source, plan);
+          });
+        });
+
         const form = document.querySelector(".hero-form");
         if (!form) return;
         const dateInput = form.querySelector('input[name="date"]');
@@ -995,6 +1232,8 @@
             return;
           }
           dateInput.setCustomValidity("");
+          trackStep("hero_plan_click", "home_static_form", "preview_form");
+          trackStep("preview_started", "home_static_form", undefined);
         });
 
         dateInput.addEventListener("input", function () {

@@ -17,6 +17,7 @@ import {
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
+import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 
 export const runtime = "nodejs";
 
@@ -136,6 +137,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
 
   const existing = await kv.get<SessionRecord>(sessionKey(session.id));
   if (existing?.revoked) return;
+  const alreadyPaid = existing?.paid === true;
 
   const orderType = getOrderType(session);
   const printVariant = getPrintVariant(session);
@@ -195,6 +197,14 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   }
   if (subscriptionId) {
     await kv.set(subscriptionKey(subscriptionId), session.id);
+  }
+
+  if (!alreadyPaid) {
+    await recordPaymentVerifiedOnce({
+      sessionId: session.id,
+      source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",
+      plan: plan ?? undefined,
+    });
   }
 }
 

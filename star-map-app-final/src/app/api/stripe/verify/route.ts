@@ -4,6 +4,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 
 export const runtime = "nodejs";
 
@@ -83,9 +84,10 @@ function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan | undef
 }
 
 export async function GET(req: NextRequest) {
-  // Rate limit: 10 requests per minute per IP (prevents brute force session ID guessing)
+  // Rate limit: 30 requests per minute per IP.
+  // Success-page polling + occasional refreshes can exceed 10/min for legitimate users.
   const ip = getClientIp(req);
-  const rateLimit = await checkRateLimit(`stripe:verify:${ip}`, 10, 60);
+  const rateLimit = await checkRateLimit(`stripe:verify:${ip}`, 30, 60);
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetIn);
   }
@@ -100,6 +102,7 @@ export async function GET(req: NextRequest) {
   }
 
   const record = await kv.get<SessionRecord>(sessionKey(sessionId));
+  const alreadyPaid = Boolean(record?.paid);
   if (record?.revoked) {
     return NextResponse.json(
       { paid: false, revoked: true },
@@ -196,6 +199,13 @@ export async function GET(req: NextRequest) {
       printVariant,
       includesDigitalAddOn: hasDigitalAddOn,
     });
+    if (!alreadyPaid) {
+      await recordPaymentVerifiedOnce({
+        sessionId,
+        source: orderType === "print" ? "stripe_verify_print" : "stripe_verify_digital",
+        plan: plan ?? undefined,
+      });
+    }
     if (paymentIntentId) {
       await kv.set(paymentIntentKey(paymentIntentId), sessionId);
       try {

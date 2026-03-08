@@ -32,6 +32,11 @@ export default function PrivacyPage() {
                 No personally identifiable information (PII) tied to individuals unless anonymized.
               </li>
               <li>
+                <strong>Anonymous Conversion Counters (Essential):</strong> We record aggregated funnel steps (for
+                example landing view, checkout start, payment verification) to monitor checkout reliability and detect
+                regressions. These counters are not used for ad targeting and do not store map content.
+              </li>
+              <li>
                 <strong>Payment Data (via Stripe):</strong> For premium unlocks (single downloads, bundles, or
                 subscriptions), Stripe processes payment details (card info, billing address if provided). We do not
                 store or access full payment data—Stripe handles it securely under their privacy policy.
@@ -111,7 +116,10 @@ export default function PrivacyPage() {
 
           <section className="space-y-3">
             <h2 className="text-2xl font-semibold text-midnight">6. Cookies and Tracking</h2>
-            <p>Essential for function; analytics optional (consent via banner). Manage via browser settings.</p>
+            <p>
+              Essential cookies and anonymous funnel counters are used for core service operation. Optional third-party
+              analytics (GA4/PostHog product analytics) only run after consent via banner. Manage via browser settings.
+            </p>
           </section>
 
           <section className="space-y-3">

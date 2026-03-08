@@ -149,11 +149,31 @@ async function main() {
     failed: 0,
     missing: 0,
     error: 0,
+    unpaid: 0,
     unknown: 0,
   };
 
   for (const session of sessions) {
     const sessionId = session.id;
+    const isPaidSession = session.payment_status === "paid" || session.payment_status === "no_payment_required";
+    if (!isPaidSession) {
+      counts.unpaid += 1;
+      rows.push({
+        sessionId,
+        created: toIso(session.created),
+        amount: session.amount_total ?? 0,
+        currency: (session.currency || "").toUpperCase(),
+        email: maskEmail(session.customer_details?.email || session.customer_email || ""),
+        paid: session.payment_status,
+        status: "unpaid",
+        attempts: "",
+        printfulOrderId: "",
+        error: "",
+        sentAt: "",
+      });
+      continue;
+    }
+
     const status = await fetchStatus(args.site, adminToken, sessionId);
     const statusLabel = status.status in counts ? status.status : "unknown";
     counts[statusLabel] += 1;
@@ -192,7 +212,7 @@ async function main() {
   console.log(`Window: last ${report.hours} hours`);
   console.log(`Scanned print sessions: ${report.scannedPrintSessions}`);
   console.log(
-    `Status counts -> sent=${counts.sent} pending=${counts.pending} failed=${counts.failed} missing=${counts.missing} error=${counts.error}`,
+    `Status counts -> sent=${counts.sent} pending=${counts.pending} failed=${counts.failed} missing=${counts.missing} error=${counts.error} unpaid=${counts.unpaid}`,
   );
 
   if (!rows.length) {
