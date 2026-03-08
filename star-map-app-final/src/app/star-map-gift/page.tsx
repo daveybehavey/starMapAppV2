@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -90,6 +91,12 @@ export default function StarMapGiftPage() {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading="Choose the gift format after preview"
+        intro="For last-minute gifting, digital is fastest. For a ready-to-open keepsake, framed print is usually the strongest choice. Start with the same free preview either way."
+        sourcePrefix="gift-format"
+      />
 
       <PurchaseTrustPanel
         heading="Confidence before checkout"

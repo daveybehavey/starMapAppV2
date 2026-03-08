@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -92,6 +93,12 @@ export default function WeddingPage() {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading="Choose how you want to keep or gift it"
+        intro="Wedding buyers usually decide between instant HD for local framing and the ready-to-display framed option. The preview is the same either way, so you can wait to choose until the design feels right."
+        sourcePrefix="wedding-format"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">

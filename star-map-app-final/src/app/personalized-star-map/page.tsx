@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -88,6 +89,12 @@ export default function PersonalizedStarMapPage() {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading="Pick the right format after you preview"
+        intro="Most buyers decide faster when the delivery choice is clear up front. Start with the free preview, then choose whether this moment should stay digital, be printed, or arrive framed."
+        sourcePrefix="personalized-format"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
