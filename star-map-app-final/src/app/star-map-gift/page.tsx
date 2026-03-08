@@ -57,7 +57,12 @@ export default function StarMapGiftPage() {
       </header>
 
       <PreviewStartForm source="star-map-gift" />
-      <StickyCtaBar source="sticky-star-map-gift" />
+      <StickyCtaBar
+        source="sticky-star-map-gift"
+        secondaryButtonLabel="Preview framed gift"
+        secondaryHref="/editor?mode=quick&source=sticky-star-map-gift-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why a star map gift feels different</h2>

@@ -56,7 +56,12 @@ export default function PersonalizedStarMapPage() {
       </header>
 
       <PreviewStartForm source="personalized-star-map" />
-      <StickyCtaBar source="sticky-personalized-star-map" />
+      <StickyCtaBar
+        source="sticky-personalized-star-map"
+        secondaryButtonLabel="Preview framed version"
+        secondaryHref="/editor?mode=quick&source=sticky-personalized-star-map-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Make it truly personal</h2>

@@ -56,7 +56,12 @@ export default function WeddingPage() {
       </header>
 
       <PreviewStartForm source="wedding" />
-      <StickyCtaBar source="sticky-wedding" />
+      <StickyCtaBar
+        source="sticky-wedding"
+        secondaryButtonLabel="Preview framed wedding print"
+        secondaryHref="/editor?mode=quick&source=sticky-wedding-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why couples love this gift</h2>
