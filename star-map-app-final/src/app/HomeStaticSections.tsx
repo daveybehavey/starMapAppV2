@@ -64,7 +64,7 @@ export default function HomeStaticSections({
           ]}
           rightTitle="Print and delivery clarity"
           rightPoints={[
-            "Choose digital only, unframed print, or framed print",
+            "Choose digital only, U.S. unframed print, or U.S. framed print",
             shippingDisclosure,
             "Physical orders stay in manual review before production starts",
             "Optional HD digital add-on is available on print orders",

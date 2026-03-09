@@ -57,7 +57,7 @@ export default function PurchaseTrustPanel({
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             <li>{shippingDisclosure}</li>
-            <li>You can choose unframed or framed print checkout based on your gift plan.</li>
+            <li>You can choose digital, U.S. unframed print, or U.S. framed print based on your gift plan.</li>
             <li>
               {printAutoConfirm
                 ? "Production begins after payment once the order reaches Printful."

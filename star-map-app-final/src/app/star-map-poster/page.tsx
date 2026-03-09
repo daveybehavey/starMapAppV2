@@ -6,6 +6,7 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -20,12 +21,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Poster | StarMapCo",
   description:
-    "Design a star map poster (night sky poster) for any date and location. High-resolution digital download, ready for printing and framing.",
+    "Design a star map poster (night sky poster) for any date and location. High-resolution digital download plus U.S. unframed and framed print checkout.",
   alternates: { canonical: `${siteUrl}/star-map-poster` },
   openGraph: {
     title: "Star Map Poster | StarMapCo",
     description:
-      "Design a star map poster (night sky poster) for any date and location. High-resolution digital download, ready for printing and framing.",
+      "Design a star map poster (night sky poster) for any date and location. High-resolution digital download plus U.S. unframed and framed print checkout.",
     url: `${siteUrl}/star-map-poster`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -34,6 +35,8 @@ export const metadata: Metadata = {
 };
 
 export default function StarMapPosterPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -83,13 +86,13 @@ export default function StarMapPosterPage() {
 
       <DeliveryFormatModule
         heading="Choose whether this poster stays digital or ships physically"
-        intro="Some buyers want the HD poster file for local printing. Others want the same design routed into unframed or framed checkout. The preview supports both paths."
+        intro={`Some buyers want the HD poster file for local printing. Others want the same design routed into U.S. unframed or framed checkout. The preview supports both paths. ${shippingDisclosure}`}
         sourcePrefix="poster-format"
       />
 
       <FramedProofSection
         heading="Poster design on screen, framed result on the wall"
-        intro="Use the poster layout to design the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display."
+        intro={`Use the poster layout to design the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display. ${shippingDisclosure}`}
         sourcePrefix="poster-proof"
       />
 
@@ -135,7 +138,7 @@ export default function StarMapPosterPage() {
             <h3 className="font-semibold text-midnight">Is this a physical star map poster?</h3>
             <p>
               It starts as a high-resolution digital poster file, and after preview you can keep it digital or move into
-              unframed or framed print checkout from the same design.
+              U.S. unframed or framed print checkout from the same design. {shippingDisclosure}
             </p>
           </div>
           <div>
@@ -152,7 +155,7 @@ export default function StarMapPosterPage() {
           {
             question: "Is this a physical star map poster?",
             answer:
-              "It starts as a high-resolution digital poster file, and after preview you can keep it digital or move into unframed or framed print checkout from the same design.",
+              `It starts as a high-resolution digital poster file, and after preview you can keep it digital or move into U.S. unframed or framed print checkout from the same design. ${shippingDisclosure}`,
           },
           {
             question: "What size is the star map poster file?",

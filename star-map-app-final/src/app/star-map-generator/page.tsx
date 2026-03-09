@@ -5,6 +5,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -19,12 +20,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Generator | StarMapCo",
   description:
-    "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview and print-ready download.",
+    "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus U.S. unframed and framed print checkout.",
   alternates: { canonical: `${siteUrl}/star-map-generator` },
   openGraph: {
     title: "Star Map Generator | StarMapCo",
     description:
-      "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview and print-ready download.",
+      "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus U.S. unframed and framed print checkout.",
     url: `${siteUrl}/star-map-generator`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -33,6 +34,8 @@ export const metadata: Metadata = {
 };
 
 export default function StarMapGeneratorPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -116,13 +119,13 @@ export default function StarMapGeneratorPage() {
 
       <DeliveryFormatModule
         heading="Choose digital, unframed print, or framed print after preview"
-        intro="The generator starts the same way for every buyer: build the exact sky first, then decide whether this should stay digital or become a physical gift."
+        intro={`The generator starts the same way for every buyer: build the exact sky first, then decide whether this should stay digital or become a physical gift. ${shippingDisclosure}`}
         sourcePrefix="generator-format"
       />
 
       <FramedProofSection
         heading="The same generated map can become a framed gift"
-        intro="This is the part most generator pages skip. You are not locked into a digital-only flow. After preview, the same design can move into unframed or framed checkout without rebuilding the map."
+        intro={`This is the part most generator pages skip. You are not locked into a digital-only flow. After preview, the same design can move into U.S. unframed or framed checkout without rebuilding the map. ${shippingDisclosure}`}
         sourcePrefix="generator-proof"
       />
 
