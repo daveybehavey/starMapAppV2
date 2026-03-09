@@ -71,6 +71,46 @@ function maskEmail(email) {
   return `${name.slice(0, 2)}***@${domain}`;
 }
 
+function hasPrintShippingConfig() {
+  return Boolean(
+    process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim() ||
+      process.env.PRINT_STANDARD_SHIPPING_CENTS?.trim(),
+  );
+}
+
+async function fetchPrintfulOrderCost(printfulOrderId) {
+  const token = process.env.PRINTFUL_API_TOKEN?.trim() || "";
+  const storeId = process.env.PRINTFUL_STORE_ID?.trim() || "";
+  if (!token || !printfulOrderId) return null;
+
+  const url = new URL(`https://api.printful.com/orders/${encodeURIComponent(printfulOrderId)}`);
+  if (storeId) url.searchParams.set("store_id", storeId);
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      accept: "application/json",
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+
+  const data = await res.json().catch(() => null);
+  const result = data?.result ?? null;
+  const costs = result?.costs ?? null;
+  if (!costs || typeof costs.total !== "string" || typeof costs.currency !== "string") {
+    return null;
+  }
+
+  return {
+    status: typeof result?.status === "string" ? result.status : "",
+    total: costs.total,
+    subtotal: typeof costs.subtotal === "string" ? costs.subtotal : "",
+    shipping: typeof costs.shipping === "string" ? costs.shipping : "",
+    currency: costs.currency,
+  };
+}
+
 async function loadPrintSessions(stripe, args) {
   const createdGte = Math.floor(Date.now() / 1000) - args.hours * 60 * 60;
   const sessions = [];
@@ -183,6 +223,8 @@ async function main() {
     const status = await fetchStatus(args.site, adminToken, sessionId);
     const statusLabel = status.status in counts ? status.status : "unknown";
     counts[statusLabel] += 1;
+    const printfulCosts =
+      status.printfulOrderId && status.status === "sent" ? await fetchPrintfulOrderCost(status.printfulOrderId) : null;
 
     rows.push({
       sessionId,
@@ -194,6 +236,10 @@ async function main() {
       status: status.status,
       attempts: status.attempts ?? "",
       printfulOrderId: status.printfulOrderId ?? "",
+      printfulCostTotal: printfulCosts?.total ?? "",
+      printfulCostCurrency: printfulCosts?.currency ?? "",
+      printfulCostShipping: printfulCosts?.shipping ?? "",
+      printfulCostStatus: printfulCosts?.status ?? "",
       error: status.error || status.details || "",
       sentAt: status.sentAt || "",
       operatorAlertedAt: status.operatorAlertedAt || "",
@@ -223,6 +269,9 @@ async function main() {
   console.log(
     `Status counts -> sent=${counts.sent} pending=${counts.pending} failed=${counts.failed} missing=${counts.missing} error=${counts.error} unpaid=${counts.unpaid}`,
   );
+  if (!hasPrintShippingConfig()) {
+    console.log("Warning: no print shipping charge is configured. Current print prices may be absorbing fulfillment shipping.");
+  }
 
   if (!rows.length) {
     console.log("No print checkout sessions found in this window.");
@@ -238,6 +287,7 @@ async function main() {
       status: row.status,
       attempts: row.attempts,
       printfulOrderId: row.printfulOrderId,
+      printfulCost: row.printfulCostTotal ? `${row.printfulCostTotal} ${row.printfulCostCurrency}` : "",
       alert: row.operatorAlertedAt ? `${row.operatorAlertProvider || "sent"} @ ${row.operatorAlertedAt.slice(0, 19).replace("T", " ")}` : row.operatorAlertError ? `failed: ${row.operatorAlertError.slice(0, 32)}` : "",
       error: row.error ? row.error.slice(0, 80) : "",
     })),

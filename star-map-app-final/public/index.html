@@ -405,6 +405,76 @@
         font-size: 0.85rem;
         color: rgba(255, 255, 255, 0.7);
       }
+      .product-proof {
+        display: grid;
+        gap: 18px;
+        align-items: center;
+      }
+      .product-proof-visual {
+        margin: 0;
+        overflow: hidden;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.25);
+      }
+      .product-proof-visual img {
+        width: 100%;
+        display: block;
+        height: auto;
+      }
+      .product-proof-copy span {
+        display: inline-block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(251, 191, 36, 0.95);
+      }
+      .product-proof-copy h2 {
+        margin-top: 12px;
+      }
+      .product-proof-copy ul {
+        margin: 14px 0 0;
+        padding-left: 18px;
+        color: rgba(255, 255, 255, 0.84);
+      }
+      .product-proof-copy li + li {
+        margin-top: 8px;
+      }
+      .product-proof-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .product-proof-actions a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+      }
+      .product-proof-actions a:hover {
+        transform: translateY(-1px);
+      }
+      .product-proof-actions .primary {
+        background: linear-gradient(135deg, #fbbf24, #f1c27d);
+        color: #161616;
+      }
+      .product-proof-actions .secondary {
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.92);
+      }
+      @media (min-width: 900px) {
+        .product-proof {
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.95fr);
+        }
+      }
       .steps {
         display: grid;
         gap: 14px;
@@ -900,6 +970,44 @@
             <h3>Framed and unframed options stay clear</h3>
             <p>Checkout collects shipping details for physical orders, and support@starmapco.com handles damaged print issues if they occur.</p>
           </article>
+        </div>
+      </section>
+
+      <section class="section content-visibility-auto" id="framed-proof">
+        <div class="product-proof">
+          <figure class="product-proof-visual">
+            <img
+              src="/blog/anniversary/framed-star-map.jpg"
+              alt="Framed StarMapCo print displayed in a living space"
+              loading="lazy"
+              decoding="async"
+              width="1200"
+              height="630"
+            />
+          </figure>
+          <div class="product-proof-copy">
+            <span>Framed in real spaces</span>
+            <h2>See the finished piece, not just the render</h2>
+            <p>
+              Digital preview proves the sky design. Framed mockups prove the gift. Use the same star map preview to decide
+              whether this moment should stay digital, arrive as an unframed poster, or come ready to hang.
+            </p>
+            <ul>
+              <li>Framed print is the premium gift option when presentation matters most.</li>
+              <li>Unframed print is the lower-cost physical option if you already have your own frame plan.</li>
+              <li>HD digital add-on stays available when you want both instant access and a shipped piece.</li>
+            </ul>
+            <div class="product-proof-actions">
+              <a
+                class="primary"
+                href="/editor?mode=quick&source=home-proof-framed&checkout=print&print_variant=poster_framed"
+                data-funnel-step="hero_plan_click"
+                data-funnel-source="home_static_proof"
+                data-funnel-plan="print_framed"
+              >Start framed preview</a>
+              <a class="secondary" href="/star-map-gallery">Browse real examples</a>
+            </div>
+          </div>
         </div>
       </section>
 
