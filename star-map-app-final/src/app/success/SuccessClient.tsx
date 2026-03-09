@@ -12,6 +12,7 @@ import {
   type CheckoutPlan,
   type PrintVariant,
 } from "@/lib/pricing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -29,6 +30,7 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   lastConvertedAt: null,
 };
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
+const printShippingDisclosure = getPrintShippingDisclosure();
 
 export default function SuccessClient() {
   const router = useRouter();
@@ -649,7 +651,8 @@ export default function SuccessClient() {
                           Print this map next
                         </p>
                         <p className="mt-1 text-xs text-amber-100/80">
-                          Turn this download into a premium gift. Your map stays attached and framed is the best-looking option.
+                          Turn this download into a premium gift. Your map stays attached and framed is the
+                          best-looking option. {printShippingDisclosure}
                         </p>
                       </div>
                       <span className="rounded-full border border-amber-200/40 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
@@ -673,7 +676,7 @@ export default function SuccessClient() {
                       </button>
                     </div>
                     <p className="mt-2 text-[11px] text-amber-100/70">
-                      Physical orders are reviewed before production begins.
+                      Physical orders are reviewed before production begins. {printShippingDisclosure}
                     </p>
                   </div>
                 )}

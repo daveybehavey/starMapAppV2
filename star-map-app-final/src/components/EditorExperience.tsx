@@ -27,6 +27,7 @@ import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -328,6 +329,7 @@ export function EditorExperience({
   const editorReady = mounted || Boolean(forceViewport);
 
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
+  const shippingDisclosure = getPrintShippingDisclosure();
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const previewRef = useRef<HTMLDivElement>(null);
@@ -2218,7 +2220,7 @@ export function EditorExperience({
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
                               Secure Stripe checkout. Shipping is shown before payment, and your print order draft is
-                              created right after payment for manual review.
+                              created right after payment for manual review. {shippingDisclosure}
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <button

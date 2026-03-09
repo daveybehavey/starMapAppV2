@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type PriceLabels = {
   single: string;
@@ -76,6 +77,7 @@ export function PaywallModal({
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
+  const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export function PaywallModal({
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
                 Your current map is attached automatically. Shipping is shown in Stripe checkout and the order is
-                created for manual review.
+                created for manual review. {shippingDisclosure}
               </p>
               <div className="mt-3 grid gap-2">
                 <button

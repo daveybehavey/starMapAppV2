@@ -15,6 +15,7 @@ import {
   type CheckoutPlan,
   type PrintVariant,
 } from "@/lib/pricing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import EditorFontShell from "@/components/EditorFontShell";
 
 const DRAFT_KEY = "star-map-draft";
@@ -38,6 +39,7 @@ const PREVIEW_MAX_DIM = 2200;
 const PREVIEW_MAX_DPR = 2;
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
+const printShippingDisclosure = getPrintShippingDisclosure();
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   visits: 0,
   conversions: 0,
@@ -1113,8 +1115,8 @@ export default function DownloadClient() {
                 </div>
                 <p className="mt-1 text-xs text-neutral-200">
                   {upsellIntent
-                    ? "Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish."
-                    : "Start print checkout with your current map already attached."}
+                    ? `Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish. ${printShippingDisclosure}`
+                    : `Start print checkout with your current map already attached. ${printShippingDisclosure}`}
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button

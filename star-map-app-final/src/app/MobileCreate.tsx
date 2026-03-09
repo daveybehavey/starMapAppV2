@@ -16,6 +16,7 @@ import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
 interface MobileCreateProps {
@@ -91,6 +92,7 @@ export function MobileCreate({
     applyPreset: hookApplyPreset,
     applyProPreset,
   } = useEditorLogic({ variant });
+  const shippingDisclosure = getPrintShippingDisclosure();
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -1111,7 +1113,7 @@ export function MobileCreate({
                 <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
                 <p className="mt-1 text-[10px] text-amber-100/80">
                   Secure checkout collects shipping details, shows shipping before payment, and creates your print
-                  order right after payment.
+                  order right after payment. {shippingDisclosure}
                 </p>
                 <div className="mt-2 flex flex-col gap-2">
                   <button
