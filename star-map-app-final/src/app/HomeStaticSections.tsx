@@ -6,6 +6,12 @@ import PromotionSignup from "@/components/PromotionSignup";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
+import {
+  formatPrintPriceWithShipping,
+  getPrintAvailabilityBadgeLabel,
+  getPrintShippingDisclosure,
+  isUsOnlyPrintCheckout,
+} from "@/lib/printCheckoutConfig";
 
 type PriceLabels = {
   single: string;
@@ -28,10 +34,13 @@ export default function HomeStaticSections({
   const printTiers = getPrintPricingTiers();
   const printDigitalAddOn = getPrintDigitalAddOnPrice();
   const printLabels = {
-    unframed: formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
-    framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
+    unframed: formatPrintPriceWithShipping(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
+    framed: formatPrintPriceWithShipping(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
     digitalAddOn: formatPrice(printDigitalAddOn.amountCents, printDigitalAddOn.currency),
   };
+  const printBadgeLabel = getPrintAvailabilityBadgeLabel();
+  const shippingDisclosure = getPrintShippingDisclosure();
+  const isUsOnlyPrint = isUsOnlyPrintCheckout();
 
   return (
     <>
@@ -56,7 +65,7 @@ export default function HomeStaticSections({
           rightTitle="Print and delivery clarity"
           rightPoints={[
             "Choose digital only, unframed print, or framed print",
-            "Shipping address is collected during checkout for physical orders",
+            shippingDisclosure,
             "Physical orders stay in manual review before production starts",
             "Optional HD digital add-on is available on print orders",
             "If a print arrives damaged, support@starmapco.com handles it",
@@ -77,7 +86,7 @@ export default function HomeStaticSections({
             },
             {
               title: "Physical checkout when you want it",
-              detail: "Choose unframed or framed print from the same design without rebuilding your map.",
+              detail: `Choose unframed or framed print from the same design without rebuilding your map. ${shippingDisclosure}`,
             },
             {
               title: "Policy and support links before purchase",
@@ -97,8 +106,11 @@ export default function HomeStaticSections({
         <div className="rounded-3xl border border-white/12 bg-white/5 px-5 py-4 text-center text-neutral-200 shadow-sm shadow-black/20 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
           <p className="mt-2 text-sm sm:text-base">
-            Instant HD digital download plus physical checkout options: unframed print and ready-to-hang framed print.
+            {isUsOnlyPrint
+              ? "Instant HD digital download plus U.S. physical checkout options: unframed print and ready-to-hang framed print."
+              : "Instant HD digital download plus physical checkout options: unframed print and ready-to-hang framed print."}
           </p>
+          <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
         </div>
       </section>
 
@@ -258,7 +270,7 @@ export default function HomeStaticSections({
               },
               {
                 q: "When do I see shipping cost and delivery timing?",
-                a: "Shipping address is collected during checkout for physical orders. Production starts after order review while manual approval is enabled.",
+                a: `${shippingDisclosure} Production starts after order review while manual approval is enabled.`,
               },
               {
                 q: "What if a print arrives damaged?",

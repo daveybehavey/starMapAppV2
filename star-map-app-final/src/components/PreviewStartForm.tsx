@@ -76,7 +76,8 @@ export default function PreviewStartForm({
         </button>
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
         <p className="mt-1 text-xs font-semibold text-amber-700">
-          Physical checkout is available: unframed print, framed print, or print + HD file.
+          Physical checkout is available: unframed print, framed print, or print + HD file. Shipping is shown at
+          checkout.
         </p>
       </form>
     </section>

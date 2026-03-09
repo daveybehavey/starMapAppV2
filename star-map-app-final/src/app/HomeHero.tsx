@@ -3,8 +3,12 @@
 import HeroEditorDeferred from "@/components/HeroEditorDeferred";
 import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
 import { track, trackFunnelStep } from "@/lib/analytics";
+import { getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 export default function HomeHero() {
+  const printBadgeLabel = getPrintAvailabilityBadgeLabel();
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   const handlePrintOptionsClick = () => {
     track("print_options_clicked", {
       source: "home-hero",
@@ -47,7 +51,7 @@ export default function HomeHero() {
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">No account required</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD export in seconds</span>
             <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100">
-              Printed + framed options
+              {printBadgeLabel}
             </span>
           </div>
           <div className="mx-auto flex max-w-2xl flex-wrap justify-center gap-2 pt-2">
@@ -85,7 +89,7 @@ export default function HomeHero() {
             </div>
           </div>
           <p className="mt-3 text-xs text-neutral-200">
-            After preview, you can choose digital HD, unframed print, or framed print.
+            After preview, you can choose digital HD, unframed print, or framed print. {shippingDisclosure}
             <a
               href="/how-to-print-star-map"
               onClick={handlePrintGuideClick}

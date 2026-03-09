@@ -51,7 +51,7 @@ function siteOrigin() {
 }
 
 function parseAllowedShippingCountries(raw: string | undefined) {
-  const fallback: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[] = ["US", "CA"];
+  const fallback: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[] = ["US"];
   if (!raw) return fallback;
   const parsed = raw
     .split(",")

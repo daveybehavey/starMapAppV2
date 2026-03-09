@@ -662,14 +662,14 @@ export default function SuccessClient() {
                         onClick={() => handleOpenPrintUpsell("poster_framed")}
                         className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
                       >
-                        Add framed print ({printPriceLabels.framed})
+                        Add framed print ({printPriceLabels.framed} + shipping)
                       </button>
                       <button
                         type="button"
                         onClick={() => handleOpenPrintUpsell("poster_unframed")}
                         className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
                       >
-                        Unframed option ({printPriceLabels.unframed})
+                        Unframed option ({printPriceLabels.unframed} + shipping)
                       </button>
                     </div>
                     <p className="mt-2 text-[11px] text-amber-100/70">

@@ -1127,7 +1127,7 @@ export default function DownloadClient() {
                         : "border-amber-200/60 bg-amber-400/20 text-amber-50 hover:border-amber-200 hover:bg-amber-400/30"
                     }`}
                   >
-                    Framed print (recommended) • {printPriceLabels.framed}
+                    Framed print (recommended) • {printPriceLabels.framed} + shipping
                   </button>
                   <button
                     type="button"
@@ -1139,7 +1139,7 @@ export default function DownloadClient() {
                         : "border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15"
                     }`}
                   >
-                    Unframed • {printPriceLabels.unframed}
+                    Unframed • {printPriceLabels.unframed} + shipping
                   </button>
                 </div>
                 {upsellIntent ? (

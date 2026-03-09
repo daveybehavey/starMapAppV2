@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type PurchaseTrustPanelProps = {
   heading: string;
@@ -27,6 +28,7 @@ export default function PurchaseTrustPanel({
   const printAutoConfirm = /^(1|true|yes)$/i.test(
     (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
   );
+  const shippingDisclosure = getPrintShippingDisclosure();
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -54,7 +56,7 @@ export default function PurchaseTrustPanel({
         <div className="rounded-2xl border border-black/5 bg-white p-4">
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-            <li>Shipping address is collected during checkout for physical orders.</li>
+            <li>{shippingDisclosure}</li>
             <li>You can choose unframed or framed print checkout based on your gift plan.</li>
             <li>
               {printAutoConfirm

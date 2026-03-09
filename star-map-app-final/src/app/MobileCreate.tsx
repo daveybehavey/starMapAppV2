@@ -1110,7 +1110,8 @@ export function MobileCreate({
               <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
                 <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
                 <p className="mt-1 text-[10px] text-amber-100/80">
-                  Secure checkout collects shipping details and creates your print order right after payment.
+                  Secure checkout collects shipping details, shows shipping before payment, and creates your print
+                  order right after payment.
                 </p>
                 <div className="mt-2 flex flex-col gap-2">
                   <button
@@ -1118,21 +1119,21 @@ export function MobileCreate({
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
                   >
-                    🖼️ Framed + HD (recommended) • {printPriceLabels.framed} + {printPriceLabels.digitalAddOn}
+                    🖼️ Framed + HD (recommended) • {printPriceLabels.framed} + shipping + {printPriceLabels.digitalAddOn}
                   </button>
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
                   >
-                    🖼️ Framed print • {printPriceLabels.framed}
+                    🖼️ Framed print • {printPriceLabels.framed} + shipping
                   </button>
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
                   >
-                    🖼️ Unframed print • {printPriceLabels.unframed}
+                    🖼️ Unframed print • {printPriceLabels.unframed} + shipping
                   </button>
                 </div>
               </div>

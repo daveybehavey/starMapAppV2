@@ -1,6 +1,7 @@
 "use client";
 
 import { track, trackFunnelStep } from "@/lib/analytics";
+import { getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type HomeOfferStackProps = {
   priceLabels: {
@@ -19,6 +20,9 @@ type HomeOfferStackProps = {
 type DeliveryChoice = "digital" | "print_unframed" | "print_framed";
 
 export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferStackProps) {
+  const printBadgeLabel = getPrintAvailabilityBadgeLabel();
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   const handleDeliveryChoice = (choice: DeliveryChoice) => {
     track("delivery_choice_split", {
       source: "home-offer-stack",
@@ -55,7 +59,8 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Choose your format</p>
           <h2 className="text-2xl font-semibold sm:text-3xl">Preview first, then pick how you want it delivered</h2>
           <p className="text-sm text-neutral-200 sm:text-base">
-            Build your exact sky map in the editor. Checkout supports digital downloads and physical print options.
+            Build your exact sky map in the editor. Checkout supports digital downloads and physical print options,
+            with shipping shown before payment.
           </p>
         </div>
 
@@ -104,7 +109,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <p className="mt-1 text-xs text-neutral-200">Ready-to-hang physical gift with premium presentation</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
-              <li>Shipping address collected during checkout</li>
+              <li>{shippingDisclosure}</li>
               <li>{printLabels.framed}</li>
             </ul>
             <a
@@ -121,9 +126,10 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
             <li>Production typically starts after manual order review.</li>
-            <li>Shipping address is collected in checkout for physical orders.</li>
+            <li>{shippingDisclosure}</li>
             <li>If a print arrives damaged, contact support@starmapco.com for help.</li>
             <li>You can add the HD digital file to a print order for {printLabels.digitalAddOn}.</li>
+            <li>{printBadgeLabel}</li>
           </ul>
         </div>
 

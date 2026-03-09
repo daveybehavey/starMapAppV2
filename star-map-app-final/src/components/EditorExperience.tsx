@@ -2217,7 +2217,8 @@ export function EditorExperience({
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Your print order draft is created right after payment with shipping details attached for manual review.
+                              Secure Stripe checkout. Shipping is shown before payment, and your print order draft is
+                              created right after payment for manual review.
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <button
@@ -2232,7 +2233,7 @@ export function EditorExperience({
                                 disabled={checkoutInFlight}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/35 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/45 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                Framed + HD • {printPriceLabels.framed} + {printPriceLabels.digitalAddOn}
+                                Framed + HD • {printPriceLabels.framed} + shipping + {printPriceLabels.digitalAddOn}
                               </button>
                               <button
                                 type="button"
@@ -2246,7 +2247,7 @@ export function EditorExperience({
                                 disabled={checkoutInFlight}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                Framed • {printPriceLabels.framed}
+                                Framed • {printPriceLabels.framed} + shipping
                               </button>
                               <button
                                 type="button"
@@ -2260,7 +2261,7 @@ export function EditorExperience({
                                 disabled={checkoutInFlight}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                Unframed • {printPriceLabels.unframed}
+                                Unframed • {printPriceLabels.unframed} + shipping
                               </button>
                             </div>
                           </div>

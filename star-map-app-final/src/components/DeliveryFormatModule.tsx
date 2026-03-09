@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { formatPrice, getPrintPricingTiers } from "@/lib/pricing";
+import { getPrintPricingTiers } from "@/lib/pricing";
+import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type DeliveryFormatModuleProps = {
   heading?: string;
@@ -17,9 +18,10 @@ export default function DeliveryFormatModule({
   );
   const printTiers = getPrintPricingTiers();
   const printLabels = {
-    unframed: formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
-    framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
+    unframed: formatPrintPriceWithShipping(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
+    framed: formatPrintPriceWithShipping(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
   };
+  const shippingDisclosure = getPrintShippingDisclosure();
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -51,7 +53,7 @@ export default function DeliveryFormatModule({
             <p className="mt-1 text-xs text-neutral-700">Best if you already know the exact frame or want the lower-cost physical option.</p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Museum-quality poster stock</li>
-              <li>Shipping address collected during checkout</li>
+              <li>{shippingDisclosure}</li>
               <li>Starts at {printLabels.unframed}</li>
             </ul>
             <Link
@@ -74,7 +76,7 @@ export default function DeliveryFormatModule({
             <p className="mt-1 text-xs text-neutral-700">Best for gifting. Buyers choose this when they want the finished piece to arrive ready to display.</p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Gift-ready framed presentation</li>
-              <li>Shipping address collected during checkout</li>
+              <li>{shippingDisclosure}</li>
               <li>Starts at {printLabels.framed}</li>
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -98,7 +100,8 @@ export default function DeliveryFormatModule({
       <div className="rounded-2xl border border-black/5 bg-white p-4">
         <p className="text-sm font-semibold text-midnight">Buying note</p>
         <p className="mt-1 text-xs text-neutral-700 sm:text-sm">
-          Start with the preview. You can decide on digital, unframed, or framed delivery after you see the final design, so there is no need to rebuild the map for a different format.
+          Start with the preview. You can decide on digital, unframed, or framed delivery after you see the final
+          design, and physical orders show shipping before payment.
         </p>
       </div>
     </section>

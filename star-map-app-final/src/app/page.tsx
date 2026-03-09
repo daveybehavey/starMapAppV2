@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections from "./HomeStaticSections";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
+import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options at StarMapCo.";
+  "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus U.S. printed and framed checkout options at StarMapCo.";
 
 export const metadata: Metadata = {
   title: "Custom Star Map & Constellation Map | StarMapCo",
@@ -56,14 +57,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     tiers.subscription.amountCents,
     (tiers.subscription.currency || "USD").toUpperCase()
   );
-  const printUnframedLabel = formatPrice(
-    printTiers.poster_unframed.amountCents,
-    (printTiers.poster_unframed.currency || "USD").toUpperCase(),
-  );
-  const printFramedLabel = formatPrice(
+  const printFramedLabel = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,
     (printTiers.poster_framed.currency || "USD").toUpperCase(),
   );
+  const printUnframedOfferLabel = formatPrintPriceWithShipping(
+    printTiers.poster_unframed.amountCents,
+    (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+  );
+  const shippingDisclosure = getPrintShippingDisclosure();
+  const isUsOnlyPrint = isUsOnlyPrintCheckout();
   const packSavingsPercent =
     tiers.single.amountCents > 0
       ? Math.max(
@@ -107,7 +110,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           {
             "@type": "PropertyValue",
             name: "Delivery",
-            value: printCheckoutEnabled ? "Instant digital + optional physical print checkout" : "Instant digital",
+            value: printCheckoutEnabled
+              ? isUsOnlyPrint
+                ? "Instant digital + optional U.S. physical print checkout"
+                : "Instant digital + optional physical print checkout"
+              : "Instant digital",
           },
         ],
         offers: [
@@ -210,7 +217,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             acceptedAnswer: {
               "@type": "Answer",
               text: printCheckoutEnabled
-                ? `Yes. Checkout supports unframed print (${printUnframedLabel}) and framed print (${printFramedLabel}) options in addition to HD digital downloads.`
+                ? `Yes. Checkout supports unframed print (${printUnframedOfferLabel}) and framed print (${printFramedLabel}) options in addition to HD digital downloads.`
                 : "Physical print checkout is in staged rollout. You can always download a print-ready HD file immediately after payment.",
             },
           },
@@ -219,8 +226,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "When do I see shipping cost and delivery timing?",
             acceptedAnswer: {
               "@type": "Answer",
-              text:
-                "Shipping address is collected during checkout for physical orders. Production starts after order review while manual approval is enabled.",
+              text: `${shippingDisclosure} Production starts after order review while manual approval is enabled.`,
             },
           },
           {

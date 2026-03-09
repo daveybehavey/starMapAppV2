@@ -60,7 +60,7 @@ if (printCheckoutEnabled && !hasValue("STRIPE_WEBHOOK_SECRET")) {
 }
 
 if (printCheckoutEnabled && !hasPrintShippingConfig) {
-  warnings.push("No print shipping charge is configured; print margins may absorb fulfillment shipping.");
+  issues.push("PRINT_CHECKOUT_ENABLED=true requires explicit print shipping configuration.");
 }
 
 if (
