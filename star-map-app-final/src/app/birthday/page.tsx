@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
+import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import RevenueTrustModule from "@/components/RevenueTrustModule";
+import StickyCtaBar from "@/components/StickyCtaBar";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -16,11 +23,11 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Birthday Star Map | StarMapCo",
   description:
-    "Celebrate a birthday with a personalized star map showing the exact night sky from their special date and place. Astronomically accurate, print-ready, and memorable.",
+    "Celebrate a birthday with a personalized star map showing the exact night sky from their special date and place. Choose HD, unframed print, or framed print checkout.",
   alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
     title: "Personalized Birthday Star Map | StarMapCo",
-    description: "Capture the night sky from their birthday—accurate, print-ready, and gift-worthy.",
+    description: "Capture the night sky from their birthday with HD, unframed print, and framed print options.",
     url: `${siteUrl}/birthday`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -39,7 +46,20 @@ export default function BirthdayPage() {
           Mark a birthday with a birthday star map gift showing the exact night sky from their birth date and location. A
           keepsake that feels personal, timeless, and ready to frame.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+        </div>
       </header>
+
+      <PreviewStartForm source="birthday" />
+      <StickyCtaBar
+        source="sticky-birthday"
+        secondaryButtonLabel="Preview framed birthday print"
+        secondaryHref="/editor?mode=quick&source=sticky-birthday-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why this birthday gift stands out</h2>
@@ -62,7 +82,7 @@ export default function BirthdayPage() {
           <li>Enter the birth location (city or hospital)</li>
           <li>Select the birth date (add time if you want to be exact)</li>
           <li>Choose a style and add a dedication line</li>
-          <li>Reveal the sky and download a print-ready file</li>
+          <li>Reveal the sky, then choose HD download, unframed print, or framed print at checkout</li>
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
           Share a preview for free. Upgrade once to unlock the HD, watermark-free file for framing.
@@ -77,12 +97,23 @@ export default function BirthdayPage() {
         </div>
       </section>
 
+      <DeliveryFormatModule
+        heading="Choose the birthday delivery format"
+        intro="Some buyers want instant HD for same-day gifting. Others want a framed version ready to display. You decide after the preview."
+        sourcePrefix="birthday-format"
+      />
+      <FramedProofSection
+        heading="See the birthday map as a finished framed gift"
+        intro="Framed is the strongest gift-ready option when you want the final piece to arrive ready to display. Unframed keeps the total lower if you already have a frame plan."
+        sourcePrefix="birthday-proof"
+      />
+
       <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">What you get</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Preview and HD export share the same rendering engine, so the final download matches what you see. Toggle
-          constellations, glow, labels, and choose fonts to fit their style. Flexible pricing lets you choose single
-          downloads, bundles, or an unlimited subscription.
+          constellations, glow, labels, and choose fonts to fit their style. You can keep it digital or move into
+          unframed or framed print checkout without rebuilding the map.
         </p>
         <div className="flex gap-3 text-sm text-neutral-800">
           <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
@@ -93,6 +124,33 @@ export default function BirthdayPage() {
           </Link>
         </div>
       </section>
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only after the wording, date, and style feel right."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Framed and unframed print paths are available after preview",
+          "Shipping address is collected during physical checkout",
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading="What your birthday order includes"
+        intro="This is the handoff from preview to the final keepsake."
+      />
+      <RevenueTrustModule
+        heading="Birthday gift confidence"
+        intro="Most buyers decide faster once the wording, print plan, and whether they need the framed version are already settled."
+      />
 
       <OccasionLinks />
 

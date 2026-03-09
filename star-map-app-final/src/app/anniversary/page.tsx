@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
+import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import RevenueTrustModule from "@/components/RevenueTrustModule";
+import StickyCtaBar from "@/components/StickyCtaBar";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -16,11 +23,11 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Anniversary Star Map | StarMapCo",
   description:
-    "Celebrate your years together with a personalized anniversary star map. Capture the exact night sky from your special date and place—accurate, print-ready, and unforgettable.",
+    "Celebrate your years together with a personalized anniversary star map. Capture the exact night sky from your special date and place with HD, unframed print, and framed print options.",
   alternates: { canonical: `${siteUrl}/anniversary` },
   openGraph: {
     title: "Personalized Anniversary Star Map | StarMapCo",
-    description: "Commemorate your anniversary with the exact night sky from your milestone. Print-ready star map keepsake.",
+    description: "Commemorate your anniversary with the exact night sky from your milestone. HD, unframed print, and framed print options.",
     url: `${siteUrl}/anniversary`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -39,7 +46,20 @@ export default function AnniversaryPage() {
           Mark your milestone with an anniversary star map gift showing the night sky from the date and place that shaped
           your story. A keepsake that grows more meaningful each year.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+        </div>
       </header>
+
+      <PreviewStartForm source="anniversary" />
+      <StickyCtaBar
+        source="sticky-anniversary"
+        secondaryButtonLabel="Preview framed anniversary print"
+        secondaryHref="/editor?mode=quick&source=sticky-anniversary-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why this gift matters</h2>
@@ -62,7 +82,7 @@ export default function AnniversaryPage() {
           <li>Enter the anniversary location (city or venue)</li>
           <li>Select the anniversary date (add time if you want to be exact)</li>
           <li>Choose a style and add your dedication line</li>
-          <li>Reveal the sky and download a print-ready file</li>
+          <li>Reveal the sky, then choose HD download, unframed print, or framed print at checkout</li>
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
           Share a preview for free. Upgrade once to unlock the HD, watermark-free file for framing.
@@ -77,12 +97,23 @@ export default function AnniversaryPage() {
         </div>
       </section>
 
+      <DeliveryFormatModule
+        heading="Choose how you want to keep the anniversary map"
+        intro="Some couples want the instant HD file for local framing. Others want the finished framed version ready to gift. You can decide after you see the preview."
+        sourcePrefix="anniversary-format"
+      />
+      <FramedProofSection
+        heading="See how the anniversary gift looks framed"
+        intro="The preview lets you refine the typography and layout first. Framed is the premium route when you want the finished piece to arrive ready to display."
+        sourcePrefix="anniversary-proof"
+      />
+
       <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">What you get</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           The preview and HD export use the same rendering engine—what you see is what you download. Toggle constellations,
-          glow, labels, and choose fonts to match your style. Flexible pricing includes single downloads, bundles, or an
-          unlimited subscription.
+          glow, labels, and choose fonts to match your style. You can keep it digital or move into unframed or framed print
+          checkout without rebuilding the map.
         </p>
         <div className="flex gap-3 text-sm text-neutral-800">
           <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
@@ -93,6 +124,33 @@ export default function AnniversaryPage() {
           </Link>
         </div>
       </section>
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only once the wording, date, and layout feel right."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Framed and unframed print paths are available after preview",
+          "Shipping address is collected during physical checkout",
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading="What your anniversary order includes"
+        intro="This is the handoff from preview to the final keepsake."
+      />
+      <RevenueTrustModule
+        heading="Anniversary gift confidence"
+        intro="Most couples decide faster once the wording, size plan, and whether they want framed or digital-only are already clear."
+      />
 
       <OccasionLinks />
 
