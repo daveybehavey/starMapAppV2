@@ -4,6 +4,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -37,6 +38,7 @@ export const metadata: Metadata = {
 };
 
 export default function StarMapByCityPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
   const indexableLocations = seoLocations.filter((location) => isIndexableLocationSlug(location.slug));
 
   return (
@@ -106,7 +108,7 @@ export default function StarMapByCityPage() {
         rightTitle="Print and support"
         rightPoints={[
           "Unframed and framed print paths are available after preview",
-          "Shipping address is collected during physical checkout",
+          shippingDisclosure,
           "Physical orders stay in manual review before production starts",
           "Support is available at support@starmapco.com",
         ]}

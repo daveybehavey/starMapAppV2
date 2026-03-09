@@ -10,6 +10,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -80,6 +81,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
   );
   const relatedLocations = [...sameRegion, ...sameCountry, ...otherLocations].slice(0, 4);
   const exampleLine = `${display} · June 12, 2024`;
+  const shippingDisclosure = getPrintShippingDisclosure();
   const breadcrumbs = [
     { href: "/", label: "Home" },
     { href: "/star-map-in", label: "Star map in" },
@@ -195,7 +197,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         rightTitle="Print and support"
         rightPoints={[
           "Unframed and framed print paths are available after preview",
-          "Shipping address is collected during physical checkout",
+          shippingDisclosure,
           "Physical orders stay in manual review before production starts",
           "Support is available at support@starmapco.com",
         ]}

@@ -12,6 +12,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -39,6 +40,8 @@ export const metadata: Metadata = {
 };
 
 export default function WeddingPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -167,7 +170,7 @@ export default function WeddingPage() {
         rightPoints={[
           "High-resolution file up to 6000x6000",
           "Designed for frame-ready printing",
-          "Shipping address collected during checkout for physical orders",
+          shippingDisclosure,
           "Physical orders stay in manual review before production starts",
           "Help available at support@starmapco.com",
         ]}
@@ -222,7 +225,7 @@ export default function WeddingPage() {
           <div>
             <h3 className="font-semibold text-midnight">Can I order a framed wedding print directly?</h3>
             <p>
-              Yes. After preview, checkout includes both unframed and framed print options plus HD digital download.
+              Yes. After preview, checkout includes both unframed and framed print options plus HD digital download. {shippingDisclosure}
             </p>
           </div>
         </div>
@@ -250,7 +253,7 @@ export default function WeddingPage() {
           },
           {
             question: "Can I order a framed wedding print directly?",
-            answer: "Yes. After preview, checkout includes both unframed and framed print options plus HD digital download.",
+            answer: `Yes. After preview, checkout includes both unframed and framed print options plus HD digital download. ${shippingDisclosure}`,
           },
         ]}
       />

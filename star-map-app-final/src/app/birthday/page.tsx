@@ -9,6 +9,7 @@ import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -36,6 +37,8 @@ export const metadata: Metadata = {
 };
 
 export default function BirthdayPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -137,7 +140,7 @@ export default function BirthdayPage() {
         rightTitle="Print and support"
         rightPoints={[
           "Framed and unframed print paths are available after preview",
-          "Shipping address is collected during physical checkout",
+          shippingDisclosure,
           "Physical orders stay in manual review before production starts",
           "Support is available at support@starmapco.com",
         ]}

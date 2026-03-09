@@ -4,6 +4,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import { seoOccasions } from "@/data/seoOccasions";
 import { isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -48,6 +49,8 @@ export const metadata: Metadata = {
 };
 
 export default function StarMapForOccasionsPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -148,7 +151,7 @@ export default function StarMapForOccasionsPage() {
         rightTitle="Print and support"
         rightPoints={[
           "Unframed and framed print paths are available after preview",
-          "Shipping address is collected during physical checkout",
+          shippingDisclosure,
           "Physical orders stay in manual review before production starts",
           "Support is available at support@starmapco.com",
         ]}

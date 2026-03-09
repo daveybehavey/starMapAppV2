@@ -199,7 +199,7 @@ export default function StarMapGalleryPage() {
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Can I order a physical version from one of these examples?</h3>
-            <p>Yes. After preview, checkout supports both unframed print and framed print from the same design.</p>
+            <p>Yes. After preview, checkout supports both unframed print and framed print from the same design, with shipping shown before payment.</p>
           </div>
         </div>
       </section>
@@ -219,7 +219,7 @@ export default function StarMapGalleryPage() {
           },
           {
             question: "Can I order a physical version from one of these examples?",
-            answer: "Yes. After preview, checkout supports both unframed print and framed print from the same design.",
+            answer: "Yes. After preview, checkout supports both unframed print and framed print from the same design, with shipping shown before payment.",
           },
         ]}
       />

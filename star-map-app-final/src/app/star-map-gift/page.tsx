@@ -12,6 +12,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -40,6 +41,8 @@ export const metadata: Metadata = {
 };
 
 export default function StarMapGiftPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -117,7 +120,7 @@ export default function StarMapGiftPage() {
         rightTitle="Support and policy"
         rightPoints={[
           "Clear returns and refund policy",
-          "Shipping address collected during checkout for physical orders",
+          shippingDisclosure,
           "Step-by-step print guidance included",
           "Direct support at support@starmapco.com",
         ]}
@@ -129,7 +132,7 @@ export default function StarMapGiftPage() {
       />
       <RevenueTrustModule
         heading="Gift-buyer confidence pack"
-        intro="If this is a gift, use this section to remove last-minute uncertainty around quality, print sizing, and final review before purchase."
+        intro="If this is a gift, use this section to remove last-minute uncertainty around quality, shipping, and final review before purchase."
       />
       <TestimonialHighlights
         heading="Verified gift-buyer feedback"
@@ -237,7 +240,7 @@ export default function StarMapGiftPage() {
           <div>
             <h3 className="font-semibold text-midnight">Can I send a physical print instead of digital only?</h3>
             <p>
-              Yes. You can choose an unframed print or framed print in checkout after previewing your design.
+              Yes. You can choose an unframed print or framed print in checkout after previewing your design. {shippingDisclosure}
             </p>
           </div>
         </div>
@@ -265,7 +268,7 @@ export default function StarMapGiftPage() {
           },
           {
             question: "Can I send a physical print instead of digital only?",
-            answer: "Yes. You can choose an unframed print or framed print in checkout after previewing your design.",
+            answer: `Yes. You can choose an unframed print or framed print in checkout after previewing your design. ${shippingDisclosure}`,
           },
         ]}
       />

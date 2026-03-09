@@ -12,6 +12,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -40,6 +41,8 @@ export const metadata: Metadata = {
 };
 
 export default function PersonalizedStarMapPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -160,7 +163,7 @@ export default function PersonalizedStarMapPage() {
         rightPoints={[
           "Export up to 6000x6000 resolution",
           "Built for poster-quality prints and framing",
-          "Shipping address collected during checkout for physical orders",
+          shippingDisclosure,
           "Physical orders stay in manual review before production starts",
           "Email support at support@starmapco.com",
         ]}
@@ -172,7 +175,7 @@ export default function PersonalizedStarMapPage() {
       />
       <RevenueTrustModule
         heading="Personalized order confidence"
-        intro="This is built for gifting quality, not just a quick screenshot. Use the quick guide below to lock in print size and framing before you checkout."
+        intro="This is built for gifting quality, not just a quick screenshot. Use this section to confirm the format, shipping, and final review details before checkout."
       />
       <TestimonialHighlights
         heading="Verified personalized map feedback"
@@ -213,7 +216,7 @@ export default function PersonalizedStarMapPage() {
           <div>
             <h3 className="font-semibold text-midnight">Can I order a printed or framed version directly?</h3>
             <p>
-              Yes. After preview, you can choose HD download, unframed print, or framed print during checkout.
+              Yes. After preview, you can choose HD download, unframed print, or framed print during checkout. {shippingDisclosure}
             </p>
           </div>
         </div>
@@ -240,7 +243,7 @@ export default function PersonalizedStarMapPage() {
           },
           {
             question: "Can I order a printed or framed version directly?",
-            answer: "Yes. After preview, you can choose HD download, unframed print, or framed print during checkout.",
+            answer: `Yes. After preview, you can choose HD download, unframed print, or framed print during checkout. ${shippingDisclosure}`,
           },
         ]}
       />

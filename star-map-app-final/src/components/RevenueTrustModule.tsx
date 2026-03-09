@@ -1,15 +1,10 @@
 import Link from "next/link";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type RevenueTrustModuleProps = {
   heading?: string;
   intro?: string;
 };
-
-const printSpecs = [
-  { size: "8x10 in", useCase: "Desk or shelf gift", frame: "11x14 with mat" },
-  { size: "11x14 in", useCase: "Most popular wall size", frame: "16x20 with mat" },
-  { size: "16x20 in", useCase: "Statement wall piece", frame: "20x24 or 24x30" },
-];
 
 export default function RevenueTrustModule({
   heading = "Confidence before checkout",
@@ -18,6 +13,7 @@ export default function RevenueTrustModule({
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
   );
+  const shippingDisclosure = getPrintShippingDisclosure();
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -37,7 +33,7 @@ export default function RevenueTrustModule({
           </p>
           <p className="mt-1 text-xs text-neutral-700">
             {printCheckoutEnabled
-              ? "Unlock HD instantly, or choose unframed/framed physical print checkout from the editor."
+              ? `Unlock HD instantly, or choose unframed/framed physical print checkout from the editor. ${shippingDisclosure}`
               : "HD file unlocks immediately after successful payment verification."}
           </p>
         </div>
@@ -54,29 +50,25 @@ export default function RevenueTrustModule({
       </div>
 
       <div className="rounded-2xl border border-black/5 bg-white p-4">
-        <h3 className="text-sm font-semibold text-midnight sm:text-base">Print planning quick guide</h3>
-        <p className="mt-1 text-xs text-neutral-700 sm:text-sm">
-          Choose your print size first, then pick a frame size with or without matting.
-        </p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-left text-xs sm:text-sm">
-            <thead>
-              <tr className="border-b border-black/10 text-neutral-700">
-                <th className="px-2 py-1.5 font-semibold">Print size</th>
-                <th className="px-2 py-1.5 font-semibold">Best for</th>
-                <th className="px-2 py-1.5 font-semibold">Frame suggestion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {printSpecs.map((item) => (
-                <tr key={item.size} className="border-b border-black/5">
-                  <td className="px-2 py-1.5 font-semibold text-midnight">{item.size}</td>
-                  <td className="px-2 py-1.5 text-neutral-700">{item.useCase}</td>
-                  <td className="px-2 py-1.5 text-neutral-700">{item.frame}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order overview</h3>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Curated format</p>
+            <p className="mt-1 text-sm text-neutral-700">
+              Physical checkout uses a curated print format so buyers do not need to make sizing decisions before
+              seeing the final design.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Before payment</p>
+            <p className="mt-1 text-sm text-neutral-700">{shippingDisclosure}</p>
+          </div>
+          <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">After payment</p>
+            <p className="mt-1 text-sm text-neutral-700">
+              Physical orders are created for review first, then manually approved before production begins.
+            </p>
+          </div>
         </div>
       </div>
 

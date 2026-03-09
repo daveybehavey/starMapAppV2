@@ -9,6 +9,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { getOccasion, seoOccasions } from "@/data/seoOccasions";
 import { getCanonicalOccasionPath, isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -69,6 +70,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       ? [...indexableOccasions.slice(occasionIndex + 1), ...indexableOccasions.slice(0, occasionIndex)]
       : indexableOccasions;
   const siblingOccasions = rotatedOccasions.slice(0, 4);
+  const shippingDisclosure = getPrintShippingDisclosure();
 
   const breadcrumbs = [
     { href: "/", label: "Home" },
@@ -190,7 +192,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         rightTitle="Print and support"
         rightPoints={[
           "Unframed and framed print paths are available after preview",
-          "Shipping address is collected during physical checkout",
+          shippingDisclosure,
           "Physical orders stay in manual review before production starts",
           "Support is available at support@starmapco.com",
         ]}

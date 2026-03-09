@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type FramedProofSectionProps = {
   heading?: string;
@@ -12,6 +13,8 @@ export default function FramedProofSection({
   intro = "Use the preview to design the map, then compare the physical options. Framed is the premium gift route, unframed keeps the total lower, and the HD add-on gives you a backup file immediately after checkout.",
   sourcePrefix = "framed-proof",
 }: FramedProofSectionProps) {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <section className="content-visibility-auto mt-6 overflow-hidden rounded-3xl border border-black/5 bg-white/90 shadow-xl shadow-black/10">
       <div className="grid gap-0 lg:grid-cols-[1.05fr,0.95fr]">
@@ -41,6 +44,7 @@ export default function FramedProofSection({
             <li className="rounded-2xl border border-black/10 bg-white px-4 py-3">
               The HD add-on gives you an immediate digital backup after checkout.
             </li>
+            <li className="rounded-2xl border border-black/10 bg-white px-4 py-3">{shippingDisclosure}</li>
           </ul>
 
           <div className="flex flex-wrap gap-3">
