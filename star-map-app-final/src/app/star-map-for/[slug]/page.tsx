@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { getOccasion, seoOccasions } from "@/data/seoOccasions";
 import { getCanonicalOccasionPath, isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
 import type { Metadata } from "next";
@@ -37,8 +40,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const shouldIndex = isIndexableOccasionSlug(occasion.slug);
 
   return {
-    title: `Star Map for ${occasion.label}`,
-    description: `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with an instant preview.`,
+    title: `Star Map for ${occasion.label} | StarMapCo`,
+    description: `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with HD, unframed print, and framed print options.`,
     alternates: { canonical: `${siteUrl}/star-map-for/${occasion.slug}` },
     robots: shouldIndex ? undefined : { index: false, follow: true },
     openGraph: {
@@ -79,6 +82,11 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map for {occasion.label}</h1>
         <p className="text-sm text-white/90 sm:text-base">{occasion.intro}</p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+        </div>
       </header>
 
       <PreviewStartForm
@@ -114,7 +122,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           <li>Enter the date, time, and location</li>
           <li>Preview the sky instantly</li>
           <li>Customize text and styles</li>
-          <li>Unlock and download the HD file</li>
+          <li>Unlock HD or continue into unframed or framed print checkout</li>
         </ol>
         <div className="pt-2">
           <Link
@@ -125,6 +133,12 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading={`Choose the ${occasion.label.toLowerCase()} delivery format`}
+        intro={`Build the ${occasion.label.toLowerCase()} map once, then decide whether you want the instant HD file, an unframed print, or the finished framed version.`}
+        sourcePrefix={`occasion-${occasion.slug}-format`}
+      />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Example caption</h2>
@@ -162,6 +176,29 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           </Link>
         </div>
       </section>
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only when the date, text, and layout look right."
+        leftTitle="Checkout and access"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD unlock after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Unframed and framed print paths are available after preview",
+          "Shipping address is collected during physical checkout",
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading={`What your ${occasion.label.toLowerCase()} order includes`}
+        intro="This is the handoff from preview to the final keepsake."
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">{occasion.label} star map FAQ</h2>

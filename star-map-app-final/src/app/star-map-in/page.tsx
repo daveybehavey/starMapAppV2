@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
 import type { Metadata } from "next";
@@ -16,7 +18,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map by City | StarMapCo",
   description:
-    "Explore custom star maps by city. Create a star map for your location and capture the exact night sky from your date.",
+    "Explore custom star maps by city. Create a star map for your location with HD, unframed print, and framed print options.",
   alternates: { canonical: `${siteUrl}/star-map-in` },
   openGraph: {
     title: "Star Map by City | StarMapCo",
@@ -41,6 +43,11 @@ export default function StarMapByCityPage() {
         <p className="text-sm text-white/90 sm:text-base">
           Pick your city to create a custom star map of the exact night sky from a meaningful date and location.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+        </div>
       </header>
 
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -64,7 +71,7 @@ export default function StarMapByCityPage() {
       <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Start your map in minutes</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Enter your date and location, preview the exact sky, and unlock the HD download when ready.
+          Enter your date and location, preview the exact sky, and then choose HD, unframed print, or framed print when ready.
         </p>
         <div className="pt-3">
           <Link
@@ -75,6 +82,31 @@ export default function StarMapByCityPage() {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading="Choose the format after preview"
+        intro="Use the same map preview to decide between instant HD, unframed print, or the finished framed version once the location details look right."
+        sourcePrefix="star-map-in-hub"
+      />
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only after the city, date, and final text feel right."
+        leftTitle="Checkout and access"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD unlock after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Unframed and framed print paths are available after preview",
+          "Shipping address is collected during physical checkout",
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

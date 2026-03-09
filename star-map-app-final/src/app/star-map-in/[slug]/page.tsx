@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
 import type { Metadata } from "next";
@@ -34,8 +37,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const shouldIndex = isIndexableLocationSlug(location.slug);
 
   return {
-    title: `Star Map in ${display}`,
-    description: `Create a custom star map in ${display}. Capture the exact night sky from your date and location with an instant preview.`,
+    title: `Star Map in ${display} | StarMapCo`,
+    description: `Create a custom star map in ${display}. Capture the exact night sky from your date and location with HD, unframed print, and framed print options.`,
     alternates: { canonical: `${siteUrl}/star-map-in/${location.slug}` },
     robots: shouldIndex ? undefined : { index: false, follow: true },
     openGraph: {
@@ -90,8 +93,13 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map in {display}</h1>
         <p className="text-sm text-white/90 sm:text-base">
           Create a custom star map for {display} and capture the exact night sky from your date and location. Preview instantly,
-          then download a print‑ready file.
+          then choose HD, unframed print, or framed print from the same design.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+        </div>
       </header>
 
       <PreviewStartForm
@@ -122,7 +130,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           <li>Enter the date, time, and location</li>
           <li>Preview the sky instantly</li>
           <li>Customize text, styles, and shapes</li>
-          <li>Unlock and download the HD file</li>
+          <li>Unlock HD or continue into unframed or framed print checkout</li>
         </ol>
         <div className="pt-2">
           <Link
@@ -133,6 +141,12 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading={`Choose how you want to keep the ${display} map`}
+        intro={`Use the same preview to decide between instant HD, an unframed print, or the finished framed version for ${display}.`}
+        sourcePrefix={`location-${location.slug}-format`}
+      />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Example caption</h2>
@@ -167,6 +181,29 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           ))}
         </div>
       </section>
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only when the location line, date, and layout look right."
+        leftTitle="Checkout and access"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD unlock after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Unframed and framed print paths are available after preview",
+          "Shipping address is collected during physical checkout",
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading={`What your ${display} order includes`}
+        intro="This is the handoff from preview to the final keepsake."
+      />
 
       <OccasionLinks />
 

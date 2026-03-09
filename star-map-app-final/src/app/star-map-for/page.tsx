@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import { seoOccasions } from "@/data/seoOccasions";
 import { isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
 import type { Metadata } from "next";
@@ -27,7 +29,7 @@ const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasion
 export const metadata: Metadata = {
   title: "Star Map for Occasions | StarMapCo",
   description:
-    "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map in minutes.",
+    "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD, unframed print, and framed print options.",
   alternates: { canonical: `${siteUrl}/star-map-for` },
   openGraph: {
     title: "Star Map for Occasions | StarMapCo",
@@ -50,6 +52,11 @@ export default function StarMapForOccasionsPage() {
         <p className="text-sm text-white/90 sm:text-base">
           From proposals to graduations, create a custom star map that captures the exact night sky from your date and location.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+        </div>
       </header>
 
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -91,7 +98,7 @@ export default function StarMapForOccasionsPage() {
       <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Preview your star map</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Enter your date and location, preview the exact sky, and unlock the HD export when ready.
+          Enter your date and location, preview the exact sky, and then choose HD, unframed print, or framed print when ready.
         </p>
         <div className="pt-3">
           <Link
@@ -102,6 +109,12 @@ export default function StarMapForOccasionsPage() {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading="Choose the format after preview"
+        intro="The preview is the same either way. Use it first, then decide whether the occasion should stay digital or move into unframed or framed print checkout."
+        sourcePrefix="star-map-for-hub"
+      />
 
       <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Explore by city</h2>
@@ -117,6 +130,25 @@ export default function StarMapForOccasionsPage() {
           </Link>
         </div>
       </section>
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only after the date, location, and text feel right."
+        leftTitle="Checkout and access"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD unlock after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Unframed and framed print paths are available after preview",
+          "Shipping address is collected during physical checkout",
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
