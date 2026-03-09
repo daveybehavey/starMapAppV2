@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { track, trackBeginCheckout, trackPurchaseCompleted } from "@/lib/analytics";
-import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
+import {
+  formatPrice,
+  getPricingTiers,
+  getPrintPricingTiers,
+  type CheckoutOrderType,
+  type CheckoutPlan,
+  type PrintVariant,
+} from "@/lib/pricing";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -21,6 +28,7 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   rewardsGranted: 0,
   lastConvertedAt: null,
 };
+const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 
 export default function SuccessClient() {
   const router = useRouter();
@@ -48,6 +56,13 @@ export default function SuccessClient() {
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
+  const printPriceLabels = {
+    framed: formatPrice(getPrintPricingTiers().poster_framed.amountCents, getPrintPricingTiers().poster_framed.currency),
+    unframed: formatPrice(
+      getPrintPricingTiers().poster_unframed.amountCents,
+      getPrintPricingTiers().poster_unframed.currency,
+    ),
+  };
 
   const pauseRedirect = useCallback(() => {
     autoRedirectRef.current = false;
@@ -156,6 +171,22 @@ export default function SuccessClient() {
       setDigitalAddOnLoading(false);
     }
   }, [digitalAddOnLoading, orderType, pauseRedirect, printVariant, resolvedMapId]);
+
+  const handleOpenPrintUpsell = useCallback(
+    (variant: PrintVariant) => {
+      pauseRedirect();
+      track("digital_to_print_upsell_clicked", {
+        source: "success",
+        variant,
+        hasMapId: Boolean(resolvedMapId),
+      });
+      const params = new URLSearchParams();
+      if (resolvedMapId) params.set("map_id", resolvedMapId);
+      params.set("upsell", variant);
+      router.replace(`/download?${params.toString()}#print-addons`);
+    },
+    [pauseRedirect, resolvedMapId, router],
+  );
 
   const loadReferralStatus = useCallback(async () => {
     setReferralStatus("loading");
@@ -610,6 +641,42 @@ export default function SuccessClient() {
                   )}
                 </div>
                 {portalError && <p className="mt-2 text-xs text-rose-200">{portalError}</p>}
+                {hasDigitalEntitlement && !isPrintOrder && printCheckoutEnabled && (
+                  <div className="mt-4 rounded-xl border border-amber-200/30 bg-amber-400/10 p-3 text-left">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
+                          Print this map next
+                        </p>
+                        <p className="mt-1 text-xs text-amber-100/80">
+                          Turn this download into a premium gift. Your map stays attached and framed is the best-looking option.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-amber-200/40 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                        Framed recommended
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPrintUpsell("poster_framed")}
+                        className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
+                      >
+                        Add framed print ({printPriceLabels.framed})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPrintUpsell("poster_unframed")}
+                        className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
+                      >
+                        Unframed option ({printPriceLabels.unframed})
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] text-amber-100/70">
+                      Manual review stays on before production begins.
+                    </p>
+                  </div>
+                )}
                 {hasDigitalEntitlement && (
                   <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
                     <div className="flex items-center justify-between gap-2">

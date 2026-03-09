@@ -174,6 +174,10 @@ export default function DownloadClient() {
   const paidRef = useRef(false);
   const mapIdFromUrl = searchParams.get("map_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
+  const upsellIntent =
+    searchParams.get("upsell") === "poster_framed" || searchParams.get("upsell") === "poster_unframed"
+      ? searchParams.get("upsell")
+      : null;
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessLinkStatus, setAccessLinkStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const accessLinkStatusRef = useRef<"idle" | "loading" | "ready" | "error">("idle");
@@ -189,6 +193,8 @@ export default function DownloadClient() {
   const [portalError, setPortalError] = useState<string | null>(null);
   const [printCheckoutLoading, setPrintCheckoutLoading] = useState(false);
   const [printCheckoutError, setPrintCheckoutError] = useState<string | null>(null);
+  const printUpsellRef = useRef<HTMLDivElement | null>(null);
+  const printUpsellFocusedRef = useRef(false);
   const [referralLink, setReferralLink] = useState<string | null>(null);
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
@@ -203,6 +209,15 @@ export default function DownloadClient() {
       framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
     };
   }, []);
+
+  useEffect(() => {
+    if (!printCheckoutEnabled || !upsellIntent || status !== "ready" || !paid || printUpsellFocusedRef.current) return;
+    printUpsellFocusedRef.current = true;
+    track("print_upsell_viewed", { source: "download", variant: upsellIntent });
+    window.requestAnimationFrame(() => {
+      printUpsellRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [paid, status, upsellIntent]);
 
   const setPaidState = useCallback((value: boolean) => {
     paidRef.current = value;
@@ -1079,22 +1094,38 @@ export default function DownloadClient() {
               ))}
             </div>
             {printCheckoutEnabled ? (
-              <div className="mt-4 rounded-2xl border border-amber-200/35 bg-amber-400/10 p-4">
+              <div
+                id="print-addons"
+                ref={printUpsellRef}
+                className={`mt-4 rounded-2xl border p-4 transition ${
+                  upsellIntent
+                    ? "border-amber-200/60 bg-amber-400/15 shadow-[0_0_0_1px_rgba(251,191,36,0.18)]"
+                    : "border-amber-200/35 bg-amber-400/10"
+                }`}
+              >
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-white">Want a physical print shipped to you?</h4>
+                  <h4 className="text-sm font-semibold text-white">
+                    {upsellIntent ? "Your map is ready for print checkout" : "Want a physical print shipped to you?"}
+                  </h4>
                   <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                    Print add-on
+                    {upsellIntent === "poster_framed" ? "Framed recommended" : "Print add-on"}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-neutral-200">
-                  Start print checkout with your current map already attached.
+                  {upsellIntent
+                    ? "Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish."
+                    : "Start print checkout with your current map already attached."}
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={() => void handlePrintCheckout("poster_framed")}
                     disabled={printCheckoutLoading}
-                    className="rounded-full border border-amber-200/60 bg-amber-400/20 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-amber-200 hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${
+                      upsellIntent === "poster_framed"
+                        ? "border-amber-100 bg-amber-300 text-midnight shadow-lg hover:bg-amber-200"
+                        : "border-amber-200/60 bg-amber-400/20 text-amber-50 hover:border-amber-200 hover:bg-amber-400/30"
+                    }`}
                   >
                     Framed print (recommended) • {printPriceLabels.framed}
                   </button>
@@ -1102,11 +1133,20 @@ export default function DownloadClient() {
                     type="button"
                     onClick={() => void handlePrintCheckout("poster_unframed")}
                     disabled={printCheckoutLoading}
-                    className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${
+                      upsellIntent === "poster_unframed"
+                        ? "border-white/50 bg-white text-midnight shadow-lg hover:bg-white/90"
+                        : "border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15"
+                    }`}
                   >
                     Unframed • {printPriceLabels.unframed}
                   </button>
                 </div>
+                {upsellIntent ? (
+                  <p className="mt-2 text-[11px] text-amber-100/75">
+                    You can still keep the digital file only. This just opens the matching print checkout.
+                  </p>
+                ) : null}
                 {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}
               </div>
             ) : null}
