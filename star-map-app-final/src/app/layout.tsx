@@ -100,7 +100,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: "StarMapCo | Custom Star Map & Constellation Map",
-    template: "%s | StarMapCo",
+    template: "%s",
   },
   description:
     "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options at StarMapCo.",
