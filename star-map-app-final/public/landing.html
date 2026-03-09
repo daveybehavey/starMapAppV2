@@ -30,6 +30,23 @@
     <meta name="twitter:image" content="https://starmapco.com/custom-star-map-anniversary.png" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/favicon.ico" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-N4PPJ50JQ7"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("consent", "default", {
+        analytics_storage: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+        wait_for_update: 500
+      });
+      gtag("js", new Date());
+      gtag("config", "G-N4PPJ50JQ7", {
+        anonymize_ip: true,
+        send_page_view: false
+      });
+    </script>
     <style>
       :root {
         color-scheme: light;
@@ -1155,11 +1172,60 @@
     </script>
     <script>
       (function () {
+        const GA_ID = "G-N4PPJ50JQ7";
         const ANALYTICS_STORAGE_KEY = "analytics-consent";
         const LANDING_VIEW_SEEN_KEY = "funnel:landing_view:seen";
+        const GA_LANDING_VIEW_SEEN_KEY = "ga:landing_view:seen";
         const REFERRAL_VISIT_SEEN_PREFIX = "referral:visit:seen:";
         const funnelEndpoint = "/api/analytics/funnel";
         const referralVisitEndpoint = "/api/referrals/visit";
+        let gaPageViewSent = false;
+        let gaLandingViewSent = false;
+
+        const hasAnalyticsConsent = function () {
+          try {
+            return localStorage.getItem(ANALYTICS_STORAGE_KEY) === "true";
+          } catch (_) {
+            return false;
+          }
+        };
+
+        const updateAnalyticsConsent = function (granted) {
+          if (typeof window.gtag !== "function") return;
+          window.gtag("consent", "update", {
+            analytics_storage: granted ? "granted" : "denied",
+            ad_storage: "denied",
+            ad_user_data: "denied",
+            ad_personalization: "denied"
+          });
+        };
+
+        const sendGaPageView = function () {
+          if (gaPageViewSent || typeof window.gtag !== "function" || !hasAnalyticsConsent()) return;
+          gaPageViewSent = true;
+          window.gtag("event", "page_view", {
+            page_path: window.location.pathname,
+            page_title: document.title,
+            page_location: window.location.href
+          });
+        };
+
+        const sendGaFunnelStep = function (step, source, plan) {
+          if (typeof window.gtag !== "function" || !hasAnalyticsConsent()) return;
+          const payload = { step: step };
+          if (typeof source === "string" && source) payload.source = source;
+          if (typeof plan === "string" && plan) payload.plan = plan;
+          window.gtag("event", "funnel_step", payload);
+        };
+
+        const markGaLandingViewSent = function () {
+          gaLandingViewSent = true;
+          try {
+            sessionStorage.setItem(GA_LANDING_VIEW_SEEN_KEY, "true");
+          } catch (_) {
+            // no-op
+          }
+        };
 
         const postFunnel = function (payload) {
           try {
@@ -1185,6 +1251,7 @@
           if (typeof source === "string" && source) payload.source = source;
           if (typeof plan === "string" && plan) payload.plan = plan;
           postFunnel(payload);
+          sendGaFunnelStep(step, source, plan);
         };
 
         const normalizeReferralCode = function (value) {
@@ -1218,13 +1285,22 @@
           }).catch(function () {});
         };
 
+        const consentGrantedAtLoad = hasAnalyticsConsent();
+        try {
+          gaLandingViewSent = sessionStorage.getItem(GA_LANDING_VIEW_SEEN_KEY) === "true";
+        } catch (_) {
+          gaLandingViewSent = false;
+        }
+
         try {
           if (sessionStorage.getItem(LANDING_VIEW_SEEN_KEY) !== "true") {
             sessionStorage.setItem(LANDING_VIEW_SEEN_KEY, "true");
             trackStep("landing_view", "home_static", undefined);
+            if (consentGrantedAtLoad) markGaLandingViewSent();
           }
         } catch (_) {
           trackStep("landing_view", "home_static", undefined);
+          if (consentGrantedAtLoad) markGaLandingViewSent();
         }
 
         logReferralVisitOnce();
@@ -1237,6 +1313,16 @@
           } catch (_) {
             consentValue = null;
           }
+          if (consentValue === "true") {
+            updateAnalyticsConsent(true);
+            sendGaPageView();
+            if (!gaLandingViewSent) {
+              sendGaFunnelStep("landing_view", "home_static", undefined);
+              markGaLandingViewSent();
+            }
+          } else if (consentValue === "false") {
+            updateAnalyticsConsent(false);
+          }
           if (consentValue !== "true" && consentValue !== "false") {
             cookieBanner.classList.add("show");
           }
@@ -1245,10 +1331,19 @@
             if (!(target instanceof HTMLElement)) return;
             const action = target.getAttribute("data-cookie-action");
             if (action !== "accept" && action !== "decline") return;
+            const granted = action === "accept";
             try {
-              localStorage.setItem(ANALYTICS_STORAGE_KEY, action === "accept" ? "true" : "false");
+              localStorage.setItem(ANALYTICS_STORAGE_KEY, granted ? "true" : "false");
             } catch (_) {
               // no-op
+            }
+            updateAnalyticsConsent(granted);
+            if (granted) {
+              sendGaPageView();
+              if (!gaLandingViewSent) {
+                sendGaFunnelStep("landing_view", "home_static", undefined);
+                markGaLandingViewSent();
+              }
             }
             cookieBanner.classList.remove("show");
           });
