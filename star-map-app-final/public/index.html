@@ -327,6 +327,35 @@
       .delivery-trust li + li {
         margin-top: 4px;
       }
+      .checkout-confidence {
+        margin-top: 14px;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .confidence-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 14px 15px;
+      }
+      .confidence-card strong {
+        display: block;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: rgba(251, 191, 36, 0.92);
+      }
+      .confidence-card h3 {
+        margin: 8px 0 6px;
+        font-size: 1rem;
+      }
+      .confidence-card p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 0.84rem;
+        line-height: 1.5;
+      }
       .section {
         padding: 40px 0;
       }
@@ -840,6 +869,23 @@
             <li>If a print arrives damaged, contact support@starmapco.com for help.</li>
             <li>Optional HD digital add-on is available when buying a print.</li>
           </ul>
+        </div>
+        <div class="checkout-confidence" aria-label="Checkout confidence">
+          <article class="confidence-card">
+            <strong>Preview first</strong>
+            <h3>Pay only when the map looks right</h3>
+            <p>Build the map, verify the date and location, then choose your delivery format. You are not forced into checkout before seeing the result.</p>
+          </article>
+          <article class="confidence-card">
+            <strong>Instant digital</strong>
+            <h3>HD unlocks immediately after payment</h3>
+            <p>Your paid digital export is watermark-free and sized for crisp framing or local poster printing. No waiting for email delivery.</p>
+          </article>
+          <article class="confidence-card">
+            <strong>Physical print</strong>
+            <h3>Framed and unframed options stay clear</h3>
+            <p>Checkout shows shipping cost and delivery timing before payment, and support@starmapco.com handles damaged print issues if they occur.</p>
+          </article>
         </div>
       </section>
 
