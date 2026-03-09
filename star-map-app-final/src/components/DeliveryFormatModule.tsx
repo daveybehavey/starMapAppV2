@@ -49,7 +49,7 @@ export default function DeliveryFormatModule({
 
         {printCheckoutEnabled ? (
           <article className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 shadow-sm">
-            <p className="text-sm font-semibold text-midnight">Unframed print</p>
+            <p className="text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</p>
             <p className="mt-1 text-xs text-neutral-700">Best if you already know the exact frame or want the lower-cost physical option.</p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Museum-quality poster stock</li>
@@ -68,7 +68,7 @@ export default function DeliveryFormatModule({
         {printCheckoutEnabled ? (
           <article className="rounded-2xl border border-amber-300/70 bg-gradient-to-br from-amber-100 to-amber-50 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-midnight">Framed print</p>
+              <p className="text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</p>
               <span className="rounded-full border border-amber-300/80 bg-amber-300/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
                 Recommended
               </span>

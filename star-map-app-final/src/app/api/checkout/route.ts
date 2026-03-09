@@ -288,10 +288,10 @@ async function createCheckoutSession(
               currency: printTier.currency,
               unit_amount: printTier.amountCents,
               product_data: {
-                name: printTier.includesFrame ? "Custom Framed Star Map Print" : "Custom Star Map Poster Print",
+                name: `Custom Star Map — ${printTier.label}`,
                 description: printTier.includesFrame
-                  ? "Printed and framed star map • Shipping address required"
-                  : "Museum-grade poster print • Shipping address required",
+                  ? `${printTier.label} • Shipping address required`
+                  : `${printTier.label} • Shipping address required`,
                 images: [`${siteUrl}/custom-star-map-anniversary.webp`],
               },
             },

@@ -37,6 +37,22 @@ export type PrintPricingTier = {
   includesFrame: boolean;
 };
 
+function parseStringEnv(name: string, fallback: string): string {
+  let raw: string | undefined;
+
+  if (typeof window === "undefined") {
+    raw = process.env[name];
+  }
+
+  if (!raw) {
+    if (name === "PRINT_UNFRAMED_LABEL") raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_LABEL;
+    else if (name === "PRINT_FRAMED_LABEL") raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_LABEL;
+  }
+
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : fallback;
+}
+
 function parseIntEnv(name: string, fallback: number): number {
   // Next.js requires direct property access for client-side env vars
   // Dynamic keys like process.env[name] don't work on client side
@@ -129,17 +145,19 @@ export function getPrintPricingTiers(): Record<PrintVariant, PrintPricingTier> {
   const env = readEnv();
   const unframedPriceCents = parseIntEnv("PRINT_UNFRAMED_PRICE_CENTS", 4900);
   const framedPriceCents = parseIntEnv("PRINT_FRAMED_PRICE_CENTS", 8900);
+  const unframedLabel = parseStringEnv("PRINT_UNFRAMED_LABEL", "Museum-grade poster (18x18)");
+  const framedLabel = parseStringEnv("PRINT_FRAMED_LABEL", "Framed print (14x14)");
   return {
     poster_unframed: {
       id: "poster_unframed",
-      label: "Museum-grade poster (unframed)",
+      label: unframedLabel,
       amountCents: unframedPriceCents,
       currency: env.currency,
       includesFrame: false,
     },
     poster_framed: {
       id: "poster_framed",
-      label: "Framed print",
+      label: framedLabel,
       amountCents: framedPriceCents,
       currency: env.currency,
       includesFrame: true,

@@ -208,6 +208,8 @@ export default function DownloadClient() {
   const printPriceLabels = useMemo(() => {
     const printTiers = getPrintPricingTiers();
     return {
+      unframedName: printTiers.poster_unframed.label,
+      framedName: printTiers.poster_framed.label,
       unframed: formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
       framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
     };
@@ -1152,7 +1154,7 @@ export default function DownloadClient() {
                         : "border-amber-200/60 bg-amber-400/20 text-amber-50 hover:border-amber-200 hover:bg-amber-400/30"
                     }`}
                   >
-                    Framed print (recommended) • {printPriceLabels.framed} + shipping
+                    {printPriceLabels.framedName} (recommended) • {printPriceLabels.framed} + shipping
                   </button>
                   <button
                     type="button"
@@ -1164,7 +1166,7 @@ export default function DownloadClient() {
                         : "border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15"
                     }`}
                   >
-                    Unframed • {printPriceLabels.unframed} + shipping
+                    {printPriceLabels.unframedName} • {printPriceLabels.unframed} + shipping
                   </button>
                 </div>
                 {upsellIntent ? (
