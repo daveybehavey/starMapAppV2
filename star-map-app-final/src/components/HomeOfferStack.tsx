@@ -1,6 +1,7 @@
 "use client";
 
-import { track, trackFunnelStep } from "@/lib/analytics";
+import { useEffect, useRef } from "react";
+import { track, trackFunnelStep, trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type HomeOfferStackProps = {
@@ -22,6 +23,31 @@ type DeliveryChoice = "digital" | "print_unframed" | "print_framed";
 export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferStackProps) {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const itemListsTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (itemListsTrackedRef.current) return;
+    itemListsTrackedRef.current = true;
+
+    trackViewItemList({
+      itemListId: "home_print_options",
+      itemListName: "Homepage print options",
+      items: [
+        { plan: "single", orderType: "print", printVariant: "poster_unframed", index: 0 },
+        { plan: "single", orderType: "print", printVariant: "poster_framed", index: 1 },
+      ],
+    });
+
+    trackViewItemList({
+      itemListId: "home_digital_plans",
+      itemListName: "Homepage digital plans",
+      items: [
+        { plan: "single", orderType: "digital", index: 0 },
+        { plan: "pack3", orderType: "digital", index: 1 },
+        { plan: "subscription", orderType: "digital", index: 2 },
+      ],
+    });
+  }, []);
 
   const handleDeliveryChoice = (choice: DeliveryChoice) => {
     track("delivery_choice_split", {
@@ -36,6 +62,18 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
       source: "home-offer-stack",
       plan: `delivery_${choice}`,
     });
+    if (choice === "print_unframed" || choice === "print_framed") {
+      trackSelectItem({
+        itemListId: "home_print_options",
+        itemListName: "Homepage print options",
+        item: {
+          plan: "single",
+          orderType: "print",
+          printVariant: choice === "print_framed" ? "poster_framed" : "poster_unframed",
+          index: choice === "print_framed" ? 1 : 0,
+        },
+      });
+    }
   };
 
   const handlePlanInterest = (plan: "single" | "pack3" | "subscription") => {
@@ -46,6 +84,15 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
     trackFunnelStep("hero_plan_click", {
       source: "home-offer-stack",
       plan,
+    });
+    trackSelectItem({
+      itemListId: "home_digital_plans",
+      itemListName: "Homepage digital plans",
+      item: {
+        plan,
+        orderType: "digital",
+        index: plan === "single" ? 0 : plan === "pack3" ? 1 : 2,
+      },
     });
   };
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { track, trackBeginCheckout, trackPurchaseCompleted } from "@/lib/analytics";
+import { track, trackBeginCheckout, trackPurchaseCompleted, trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import {
   formatPrice,
   getPricingTiers,
@@ -57,6 +57,7 @@ export default function SuccessClient() {
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
+  const printUpsellTrackedRef = useRef(false);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
   const printPriceLabels = {
     framed: formatPrice(getPrintPricingTiers().poster_framed.amountCents, getPrintPricingTiers().poster_framed.currency),
@@ -181,6 +182,16 @@ export default function SuccessClient() {
         source: "success",
         variant,
         hasMapId: Boolean(resolvedMapId),
+      });
+      trackSelectItem({
+        itemListId: "success_print_upsell",
+        itemListName: "Success print upsell",
+        item: {
+          plan: "single",
+          orderType: "print",
+          printVariant: variant,
+          index: variant === "poster_framed" ? 0 : 1,
+        },
       });
       const params = new URLSearchParams();
       if (resolvedMapId) params.set("map_id", resolvedMapId);
@@ -447,6 +458,20 @@ export default function SuccessClient() {
     if (referralStatus !== "ready" || referralLink || referralLoading) return;
     void createReferralLink("auto");
   }, [createReferralLink, hasDigitalEntitlement, referralLink, referralLoading, referralStatus, status]);
+
+  useEffect(() => {
+    if (printUpsellTrackedRef.current) return;
+    if (status !== "success" || !hasDigitalEntitlement || isPrintOrder || !printCheckoutEnabled) return;
+    printUpsellTrackedRef.current = true;
+    trackViewItemList({
+      itemListId: "success_print_upsell",
+      itemListName: "Success print upsell",
+      items: [
+        { plan: "single", orderType: "print", printVariant: "poster_framed", index: 0 },
+        { plan: "single", orderType: "print", printVariant: "poster_unframed", index: 1 },
+      ],
+    });
+  }, [hasDigitalEntitlement, isPrintOrder, status]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">

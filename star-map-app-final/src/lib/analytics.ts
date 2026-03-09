@@ -20,6 +20,22 @@ type PurchaseAnalyticsInput = CheckoutAnalyticsInput & {
   transactionId: string;
 };
 
+type EcommerceItemInput = CheckoutAnalyticsInput & {
+  index?: number;
+};
+
+type ItemListAnalyticsInput = {
+  itemListId: string;
+  itemListName?: string;
+  items: EcommerceItemInput[];
+};
+
+type ItemSelectionAnalyticsInput = {
+  itemListId: string;
+  itemListName?: string;
+  item: EcommerceItemInput;
+};
+
 export const loadPosthogClient = async () => {
   if (!posthogPromise) {
     posthogPromise = import("posthog-js").then((mod) => mod.default);
@@ -147,20 +163,42 @@ function sendGaEvent(eventName: string, params: Record<string, unknown>) {
   window.gtag("event", eventName, removeUndefinedValues(params));
 }
 
+function buildGaItem(input: EcommerceItemInput) {
+  return removeUndefinedValues({
+    item_id: getCheckoutItemId(input),
+    item_name: getCheckoutItemName(input),
+    item_category: input.orderType === "print" ? "print" : "digital",
+    item_variant: input.orderType === "print" ? input.printVariant ?? undefined : input.plan ?? undefined,
+    quantity: 1,
+    price: estimateCheckoutValue(input),
+    index: typeof input.index === "number" ? input.index : undefined,
+  });
+}
+
+export function trackViewItemList(input: ItemListAnalyticsInput) {
+  if (!input.items.length) return;
+  sendGaEvent("view_item_list", {
+    currency: getCheckoutCurrency(input.items[0]),
+    item_list_id: input.itemListId,
+    item_list_name: input.itemListName ?? input.itemListId,
+    items: input.items.map((item) => buildGaItem(item)),
+  });
+}
+
+export function trackSelectItem(input: ItemSelectionAnalyticsInput) {
+  sendGaEvent("select_item", {
+    currency: getCheckoutCurrency(input.item),
+    item_list_id: input.itemListId,
+    item_list_name: input.itemListName ?? input.itemListId,
+    items: [buildGaItem(input.item)],
+  });
+}
+
 export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: string }) {
   sendGaEvent("begin_checkout", {
     currency: getCheckoutCurrency(input),
     value: estimateCheckoutValue(input),
-    items: [
-      {
-        item_id: getCheckoutItemId(input),
-        item_name: getCheckoutItemName(input),
-        item_category: input.orderType === "print" ? "print" : "digital",
-        item_variant: input.orderType === "print" ? input.printVariant ?? undefined : input.plan ?? undefined,
-        quantity: 1,
-        price: estimateCheckoutValue(input),
-      },
-    ],
+    items: [buildGaItem(input)],
     source: input.source,
   });
 }
@@ -170,16 +208,7 @@ export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
     transaction_id: input.transactionId,
     currency: getCheckoutCurrency(input),
     value: estimateCheckoutValue(input),
-    items: [
-      {
-        item_id: getCheckoutItemId(input),
-        item_name: getCheckoutItemName(input),
-        item_category: input.orderType === "print" ? "print" : "digital",
-        item_variant: input.orderType === "print" ? input.printVariant ?? undefined : input.plan ?? undefined,
-        quantity: 1,
-        price: estimateCheckoutValue(input),
-      },
-    ],
+    items: [buildGaItem(input)],
   });
 }
 

@@ -8,7 +8,7 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, type MapRecip
 import { FONT_STACKS } from "@/lib/fonts";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
-import { track, trackBeginCheckout, trackFunnelStep } from "@/lib/analytics";
+import { track, trackBeginCheckout, trackFunnelStep, trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import {
   formatPrice,
   getPrintPricingTiers,
@@ -174,6 +174,7 @@ export default function DownloadClient() {
   const [previewAspect, setPreviewAspect] = useState<string>("1 / 1");
   const previewGeneratedRef = useRef(false);
   const paidRef = useRef(false);
+  const printUpsellTrackedRef = useRef(false);
   const mapIdFromUrl = searchParams.get("map_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
   const upsellIntent =
@@ -213,9 +214,21 @@ export default function DownloadClient() {
   }, []);
 
   useEffect(() => {
-    if (!printCheckoutEnabled || !upsellIntent || status !== "ready" || !paid || printUpsellFocusedRef.current) return;
+    if (!printCheckoutEnabled || status !== "ready" || !paid) return;
+    if (!printUpsellTrackedRef.current) {
+      printUpsellTrackedRef.current = true;
+      track("print_upsell_viewed", { source: "download", variant: upsellIntent ?? "default" });
+      trackViewItemList({
+        itemListId: "download_print_upsell",
+        itemListName: "Download print upsell",
+        items: [
+          { plan: "single", orderType: "print", printVariant: "poster_framed", index: 0 },
+          { plan: "single", orderType: "print", printVariant: "poster_unframed", index: 1 },
+        ],
+      });
+    }
+    if (!upsellIntent || printUpsellFocusedRef.current) return;
     printUpsellFocusedRef.current = true;
-    track("print_upsell_viewed", { source: "download", variant: upsellIntent });
     window.requestAnimationFrame(() => {
       printUpsellRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
@@ -686,6 +699,16 @@ export default function DownloadClient() {
         setPrintCheckoutError("Print checkout is not live yet.");
         return;
       }
+      trackSelectItem({
+        itemListId: "download_print_upsell",
+        itemListName: "Download print upsell",
+        item: {
+          plan: "single",
+          orderType: "print",
+          printVariant: variant,
+          index: variant === "poster_framed" ? 0 : 1,
+        },
+      });
       setPrintCheckoutLoading(true);
       setPrintCheckoutError(null);
       try {

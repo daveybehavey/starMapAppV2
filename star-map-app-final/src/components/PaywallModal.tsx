@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
+import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type PriceLabels = {
@@ -79,6 +80,7 @@ export function PaywallModal({
   );
   const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
+  const viewedListsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!hasPrintOptions) {
@@ -87,6 +89,80 @@ export function PaywallModal({
     }
     setActiveIntent(purchaseIntent === "print" ? "print" : "digital");
   }, [hasPrintOptions, purchaseIntent]);
+
+  useEffect(() => {
+    if (!viewedListsRef.current.has("paywall_digital_options")) {
+      trackViewItemList({
+        itemListId: "paywall_digital_options",
+        itemListName: "Paywall digital options",
+        items: [
+          { plan: "single", orderType: "digital", index: 0 },
+          { plan: "pack3", orderType: "digital", index: 1 },
+          { plan: "subscription", orderType: "digital", index: 2 },
+        ],
+      });
+      viewedListsRef.current.add("paywall_digital_options");
+    }
+
+    if (!hasPrintOptions || !printPriceLabels) return;
+
+    const listId = activeIntent === "print" ? "paywall_print_options" : "paywall_print_upsell";
+    if (viewedListsRef.current.has(listId)) return;
+
+    trackViewItemList({
+      itemListId: listId,
+      itemListName: activeIntent === "print" ? "Paywall print options" : "Paywall print upsell",
+      items:
+        activeIntent === "print"
+          ? [
+              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: true, index: 0 },
+              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: false, index: 1 },
+              { plan: "single", orderType: "print", printVariant: "poster_unframed", includeDigitalAddOn: false, index: 2 },
+            ]
+          : [
+              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: true, index: 0 },
+              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: false, index: 1 },
+              { plan: "single", orderType: "print", printVariant: "poster_unframed", includeDigitalAddOn: false, index: 2 },
+            ],
+    });
+    viewedListsRef.current.add(listId);
+  }, [activeIntent, hasPrintOptions, printPriceLabels]);
+
+  const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
+    trackSelectItem({
+      itemListId: "paywall_digital_options",
+      itemListName: "Paywall digital options",
+      item: {
+        plan,
+        orderType: "digital",
+        index: plan === "single" ? 0 : plan === "pack3" ? 1 : 2,
+      },
+    });
+    onStartCheckout(plan);
+  };
+
+  const handlePrintCheckoutClick = (
+    options: { variant: PrintVariant; includeDigitalAddOn: boolean },
+    listId: "paywall_print_options" | "paywall_print_upsell",
+  ) => {
+    trackSelectItem({
+      itemListId: listId,
+      itemListName: listId === "paywall_print_options" ? "Paywall print options" : "Paywall print upsell",
+      item: {
+        plan: "single",
+        orderType: "print",
+        printVariant: options.variant,
+        includeDigitalAddOn: options.includeDigitalAddOn,
+        index:
+          options.variant === "poster_framed" && options.includeDigitalAddOn
+            ? 0
+            : options.variant === "poster_framed"
+              ? 1
+              : 2,
+      },
+    });
+    onStartPrintCheckout?.(options);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8">
@@ -147,7 +223,11 @@ export function PaywallModal({
               <div className="mt-3 grid gap-2">
                 <button
                   type="button"
-                  onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
+                  onClick={() =>
+                    handlePrintCheckoutClick(
+                      { variant: "poster_framed", includeDigitalAddOn: true },
+                      "paywall_print_options",
+                    )}
                   disabled={checkoutInFlight}
                   className="w-full rounded-full border border-amber-200/70 bg-amber-400/30 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/40 disabled:cursor-not-allowed disabled:opacity-70"
                 >
@@ -155,7 +235,11 @@ export function PaywallModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
+                  onClick={() =>
+                    handlePrintCheckoutClick(
+                      { variant: "poster_framed", includeDigitalAddOn: false },
+                      "paywall_print_options",
+                    )}
                   disabled={checkoutInFlight}
                   className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
                     preferredVariant === "poster_framed"
@@ -167,7 +251,11 @@ export function PaywallModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
+                  onClick={() =>
+                    handlePrintCheckoutClick(
+                      { variant: "poster_unframed", includeDigitalAddOn: false },
+                      "paywall_print_options",
+                    )}
                   disabled={checkoutInFlight}
                   className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
                     preferredVariant === "poster_unframed"
@@ -193,7 +281,7 @@ export function PaywallModal({
             </div>
             <button
               type="button"
-              onClick={() => onStartCheckout("single")}
+              onClick={() => handleDigitalCheckoutClick("single")}
               disabled={checkoutInFlight}
               className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
@@ -213,7 +301,7 @@ export function PaywallModal({
             </div>
             <button
               type="button"
-              onClick={() => onStartCheckout("pack3")}
+              onClick={() => handleDigitalCheckoutClick("pack3")}
               disabled={checkoutInFlight}
               className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
@@ -239,7 +327,7 @@ export function PaywallModal({
             </div>
             <button
               type="button"
-              onClick={() => onStartCheckout("subscription")}
+              onClick={() => handleDigitalCheckoutClick("subscription")}
               disabled={checkoutInFlight}
               className="mt-3 w-full rounded-full bg-[#0b1433] px-4 py-2 text-sm font-semibold text-amber-100 shadow-md transition hover:-translate-y-[1px] hover:bg-[#0b1a40] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
@@ -261,7 +349,11 @@ export function PaywallModal({
               <div className="mt-3 grid gap-2">
                 <button
                   type="button"
-                  onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
+                  onClick={() =>
+                    handlePrintCheckoutClick(
+                      { variant: "poster_framed", includeDigitalAddOn: true },
+                      "paywall_print_upsell",
+                    )}
                   disabled={checkoutInFlight}
                   className="w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
                 >
@@ -269,7 +361,11 @@ export function PaywallModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
+                  onClick={() =>
+                    handlePrintCheckoutClick(
+                      { variant: "poster_framed", includeDigitalAddOn: false },
+                      "paywall_print_upsell",
+                    )}
                   disabled={checkoutInFlight}
                   className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
                 >
@@ -277,7 +373,11 @@ export function PaywallModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
+                  onClick={() =>
+                    handlePrintCheckoutClick(
+                      { variant: "poster_unframed", includeDigitalAddOn: false },
+                      "paywall_print_upsell",
+                    )}
                   disabled={checkoutInFlight}
                   className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
                 >
