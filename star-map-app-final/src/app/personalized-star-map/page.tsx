@@ -27,12 +27,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Star Map | StarMapCo",
   description:
-    "Create a personalized star map with names, dates, and locations. Choose HD download, unframed print, or framed print at checkout.",
+    "Create a personalized star map with names, dates, and locations. Choose HD download plus U.S. unframed and framed print checkout.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
     title: "Personalized Star Map | StarMapCo",
     description:
-      "Create a personalized star map with names, dates, and locations. Choose HD download, unframed print, or framed print at checkout.",
+      "Create a personalized star map with names, dates, and locations. Choose HD download plus U.S. unframed and framed print checkout.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -54,8 +54,8 @@ export default function PersonalizedStarMapPage() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital download</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print checkout</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print checkout</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. unframed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. framed print</span>
         </div>
       </header>
 

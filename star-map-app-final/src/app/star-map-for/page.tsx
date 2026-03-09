@@ -30,12 +30,12 @@ const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasion
 export const metadata: Metadata = {
   title: "Star Map for Occasions | StarMapCo",
   description:
-    "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD, unframed print, and framed print options.",
+    "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD plus U.S. unframed and framed print options.",
   alternates: { canonical: `${siteUrl}/star-map-for` },
   openGraph: {
     title: "Star Map for Occasions | StarMapCo",
     description:
-      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD, unframed print, and framed print options.",
+      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD plus U.S. unframed and framed print options.",
     url: `${siteUrl}/star-map-for`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD, unframed print, and framed print options.",
+      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD plus U.S. unframed and framed print options.",
     images: [ogImage],
   },
 };
@@ -62,8 +62,8 @@ export default function StarMapForOccasionsPage() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print option</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print option</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. unframed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. framed print</span>
         </div>
       </header>
 
