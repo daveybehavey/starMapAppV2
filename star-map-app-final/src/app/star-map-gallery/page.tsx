@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -155,6 +156,12 @@ export default function StarMapGalleryPage() {
         </div>
       </section>
 
+      <FramedProofSection
+        heading="Compare the finished print with the on-screen render"
+        intro="The gallery shows the design quality. This real framed example shows how the final physical piece fits into an actual room. Use both before deciding between digital, unframed, or framed checkout."
+        sourcePrefix="gallery-proof"
+      />
+
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">What you can customize</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
@@ -190,6 +197,10 @@ export default function StarMapGalleryPage() {
             <h3 className="font-semibold text-midnight">Do I get a print-ready file?</h3>
             <p>Yes. After unlocking, you download a high-resolution file ready for printing or gifting.</p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I order a physical version from one of these examples?</h3>
+            <p>Yes. After preview, checkout supports both unframed print and framed print from the same design.</p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -205,6 +216,10 @@ export default function StarMapGalleryPage() {
           {
             question: "Do I get a print-ready file?",
             answer: "Yes. After unlocking, you download a high-resolution file ready for printing or gifting.",
+          },
+          {
+            question: "Can I order a physical version from one of these examples?",
+            answer: "Yes. After preview, checkout supports both unframed print and framed print from the same design.",
           },
         ]}
       />
