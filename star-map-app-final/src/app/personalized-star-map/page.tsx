@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -100,6 +101,7 @@ export default function PersonalizedStarMapPage() {
         intro="Most buyers decide faster when the delivery choice is clear up front. Start with the free preview, then choose whether this moment should stay digital, be printed, or arrive framed."
         sourcePrefix="personalized-format"
       />
+      <FramedProofSection sourcePrefix="personalized-proof" />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
@@ -159,6 +161,7 @@ export default function PersonalizedStarMapPage() {
           "Export up to 6000x6000 resolution",
           "Built for poster-quality prints and framing",
           "Shipping address collected during checkout for physical orders",
+          "Physical orders stay in manual review before production starts",
           "Email support at support@starmapco.com",
         ]}
         guideLabel="Print size and frame guide"

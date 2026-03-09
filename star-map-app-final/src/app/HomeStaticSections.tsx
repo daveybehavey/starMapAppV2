@@ -1,4 +1,5 @@
 import Image from "next/image";
+import FramedProofSection from "@/components/FramedProofSection";
 import HomeOfferStack from "@/components/HomeOfferStack";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
@@ -55,7 +56,8 @@ export default function HomeStaticSections({
           rightTitle="Print and delivery clarity"
           rightPoints={[
             "Choose digital only, unframed print, or framed print",
-            "Shipping cost and delivery estimate are shown before payment",
+            "Shipping address is collected during checkout for physical orders",
+            "Physical orders stay in manual review before production starts",
             "Optional HD digital add-on is available on print orders",
             "If a print arrives damaged, support@starmapco.com handles it",
           ]}
@@ -98,6 +100,10 @@ export default function HomeStaticSections({
             Instant HD digital download plus physical checkout options: unframed print and ready-to-hang framed print.
           </p>
         </div>
+      </section>
+
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
+        <FramedProofSection sourcePrefix="home-proof" />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
@@ -245,7 +251,7 @@ export default function HomeStaticSections({
               },
               {
                 q: "When do I see shipping cost and delivery timing?",
-                a: "Before payment. Shipping rates and delivery estimates are shown inside checkout for physical orders.",
+                a: "Shipping address is collected during checkout for physical orders. Production starts after order review while manual approval is enabled.",
               },
               {
                 q: "What if a print arrives damaged?",

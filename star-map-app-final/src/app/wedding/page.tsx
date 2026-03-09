@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -104,6 +105,7 @@ export default function WeddingPage() {
         intro="Wedding buyers usually decide between instant HD for local framing and the ready-to-display framed option. The preview is the same either way, so you can wait to choose until the design feels right."
         sourcePrefix="wedding-format"
       />
+      <FramedProofSection sourcePrefix="wedding-proof" />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
@@ -165,7 +167,8 @@ export default function WeddingPage() {
         rightPoints={[
           "High-resolution file up to 6000x6000",
           "Designed for frame-ready printing",
-          "Physical shipping rates and delivery estimates shown before payment",
+          "Shipping address collected during checkout for physical orders",
+          "Physical orders stay in manual review before production starts",
           "Help available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

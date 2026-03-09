@@ -219,7 +219,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "When do I see shipping cost and delivery timing?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Before payment. Shipping rates and delivery estimates are shown inside checkout for physical orders.",
+              text:
+                "Shipping address is collected during checkout for physical orders. Production starts after order review while manual approval is enabled.",
             },
           },
           {

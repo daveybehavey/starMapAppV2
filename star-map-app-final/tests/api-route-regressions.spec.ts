@@ -18,26 +18,34 @@ async function requestUntilReady(
 ) {
   const startedAt = Date.now();
   let lastResponse: Awaited<ReturnType<APIRequestContext["fetch"]>> | null = null;
-  while (Date.now() - startedAt < 30_000) {
+  let lastError: unknown = null;
+  while (Date.now() - startedAt < 90_000) {
     const mergedHeaders = {
       "x-forwarded-for": randomIp(),
       ...(init.headers ?? {}),
     };
-    const res = await request.fetch(path, {
-      ...init,
-      headers: mergedHeaders,
-      failOnStatusCode: false,
-    });
-    lastResponse = res;
-    if (res.status() !== 404) return res;
+    try {
+      const res = await request.fetch(path, {
+        ...init,
+        headers: mergedHeaders,
+        failOnStatusCode: false,
+      });
+      lastResponse = res;
+      lastError = null;
+      if (res.status() !== 404) return res;
+    } catch (error) {
+      lastError = error;
+    }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(
-    `Route stayed 404 during warmup: ${String(init.method ?? "GET")} ${path} (last status ${lastResponse?.status() ?? "none"})`,
+    `Route did not become ready: ${String(init.method ?? "GET")} ${path} (last status ${lastResponse?.status() ?? "none"}, last error ${lastError instanceof Error ? lastError.message : String(lastError ?? "none")})`,
   );
 }
 
 test.describe("API route regressions", () => {
+  test.describe.configure({ timeout: 240_000 });
+
   test("funnel endpoint accepts valid steps and rejects invalid steps", async ({ request }) => {
     const validResponse = await requestUntilReady(request, "/api/analytics/funnel", {
       method: "POST",

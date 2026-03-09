@@ -35,6 +35,13 @@ export default function WhatYouReceiveModule({
   intro = "Exactly what unlocks when you move from free preview to paid HD export.",
   items = defaultItems,
 }: WhatYouReceiveModuleProps) {
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
+  const printAutoConfirm = /^(1|true|yes)$/i.test(
+    (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
+  );
+
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <div className="space-y-2">
@@ -57,6 +64,13 @@ export default function WhatYouReceiveModule({
           <li>Design and preview your map for free.</li>
           <li>Complete secure checkout in Stripe.</li>
           <li>Unlock HD and download immediately.</li>
+          {printCheckoutEnabled ? (
+            <li>
+              {printAutoConfirm
+                ? "If you add print, the physical order is sent to Printful after payment."
+                : "If you add print, the physical order is created for manual review before production starts."}
+            </li>
+          ) : null}
         </ol>
       </div>
 

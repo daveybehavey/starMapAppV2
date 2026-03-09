@@ -24,6 +24,9 @@ export default function PurchaseTrustPanel({
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
   );
+  const printAutoConfirm = /^(1|true|yes)$/i.test(
+    (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
+  );
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -51,8 +54,13 @@ export default function PurchaseTrustPanel({
         <div className="rounded-2xl border border-black/5 bg-white p-4">
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-            <li>Shipping rate and delivery estimate are shown before payment.</li>
+            <li>Shipping address is collected during checkout for physical orders.</li>
             <li>You can choose unframed or framed print checkout based on your gift plan.</li>
+            <li>
+              {printAutoConfirm
+                ? "Production begins after payment once the order reaches Printful."
+                : "Physical orders are reviewed before production while manual approval is enabled."}
+            </li>
             <li>If a print arrives damaged, contact support@starmapco.com and we will help resolve it.</li>
           </ul>
         </div>
