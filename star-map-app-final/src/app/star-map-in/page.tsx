@@ -23,12 +23,17 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Star Map by City | StarMapCo",
     description:
-      "Find your city and create a custom star map that captures the exact night sky from your date and location.",
+      "Explore custom star maps by city. Create a star map for your location with HD, unframed print, and framed print options.",
     url: `${siteUrl}/star-map-in`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: [ogImage] },
+  twitter: {
+    card: "summary_large_image",
+    description:
+      "Explore custom star maps by city. Create a star map for your location with HD, unframed print, and framed print options.",
+    images: [ogImage],
+  },
 };
 
 export default function StarMapByCityPage() {

@@ -38,20 +38,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const occasion = getOccasion(slug);
   if (!occasion) return {};
   const shouldIndex = isIndexableOccasionSlug(occasion.slug);
+  const description = `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with HD, unframed print, and framed print options.`;
 
   return {
     title: `Star Map for ${occasion.label} | StarMapCo`,
-    description: `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with HD, unframed print, and framed print options.`,
+    description,
     alternates: { canonical: `${siteUrl}/star-map-for/${occasion.slug}` },
     robots: shouldIndex ? undefined : { index: false, follow: true },
     openGraph: {
       title: `Star Map for ${occasion.label} | StarMapCo`,
-      description: `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with an instant preview.`,
+      description,
       url: `${siteUrl}/star-map-for/${occasion.slug}`,
       images: [{ url: ogImage, width: 1200, height: 630 }],
       type: "website",
     },
-    twitter: { card: "summary_large_image", images: [ogImage] },
+    twitter: { card: "summary_large_image", description, images: [ogImage] },
   };
 }
 

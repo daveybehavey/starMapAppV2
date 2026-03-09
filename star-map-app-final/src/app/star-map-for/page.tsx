@@ -34,12 +34,17 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Star Map for Occasions | StarMapCo",
     description:
-      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map in minutes.",
+      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD, unframed print, and framed print options.",
     url: `${siteUrl}/star-map-for`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: [ogImage] },
+  twitter: {
+    card: "summary_large_image",
+    description:
+      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD, unframed print, and framed print options.",
+    images: [ogImage],
+  },
 };
 
 export default function StarMapForOccasionsPage() {
