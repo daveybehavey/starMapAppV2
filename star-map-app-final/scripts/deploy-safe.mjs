@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
+import { buildEnvWithWranglerVars } from "./wrangler-vars.mjs";
 
 const TOKEN_KEYS = [
   "CLOUDFLARE_API_TOKEN",
@@ -65,7 +66,7 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     stdio: options.capture ? "pipe" : "inherit",
     encoding: "utf8",
-    env: process.env,
+    env: options.env ?? process.env,
   });
   if (!options.capture && result.status !== 0) {
     throw new Error(`Command failed: ${command} ${args.join(" ")}`);
@@ -112,10 +113,12 @@ async function main() {
       return;
     }
 
+    const deployEnv = await buildEnvWithWranglerVars(rootDir);
+
     if (!skipBuild) {
-      run("npx", ["opennextjs-cloudflare", "build"]);
+      run("npx", ["opennextjs-cloudflare", "build"], { env: deployEnv });
     }
-    run("npx", ["opennextjs-cloudflare", "deploy"]);
+    run("npx", ["opennextjs-cloudflare", "deploy"], { env: deployEnv });
   } finally {
     await restoreEnvFiles(backups);
   }
