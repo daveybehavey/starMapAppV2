@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
-import { hasPaymentVerifiedRecord, recordPaymentVerifiedOnce } from "@/lib/funnel";
+import {
+  hasPaymentVerifiedRecord,
+  recordPaymentVerifiedOnce,
+  syncPaymentVerifiedWindow,
+} from "@/lib/funnel";
 
 export const runtime = "nodejs";
 
@@ -122,8 +126,12 @@ export async function POST(req: NextRequest) {
 
   let alreadyRecorded = 0;
   let repaired = 0;
+  const expectedCountsByDate: Record<string, number> = {};
 
   for (const session of eligibleSessions) {
+    const occurredAt = session.created * 1000;
+    const date = new Date(occurredAt).toISOString().slice(0, 10);
+    expectedCountsByDate[date] = (expectedCountsByDate[date] ?? 0) + 1;
     const existing = await hasPaymentVerifiedRecord(session.id);
     if (existing) {
       alreadyRecorded += 1;
@@ -142,7 +150,7 @@ export async function POST(req: NextRequest) {
         sessionId: session.id,
         source: classifyOrder(session) === "print" ? "stripe_reconcile_print" : "stripe_reconcile_digital",
         plan: resolvePlan(session),
-        occurredAt: session.created * 1000,
+        occurredAt,
       });
     }
 
@@ -156,6 +164,13 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const syncReport = !dryRun
+    ? await syncPaymentVerifiedWindow({
+        days,
+        countsByDate: expectedCountsByDate,
+      })
+    : null;
+
   return NextResponse.json({
     ok: true,
     dryRun,
@@ -164,6 +179,7 @@ export async function POST(req: NextRequest) {
     eligible: eligibleSessions.length,
     alreadyRecorded,
     repaired,
+    sync: syncReport,
     results,
   });
 }

@@ -191,6 +191,9 @@ async function main() {
           eligible: repairReport.eligible ?? 0,
           alreadyRecorded: repairReport.alreadyRecorded ?? 0,
           repaired: repairReport.repaired ?? 0,
+          syncPreviousWindowTotal: repairReport.sync?.previousWindowTotal ?? null,
+          syncNextWindowTotal: repairReport.sync?.nextWindowTotal ?? null,
+          syncAdjustedTotal: repairReport.sync?.adjustedTotal ?? null,
         }
       : null,
     funnelPaymentVerified,
@@ -214,6 +217,15 @@ async function main() {
     console.log(
       `Repair: scanned=${report.repair.scanned} eligible=${report.repair.eligible} already_recorded=${report.repair.alreadyRecorded} repaired=${report.repair.repaired}`,
     );
+    if (
+      typeof report.repair.syncPreviousWindowTotal === "number" &&
+      typeof report.repair.syncNextWindowTotal === "number" &&
+      typeof report.repair.syncAdjustedTotal === "number"
+    ) {
+      console.log(
+        `Sync: previous_window=${report.repair.syncPreviousWindowTotal} next_window=${report.repair.syncNextWindowTotal} adjusted_total=${report.repair.syncAdjustedTotal}`,
+      );
+    }
   }
   console.log(`Funnel payment_verified: ${report.funnelPaymentVerified}`);
   console.log(`Stripe paid sessions: ${report.stripePaidSessions} (digital=${report.stripePaidDigital}, print=${report.stripePaidPrint})`);
