@@ -78,6 +78,40 @@ function hasPrintShippingConfig() {
   );
 }
 
+async function fetchUsdCadFx() {
+  const response = await fetch("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=1", {
+    headers: { accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => null);
+  const observation = data?.observations?.[0];
+  const rate = Number.parseFloat(observation?.FXUSDCAD?.v);
+  if (!Number.isFinite(rate) || rate <= 0) return null;
+  return rate;
+}
+
+function convertAmount(value, fromCurrency, toCurrency, usdCad) {
+  const amount = Number.parseFloat(String(value || ""));
+  if (!Number.isFinite(amount)) return null;
+  const from = String(fromCurrency || "").toUpperCase();
+  const to = String(toCurrency || "").toUpperCase();
+  if (!from || !to) return null;
+  if (from === to) return amount;
+  if (!usdCad) return null;
+  if (from === "CAD" && to === "USD") return amount / usdCad;
+  if (from === "USD" && to === "CAD") return amount * usdCad;
+  return null;
+}
+
+function computeStripeFee(total, currency) {
+  const cents = Number(total || 0);
+  if (!Number.isFinite(cents) || cents <= 0) return 0;
+  const amount = cents / 100;
+  const fixed = String(currency || "").toUpperCase() === "CAD" ? 0.4 : 0.3;
+  return amount * 0.029 + fixed;
+}
+
 async function fetchPrintfulOrderCost(printfulOrderId) {
   const token = process.env.PRINTFUL_API_TOKEN?.trim() || "";
   const storeId = process.env.PRINTFUL_STORE_ID?.trim() || "";
@@ -183,6 +217,7 @@ async function main() {
   if (!adminToken) throw new Error("Missing PRINT_ADMIN_TOKEN");
 
   const stripe = new Stripe(stripeSecret);
+  const usdCad = await fetchUsdCadFx();
   const sessions = await loadPrintSessions(stripe, args);
 
   const rows = [];
@@ -240,6 +275,23 @@ async function main() {
       printfulCostCurrency: printfulCosts?.currency ?? "",
       printfulCostShipping: printfulCosts?.shipping ?? "",
       printfulCostStatus: printfulCosts?.status ?? "",
+      estimatedStripeFee:
+        status.status === "sent" ? computeStripeFee(session.amount_total ?? 0, session.currency || "USD") : null,
+      estimatedMargin:
+        status.status === "sent"
+          ? (() => {
+              const gross = Number(session.amount_total ?? 0) / 100;
+              const fee = computeStripeFee(session.amount_total ?? 0, session.currency || "USD");
+              const fulfillment = convertAmount(
+                printfulCosts?.total ?? "",
+                printfulCosts?.currency ?? "",
+                session.currency || "USD",
+                usdCad,
+              );
+              if (!Number.isFinite(gross) || fulfillment == null) return null;
+              return gross - fee - fulfillment;
+            })()
+          : null,
       error: status.error || status.details || "",
       sentAt: status.sentAt || "",
       operatorAlertedAt: status.operatorAlertedAt || "",
@@ -269,6 +321,9 @@ async function main() {
   console.log(
     `Status counts -> sent=${counts.sent} pending=${counts.pending} failed=${counts.failed} missing=${counts.missing} error=${counts.error} unpaid=${counts.unpaid}`,
   );
+  if (usdCad) {
+    console.log(`FX reference -> USD/CAD ${usdCad.toFixed(4)}`);
+  }
   if (!hasPrintShippingConfig()) {
     console.log("Warning: no print shipping charge is configured. Current print prices may be absorbing fulfillment shipping.");
   }
@@ -288,6 +343,8 @@ async function main() {
       attempts: row.attempts,
       printfulOrderId: row.printfulOrderId,
       printfulCost: row.printfulCostTotal ? `${row.printfulCostTotal} ${row.printfulCostCurrency}` : "",
+      estMargin:
+        typeof row.estimatedMargin === "number" ? `${row.estimatedMargin.toFixed(2)} ${row.currency || "USD"}` : "",
       alert: row.operatorAlertedAt ? `${row.operatorAlertProvider || "sent"} @ ${row.operatorAlertedAt.slice(0, 19).replace("T", " ")}` : row.operatorAlertError ? `failed: ${row.operatorAlertError.slice(0, 32)}` : "",
       error: row.error ? row.error.slice(0, 80) : "",
     })),
