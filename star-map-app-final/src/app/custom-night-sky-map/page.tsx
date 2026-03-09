@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -78,6 +80,18 @@ export default function CustomNightSkyMapPage() {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading="Preview first, then decide how you want it delivered"
+        intro="A custom night sky map can stay as an instant HD file or move into physical print checkout once the design is approved."
+        sourcePrefix="custom-night-sky-format"
+      />
+
+      <FramedProofSection
+        heading="The night sky map can become a real framed keepsake"
+        intro="Use the exact night sky preview as the source of truth, then decide whether the final version should stay digital, ship unframed, or arrive framed and ready to display."
+        sourcePrefix="custom-night-sky-proof"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Related ideas</h2>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -111,6 +113,18 @@ export default function StarMapGeneratorPage() {
           </Link>
         </div>
       </section>
+
+      <DeliveryFormatModule
+        heading="Choose digital, unframed print, or framed print after preview"
+        intro="The generator starts the same way for every buyer: build the exact sky first, then decide whether this should stay digital or become a physical gift."
+        sourcePrefix="generator-format"
+      />
+
+      <FramedProofSection
+        heading="The same generated map can become a framed gift"
+        intro="This is the part most generator pages skip. You are not locked into a digital-only flow. After preview, the same design can move into unframed or framed checkout without rebuilding the map."
+        sourcePrefix="generator-proof"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Need inspiration?</h2>

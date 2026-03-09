@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -79,6 +81,18 @@ export default function StarMapPosterPage() {
         </div>
       </section>
 
+      <DeliveryFormatModule
+        heading="Choose whether this poster stays digital or ships physically"
+        intro="Some buyers want the HD poster file for local printing. Others want the same design routed into unframed or framed checkout. The preview supports both paths."
+        sourcePrefix="poster-format"
+      />
+
+      <FramedProofSection
+        heading="Poster design on screen, framed result on the wall"
+        intro="Use the poster layout to design the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display."
+        sourcePrefix="poster-proof"
+      />
+
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">More ways to explore</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
@@ -120,8 +134,8 @@ export default function StarMapPosterPage() {
           <div>
             <h3 className="font-semibold text-midnight">Is this a physical star map poster?</h3>
             <p>
-              It is a digital download. You receive a high-resolution star map poster file that you can print locally or
-              with an online print service.
+              It starts as a high-resolution digital poster file, and after preview you can keep it digital or move into
+              unframed or framed print checkout from the same design.
             </p>
           </div>
           <div>
@@ -138,7 +152,7 @@ export default function StarMapPosterPage() {
           {
             question: "Is this a physical star map poster?",
             answer:
-              "It is a digital download. You receive a high-resolution star map poster file that you can print locally or with an online print service.",
+              "It starts as a high-resolution digital poster file, and after preview you can keep it digital or move into unframed or framed print checkout from the same design.",
           },
           {
             question: "What size is the star map poster file?",

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -80,6 +82,18 @@ export default function NightSkyMapGiftPage() {
         </div>
       </section>
 
+      <DeliveryFormatModule
+        heading="Choose the format after you preview the night sky"
+        intro="Night sky gift buyers usually want one of three outcomes: instant HD, a lower-cost unframed print, or a framed piece that arrives presentation-ready."
+        sourcePrefix="night-sky-gift-format"
+      />
+
+      <FramedProofSection
+        heading="Framed proof matters for gift buyers"
+        intro="The preview proves the design. This framed photo proves the physical result. Use both before you decide how the gift should be delivered."
+        sourcePrefix="night-sky-gift-proof"
+      />
+
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">More gift inspiration</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
@@ -100,13 +114,17 @@ export default function NightSkyMapGiftPage() {
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-midnight">Recent examples</h2>
+          <h2 className="text-lg font-semibold text-midnight">Recent gift-ready examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            A few real outputs to show what your night sky map can look like.
+            A few render examples plus a framed proof image, so you can judge both the design and the physical finish.
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
+            {
+              src: "/blog/anniversary/framed-star-map.jpg",
+              label: "Framed print · Real space",
+            },
             {
               src: "/examples/example-wedding-cinematic-heart.webp",
               label: "Wedding · Cinematic",
