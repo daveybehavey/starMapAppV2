@@ -103,9 +103,9 @@ export default function AnalyticsConsentManager() {
       {consent === "unset" ? (
         <aside className="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie consent">
           <p className="cookie-text text-sm">
-            We use optional analytics to improve conversions and performance. You can accept or decline.
+            Optional analytics help improve StarMapCo. Accept or decline.
             <Link href="/privacy" prefetch={false} className="ml-1 underline">
-              Privacy policy
+              Privacy
             </Link>
             .
           </p>
@@ -122,7 +122,7 @@ export default function AnalyticsConsentManager() {
               className="cookie-btn cookie-btn-primary"
               onClick={() => updateConsent("granted")}
             >
-              Accept analytics
+              Allow
             </button>
           </div>
         </aside>
