@@ -81,7 +81,7 @@ export default function HomeHero() {
               <p className="font-semibold text-amber-200">Secure Stripe checkout</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <p className="font-semibold text-amber-200">Delivery estimate at checkout</p>
+              <p className="font-semibold text-amber-200">Manual review before production</p>
             </div>
           </div>
           <p className="mt-3 text-xs text-neutral-200">

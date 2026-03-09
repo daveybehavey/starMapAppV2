@@ -157,13 +157,17 @@ export default function StarMapGiftPage() {
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-midnight">Recent examples</h2>
+          <h2 className="text-lg font-semibold text-midnight">Recent gift-ready examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            See real outputs before you start. Each map is unique to its date and location.
+            See both the framed finish and polished render examples before you build your own gift.
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
+            {
+              src: "/blog/anniversary/framed-star-map.jpg",
+              label: "Framed print · Real space",
+            },
             {
               src: "/examples/example-wedding-cinematic-heart.webp",
               label: "Wedding · Cinematic",
