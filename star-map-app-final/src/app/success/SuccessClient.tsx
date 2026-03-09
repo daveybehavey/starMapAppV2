@@ -673,7 +673,7 @@ export default function SuccessClient() {
                       </button>
                     </div>
                     <p className="mt-2 text-[11px] text-amber-100/70">
-                      Manual review stays on before production begins.
+                      Physical orders are reviewed before production begins.
                     </p>
                   </div>
                 )}

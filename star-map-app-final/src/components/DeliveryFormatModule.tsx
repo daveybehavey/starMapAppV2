@@ -88,7 +88,7 @@ export default function DeliveryFormatModule({
                 href="/how-to-print-star-map"
                 className="inline-flex rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-neutral-50"
               >
-                Print guide + HD add-on info
+                See print guide
               </Link>
             </div>
           </article>

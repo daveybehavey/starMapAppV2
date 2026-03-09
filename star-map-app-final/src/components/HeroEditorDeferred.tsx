@@ -90,7 +90,7 @@ export default function HeroEditorDeferred() {
             onClick={handleFramedPathClick}
             className="rounded-full border border-amber-300/60 bg-amber-300/20 px-3 py-1 font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
           >
-            Start framed checkout path
+            Preview framed print
           </a>
         </div>
       </form>
