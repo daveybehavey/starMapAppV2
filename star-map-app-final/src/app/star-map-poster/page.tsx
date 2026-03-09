@@ -16,7 +16,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Poster",
+  title: "Star Map Poster | StarMapCo",
   description:
     "Design a star map poster (night sky poster) for any date and location. High-resolution digital download, ready for printing and framing.",
   alternates: { canonical: `${siteUrl}/star-map-poster` },

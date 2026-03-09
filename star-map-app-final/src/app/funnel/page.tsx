@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "Funnel Dashboard",
+  title: "Funnel Dashboard | StarMapCo",
   description: "Internal funnel conversion dashboard",
   robots: { index: false, follow: false },
 };

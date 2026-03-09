@@ -16,7 +16,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Custom Night Sky Map",
+  title: "Custom Night Sky Map | StarMapCo",
   description:
     "Create a custom night sky map from any date and location. Accurate star positions, instant preview, and print-ready download.",
   alternates: { canonical: `${siteUrl}/custom-night-sky-map` },

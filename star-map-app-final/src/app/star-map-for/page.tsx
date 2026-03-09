@@ -25,7 +25,7 @@ const featuredOccasions = seoOccasions.filter((occasion) => featuredOccasionSlug
 const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasionSlug(occasion.slug));
 
 export const metadata: Metadata = {
-  title: "Star Map for Occasions",
+  title: "Star Map for Occasions | StarMapCo",
   description:
     "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map in minutes.",
   alternates: { canonical: `${siteUrl}/star-map-for` },

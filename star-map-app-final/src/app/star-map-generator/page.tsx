@@ -15,7 +15,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Generator",
+  title: "Star Map Generator | StarMapCo",
   description:
     "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview and print-ready download.",
   alternates: { canonical: `${siteUrl}/star-map-generator` },

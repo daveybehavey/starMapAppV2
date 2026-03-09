@@ -14,7 +14,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map by City",
+  title: "Star Map by City | StarMapCo",
   description:
     "Explore custom star maps by city. Create a star map for your location and capture the exact night sky from your date.",
   alternates: { canonical: `${siteUrl}/star-map-in` },

@@ -17,7 +17,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Night Sky Map Gift",
+  title: "Night Sky Map Gift | StarMapCo",
   description:
     "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Accurate, personal, and print-ready in minutes.",
   alternates: { canonical: `${siteUrl}/night-sky-map-gift` },

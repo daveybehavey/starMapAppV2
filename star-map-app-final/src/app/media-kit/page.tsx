@@ -7,7 +7,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
-  title: "Media Kit",
+  title: "Media Kit | StarMapCo",
   description:
     "Press and media resources for StarMapCo, including logos, product images, and a short brand description.",
   alternates: { canonical: `${siteUrl}/media-kit` },

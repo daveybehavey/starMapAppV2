@@ -49,7 +49,7 @@ const seasonalIdeas = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Gift Ideas",
+  title: "Star Map Gift Ideas | StarMapCo",
   description:
     "Star map gift ideas for anniversaries, birthdays, weddings, and seasonal holidays. Find a meaningful gift and start a free preview.",
   alternates: { canonical: `${siteUrl}/star-map-gift-ideas` },

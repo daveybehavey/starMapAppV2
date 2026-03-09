@@ -1,7 +1,7 @@
 import { SimplifiedEditor } from "@/components/SimplifiedEditor";
 
 export const metadata = {
-  title: "Simplified Editor Test",
+  title: "Simplified Editor Test | StarMapCo",
   robots: { index: false, follow: false },
 };
 

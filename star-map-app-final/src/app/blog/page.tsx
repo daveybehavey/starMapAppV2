@@ -5,7 +5,7 @@ import Link from "next/link";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
 export const metadata: Metadata = {
-  title: "Blog: Custom Star Map Guides",
+  title: "Blog: Custom Star Map Guides | StarMapCo",
   description:
     "Read our blog for ideas on Valentine's Day, Mother's Day, Father's Day, graduation, and wedding star maps, plus astronomy tips.",
   keywords: [

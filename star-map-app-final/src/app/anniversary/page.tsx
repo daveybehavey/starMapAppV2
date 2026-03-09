@@ -14,7 +14,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Anniversary Star Map",
+  title: "Personalized Anniversary Star Map | StarMapCo",
   description:
     "Celebrate your years together with a personalized anniversary star map. Capture the exact night sky from your special date and place—accurate, print-ready, and unforgettable.",
   alternates: { canonical: `${siteUrl}/anniversary` },

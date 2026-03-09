@@ -15,7 +15,7 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "How to Print a Star Map",
+  title: "How to Print a Star Map | StarMapCo",
   description:
     "Learn how to print a star map with the best sizes, paper, and framing tips. Get a crisp, frame-ready star map print.",
   alternates: { canonical: `${siteUrl}/how-to-print-star-map` },

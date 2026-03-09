@@ -69,7 +69,7 @@ const galleryItems = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Gallery",
+  title: "Star Map Gallery | StarMapCo",
   description:
     "Browse real star map examples by occasion and style. See finished previews before creating your own custom star map.",
   alternates: { canonical: `${siteUrl}/star-map-gallery` },
