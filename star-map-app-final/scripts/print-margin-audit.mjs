@@ -118,11 +118,11 @@ const CANDIDATE_VARIANTS = [
   { id: 14125, group: "unframed", label: "Poster 11x14", recommended: true },
   { id: 1349, group: "unframed", label: "Poster 12x16", recommended: true },
   { id: 4465, group: "unframed", label: "Poster 16x16", recommended: false },
-  { id: CURRENT_UNFRAMED_ID, group: "unframed", label: "Poster 18x18 (current live)", recommended: false },
+  { id: CURRENT_UNFRAMED_ID, group: "unframed", label: "Poster (current live)", recommended: false },
   { id: 14292, group: "framed", label: "Black framed 11x14", recommended: true },
   { id: 1350, group: "framed", label: "Black framed 12x16", recommended: true },
   { id: 4655, group: "framed", label: "Black framed 16x16", recommended: true },
-  { id: CURRENT_FRAMED_ID, group: "framed", label: "Black framed 18x18 (current live)", recommended: false },
+  { id: CURRENT_FRAMED_ID, group: "framed", label: "Black framed (current live)", recommended: false },
 ].filter((entry) => Number.isFinite(entry.id) && entry.id > 0);
 
 const RECIPIENTS = {
