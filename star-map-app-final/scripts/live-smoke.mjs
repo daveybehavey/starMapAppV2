@@ -127,8 +127,9 @@ async function main() {
     const personalizedHtml = await personalizedRes.text();
     runCheck("Personalized page responds 200", personalizedRes.status === 200, `status=${personalizedRes.status}`);
     runCheck(
-      "Personalized page references framed print checkout",
-      personalizedHtml.includes("Framed print checkout"),
+      "Personalized page references physical print checkout",
+      personalizedHtml.includes("U.S. unframed print") &&
+        personalizedHtml.includes("U.S. framed print"),
       "print intent copy",
     );
   } catch (error) {
