@@ -115,7 +115,7 @@ export default function StarMapGiftPage() {
         rightTitle="Support and policy"
         rightPoints={[
           "Clear returns and refund policy",
-          "Shipping rate and delivery estimate shown before payment for physical orders",
+          "Shipping address collected during checkout for physical orders",
           "Step-by-step print guidance included",
           "Direct support at support@starmapco.com",
         ]}

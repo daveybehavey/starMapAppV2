@@ -135,11 +135,11 @@ export function PaywallModal({
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">Printed + framed checkout</p>
                 <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                  Ships to your door
+                  Physical delivery
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                Your current map is attached automatically. Shipping address is collected in Stripe checkout.
+                Your current map is attached automatically. Shipping address is collected in Stripe checkout and the order is created for manual review.
               </p>
               <div className="mt-3 grid gap-2">
                 <button

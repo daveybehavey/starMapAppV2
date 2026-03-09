@@ -51,7 +51,7 @@ export default function DeliveryFormatModule({
             <p className="mt-1 text-xs text-neutral-700">Best if you already know the exact frame or want the lower-cost physical option.</p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Museum-quality poster stock</li>
-              <li>Shipping details collected in checkout</li>
+              <li>Shipping address collected during checkout</li>
               <li>Starts at {printLabels.unframed}</li>
             </ul>
             <Link
@@ -74,7 +74,7 @@ export default function DeliveryFormatModule({
             <p className="mt-1 text-xs text-neutral-700">Best for gifting. Buyers choose this when they want the finished piece to arrive ready to display.</p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Gift-ready framed presentation</li>
-              <li>Shipping rate and estimate shown before payment</li>
+              <li>Shipping address collected during checkout</li>
               <li>Starts at {printLabels.framed}</li>
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">

@@ -87,7 +87,7 @@ export default function RevenueTrustModule({
           <li>Check title, subtitle, and dedication spelling.</li>
           <li>Confirm your preferred style and shape before checkout.</li>
           {printCheckoutEnabled && <li>If ordering physical print, choose unframed vs framed before payment.</li>}
-          {printCheckoutEnabled && <li>Review shipping cost and delivery estimate shown in checkout before paying.</li>}
+          {printCheckoutEnabled && <li>Review your shipping address carefully before paying for a physical order.</li>}
           {printCheckoutEnabled && <li>If a print arrives damaged, contact support@starmapco.com for replacement support.</li>}
           <li>Use the print guide if you need framing confidence.</li>
         </ul>

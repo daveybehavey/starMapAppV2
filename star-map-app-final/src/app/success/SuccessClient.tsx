@@ -461,7 +461,7 @@ export default function SuccessClient() {
               ? isPrintOrder
                 ? hasDigitalEntitlement
                   ? "Your print order is placed and your HD file is unlocked."
-                  : "Your print order is placed. We'll produce and ship it to the address you entered."
+                  : "Your print order is placed. We'll review it and email updates before production begins."
                 : "We are preparing your print-ready star map. This will only take a moment."
               : "Confirming your payment with Stripe. This can take up to 45 seconds."}
         </p>
@@ -483,8 +483,8 @@ export default function SuccessClient() {
               <p className="relative mt-2 text-xs text-amber-100/80">
                 {isPrintOrder
                   ? hasDigitalEntitlement
-                    ? "Print order + HD digital add-on unlocked."
-                    : "Print order submitted. We'll email updates as it moves into production."
+                  ? "Print order + HD digital add-on unlocked."
+                    : "Print order received. We'll email updates after review."
                   : currentPlan === "subscription"
                     ? "Unlimited HD downloads unlocked."
                     : currentPlan === "pack3"

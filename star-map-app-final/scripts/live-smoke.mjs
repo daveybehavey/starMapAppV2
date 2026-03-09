@@ -111,6 +111,12 @@ async function main() {
         homeHtml.includes("/how-to-print-star-map"),
       "print visibility",
     );
+    runCheck(
+      "Homepage print CTAs enter print checkout flow",
+      homeHtml.includes('source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed') &&
+        homeHtml.includes('source=home-delivery-print-framed&checkout=print&print_variant=poster_framed'),
+      "checkout=print links present",
+    );
   } catch (error) {
     failed = true;
     runCheck("Homepage checks", false, error instanceof Error ? error.message : String(error));

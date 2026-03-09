@@ -158,7 +158,7 @@ export default function PersonalizedStarMapPage() {
         rightPoints={[
           "Export up to 6000x6000 resolution",
           "Built for poster-quality prints and framing",
-          "Shipping costs and delivery estimate shown before payment for physical orders",
+          "Shipping address collected during checkout for physical orders",
           "Email support at support@starmapco.com",
         ]}
         guideLabel="Print size and frame guide"

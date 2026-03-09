@@ -61,6 +61,51 @@ function parseAllowedShippingCountries(raw: string | undefined) {
   return parsed as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
 }
 
+function parsePositiveInt(raw: string | undefined) {
+  const parsed = raw ? Number.parseInt(raw.trim(), 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getPrintShippingOptions(): Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined {
+  const configuredShippingRate = process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim();
+  if (configuredShippingRate) {
+    return [{ shipping_rate: configuredShippingRate }];
+  }
+
+  const amountCents = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_CENTS);
+  if (!amountCents) return undefined;
+
+  const currency = (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd").trim().toLowerCase();
+  const displayName = process.env.PRINT_STANDARD_SHIPPING_LABEL?.trim() || "Standard shipping";
+  const minBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MIN_BUSINESS_DAYS);
+  const maxBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS);
+  const hasDeliveryEstimate =
+    typeof minBusinessDays === "number" &&
+    typeof maxBusinessDays === "number" &&
+    maxBusinessDays >= minBusinessDays;
+
+  return [
+    {
+      shipping_rate_data: {
+        type: "fixed_amount",
+        fixed_amount: {
+          amount: amountCents,
+          currency,
+        },
+        display_name: displayName,
+        ...(hasDeliveryEstimate
+          ? {
+              delivery_estimate: {
+                minimum: { unit: "business_day", value: minBusinessDays },
+                maximum: { unit: "business_day", value: maxBusinessDays },
+              },
+            }
+          : {}),
+      },
+    },
+  ];
+}
+
 function parseOrderType(raw: unknown): CheckoutOrderType {
   return raw === "print" ? "print" : "digital";
 }
@@ -208,6 +253,7 @@ async function createCheckoutSession(
   const printTiers = getPrintPricingTiers();
   const printTier = printTiers[normalizedPrintVariant];
   const digitalAddOnTier = getPrintDigitalAddOnPrice();
+  const printShippingOptions = isPrintOrder ? getPrintShippingOptions() : undefined;
 
   const metadata: Record<string, string> = { order_type: normalizedOrderType };
   if (mapId) metadata.map_id = mapId;
@@ -333,7 +379,7 @@ async function createCheckoutSession(
       submit: {
         message:
           isPrintOrder
-            ? "Secure payment • Printed and shipped after checkout"
+            ? "Secure payment • Print order created after checkout"
             : effectivePlan === "subscription"
               ? "Secure payment • Cancel anytime • Instant access"
               : "Secure payment • Instant access • No subscription",
@@ -344,6 +390,7 @@ async function createCheckoutSession(
     },
     payment_method_types: ["card"],
     shipping_address_collection: isPrintOrder ? { allowed_countries: printAllowedCountries } : undefined,
+    shipping_options: printShippingOptions,
   };
 
   let session: Stripe.Checkout.Session;

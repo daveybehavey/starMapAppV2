@@ -21,6 +21,8 @@ function readBoolEnv(key, fallback = false) {
 const printCheckoutEnabled = readBoolEnv("PRINT_CHECKOUT_ENABLED", false);
 const publicPrintCheckoutEnabled = readBoolEnv("NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED", false);
 const printSubmissionEnabled = readBoolEnv("PRINT_ORDER_SUBMISSION_ENABLED", false);
+const hasPrintShippingConfig =
+  hasValue("STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD") || hasValue("PRINT_STANDARD_SHIPPING_CENTS");
 
 const hasPrintful =
   hasValue("PRINTFUL_API_TOKEN") &&
@@ -55,6 +57,10 @@ if (printCheckoutEnabled && !hasValue("STRIPE_SECRET_KEY")) {
 
 if (printCheckoutEnabled && !hasValue("STRIPE_WEBHOOK_SECRET")) {
   issues.push("PRINT_CHECKOUT_ENABLED=true requires STRIPE_WEBHOOK_SECRET.");
+}
+
+if (printCheckoutEnabled && !hasPrintShippingConfig) {
+  warnings.push("No print shipping charge is configured; print margins may absorb fulfillment shipping.");
 }
 
 if (

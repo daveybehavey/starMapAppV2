@@ -2217,7 +2217,7 @@ export function EditorExperience({
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Your print order draft is created right after payment with shipping details attached.
+                              Secure Stripe checkout. Your print order draft is created right after payment with shipping details attached for manual review.
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <button

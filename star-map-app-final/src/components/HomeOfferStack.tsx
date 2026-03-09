@@ -79,7 +79,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
 
           <article className="rounded-2xl border border-white/15 bg-white/10 p-4">
             <p className="text-sm font-semibold text-white">Unframed print</p>
-            <p className="mt-1 text-xs text-neutral-200">Professionally printed poster, shipped to your door</p>
+            <p className="mt-1 text-xs text-neutral-200">Professionally printed poster prepared for physical delivery after order review</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Museum-quality poster stock</li>
               <li>Best if you want your own frame</li>
@@ -104,7 +104,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <p className="mt-1 text-xs text-neutral-200">Ready-to-hang physical gift with premium presentation</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
-              <li>Shipping estimate shown before payment</li>
+              <li>Shipping address collected during checkout</li>
               <li>{printLabels.framed}</li>
             </ul>
             <a
@@ -120,8 +120,8 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
-            <li>Production typically takes 2-5 business days before shipping.</li>
-            <li>Shipping cost and delivery estimate are shown in checkout before payment.</li>
+            <li>Production typically starts after manual order review.</li>
+            <li>Shipping address is collected in checkout for physical orders.</li>
             <li>If a print arrives damaged, contact support@starmapco.com for help.</li>
             <li>You can add the HD digital file to a print order for {printLabels.digitalAddOn}.</li>
           </ul>
