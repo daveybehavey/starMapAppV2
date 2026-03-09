@@ -10,7 +10,7 @@ type DeliveryFormatModuleProps = {
 
 export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
-  intro = "You only build the map once. After preview, you can decide whether this should be an instant digital file, an unframed print, or a framed gift.",
+  intro = "You only build the map once. After preview, most buyers either unlock the HD file instantly or move into the framed gift path. Unframed stays available if you already have a frame plan.",
   sourcePrefix = "delivery-format",
 }: DeliveryFormatModuleProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(

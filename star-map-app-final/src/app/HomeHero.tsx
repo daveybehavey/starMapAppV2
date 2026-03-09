@@ -43,8 +43,8 @@ export default function HomeHero() {
             </span>
           </h1>
           <p className="mx-auto max-w-2xl text-base text-neutral-200 sm:text-lg">
-            Customize your own star map in minutes. Download instantly in HD, or choose unframed/framed physical print
-            checkout after preview.
+            Customize your own star map in minutes. Download instantly in HD, or move into a premium framed print
+            checkout after preview. Unframed print stays available if you want the lower-cost physical option.
           </p>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
@@ -66,7 +66,7 @@ export default function HomeHero() {
               onClick={handlePrintOptionsClick}
               className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
             >
-              See print + framed options
+              See framed print options
             </a>
           </div>
         </div>
@@ -89,7 +89,7 @@ export default function HomeHero() {
             </div>
           </div>
           <p className="mt-3 text-xs text-neutral-200">
-            After preview, you can choose digital HD, unframed print, or framed print. {shippingDisclosure}
+            After preview, you can choose digital HD, a gift-ready framed print, or the lower-cost unframed poster. {shippingDisclosure}
             <a
               href="/how-to-print-star-map"
               onClick={handlePrintGuideClick}

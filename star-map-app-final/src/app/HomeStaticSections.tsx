@@ -64,10 +64,10 @@ export default function HomeStaticSections({
           ]}
           rightTitle="Print and delivery clarity"
           rightPoints={[
-            "Choose digital only, U.S. unframed print, or U.S. framed print",
+            "Most buyers choose digital HD or the U.S. framed print path",
             shippingDisclosure,
             "Physical orders stay in manual review before production starts",
-            "Optional HD digital add-on is available on print orders",
+            `Optional HD digital add-on is available on print orders for ${printLabels.digitalAddOn}`,
             "If a print arrives damaged, support@starmapco.com handles it",
           ]}
           guideLabel="See the print and frame guide"
@@ -107,8 +107,8 @@ export default function HomeStaticSections({
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
           <p className="mt-2 text-sm sm:text-base">
             {isUsOnlyPrint
-              ? "Instant HD digital download plus U.S. physical checkout options: unframed print and ready-to-hang framed print."
-              : "Instant HD digital download plus physical checkout options: unframed print and ready-to-hang framed print."}
+              ? "Instant HD digital download plus U.S. physical checkout, led by the ready-to-hang framed print option."
+              : "Instant HD digital download plus physical checkout, led by the ready-to-hang framed print option."}
           </p>
           <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
         </div>
