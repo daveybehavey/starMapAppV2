@@ -10,6 +10,14 @@ const nextConfig = {
       permanent: true,
     }));
   },
+  async rewrites() {
+    return [
+      {
+        source: "/merchant-feed.xml",
+        destination: "/merchant-feed",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
