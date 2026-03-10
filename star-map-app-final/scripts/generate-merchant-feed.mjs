@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
-import { writeFileSync } from "node:fs";
-import { mkdirSync } from "node:fs";
+import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
@@ -20,10 +19,7 @@ const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
 
 let shippingMap = null;
 try {
-  const shippingRaw = require("node:fs").readFileSync(
-    require("node:path").resolve(process.cwd(), "data", "printful-shipping.json"),
-    "utf8",
-  );
+  const shippingRaw = readFileSync(resolve(process.cwd(), "data", "printful-shipping.json"), "utf8");
   shippingMap = JSON.parse(shippingRaw);
 } catch {
   shippingMap = null;
