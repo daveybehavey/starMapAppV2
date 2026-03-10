@@ -16,6 +16,7 @@ function parseIntEnv(name, fallback) {
 const PRICE_SINGLE_CENTS = parseIntEnv("NEXT_PUBLIC_PRICE_SINGLE_CENTS", 900);
 const PRINT_UNFRAMED_CENTS = parseIntEnv("NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", 4900);
 const PRINT_FRAMED_CENTS = parseIntEnv("NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", 8900);
+const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
 
 function formatPrice(amountCents) {
   return `${(amountCents / 100).toFixed(2)} ${CURRENCY}`;
@@ -31,6 +32,14 @@ function escapeXml(value) {
 }
 
 function renderItem(item) {
+  const shippingLines = item.shipping
+    ? [
+        "<g:shipping>",
+        `<g:country>${item.shipping.country}</g:country>`,
+        `<g:price>${item.shipping.price}</g:price>`,
+        "</g:shipping>",
+      ]
+    : [];
   return [
     "<item>",
     `<g:id>${escapeXml(item.id)}</g:id>`,
@@ -45,6 +54,7 @@ function renderItem(item) {
     item.googleProductCategory
       ? `<g:google_product_category>${escapeXml(item.googleProductCategory)}</g:google_product_category>`
       : "",
+    ...shippingLines,
     `<g:identifier_exists>${item.identifierExists ? "yes" : "no"}</g:identifier_exists>`,
     `<g:brand>${escapeXml(item.brand)}</g:brand>`,
     "</item>",
@@ -62,7 +72,7 @@ const items = [
     title: "Custom Star Map HD Download",
     description: `${baseDescription} Instant high-resolution digital download.`,
     link: `${SITE_URL}/personalized-star-map`,
-    imageLink: `${SITE_URL}/examples/example-anniversary-heirloom.webp`,
+    imageLink: `${SITE_URL}/blog/anniversary/anniversary-night-sky.jpg`,
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRICE_SINGLE_CENTS),
@@ -70,13 +80,17 @@ const items = [
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
+    shipping: {
+      country: "US",
+      price: formatPrice(0),
+    },
   },
   {
     id: "print_poster_unframed",
     title: "Custom Star Map Poster (Unframed)",
     description: `${baseDescription} Museum-grade unframed poster print.`,
     link: `${SITE_URL}/star-map-poster`,
-    imageLink: `${SITE_URL}/examples/example-wedding-aurora-heart.webp`,
+    imageLink: `${SITE_URL}/blog/anniversary/framed-star-map.jpg`,
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRINT_UNFRAMED_CENTS),
@@ -84,13 +98,17 @@ const items = [
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
+    shipping: {
+      country: "US",
+      price: formatPrice(PRINT_SHIPPING_CENTS),
+    },
   },
   {
     id: "print_poster_framed",
     title: "Custom Star Map Framed Print",
     description: `${baseDescription} Framed print ready to hang.`,
     link: `${SITE_URL}/star-map-poster`,
-    imageLink: `${SITE_URL}/examples/example-memorial-starlace.webp`,
+    imageLink: `${SITE_URL}/blog/anniversary/couple-under-stars.jpg`,
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRINT_FRAMED_CENTS),
@@ -98,6 +116,10 @@ const items = [
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
+    shipping: {
+      country: "US",
+      price: formatPrice(PRINT_SHIPPING_CENTS),
+    },
   },
 ];
 
