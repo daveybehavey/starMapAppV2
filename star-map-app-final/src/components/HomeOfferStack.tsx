@@ -107,7 +107,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           <h2 className="text-2xl font-semibold sm:text-3xl">Preview first, then pick how you want it delivered</h2>
           <p className="text-sm text-neutral-200 sm:text-base">
             Build your exact sky map in the editor. Most buyers either unlock the HD file instantly or move into the
-            framed print path, with shipping shown before payment.
+            framed 14x14 print path, with the 18x18 unframed poster available when they want the lower physical total.
           </p>
         </div>
 
@@ -136,7 +136,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 MOST POPULAR
               </span>
             </div>
-            <p className="mt-1 text-xs text-neutral-200">Ready-to-hang physical gift with premium presentation</p>
+            <p className="mt-1 text-xs text-neutral-200">Ready-to-hang 14x14 physical gift with the strongest premium presentation</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Best-looking premium option for special occasions</li>
@@ -154,7 +154,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
 
           <article className="rounded-2xl border border-white/15 bg-white/10 p-4">
             <p className="text-sm font-semibold text-white">Unframed print</p>
-            <p className="mt-1 text-xs text-neutral-200">Professionally printed poster for buyers who already have a frame plan.</p>
+            <p className="mt-1 text-xs text-neutral-200">Professionally printed 18x18 poster for buyers who already have a frame plan.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Museum-quality poster stock</li>
               <li>Lower-cost physical option</li>
