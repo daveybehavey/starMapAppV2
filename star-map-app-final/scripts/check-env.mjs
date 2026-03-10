@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { readWranglerVars } from "./wrangler-vars.mjs";
 
 const REQUIRED = [
   "STRIPE_SECRET_KEY",
@@ -58,6 +59,13 @@ const loadEnvFile = (filename) => {
 // Load local env files without external dependencies.
 loadEnvFile(".env.local");
 loadEnvFile(".env");
+
+const wranglerVars = await readWranglerVars(process.cwd());
+for (const [key, value] of Object.entries(wranglerVars)) {
+  if (process.env[key] === undefined) {
+    process.env[key] = value;
+  }
+}
 
 const errors = [];
 const warnings = [];

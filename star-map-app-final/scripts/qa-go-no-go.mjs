@@ -1,15 +1,22 @@
 import dotenv from "dotenv";
+import { readWranglerVars } from "./wrangler-vars.mjs";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
+
+const wranglerVars = await readWranglerVars(process.cwd());
+for (const [key, value] of Object.entries(wranglerVars)) {
+  if (process.env[key] === undefined) {
+    process.env[key] = value;
+  }
+}
 
 const issues = [];
 const warnings = [];
 
 const hasValue = (key) => Boolean(process.env[key]?.trim());
 
-function readBoolEnv(key, fallback = false) {
-  const raw = process.env[key];
+function parseBool(raw, key, fallback = false) {
   if (!raw || !raw.trim()) return fallback;
   const value = raw.trim().toLowerCase();
   if (["1", "true", "yes"].includes(value)) return true;
@@ -18,9 +25,24 @@ function readBoolEnv(key, fallback = false) {
   return fallback;
 }
 
-const printCheckoutEnabled = readBoolEnv("PRINT_CHECKOUT_ENABLED", false);
-const publicPrintCheckoutEnabled = readBoolEnv("NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED", false);
-const printSubmissionEnabled = readBoolEnv("PRINT_ORDER_SUBMISSION_ENABLED", false);
+function getMode(checkoutEnabled, publicCheckoutEnabled, submissionEnabled, configured) {
+  if (!checkoutEnabled && !publicCheckoutEnabled && !submissionEnabled) return "SAFE_OFF";
+  if (checkoutEnabled && publicCheckoutEnabled && !submissionEnabled) return "CHECKOUT_ONLY";
+  if (checkoutEnabled && publicCheckoutEnabled && submissionEnabled && configured) return "LIVE_READY";
+  return "CUSTOM";
+}
+
+const printCheckoutEnabled = parseBool(process.env.PRINT_CHECKOUT_ENABLED, "PRINT_CHECKOUT_ENABLED", false);
+const publicPrintCheckoutEnabled = parseBool(
+  process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED,
+  "NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED",
+  false,
+);
+const printSubmissionEnabled = parseBool(
+  process.env.PRINT_ORDER_SUBMISSION_ENABLED,
+  "PRINT_ORDER_SUBMISSION_ENABLED",
+  false,
+);
 const hasPrintShippingConfig =
   hasValue("STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD") || hasValue("PRINT_STANDARD_SHIPPING_CENTS");
 
@@ -87,14 +109,28 @@ if (
   warnings.push("No print digital add-on pricing configured (optional).");
 }
 
-const mode = (() => {
-  if (!printCheckoutEnabled && !publicPrintCheckoutEnabled && !printSubmissionEnabled) return "SAFE_OFF";
-  if (printCheckoutEnabled && publicPrintCheckoutEnabled && !printSubmissionEnabled) return "CHECKOUT_ONLY";
-  if (printCheckoutEnabled && publicPrintCheckoutEnabled && printSubmissionEnabled && fulfillmentConfigured) {
-    return "LIVE_READY";
-  }
-  return "CUSTOM";
-})();
+const mode = getMode(printCheckoutEnabled, publicPrintCheckoutEnabled, printSubmissionEnabled, fulfillmentConfigured);
+const wranglerPrintCheckoutEnabled = parseBool(
+  wranglerVars.PRINT_CHECKOUT_ENABLED,
+  "wrangler:PRINT_CHECKOUT_ENABLED",
+  printCheckoutEnabled,
+);
+const wranglerPublicPrintCheckoutEnabled = parseBool(
+  wranglerVars.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED,
+  "wrangler:NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED",
+  publicPrintCheckoutEnabled,
+);
+const wranglerPrintSubmissionEnabled = parseBool(
+  wranglerVars.PRINT_ORDER_SUBMISSION_ENABLED,
+  "wrangler:PRINT_ORDER_SUBMISSION_ENABLED",
+  printSubmissionEnabled,
+);
+const wranglerMode = getMode(
+  wranglerPrintCheckoutEnabled,
+  wranglerPublicPrintCheckoutEnabled,
+  wranglerPrintSubmissionEnabled,
+  fulfillmentConfigured,
+);
 
 console.log("Print go/no-go summary");
 console.log(`Mode: ${mode}`);
@@ -104,6 +140,14 @@ console.log(`- PRINT_ORDER_SUBMISSION_ENABLED=${String(printSubmissionEnabled)}`
 console.log(`- Fulfillment configured=${String(fulfillmentConfigured)}`);
 if (hasPrintful) console.log("- Fulfillment path: Printful");
 if (!hasPrintful && hasWebhookFulfillment) console.log("- Fulfillment path: Custom webhook");
+
+if (mode !== wranglerMode) {
+  console.log("\nNote: local env differs from wrangler production vars.");
+  console.log(`- Wrangler mode: ${wranglerMode}`);
+  console.log(`- Wrangler PRINT_CHECKOUT_ENABLED=${String(wranglerPrintCheckoutEnabled)}`);
+  console.log(`- Wrangler NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=${String(wranglerPublicPrintCheckoutEnabled)}`);
+  console.log(`- Wrangler PRINT_ORDER_SUBMISSION_ENABLED=${String(wranglerPrintSubmissionEnabled)}`);
+}
 
 if (warnings.length) {
   console.log("\nWarnings:");

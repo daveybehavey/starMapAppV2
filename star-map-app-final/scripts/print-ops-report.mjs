@@ -2,9 +2,17 @@
 
 import Stripe from "stripe";
 import dotenv from "dotenv";
+import { readWranglerVars } from "./wrangler-vars.mjs";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
+
+const wranglerVars = await readWranglerVars(process.cwd());
+for (const [key, value] of Object.entries(wranglerVars)) {
+  if (process.env[key] === undefined) {
+    process.env[key] = value;
+  }
+}
 
 function parseArgs(argv) {
   const args = {
