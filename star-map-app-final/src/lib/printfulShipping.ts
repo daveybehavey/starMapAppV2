@@ -1,4 +1,4 @@
-import shippingMap from "@/data/printful-shipping.json";
+import shippingMap from "../../data/printful-shipping.json";
 
 export type PrintfulShippingRate = {
   rate: number;
