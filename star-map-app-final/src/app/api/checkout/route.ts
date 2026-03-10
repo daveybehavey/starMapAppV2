@@ -449,7 +449,11 @@ async function createCheckoutSession(
     },
     payment_method_types: ["card"],
     shipping_address_collection: isPrintOrder
-      ? { allowed_countries: resolvedShippingCountry ? [resolvedShippingCountry] : printAllowedCountries }
+      ? {
+          allowed_countries: resolvedShippingCountry
+            ? [resolvedShippingCountry as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry]
+            : printAllowedCountries,
+        }
       : undefined,
     shipping_options: printShippingOptions,
   };
