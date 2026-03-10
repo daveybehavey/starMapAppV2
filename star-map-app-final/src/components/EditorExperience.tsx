@@ -2263,7 +2263,7 @@ export function EditorExperience({
                                   setPrintShippingCountry(next);
                                   storePrintShippingCountry(next);
                                 }}
-                                className="mt-1 w-full rounded-lg border border-amber-200/40 bg-white/10 px-3 py-2 text-xs text-amber-50"
+                                className="mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
                               >
                                 {printShippingCountries.map((country) => (
                                   <option key={country} value={country} className="text-midnight">
@@ -2316,6 +2316,9 @@ export function EditorExperience({
                                 {printPriceLabels.unframedName} • {printPriceLabels.unframed} + shipping
                               </button>
                             </div>
+                            {checkoutError && (
+                              <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
+                            )}
                           </div>
                         )}
                       </div>

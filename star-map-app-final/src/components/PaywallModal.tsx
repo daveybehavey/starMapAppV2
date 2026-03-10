@@ -233,7 +233,7 @@ export function PaywallModal({
                   <select
                     value={printShippingCountry ?? ""}
                     onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
-                    className="mt-1 w-full rounded-lg border border-amber-200/40 bg-white/10 px-3 py-2 text-xs text-amber-50"
+                    className="mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
                   >
                     {printShippingCountries.map((country) => (
                       <option key={country} value={country} className="text-midnight">
