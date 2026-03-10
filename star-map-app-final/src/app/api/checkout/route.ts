@@ -16,6 +16,7 @@ import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
+import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 
 export const runtime = "nodejs";
 
@@ -66,10 +67,40 @@ function parsePositiveInt(raw: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function getPrintShippingOptions(): Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined {
+function getPrintShippingOptionsForCountry(
+  shippingCountry: string | null,
+): Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined {
   const configuredShippingRate = process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim();
   if (configuredShippingRate) {
     return [{ shipping_rate: configuredShippingRate }];
+  }
+
+  if (shippingCountry) {
+    const rate =
+      getPrintfulShippingRate("poster_framed", shippingCountry) ||
+      getPrintfulShippingRate("poster_unframed", shippingCountry);
+    if (rate && Number.isFinite(rate.rate)) {
+      return [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: {
+              amount: Math.round(rate.rate * 100),
+              currency: (rate.currency || "USD").toLowerCase(),
+            },
+            display_name: "Standard shipping",
+            ...(typeof rate.min_delivery_days === "number" && typeof rate.max_delivery_days === "number"
+              ? {
+                  delivery_estimate: {
+                    minimum: { unit: "business_day", value: rate.min_delivery_days },
+                    maximum: { unit: "business_day", value: rate.max_delivery_days },
+                  },
+                }
+              : {}),
+          },
+        },
+      ];
+    }
   }
 
   const amountCents = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_CENTS);
@@ -216,6 +247,7 @@ async function createCheckoutSession(
     orderType?: CheckoutOrderType;
     printVariant?: PrintVariant;
     includeDigitalAddOn?: boolean;
+    shippingCountry?: string;
     referralCode?: string;
     referrerSessionId?: string;
     promotionSource?: PromotionSource;
@@ -230,6 +262,7 @@ async function createCheckoutSession(
     orderType = "digital",
     printVariant = "poster_unframed",
     includeDigitalAddOn = false,
+    shippingCountry,
     referralCode,
     referrerSessionId,
     promotionSource = "none",
@@ -253,7 +286,20 @@ async function createCheckoutSession(
   const printTiers = getPrintPricingTiers();
   const printTier = printTiers[normalizedPrintVariant];
   const digitalAddOnTier = getPrintDigitalAddOnPrice();
-  const printShippingOptions = isPrintOrder ? getPrintShippingOptions() : undefined;
+  const requestedShippingCountry =
+    typeof shippingCountry === "string" ? shippingCountry.trim().toUpperCase() : null;
+  const allowedCountries = getPrintfulShippingCountries();
+  const resolvedShippingCountry =
+    isPrintOrder && requestedShippingCountry && allowedCountries.includes(requestedShippingCountry)
+      ? requestedShippingCountry
+      : null;
+  if (isPrintOrder && requestedShippingCountry && !resolvedShippingCountry) {
+    return NextResponse.json(
+      { error: "Unsupported shipping country.", code: "print_shipping_country_invalid" },
+      { status: 400 },
+    );
+  }
+  const printShippingOptions = isPrintOrder ? getPrintShippingOptionsForCountry(resolvedShippingCountry) : undefined;
 
   const metadata: Record<string, string> = { order_type: normalizedOrderType };
   if (mapId) metadata.map_id = mapId;
@@ -389,7 +435,9 @@ async function createCheckoutSession(
       },
     },
     payment_method_types: ["card"],
-    shipping_address_collection: isPrintOrder ? { allowed_countries: printAllowedCountries } : undefined,
+    shipping_address_collection: isPrintOrder
+      ? { allowed_countries: resolvedShippingCountry ? [resolvedShippingCountry] : printAllowedCountries }
+      : undefined,
     shipping_options: printShippingOptions,
   };
 
@@ -437,6 +485,7 @@ export async function GET(req: NextRequest) {
   const orderTypeParam = req.nextUrl.searchParams.get("order_type");
   const printVariantParam = req.nextUrl.searchParams.get("print_variant");
   const includeDigitalAddOnParam = req.nextUrl.searchParams.get("include_digital_addon");
+  const shippingCountryParam = req.nextUrl.searchParams.get("shipping_country");
   const printAssetIdParam = req.nextUrl.searchParams.get("print_asset_id");
   const referralParam =
     req.nextUrl.searchParams.get("ref") ??
@@ -449,6 +498,7 @@ export async function GET(req: NextRequest) {
   const orderType = parseOrderType(orderTypeParam);
   const printVariant = parsePrintVariant(printVariantParam);
   const includeDigitalAddOn = parseBoolean(includeDigitalAddOnParam, false);
+  const shippingCountry = shippingCountryParam ? shippingCountryParam.trim().toUpperCase() : undefined;
   const printAssetId =
     printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim()) ? printAssetIdParam.trim() : undefined;
   const mapId = mapParam ? mapParam.slice(0, 120) : undefined;
@@ -494,6 +544,7 @@ export async function GET(req: NextRequest) {
       orderType,
       printVariant,
       includeDigitalAddOn,
+      shippingCountry,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
     });
@@ -529,6 +580,7 @@ export async function POST(req: NextRequest) {
     let printAssetId: string | undefined;
     let promoCode: string | undefined;
     let referralCode: string | undefined;
+    let shippingCountry: string | undefined;
     try {
       const body = (await req.json()) as {
         mapId?: string;
@@ -538,6 +590,7 @@ export async function POST(req: NextRequest) {
         printVariant?: PrintVariant;
         includeDigitalAddOn?: boolean;
         printAssetId?: string;
+        shippingCountry?: string;
         referralCode?: string;
       } | null;
       if (body?.mapId && typeof body.mapId === "string") {
@@ -562,6 +615,12 @@ export async function POST(req: NextRequest) {
         const trimmed = body.promoCode.trim();
         if (trimmed) {
           promoCode = trimmed.slice(0, 64);
+        }
+      }
+      if (body?.shippingCountry && typeof body.shippingCountry === "string") {
+        const trimmed = body.shippingCountry.trim();
+        if (trimmed) {
+          shippingCountry = trimmed.slice(0, 2).toUpperCase();
         }
       }
       if (body?.referralCode && typeof body.referralCode === "string") {
@@ -628,6 +687,7 @@ export async function POST(req: NextRequest) {
       orderType,
       printVariant,
       includeDigitalAddOn,
+      shippingCountry,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
     });

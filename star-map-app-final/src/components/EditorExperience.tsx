@@ -28,6 +28,11 @@ import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant
 import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getPrintfulShippingCountries,
+  readStoredPrintShippingCountry,
+  storePrintShippingCountry,
+} from "@/lib/printfulShipping";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -239,6 +244,18 @@ export function EditorExperience({
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    const stored = readStoredPrintShippingCountry();
+    if (stored && printShippingCountries.includes(stored)) {
+      setPrintShippingCountry(stored);
+      return;
+    }
+    if (printShippingCountries.length) {
+      setPrintShippingCountry(printShippingCountries[0]);
+      storePrintShippingCountry(printShippingCountries[0]);
+    }
+  }, [printShippingCountries]);
+
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => ({
     dateLocation: false,
     textStyling: true,
@@ -255,6 +272,8 @@ export function EditorExperience({
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
   const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
+  const printShippingCountries = useMemo(() => getPrintfulShippingCountries(), []);
+  const [printShippingCountry, setPrintShippingCountry] = useState<string | null>(null);
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutInFlight, setCheckoutInFlight] = useState(false);
@@ -931,6 +950,7 @@ export function EditorExperience({
           printVariant?: PrintVariant;
           includeDigitalAddOn?: boolean;
           printAssetId?: string;
+          shippingCountry?: string;
           referralCode?: string;
         } = { plan };
         if (mapId) checkoutPayload.mapId = mapId;
@@ -1007,6 +1027,10 @@ export function EditorExperience({
           checkoutPayload.printVariant = printVariant;
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
           checkoutPayload.printAssetId = uploadedAssetId;
+          if (!printShippingCountry) {
+            throw new Error("missing_shipping_country");
+          }
+          checkoutPayload.shippingCountry = printShippingCountry;
         }
         const checkoutInit: RequestInit = {
           method: "POST",
@@ -1031,6 +1055,9 @@ export function EditorExperience({
           }
           if (data?.code === "print_checkout_disabled") {
             throw new Error("print_checkout_disabled");
+          }
+          if (data?.code === "print_shipping_country_invalid") {
+            throw new Error("print_shipping_country_invalid");
           }
           throw new Error(data?.error ?? "checkout failed");
         }
@@ -1064,6 +1091,10 @@ export function EditorExperience({
                 ? "We couldn't prepare your print file. Please try again."
                 : reason === "print_asset_too_large"
                   ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
+                : reason === "missing_shipping_country"
+                  ? "Select your shipping country to continue with print checkout."
+                : reason === "print_shipping_country_invalid"
+                  ? "Shipping isn’t available for that country yet. Please select another."
                 : reason === "print_checkout_disabled"
                   ? "Print checkout is not live yet."
               : "Checkout is unavailable right now. Please try again shortly.";
@@ -2224,6 +2255,24 @@ export function EditorExperience({
                               Secure Stripe checkout. Shipping is shown before payment, and your print order draft is
                               created right after payment for manual review. {shippingDisclosure}
                             </p>
+                            <div className="mt-3">
+                              <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
+                              <select
+                                value={printShippingCountry ?? ""}
+                                onChange={(event) => {
+                                  const next = event.target.value;
+                                  setPrintShippingCountry(next);
+                                  storePrintShippingCountry(next);
+                                }}
+                                className="mt-1 w-full rounded-lg border border-amber-200/40 bg-white/10 px-3 py-2 text-xs text-amber-50"
+                              >
+                                {printShippingCountries.map((country) => (
+                                  <option key={country} value={country} className="text-midnight">
+                                    {country}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <button
                                 type="button"
@@ -2234,7 +2283,7 @@ export function EditorExperience({
                                     includeDigitalAddOn: true,
                                   })
                                 }
-                                disabled={checkoutInFlight}
+                                disabled={checkoutInFlight || !printShippingCountry}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/35 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/45 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {printPriceLabels.framedName} + HD • {printPriceLabels.framed} + shipping + {printPriceLabels.digitalAddOn}
@@ -2248,7 +2297,7 @@ export function EditorExperience({
                                     includeDigitalAddOn: false,
                                   })
                                 }
-                                disabled={checkoutInFlight}
+                                disabled={checkoutInFlight || !printShippingCountry}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {printPriceLabels.framedName} • {printPriceLabels.framed} + shipping
@@ -2262,7 +2311,7 @@ export function EditorExperience({
                                     includeDigitalAddOn: false,
                                   })
                                 }
-                                disabled={checkoutInFlight}
+                                disabled={checkoutInFlight || !printShippingCountry}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {printPriceLabels.unframedName} • {printPriceLabels.unframed} + shipping
@@ -2295,6 +2344,12 @@ export function EditorExperience({
               currentPlan={currentPlan}
               printCheckoutEnabled={printCheckoutEnabled}
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
+              printShippingCountry={printShippingCountry}
+              printShippingCountries={printShippingCountries}
+              onPrintShippingCountryChange={(country) => {
+                setPrintShippingCountry(country);
+                storePrintShippingCountry(country);
+              }}
               onStartPrintCheckout={
                 printCheckoutEnabled
                   ? (options) => {
@@ -2317,6 +2372,12 @@ export function EditorExperience({
               checkoutError={checkoutError}
               priceLabels={priceLabels}
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
+              printShippingCountry={printShippingCountry}
+              printShippingCountries={printShippingCountries}
+              onPrintShippingCountryChange={(country) => {
+                setPrintShippingCountry(country);
+                storePrintShippingCountry(country);
+              }}
               variant={paywallVariant}
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}

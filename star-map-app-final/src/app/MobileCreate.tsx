@@ -35,6 +35,9 @@ interface MobileCreateProps {
     framed: string;
     digitalAddOn: string;
   };
+  printShippingCountry?: string | null;
+  printShippingCountries?: string[];
+  onPrintShippingCountryChange?: (country: string) => void;
   onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
 }
 
@@ -50,6 +53,9 @@ export function MobileCreate({
   currentPlan = null,
   printCheckoutEnabled = false,
   printPriceLabels,
+  printShippingCountry,
+  printShippingCountries = [],
+  onPrintShippingCountryChange,
   onStartPrintCheckout,
 }: MobileCreateProps) {
   // Use shared editor logic hook
@@ -1115,10 +1121,27 @@ export function MobileCreate({
                   Secure checkout collects shipping details, shows shipping before payment, and creates your print
                   order right after payment. {shippingDisclosure}
                 </p>
+                {printShippingCountries.length > 0 && (
+                  <div className="mt-2">
+                    <label className="text-[10px] font-semibold text-amber-100/80">Shipping country</label>
+                    <select
+                      value={printShippingCountry ?? ""}
+                      onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-amber-200/40 bg-white/10 px-3 py-2 text-[11px] text-amber-50"
+                    >
+                      {printShippingCountries.map((country) => (
+                        <option key={country} value={country} className="text-midnight">
+                          {country}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="mt-2 flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
+                    disabled={!printShippingCountry}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
                   >
                     🖼️ Framed + HD (recommended) • {printPriceLabels.framed} + shipping + {printPriceLabels.digitalAddOn}
@@ -1126,6 +1149,7 @@ export function MobileCreate({
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
+                    disabled={!printShippingCountry}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
                   >
                     🖼️ Framed print • {printPriceLabels.framed} + shipping
@@ -1133,6 +1157,7 @@ export function MobileCreate({
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
+                    disabled={!printShippingCountry}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
                   >
                     🖼️ Unframed print • {printPriceLabels.unframed} + shipping

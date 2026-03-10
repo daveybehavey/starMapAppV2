@@ -22,6 +22,9 @@ type Props = {
     framed: string;
     digitalAddOn: string;
   };
+  printShippingCountry?: string | null;
+  printShippingCountries?: string[];
+  onPrintShippingCountryChange?: (country: string) => void;
   variant: PaywallCopyVariant;
   purchaseIntent?: "digital" | "print";
   preferredPrintVariant?: PrintVariant;
@@ -68,6 +71,9 @@ export function PaywallModal({
   variant,
   purchaseIntent = "digital",
   preferredPrintVariant = "poster_framed",
+  printShippingCountry,
+  printShippingCountries = [],
+  onPrintShippingCountryChange,
   showReferralHint = false,
   onStartCheckout,
   onStartPrintCheckout,
@@ -81,6 +87,7 @@ export function PaywallModal({
   const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
   const viewedListsRef = useRef<Set<string>>(new Set());
+  const canPrintCheckout = Boolean(printShippingCountry);
 
   useEffect(() => {
     if (!hasPrintOptions) {
@@ -220,6 +227,25 @@ export function PaywallModal({
                 Your current map is attached automatically. Shipping is shown in Stripe checkout and the order is
                 created for manual review. {shippingDisclosure}
               </p>
+              {printShippingCountries.length > 0 && (
+                <div className="mt-3">
+                  <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
+                  <select
+                    value={printShippingCountry ?? ""}
+                    onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-amber-200/40 bg-white/10 px-3 py-2 text-xs text-amber-50"
+                  >
+                    {printShippingCountries.map((country) => (
+                      <option key={country} value={country} className="text-midnight">
+                        {country}
+                      </option>
+                    ))}
+                  </select>
+                  {!canPrintCheckout && (
+                    <p className="mt-1 text-[10px] text-amber-100/80">Select a shipping country to continue.</p>
+                  )}
+                </div>
+              )}
               <div className="mt-3 grid gap-2">
                 <button
                   type="button"
@@ -228,7 +254,7 @@ export function PaywallModal({
                       { variant: "poster_framed", includeDigitalAddOn: true },
                       "paywall_print_options",
                     )}
-                  disabled={checkoutInFlight}
+                  disabled={checkoutInFlight || !canPrintCheckout}
                   className="w-full rounded-full border border-amber-200/70 bg-amber-400/30 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/40 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   Framed + HD file (recommended) • {printPriceLabels.framed} + shipping + {printPriceLabels.digitalAddOn}
@@ -240,7 +266,7 @@ export function PaywallModal({
                       { variant: "poster_framed", includeDigitalAddOn: false },
                       "paywall_print_options",
                     )}
-                  disabled={checkoutInFlight}
+                  disabled={checkoutInFlight || !canPrintCheckout}
                   className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
                     preferredVariant === "poster_framed"
                       ? "border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35"
@@ -256,7 +282,7 @@ export function PaywallModal({
                       { variant: "poster_unframed", includeDigitalAddOn: false },
                       "paywall_print_options",
                     )}
-                  disabled={checkoutInFlight}
+                  disabled={checkoutInFlight || !canPrintCheckout}
                   className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
                     preferredVariant === "poster_unframed"
                       ? "border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35"

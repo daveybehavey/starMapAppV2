@@ -1,4 +1,5 @@
 import { formatPrice } from "@/lib/pricing";
+import { getPrintfulShippingCountries } from "@/lib/printfulShipping";
 
 function parseCountries(raw: string | undefined) {
   const parsed = String(raw ?? "")
@@ -13,7 +14,11 @@ export function getPrintAllowedCountries() {
     typeof window === "undefined"
       ? process.env.PRINT_ALLOWED_COUNTRIES ?? process.env.NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES ?? "US"
       : process.env.NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES ?? "US";
-  return parseCountries(raw);
+  const parsed = parseCountries(raw);
+  if (parsed.length === 1 && parsed[0] === "US") {
+    return getPrintfulShippingCountries();
+  }
+  return parsed;
 }
 
 export function isUsOnlyPrintCheckout() {
@@ -26,6 +31,7 @@ export function getPrintShippingCountryLabel() {
   if (countries.length === 1 && countries[0] === "US") return "U.S.";
   if (countries.length === 2 && countries.includes("US") && countries.includes("CA")) return "the U.S. and Canada";
   if (countries.length === 1) return countries[0];
+  if (countries.length > 3) return "selected countries";
   return countries.join(", ");
 }
 

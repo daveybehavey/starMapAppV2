@@ -16,6 +16,7 @@ import {
   type PrintVariant,
 } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { readStoredPrintShippingCountry } from "@/lib/printfulShipping";
 import EditorFontShell from "@/components/EditorFontShell";
 
 const DRAFT_KEY = "star-map-draft";
@@ -777,6 +778,10 @@ export default function DownloadClient() {
           }
           throw new Error("asset_upload_failed");
         }
+        const shippingCountry = readStoredPrintShippingCountry();
+        if (!shippingCountry) {
+          throw new Error("missing_shipping_country");
+        }
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -787,6 +792,7 @@ export default function DownloadClient() {
             includeDigitalAddOn: false,
             printAssetId: uploadedAssetId,
             mapId: mapId ?? undefined,
+            shippingCountry,
           }),
         });
         const data = (await res.json().catch(() => null)) as
@@ -798,6 +804,9 @@ export default function DownloadClient() {
           }
           if (data?.code === "missing_print_asset") {
             throw new Error("missing_print_asset");
+          }
+          if (data?.code === "print_shipping_country_invalid") {
+            throw new Error("print_shipping_country_invalid");
           }
           throw new Error(data?.error ?? "checkout_failed");
         }
@@ -823,6 +832,10 @@ export default function DownloadClient() {
               ? "We couldn't prepare your print file. Please try again."
               : reason === "print_asset_too_large"
                 ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
+              : reason === "missing_shipping_country"
+                ? "Select a shipping country in the editor before starting print checkout."
+              : reason === "print_shipping_country_invalid"
+                ? "Shipping isn’t available for that country yet. Please select another."
               : reason === "missing_print_asset"
                 ? "Could not attach your print file. Please retry print checkout."
                 : reason === "print_checkout_disabled"
