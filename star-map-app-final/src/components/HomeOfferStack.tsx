@@ -101,7 +101,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
       id="delivery-options"
       className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-2 sm:px-6 lg:px-8"
     >
-      <div className="space-y-8 rounded-3xl border border-amber-300/30 bg-amber-300/10 p-6 text-white shadow-lg shadow-black/30">
+      <div className="space-y-8 rounded-3xl border border-amber-300/30 bg-[linear-gradient(180deg,rgba(8,16,38,0.92),rgba(5,11,29,0.96))] p-6 text-white shadow-[0_22px_56px_rgba(0,0,0,0.36)]">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Choose your format</p>
           <h2 className="text-2xl font-semibold sm:text-3xl">Preview first, then pick how you want it delivered</h2>
@@ -112,7 +112,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <article className="rounded-2xl border border-white/15 bg-white/10 p-4">
+          <article className="brand-dark-card rounded-2xl p-4">
             <p className="text-sm font-semibold text-white">Instant digital</p>
             <p className="mt-1 text-xs text-neutral-200">HD file unlocks immediately after payment</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
@@ -129,7 +129,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             </a>
           </article>
 
-          <article className="rounded-2xl border border-amber-300/55 bg-amber-300/15 p-4">
+          <article className="brand-dark-card-accent rounded-2xl p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
               <span className="rounded-full border border-amber-200/70 bg-amber-200/30 px-2 py-0.5 text-[10px] font-bold text-amber-100">
@@ -152,7 +152,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             </a>
           </article>
 
-          <article className="rounded-2xl border border-white/15 bg-white/10 p-4">
+          <article className="brand-dark-card rounded-2xl p-4">
             <p className="text-sm font-semibold text-white">Unframed print</p>
             <p className="mt-1 text-xs text-neutral-200">Professionally printed 18x18 poster for buyers who already have a frame plan.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
@@ -170,7 +170,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </article>
         </div>
 
-        <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+        <div className="brand-dark-card rounded-2xl p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
             <li>Production typically starts after manual order review.</li>
@@ -181,7 +181,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </ul>
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">
+        <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital HD plans</p>
             <span className="text-[11px] text-neutral-300">Pay only when your preview looks right.</span>

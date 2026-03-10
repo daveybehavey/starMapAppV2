@@ -33,7 +33,7 @@ export default function FramedProofSection({
   const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
 
   return (
-    <section className="content-visibility-auto mt-6 overflow-hidden rounded-3xl border border-black/5 bg-white/90 shadow-xl shadow-black/10">
+    <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
       <div className="grid gap-0 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="relative min-h-[260px] bg-neutral-100">
           <Image
@@ -47,8 +47,8 @@ export default function FramedProofSection({
         <div className="space-y-4 p-6">
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-900/90">
-              <span className="rounded-full border border-amber-300/50 bg-amber-300/15 px-3 py-1">{availabilityBadge}</span>
-              <span className="rounded-full border border-black/10 bg-white px-3 py-1">Manual review before production</span>
+              <span className="brand-pill rounded-full px-3 py-1">{availabilityBadge}</span>
+              <span className="rounded-full border border-black/10 bg-white/85 px-3 py-1 text-[#4f5a73]">Manual review before production</span>
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700">Framed in real spaces</p>
             <h2 className="text-xl font-semibold text-midnight">{heading}</h2>
@@ -56,19 +56,19 @@ export default function FramedProofSection({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-4">
+            <div className="brand-light-card-accent rounded-2xl px-4 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Recommended</p>
               <h3 className="mt-2 text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{framedPrice}</p>
               <p className="mt-2 text-xs text-neutral-700">Ready-to-hang gift route with the frame already handled.</p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-white px-4 py-4">
+            <div className="brand-light-card rounded-2xl px-4 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Lower total</p>
               <h3 className="mt-2 text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{unframedPrice}</p>
               <p className="mt-2 text-xs text-neutral-700">Best if you already know how you want to frame it yourself.</p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-white px-4 py-4">
+            <div className="brand-light-card rounded-2xl px-4 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Instant backup</p>
               <h3 className="mt-2 text-sm font-semibold text-midnight">HD digital add-on</h3>
               <p className="mt-1 text-sm text-neutral-700">{digitalAddOnPrice}</p>
@@ -77,8 +77,8 @@ export default function FramedProofSection({
           </div>
 
           <ul className="space-y-2 text-sm text-neutral-800">
-            <li className="rounded-2xl border border-black/10 bg-white px-4 py-3">{shippingDisclosure}</li>
-            <li className="rounded-2xl border border-black/10 bg-white px-4 py-3">
+            <li className="brand-light-card rounded-2xl px-4 py-3">{shippingDisclosure}</li>
+            <li className="brand-light-card rounded-2xl px-4 py-3">
               Paid print orders are created for review first, then approved manually before production starts.
             </li>
           </ul>

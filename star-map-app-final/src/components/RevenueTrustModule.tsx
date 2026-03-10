@@ -30,18 +30,18 @@ export default function RevenueTrustModule({
   const digitalAddOnLabel = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
 
   return (
-    <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+    <section className="brand-light-panel content-visibility-auto mt-6 space-y-4 rounded-3xl p-6">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-midnight">{heading}</h2>
         <p className="text-sm text-neutral-800 sm:text-base">{intro}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+        <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">Secure payment</p>
           <p className="mt-1 text-xs text-neutral-700">Stripe checkout with card security and explicit terms confirmation.</p>
         </div>
-        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+        <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">
             {printCheckoutEnabled ? "Digital + physical options" : "Instant digital delivery"}
           </p>
@@ -51,34 +51,34 @@ export default function RevenueTrustModule({
               : "HD file unlocks immediately after successful payment verification."}
           </p>
         </div>
-        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+        <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">Print-ready quality</p>
           <p className="mt-1 text-xs text-neutral-700">
             Exports up to 6000x6000 PNG so stars and text stay sharp in print, including large poster sizes.
           </p>
         </div>
-        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+        <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">Clear policy + support</p>
           <p className="mt-1 text-xs text-neutral-700">Returns policy is public and support is available at support@starmapco.com.</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-black/5 bg-white p-4">
+      <div className="brand-light-card rounded-2xl p-4">
         <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order overview</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+          <div className="brand-light-card rounded-2xl px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Live print formats</p>
             <p className="mt-1 text-sm text-neutral-700">
               Framed uses {printTiers.poster_framed.label.toLowerCase()}, unframed uses {printTiers.poster_unframed.label.toLowerCase()}, and the HD add-on stays available for {digitalAddOnLabel}.
             </p>
           </div>
-          <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+          <div className="brand-light-card rounded-2xl px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Before payment</p>
             <p className="mt-1 text-sm text-neutral-700">
               {shippingDisclosure} Checkout shows the exact variant before the card is charged.
             </p>
           </div>
-          <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+          <div className="brand-light-card rounded-2xl px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">After payment</p>
             <p className="mt-1 text-sm text-neutral-700">
               Physical orders are created for review first, then manually approved before production begins.
@@ -87,7 +87,7 @@ export default function RevenueTrustModule({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-black/5 bg-white p-4">
+      <div className="brand-light-card rounded-2xl p-4">
         <h3 className="text-sm font-semibold text-midnight sm:text-base">Before you buy checklist</h3>
         <ul className="mt-2 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
           <li>Verify your date and location one last time in preview.</li>

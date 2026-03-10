@@ -57,7 +57,7 @@ export default function WhatYouReceiveModule({
   const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
 
   return (
-    <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+    <section className="brand-light-panel content-visibility-auto mt-6 space-y-4 rounded-3xl p-6">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-midnight">{heading}</h2>
         <p className="text-sm text-neutral-800 sm:text-base">{intro}</p>
@@ -65,7 +65,7 @@ export default function WhatYouReceiveModule({
 
       <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
-          <div key={item.title} className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4">
+          <div key={item.title} className="brand-light-card-accent rounded-2xl p-4">
             <h3 className="text-sm font-semibold text-midnight sm:text-base">{item.title}</h3>
             <p className="mt-1 text-xs text-neutral-700 sm:text-sm">{item.detail}</p>
           </div>
@@ -73,20 +73,20 @@ export default function WhatYouReceiveModule({
       </div>
 
       {printCheckoutEnabled ? (
-        <div className="rounded-2xl border border-black/5 bg-white p-4">
+        <div className="brand-light-card rounded-2xl p-4">
           <h3 className="text-sm font-semibold text-midnight sm:text-base">If you choose print</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3">
+            <div className="brand-light-card-accent rounded-2xl px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Framed</p>
               <p className="mt-1 text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</p>
               <p className="mt-1 text-sm text-neutral-700">{framedPrice}</p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+            <div className="brand-light-card rounded-2xl px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Unframed</p>
               <p className="mt-1 text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</p>
               <p className="mt-1 text-sm text-neutral-700">{unframedPrice}</p>
             </div>
-            <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+            <div className="brand-light-card rounded-2xl px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Optional backup</p>
               <p className="mt-1 text-sm font-semibold text-midnight">HD digital add-on</p>
               <p className="mt-1 text-sm text-neutral-700">{digitalAddOnPrice}</p>
@@ -95,7 +95,7 @@ export default function WhatYouReceiveModule({
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-black/5 bg-white p-4">
+      <div className="brand-light-card rounded-2xl p-4">
         <h3 className="text-sm font-semibold text-midnight sm:text-base">Delivery timeline</h3>
         <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
           <li>Design and preview your map for free.</li>
