@@ -12,6 +12,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
+import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -162,7 +163,7 @@ export default function StarMapGiftPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-midnight">Recent gift-ready examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            See both the framed finish and polished render examples before you build your own gift.
+            See both the framed finish and freshly rendered current-engine examples before you build your own gift.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -171,18 +172,7 @@ export default function StarMapGiftPage() {
               src: "/blog/anniversary/framed-star-map.jpg",
               label: "Framed print · Real space",
             },
-            {
-              src: "/examples/example-wedding-cinematic-heart.webp",
-              label: "Wedding · Cinematic",
-            },
-            {
-              src: "/examples/example-anniversary-luxe.webp",
-              label: "Anniversary · Luxe",
-            },
-            {
-              src: "/examples/example-birthday-classic.webp",
-              label: "Birthday · Classic",
-            },
+            ...featuredRenderExamples.map((item) => ({ src: item.src, label: item.shortLabel })),
           ].map((item) => (
             <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
               <div className="relative aspect-square">

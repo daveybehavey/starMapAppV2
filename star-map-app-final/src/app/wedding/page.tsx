@@ -12,6 +12,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
+import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -114,27 +115,23 @@ export default function WeddingPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-midnight">Wedding map examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            Start with a style you like, then personalize wording, date line, and frame feel for your own event.
+            Start with a current-engine look you like, then personalize wording, date line, and frame feel for your own event.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { src: "/examples/example-wedding-cinematic-heart.webp", label: "Cinematic gold" },
-            { src: "/examples/example-anniversary-luxe.webp", label: "Luxe minimal" },
-            { src: "/examples/example-birthday-classic.webp", label: "Classic contrast" },
-          ].map((item) => (
+          {featuredRenderExamples.map((item) => (
             <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
               <div className="relative aspect-square">
                 <Image
                   src={item.src}
-                  alt={item.label}
+                  alt={item.shortLabel}
                   width={900}
                   height={900}
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="h-full w-full object-cover"
                 />
               </div>
-              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</div>
+              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.shortLabel}</div>
             </div>
           ))}
         </div>

@@ -5,6 +5,7 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import { galleryStyleQuickLinks } from "@/lib/galleryExamples";
 
 export const revalidate = 86400;
 
@@ -121,21 +122,11 @@ export default function StarMapGiftIdeasPage() {
               Each style has its own feel. Browse the gallery to see real examples.
             </p>
             <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-              <Link href="/star-map-gallery#cinematic" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
-                Cinematic
-              </Link>
-              <Link href="/star-map-gallery#luxe" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
-                Luxe
-              </Link>
-              <Link href="/star-map-gallery#classic" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
-                Classic
-              </Link>
-              <Link href="/star-map-gallery#warm" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
-                Warm
-              </Link>
-              <Link href="/star-map-gallery#blueprint" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
-                Blueprint
-              </Link>
+              {galleryStyleQuickLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>

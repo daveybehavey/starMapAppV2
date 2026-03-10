@@ -12,6 +12,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
+import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -110,36 +111,23 @@ export default function PersonalizedStarMapPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-midnight">Recent personalized map examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            These are real StarMapCo outputs. You can start from one of these looks and adjust fonts, lines, and text.
+            These are freshly rendered StarMapCo outputs from the current engine. Start from one of these looks, then adjust fonts, lines, and text.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            {
-              src: "/examples/example-wedding-cinematic-heart.webp",
-              label: "Luxe wedding style",
-            },
-            {
-              src: "/examples/example-anniversary-luxe.webp",
-              label: "Classic anniversary style",
-            },
-            {
-              src: "/examples/example-birthday-classic.webp",
-              label: "Birthday keepsake style",
-            },
-          ].map((item) => (
+          {featuredRenderExamples.map((item) => (
             <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
               <div className="relative aspect-square">
                 <Image
                   src={item.src}
-                  alt={item.label}
+                  alt={item.shortLabel}
                   width={900}
                   height={900}
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="h-full w-full object-cover"
                 />
               </div>
-              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</div>
+              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.shortLabel}</div>
             </div>
           ))}
         </div>

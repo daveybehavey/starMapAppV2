@@ -34,6 +34,7 @@
 .wrangler/
 testzip.zip
 /exports/custom/
+/exports/
 /.tmp/
 
 # debug

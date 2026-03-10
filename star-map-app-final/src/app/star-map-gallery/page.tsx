@@ -7,6 +7,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import { galleryExamples } from "@/lib/galleryExamples";
 
 export const revalidate = 86400;
 
@@ -15,57 +16,6 @@ const ogImage = `${siteUrl}/og-default.png`;
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/star-map-gallery", label: "Star map gallery" },
-];
-
-const galleryItems = [
-  {
-    src: "/examples/example-wedding-cinematic-heart.webp",
-    alt: "Wedding star map in cinematic heart style",
-    title: "Wedding · Cinematic Heart",
-    caption: "Santorini, Greece · June 21, 2024",
-    badge: "CINEMATIC",
-    anchor: "cinematic",
-  },
-  {
-    src: "/examples/example-anniversary-luxe.webp",
-    alt: "Anniversary star map in luxe style",
-    title: "Anniversary · Luxe",
-    caption: "Paris, France · September 15, 2016",
-    badge: "LUXE",
-    anchor: "luxe",
-  },
-  {
-    src: "/examples/example-birthday-classic.webp",
-    alt: "Birthday star map in classic style",
-    title: "Birthday · Classic",
-    caption: "Tokyo, Japan · July 7, 1995",
-    badge: "CLASSIC",
-    anchor: "classic",
-  },
-  {
-    src: "/examples/example-birth-classic.webp",
-    alt: "New baby star map in warm classic style",
-    title: "New Baby · Warm Classic",
-    caption: "Toronto, Canada · February 14, 2023",
-    badge: "WARM",
-    anchor: "warm",
-  },
-  {
-    src: "/examples/example-memorial-blueprint.webp",
-    alt: "Memorial star map in blueprint style",
-    title: "Memorial · Blueprint",
-    caption: "London, UK · November 11, 2018",
-    badge: "BLUEPRINT",
-    anchor: "blueprint",
-  },
-  {
-    src: "/examples/example-graduation-luxe.webp",
-    alt: "Graduation star map in luxe diamond style",
-    title: "Graduation · Luxe Diamond",
-    caption: "Boston, USA · May 25, 2024",
-    badge: "LUXE",
-    anchor: "luxe-diamond",
-  },
 ];
 
 export const metadata: Metadata = {
@@ -92,7 +42,7 @@ export default function StarMapGalleryPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gallery</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Real examples from popular occasions and styles. Use these for inspiration before you create your own map.
+          Fresh examples rendered with the current StarMapCo engine. Use these to judge the look before you create your own map.
         </p>
       </header>
 
@@ -108,11 +58,11 @@ export default function StarMapGalleryPage() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-midnight">Gallery highlights</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            Each map is generated from real astronomical data, then styled with different shapes and typography.
+            Every example uses real astronomical data and the current preset engine, so the gallery reflects what buyers actually see in the editor today.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {galleryItems.map((item) => (
+          {galleryExamples.map((item) => (
             <div
               key={item.src}
               id={item.anchor}
@@ -158,7 +108,7 @@ export default function StarMapGalleryPage() {
 
       <FramedProofSection
         heading="Compare the finished print with the on-screen render"
-        intro="The gallery shows the design quality. This real framed example shows how the final physical piece fits into an actual room. Use both before deciding between digital, unframed, or framed checkout."
+        intro="The gallery cards are freshly rendered with the current engine. This photographed framed example shows how the physical piece lands in a real room. Use both before deciding between digital, unframed, or framed checkout."
         sourcePrefix="gallery-proof"
       />
 

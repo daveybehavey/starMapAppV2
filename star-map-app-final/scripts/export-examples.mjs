@@ -1,6 +1,6 @@
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const port = 3006;
@@ -10,43 +10,40 @@ const rawDir = join(exportDir, "raw");
 
 mkdirSync(rawDir, { recursive: true });
 
-const baseText = {
-  fontFamily: "playfair",
-  color: "#d9b56f",
-  size: 52,
-  align: "center",
-  textShadow: false,
-  textGlow: false,
-};
-
-const subtitleText = {
-  fontFamily: "cinzel",
-  color: "#c7a35a",
-  size: 34,
-  align: "center",
-  textShadow: false,
-  textGlow: false,
-};
-
-const footerText = {
-  fontFamily: "script",
-  color: "#b8893f",
-  size: 32,
-  align: "center",
-  textShadow: false,
-  textGlow: false,
+const textThemes = {
+  aurora: {
+    title: { fontFamily: "cinzel", color: "#d7b56c", size: 48, align: "center", textShadow: false, textGlow: false },
+    subtitle: { fontFamily: "raleway", color: "#c8a662", size: 24, align: "center", textShadow: false, textGlow: false },
+    footer: { fontFamily: "script", color: "#b98a3d", size: 24, align: "center", textShadow: false, textGlow: false },
+  },
+  heirloom: {
+    title: { fontFamily: "abrilFatface", color: "#7b5c24", size: 44, align: "center", textShadow: false, textGlow: false },
+    subtitle: { fontFamily: "cormorant", color: "#8c6b31", size: 24, align: "center", textShadow: false, textGlow: false },
+    footer: { fontFamily: "parisienne", color: "#7b5c24", size: 24, align: "center", textShadow: false, textGlow: false },
+  },
+  noir: {
+    title: { fontFamily: "bebasNeue", color: "#e5eefb", size: 54, align: "center", textShadow: false, textGlow: false },
+    subtitle: { fontFamily: "montserrat", color: "#b6c7e6", size: 20, align: "center", textShadow: false, textGlow: false },
+    footer: { fontFamily: "crimsonText", color: "#94a8c7", size: 22, align: "center", textShadow: false, textGlow: false },
+  },
+  starlace: {
+    title: { fontFamily: "playfair", color: "#d9d2c3", size: 42, align: "center", textShadow: false, textGlow: false },
+    subtitle: { fontFamily: "lora", color: "#c3b8a6", size: 20, align: "center", textShadow: false, textGlow: false },
+    footer: { fontFamily: "crimsonText", color: "#b6ab98", size: 20, align: "center", textShadow: false, textGlow: false },
+  },
 };
 
 const examples = [
   {
-    key: "wedding-heart-cinematic",
-    filename: "example-wedding-cinematic-heart.webp",
+    key: "wedding-aurora-heart",
+    filename: "example-wedding-aurora-heart.webp",
     aspectRatio: "square",
     shape: "heart",
     renderMode: "cinematic",
-    intensity: 70,
+    intensity: 84,
     selectedStyle: "navyGold",
-    extraRenderOptions: { backgroundColor: "#0b122b" },
+    textTheme: "aurora",
+    extraRenderOptions: { backgroundColor: "#071128", constellationLineScale: 1.2, showMoon: true },
     dateTime: "2024-06-01T20:45:00+03:00",
     location: {
       name: "Santorini, Greece",
@@ -55,20 +52,21 @@ const examples = [
       timezone: "Europe/Athens",
     },
     text: {
-      title: "Under These Stars",
-      subtitle: "We Said \"I Do\"",
-      footer: "June 1, 2024 - Santorini",
+      title: "The Night We Became One",
+      subtitle: "Santorini, Greece",
+      footer: "June 1, 2024",
     },
   },
   {
-    key: "anniversary-luxe",
-    filename: "example-anniversary-luxe.webp",
+    key: "anniversary-heirloom",
+    filename: "example-anniversary-heirloom.webp",
     aspectRatio: "square",
-    shape: "circle",
+    shape: "rectangle",
     renderMode: "luxe",
-    intensity: 65,
+    intensity: 72,
     selectedStyle: "parchmentScroll",
-    extraRenderOptions: { backgroundColor: "#f5efe3" },
+    textTheme: "heirloom",
+    extraRenderOptions: { backgroundColor: "#f2e7d2", constellationLineScale: 1.08, showMoon: true },
     dateTime: "2016-09-17T21:30:00+02:00",
     location: {
       name: "Paris, France",
@@ -77,20 +75,21 @@ const examples = [
       timezone: "Europe/Paris",
     },
     text: {
-      title: "Forever & Always",
-      subtitle: "Our Anniversary",
-      footer: "Paris - September 17, 2016",
+      title: "Forever, Framed in Stars",
+      subtitle: "Paris, France",
+      footer: "September 17, 2016",
     },
   },
   {
-    key: "birthday-classic",
-    filename: "example-birthday-luxe.webp",
-    aspectRatio: "4:5",
+    key: "birthday-noir",
+    filename: "example-birthday-noir.webp",
+    aspectRatio: "square",
     shape: "rectangle",
     renderMode: "classic",
-    intensity: 55,
+    intensity: 48,
     selectedStyle: "midnightMinimal",
-    extraRenderOptions: { backgroundColor: "#0e1628" },
+    textTheme: "noir",
+    extraRenderOptions: { backgroundColor: "#0b1020", constellationLineScale: 0.95, showMoon: false },
     dateTime: "1995-07-09T22:10:00+09:00",
     location: {
       name: "Tokyo, Japan",
@@ -99,20 +98,21 @@ const examples = [
       timezone: "Asia/Tokyo",
     },
     text: {
-      title: "The Stars on Your Birthday",
-      subtitle: "July 9, 1995",
-      footer: "Tokyo, Japan",
+      title: "Born Under This Sky",
+      subtitle: "Tokyo, Japan",
+      footer: "July 9, 1995",
     },
   },
   {
-    key: "birth-classic",
-    filename: "example-birth-classic.webp",
+    key: "new-baby-heirloom",
+    filename: "example-new-baby-heirloom.webp",
     aspectRatio: "square",
-    shape: "circle",
-    renderMode: "classic",
-    intensity: 55,
+    shape: "rectangle",
+    renderMode: "luxe",
+    intensity: 64,
     selectedStyle: "parchmentScroll",
-    extraRenderOptions: { backgroundColor: "#f2e4da" },
+    textTheme: "heirloom",
+    extraRenderOptions: { backgroundColor: "#efe1ca", constellationLineScale: 1.02, showMoon: true },
     dateTime: "2023-02-18T04:12:00-05:00",
     location: {
       name: "Toronto, Canada",
@@ -122,19 +122,20 @@ const examples = [
     },
     text: {
       title: "Welcome, Oliver",
-      subtitle: "February 18, 2023",
-      footer: "Toronto, Canada",
+      subtitle: "Toronto, Canada",
+      footer: "February 18, 2023",
     },
   },
   {
-    key: "memorial-blueprint",
-    filename: "example-memorial-blueprint.webp",
+    key: "memorial-starlace",
+    filename: "example-memorial-starlace.webp",
     aspectRatio: "square",
     shape: "circle",
     renderMode: "blueprint",
-    intensity: 50,
+    intensity: 62,
     selectedStyle: "vintageEngraving",
-    extraRenderOptions: { backgroundColor: "#0d2a3a" },
+    textTheme: "starlace",
+    extraRenderOptions: { backgroundColor: "#1d1d1d", constellationLineScale: 1.35, showMoon: true },
     dateTime: "2018-11-02T19:20:00+00:00",
     location: {
       name: "London, UK",
@@ -144,19 +145,20 @@ const examples = [
     },
     text: {
       title: "In Loving Memory",
-      subtitle: "November 2, 2018",
-      footer: "London, UK",
+      subtitle: "London, UK",
+      footer: "November 2, 2018",
     },
   },
   {
-    key: "graduation-luxe",
-    filename: "example-graduation-classic.webp",
-    aspectRatio: "4:5",
-    shape: "rectangle",
-    renderMode: "luxe",
-    intensity: 65,
+    key: "graduation-aurora",
+    filename: "example-graduation-aurora.webp",
+    aspectRatio: "square",
+    shape: "diamond",
+    renderMode: "cinematic",
+    intensity: 76,
     selectedStyle: "navyGold",
-    extraRenderOptions: { backgroundColor: "#231339" },
+    textTheme: "aurora",
+    extraRenderOptions: { backgroundColor: "#111b37", constellationLineScale: 1.18, showMoon: true },
     dateTime: "2024-05-25T21:00:00-04:00",
     location: {
       name: "Boston, USA",
@@ -166,8 +168,8 @@ const examples = [
     },
     text: {
       title: "Class of 2024",
-      subtitle: "May 25, 2024",
-      footer: "Boston, USA",
+      subtitle: "Boston, USA",
+      footer: "May 25, 2024",
     },
   },
 ];
@@ -190,11 +192,12 @@ function buildRenderOptions(mode, level, extra = {}) {
   return { starIntensity, starGlow, visualMode, constellationLines, planetEmphasis, ...extra };
 }
 
-function buildTextBoxes(text) {
+function buildTextBoxes(text, themeKey) {
+  const theme = textThemes[themeKey];
   return [
-    { id: "title", label: "Title", text: text.title, ...baseText, position: { x: 0.5, y: 0.12 } },
-    { id: "subtitle", label: "Subtitle", text: text.subtitle, ...subtitleText, position: { x: 0.5, y: 0.18 } },
-    { id: "dedication", label: "Dedication", text: text.footer, ...footerText, position: { x: 0.5, y: 0.9 } },
+    { id: "title", label: "Title", text: text.title, ...theme.title, position: { x: 0.5, y: 0.12 } },
+    { id: "subtitle", label: "Subtitle", text: text.subtitle, ...theme.subtitle, position: { x: 0.5, y: 0.18 } },
+    { id: "dedication", label: "Dedication", text: text.footer, ...theme.footer, position: { x: 0.5, y: 0.9 } },
   ];
 }
 
@@ -223,16 +226,20 @@ async function run() {
   try {
     await waitForServer(`http://127.0.0.1:${port}`);
     const browser = await chromium.launch();
-    const context = await browser.newContext({ acceptDownloads: true });
+    const context = await browser.newContext({
+      acceptDownloads: true,
+      viewport: { width: 1800, height: 2200 },
+      deviceScaleFactor: 2,
+    });
     const page = await context.newPage();
 
     for (const example of examples) {
       const draft = {
         version: 1,
-        seed: "example",
+        seed: example.key,
         datetimeISO: example.dateTime,
         location: example.location,
-        textBoxes: buildTextBoxes(example.text),
+        textBoxes: buildTextBoxes(example.text, example.textTheme),
         selectedStyle: example.selectedStyle,
         shape: example.shape,
         aspectRatio: example.aspectRatio,
@@ -249,31 +256,37 @@ async function run() {
       }, draft);
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.getByText("Loading editor…").waitFor({ state: "detached" });
+
       const revealButton = page.locator("#editor").getByRole("button", { name: "Generate preview" }).first();
       if (await revealButton.isVisible()) {
         if (await revealButton.isEnabled()) {
           await revealButton.click();
         }
       }
-      await page.locator("#editor canvas").first().waitFor({ state: "visible", timeout: 60000 });
 
-      const hdButton = page.locator("#editor").getByRole("button", { name: "HD export" }).first();
-      await hdButton.waitFor({ state: "visible", timeout: 60000 });
-      const downloadPromise = page.waitForEvent("download", { timeout: 60000 });
-      await hdButton.click();
-      const download = await downloadPromise;
+      await page.locator("#editor canvas").first().waitFor({ state: "visible", timeout: 60000 });
+      await page.waitForFunction(() => {
+        const canvas = document.querySelector("#editor canvas");
+        return canvas instanceof HTMLCanvasElement && canvas.width >= 1000 && canvas.height >= 1000;
+      });
+      await wait(750);
 
       const rawPath = join(rawDir, `${example.key}.png`);
-      await download.saveAs(rawPath);
+      const dataUrl = await page.locator("#editor canvas").first().evaluate((canvas) =>
+        canvas instanceof HTMLCanvasElement ? canvas.toDataURL("image/png") : null,
+      );
+      if (!dataUrl) {
+        throw new Error(`Could not capture canvas for ${example.key}`);
+      }
 
-      const isSquare = example.aspectRatio === "square";
+      const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+      writeFileSync(rawPath, Buffer.from(base64, "base64"));
+
       const outputPath = join(process.cwd(), "public", "examples", example.filename);
-      const filters = isSquare ? "scale=2000:2000,crop=1600:2000" : "scale=1600:2000";
-
       await new Promise((resolve, reject) => {
         const ffmpeg = spawn(
           "ffmpeg",
-          ["-y", "-i", rawPath, "-vf", filters, "-q:v", "85", outputPath],
+          ["-y", "-i", rawPath, "-vf", "scale=1200:1200", "-c:v", "libwebp", "-quality", "84", outputPath],
           { stdio: "inherit" },
         );
         ffmpeg.on("exit", (code) => {

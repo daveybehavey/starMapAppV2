@@ -16,6 +16,7 @@
     "preview": "node scripts/opennext-cloudflare.mjs preview",
     "deploy": "node scripts/opennext-cloudflare.mjs deploy",
     "deploy:safe": "node scripts/deploy-safe.mjs",
+    "assets:examples": "node scripts/export-examples.mjs",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "check:env": "node scripts/check-env.mjs",
     "promo:setup": "node scripts/setup-promotion-code.mjs",

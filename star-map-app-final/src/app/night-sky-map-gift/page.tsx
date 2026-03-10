@@ -7,6 +7,7 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import { featuredRenderExamples } from "@/lib/galleryExamples";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -116,7 +117,7 @@ export default function NightSkyMapGiftPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-midnight">Recent gift-ready examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            A few render examples plus a framed proof image, so you can judge both the design and the physical finish.
+            A few freshly rendered examples plus a framed proof image, so you can judge both the design and the physical finish.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -125,18 +126,7 @@ export default function NightSkyMapGiftPage() {
               src: "/blog/anniversary/framed-star-map.jpg",
               label: "Framed print · Real space",
             },
-            {
-              src: "/examples/example-wedding-cinematic-heart.webp",
-              label: "Wedding · Cinematic",
-            },
-            {
-              src: "/examples/example-anniversary-luxe.webp",
-              label: "Anniversary · Luxe",
-            },
-            {
-              src: "/examples/example-birthday-classic.webp",
-              label: "Birthday · Classic",
-            },
+            ...featuredRenderExamples.map((item) => ({ src: item.src, label: item.shortLabel })),
           ].map((item) => (
             <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
               <div className="relative aspect-square">

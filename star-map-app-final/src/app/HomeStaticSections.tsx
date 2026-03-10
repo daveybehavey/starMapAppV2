@@ -5,6 +5,7 @@ import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import {
   formatPrintPriceWithShipping,
@@ -126,7 +127,7 @@ export default function HomeStaticSections({
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">What your map could look like</p>
             <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">See the render and the framed finish before you start</h2>
             <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              A mix of polished render examples and a photographed framed piece, so buyers can judge both the on-screen design and the physical gift.
+              A mix of freshly rendered examples from the current engine and a photographed framed piece, so buyers can judge both the on-screen design and the physical gift.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 xl:grid-cols-4 lg:gap-6 stagger-children visible">
@@ -138,27 +139,16 @@ export default function HomeStaticSections({
                 caption: "Physical proof photographed on the wall",
                 badge: "FRAMED",
               },
-              {
-                imageSrc: "/examples/example-wedding-cinematic-heart.webp",
-                occasion: "Wedding",
-                renderMode: "Cinematic",
-                caption: "Santorini, Greece · June 21, 2024",
-                badge: "CINEMATIC",
-              },
-              {
-                imageSrc: "/examples/example-anniversary-luxe.webp",
-                occasion: "Anniversary",
-                renderMode: "Luxe",
-                caption: "Paris, France · September 15, 2016",
-                badge: "LUXE",
-              },
-              {
-                imageSrc: "/examples/example-birthday-classic.webp",
-                occasion: "Birthday",
-                renderMode: "Classic",
-                caption: "Tokyo, Japan · July 7, 1995",
-                badge: "CLASSIC",
-              },
+              ...featuredRenderExamples.map((item) => {
+                const [occasion, renderMode] = item.title.split(" · ");
+                return {
+                  imageSrc: item.src,
+                  occasion,
+                  renderMode,
+                  caption: item.caption,
+                  badge: item.badge,
+                };
+              }),
             ].map((item, idx) => (
               <div
                 key={`${item.imageSrc}-${idx}`}
@@ -189,7 +179,7 @@ export default function HomeStaticSections({
             ))}
           </div>
           <p className="text-sm text-neutral-200 sm:text-base lg:text-[13px] lg:leading-snug">
-            Compare the framed finish with strong render examples before you ever reach checkout. The goal is simple: no guessing about what the gift will look like.
+            Compare the framed finish with strong current-engine examples before you ever reach checkout. The goal is simple: no guessing about what the gift will look like.
           </p>
         </div>
       </section>
