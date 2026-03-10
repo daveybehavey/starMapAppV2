@@ -244,18 +244,6 @@ export function EditorExperience({
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const stored = readStoredPrintShippingCountry();
-    if (stored && printShippingCountries.includes(stored)) {
-      setPrintShippingCountry(stored);
-      return;
-    }
-    if (printShippingCountries.length) {
-      setPrintShippingCountry(printShippingCountries[0]);
-      storePrintShippingCountry(printShippingCountries[0]);
-    }
-  }, [printShippingCountries]);
-
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => ({
     dateLocation: false,
     textStyling: true,
@@ -289,6 +277,17 @@ export function EditorExperience({
   const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
+  useEffect(() => {
+    const stored = readStoredPrintShippingCountry();
+    if (stored && printShippingCountries.includes(stored)) {
+      setPrintShippingCountry(stored);
+      return;
+    }
+    if (printShippingCountries.length) {
+      setPrintShippingCountry(printShippingCountries[0]);
+      storePrintShippingCountry(printShippingCountries[0]);
+    }
+  }, [printShippingCountries]);
   const readStoredPromoCode = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
