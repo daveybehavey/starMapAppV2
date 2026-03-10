@@ -237,6 +237,18 @@ type CheckoutSessionResult = {
   discountRejected: boolean;
 };
 
+class CheckoutError extends Error {
+  code: string;
+  status: number;
+
+  constructor(message: string, code: string, status = 400) {
+    super(message);
+    this.name = "CheckoutError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
 async function createCheckoutSession(
   input: {
     plan: CheckoutPlan;
@@ -294,9 +306,10 @@ async function createCheckoutSession(
       ? requestedShippingCountry
       : null;
   if (isPrintOrder && requestedShippingCountry && !resolvedShippingCountry) {
-    return NextResponse.json(
-      { error: "Unsupported shipping country.", code: "print_shipping_country_invalid" },
-      { status: 400 },
+    throw new CheckoutError(
+      "Unsupported shipping country.",
+      "print_shipping_country_invalid",
+      400,
     );
   }
   const printShippingOptions = isPrintOrder ? getPrintShippingOptionsForCountry(resolvedShippingCountry) : undefined;
@@ -558,6 +571,9 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.redirect(sessionUrl, { status: 303 });
   } catch (err) {
+    if (err instanceof CheckoutError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     console.error("Stripe checkout error", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
@@ -711,6 +727,9 @@ export async function POST(req: NextRequest) {
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
     });
   } catch (err) {
+    if (err instanceof CheckoutError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     console.error("Stripe checkout error", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
