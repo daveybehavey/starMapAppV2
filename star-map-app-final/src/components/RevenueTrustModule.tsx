@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type RevenueTrustModuleProps = {
   heading?: string;
@@ -14,6 +15,19 @@ export default function RevenueTrustModule({
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
   );
   const shippingDisclosure = getPrintShippingDisclosure();
+  const printTiers = getPrintPricingTiers();
+  const digitalAddOn = getPrintDigitalAddOnPrice();
+  const printFormats = [
+    `${printTiers.poster_framed.label} at ${formatPrintPriceWithShipping(
+      printTiers.poster_framed.amountCents,
+      printTiers.poster_framed.currency,
+    )}`,
+    `${printTiers.poster_unframed.label} at ${formatPrintPriceWithShipping(
+      printTiers.poster_unframed.amountCents,
+      printTiers.poster_unframed.currency,
+    )}`,
+  ];
+  const digitalAddOnLabel = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -33,7 +47,7 @@ export default function RevenueTrustModule({
           </p>
           <p className="mt-1 text-xs text-neutral-700">
             {printCheckoutEnabled
-              ? `Unlock HD instantly, or choose unframed/framed physical print checkout from the editor. ${shippingDisclosure}`
+              ? `Unlock HD instantly, or choose ${printFormats[0]} or ${printFormats[1]} from the editor. ${shippingDisclosure}`
               : "HD file unlocks immediately after successful payment verification."}
           </p>
         </div>
@@ -53,15 +67,16 @@ export default function RevenueTrustModule({
         <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order overview</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Curated format</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Live print formats</p>
             <p className="mt-1 text-sm text-neutral-700">
-              Physical checkout uses a curated print format so buyers do not need to make sizing decisions before
-              seeing the final design.
+              Framed uses {printTiers.poster_framed.label.toLowerCase()}, unframed uses {printTiers.poster_unframed.label.toLowerCase()}, and the HD add-on stays available for {digitalAddOnLabel}.
             </p>
           </div>
           <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Before payment</p>
-            <p className="mt-1 text-sm text-neutral-700">{shippingDisclosure}</p>
+            <p className="mt-1 text-sm text-neutral-700">
+              {shippingDisclosure} Checkout shows the exact variant before the card is charged.
+            </p>
           </div>
           <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">After payment</p>
@@ -79,6 +94,7 @@ export default function RevenueTrustModule({
           <li>Check title, subtitle, and dedication spelling.</li>
           <li>Confirm your preferred style and shape before checkout.</li>
           {printCheckoutEnabled && <li>If ordering physical print, choose unframed vs framed before payment.</li>}
+          {printCheckoutEnabled && <li>If you want the stronger gift presentation, choose framed; if you already have a frame plan, keep the lower total with unframed.</li>}
           {printCheckoutEnabled && <li>Review your shipping address carefully before paying for a physical order.</li>}
           {printCheckoutEnabled && <li>If a print arrives damaged, contact support@starmapco.com for replacement support.</li>}
           <li>Use the print guide if you need framing confidence.</li>

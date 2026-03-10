@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type ReceiveItem = {
   title: string;
@@ -43,6 +44,17 @@ export default function WhatYouReceiveModule({
     (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
   );
   const shippingDisclosure = getPrintShippingDisclosure();
+  const printTiers = getPrintPricingTiers();
+  const digitalAddOn = getPrintDigitalAddOnPrice();
+  const framedPrice = formatPrintPriceWithShipping(
+    printTiers.poster_framed.amountCents,
+    printTiers.poster_framed.currency,
+  );
+  const unframedPrice = formatPrintPriceWithShipping(
+    printTiers.poster_unframed.amountCents,
+    printTiers.poster_unframed.currency,
+  );
+  const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -59,6 +71,29 @@ export default function WhatYouReceiveModule({
           </div>
         ))}
       </div>
+
+      {printCheckoutEnabled ? (
+        <div className="rounded-2xl border border-black/5 bg-white p-4">
+          <h3 className="text-sm font-semibold text-midnight sm:text-base">If you choose print</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Framed</p>
+              <p className="mt-1 text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</p>
+              <p className="mt-1 text-sm text-neutral-700">{framedPrice}</p>
+            </div>
+            <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Unframed</p>
+              <p className="mt-1 text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</p>
+              <p className="mt-1 text-sm text-neutral-700">{unframedPrice}</p>
+            </div>
+            <div className="rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Optional backup</p>
+              <p className="mt-1 text-sm font-semibold text-midnight">HD digital add-on</p>
+              <p className="mt-1 text-sm text-neutral-700">{digitalAddOnPrice}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-black/5 bg-white p-4">
         <h3 className="text-sm font-semibold text-midnight sm:text-base">Delivery timeline</h3>
