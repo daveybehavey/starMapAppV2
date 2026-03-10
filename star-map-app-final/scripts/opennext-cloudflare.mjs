@@ -22,6 +22,7 @@ async function main() {
   }
 
   const env = await buildEnvWithWranglerVars(process.cwd());
+  run("node", ["scripts/generate-merchant-feed.mjs"], env);
 
   if (mode === "build") {
     run("npx", ["opennextjs-cloudflare", "build"], env);
