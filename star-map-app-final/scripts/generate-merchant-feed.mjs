@@ -18,6 +18,17 @@ const PRINT_UNFRAMED_CENTS = parseIntEnv("NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS
 const PRINT_FRAMED_CENTS = parseIntEnv("NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", 8900);
 const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
 
+let shippingMap = null;
+try {
+  const shippingRaw = require("node:fs").readFileSync(
+    require("node:path").resolve(process.cwd(), "data", "printful-shipping.json"),
+    "utf8",
+  );
+  shippingMap = JSON.parse(shippingRaw);
+} catch {
+  shippingMap = null;
+}
+
 function formatPrice(amountCents) {
   return `${(amountCents / 100).toFixed(2)} ${CURRENCY}`;
 }
@@ -32,14 +43,17 @@ function escapeXml(value) {
 }
 
 function renderItem(item) {
-  const shippingLines = item.shipping
-    ? [
+  const shippingLines = [];
+  if (Array.isArray(item.shipping)) {
+    for (const entry of item.shipping) {
+      shippingLines.push(
         "<g:shipping>",
-        `<g:country>${item.shipping.country}</g:country>`,
-        `<g:price>${item.shipping.price}</g:price>`,
+        `<g:country>${entry.country}</g:country>`,
+        `<g:price>${entry.price}</g:price>`,
         "</g:shipping>",
-      ]
-    : [];
+      );
+    }
+  }
   return [
     "<item>",
     `<g:id>${escapeXml(item.id)}</g:id>`,
@@ -80,10 +94,12 @@ const items = [
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
-    shipping: {
-      country: "US",
-      price: formatPrice(0),
-    },
+    shipping: shippingMap
+      ? shippingMap.countries.map((country) => ({
+          country,
+          price: formatPrice(0),
+        }))
+      : [{ country: "US", price: formatPrice(0) }],
   },
   {
     id: "print_poster_unframed",
@@ -98,10 +114,18 @@ const items = [
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
-    shipping: {
-      country: "US",
-      price: formatPrice(PRINT_SHIPPING_CENTS),
-    },
+    shipping: shippingMap
+      ? shippingMap.countries
+          .map((country) => {
+            const rate = shippingMap.poster_unframed?.[country];
+            if (!rate || typeof rate.rate !== "number") return null;
+            return {
+              country,
+              price: `${rate.rate.toFixed(2)} ${rate.currency || "USD"}`,
+            };
+          })
+          .filter(Boolean)
+      : [{ country: "US", price: formatPrice(PRINT_SHIPPING_CENTS) }],
   },
   {
     id: "print_poster_framed",
@@ -116,10 +140,18 @@ const items = [
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
-    shipping: {
-      country: "US",
-      price: formatPrice(PRINT_SHIPPING_CENTS),
-    },
+    shipping: shippingMap
+      ? shippingMap.countries
+          .map((country) => {
+            const rate = shippingMap.poster_framed?.[country];
+            if (!rate || typeof rate.rate !== "number") return null;
+            return {
+              country,
+              price: `${rate.rate.toFixed(2)} ${rate.currency || "USD"}`,
+            };
+          })
+          .filter(Boolean)
+      : [{ country: "US", price: formatPrice(PRINT_SHIPPING_CENTS) }],
   },
 ];
 
