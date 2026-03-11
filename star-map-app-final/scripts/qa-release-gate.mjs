@@ -34,6 +34,7 @@ Runs staged release checks.
 Default checks:
   - npm run check:env
   - npm run check:static-home
+  - npm run check:static-assets
   - npm run lint
   - npx next typegen
   - npx tsc --noEmit
@@ -85,6 +86,7 @@ function main() {
   const steps = [
     ["Env check", "npm", ["run", "check:env"]],
     ["Static homepage sync check", "npm", ["run", "check:static-home"]],
+    ["Static homepage asset check", "npm", ["run", "check:static-assets"]],
     ["Lint", "npm", ["run", "lint"]],
     ["Typegen", "npx", ["next", "typegen"]],
     ["Typecheck", "npx", ["tsc", "--noEmit"]],

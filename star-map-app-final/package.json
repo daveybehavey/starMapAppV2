@@ -23,6 +23,7 @@
     "promo:setup": "node scripts/setup-promotion-code.mjs",
     "sync:static-home": "node scripts/sync-static-homepage.mjs",
     "check:static-home": "node scripts/sync-static-homepage.mjs --check",
+    "check:static-assets": "node scripts/check-static-assets.mjs",
     "seo:scoreboard": "node scripts/seo-scoreboard.mjs",
     "qa:live-conversion": "node scripts/live-conversion-qa.mjs",
     "qa:live-smoke": "node scripts/live-smoke.mjs --site https://starmapco.com",

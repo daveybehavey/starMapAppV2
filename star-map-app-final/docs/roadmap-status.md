@@ -109,6 +109,7 @@ Recent status:
 - Added static homepage drift guard scripts:
   - `npm run sync:static-home`
   - `npm run check:static-home`
+  - `npm run check:static-assets`
 - Added Merchant feed health guard:
   - `npm run qa:merchant-feed`
   - integrated into `qa:release-gate --live`
