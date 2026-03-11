@@ -2355,6 +2355,11 @@ export function EditorExperience({
                                   : `${printPriceLabels.unframedName} • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
                               </button>
                             </div>
+                            {!printShippingCountry && (
+                              <p className="mt-2 text-[11px] font-semibold text-amber-100/80">
+                                Choose a shipping country to unlock print checkout.
+                              </p>
+                            )}
                             {checkoutError && (
                               <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
                             )}
@@ -2387,6 +2392,7 @@ export function EditorExperience({
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
+              printCheckoutInFlight={checkoutInFlight}
               onPrintShippingCountryChange={(country) => {
                 setPrintShippingCountry(country);
                 storePrintShippingCountry(country);

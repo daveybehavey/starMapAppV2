@@ -43,6 +43,7 @@ interface MobileCreateProps {
   printShippingCountry?: string | null;
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
+  printCheckoutInFlight?: boolean;
   onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
 }
 
@@ -61,6 +62,7 @@ export function MobileCreate({
   printShippingCountry,
   printShippingCountries = [],
   onPrintShippingCountryChange,
+  printCheckoutInFlight = false,
   onStartPrintCheckout,
 }: MobileCreateProps) {
   // Use shared editor logic hook
@@ -1161,27 +1163,32 @@ export function MobileCreate({
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
-                    disabled={!printShippingCountry}
+                    disabled={!printShippingCountry || printCheckoutInFlight}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
                   >
-                    🖼️ Framed + HD (recommended) • {printPriceLabels.framed} + {framedShippingLabel} +{" "}
-                    {printPriceLabels.digitalAddOn}
+                    {printCheckoutInFlight
+                      ? "Opening secure checkout..."
+                      : `🖼️ Framed + HD (recommended) • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`}
                   </button>
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
-                    disabled={!printShippingCountry}
+                    disabled={!printShippingCountry || printCheckoutInFlight}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
                   >
-                    🖼️ Framed print • {printPriceLabels.framed} + {framedShippingLabel}
+                    {printCheckoutInFlight
+                      ? "Opening secure checkout..."
+                      : `🖼️ Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}`}
                   </button>
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
-                    disabled={!printShippingCountry}
+                    disabled={!printShippingCountry || printCheckoutInFlight}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
                   >
-                    🖼️ Unframed print • {printPriceLabels.unframed} + {unframedShippingLabel}
+                    {printCheckoutInFlight
+                      ? "Opening secure checkout..."
+                      : `🖼️ Unframed print • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
                   </button>
                 </div>
                 {!printShippingCountry && (
