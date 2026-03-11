@@ -99,20 +99,20 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
   return (
     <section
       id="delivery-options"
-      className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-2 sm:px-6 lg:px-8"
+      className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-4 sm:px-6 lg:px-8"
     >
-      <div className="space-y-8 rounded-3xl border border-amber-300/30 bg-[linear-gradient(180deg,rgba(8,16,38,0.92),rgba(5,11,29,0.96))] p-6 text-white shadow-[0_22px_56px_rgba(0,0,0,0.36)]">
+      <div className="space-y-7 rounded-3xl border border-amber-300/26 bg-[linear-gradient(180deg,rgba(9,17,40,0.9),rgba(6,12,32,0.95))] p-6 text-white shadow-[0_20px_48px_rgba(0,0,0,0.34)]">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Choose your format</p>
           <h2 className="text-2xl font-semibold sm:text-3xl">Preview first, then pick how you want it delivered</h2>
-          <p className="text-sm text-neutral-200 sm:text-base">
-            Build your exact sky map in the editor. Most buyers either unlock the HD file instantly or move into the
-            framed 14x14 print path, with the 18x18 unframed poster available when they want the lower physical total.
+          <p className="max-w-3xl text-sm text-neutral-200 sm:text-base">
+            Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a lower-cost
+            unframed poster.
           </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <article className="brand-dark-card rounded-2xl p-4">
+          <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <p className="text-sm font-semibold text-white">Instant digital</p>
             <p className="mt-1 text-xs text-neutral-200">HD file unlocks immediately after payment</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
@@ -123,20 +123,20 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <a
               href="/editor?mode=quick&source=home-delivery-digital"
               onClick={() => handleDeliveryChoice("digital")}
-              className="mt-3 inline-flex rounded-full border border-white/25 bg-white/15 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/20"
+              className="mt-auto inline-flex rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/20"
             >
               Start free preview
             </a>
           </article>
 
-          <article className="brand-dark-card-accent rounded-2xl p-4">
+          <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
               <span className="rounded-full border border-amber-200/70 bg-amber-200/30 px-2 py-0.5 text-[10px] font-bold text-amber-100">
                 MOST POPULAR
               </span>
             </div>
-            <p className="mt-1 text-xs text-neutral-200">Ready-to-hang 14x14 physical gift with the strongest premium presentation</p>
+            <p className="mt-1 text-xs text-neutral-200">Ready-to-hang 14x14 gift route with the strongest premium presentation</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Best-looking premium option for special occasions</li>
@@ -146,13 +146,13 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <a
               href="/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed"
               onClick={() => handleDeliveryChoice("print_framed")}
-              className="mt-3 inline-flex rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-1.5 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
+              className="mt-auto inline-flex rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
             >
               Preview then buy framed
             </a>
           </article>
 
-          <article className="brand-dark-card rounded-2xl p-4">
+          <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <p className="text-sm font-semibold text-white">Unframed print</p>
             <p className="mt-1 text-xs text-neutral-200">Professionally printed 18x18 poster for buyers who already have a frame plan.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
@@ -163,7 +163,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <a
               href="/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed"
               onClick={() => handleDeliveryChoice("print_unframed")}
-              className="mt-3 inline-flex rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
+              className="mt-auto inline-flex rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
             >
               See unframed option
             </a>
@@ -173,11 +173,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         <div className="brand-dark-card rounded-2xl p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
-            <li>Production typically starts after manual order review.</li>
-            <li>{shippingDisclosure}</li>
-            <li>If a print arrives damaged, contact support@starmapco.com for help.</li>
-            <li>Most buyers add the HD digital file to a print order for {printLabels.digitalAddOn}.</li>
-            <li>{printBadgeLabel}</li>
+            <li>✓ Production starts after manual order review.</li>
+            <li>✓ {shippingDisclosure}</li>
+            <li>✓ Damage support: support@starmapco.com.</li>
+            <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
+            <li>✓ {printBadgeLabel}</li>
           </ul>
         </div>
 

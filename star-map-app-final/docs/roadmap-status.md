@@ -60,6 +60,10 @@ Updated: 2026-03-11
 - Print checkout pricing clarity hardening:
   - Print CTAs in editor, mobile, and paywall now show estimated shipping cost for the currently selected country.
   - Added inline shipping estimate hint (`framed` vs `unframed`) beside country selection to reduce checkout surprises.
+- Homepage visual polish hardening:
+  - Reduced aggressive hover/glow intensity on showcase cards for a cleaner premium look.
+  - Tightened delivery-option card hierarchy and spacing for easier scanning.
+  - Simplified homepage hero and offer copy for better readability on first visit.
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
@@ -144,6 +148,9 @@ Recent status:
 - Added Merchant feed health guard:
   - `npm run qa:merchant-feed`
   - integrated into `qa:release-gate --live`
+- Extended live smoke coverage:
+  - validates homepage footer link to `/shipping`
+  - validates `/shipping` page presence and key shipping table content
 - Fixed iOS-safe date handling in additional editor inputs:
   - `DateTimeControls`
   - `SimplifiedEditor`

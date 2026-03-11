@@ -45,7 +45,8 @@ export default function HomeHero() {
             </span>
           </h1>
           <p className="mx-auto max-w-2xl text-base text-neutral-200 sm:text-lg">
-            Customize your own star map in minutes. Download instantly in HD, move into the premium {printTiers.poster_framed.label.toLowerCase()} path, or keep the lower total with the {printTiers.poster_unframed.label.toLowerCase()} option.
+            Build your map in minutes, preview it live, then choose instant HD delivery or the physical gift route with{" "}
+            {printTiers.poster_framed.label.toLowerCase()} and {printTiers.poster_unframed.label.toLowerCase()} options.
           </p>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
@@ -90,7 +91,8 @@ export default function HomeHero() {
             </div>
           </div>
           <p className="mt-3 text-xs text-neutral-200">
-            After preview, you can choose digital HD, the gift-ready {printTiers.poster_framed.label.toLowerCase()}, or the lower-cost {printTiers.poster_unframed.label.toLowerCase()}. {shippingDisclosure}
+            After preview, choose digital HD, gift-ready {printTiers.poster_framed.label.toLowerCase()}, or the lower-cost{" "}
+            {printTiers.poster_unframed.label.toLowerCase()}. {shippingDisclosure}
             <a
               href="/how-to-print-star-map"
               onClick={handlePrintGuideClick}

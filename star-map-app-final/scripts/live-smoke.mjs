@@ -101,6 +101,11 @@ async function main() {
       "facebook+pinterest+x+tiktok",
     );
     runCheck(
+      "Homepage footer includes shipping policy link",
+      homeHtml.includes('href="/shipping"') || homeHtml.includes("href='/shipping'"),
+      "footer /shipping link",
+    );
+    runCheck(
       "Homepage includes Pinterest domain verify meta",
       homeHtml.includes('name="p:domain_verify"'),
       "meta tag present",
@@ -120,6 +125,22 @@ async function main() {
   } catch (error) {
     failed = true;
     runCheck("Homepage checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const shippingRes = await fetchWithTimeout(`${site}/shipping`, { cache: "no-store" }, args.timeoutMs);
+    const shippingHtml = await shippingRes.text();
+    runCheck("Shipping page responds 200", shippingRes.status === 200, `status=${shippingRes.status}`);
+    runCheck(
+      "Shipping page includes per-country table",
+      shippingHtml.includes("Shipping rates by country") &&
+        shippingHtml.includes("Framed shipping") &&
+        shippingHtml.includes("Unframed shipping"),
+      "shipping content",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Shipping page checks", false, error instanceof Error ? error.message : String(error));
   }
 
   try {
