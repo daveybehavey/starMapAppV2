@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintShippingCountryOptions } from "@/lib/printfulShipping";
 
 type PriceLabels = {
   single: string;
@@ -87,6 +88,10 @@ export function PaywallModal({
   const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
   const viewedListsRef = useRef<Set<string>>(new Set());
+  const printShippingCountryOptions = useMemo(
+    () => getPrintShippingCountryOptions(printShippingCountries),
+    [printShippingCountries],
+  );
   const canPrintCheckout = Boolean(printShippingCountry);
 
   useEffect(() => {
@@ -235,9 +240,9 @@ export function PaywallModal({
                     onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
                     className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
                   >
-                    {printShippingCountries.map((country) => (
-                      <option key={country} value={country} className="text-midnight">
-                        {country}
+                    {printShippingCountryOptions.map((country) => (
+                      <option key={country.code} value={country.code} className="text-midnight">
+                        {country.label}
                       </option>
                     ))}
                   </select>

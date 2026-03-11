@@ -18,6 +18,34 @@ const map = shippingMap as ShippingMap;
 
 export const PRINT_SHIPPING_COUNTRY_KEY = "print-shipping-country";
 
+const FALLBACK_COUNTRY_LABELS: Record<string, string> = {
+  US: "United States",
+  CA: "Canada",
+  GB: "United Kingdom",
+  IE: "Ireland",
+  AU: "Australia",
+  NZ: "New Zealand",
+  DE: "Germany",
+  FR: "France",
+  ES: "Spain",
+  IT: "Italy",
+  NL: "Netherlands",
+  BE: "Belgium",
+  SE: "Sweden",
+  NO: "Norway",
+  DK: "Denmark",
+  FI: "Finland",
+  CH: "Switzerland",
+  AT: "Austria",
+  PT: "Portugal",
+  PL: "Poland",
+  CZ: "Czechia",
+  HU: "Hungary",
+  SK: "Slovakia",
+  SI: "Slovenia",
+  HR: "Croatia",
+};
+
 export function getPrintfulShippingCountries() {
   return Array.isArray(map?.countries) && map.countries.length ? map.countries : ["US"];
 }
@@ -47,4 +75,28 @@ export function storePrintShippingCountry(country: string) {
   } catch {
     // ignore storage errors
   }
+}
+
+export function getPrintShippingCountryLabel(countryCode: string) {
+  const code = countryCode.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return countryCode;
+
+  let label = FALLBACK_COUNTRY_LABELS[code] ?? code;
+  if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
+    try {
+      const display = new Intl.DisplayNames(["en"], { type: "region" }).of(code);
+      if (display && display.trim()) label = display;
+    } catch {
+      // fallback label remains in use
+    }
+  }
+
+  return label === code ? code : `${label} (${code})`;
+}
+
+export function getPrintShippingCountryOptions(countries: string[]) {
+  return countries.map((code) => ({
+    code,
+    label: getPrintShippingCountryLabel(code),
+  }));
 }

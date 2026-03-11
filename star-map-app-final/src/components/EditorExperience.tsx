@@ -29,6 +29,7 @@ import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
+  getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
@@ -260,6 +261,10 @@ export function EditorExperience({
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
   const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
   const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
+  const printShippingCountryOptions = useMemo(
+    () => getPrintShippingCountryOptions(printShippingCountries),
+    [printShippingCountries],
+  );
   const [printShippingCountry, setPrintShippingCountry] = useState<string | null>(null);
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -970,7 +975,10 @@ export function EditorExperience({
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
           let lastAssetError: string | null = null;
-          const exportWidths = [6000, 5400, 5000, 4600, 4200, 3800, 3400];
+          const exportWidths =
+            printVariant === "poster_framed"
+              ? [4600, 4200, 3800, 3400, 3000]
+              : [6000, 5400, 5000, 4600, 4200, 3800, 3400];
           const uploadQualities = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44];
           for (const exportWidth of exportWidths) {
             if (uploadedAssetId) break;
@@ -2268,9 +2276,9 @@ export function EditorExperience({
                                 }}
                                 className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
                               >
-                                {printShippingCountries.map((country) => (
-                                  <option key={country} value={country} className="text-midnight">
-                                    {country}
+                                {printShippingCountryOptions.map((country) => (
+                                  <option key={country.code} value={country.code} className="text-midnight">
+                                    {country.label}
                                   </option>
                                 ))}
                               </select>

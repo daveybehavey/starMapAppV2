@@ -192,6 +192,10 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
     await expect(printedGiftTab).toBeVisible({ timeout: 8000 });
     await expect(page.getByRole("button", { name: /Framed print \(recommended\)/i })).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(/Shipping address is collected in Stripe checkout/i)).toBeVisible({ timeout: 8000 });
+    const shippingSelect = page.getByLabel(/Shipping country/i).first();
+    if (await shippingSelect.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await expect(shippingSelect.locator("option").first()).not.toHaveText(/^[A-Z]{2}$/);
+    }
     return;
   }
 

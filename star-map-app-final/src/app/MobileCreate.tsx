@@ -17,6 +17,7 @@ import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintShippingCountryOptions } from "@/lib/printfulShipping";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
 interface MobileCreateProps {
@@ -99,6 +100,7 @@ export function MobileCreate({
     applyProPreset,
   } = useEditorLogic({ variant });
   const shippingDisclosure = getPrintShippingDisclosure();
+  const printShippingCountryOptions = getPrintShippingCountryOptions(printShippingCountries);
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -1127,11 +1129,11 @@ export function MobileCreate({
                     <select
                       value={printShippingCountry ?? ""}
                       onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
+                      className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
                     >
-                      {printShippingCountries.map((country) => (
-                        <option key={country} value={country} className="text-midnight">
-                          {country}
+                      {printShippingCountryOptions.map((country) => (
+                        <option key={country.code} value={country.code} className="text-midnight">
+                          {country.label}
                         </option>
                       ))}
                     </select>
