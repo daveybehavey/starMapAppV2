@@ -36,17 +36,37 @@ function normalizeIsoDateInput(value: string) {
 }
 
 export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
+  const {
+    onChange,
+    onBlur,
+    value: valueProp,
+    defaultValue,
+    ...inputProps
+  } = props;
+  const initialTextValue =
+    typeof valueProp === "string"
+      ? valueProp
+      : (typeof defaultValue === "string" ? defaultValue : "");
+
   // Start with text mode on first paint so iOS never flashes native date UI before detection.
   const [useTextFallback, setUseTextFallback] = useState(true);
+  const [textValue, setTextValue] = useState(initialTextValue);
   const [isInvalid, setIsInvalid] = useState(false);
 
   useEffect(() => {
     setUseTextFallback(detectIOS());
   }, []);
 
+  useEffect(() => {
+    if (useTextFallback && typeof valueProp === "string") {
+      setTextValue(valueProp);
+    }
+  }, [useTextFallback, valueProp]);
+
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (useTextFallback) {
       const normalized = normalizeIsoDateInput(event.currentTarget.value.trim());
+      setTextValue(normalized);
       if (event.currentTarget.value !== normalized) {
         event.currentTarget.value = normalized;
       }
@@ -55,35 +75,46 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
       event.currentTarget.setCustomValidity(valid ? "" : "Use a real date in YYYY-MM-DD format.");
       setIsInvalid(!valid);
     }
-    props.onChange?.(event);
+    onChange?.(event);
   };
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     if (useTextFallback) {
       const normalized = normalizeIsoDateInput(event.currentTarget.value.trim());
+      setTextValue(normalized);
       event.currentTarget.value = normalized;
       const valid = isValidIsoDate(normalized);
       event.currentTarget.setCustomValidity(valid ? "" : "Use a real date in YYYY-MM-DD format.");
       setIsInvalid(!valid);
     }
-    props.onBlur?.(event);
+    onBlur?.(event);
   };
 
   if (useTextFallback) {
     return (
       <input
-        {...props}
+        {...inputProps}
         type="text"
+        value={textValue}
         inputMode="numeric"
-        placeholder={props.placeholder ?? "YYYY-MM-DD"}
+        placeholder={inputProps.placeholder ?? "YYYY-MM-DD"}
         pattern={ISO_DATE_PATTERN.source}
         title="Use YYYY-MM-DD format"
-        aria-invalid={isInvalid ? "true" : props["aria-invalid"]}
+        aria-invalid={isInvalid ? "true" : inputProps["aria-invalid"]}
         onChange={handleChange}
         onBlur={handleBlur}
       />
     );
   }
 
-  return <input {...props} type="date" onChange={handleChange} onBlur={handleBlur} />;
+  return (
+    <input
+      {...inputProps}
+      type="date"
+      value={valueProp}
+      defaultValue={valueProp === undefined ? defaultValue : undefined}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  );
 }
