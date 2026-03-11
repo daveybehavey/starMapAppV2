@@ -47,6 +47,30 @@ test("location warnings and validation errors render", async ({ page }) => {
   await expect(page.getByText(/Timezone:/i)).toBeVisible();
 });
 
+test("homepage finished example images load correctly", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const images = [
+    page.getByRole("img", { name: /Wedding.+Aurora/i }).first(),
+    page.getByRole("img", { name: /Anniversary.+Heirloom/i }).first(),
+    page.getByRole("img", { name: /Birthday.+Noir/i }).first(),
+  ];
+
+  await images[0].scrollIntoViewIfNeeded();
+  for (const image of images) {
+    await expect(image).toBeVisible({ timeout: 15000 });
+    await expect
+      .poll(
+        async () =>
+          image.evaluate((node) => {
+            if (!(node instanceof HTMLImageElement)) return false;
+            return node.complete && node.naturalWidth > 0 && node.naturalHeight > 0;
+          }),
+        { timeout: 15000 },
+      )
+      .toBe(true);
+  }
+});
+
 test("occasion preset preserves manual location context", async ({ page }) => {
   await gotoEditor(page, { force: "desktop" });
   const locationInput = page.getByPlaceholder("Search city, landmark, or address");
