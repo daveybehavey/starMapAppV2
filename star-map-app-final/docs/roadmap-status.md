@@ -109,6 +109,9 @@ Recent status:
 - Added static homepage drift guard scripts:
   - `npm run sync:static-home`
   - `npm run check:static-home`
+- Added Merchant feed health guard:
+  - `npm run qa:merchant-feed`
+  - integrated into `qa:release-gate --live`
 - Fixed iOS-safe date handling in additional editor inputs:
   - `DateTimeControls`
   - `SimplifiedEditor`

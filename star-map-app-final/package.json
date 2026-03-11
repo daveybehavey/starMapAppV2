@@ -28,6 +28,7 @@
     "qa:live-smoke": "node scripts/live-smoke.mjs --site https://starmapco.com",
     "qa:ga4-smoke": "node scripts/ga4-smoke.mjs",
     "qa:sitemap-health": "node scripts/sitemap-health.mjs",
+    "qa:merchant-feed": "node scripts/merchant-feed-health.mjs",
     "qa:printful": "node scripts/printful-verify.mjs",
     "qa:print-ops": "node scripts/print-ops-report.mjs",
     "qa:print-margin": "node scripts/print-margin-audit.mjs",
