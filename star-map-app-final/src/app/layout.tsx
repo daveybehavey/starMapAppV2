@@ -34,6 +34,7 @@ const footerLinks = [
   { label: "Gallery", href: "/star-map-gallery" },
   { label: "Gift Ideas", href: "/star-map-gift-ideas" },
   { label: "Blog", href: "/blog" },
+  { label: "Shipping Policy", href: "/shipping" },
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Returns & Refunds", href: "/returns" },
 ] as const;

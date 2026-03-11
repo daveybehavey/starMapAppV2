@@ -60,6 +60,10 @@ Updated: 2026-03-11
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
+- Shipping policy clarity and compliance:
+  - Added `/shipping` page with per-country print shipping rate and delivery estimate table.
+  - Added shipping policy links in app footer and static homepage footer.
+  - Added `/shipping` to sitemap so policy is discoverable by users and crawlers.
 - Print operations QA hardening:
   - `scripts/print-ops-report.mjs` now surfaces min-charge and negative-margin anomalies explicitly.
   - Added `--strict` and `--min-charge-cents` flags so ops can fail fast when risky sent orders are detected.
