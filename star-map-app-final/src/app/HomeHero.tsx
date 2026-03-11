@@ -40,7 +40,7 @@ export default function HomeHero() {
         <div className="mb-8 space-y-5 text-center lg:mb-10">
           <h1 className="max-[374px]:text-[1.75rem] text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
             The night sky exactly as it looked on{" "}
-            <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 bg-clip-text text-transparent animate-shimmer">
+            <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 bg-clip-text text-transparent">
               your special day
             </span>
           </h1>

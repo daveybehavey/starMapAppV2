@@ -293,6 +293,7 @@
       .delivery-card p {
         margin: 6px 0 10px;
         font-size: 0.9rem;
+        line-height: 1.55;
       }
       .delivery-card ul {
         margin: 0;
@@ -374,7 +375,7 @@
         line-height: 1.5;
       }
       .section {
-        padding: 40px 0;
+        padding: 46px 0;
       }
       .section h2 {
         font-size: clamp(1.5rem, 3vw, 2.4rem);
@@ -382,6 +383,7 @@
       }
       .section p {
         color: rgba(255, 255, 255, 0.8);
+        line-height: 1.6;
       }
       .gallery {
         display: grid;
@@ -394,11 +396,27 @@
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+      }
+      .gallery figure:hover {
+        transform: translateY(-2px);
+        border-color: rgba(251, 191, 36, 0.45);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.26);
       }
       .gallery img {
         width: 100%;
         display: block;
         height: auto;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        background: linear-gradient(160deg, rgba(16, 26, 58, 0.95), rgba(8, 14, 33, 0.95));
+      }
+      .gallery img.image-fallback {
+        object-fit: contain;
+        padding: 16px;
+        opacity: 0.92;
       }
       .gallery figcaption {
         padding: 10px 12px;
@@ -1468,6 +1486,17 @@
             const source = element.getAttribute("data-funnel-source") || "home_static";
             const plan = element.getAttribute("data-funnel-plan") || undefined;
             trackStep(step, source, plan);
+          });
+        });
+
+        const galleryFallbackSrc = "/custom-star-map-anniversary.webp";
+        document.querySelectorAll(".gallery img, .product-proof-visual img").forEach(function (node) {
+          if (!(node instanceof HTMLImageElement)) return;
+          node.addEventListener("error", function () {
+            if (node.dataset.fallbackApplied === "true") return;
+            node.dataset.fallbackApplied = "true";
+            node.classList.add("image-fallback");
+            node.src = galleryFallbackSrc;
           });
         });
 

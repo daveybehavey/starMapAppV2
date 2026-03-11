@@ -1136,9 +1136,15 @@ export function MobileCreate({
                       value={printShippingCountry ?? ""}
                       onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
                       className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
+                      style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
                       {printShippingCountryOptions.map((country) => (
-                        <option key={country.code} value={country.code} className="text-midnight">
+                        <option
+                          key={country.code}
+                          value={country.code}
+                          className="text-midnight"
+                          style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                        >
                           {country.label}
                         </option>
                       ))}
@@ -1178,6 +1184,11 @@ export function MobileCreate({
                     🖼️ Unframed print • {printPriceLabels.unframed} + {unframedShippingLabel}
                   </button>
                 </div>
+                {!printShippingCountry && (
+                  <p className="mt-2 text-[10px] font-semibold text-amber-100/85">
+                    Choose your shipping country to unlock print checkout buttons.
+                  </p>
+                )}
               </div>
             )}
 

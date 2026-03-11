@@ -105,7 +105,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Choose your format</p>
           <h2 className="text-2xl font-semibold sm:text-3xl">Preview first, then pick how you want it delivered</h2>
-          <p className="max-w-3xl text-sm text-neutral-200 sm:text-base">
+          <p className="max-w-3xl text-sm leading-relaxed text-neutral-200 sm:text-base">
             Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a lower-cost
             unframed poster.
           </p>
@@ -114,7 +114,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         <div className="grid gap-3 md:grid-cols-3">
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <p className="text-sm font-semibold text-white">Instant digital</p>
-            <p className="mt-1 text-xs text-neutral-200">HD file unlocks immediately after payment</p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">HD file unlocks immediately after payment.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Up to 6000x6000 PNG</li>
               <li>No watermark on paid export</li>
@@ -136,7 +136,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 MOST POPULAR
               </span>
             </div>
-            <p className="mt-1 text-xs text-neutral-200">Ready-to-hang 14x14 gift route with the strongest premium presentation</p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">Ready-to-hang 14x14 option for the strongest premium gift presentation.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Best-looking premium option for special occasions</li>
@@ -154,7 +154,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
 
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <p className="text-sm font-semibold text-white">Unframed print</p>
-            <p className="mt-1 text-xs text-neutral-200">Professionally printed 18x18 poster for buyers who already have a frame plan.</p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">Professionally printed 18x18 poster for buyers who already have a frame plan.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Museum-quality poster stock</li>
               <li>Lower-cost physical option</li>
