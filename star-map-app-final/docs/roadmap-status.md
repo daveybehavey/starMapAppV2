@@ -151,6 +151,8 @@ Recent status:
   - Homepage gallery smoke check now pre-seeds consent, targets exact showcase images, and validates static asset responses directly.
 - `qa:live-smoke` passes against `https://starmapco.com`.
 - `qa:sitemap-health` passes against live sitemap.
+- `qa:live-conversion` passes against live (digital end-to-end flow through Stripe -> success -> download).
+- `qa:funnel-reconcile --days 14` currently reports zero variance (`payment_verified=3`, Stripe paid sessions `=3`).
 - Added print operations monitor script: `npm run qa:print-ops`.
 - Added funnel reconciliation script: `npm run qa:funnel-reconcile`.
 - `qa:release-gate --live` now includes funnel reconciliation when Stripe credentials are present.
