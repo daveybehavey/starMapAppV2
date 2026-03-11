@@ -25,6 +25,7 @@ export default defineConfig({
       STRIPE_SECRET_KEY: "sk_test_playwright_dummy",
       STRIPE_WEBHOOK_SECRET: "whsec_playwright_dummy",
       NEXT_PUBLIC_DISABLE_PROMO_POPUP: "true",
+      NEXT_DIST_DIR: ".next-playwright",
     },
   },
 });
