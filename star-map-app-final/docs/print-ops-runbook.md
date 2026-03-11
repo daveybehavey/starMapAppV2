@@ -23,6 +23,11 @@ npm run qa:printful
 npm run qa:release-gate
 npm run qa:smoke
 
+# Day-to-day targeted smoke (faster)
+npm run qa:smoke:ui
+npm run qa:smoke:render
+npm run qa:smoke:commerce
+
 # Live sanity
 npm run qa:live-smoke
 npm run qa:sitemap-health -- --sitemap https://starmapco.com/sitemap.xml --concurrency 8 --timeout-ms 15000
@@ -96,4 +101,3 @@ Headers:
    - `NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=false`
 2. Redeploy.
 3. Existing paid orders remain traceable in KV and can be handled manually.
-

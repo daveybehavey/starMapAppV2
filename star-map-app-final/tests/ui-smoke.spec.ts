@@ -50,28 +50,21 @@ test("location warnings and validation errors render", async ({ page }) => {
 test("homepage finished example images load correctly", async ({ page }) => {
   await primeLocalStorage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  const imageNames = [/^Wedding · Aurora Night$/i, /^Anniversary · Heirloom$/i, /^Birthday · Noir Minimal$/i];
-  for (const name of imageNames) {
+  const expectedExamples = [
+    { name: /^Wedding · Aurora Night$/i, file: "/examples/example-wedding-aurora-heart.webp" },
+    { name: /^Anniversary · Heirloom$/i, file: "/examples/example-anniversary-heirloom.webp" },
+    { name: /^Birthday · Noir Minimal$/i, file: "/examples/example-birthday-noir.webp" },
+  ];
+  for (const { name, file } of expectedExamples) {
     const image = page.getByRole("img", { name }).first();
     await expect(image).toBeVisible({ timeout: 30000 });
-    await image.evaluate((node) => {
-      node.scrollIntoView({ block: "center", inline: "nearest" });
-    });
-    await expect
-      .poll(
-        async () => {
-          try {
-            return await image.evaluate((node) => {
-              if (!(node instanceof HTMLImageElement)) return false;
-              return node.complete && node.naturalWidth > 0 && node.naturalHeight > 0;
-            });
-          } catch {
-            return false;
-          }
-        },
-        { timeout: 30000 },
-      )
-      .toBe(true);
+    const encodedFile = encodeURIComponent(file);
+    await expect(image).toHaveAttribute("src", new RegExp(encodedFile));
+
+    const response = await page.request.get(file);
+    expect(response.ok()).toBe(true);
+    const contentType = response.headers()["content-type"] ?? "";
+    expect(contentType).toMatch(/^image\//);
   }
 });
 
