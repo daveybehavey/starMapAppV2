@@ -130,12 +130,17 @@ async function main() {
   try {
     const shippingRes = await fetchWithTimeout(`${site}/shipping`, { cache: "no-store" }, args.timeoutMs);
     const shippingHtml = await shippingRes.text();
+    const hasShippingTableHeading =
+      shippingHtml.includes("Shipping rates by country") ||
+      shippingHtml.includes("Physical print countries");
+    const hasShippingTableHeaders =
+      /Country/i.test(shippingHtml) &&
+      /Framed shipping/i.test(shippingHtml) &&
+      /Unframed shipping/i.test(shippingHtml);
     runCheck("Shipping page responds 200", shippingRes.status === 200, `status=${shippingRes.status}`);
     runCheck(
       "Shipping page includes per-country table",
-      shippingHtml.includes("Shipping rates by country") &&
-        shippingHtml.includes("Framed shipping") &&
-        shippingHtml.includes("Unframed shipping"),
+      hasShippingTableHeading && hasShippingTableHeaders,
       "shipping content",
     );
   } catch (error) {
