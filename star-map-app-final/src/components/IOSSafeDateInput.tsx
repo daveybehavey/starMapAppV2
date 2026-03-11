@@ -109,8 +109,6 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
         value={textValue}
         inputMode="numeric"
         placeholder={inputProps.placeholder ?? "YYYY-MM-DD"}
-        pattern={ISO_DATE_PATTERN.source}
-        title="Use YYYY-MM-DD format"
         aria-invalid={isInvalid ? "true" : inputProps["aria-invalid"]}
         onChange={handleChange}
         onBlur={handleBlur}

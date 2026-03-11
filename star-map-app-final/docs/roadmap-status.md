@@ -54,8 +54,12 @@ Updated: 2026-03-11
 - Mobile date-input resilience hardening:
   - iOS-safe date inputs now accept both `YYYYMMDD` and `MMDDYYYY` numeric typing and normalize to `YYYY-MM-DD`.
   - Static homepage date form now supports numeric-only keyboard entry without requiring manual `-` separators.
+  - iOS-safe text fallback no longer uses native HTML pattern enforcement, preventing Safari "format required" lockups while still validating with custom logic.
 - Print checkout country selector contrast hardening:
   - Added explicit select/option text color styling so shipping-country labels remain readable in native dropdowns.
+- Print operations QA hardening:
+  - `scripts/print-ops-report.mjs` now surfaces min-charge and negative-margin anomalies explicitly.
+  - Added `--strict` and `--min-charge-cents` flags so ops can fail fast when risky sent orders are detected.
 
 ### In progress
 

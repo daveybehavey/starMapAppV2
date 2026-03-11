@@ -19,6 +19,8 @@ function parseArgs(argv) {
     site: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com",
     hours: 168,
     limit: 40,
+    minChargeCents: Number.parseInt(process.env.PRINT_MIN_CHARGE_CENTS || "100", 10),
+    strict: false,
     json: false,
   };
 
@@ -45,12 +47,23 @@ function parseArgs(argv) {
       i += 1;
       continue;
     }
+    if (token === "--min-charge-cents") {
+      const next = Number(argv[i + 1]);
+      if (!Number.isFinite(next) || next < 0) throw new Error("--min-charge-cents must be >= 0");
+      args.minChargeCents = Math.floor(next);
+      i += 1;
+      continue;
+    }
+    if (token === "--strict") {
+      args.strict = true;
+      continue;
+    }
     if (token === "--json") {
       args.json = true;
       continue;
     }
     if (token === "-h" || token === "--help") {
-      console.log(`Usage: node scripts/print-ops-report.mjs [--site <url>] [--hours <n>] [--limit <n>] [--json]
+      console.log(`Usage: node scripts/print-ops-report.mjs [--site <url>] [--hours <n>] [--limit <n>] [--min-charge-cents <n>] [--strict] [--json]
 
 Reports recent print checkout sessions from Stripe and cross-checks print order status through:
   GET /api/print/orders/status?session_id=...
@@ -65,6 +78,9 @@ Required env vars:
   }
 
   args.site = args.site.replace(/\/+$/, "");
+  if (!Number.isFinite(args.minChargeCents) || args.minChargeCents < 0) {
+    args.minChargeCents = 100;
+  }
   return args;
 }
 
@@ -238,6 +254,10 @@ async function main() {
     unpaid: 0,
     unknown: 0,
   };
+  const anomalies = {
+    sentBelowMinCharge: 0,
+    sentNegativeMargin: 0,
+  };
 
   for (const session of sessions) {
     const sessionId = session.id;
@@ -269,10 +289,34 @@ async function main() {
     const printfulCosts =
       status.printfulOrderId && status.status === "sent" ? await fetchPrintfulOrderCost(status.printfulOrderId) : null;
 
+    const amountCents = Number(session.amount_total ?? 0);
+    const estimatedMargin =
+      status.status === "sent"
+        ? (() => {
+            const gross = Number(amountCents) / 100;
+            const fee = computeStripeFee(amountCents, session.currency || "USD");
+            const fulfillment = convertAmount(
+              printfulCosts?.total ?? "",
+              printfulCosts?.currency ?? "",
+              session.currency || "USD",
+              usdCad,
+            );
+            if (!Number.isFinite(gross) || fulfillment == null) return null;
+            return gross - fee - fulfillment;
+          })()
+        : null;
+
+    if (status.status === "sent" && amountCents < args.minChargeCents) {
+      anomalies.sentBelowMinCharge += 1;
+    }
+    if (status.status === "sent" && typeof estimatedMargin === "number" && estimatedMargin < 0) {
+      anomalies.sentNegativeMargin += 1;
+    }
+
     rows.push({
       sessionId,
       created: toIso(session.created),
-      amount: session.amount_total ?? 0,
+      amount: amountCents,
       currency: (session.currency || "").toUpperCase(),
       email: maskEmail(session.customer_details?.email || session.customer_email || ""),
       paid: session.payment_status,
@@ -285,21 +329,7 @@ async function main() {
       printfulCostStatus: printfulCosts?.status ?? "",
       estimatedStripeFee:
         status.status === "sent" ? computeStripeFee(session.amount_total ?? 0, session.currency || "USD") : null,
-      estimatedMargin:
-        status.status === "sent"
-          ? (() => {
-              const gross = Number(session.amount_total ?? 0) / 100;
-              const fee = computeStripeFee(session.amount_total ?? 0, session.currency || "USD");
-              const fulfillment = convertAmount(
-                printfulCosts?.total ?? "",
-                printfulCosts?.currency ?? "",
-                session.currency || "USD",
-                usdCad,
-              );
-              if (!Number.isFinite(gross) || fulfillment == null) return null;
-              return gross - fee - fulfillment;
-            })()
-          : null,
+      estimatedMargin,
       error: status.error || status.details || "",
       sentAt: status.sentAt || "",
       operatorAlertedAt: status.operatorAlertedAt || "",
@@ -312,8 +342,11 @@ async function main() {
     site: args.site,
     hours: args.hours,
     limit: args.limit,
+    minChargeCents: args.minChargeCents,
+    strict: args.strict,
     scannedPrintSessions: rows.length,
     counts,
+    anomalies,
     rows,
   };
 
@@ -326,8 +359,12 @@ async function main() {
   console.log(`Site: ${report.site}`);
   console.log(`Window: last ${report.hours} hours`);
   console.log(`Scanned print sessions: ${report.scannedPrintSessions}`);
+  console.log(`Minimum accepted paid print charge: ${report.minChargeCents} cents`);
   console.log(
     `Status counts -> sent=${counts.sent} pending=${counts.pending} failed=${counts.failed} missing=${counts.missing} error=${counts.error} unpaid=${counts.unpaid}`,
+  );
+  console.log(
+    `Anomalies -> sentBelowMinCharge=${anomalies.sentBelowMinCharge} sentNegativeMargin=${anomalies.sentNegativeMargin}`,
   );
   if (usdCad) {
     console.log(`FX reference -> USD/CAD ${usdCad.toFixed(4)}`);
@@ -357,6 +394,13 @@ async function main() {
       error: row.error ? row.error.slice(0, 80) : "",
     })),
   );
+
+  if (args.strict && (anomalies.sentBelowMinCharge > 0 || anomalies.sentNegativeMargin > 0)) {
+    console.error(
+      `Strict mode failed: ${anomalies.sentBelowMinCharge} sent orders below min charge, ${anomalies.sentNegativeMargin} sent orders with negative estimated margin.`,
+    );
+    process.exit(1);
+  }
 }
 
 main().catch((error) => {
