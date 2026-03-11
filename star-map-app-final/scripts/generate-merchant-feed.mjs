@@ -48,11 +48,6 @@ const PRINT_FRAMED_CENTS = parseIntEnv(
   9900,
 );
 const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
-const MERCHANT_FEED_COUNTRIES = parseCountryListEnv(
-  ["MERCHANT_FEED_COUNTRIES", "PRINT_ALLOWED_COUNTRIES", "NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES"],
-  ["US"],
-);
-
 let shippingMap = null;
 try {
   const shippingRaw = readFileSync(resolve(process.cwd(), "data", "printful-shipping.json"), "utf8");
@@ -60,6 +55,17 @@ try {
 } catch {
   shippingMap = null;
 }
+
+const supportedCountriesFromMap = Array.isArray(shippingMap?.countries)
+  ? shippingMap.countries
+      .map((value) => String(value || "").trim().toUpperCase())
+      .filter((value) => /^[A-Z]{2}$/.test(value))
+  : [];
+
+const MERCHANT_FEED_COUNTRIES = parseCountryListEnv(
+  ["MERCHANT_FEED_COUNTRIES", "PRINT_ALLOWED_COUNTRIES", "NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES"],
+  supportedCountriesFromMap.length ? supportedCountriesFromMap : ["US"],
+);
 
 function formatPrice(amountCents) {
   return `${(amountCents / 100).toFixed(2)} ${CURRENCY}`;

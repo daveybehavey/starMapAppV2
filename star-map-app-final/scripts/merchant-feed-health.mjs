@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { readWranglerVars } from "./wrangler-vars.mjs";
 
 const wranglerVars = await readWranglerVars(process.cwd());
@@ -109,9 +111,22 @@ async function checkImage(url) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  let mapCountries = [];
+  try {
+    const shippingRaw = readFileSync(resolve(process.cwd(), "data", "printful-shipping.json"), "utf8");
+    const shippingMap = JSON.parse(shippingRaw);
+    if (Array.isArray(shippingMap?.countries)) {
+      mapCountries = shippingMap.countries
+        .map((value) => String(value || "").trim().toUpperCase())
+        .filter((value) => /^[A-Z]{2}$/.test(value));
+    }
+  } catch {
+    mapCountries = [];
+  }
+
   const expectedCountries = parseCountryListEnv(
     ["MERCHANT_FEED_COUNTRIES", "PRINT_ALLOWED_COUNTRIES", "NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES"],
-    ["US"],
+    mapCountries.length ? mapCountries : ["US"],
   );
 
   console.log(`Merchant feed URL: ${args.feed}`);

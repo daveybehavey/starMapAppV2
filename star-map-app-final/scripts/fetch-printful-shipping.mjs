@@ -14,7 +14,7 @@ if (!TOKEN || !STORE_ID || !UNFRAMED || !FRAMED) {
   process.exit(1);
 }
 
-const COUNTRIES = [
+const DEFAULT_COUNTRIES = [
   "US",
   "CA",
   "GB",
@@ -39,16 +39,77 @@ const COUNTRIES = [
   "RO",
   "HU",
   "GR",
-  "IL",
-  "AE",
   "SG",
   "JP",
+  "MX",
+  "BR",
+  "AR",
+  "CL",
+  "CO",
+  "PE",
+  "UY",
+  "PA",
+  "CR",
+  "DO",
+  "PR",
+  "IN",
+  "PH",
+  "TH",
+  "MY",
+  "ID",
+  "VN",
+  "KR",
+  "TW",
+  "HK",
+  "CN",
+  "TR",
+  "ZA",
+  "MA",
+  "NG",
+  "KE",
+  "GH",
+  "UG",
+  "BD",
+  "LK",
+  "NP",
+  "RS",
+  "HR",
+  "SI",
+  "SK",
+  "LT",
+  "LV",
+  "EE",
+  "LU",
+  "IS",
+  "MT",
+  "CY",
+  "AL",
+  "BA",
+  "MK",
+  "MD",
+  "GE",
+  "AZ",
 ];
+
+function parseCountries(raw) {
+  const parsed = String(raw || "")
+    .split(",")
+    .map((value) => value.trim().toUpperCase())
+    .filter((value) => /^[A-Z]{2}$/.test(value));
+  return [...new Set(parsed)];
+}
+
+const COUNTRIES = parseCountries(process.env.PRINTFUL_SHIPPING_COUNTRIES);
+const TARGET_COUNTRIES = COUNTRIES.length ? COUNTRIES : DEFAULT_COUNTRIES;
 
 const STATE_BY_COUNTRY = {
   US: "CA",
   CA: "ON",
   AU: "NSW",
+  JP: "13",
+  BR: "SP",
+  MX: "CMX",
+  IN: "DL",
 };
 
 async function fetchRates(countryCode, catalogVariantId) {
@@ -99,7 +160,7 @@ async function fetchRates(countryCode, catalogVariantId) {
 
 async function buildMap(label, variantId) {
   const out = {};
-  for (const country of COUNTRIES) {
+  for (const country of TARGET_COUNTRIES) {
     try {
       const rate = await fetchRates(country, variantId);
       out[country] = rate;
@@ -117,7 +178,7 @@ async function main() {
   const posterUnframed = await buildMap("poster_unframed", UNFRAMED);
   const posterFramed = await buildMap("poster_framed", FRAMED);
 
-  const supportedCountries = COUNTRIES.filter(
+  const supportedCountries = TARGET_COUNTRIES.filter(
     (country) => posterUnframed[country] && posterFramed[country],
   );
 
@@ -130,7 +191,7 @@ async function main() {
 
   const outputPath = resolve(process.cwd(), "data", "printful-shipping.json");
   writeFileSync(outputPath, JSON.stringify(output, null, 2));
-  console.log(`Saved ${outputPath}`);
+  console.log(`Saved ${outputPath} (${supportedCountries.length} countries)`);
 }
 
 main().catch((error) => {

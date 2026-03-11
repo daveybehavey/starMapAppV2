@@ -70,6 +70,8 @@ Updated: 2026-03-11
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
+  - Shipping map refreshed from live Printful API for both framed and unframed variants; current supported set is 74 countries.
+  - Wrangler country vars are now intentionally blank so production reads directly from the shipping map (single source of truth).
 - Shipping policy clarity and compliance:
   - Added `/shipping` page with per-country print shipping rate and delivery estimate table.
   - Added shipping policy links in app footer and static homepage footer.
