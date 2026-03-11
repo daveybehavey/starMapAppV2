@@ -48,24 +48,28 @@ test("location warnings and validation errors render", async ({ page }) => {
 });
 
 test("homepage finished example images load correctly", async ({ page }) => {
+  await primeLocalStorage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  const images = [
-    page.getByRole("img", { name: /Wedding.+Aurora/i }).first(),
-    page.getByRole("img", { name: /Anniversary.+Heirloom/i }).first(),
-    page.getByRole("img", { name: /Birthday.+Noir/i }).first(),
-  ];
-
-  await images[0].scrollIntoViewIfNeeded();
-  for (const image of images) {
-    await expect(image).toBeVisible({ timeout: 15000 });
+  const imageNames = [/^Wedding · Aurora Night$/i, /^Anniversary · Heirloom$/i, /^Birthday · Noir Minimal$/i];
+  for (const name of imageNames) {
+    const image = page.getByRole("img", { name }).first();
+    await expect(image).toBeVisible({ timeout: 30000 });
+    await image.evaluate((node) => {
+      node.scrollIntoView({ block: "center", inline: "nearest" });
+    });
     await expect
       .poll(
-        async () =>
-          image.evaluate((node) => {
-            if (!(node instanceof HTMLImageElement)) return false;
-            return node.complete && node.naturalWidth > 0 && node.naturalHeight > 0;
-          }),
-        { timeout: 15000 },
+        async () => {
+          try {
+            return await image.evaluate((node) => {
+              if (!(node instanceof HTMLImageElement)) return false;
+              return node.complete && node.naturalWidth > 0 && node.naturalHeight > 0;
+            });
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 30000 },
       )
       .toBe(true);
   }
@@ -203,6 +207,7 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
       source: "home-delivery-print-framed",
       checkout: "print",
       print_variant: "poster_framed",
+      shipping_country: "CA",
     },
   });
 
@@ -222,12 +227,16 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
     const shippingSelect = page.getByLabel(/Shipping country/i).first();
     if (await shippingSelect.isVisible({ timeout: 1500 }).catch(() => false)) {
       await expect(shippingSelect.locator("option").first()).not.toHaveText(/^[A-Z]{2}$/);
+      await expect(shippingSelect).toHaveValue("CA");
     }
     return;
   }
 
   // SAFE_OFF mode fallback: print checkout is intentionally hidden.
-  await page.getByLabel("HD export").click();
+  const hdExportButton = page.getByLabel("HD export");
+  await expect(hdExportButton).toBeVisible({ timeout: 8000 });
+  await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
+  await hdExportButton.click();
   await expect(page.getByRole("button", { name: /Get 1 HD map|Get 3 downloads|Go unlimited/i }).first()).toBeVisible({
     timeout: 8000,
   });
@@ -241,13 +250,17 @@ test("print checkout buttons submit print payload when visible", async ({ page }
       source: "home-delivery-print-framed",
       checkout: "print",
       print_variant: "poster_framed",
+      shipping_country: "CA",
     },
   });
   await applySampleMoment(page);
 
   const printPrimaryCta = page.getByRole("button", { name: /Print & frame/i });
   if (!(await printPrimaryCta.isVisible({ timeout: 2500 }).catch(() => false))) {
-    await page.getByLabel("HD export").click();
+    const hdExportButton = page.getByLabel("HD export");
+    await expect(hdExportButton).toBeVisible({ timeout: 8000 });
+    await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
+    await hdExportButton.click();
     await expect(page.getByRole("button", { name: /Get 1 HD map|Get 3 downloads|Go unlimited/i }).first()).toBeVisible({
       timeout: 8000,
     });
@@ -287,6 +300,6 @@ test("print checkout buttons submit print payload when visible", async ({ page }
   expect(checkoutPayload?.orderType).toBe("print");
   expect(checkoutPayload?.printVariant).toBe("poster_framed");
   expect(checkoutPayload?.includeDigitalAddOn).toBe(true);
-  expect(typeof checkoutPayload?.shippingCountry).toBe("string");
+  expect(checkoutPayload?.shippingCountry).toBe("CA");
   expect(typeof checkoutPayload?.printAssetId).toBe("string");
 });

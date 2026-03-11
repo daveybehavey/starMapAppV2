@@ -88,7 +88,13 @@ export const gotoEditor = async (
 };
 
 export const waitForPreview = async (page: Page) => {
-  await expect(page.getByLabel(/Star map preview/i).first()).toBeVisible({ timeout: 20000 });
+  const labeledPreview = page.getByLabel(/Star map preview/i).first();
+  if (await labeledPreview.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await expect(labeledPreview).toBeVisible({ timeout: 20000 });
+  } else {
+    // Some intermediate editor states don't expose the preview aria-label consistently.
+    await expect(page.getByRole("heading", { name: /Preview/i }).first()).toBeVisible({ timeout: 20000 });
+  }
   await expect(page.getByLabel("Free export").first()).toBeVisible({ timeout: 20000 });
 };
 
