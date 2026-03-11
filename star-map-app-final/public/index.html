@@ -872,6 +872,7 @@
                 autocomplete="bday"
                 inputmode="numeric"
                 pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
+                maxlength="10"
                 placeholder="YYYY-MM-DD"
                 title="Use YYYY-MM-DD format"
               />
@@ -929,7 +930,7 @@
             >Preview unframed print</a>
           </article>
           <article class="delivery-card popular">
-            <h3>Framed print — $89.00 + shipping</h3>
+            <h3>Framed print — $99.00 + shipping</h3>
             <p>Ready-to-hang framed gift with premium presentation.</p>
             <ul>
               <li>Most popular physical option</li>
@@ -1471,21 +1472,32 @@
         if (!form) return;
         const dateInput = form.querySelector('input[name="date"]');
         if (!(dateInput instanceof HTMLInputElement)) return;
+        const normalizeIsoDateInput = function (value) {
+          const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+          if (digits.length <= 4) return digits;
+          if (digits.length <= 6) return digits.slice(0, 4) + "-" + digits.slice(4);
+          return digits.slice(0, 4) + "-" + digits.slice(4, 6) + "-" + digits.slice(6);
+        };
+        const isRealIsoDate = function (value) {
+          const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+          if (!match) return false;
+          const year = Number(match[1]);
+          const month = Number(match[2]);
+          const day = Number(match[3]);
+          const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+          return (
+            parsed.getFullYear() === year &&
+            parsed.getMonth() === month - 1 &&
+            parsed.getDate() === day
+          );
+        };
 
         form.addEventListener("submit", function (event) {
-          const value = String(dateInput.value || "").trim();
-          const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-          let isValid = false;
-          if (match) {
-            const year = Number(match[1]);
-            const month = Number(match[2]);
-            const day = Number(match[3]);
-            const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
-            isValid =
-              parsed.getFullYear() === year &&
-              parsed.getMonth() === month - 1 &&
-              parsed.getDate() === day;
+          const normalized = normalizeIsoDateInput(String(dateInput.value || "").trim());
+          if (dateInput.value !== normalized) {
+            dateInput.value = normalized;
           }
+          const isValid = isRealIsoDate(normalized);
 
           if (!isValid) {
             event.preventDefault();
@@ -1499,7 +1511,27 @@
         });
 
         dateInput.addEventListener("input", function () {
+          const normalized = normalizeIsoDateInput(String(dateInput.value || "").trim());
+          if (dateInput.value !== normalized) {
+            dateInput.value = normalized;
+          }
+          if (normalized.length === 10 && !isRealIsoDate(normalized)) {
+            dateInput.setCustomValidity("Use a real date in YYYY-MM-DD format.");
+            return;
+          }
           dateInput.setCustomValidity("");
+        });
+
+        dateInput.addEventListener("blur", function () {
+          const normalized = normalizeIsoDateInput(String(dateInput.value || "").trim());
+          if (dateInput.value !== normalized) {
+            dateInput.value = normalized;
+          }
+          if (!normalized) {
+            dateInput.setCustomValidity("");
+            return;
+          }
+          dateInput.setCustomValidity(isRealIsoDate(normalized) ? "" : "Use a real date in YYYY-MM-DD format.");
         });
       })();
     </script>
