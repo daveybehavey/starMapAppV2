@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-07
+Updated: 2026-03-10
 
 ## Phase 0: Foundation (Done)
 
@@ -40,6 +40,14 @@ Updated: 2026-03-07
   - Added static cookie consent banner to persist analytics consent before editor transition.
   - Added delivery-option CTAs that deep-link into print-intent editor states.
   - Synced `public/landing.html` from `public/index.html`.
+- Print checkout country consistency:
+  - UI shipping-country dropdown now uses configured allowed countries instead of full shipping map defaults.
+  - Checkout API country validation now matches `PRINT_ALLOWED_COUNTRIES` directly.
+- Mobile reliability regression coverage:
+  - Added Playwright smoke test for iOS-style date entry auto-formatting on homepage.
+- Merchant feed quality hardening:
+  - Shipping lines now normalize to feed currency when provider rates are in a different currency.
+  - Product image links now use dedicated square examples for better Merchant compatibility.
 
 ### In progress
 
