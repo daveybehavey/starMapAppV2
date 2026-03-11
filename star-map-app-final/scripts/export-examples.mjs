@@ -221,6 +221,10 @@ async function waitForServer(url, attempts = 60) {
 async function run() {
   const server = spawn("npm", ["run", "dev", "--", "-H", "127.0.0.1", "-p", String(port)], {
     stdio: "inherit",
+    env: {
+      ...process.env,
+      NEXT_DIST_DIR: ".next-export-examples",
+    },
   });
 
   try {
