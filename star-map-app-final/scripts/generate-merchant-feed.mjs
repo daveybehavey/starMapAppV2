@@ -16,6 +16,20 @@ function parseIntEnv(names, fallback) {
   return fallback;
 }
 
+function parseCountryListEnv(names, fallback = ["US"]) {
+  const keys = Array.isArray(names) ? names : [names];
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw) continue;
+    const parsed = raw
+      .split(",")
+      .map((value) => value.trim().toUpperCase())
+      .filter((value) => /^[A-Z]{2}$/.test(value));
+    if (parsed.length > 0) return parsed;
+  }
+  return fallback;
+}
+
 const PRICE_SINGLE_CENTS = parseIntEnv(["NEXT_PUBLIC_PRICE_SINGLE_CENTS", "PRICE_SINGLE_CENTS"], 900);
 const PRINT_UNFRAMED_CENTS = parseIntEnv(
   ["NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", "PRINT_UNFRAMED_PRICE_CENTS"],
@@ -26,6 +40,10 @@ const PRINT_FRAMED_CENTS = parseIntEnv(
   9900,
 );
 const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
+const MERCHANT_FEED_COUNTRIES = parseCountryListEnv(
+  ["MERCHANT_FEED_COUNTRIES", "PRINT_ALLOWED_COUNTRIES", "NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES"],
+  ["US"],
+);
 
 let shippingMap = null;
 try {
@@ -101,11 +119,11 @@ const items = [
     identifierExists: false,
     brand: "StarMapCo",
     shipping: shippingMap
-      ? shippingMap.countries.map((country) => ({
+      ? MERCHANT_FEED_COUNTRIES.map((country) => ({
           country,
           price: formatPrice(0),
         }))
-      : [{ country: "US", price: formatPrice(0) }],
+      : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(0) }],
   },
   {
     id: "print_poster_unframed",
@@ -121,17 +139,21 @@ const items = [
     identifierExists: false,
     brand: "StarMapCo",
     shipping: shippingMap
-      ? shippingMap.countries
+      ? MERCHANT_FEED_COUNTRIES
           .map((country) => {
             const rate = shippingMap.poster_unframed?.[country];
-            if (!rate || typeof rate.rate !== "number") return null;
+            if (!rate || typeof rate.rate !== "number") {
+              return {
+                country,
+                price: formatPrice(PRINT_SHIPPING_CENTS),
+              };
+            }
             return {
               country,
               price: `${rate.rate.toFixed(2)} ${rate.currency || "USD"}`,
             };
           })
-          .filter(Boolean)
-      : [{ country: "US", price: formatPrice(PRINT_SHIPPING_CENTS) }],
+      : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],
   },
   {
     id: "print_poster_framed",
@@ -147,17 +169,21 @@ const items = [
     identifierExists: false,
     brand: "StarMapCo",
     shipping: shippingMap
-      ? shippingMap.countries
+      ? MERCHANT_FEED_COUNTRIES
           .map((country) => {
             const rate = shippingMap.poster_framed?.[country];
-            if (!rate || typeof rate.rate !== "number") return null;
+            if (!rate || typeof rate.rate !== "number") {
+              return {
+                country,
+                price: formatPrice(PRINT_SHIPPING_CENTS),
+              };
+            }
             return {
               country,
               price: `${rate.rate.toFixed(2)} ${rate.currency || "USD"}`,
             };
           })
-          .filter(Boolean)
-      : [{ country: "US", price: formatPrice(PRINT_SHIPPING_CENTS) }],
+      : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],
   },
 ];
 
