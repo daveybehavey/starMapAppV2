@@ -45,6 +45,8 @@ const printSubmissionEnabled = parseBool(
 );
 const hasPrintShippingConfig =
   hasValue("STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD") || hasValue("PRINT_STANDARD_SHIPPING_CENTS");
+const minPrintChargeRaw = (process.env.PRINT_MIN_CHARGE_CENTS || "").trim();
+const minPrintChargeCents = minPrintChargeRaw ? Number.parseInt(minPrintChargeRaw, 10) : 100;
 
 const hasPrintful =
   hasValue("PRINTFUL_API_TOKEN") &&
@@ -71,6 +73,14 @@ if (printSubmissionEnabled && !printCheckoutEnabled) {
 
 if (printSubmissionEnabled && !hasPrintAdminToken) {
   warnings.push("PRINT_ADMIN_TOKEN is not set. Admin retry/status endpoints cannot be used securely.");
+}
+
+if (minPrintChargeRaw && !Number.isFinite(minPrintChargeCents)) {
+  issues.push("PRINT_MIN_CHARGE_CENTS must be an integer when set.");
+}
+
+if (Number.isFinite(minPrintChargeCents) && minPrintChargeCents < 0) {
+  issues.push("PRINT_MIN_CHARGE_CENTS cannot be negative.");
 }
 
 if (printCheckoutEnabled && !hasValue("STRIPE_SECRET_KEY")) {
@@ -138,6 +148,7 @@ console.log(`- PRINT_CHECKOUT_ENABLED=${String(printCheckoutEnabled)}`);
 console.log(`- NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=${String(publicPrintCheckoutEnabled)}`);
 console.log(`- PRINT_ORDER_SUBMISSION_ENABLED=${String(printSubmissionEnabled)}`);
 console.log(`- Fulfillment configured=${String(fulfillmentConfigured)}`);
+console.log(`- PRINT_MIN_CHARGE_CENTS=${Number.isFinite(minPrintChargeCents) ? String(minPrintChargeCents) : "100"}`);
 if (hasPrintful) console.log("- Fulfillment path: Printful");
 if (!hasPrintful && hasWebhookFulfillment) console.log("- Fulfillment path: Custom webhook");
 

@@ -5,7 +5,9 @@ import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import {
   buildPrintAssetUrl,
+  getPrintMinChargeCents,
   getPrintRecipient,
+  hasSufficientPrintCharge,
   isValidPrintCheckoutSessionId,
   printOrderKey,
   type PrintOrderRecord,
@@ -51,6 +53,11 @@ async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<Pr
     const session = await stripe.checkout.sessions.retrieve(existing.sessionId);
     const updated: PrintOrderRecord = {
       ...existing,
+      amountTotal:
+        typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+          ? session.amount_total
+          : existing.amountTotal ?? null,
+      currency: session.currency ?? existing.currency ?? null,
       customerEmail: session.customer_details?.email ?? session.customer_email ?? existing.customerEmail ?? null,
       customerName: session.customer_details?.name ?? existing.customerName ?? null,
       shippingDetails: extractShippingDetails(session) ?? existing.shippingDetails ?? null,
@@ -138,6 +145,18 @@ export async function POST(req: NextRequest) {
       attempts: (hydrated.attempts ?? 0) + 1,
       printAssetUrl,
       error: "shipping_details_missing",
+    };
+    await kv.set(printOrderKey(sessionId), failed);
+    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+  }
+
+  if (!hasSufficientPrintCharge(hydrated.amountTotal)) {
+    const failed = {
+      ...hydrated,
+      status: "failed" as const,
+      attempts: (hydrated.attempts ?? 0) + 1,
+      printAssetUrl,
+      error: `print_amount_below_minimum:${getPrintMinChargeCents()}`,
     };
     await kv.set(printOrderKey(sessionId), failed);
     return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });

@@ -13,7 +13,9 @@ import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
   buildPrintAssetUrl,
+  getPrintMinChargeCents,
   getPrintRecipient,
+  hasSufficientPrintCharge,
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
@@ -425,6 +427,11 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       const latest = await stripe.checkout.sessions.retrieve(session.id);
       payload = {
         ...payload,
+        amountTotal:
+          typeof latest.amount_total === "number" && Number.isFinite(latest.amount_total)
+            ? latest.amount_total
+            : payload.amountTotal ?? null,
+        currency: latest.currency ?? payload.currency ?? null,
         customerEmail: latest.customer_details?.email ?? latest.customer_email ?? payload.customerEmail ?? null,
         customerName: latest.customer_details?.name ?? payload.customerName ?? null,
         shippingDetails: extractShippingDetails(latest),
@@ -441,6 +448,16 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       printAssetUrl,
       status: "failed",
       error: "shipping_details_missing",
+    });
+    return;
+  }
+
+  if (!hasSufficientPrintCharge(payload.amountTotal)) {
+    await kv.set(printOrderKey(session.id), {
+      ...payload,
+      printAssetUrl,
+      status: "failed",
+      error: `print_amount_below_minimum:${getPrintMinChargeCents()}`,
     });
     return;
   }

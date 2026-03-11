@@ -43,6 +43,9 @@ Updated: 2026-03-11
 - Print checkout country consistency:
   - UI shipping-country dropdown now uses configured allowed countries instead of full shipping map defaults.
   - Checkout API country validation now matches `PRINT_ALLOWED_COUNTRIES` directly.
+- Print fulfillment margin guard:
+  - Stripe webhook now blocks automatic print submission when charged amount is below configured minimum (`PRINT_MIN_CHARGE_CENTS`, default 100 cents).
+  - Admin retry endpoint applies the same guard to prevent accidental resubmission of zero/underpriced print sessions.
 - Mobile reliability regression coverage:
   - Added Playwright smoke test for iOS-style date entry auto-formatting on homepage.
 - Merchant feed quality hardening:

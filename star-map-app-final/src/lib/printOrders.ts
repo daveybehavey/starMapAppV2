@@ -27,6 +27,19 @@ export type PrintOrderRecord = {
 
 export const printOrderKey = (sessionId: string) => `print:order:${sessionId}`;
 const PRINT_CHECKOUT_SESSION_ID_REGEX = /^cs_(?:test|live)_[A-Za-z0-9_]+$/;
+const DEFAULT_PRINT_MIN_CHARGE_CENTS = 100;
+
+export function getPrintMinChargeCents() {
+  const raw = process.env.PRINT_MIN_CHARGE_CENTS?.trim();
+  if (!raw) return DEFAULT_PRINT_MIN_CHARGE_CENTS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_PRINT_MIN_CHARGE_CENTS;
+  return Math.max(0, parsed);
+}
+
+export function hasSufficientPrintCharge(amountTotal?: number | null) {
+  return typeof amountTotal === "number" && Number.isFinite(amountTotal) && amountTotal >= getPrintMinChargeCents();
+}
 
 export function isValidPrintCheckoutSessionId(sessionId: string) {
   const trimmed = sessionId.trim();
