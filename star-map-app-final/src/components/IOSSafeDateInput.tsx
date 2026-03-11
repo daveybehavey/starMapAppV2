@@ -28,6 +28,13 @@ function isValidIsoDate(value: string) {
   return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
 }
 
+function normalizeIsoDateInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
+
 export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
   // Start with text mode on first paint so iOS never flashes native date UI before detection.
   const [useTextFallback, setUseTextFallback] = useState(true);
@@ -39,7 +46,12 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (useTextFallback) {
-      const valid = isValidIsoDate(event.currentTarget.value.trim());
+      const normalized = normalizeIsoDateInput(event.currentTarget.value.trim());
+      if (event.currentTarget.value !== normalized) {
+        event.currentTarget.value = normalized;
+      }
+      const shouldValidate = normalized.length === 10;
+      const valid = shouldValidate ? isValidIsoDate(normalized) : true;
       event.currentTarget.setCustomValidity(valid ? "" : "Use a real date in YYYY-MM-DD format.");
       setIsInvalid(!valid);
     }
@@ -48,9 +60,9 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     if (useTextFallback) {
-      const trimmed = event.currentTarget.value.trim();
-      event.currentTarget.value = trimmed;
-      const valid = isValidIsoDate(trimmed);
+      const normalized = normalizeIsoDateInput(event.currentTarget.value.trim());
+      event.currentTarget.value = normalized;
+      const valid = isValidIsoDate(normalized);
       event.currentTarget.setCustomValidity(valid ? "" : "Use a real date in YYYY-MM-DD format.");
       setIsInvalid(!valid);
     }
