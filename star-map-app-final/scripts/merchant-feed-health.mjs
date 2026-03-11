@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 
+import { readWranglerVars } from "./wrangler-vars.mjs";
+
+const wranglerVars = await readWranglerVars(process.cwd());
+for (const [key, value] of Object.entries(wranglerVars)) {
+  if (process.env[key] === undefined) {
+    process.env[key] = value;
+  }
+}
+
 const DEFAULT_SITE = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://starmapco.com";
 const DEFAULT_FEED_URL = `${DEFAULT_SITE}/merchant-feed.xml`;
 
@@ -177,4 +186,3 @@ main().catch((error) => {
   console.error(`FAIL: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 });
-

@@ -2,6 +2,14 @@
 
 import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { readWranglerVars } from "./wrangler-vars.mjs";
+
+const wranglerVars = await readWranglerVars(process.cwd());
+for (const [key, value] of Object.entries(wranglerVars)) {
+  if (process.env[key] === undefined) {
+    process.env[key] = value;
+  }
+}
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY || "usd").trim().toUpperCase();

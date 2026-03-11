@@ -57,6 +57,9 @@ Updated: 2026-03-11
   - iOS-safe text fallback no longer uses native HTML pattern enforcement, preventing Safari "format required" lockups while still validating with custom logic.
 - Print checkout country selector contrast hardening:
   - Added explicit select/option text color styling so shipping-country labels remain readable in native dropdowns.
+- Global print-market expansion (configured):
+  - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
+  - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
 - Print operations QA hardening:
   - `scripts/print-ops-report.mjs` now surfaces min-charge and negative-margin anomalies explicitly.
   - Added `--strict` and `--min-charge-cents` flags so ops can fail fast when risky sent orders are detected.
