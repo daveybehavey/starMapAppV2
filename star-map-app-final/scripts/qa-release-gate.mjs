@@ -46,6 +46,7 @@ Smoke mode (--smoke) also runs:
 
 Live mode (--live) also runs:
   - npm run qa:printful
+  - npm run qa:print-ops -- --hours 72 --strict
   - npm run qa:merchant-feed -- --feed <site>/merchant-feed.xml
   - npm run qa:sitemap-health -- --sitemap <url> --concurrency 8 --timeout-ms 15000
   - npm run qa:funnel-reconcile -- --days 14 (when STRIPE_SECRET_KEY is available)
@@ -101,6 +102,11 @@ function main() {
   if (args.live) {
     const merchantFeedUrl = merchantFeedUrlFromSitemap(args.sitemap);
     steps.push(["Printful verify", "npm", ["run", "qa:printful"]]);
+    steps.push([
+      "Print ops anomaly check",
+      "npm",
+      ["run", "qa:print-ops", "--", "--hours", "72", "--strict"],
+    ]);
     steps.push([
       "Merchant feed health",
       "npm",

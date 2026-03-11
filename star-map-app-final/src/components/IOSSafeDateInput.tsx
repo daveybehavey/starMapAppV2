@@ -7,6 +7,7 @@ import type { ChangeEvent, FocusEvent } from "react";
 
 type IOSSafeDateInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_ERROR_MESSAGE = "Use a real date in YYYYMMDD or YYYY-MM-DD format.";
 
 function detectIOS() {
   if (typeof navigator === "undefined") return false;
@@ -83,7 +84,7 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
       }
       const shouldValidate = normalized.length === 10;
       const valid = shouldValidate ? isValidIsoDate(normalized) : true;
-      event.currentTarget.setCustomValidity(valid ? "" : "Use a real date in YYYY-MM-DD format.");
+      event.currentTarget.setCustomValidity(valid ? "" : DATE_ERROR_MESSAGE);
       setIsInvalid(!valid);
     }
     onChange?.(event);
@@ -95,7 +96,7 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
       setTextValue(normalized);
       event.currentTarget.value = normalized;
       const valid = isValidIsoDate(normalized);
-      event.currentTarget.setCustomValidity(valid ? "" : "Use a real date in YYYY-MM-DD format.");
+      event.currentTarget.setCustomValidity(valid ? "" : DATE_ERROR_MESSAGE);
       setIsInvalid(!valid);
     }
     onBlur?.(event);
