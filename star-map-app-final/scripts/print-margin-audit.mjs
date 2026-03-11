@@ -9,8 +9,8 @@ function parseArgs(argv) {
   const args = {
     shippingChargeUsd: parseNumberEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399) / 100,
     unframedRetailUsd: parseNumberEnv("PRINT_UNFRAMED_PRICE_CENTS", 4900) / 100,
-    framedRetailUsd: parseNumberEnv("PRINT_FRAMED_PRICE_CENTS", 8900) / 100,
-    digitalAddOnUsd: parseNumberEnv("PRINT_DIGITAL_ADDON_PRICE_CENTS", 500) / 100,
+    framedRetailUsd: parseNumberEnv("PRINT_FRAMED_PRICE_CENTS", 9900) / 100,
+    digitalAddOnUsd: parseNumberEnv("PRINT_DIGITAL_ADDON_PRICE_CENTS", 700) / 100,
     stripeRate: 0.029,
     stripeFixedUsd: 0.3,
     targetProfitUsd: 30,

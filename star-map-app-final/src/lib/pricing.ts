@@ -144,7 +144,7 @@ export function getPricingTiers(opts?: { now?: Date }): Record<CheckoutPlan, Pri
 export function getPrintPricingTiers(): Record<PrintVariant, PrintPricingTier> {
   const env = readEnv();
   const unframedPriceCents = parseIntEnv("PRINT_UNFRAMED_PRICE_CENTS", 4900);
-  const framedPriceCents = parseIntEnv("PRINT_FRAMED_PRICE_CENTS", 8900);
+  const framedPriceCents = parseIntEnv("PRINT_FRAMED_PRICE_CENTS", 9900);
   const unframedLabel = parseStringEnv("PRINT_UNFRAMED_LABEL", "Museum-grade poster (18x18)");
   const framedLabel = parseStringEnv("PRINT_FRAMED_LABEL", "Framed print (14x14)");
   return {
@@ -167,7 +167,7 @@ export function getPrintPricingTiers(): Record<PrintVariant, PrintPricingTier> {
 
 export function getPrintDigitalAddOnPrice(): { amountCents: number; currency: string } {
   const env = readEnv();
-  const amountCents = parseIntEnv("PRINT_DIGITAL_ADDON_PRICE_CENTS", 500);
+  const amountCents = parseIntEnv("PRINT_DIGITAL_ADDON_PRICE_CENTS", 700);
   return { amountCents, currency: env.currency };
 }
 
