@@ -62,6 +62,7 @@ Updated: 2026-03-11
   - Print CTAs in editor, mobile, and paywall now show estimated shipping cost for the currently selected country.
   - Added inline shipping estimate hint (`framed` vs `unframed`) beside country selection to reduce checkout surprises.
   - Added in-flight button state text (`Opening secure checkout...`) on print CTAs to reduce dead-click ambiguity.
+  - Homepage offer stack now includes a shipping-country selector with live framed/unframed shipping estimates and carries selected country into print-intent editor links.
 - Homepage visual polish hardening:
   - Reduced aggressive hover/glow intensity on showcase cards for a cleaner premium look.
   - Tightened delivery-option card hierarchy and spacing for easier scanning.

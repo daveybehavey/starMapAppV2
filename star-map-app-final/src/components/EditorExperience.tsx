@@ -119,6 +119,13 @@ function parsePrintVariantParam(raw: string | null | undefined): PrintVariant | 
   return null;
 }
 
+function parseShippingCountryParam(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const normalized = raw.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return null;
+  return normalized;
+}
+
 function estimateDataUrlBytes(dataUrl: string) {
   const commaIndex = dataUrl.indexOf(",");
   if (commaIndex === -1) return Number.POSITIVE_INFINITY;
@@ -557,7 +564,8 @@ export function EditorExperience({
     const locationParam = searchParams.get("location");
     const checkoutParam = searchParams.get("checkout");
     const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
-    if (!dateParam && !locationParam && !sourceParam && !checkoutParam && !printVariantParam) return;
+    const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
+    if (!dateParam && !locationParam && !sourceParam && !checkoutParam && !printVariantParam && !shippingCountryParam) return;
 
     let hasValidDate = false;
     if (dateParam) {
@@ -581,6 +589,10 @@ export function EditorExperience({
     if (printVariantParam) {
       setPreferredPrintVariant(printVariantParam);
     }
+    if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
+      setPrintShippingCountry(shippingCountryParam);
+      storePrintShippingCountry(shippingCountryParam);
+    }
     if (
       checkoutParam === "print" ||
       sourceParam === "home-delivery-print-framed" ||
@@ -603,7 +615,7 @@ export function EditorExperience({
     }
 
     prefillAppliedRef.current = true;
-  }, [restored, searchParams, setDateTime, setLocation, setRevealed]);
+  }, [printShippingCountries, restored, searchParams, setDateTime, setLocation, setRevealed]);
 
   useEffect(() => {
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;

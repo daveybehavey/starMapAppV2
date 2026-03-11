@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { track, trackFunnelStep, trackSelectItem, trackViewItemList } from "@/lib/analytics";
-import { getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintShippingEstimate,
+  getPrintShippingCountryLabel,
+  getPrintShippingCountryOptions,
+  readStoredPrintShippingCountry,
+  storePrintShippingCountry,
+} from "@/lib/printfulShipping";
 
 type HomeOfferStackProps = {
   priceLabels: {
@@ -24,6 +31,39 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
   const itemListsTrackedRef = useRef(false);
+  const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
+  const printShippingCountryOptions = useMemo(
+    () => getPrintShippingCountryOptions(printShippingCountries),
+    [printShippingCountries],
+  );
+  const [printShippingCountry, setPrintShippingCountry] = useState<string>(
+    printShippingCountryOptions[0]?.code ?? "US",
+  );
+  const framedShippingLabel = useMemo(
+    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
+    [printShippingCountry],
+  );
+  const unframedShippingLabel = useMemo(
+    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
+    [printShippingCountry],
+  );
+  const shippingCountryLabel = useMemo(
+    () => getPrintShippingCountryLabel(printShippingCountry),
+    [printShippingCountry],
+  );
+
+  useEffect(() => {
+    const stored = readStoredPrintShippingCountry();
+    if (stored && printShippingCountries.includes(stored)) {
+      setPrintShippingCountry(stored);
+      return;
+    }
+    if (printShippingCountryOptions[0]?.code) {
+      const fallback = printShippingCountryOptions[0].code;
+      setPrintShippingCountry(fallback);
+      storePrintShippingCountry(fallback);
+    }
+  }, [printShippingCountries, printShippingCountryOptions]);
 
   useEffect(() => {
     if (itemListsTrackedRef.current) return;
@@ -53,14 +93,17 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
     track("delivery_choice_split", {
       source: "home-offer-stack",
       choice,
+      shippingCountry: printShippingCountry,
     });
     track("delivery_choice_selected", {
       source: "home-offer-stack",
       choice,
+      shippingCountry: printShippingCountry,
     });
     trackFunnelStep("hero_plan_click", {
       source: "home-offer-stack",
       plan: `delivery_${choice}`,
+      shippingCountry: printShippingCountry,
     });
     if (choice === "print_unframed" || choice === "print_framed") {
       trackSelectItem({
@@ -123,11 +166,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <a
               href="/editor?mode=quick&source=home-delivery-digital"
               onClick={() => handleDeliveryChoice("digital")}
-              className="mt-auto inline-flex rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/20"
-            >
-              Start free preview
-            </a>
-          </article>
+            className="mt-auto inline-flex rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/20"
+          >
+            Start free preview
+          </a>
+        </article>
 
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
             <div className="flex items-center justify-between">
@@ -140,11 +183,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Best-looking premium option for special occasions</li>
-              <li>{shippingDisclosure}</li>
+              <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
               <li>{printLabels.framed}</li>
             </ul>
             <a
-              href="/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed"
+              href={`/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
               onClick={() => handleDeliveryChoice("print_framed")}
               className="mt-auto inline-flex rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
             >
@@ -158,10 +201,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Museum-quality poster stock</li>
               <li>Lower-cost physical option</li>
+              <li>Estimated shipping to {shippingCountryLabel}: {unframedShippingLabel}</li>
               <li>{printLabels.unframed}</li>
             </ul>
             <a
-              href="/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed"
+              href={`/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
               onClick={() => handleDeliveryChoice("print_unframed")}
               className="mt-auto inline-flex rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
             >
@@ -171,6 +215,38 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         </div>
 
         <div className="brand-dark-card rounded-2xl p-4">
+          <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-white/5 p-3 sm:grid-cols-[minmax(0,190px),1fr] sm:items-center">
+            <label htmlFor="home-shipping-country" className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">
+              Shipping estimate country
+            </label>
+            <div className="space-y-1">
+              <select
+                id="home-shipping-country"
+                value={printShippingCountry}
+                onChange={(event) => {
+                  const nextCountry = event.target.value;
+                  setPrintShippingCountry(nextCountry);
+                  storePrintShippingCountry(nextCountry);
+                }}
+                className="print-country-select w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
+                style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+              >
+                {printShippingCountryOptions.map((country) => (
+                  <option
+                    key={country.code}
+                    value={country.code}
+                    className="text-midnight"
+                    style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                  >
+                    {country.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-neutral-300">
+                Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel}
+              </p>
+            </div>
+          </div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
             <li>✓ Production starts after manual order review.</li>
