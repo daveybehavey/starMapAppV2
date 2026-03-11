@@ -715,6 +715,10 @@ export default function DownloadClient() {
       setPrintCheckoutLoading(true);
       setPrintCheckoutError(null);
       try {
+        const shippingCountry = readStoredPrintShippingCountry();
+        if (!shippingCountry) {
+          throw new Error("missing_shipping_country");
+        }
         const mapId = mapIdFromUrl || readStoredMapId();
         const activeRecipe = recipe ?? readDraft();
         if (!activeRecipe) {
@@ -724,8 +728,8 @@ export default function DownloadClient() {
         const { shape, ratio } = await resolveShapeAndRatio(activeRecipe);
         let uploadedAssetId: string | null = null;
         let lastAssetError: string | null = null;
-        const exportWidths = [6000, 5200];
-        const uploadQualities = [0.9, 0.8, 0.7, 0.6, 0.5];
+        const exportWidths = [6000, 5400, 5000, 4600, 4200];
+        const uploadQualities = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44];
         for (const exportWidth of exportWidths) {
           if (uploadedAssetId) break;
           const exportHeight = Math.max(1, Math.round(exportWidth / ratio));
@@ -778,10 +782,6 @@ export default function DownloadClient() {
           }
           throw new Error("asset_upload_failed");
         }
-        const shippingCountry = readStoredPrintShippingCountry();
-        if (!shippingCountry) {
-          throw new Error("missing_shipping_country");
-        }
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -807,6 +807,9 @@ export default function DownloadClient() {
           }
           if (data?.code === "print_shipping_country_invalid") {
             throw new Error("print_shipping_country_invalid");
+          }
+          if (data?.code === "missing_shipping_country") {
+            throw new Error("missing_shipping_country");
           }
           throw new Error(data?.error ?? "checkout_failed");
         }

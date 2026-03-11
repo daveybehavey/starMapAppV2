@@ -956,6 +956,9 @@ export function EditorExperience({
         if (promoCode) checkoutPayload.promoCode = promoCode;
         if (referralCode) checkoutPayload.referralCode = referralCode;
         if (orderType === "print") {
+          if (!printShippingCountry) {
+            throw new Error("missing_shipping_country");
+          }
           if (typeof document !== "undefined" && document.fonts) {
             await document.fonts.ready;
           }
@@ -968,8 +971,8 @@ export function EditorExperience({
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
           let lastAssetError: string | null = null;
-          const exportWidths = [6000, 5200];
-          const uploadQualities = [0.92, 0.82, 0.72, 0.62, 0.52];
+          const exportWidths = [6000, 5400, 5000, 4600, 4200];
+          const uploadQualities = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44];
           for (const exportWidth of exportWidths) {
             if (uploadedAssetId) break;
             const exportHeight = Math.max(1, Math.round(exportWidth / ratio));
@@ -1026,9 +1029,6 @@ export function EditorExperience({
           checkoutPayload.printVariant = printVariant;
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
           checkoutPayload.printAssetId = uploadedAssetId;
-          if (!printShippingCountry) {
-            throw new Error("missing_shipping_country");
-          }
           checkoutPayload.shippingCountry = printShippingCountry;
         }
         const checkoutInit: RequestInit = {
@@ -1057,6 +1057,9 @@ export function EditorExperience({
           }
           if (data?.code === "print_shipping_country_invalid") {
             throw new Error("print_shipping_country_invalid");
+          }
+          if (data?.code === "missing_shipping_country") {
+            throw new Error("missing_shipping_country");
           }
           throw new Error(data?.error ?? "checkout failed");
         }
@@ -1121,6 +1124,7 @@ export function EditorExperience({
       getPreviewSource,
       getCheckoutPromoCode,
       getCheckoutReferralCode,
+      printShippingCountry,
       renderOptions,
       selectedStyle,
       shape,

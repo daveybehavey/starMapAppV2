@@ -301,6 +301,13 @@ async function createCheckoutSession(
   const requestedShippingCountry =
     typeof shippingCountry === "string" ? shippingCountry.trim().toUpperCase() : null;
   const allowedCountries = getPrintfulShippingCountries();
+  if (isPrintOrder && !requestedShippingCountry) {
+    throw new CheckoutError(
+      "Shipping country is required for print checkout.",
+      "missing_shipping_country",
+      400,
+    );
+  }
   const resolvedShippingCountry =
     isPrintOrder && requestedShippingCountry && allowedCountries.includes(requestedShippingCountry)
       ? requestedShippingCountry
