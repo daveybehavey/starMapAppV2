@@ -6,15 +6,25 @@ import { resolve } from "node:path";
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY || "usd").trim().toUpperCase();
 
-function parseIntEnv(name, fallback) {
-  const raw = process.env[name];
-  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : fallback;
+function parseIntEnv(names, fallback) {
+  const keys = Array.isArray(names) ? names : [names];
+  for (const key of keys) {
+    const raw = process.env[key];
+    const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
 }
 
-const PRICE_SINGLE_CENTS = parseIntEnv("NEXT_PUBLIC_PRICE_SINGLE_CENTS", 900);
-const PRINT_UNFRAMED_CENTS = parseIntEnv("NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", 4900);
-const PRINT_FRAMED_CENTS = parseIntEnv("NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", 8900);
+const PRICE_SINGLE_CENTS = parseIntEnv(["NEXT_PUBLIC_PRICE_SINGLE_CENTS", "PRICE_SINGLE_CENTS"], 900);
+const PRINT_UNFRAMED_CENTS = parseIntEnv(
+  ["NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", "PRINT_UNFRAMED_PRICE_CENTS"],
+  4900,
+);
+const PRINT_FRAMED_CENTS = parseIntEnv(
+  ["NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", "PRINT_FRAMED_PRICE_CENTS"],
+  9900,
+);
 const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
 
 let shippingMap = null;
