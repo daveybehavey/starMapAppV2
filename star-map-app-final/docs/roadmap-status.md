@@ -142,6 +142,8 @@ Recent status:
 - Smoke suite reliability tightened:
   - `qa:smoke` now runs with a single worker for stability.
   - `qa:release-gate --smoke` now calls `npm run qa:smoke` (same stable settings).
+  - Preview wait helper now tolerates aria-label fallback states while the editor transitions.
+  - Homepage gallery smoke check now pre-seeds consent, waits for exact showcase images, and verifies load completion after scroll.
 - `qa:live-smoke` passes against `https://starmapco.com`.
 - `qa:sitemap-health` passes against live sitemap.
 - Added print operations monitor script: `npm run qa:print-ops`.
