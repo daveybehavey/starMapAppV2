@@ -27,6 +27,9 @@ test("homepage date field auto-formats 8-digit iOS-style input", async ({ browse
   await dateInput.fill("");
   await dateInput.type("20020504");
   await expect(dateInput).toHaveValue("2002-05-04");
+  await dateInput.fill("");
+  await dateInput.type("06012024");
+  await expect(dateInput).toHaveValue("2024-06-01");
   await context.close();
 });
 
@@ -201,6 +204,65 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
 
   // SAFE_OFF mode fallback: print checkout is intentionally hidden.
   await page.getByLabel("HD export").click();
-  await expect(page.getByText(/One HD export/i)).toBeVisible({ timeout: 8000 });
+  await expect(page.getByRole("button", { name: /Get 1 HD map|Get 3 downloads|Go unlimited/i }).first()).toBeVisible({
+    timeout: 8000,
+  });
   await expect(page.getByRole("button", { name: /Printed gift/i })).toHaveCount(0);
+});
+
+test("print checkout buttons submit print payload when visible", async ({ page }) => {
+  await gotoEditor(page, {
+    force: "desktop",
+    query: {
+      source: "home-delivery-print-framed",
+      checkout: "print",
+      print_variant: "poster_framed",
+    },
+  });
+  await applySampleMoment(page);
+
+  const printPrimaryCta = page.getByRole("button", { name: /Print & frame/i });
+  if (!(await printPrimaryCta.isVisible({ timeout: 2500 }).catch(() => false))) {
+    await page.getByLabel("HD export").click();
+    await expect(page.getByRole("button", { name: /Get 1 HD map|Get 3 downloads|Go unlimited/i }).first()).toBeVisible({
+      timeout: 8000,
+    });
+    return;
+  }
+
+  let checkoutPayload: Record<string, unknown> | null = null;
+  await page.route("**/api/maps", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "123e4567-e89b-42d3-a456-426614174000" }),
+    });
+  });
+  await page.route("**/api/print/assets", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, assetId: "123e4567-e89b-42d3-a456-426614174111" }),
+    });
+  });
+  await page.route("**/api/checkout", async (route) => {
+    checkoutPayload = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ url: "/editor?force=desktop&checkout_mock=1" }),
+    });
+  });
+
+  await printPrimaryCta.click();
+  const framedWithHd = page.getByRole("button", { name: /Framed \+ HD file \(recommended\)/i });
+  await expect(framedWithHd).toBeVisible({ timeout: 8000 });
+  await framedWithHd.click();
+
+  await expect.poll(() => checkoutPayload, { timeout: 15000 }).not.toBeNull();
+  expect(checkoutPayload?.orderType).toBe("print");
+  expect(checkoutPayload?.printVariant).toBe("poster_framed");
+  expect(checkoutPayload?.includeDigitalAddOn).toBe(true);
+  expect(typeof checkoutPayload?.shippingCountry).toBe("string");
+  expect(typeof checkoutPayload?.printAssetId).toBe("string");
 });

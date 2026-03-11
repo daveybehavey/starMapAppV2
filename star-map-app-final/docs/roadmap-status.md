@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-10
+Updated: 2026-03-11
 
 ## Phase 0: Foundation (Done)
 
@@ -48,6 +48,11 @@ Updated: 2026-03-10
 - Merchant feed quality hardening:
   - Shipping lines now normalize to feed currency when provider rates are in a different currency.
   - Product image links now use dedicated square examples for better Merchant compatibility.
+- Mobile date-input resilience hardening:
+  - iOS-safe date inputs now accept both `YYYYMMDD` and `MMDDYYYY` numeric typing and normalize to `YYYY-MM-DD`.
+  - Static homepage date form now supports numeric-only keyboard entry without requiring manual `-` separators.
+- Print checkout country selector contrast hardening:
+  - Added explicit select/option text color styling so shipping-country labels remain readable in native dropdowns.
 
 ### In progress
 

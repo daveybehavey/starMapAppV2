@@ -871,16 +871,18 @@
                 aria-label="Date"
                 autocomplete="bday"
                 inputmode="numeric"
-                pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
                 maxlength="10"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
                 placeholder="YYYY-MM-DD"
-                title="Use YYYY-MM-DD format"
+                title="Use YYYYMMDD or YYYY-MM-DD format"
               />
               <input name="location" type="text" placeholder="City or address" aria-label="Location" autocomplete="address-level2" />
             </div>
             <button type="submit">Preview your map</button>
           </form>
-          <p class="hero-note">Free preview · No account required. Date format: YYYY-MM-DD</p>
+          <p class="hero-note">Free preview · No account required. Date format: YYYY-MM-DD (or type YYYYMMDD)</p>
         <div class="hero-cta-row">
           <a
             class="hero-link secondary"
@@ -1474,6 +1476,17 @@
         if (!(dateInput instanceof HTMLInputElement)) return;
         const normalizeIsoDateInput = function (value) {
           const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+          if (digits.length === 8) {
+            const startYear = Number(digits.slice(0, 4));
+            const endYear = Number(digits.slice(4, 8));
+            if (startYear >= 1900 && startYear <= 2100) {
+              return digits.slice(0, 4) + "-" + digits.slice(4, 6) + "-" + digits.slice(6, 8);
+            }
+            // Accept MMDDYYYY input on numeric-only mobile keyboards.
+            if (endYear >= 1900 && endYear <= 2100) {
+              return digits.slice(4, 8) + "-" + digits.slice(0, 2) + "-" + digits.slice(2, 4);
+            }
+          }
           if (digits.length <= 4) return digits;
           if (digits.length <= 6) return digits.slice(0, 4) + "-" + digits.slice(4);
           return digits.slice(0, 4) + "-" + digits.slice(4, 6) + "-" + digits.slice(6);

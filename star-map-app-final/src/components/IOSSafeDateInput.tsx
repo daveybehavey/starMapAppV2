@@ -30,6 +30,17 @@ function isValidIsoDate(value: string) {
 
 function normalizeIsoDateInput(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length === 8) {
+    const startYear = Number(digits.slice(0, 4));
+    const endYear = Number(digits.slice(4, 8));
+    if (startYear >= 1900 && startYear <= 2100) {
+      return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+    }
+    // Support MMDDYYYY typing on numeric-only keyboards (common on mobile/iOS).
+    if (endYear >= 1900 && endYear <= 2100) {
+      return `${digits.slice(4, 8)}-${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
+    }
+  }
   if (digits.length <= 4) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;

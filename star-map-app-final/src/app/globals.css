@@ -826,13 +826,15 @@ input[type="range"]:hover::-moz-range-thumb {
 }
 
 .print-country-select {
-  color: #111827;
-  background-color: #ffffff;
+  color: #111827 !important;
+  background-color: #ffffff !important;
+  -webkit-text-fill-color: #111827;
+  appearance: auto;
 }
 
 .print-country-select option {
-  color: #111827;
-  background-color: #ffffff;
+  color: #111827 !important;
+  background-color: #ffffff !important;
 }
 
 /* Keep native iOS date/time controls inside card bounds on narrow screens. */

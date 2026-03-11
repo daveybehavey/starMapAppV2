@@ -2275,9 +2275,15 @@ export function EditorExperience({
                                   storePrintShippingCountry(next);
                                 }}
                                 className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
+                                style={{ color: "#111827", WebkitTextFillColor: "#111827" }}
                               >
                                 {printShippingCountryOptions.map((country) => (
-                                  <option key={country.code} value={country.code} className="text-midnight">
+                                  <option
+                                    key={country.code}
+                                    value={country.code}
+                                    className="text-midnight"
+                                    style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                                  >
                                     {country.label}
                                   </option>
                                 ))}
