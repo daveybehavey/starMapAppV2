@@ -57,6 +57,9 @@ Updated: 2026-03-11
   - iOS-safe text fallback no longer uses native HTML pattern enforcement, preventing Safari "format required" lockups while still validating with custom logic.
 - Print checkout country selector contrast hardening:
   - Added explicit select/option text color styling so shipping-country labels remain readable in native dropdowns.
+- Print checkout pricing clarity hardening:
+  - Print CTAs in editor, mobile, and paywall now show estimated shipping cost for the currently selected country.
+  - Added inline shipping estimate hint (`framed` vs `unframed`) beside country selection to reduce checkout surprises.
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.

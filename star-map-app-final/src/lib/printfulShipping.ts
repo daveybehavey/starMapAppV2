@@ -1,10 +1,18 @@
 import shippingMap from "../../data/printful-shipping.json";
+import { formatPrice } from "@/lib/pricing";
 
 export type PrintfulShippingRate = {
   rate: number;
   currency: string;
   min_delivery_days?: number;
   max_delivery_days?: number;
+};
+
+export type PrintShippingEstimate = {
+  amountCents: number;
+  currency: string;
+  minDeliveryDays?: number;
+  maxDeliveryDays?: number;
 };
 
 type ShippingMap = {
@@ -56,6 +64,31 @@ export function getPrintfulShippingRate(variant: "poster_unframed" | "poster_fra
     return map.poster_framed?.[code] ?? null;
   }
   return map.poster_unframed?.[code] ?? null;
+}
+
+export function getPrintShippingEstimate(
+  variant: "poster_unframed" | "poster_framed",
+  country: string | null | undefined,
+): PrintShippingEstimate | null {
+  if (!country) return null;
+  const rate = getPrintfulShippingRate(variant, country);
+  if (!rate || !Number.isFinite(rate.rate)) return null;
+  return {
+    amountCents: Math.round(rate.rate * 100),
+    currency: (rate.currency || "USD").toUpperCase(),
+    minDeliveryDays: typeof rate.min_delivery_days === "number" ? rate.min_delivery_days : undefined,
+    maxDeliveryDays: typeof rate.max_delivery_days === "number" ? rate.max_delivery_days : undefined,
+  };
+}
+
+export function formatPrintShippingEstimate(
+  variant: "poster_unframed" | "poster_framed",
+  country: string | null | undefined,
+  fallback = "shipping",
+) {
+  const estimate = getPrintShippingEstimate(variant, country);
+  if (!estimate) return fallback;
+  return `${formatPrice(estimate.amountCents, estimate.currency)} shipping`;
 }
 
 export function readStoredPrintShippingCountry() {

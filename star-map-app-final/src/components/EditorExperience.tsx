@@ -29,6 +29,8 @@ import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
+  formatPrintShippingEstimate,
+  getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
@@ -354,6 +356,14 @@ export function EditorExperience({
 
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
   const shippingDisclosure = getPrintShippingDisclosure();
+  const framedShippingLabel = useMemo(
+    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
+    [printShippingCountry],
+  );
+  const unframedShippingLabel = useMemo(
+    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
+    [printShippingCountry],
+  );
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const previewRef = useRef<HTMLDivElement>(null);
@@ -2288,6 +2298,12 @@ export function EditorExperience({
                                   </option>
                                 ))}
                               </select>
+                              {printShippingCountry && (
+                                <p className="mt-1 text-[10px] text-amber-100/80">
+                                  Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
+                                  {framedShippingLabel} · unframed {unframedShippingLabel}
+                                </p>
+                              )}
                             </div>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <button
@@ -2302,7 +2318,8 @@ export function EditorExperience({
                                 disabled={checkoutInFlight || !printShippingCountry}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/35 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/45 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                {printPriceLabels.framedName} + HD • {printPriceLabels.framed} + shipping + {printPriceLabels.digitalAddOn}
+                                {printPriceLabels.framedName} + HD • {printPriceLabels.framed} +{" "}
+                                {framedShippingLabel} + {printPriceLabels.digitalAddOn}
                               </button>
                               <button
                                 type="button"
@@ -2316,7 +2333,7 @@ export function EditorExperience({
                                 disabled={checkoutInFlight || !printShippingCountry}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                {printPriceLabels.framedName} • {printPriceLabels.framed} + shipping
+                                {printPriceLabels.framedName} • {printPriceLabels.framed} + {framedShippingLabel}
                               </button>
                               <button
                                 type="button"
@@ -2330,7 +2347,7 @@ export function EditorExperience({
                                 disabled={checkoutInFlight || !printShippingCountry}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
-                                {printPriceLabels.unframedName} • {printPriceLabels.unframed} + shipping
+                                {printPriceLabels.unframedName} • {printPriceLabels.unframed} + {unframedShippingLabel}
                               </button>
                             </div>
                             {checkoutError && (

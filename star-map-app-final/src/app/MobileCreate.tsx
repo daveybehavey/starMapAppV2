@@ -17,7 +17,11 @@ import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
-import { getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import {
+  formatPrintShippingEstimate,
+  getPrintShippingCountryLabel,
+  getPrintShippingCountryOptions,
+} from "@/lib/printfulShipping";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
 interface MobileCreateProps {
@@ -101,6 +105,8 @@ export function MobileCreate({
   } = useEditorLogic({ variant });
   const shippingDisclosure = getPrintShippingDisclosure();
   const printShippingCountryOptions = getPrintShippingCountryOptions(printShippingCountries);
+  const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
+  const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -1137,6 +1143,12 @@ export function MobileCreate({
                         </option>
                       ))}
                     </select>
+                    {printShippingCountry && (
+                      <p className="mt-1 text-[10px] text-amber-100/80">
+                        Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
+                        {framedShippingLabel} · unframed {unframedShippingLabel}
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="mt-2 flex flex-col gap-2">
@@ -1146,7 +1158,8 @@ export function MobileCreate({
                     disabled={!printShippingCountry}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
                   >
-                    🖼️ Framed + HD (recommended) • {printPriceLabels.framed} + shipping + {printPriceLabels.digitalAddOn}
+                    🖼️ Framed + HD (recommended) • {printPriceLabels.framed} + {framedShippingLabel} +{" "}
+                    {printPriceLabels.digitalAddOn}
                   </button>
                   <button
                     type="button"
@@ -1154,7 +1167,7 @@ export function MobileCreate({
                     disabled={!printShippingCountry}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
                   >
-                    🖼️ Framed print • {printPriceLabels.framed} + shipping
+                    🖼️ Framed print • {printPriceLabels.framed} + {framedShippingLabel}
                   </button>
                   <button
                     type="button"
@@ -1162,7 +1175,7 @@ export function MobileCreate({
                     disabled={!printShippingCountry}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
                   >
-                    🖼️ Unframed print • {printPriceLabels.unframed} + shipping
+                    🖼️ Unframed print • {printPriceLabels.unframed} + {unframedShippingLabel}
                   </button>
                 </div>
               </div>
