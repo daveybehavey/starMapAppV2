@@ -16,7 +16,7 @@ import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
-import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
+import { getPrintfulShippingRate } from "@/lib/printfulShipping";
 
 export const runtime = "nodejs";
 
@@ -300,7 +300,11 @@ async function createCheckoutSession(
   const digitalAddOnTier = getPrintDigitalAddOnPrice();
   const requestedShippingCountry =
     typeof shippingCountry === "string" ? shippingCountry.trim().toUpperCase() : null;
-  const allowedCountries = getPrintfulShippingCountries();
+  const normalizedRequestedShippingCountry =
+    requestedShippingCountry && /^[A-Z]{2}$/.test(requestedShippingCountry)
+      ? (requestedShippingCountry as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry)
+      : null;
+  const allowedCountries = printAllowedCountries;
   if (isPrintOrder && !requestedShippingCountry) {
     throw new CheckoutError(
       "Shipping country is required for print checkout.",
@@ -309,8 +313,8 @@ async function createCheckoutSession(
     );
   }
   const resolvedShippingCountry =
-    isPrintOrder && requestedShippingCountry && allowedCountries.includes(requestedShippingCountry)
-      ? requestedShippingCountry
+    isPrintOrder && normalizedRequestedShippingCountry && allowedCountries.includes(normalizedRequestedShippingCountry)
+      ? normalizedRequestedShippingCountry
       : null;
   if (isPrintOrder && requestedShippingCountry && !resolvedShippingCountry) {
     throw new CheckoutError(

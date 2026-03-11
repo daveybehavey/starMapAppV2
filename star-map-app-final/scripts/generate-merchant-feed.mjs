@@ -57,6 +57,14 @@ function formatPrice(amountCents) {
   return `${(amountCents / 100).toFixed(2)} ${CURRENCY}`;
 }
 
+function formatShippingPrice(rate) {
+  const rateCurrency = String(rate?.currency || "").trim().toUpperCase();
+  if (typeof rate?.rate === "number" && Number.isFinite(rate.rate) && rateCurrency === CURRENCY) {
+    return `${rate.rate.toFixed(2)} ${CURRENCY}`;
+  }
+  return formatPrice(PRINT_SHIPPING_CENTS);
+}
+
 function escapeXml(value) {
   return value
     .replace(/&/g, "&amp;")
@@ -142,15 +150,9 @@ const items = [
       ? MERCHANT_FEED_COUNTRIES
           .map((country) => {
             const rate = shippingMap.poster_unframed?.[country];
-            if (!rate || typeof rate.rate !== "number") {
-              return {
-                country,
-                price: formatPrice(PRINT_SHIPPING_CENTS),
-              };
-            }
             return {
               country,
-              price: `${rate.rate.toFixed(2)} ${rate.currency || "USD"}`,
+              price: formatShippingPrice(rate),
             };
           })
       : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],
@@ -172,15 +174,9 @@ const items = [
       ? MERCHANT_FEED_COUNTRIES
           .map((country) => {
             const rate = shippingMap.poster_framed?.[country];
-            if (!rate || typeof rate.rate !== "number") {
-              return {
-                country,
-                price: formatPrice(PRINT_SHIPPING_CENTS),
-              };
-            }
             return {
               country,
-              price: `${rate.rate.toFixed(2)} ${rate.currency || "USD"}`,
+              price: formatShippingPrice(rate),
             };
           })
       : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],

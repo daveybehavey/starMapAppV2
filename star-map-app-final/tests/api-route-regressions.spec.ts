@@ -11,6 +11,18 @@ function randomIp() {
   return `${part()}.${part()}.${part()}.${part()}`;
 }
 
+function parseAllowedPrintCountries() {
+  const raw =
+    process.env.PRINT_ALLOWED_COUNTRIES ||
+    process.env.NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES ||
+    "US";
+  const parsed = raw
+    .split(",")
+    .map((token) => token.trim().toUpperCase())
+    .filter((token) => /^[A-Z]{2}$/.test(token));
+  return parsed.length ? parsed : ["US"];
+}
+
 async function requestUntilReady(
   request: APIRequestContext,
   path: string,
@@ -200,6 +212,34 @@ test.describe("API route regressions", () => {
     const body = (await response.json()) as { code?: string; error?: string };
     expect(body.code).toBe("print_checkout_disabled");
     expect(body.error).toMatch(/print checkout/i);
+  });
+
+  test("print checkout rejects unsupported shipping countries when enabled", async ({ request }) => {
+    const allowedCountries = new Set(parseAllowedPrintCountries());
+    const candidateCountries = ["CA", "GB", "AU", "DE", "FR", "JP", "BR", "MX"];
+    const unsupportedCountry = candidateCountries.find((country) => !allowedCountries.has(country)) ?? "ZZ";
+
+    const response = await requestUntilReady(request, "/api/checkout", {
+      method: "POST",
+      data: {
+        plan: "single",
+        orderType: "print",
+        printVariant: "poster_unframed",
+        includeDigitalAddOn: false,
+        printAssetId: "123e4567-e89b-42d3-a456-426614174000",
+        shippingCountry: unsupportedCountry,
+      },
+    });
+
+    const body = (await response.json()) as { code?: string; error?: string };
+    if (response.status() === 503) {
+      expect(body.code).toBe("print_checkout_disabled");
+      return;
+    }
+
+    expect(response.status()).toBe(400);
+    expect(body.code).toBe("print_shipping_country_invalid");
+    expect(body.error).toMatch(/unsupported shipping country/i);
   });
 
   test("print admin endpoints require admin token", async ({ request }) => {

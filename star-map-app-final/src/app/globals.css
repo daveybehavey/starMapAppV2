@@ -825,6 +825,16 @@ input[type="range"]:hover::-moz-range-thumb {
   box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15), 0 0 20px rgba(251, 191, 36, 0.1);
 }
 
+.print-country-select {
+  color: #111827;
+  background-color: #ffffff;
+}
+
+.print-country-select option {
+  color: #111827;
+  background-color: #ffffff;
+}
+
 /* Keep native iOS date/time controls inside card bounds on narrow screens. */
 .ios-form-control {
   display: block;

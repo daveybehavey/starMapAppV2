@@ -1,8 +1,34 @@
 import { test, expect } from "@playwright/test";
-import { applySampleMoment, gotoEditor } from "./test-helpers";
+import { applySampleMoment, gotoEditor, primeLocalStorage } from "./test-helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 test.setTimeout(60_000);
+
+test("homepage date field auto-formats 8-digit iOS-style input", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await primeLocalStorage(page);
+  await page.addInitScript(() => {
+    const define = (obj: object, key: string, value: unknown) => {
+      try {
+        Object.defineProperty(obj, key, { configurable: true, get: () => value });
+      } catch {
+        // ignore readonly overrides in some environments
+      }
+    };
+    define(navigator, "userAgent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
+    define(navigator, "platform", "iPhone");
+    define(navigator, "maxTouchPoints", 5);
+  });
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const dateInput = page.locator("#hero-date, #quick-date, input[name='date']").first();
+  await expect(dateInput).toBeVisible();
+  await dateInput.fill("");
+  await dateInput.type("20020504");
+  await expect(dateInput).toHaveValue("2002-05-04");
+  await context.close();
+});
 
 test("location warnings and validation errors render", async ({ page }) => {
   // Use force=desktop for deterministic test

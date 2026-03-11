@@ -27,9 +27,8 @@ import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
-  getPrintfulShippingCountries,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
@@ -260,7 +259,7 @@ export function EditorExperience({
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
   const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
-  const printShippingCountries = useMemo(() => getPrintfulShippingCountries(), []);
+  const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
   const [printShippingCountry, setPrintShippingCountry] = useState<string | null>(null);
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -971,7 +970,7 @@ export function EditorExperience({
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
           let lastAssetError: string | null = null;
-          const exportWidths = [6000, 5400, 5000, 4600, 4200];
+          const exportWidths = [6000, 5400, 5000, 4600, 4200, 3800, 3400];
           const uploadQualities = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44];
           for (const exportWidth of exportWidths) {
             if (uploadedAssetId) break;
@@ -2267,7 +2266,7 @@ export function EditorExperience({
                                   setPrintShippingCountry(next);
                                   storePrintShippingCountry(next);
                                 }}
-                                className="mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
+                                className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
                               >
                                 {printShippingCountries.map((country) => (
                                   <option key={country} value={country} className="text-midnight">

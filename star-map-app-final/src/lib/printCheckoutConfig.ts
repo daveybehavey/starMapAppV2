@@ -6,19 +6,19 @@ function parseCountries(raw: string | undefined) {
     .split(",")
     .map((token) => token.trim().toUpperCase())
     .filter((token) => /^[A-Z]{2}$/.test(token));
-  return parsed.length ? parsed : ["US"];
+  return parsed;
 }
 
 export function getPrintAllowedCountries() {
   const raw =
     typeof window === "undefined"
-      ? process.env.PRINT_ALLOWED_COUNTRIES ?? process.env.NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES ?? "US"
-      : process.env.NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES ?? "US";
-  const parsed = parseCountries(raw);
-  if (parsed.length === 1 && parsed[0] === "US") {
+      ? process.env.PRINT_ALLOWED_COUNTRIES ?? process.env.NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES
+      : process.env.NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES;
+  if (!raw || !raw.trim()) {
     return getPrintfulShippingCountries();
   }
-  return parsed;
+  const parsed = parseCountries(raw);
+  return parsed.length ? parsed : ["US"];
 }
 
 export function isUsOnlyPrintCheckout() {
