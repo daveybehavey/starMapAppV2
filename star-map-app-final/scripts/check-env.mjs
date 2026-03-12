@@ -148,6 +148,11 @@ if (process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD && !process.env.STRIPE_SH
   warnings.push("STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD does not look like a Stripe shipping rate id");
 }
 
+const dynamicShippingEnabled = parseBooleanEnv("PRINT_DYNAMIC_SHIPPING");
+if (dynamicShippingEnabled === true && process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim()) {
+  warnings.push("PRINT_DYNAMIC_SHIPPING=true ignores STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD at runtime");
+}
+
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 if (stripeKey && !/^sk_(live|test)_/.test(stripeKey)) {
   warnings.push("STRIPE_SECRET_KEY does not look like a Stripe secret key");

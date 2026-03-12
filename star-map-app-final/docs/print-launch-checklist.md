@@ -7,6 +7,7 @@ This is the production launch checklist for StarMapCo physical prints.
 - `PRINT_CHECKOUT_ENABLED`: enables print checkout on the server.
 - `NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED`: shows print checkout UI.
 - `PRINT_ORDER_SUBMISSION_ENABLED`: submits paid print orders to fulfillment.
+- `PRINT_DYNAMIC_SHIPPING`: when true, checkout uses country-level shipping estimates instead of fixed Stripe shipping rate.
 
 These flags should be aligned before launch.
 

@@ -37,6 +37,7 @@ const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim()
 const configuredReferralPromotionCodeId = process.env.STRIPE_REFERRAL_PROMO_CODE_ID?.trim() ?? "";
 const printAllowedCountries = parseAllowedShippingCountries(process.env.PRINT_ALLOWED_COUNTRIES);
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_CHECKOUT_ENABLED || "").trim());
+const printDynamicShippingEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_DYNAMIC_SHIPPING || "").trim());
 
 // Use fetch-based HTTP client to work in Cloudflare Workers.
 const stripe =
@@ -71,7 +72,7 @@ function getPrintShippingOptionsForCountry(
   shippingCountry: string | null,
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined {
   const configuredShippingRate = process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim();
-  if (configuredShippingRate) {
+  if (configuredShippingRate && !printDynamicShippingEnabled) {
     return [{ shipping_rate: configuredShippingRate }];
   }
 
