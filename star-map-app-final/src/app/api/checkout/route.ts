@@ -156,6 +156,10 @@ function parseBoolean(raw: unknown, fallback = false) {
   return fallback;
 }
 
+function canUseManualPromotionCode(orderType: CheckoutOrderType, plan: CheckoutPlan) {
+  return orderType === "digital" && plan === "single";
+}
+
 function shouldRetryCheckoutWithoutDiscount(error: unknown) {
   if (!error || typeof error !== "object") return false;
   const stripeError = error as { code?: string; message?: string; param?: string };
@@ -288,7 +292,7 @@ async function createCheckoutSession(
   const isPrintOrder = normalizedOrderType === "print";
   const normalizedPrintVariant = parsePrintVariant(printVariant);
   const effectivePlan = isPrintOrder ? "single" : plan;
-  const allowPromotionCodes = isPrintOrder || effectivePlan !== "subscription";
+  const allowPromotionCodes = canUseManualPromotionCode(normalizedOrderType, effectivePlan);
   const mapQuery = mapId ? `&map_id=${encodeURIComponent(mapId)}` : "";
   const orderQuery = `&order_type=${normalizedOrderType}`;
   const printQuery = isPrintOrder ? `&print_variant=${normalizedPrintVariant}` : "";
@@ -537,7 +541,9 @@ export async function GET(req: NextRequest) {
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const promotion = orderType === "digital" && plan === "subscription"
     ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-    : await resolvePromotionCodeId(promoCodeParam);
+    : canUseManualPromotionCode(orderType, plan)
+      ? await resolvePromotionCodeId(promoCodeParam)
+      : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
   const selectedPromotion = selectCheckoutPromotion({
     manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
     referralCode: referral.code,
@@ -682,7 +688,9 @@ export async function POST(req: NextRequest) {
     }
     const promotion = orderType === "digital" && plan === "subscription"
       ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-      : await resolvePromotionCodeId(promoCode);
+      : canUseManualPromotionCode(orderType, plan)
+        ? await resolvePromotionCodeId(promoCode)
+        : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
     if (promoCode && promotion.invalid) {
       return NextResponse.json(
         { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },

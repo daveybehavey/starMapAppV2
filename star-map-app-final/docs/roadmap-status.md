@@ -201,6 +201,9 @@ Recent status:
 4. Referral rollout hardening:
    - verify attribution and reward credit flow after the measurement updates
    - keep anti-abuse limits on before wider promotion
+5. Reveal experience polish:
+   - make the transition from setup -> revealed sky feel intentional on desktop + mobile
+   - reduce dead-click ambiguity with explicit “revealing” states while preview is initializing
 
 ### Current Phase 4 Progress
 
@@ -215,6 +218,7 @@ Recent status:
   - `/wedding`
 - Added a reusable deliverables section (`WhatYouReceiveModule`) on the same three pages for explicit post-checkout expectations.
 - Added testimonial rendering scaffolding (`TestimonialHighlights` + `src/data/testimonials.ts`) that stays hidden until real, permissioned quotes are added.
+- Added staged reveal state on desktop and mobile editor flows so “Generate preview” now transitions through a short “Revealing your sky...” moment before showing the final map state.
 
 ## Phase 5: Print Scale (Planned)
 

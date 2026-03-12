@@ -10,7 +10,8 @@ export function selectCheckoutPromotion(input: {
   plan: CheckoutPlan;
 }): { promotionCodeId?: string; source: PromotionSource } {
   const manualPromotionCodeId = input.manualPromotionCodeId?.trim();
-  if (manualPromotionCodeId) {
+  const canApplyManualPromotion = input.orderType === "digital" && input.plan === "single";
+  if (manualPromotionCodeId && canApplyManualPromotion) {
     return { promotionCodeId: manualPromotionCodeId, source: "manual" };
   }
 

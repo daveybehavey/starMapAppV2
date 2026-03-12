@@ -24,6 +24,8 @@ import {
 } from "@/lib/printfulShipping";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
+const REVEAL_ANIMATION_MS = 650;
+
 interface MobileCreateProps {
   onExport: (mode: "preview" | "hd") => void | Promise<void>;
   onShareImage: () => void;
@@ -112,6 +114,8 @@ export function MobileCreate({
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const revealTimerRef = useRef<number | null>(null);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
@@ -275,16 +279,33 @@ export function MobileCreate({
   }, [applyPreset, setRevealed]);
 
   const handleReveal = useCallback(() => {
-    if (!canReveal) return;
-    setRevealed(true);
-    track("preview_revealed", { source: "mobile" });
-    trackFunnelStep("editor_reveal", { source: "mobile" });
-    setTimeout(() => {
-      document.getElementById("mobile-preview")?.scrollIntoView({
-        behavior: "smooth",
-      });
-    }, 100);
-  }, [canReveal, setRevealed]);
+    if (!canReveal || isRevealing) return;
+    setIsRevealing(true);
+    if (typeof window !== "undefined" && revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+    revealTimerRef.current = window.setTimeout(() => {
+      setRevealed(true);
+      setIsRevealing(false);
+      revealTimerRef.current = null;
+      track("preview_revealed", { source: "mobile" });
+      trackFunnelStep("editor_reveal", { source: "mobile" });
+      setTimeout(() => {
+        document.getElementById("mobile-preview")?.scrollIntoView({
+          behavior: "smooth",
+        });
+      }, 100);
+    }, REVEAL_ANIMATION_MS);
+  }, [canReveal, isRevealing, setRevealed]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && revealTimerRef.current) {
+        window.clearTimeout(revealTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!canReveal || revealed) {
@@ -577,18 +598,22 @@ export function MobileCreate({
           <button
             type="button"
             onClick={handleReveal}
-            disabled={!canReveal}
+            disabled={!canReveal || isRevealing}
             aria-label="Generate preview"
             className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] ${
-              canReveal
+              canReveal && !isRevealing
                 ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                 : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
             }`}
           >
-            Generate preview
+            {isRevealing ? "Revealing your sky..." : "Generate preview"}
           </button>
           <div className="text-xs text-neutral-400">
-            <p>Add date + location to unlock your preview. Presets optional.</p>
+            <p>
+              {isRevealing
+                ? "Aligning stars with your selected moment..."
+                : "Add date + location to unlock your preview. Presets optional."}
+            </p>
             <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
           </div>
         </div>
@@ -1070,21 +1095,46 @@ export function MobileCreate({
             {!revealed && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <div className="space-y-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-semibold text-neutral-200 shadow-sm backdrop-blur text-center">
-                  <p>Add date + location to reveal your sky. Presets optional.</p>
-                  <button
-                    type="button"
-                    onClick={handleReveal}
-                    disabled={!canReveal}
-                    aria-label="Generate preview"
-                    className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition ${
-                      canReveal
-                        ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
-                        : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
-                    }`}
-                  >
-                    Generate preview
-                  </button>
-                  <p className="text-[10px] text-neutral-300">Free preview, HD optional.</p>
+                  <p>
+                    {isRevealing
+                      ? "Locking in your sky details..."
+                      : "Add date + location to reveal your sky. Presets optional."}
+                  </p>
+                  {canReveal ? (
+                    isRevealing ? (
+                      <div className="rounded-xl border border-amber-200/35 bg-slate-900/45 px-3 py-2">
+                        <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
+                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                          <div className="h-full w-full animate-pulse bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300" />
+                        </div>
+                        <p className="mt-2 text-[10px] text-neutral-200">Revealing your sky...</p>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleReveal}
+                        aria-label="Generate preview"
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition"
+                      >
+                        Generate preview
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleReveal}
+                      disabled
+                      aria-label="Generate preview"
+                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
+                    >
+                      Generate preview
+                    </button>
+                  )}
+                  <p className="text-[10px] text-neutral-300">
+                    {isRevealing ? "This usually takes about a second." : "Free preview, HD optional."}
+                  </p>
                   {printCheckoutEnabled && (
                     <p className="text-[10px] text-amber-100/90">
                       Printed and framed options unlock after preview.
@@ -1232,20 +1282,27 @@ export function MobileCreate({
           </>
         )}
       </section>
-      {canReveal && !revealed && showStickyCTA && (
+      {canReveal && !revealed && showStickyCTA && !isRevealing && (
         <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 rounded-2xl border border-amber-200/40 bg-[#0b0f24]/95 px-4 py-3 shadow-xl shadow-black/30 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-white">Ready to reveal your sky?</p>
-              <p className="text-[10px] text-neutral-300">Free preview, HD optional.</p>
+              <p className="text-[10px] text-neutral-300">
+                {isRevealing ? "Rendering your reveal..." : "Free preview, HD optional."}
+              </p>
             </div>
             <button
               type="button"
               onClick={handleReveal}
               data-testid="mobile-sticky-generate"
-              className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
+              disabled={isRevealing}
+              className={`rounded-full px-3 py-2 text-xs font-semibold text-midnight shadow-md transition ${
+                isRevealing
+                  ? "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
+                  : "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:-translate-y-[1px] hover:shadow-lg"
+              }`}
             >
-              Generate preview
+              {isRevealing ? "Revealing..." : "Generate preview"}
             </button>
           </div>
         </div>

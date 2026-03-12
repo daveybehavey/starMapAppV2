@@ -7,19 +7,19 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
   const showSuccess = promoStatus === "success";
   const showError = promoStatus === "error";
   const successMessage = promoCode
-    ? `You're on the list! Use code ${promoCode} at checkout.`
-    : "You're on the list! Watch your inbox for your 20% off code.";
+    ? `You're on the list! Use code ${promoCode} on your first single HD digital download.`
+    : "You're on the list! Watch your inbox for your 50% off first HD file code.";
 
   return (
     <div className="cosmic-panel-enhanced cosmic-panel w-full rounded-[28px] border border-amber-200/60 bg-gradient-to-br from-white/85 to-amber-50/90 p-6 shadow-2xl shadow-black/30 sm:p-10">
       <div className="space-y-3 text-midnight">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">Stay in orbit</p>
         <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold leading-tight text-midnight sm:text-4xl">
-          Get 20% off your next star map
+          Get 50% off your first HD file
         </h2>
         <p className="text-sm text-neutral-700 sm:text-base">
-          Join the insiders list for occasional updates, first dibs on limited releases, and a one-time 20% off code
-          reserved for subscribers.
+          Join the insiders list for occasional updates, first dibs on limited releases, and a one-time 50% off code
+          for your first single HD digital download.
         </p>
       </div>
 
@@ -45,7 +45,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
             type="submit"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Join &amp; save 20%
+            Join &amp; save 50%
           </button>
         </form>
 

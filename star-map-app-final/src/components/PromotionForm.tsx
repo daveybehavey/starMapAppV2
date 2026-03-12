@@ -29,14 +29,14 @@ const friendlyErrorMessage = (error?: string) => {
 
 const successMessageFor = (payload: SubscribeSuccessResponse) => {
   const coupon = typeof payload.couponCode === "string" ? payload.couponCode : undefined;
-  if (!coupon) return "You're on the list! Watch your inbox for 20% off and future drops.";
+  if (!coupon) return "You're on the list! Watch your inbox for 50% off your first HD file and future drops.";
   if (payload.isNewSubscriber === false) {
-    return `You're already on the list. Use code ${coupon} at checkout anytime.`;
+    return `You're already on the list. Use code ${coupon} on your first single HD digital download.`;
   }
   if (payload.emailDelivered) {
-    return `Done! Code ${coupon} was emailed to you. You can also use it right now at checkout.`;
+    return `Done! Code ${coupon} was emailed to you. You can use it now on your first single HD digital checkout.`;
   }
-  return `You're in. Use code ${coupon} at checkout, and we'll email details soon.`;
+  return `You're in. Use code ${coupon} on your first single HD digital checkout, and we'll email details soon.`;
 };
 
 type PromotionSuccessPayload = {
@@ -55,7 +55,7 @@ export interface PromotionFormProps {
 }
 
 export function PromotionForm({
-  buttonLabel = "Join & save 20%",
+  buttonLabel = "Join & save 50%",
   inputVariant = "light",
   hideDisclaimer = false,
   source = "homepage_inline",

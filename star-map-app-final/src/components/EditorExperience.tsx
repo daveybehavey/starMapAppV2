@@ -85,6 +85,7 @@ const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const PROMO_CODE_KEY = "star-map-promo-code";
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
+const REVEAL_ANIMATION_MS = 650;
 
 function normalizePromoCode(raw: string | null | undefined) {
   if (!raw) return null;
@@ -281,6 +282,8 @@ export function EditorExperience({
   const checkoutInFlightRef = useRef(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [autoExportPending, setAutoExportPending] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const revealTimerRef = useRef<number | null>(null);
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
   const consumePromiseRef = useRef<Promise<boolean> | null>(null);
@@ -340,6 +343,14 @@ export function EditorExperience({
     if (!paywallOpen) return;
     trackExperimentExposure(PAYWALL_COPY_EXPERIMENT, paywallVariant, { source: "editor" });
   }, [paywallOpen, paywallVariant]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && revealTimerRef.current) {
+        window.clearTimeout(revealTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -685,34 +696,44 @@ export function EditorExperience({
     setCollapsedCards((prev) => ({ ...prev, ...updates }));
 
   const handleReveal = useCallback(() => {
+    if (isRevealing) return;
     if (!canReveal || !hasDate) {
       inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    setRevealed(true);
-    // Shift into edit mode with a compact default panel state.
-    setCollapsedCards((prev) => ({
-      ...prev,
-      dateLocation: true,
-      textStyling: true,
-      style: true,
-      shape: true,
-      frame: true,
-      advanced: true,
-    }));
-    track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
-    trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(REVEALED_FLAG, "true");
-      } catch {
-        // ignore storage errors (e.g. private browsing)
-      }
+    setIsRevealing(true);
+    if (typeof window !== "undefined" && revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
     }
-    requestAnimationFrame(() => {
-      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [canReveal, getPreviewSource, hasDate, paid, renderOptions.visualMode, setRevealed]);
+    revealTimerRef.current = window.setTimeout(() => {
+      setRevealed(true);
+      setIsRevealing(false);
+      revealTimerRef.current = null;
+      // Shift into edit mode with a compact default panel state.
+      setCollapsedCards((prev) => ({
+        ...prev,
+        dateLocation: true,
+        textStyling: true,
+        style: true,
+        shape: true,
+        frame: true,
+        advanced: true,
+      }));
+      track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
+      trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(REVEALED_FLAG, "true");
+        } catch {
+          // ignore storage errors (e.g. private browsing)
+        }
+      }
+      requestAnimationFrame(() => {
+        previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }, REVEAL_ANIMATION_MS);
+  }, [canReveal, getPreviewSource, hasDate, isRevealing, paid, renderOptions.visualMode, setRevealed]);
 
   const applySampleMoment = useCallback(() => {
     const preset = occasionPresets.find((item) => item.id === "wedding") ?? occasionPresets[0];
@@ -1580,20 +1601,24 @@ export function EditorExperience({
                               <button
                                 type="button"
                                 onClick={handleReveal}
-                                disabled={!canReveal}
+                                disabled={!canReveal || isRevealing}
                                 aria-label="Generate preview"
                                 className={`text-midnight focus:ring-gold inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
-                                  canReveal
+                                  canReveal && !isRevealing
                                     ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                                     : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
                                 }`}
                               >
-                                Generate preview
+                                {isRevealing ? "Revealing your sky..." : "Generate preview"}
                               </button>
                             )}
                             {!revealed && (
                               <div className="space-y-1 text-xs text-neutral-400">
-                                <p>Add date + location to unlock your preview. Presets optional.</p>
+                                <p>
+                                  {isRevealing
+                                    ? "Aligning constellations for your selected moment..."
+                                    : "Add date + location to unlock your preview. Presets optional."}
+                                </p>
                                 <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
                               </div>
                             )}
@@ -2125,21 +2150,40 @@ export function EditorExperience({
                           <div className="absolute inset-0 z-10">
                             <div className="absolute top-[62%] left-1/2 flex w-full max-w-[320px] -translate-x-1/2 flex-col items-center gap-2 px-4 text-center">
                               {canReveal ? (
-                                <button
-                                  type="button"
-                                  onClick={handleReveal}
-                                  aria-label="Generate preview"
-                                  className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
-                                >
-                                  Generate preview
-                                </button>
+                                isRevealing ? (
+                                  <div className="w-full rounded-xl border border-amber-200/35 bg-slate-900/45 px-4 py-3 text-center">
+                                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
+                                      <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
+                                    </div>
+                                    <p className="text-xs font-semibold text-amber-100">Revealing your sky...</p>
+                                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                      <div className="h-full w-full animate-pulse bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300" />
+                                    </div>
+                                    <p className="mt-2 text-[10px] text-neutral-200">
+                                      Locking your date, location, and constellations...
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={handleReveal}
+                                    aria-label="Generate preview"
+                                    className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
+                                  >
+                                    Generate preview
+                                  </button>
+                                )
                               ) : (
                                 <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-neutral-200 shadow-sm backdrop-blur">
                                   Add date + location to reveal your sky. Presets optional.
                                 </div>
                               )}
                               {canReveal && (
-                                <p className="text-[11px] text-neutral-300">Free preview, HD optional.</p>
+                                <p className="text-[11px] text-neutral-300">
+                                  {isRevealing
+                                    ? "This usually takes about a second."
+                                    : "Free preview, HD optional."}
+                                </p>
                               )}
                               {canReveal && printCheckoutEnabled && (
                                 <p className="text-[11px] text-amber-100/90">
