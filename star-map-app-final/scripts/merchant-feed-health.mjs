@@ -13,6 +13,7 @@ for (const [key, value] of Object.entries(wranglerVars)) {
 
 const DEFAULT_SITE = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://starmapco.com";
 const DEFAULT_FEED_URL = `${DEFAULT_SITE}/merchant-feed.xml`;
+const HARD_EXCLUDED_COUNTRIES = new Set(["KR"]);
 
 function parseArgs(argv) {
   const args = {
@@ -64,6 +65,22 @@ function parseCountryListEnv(names, fallback = ["US"]) {
     if (parsed.length) return parsed;
   }
   return fallback;
+}
+
+function parseBooleanEnv(names, fallback = false) {
+  const keys = Array.isArray(names) ? names : [names];
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw || !raw.trim()) continue;
+    const normalized = raw.trim().toLowerCase();
+    if (["1", "true", "yes"].includes(normalized)) return true;
+    if (["0", "false", "no"].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
+function uniqueCountries(countries) {
+  return Array.from(new Set(countries.filter((value) => /^[A-Z]{2}$/.test(value))));
 }
 
 function extractTagValue(segment, tagName) {
@@ -132,16 +149,28 @@ async function main() {
     mapCountries = [];
   }
 
-  const expectedCountries = parseCountryListEnv(
+  const configuredFeedCountries = parseCountryListEnv(
     ["MERCHANT_FEED_COUNTRIES", "PRINT_ALLOWED_COUNTRIES", "NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES"],
     mapCountries.length ? mapCountries : ["US"],
   );
+  const includeRestrictedCountries = parseBooleanEnv("MERCHANT_FEED_INCLUDE_RESTRICTED", false);
+  const restrictedCountries = includeRestrictedCountries
+    ? []
+    : parseCountryListEnv("MERCHANT_FEED_EXCLUDED_COUNTRIES", ["KR"]);
+  const restrictedSet = new Set([...restrictedCountries, ...HARD_EXCLUDED_COUNTRIES]);
+  const expectedCountries = uniqueCountries(
+    configuredFeedCountries.filter((country) => !restrictedSet.has(country)),
+  );
+  if (!expectedCountries.length) expectedCountries.push("US");
 
   const sourceLabel = args.file
     ? `Merchant feed file: ${resolve(process.cwd(), args.file)}`
     : `Merchant feed URL: ${args.feed}`;
   console.log(sourceLabel);
   console.log(`Expected shipping countries: ${expectedCountries.join(", ")}`);
+  if (restrictedCountries.length && !includeRestrictedCountries) {
+    console.log(`Excluded countries: ${restrictedCountries.join(", ")}`);
+  }
 
   let feedText = "";
   if (args.file) {
@@ -171,6 +200,8 @@ async function main() {
     const title = extractTagValue(item, "g:title");
     const price = extractTagValue(item, "g:price");
     const imageLink = extractTagValue(item, "g:image_link");
+    const additionalImageLinks = extractTagValues(item, "g:additional_image_link");
+    const shippingLabel = extractTagValue(item, "g:shipping_label");
     const shippingBlocks = extractTagValues(item, "g:shipping");
     const shippingCountries = shippingBlocks
       .map((block) => extractTagValue(block, "g:country"))
@@ -180,6 +211,15 @@ async function main() {
     if (!title) issues.push(`${id}: missing g:title`);
     if (!price || !/\s[A-Z]{3}$/.test(price)) issues.push(`${id}: missing/invalid g:price (${price || "empty"})`);
     if (!imageLink) issues.push(`${id}: missing g:image_link`);
+    if (id.startsWith("print_") && shippingLabel !== "print") {
+      issues.push(`${id}: expected g:shipping_label=print (received ${shippingLabel || "empty"})`);
+    }
+    if (id.startsWith("digital_") && shippingLabel !== "digital") {
+      issues.push(`${id}: expected g:shipping_label=digital (received ${shippingLabel || "empty"})`);
+    }
+    if (id.startsWith("print_") && additionalImageLinks.length === 0) {
+      issues.push(`${id}: missing g:additional_image_link`);
+    }
 
     if (shippingCountries.length === 0) {
       issues.push(`${id}: missing shipping countries`);
@@ -192,6 +232,9 @@ async function main() {
 
     if (imageLink) {
       imageChecks.push({ id, imageLink });
+    }
+    for (const extraImage of additionalImageLinks) {
+      imageChecks.push({ id: `${id} (additional_image_link)`, imageLink: extraImage });
     }
   }
 

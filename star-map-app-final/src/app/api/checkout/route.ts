@@ -16,6 +16,8 @@ import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
+import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
+import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { getPrintfulShippingRate } from "@/lib/printfulShipping";
 
 export const runtime = "nodejs";
@@ -69,43 +71,53 @@ function parsePositiveInt(raw: string | undefined) {
 }
 
 function getPrintShippingOptionsForCountry(
+  variant: PrintVariant,
   shippingCountry: string | null,
-): Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined {
+): {
+  shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined;
+  shippingChargeCents: number | null;
+} {
   const configuredShippingRate = process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim();
+  const configuredFlatShippingCents = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_CENTS);
   if (configuredShippingRate && !printDynamicShippingEnabled) {
-    return [{ shipping_rate: configuredShippingRate }];
+    return {
+      shippingOptions: [{ shipping_rate: configuredShippingRate }],
+      shippingChargeCents: configuredFlatShippingCents,
+    };
   }
 
   if (shippingCountry) {
-    const rate =
-      getPrintfulShippingRate("poster_framed", shippingCountry) ||
-      getPrintfulShippingRate("poster_unframed", shippingCountry);
+    const rate = getPrintfulShippingRate(variant, shippingCountry);
     if (rate && Number.isFinite(rate.rate)) {
-      return [
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: {
-              amount: Math.round(rate.rate * 100),
-              currency: (rate.currency || "USD").toLowerCase(),
+      const amountCents = Math.round(rate.rate * 100);
+      return {
+        shippingOptions: [
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: {
+                amount: amountCents,
+                currency: (rate.currency || "USD").toLowerCase(),
+              },
+              display_name: "Standard shipping",
+              ...(typeof rate.min_delivery_days === "number" && typeof rate.max_delivery_days === "number"
+                ? {
+                    delivery_estimate: {
+                      minimum: { unit: "business_day", value: rate.min_delivery_days },
+                      maximum: { unit: "business_day", value: rate.max_delivery_days },
+                    },
+                  }
+                : {}),
             },
-            display_name: "Standard shipping",
-            ...(typeof rate.min_delivery_days === "number" && typeof rate.max_delivery_days === "number"
-              ? {
-                  delivery_estimate: {
-                    minimum: { unit: "business_day", value: rate.min_delivery_days },
-                    maximum: { unit: "business_day", value: rate.max_delivery_days },
-                  },
-                }
-              : {}),
           },
-        },
-      ];
+        ],
+        shippingChargeCents: amountCents,
+      };
     }
   }
 
-  const amountCents = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_CENTS);
-  if (!amountCents) return undefined;
+  const amountCents = configuredFlatShippingCents;
+  if (!amountCents) return { shippingOptions: undefined, shippingChargeCents: null };
 
   const currency = (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd").trim().toLowerCase();
   const displayName = process.env.PRINT_STANDARD_SHIPPING_LABEL?.trim() || "Standard shipping";
@@ -116,26 +128,29 @@ function getPrintShippingOptionsForCountry(
     typeof maxBusinessDays === "number" &&
     maxBusinessDays >= minBusinessDays;
 
-  return [
-    {
-      shipping_rate_data: {
-        type: "fixed_amount",
-        fixed_amount: {
-          amount: amountCents,
-          currency,
+  return {
+    shippingOptions: [
+      {
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: {
+            amount: amountCents,
+            currency,
+          },
+          display_name: displayName,
+          ...(hasDeliveryEstimate
+            ? {
+                delivery_estimate: {
+                  minimum: { unit: "business_day", value: minBusinessDays },
+                  maximum: { unit: "business_day", value: maxBusinessDays },
+                },
+              }
+            : {}),
         },
-        display_name: displayName,
-        ...(hasDeliveryEstimate
-          ? {
-              delivery_estimate: {
-                minimum: { unit: "business_day", value: minBusinessDays },
-                maximum: { unit: "business_day", value: maxBusinessDays },
-              },
-            }
-          : {}),
       },
-    },
-  ];
+    ],
+    shippingChargeCents: amountCents,
+  };
 }
 
 function parseOrderType(raw: unknown): CheckoutOrderType {
@@ -265,6 +280,7 @@ async function createCheckoutSession(
     printVariant?: PrintVariant;
     includeDigitalAddOn?: boolean;
     shippingCountry?: string;
+    clientCountry?: string | null;
     referralCode?: string;
     referrerSessionId?: string;
     promotionSource?: PromotionSource;
@@ -280,6 +296,7 @@ async function createCheckoutSession(
     printVariant = "poster_unframed",
     includeDigitalAddOn = false,
     shippingCountry,
+    clientCountry,
     referralCode,
     referrerSessionId,
     promotionSource = "none",
@@ -328,7 +345,30 @@ async function createCheckoutSession(
       400,
     );
   }
-  const printShippingOptions = isPrintOrder ? getPrintShippingOptionsForCountry(resolvedShippingCountry) : undefined;
+  const printShippingSelection =
+    isPrintOrder
+      ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry)
+      : { shippingOptions: undefined, shippingChargeCents: null };
+  const printShippingOptions = printShippingSelection.shippingOptions;
+  const printShippingChargeCents = printShippingSelection.shippingChargeCents;
+  const geoDigitalSingle =
+    !isPrintOrder && effectivePlan === "single" ? getGeoDigitalSinglePrice(clientCountry) : null;
+  const useGeoDigitalSinglePricing = Boolean(geoDigitalSingle?.amountCents);
+  if (isPrintOrder) {
+    const marginCheck = evaluatePrintMarginForCheckout({
+      variant: normalizedPrintVariant,
+      shippingCountry: resolvedShippingCountry,
+      shippingChargeCents: printShippingChargeCents,
+      includeDigitalAddOn,
+    });
+    if (!marginCheck.allowed) {
+      throw new CheckoutError(
+        "This print option is not available for the selected shipping country right now. Please pick a different country or format.",
+        "print_margin_guard_blocked",
+        400,
+      );
+    }
+  }
 
   const metadata: Record<string, string> = { order_type: normalizedOrderType };
   if (mapId) metadata.map_id = mapId;
@@ -348,9 +388,19 @@ async function createCheckoutSession(
   if (promotionSource === "referral_auto") metadata.referral_offer_applied = "true";
   if (referralCode) metadata.referral_code = referralCode;
   if (referrerSessionId) metadata.referrer_session_id = referrerSessionId;
+  if (geoDigitalSingle) {
+    metadata.geo_pricing_country = geoDigitalSingle.country;
+    metadata.geo_pricing_amount_cents = String(geoDigitalSingle.amountCents);
+  }
+  if (isPrintOrder && resolvedShippingCountry) {
+    metadata.print_shipping_country = resolvedShippingCountry;
+  }
+  if (isPrintOrder && typeof printShippingChargeCents === "number") {
+    metadata.print_shipping_charge_cents = String(printShippingChargeCents);
+  }
 
   const digitalPriceId = stripePriceIds[effectivePlan]?.trim();
-  const useDigitalPriceId = Boolean(digitalPriceId);
+  const useDigitalPriceId = Boolean(digitalPriceId) && !useGeoDigitalSinglePricing;
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   if (isPrintOrder) {
@@ -393,9 +443,22 @@ async function createCheckoutSession(
       });
     }
   } else {
-    lineItems.push({
-      ...(useDigitalPriceId
-        ? { price: digitalPriceId }
+    const digitalLineItem:
+      | { price: string }
+      | { price_data: Stripe.Checkout.SessionCreateParams.LineItem.PriceData } = useDigitalPriceId
+      ? { price: digitalPriceId as string }
+      : effectivePlan === "single" && geoDigitalSingle
+        ? {
+            price_data: {
+              currency: tier.currency,
+              unit_amount: geoDigitalSingle.amountCents,
+              product_data: {
+                name: "HD Star Map Download",
+                description: "Print-ready 6000×6000px star map • No watermark • Instant download • Perfect for framing",
+                images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+              },
+            },
+          }
         : {
             price_data:
               effectivePlan === "subscription"
@@ -421,7 +484,9 @@ async function createCheckoutSession(
                       images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                     },
                   },
-          }),
+          };
+    lineItems.push({
+      ...digitalLineItem,
       quantity: 1,
     });
   }
@@ -534,6 +599,7 @@ export async function GET(req: NextRequest) {
   const shippingCountry = shippingCountryParam ? shippingCountryParam.trim().toUpperCase() : undefined;
   const printAssetId =
     printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim()) ? printAssetIdParam.trim() : undefined;
+  const clientCountry = getRequestCountry(req);
   const mapId = mapParam ? mapParam.slice(0, 120) : undefined;
   const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
   const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
@@ -580,6 +646,7 @@ export async function GET(req: NextRequest) {
       printVariant,
       includeDigitalAddOn,
       shippingCountry,
+      clientCountry,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
     });
@@ -610,6 +677,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const clientCountry = getRequestCountry(req);
     let mapId: string | undefined;
     let plan: CheckoutPlan = "single";
     let orderType: CheckoutOrderType = "digital";
@@ -728,6 +796,7 @@ export async function POST(req: NextRequest) {
       printVariant,
       includeDigitalAddOn,
       shippingCountry,
+      clientCountry,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
     });

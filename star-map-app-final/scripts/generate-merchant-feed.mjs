@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { readWranglerVars } from "./wrangler-vars.mjs";
 
@@ -13,6 +13,8 @@ for (const [key, value] of Object.entries(wranglerVars)) {
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY || "usd").trim().toUpperCase();
+// Keep known GMC currency-unsupported markets out of the feed unless we build native-currency support.
+const HARD_EXCLUDED_COUNTRIES = new Set(["KR"]);
 
 function parseIntEnv(names, fallback) {
   const keys = Array.isArray(names) ? names : [names];
@@ -36,6 +38,22 @@ function parseCountryListEnv(names, fallback = ["US"]) {
     if (parsed.length > 0) return parsed;
   }
   return fallback;
+}
+
+function parseBooleanEnv(names, fallback = false) {
+  const keys = Array.isArray(names) ? names : [names];
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw || !raw.trim()) continue;
+    const normalized = raw.trim().toLowerCase();
+    if (["1", "true", "yes"].includes(normalized)) return true;
+    if (["0", "false", "no"].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
+function uniqueCountries(countries) {
+  return Array.from(new Set(countries.filter((value) => /^[A-Z]{2}$/.test(value))));
 }
 
 const PRICE_SINGLE_CENTS = parseIntEnv(["NEXT_PUBLIC_PRICE_SINGLE_CENTS", "PRICE_SINGLE_CENTS"], 900);
@@ -62,10 +80,22 @@ const supportedCountriesFromMap = Array.isArray(shippingMap?.countries)
       .filter((value) => /^[A-Z]{2}$/.test(value))
   : [];
 
-const MERCHANT_FEED_COUNTRIES = parseCountryListEnv(
+const configuredFeedCountries = parseCountryListEnv(
   ["MERCHANT_FEED_COUNTRIES", "PRINT_ALLOWED_COUNTRIES", "NEXT_PUBLIC_PRINT_ALLOWED_COUNTRIES"],
   supportedCountriesFromMap.length ? supportedCountriesFromMap : ["US"],
 );
+const includeRestrictedCountries = parseBooleanEnv("MERCHANT_FEED_INCLUDE_RESTRICTED", false);
+const usePrintProofImages = parseBooleanEnv("MERCHANT_FEED_USE_PRINT_PROOF_IMAGES", false);
+const restrictedCountries = includeRestrictedCountries
+  ? []
+  : parseCountryListEnv("MERCHANT_FEED_EXCLUDED_COUNTRIES", ["KR"]);
+const MERCHANT_FEED_COUNTRIES = (() => {
+  const restrictedSet = new Set([...restrictedCountries, ...HARD_EXCLUDED_COUNTRIES]);
+  const filtered = uniqueCountries(
+    configuredFeedCountries.filter((country) => !restrictedSet.has(country)),
+  );
+  return filtered.length ? filtered : ["US"];
+})();
 
 function formatPrice(amountCents) {
   return `${(amountCents / 100).toFixed(2)} ${CURRENCY}`;
@@ -89,6 +119,11 @@ function escapeXml(value) {
 }
 
 function renderItem(item) {
+  const additionalImages = Array.isArray(item.additionalImageLinks)
+    ? item.additionalImageLinks
+        .filter((value) => typeof value === "string" && value.trim().length > 0)
+        .map((value) => `<g:additional_image_link>${escapeXml(value)}</g:additional_image_link>`)
+    : [];
   const shippingLines = [];
   if (Array.isArray(item.shipping)) {
     for (const entry of item.shipping) {
@@ -107,10 +142,12 @@ function renderItem(item) {
     `<g:description>${escapeXml(item.description)}</g:description>`,
     `<g:link>${escapeXml(item.link)}</g:link>`,
     `<g:image_link>${escapeXml(item.imageLink)}</g:image_link>`,
+    ...additionalImages,
     `<g:availability>${item.availability}</g:availability>`,
     `<g:condition>${item.condition}</g:condition>`,
     `<g:price>${item.price}</g:price>`,
     `<g:product_type>${escapeXml(item.productType)}</g:product_type>`,
+    item.shippingLabel ? `<g:shipping_label>${escapeXml(item.shippingLabel)}</g:shipping_label>` : "",
     item.googleProductCategory
       ? `<g:google_product_category>${escapeXml(item.googleProductCategory)}</g:google_product_category>`
       : "",
@@ -126,6 +163,15 @@ function renderItem(item) {
 const baseDescription =
   "Create a custom star map of any date and location. Preview instantly, customize the design, and download or order a professional print.";
 
+const framedProofPath = resolve(process.cwd(), "public", "printproof", "framed-latest.png");
+const unframedProofPath = resolve(process.cwd(), "public", "printproof", "unframed-latest.png");
+const framedImageLink = usePrintProofImages && existsSync(framedProofPath)
+  ? `${SITE_URL}/printproof/framed-latest.png`
+  : `${SITE_URL}/blog/anniversary/framed-star-map.jpg`;
+const unframedImageLink = usePrintProofImages && existsSync(unframedProofPath)
+  ? `${SITE_URL}/printproof/unframed-latest.png`
+  : `${SITE_URL}/examples/example-wedding-aurora-heart.webp`;
+
 const items = [
   {
     id: "digital_single_hd",
@@ -133,10 +179,12 @@ const items = [
     description: `${baseDescription} Instant high-resolution digital download.`,
     link: `${SITE_URL}/personalized-star-map`,
     imageLink: `${SITE_URL}/custom-star-map-anniversary.png`,
+    additionalImageLinks: [`${SITE_URL}/examples/example-anniversary-heirloom.webp`],
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRICE_SINGLE_CENTS),
     productType: "Digital download",
+    shippingLabel: "digital",
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
@@ -152,11 +200,13 @@ const items = [
     title: "Custom Star Map Poster (Unframed)",
     description: `${baseDescription} Museum-grade unframed poster print.`,
     link: `${SITE_URL}/star-map-poster`,
-    imageLink: `${SITE_URL}/blog/anniversary/anniversary-night-sky.jpg`,
+    imageLink: unframedImageLink,
+    additionalImageLinks: [`${SITE_URL}/custom-star-map-anniversary.png`],
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRINT_UNFRAMED_CENTS),
     productType: "Print poster",
+    shippingLabel: "print",
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
@@ -176,11 +226,13 @@ const items = [
     title: "Custom Star Map Framed Print",
     description: `${baseDescription} Framed print ready to hang.`,
     link: `${SITE_URL}/star-map-poster`,
-    imageLink: `${SITE_URL}/blog/anniversary/framed-star-map.jpg`,
+    imageLink: framedImageLink,
+    additionalImageLinks: [`${SITE_URL}/custom-star-map-anniversary.png`],
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRINT_FRAMED_CENTS),
     productType: "Framed print",
+    shippingLabel: "print",
     googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
     identifierExists: false,
     brand: "StarMapCo",
@@ -214,3 +266,7 @@ mkdirSync(outputDir, { recursive: true });
 writeFileSync(resolve(outputDir, "merchant-feed.xml"), body, "utf8");
 
 console.log("Generated public/merchant-feed.xml");
+console.log(`Merchant feed countries: ${MERCHANT_FEED_COUNTRIES.join(", ")}`);
+if (restrictedCountries.length && !includeRestrictedCountries) {
+  console.log(`Excluded countries: ${restrictedCountries.join(", ")}`);
+}

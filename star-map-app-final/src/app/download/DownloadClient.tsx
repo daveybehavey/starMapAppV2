@@ -41,6 +41,13 @@ const PREVIEW_MAX_DPR = 2;
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
+const referralRewardCredits = (() => {
+  const raw = process.env.NEXT_PUBLIC_REFERRAL_REWARD_CREDITS?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return parsed;
+})();
+const referralRewardCreditsLabel = `${referralRewardCredits} bonus HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   visits: 0,
   conversions: 0,
@@ -1202,7 +1209,7 @@ export default function DownloadClient() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-neutral-200">
-                  Share your referral link. Each paid checkout through your link adds 1 bonus HD credit.
+                  Share your referral link. Each paid checkout through your link adds {referralRewardCreditsLabel}.
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">

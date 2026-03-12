@@ -47,6 +47,18 @@ const hasPrintShippingConfig =
   hasValue("STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD") || hasValue("PRINT_STANDARD_SHIPPING_CENTS");
 const minPrintChargeRaw = (process.env.PRINT_MIN_CHARGE_CENTS || "").trim();
 const minPrintChargeCents = minPrintChargeRaw ? Number.parseInt(minPrintChargeRaw, 10) : 100;
+const printMarginGuardEnabled = parseBool(
+  process.env.PRINT_MARGIN_GUARD_ENABLED,
+  "PRINT_MARGIN_GUARD_ENABLED",
+  false,
+);
+const minPrintMarginRaw = (process.env.PRINT_MIN_MARGIN_CENTS || "").trim();
+const minPrintMarginCents = minPrintMarginRaw ? Number.parseInt(minPrintMarginRaw, 10) : 0;
+const geoPricingEnabled = parseBool(
+  process.env.GEO_DIGITAL_SINGLE_PRICING_ENABLED,
+  "GEO_DIGITAL_SINGLE_PRICING_ENABLED",
+  false,
+);
 
 const hasPrintful =
   hasValue("PRINTFUL_API_TOKEN") &&
@@ -81,6 +93,31 @@ if (minPrintChargeRaw && !Number.isFinite(minPrintChargeCents)) {
 
 if (Number.isFinite(minPrintChargeCents) && minPrintChargeCents < 0) {
   issues.push("PRINT_MIN_CHARGE_CENTS cannot be negative.");
+}
+if (minPrintMarginRaw && !Number.isFinite(minPrintMarginCents)) {
+  issues.push("PRINT_MIN_MARGIN_CENTS must be an integer when set.");
+}
+if (Number.isFinite(minPrintMarginCents) && minPrintMarginCents < 0) {
+  issues.push("PRINT_MIN_MARGIN_CENTS cannot be negative.");
+}
+if (printMarginGuardEnabled && minPrintMarginCents <= 0) {
+  warnings.push("PRINT_MARGIN_GUARD_ENABLED=true but PRINT_MIN_MARGIN_CENTS is not > 0.");
+}
+
+if (geoPricingEnabled) {
+  const raw = process.env.GEO_DIGITAL_SINGLE_PRICING_JSON?.trim();
+  if (!raw) {
+    warnings.push("GEO_DIGITAL_SINGLE_PRICING_ENABLED=true but GEO_DIGITAL_SINGLE_PRICING_JSON is empty.");
+  } else {
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        issues.push("GEO_DIGITAL_SINGLE_PRICING_JSON must be a JSON object.");
+      }
+    } catch {
+      issues.push("GEO_DIGITAL_SINGLE_PRICING_JSON must be valid JSON.");
+    }
+  }
 }
 
 if (printCheckoutEnabled && !hasValue("STRIPE_SECRET_KEY")) {
@@ -149,6 +186,9 @@ console.log(`- NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=${String(publicPrintCheckoutEn
 console.log(`- PRINT_ORDER_SUBMISSION_ENABLED=${String(printSubmissionEnabled)}`);
 console.log(`- Fulfillment configured=${String(fulfillmentConfigured)}`);
 console.log(`- PRINT_MIN_CHARGE_CENTS=${Number.isFinite(minPrintChargeCents) ? String(minPrintChargeCents) : "100"}`);
+console.log(`- PRINT_MARGIN_GUARD_ENABLED=${String(printMarginGuardEnabled)}`);
+console.log(`- PRINT_MIN_MARGIN_CENTS=${Number.isFinite(minPrintMarginCents) ? String(minPrintMarginCents) : "0"}`);
+console.log(`- GEO_DIGITAL_SINGLE_PRICING_ENABLED=${String(geoPricingEnabled)}`);
 if (hasPrintful) console.log("- Fulfillment path: Printful");
 if (!hasPrintful && hasWebhookFulfillment) console.log("- Fulfillment path: Custom webhook");
 

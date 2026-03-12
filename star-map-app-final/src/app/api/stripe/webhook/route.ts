@@ -22,6 +22,7 @@ import {
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderApprovalAlert } from "@/lib/printOrderAlerts";
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
+import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,12 @@ const printOrderSubmissionEnabled = /^(1|true|yes)$/i.test(
   (process.env.PRINT_ORDER_SUBMISSION_ENABLED || "").trim(),
 );
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
+const referralRewardCredits = (() => {
+  const raw = process.env.REFERRAL_REWARD_CREDITS?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return parsed;
+})();
 const stripe =
   stripeSecret &&
   new Stripe(stripeSecret, {
@@ -328,14 +335,14 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   let rewardSkipReason: string | undefined;
   if (rewardEligible) {
     if (referrer.plan !== "subscription") {
-      const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + 1;
+      const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + referralRewardCredits;
       await kv.set(sessionKey(referrerSessionId), {
         ...referrer,
         paid: true,
         creditsRemaining: nextCredits,
         creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
       });
-      rewardGranted = 1;
+      rewardGranted = referralRewardCredits;
     } else {
       rewardSkipReason = "subscription_referrer";
     }
@@ -458,6 +465,24 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       printAssetUrl,
       status: "failed",
       error: `print_amount_below_minimum:${getPrintMinChargeCents()}`,
+    });
+    return;
+  }
+
+  const marginCheck = evaluatePrintMarginForPaidOrder({
+    variant: payload.printVariant,
+    shippingCountry: recipient.country_code,
+    amountTotalCents: payload.amountTotal ?? null,
+  });
+  if (!marginCheck.allowed) {
+    await kv.set(printOrderKey(session.id), {
+      ...payload,
+      printAssetUrl,
+      status: "failed",
+      error:
+        marginCheck.code === "margin_below_threshold"
+          ? `print_margin_below_minimum:${marginCheck.minMarginCents}`
+          : "print_margin_estimate_unavailable",
     });
     return;
   }

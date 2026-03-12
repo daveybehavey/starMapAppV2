@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
+import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
   buildPrintAssetUrl,
   getPrintMinChargeCents,
@@ -157,6 +158,26 @@ export async function POST(req: NextRequest) {
       attempts: (hydrated.attempts ?? 0) + 1,
       printAssetUrl,
       error: `print_amount_below_minimum:${getPrintMinChargeCents()}`,
+    };
+    await kv.set(printOrderKey(sessionId), failed);
+    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+  }
+
+  const marginCheck = evaluatePrintMarginForPaidOrder({
+    variant: hydrated.printVariant,
+    shippingCountry: recipient.country_code,
+    amountTotalCents: hydrated.amountTotal ?? null,
+  });
+  if (!marginCheck.allowed) {
+    const failed = {
+      ...hydrated,
+      status: "failed" as const,
+      attempts: (hydrated.attempts ?? 0) + 1,
+      printAssetUrl,
+      error:
+        marginCheck.code === "margin_below_threshold"
+          ? `print_margin_below_minimum:${marginCheck.minMarginCents}`
+          : "print_margin_estimate_unavailable",
     };
     await kv.set(printOrderKey(sessionId), failed);
     return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });

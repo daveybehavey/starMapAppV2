@@ -26,6 +26,19 @@ const OPTIONAL = [
   "PRINTFUL_VARIANT_ID_POSTER_UNFRAMED",
   "PRINTFUL_VARIANT_ID_POSTER_FRAMED",
   "PRINT_ORDER_SUBMISSION_ENABLED",
+  "MERCHANT_FEED_COUNTRIES",
+  "MERCHANT_FEED_EXCLUDED_COUNTRIES",
+  "MERCHANT_FEED_INCLUDE_RESTRICTED",
+  "MERCHANT_FEED_USE_PRINT_PROOF_IMAGES",
+  "PRINT_MARGIN_GUARD_ENABLED",
+  "PRINT_MIN_MARGIN_CENTS",
+  "PRINT_MARGIN_STRIPE_PERCENT",
+  "PRINT_MARGIN_STRIPE_FIXED_CENTS",
+  "PRINT_COGS_POSTER_UNFRAMED_CENTS",
+  "PRINT_COGS_POSTER_FRAMED_CENTS",
+  "GEO_DIGITAL_SINGLE_PRICING_ENABLED",
+  "GEO_DIGITAL_SINGLE_MIN_CENTS",
+  "GEO_DIGITAL_SINGLE_PRICING_JSON",
   "STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD",
   "PRINT_STANDARD_SHIPPING_CENTS",
   "PRINT_STANDARD_SHIPPING_LABEL",
@@ -33,6 +46,8 @@ const OPTIONAL = [
   "PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS",
   "PRINT_ADMIN_TOKEN",
   "STRIPE_REFERRAL_PROMO_CODE_ID",
+  "REFERRAL_REWARD_CREDITS",
+  "NEXT_PUBLIC_REFERRAL_REWARD_CREDITS",
   "REFERRAL_SIGNING_SECRET",
 ];
 
@@ -114,6 +129,23 @@ checkInt("PRINTFUL_VARIANT_ID_POSTER_FRAMED");
 checkInt("PRINT_STANDARD_SHIPPING_CENTS");
 checkInt("PRINT_STANDARD_SHIPPING_MIN_BUSINESS_DAYS");
 checkInt("PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS");
+checkInt("PRINT_MIN_MARGIN_CENTS");
+checkInt("PRINT_MARGIN_STRIPE_FIXED_CENTS");
+checkInt("PRINT_COGS_POSTER_UNFRAMED_CENTS");
+checkInt("PRINT_COGS_POSTER_FRAMED_CENTS");
+checkInt("GEO_DIGITAL_SINGLE_MIN_CENTS");
+checkInt("REFERRAL_REWARD_CREDITS");
+checkInt("NEXT_PUBLIC_REFERRAL_REWARD_CREDITS");
+
+const stripePercentRaw = process.env.PRINT_MARGIN_STRIPE_PERCENT?.trim();
+if (stripePercentRaw) {
+  const parsed = Number.parseFloat(stripePercentRaw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    errors.push("Invalid PRINT_MARGIN_STRIPE_PERCENT (expected decimal >= 0)");
+  } else if (parsed > 1) {
+    warnings.push("PRINT_MARGIN_STRIPE_PERCENT is > 1 (expected decimal like 0.029)");
+  }
+}
 
 const printCheckoutEnabled = parseBooleanEnv("PRINT_CHECKOUT_ENABLED");
 const clientPrintCheckoutEnabled = parseBooleanEnv("NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED");
@@ -151,6 +183,23 @@ if (process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD && !process.env.STRIPE_SH
 const dynamicShippingEnabled = parseBooleanEnv("PRINT_DYNAMIC_SHIPPING");
 if (dynamicShippingEnabled === true && process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim()) {
   warnings.push("PRINT_DYNAMIC_SHIPPING=true ignores STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD at runtime");
+}
+
+const geoPricingEnabled = parseBooleanEnv("GEO_DIGITAL_SINGLE_PRICING_ENABLED");
+if (geoPricingEnabled === true) {
+  const geoPricingRaw = process.env.GEO_DIGITAL_SINGLE_PRICING_JSON?.trim();
+  if (!geoPricingRaw) {
+    warnings.push("GEO_DIGITAL_SINGLE_PRICING_ENABLED=true but GEO_DIGITAL_SINGLE_PRICING_JSON is empty");
+  } else {
+    try {
+      const parsed = JSON.parse(geoPricingRaw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        errors.push("GEO_DIGITAL_SINGLE_PRICING_JSON must be a JSON object");
+      }
+    } catch {
+      errors.push("GEO_DIGITAL_SINGLE_PRICING_JSON is not valid JSON");
+    }
+  }
 }
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
