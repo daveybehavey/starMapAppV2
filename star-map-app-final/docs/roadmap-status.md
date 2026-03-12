@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-11
+Updated: 2026-03-12
 
 ## Phase 0: Foundation (Done)
 
@@ -53,10 +53,18 @@ Updated: 2026-03-11
   - Product image links now use dedicated square examples for better Merchant compatibility.
   - Merchant feed image links now use stable PNG/JPG assets (instead of WebP-only references) for broader crawler compatibility.
   - Merchant feed health script now supports `--file` for fast local validation before deploy.
+  - Merchant feed now supports restricted-country exclusions via env:
+    - `MERCHANT_FEED_EXCLUDED_COUNTRIES` (default includes `KR`)
+    - `MERCHANT_FEED_INCLUDE_RESTRICTED=false` (default)
+  - Feed generation and feed-health checks now use the same exclusion logic to avoid GMC-country drift.
 - Mobile date-input resilience hardening:
   - iOS-safe date inputs now accept both `YYYYMMDD` and `MMDDYYYY` numeric typing and normalize to `YYYY-MM-DD`.
   - Static homepage date form now supports numeric-only keyboard entry without requiring manual `-` separators.
   - iOS-safe text fallback no longer uses native HTML pattern enforcement, preventing Safari "format required" lockups while still validating with custom logic.
+- Print checkout asset reliability hardening:
+  - Editor print asset generation now detects likely low-memory devices and uses a safer high-res export ladder.
+  - Added explicit `print_asset_generation_failed` analytics event with failure reason, variant, and shipping country for faster diagnosis.
+  - Added clearer user messaging when high-res print rendering fails on-device (desktop retry guidance).
 - Print checkout country selector contrast hardening:
   - Added explicit select/option text color styling so shipping-country labels remain readable in native dropdowns.
   - Added `color-scheme: light` and explicit option foreground/background styles in editor, mobile preview, and paywall selectors.
@@ -76,6 +84,12 @@ Updated: 2026-03-11
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
   - Shipping map refreshed from live Printful API for both framed and unframed variants; current supported set is 74 countries.
   - Wrangler country vars are now intentionally blank so production reads directly from the shipping map (single source of truth).
+  - Margin-protective defaults are now explicit in production config:
+    - `PRINT_DYNAMIC_SHIPPING=true`
+    - `PRINT_MARGIN_GUARD_ENABLED=true`
+    - `PRINT_MIN_MARGIN_CENTS=3000`
+    - `PRINT_MARGIN_STRIPE_PERCENT=0.029`
+    - `PRINT_MARGIN_STRIPE_FIXED_CENTS=30`
 - Shipping policy clarity and compliance:
   - Added `/shipping` page with per-country print shipping rate and delivery estimate table.
   - Added shipping policy links in app footer and static homepage footer.
@@ -99,7 +113,8 @@ Updated: 2026-03-11
 - Referral attribution capture is now centralized at app layout level, so `?ref=` links are persisted and counted from any entry page.
 - Referral attribution is now time-bounded client-side (30-day window) instead of indefinite local storage.
 - Referral auto-offer can now be configured via `STRIPE_REFERRAL_PROMO_CODE_ID` with safe fallback when Stripe rejects discount application.
-- Current mode is `SAFE_OFF` for print launch to prevent accidental live fulfillment.
+- Referrer reward quantity is now configurable via `REFERRAL_REWARD_CREDITS` (default `1` HD credit per qualified referral conversion).
+- Current production wrangler mode is `LIVE_READY`; local `.env.local` remains `CHECKOUT_ONLY` for safer testing.
 
 ## Phase 3: Launch Readiness (Current Priority)
 
@@ -159,6 +174,7 @@ Recent status:
 - `qa:sitemap-health` passes against live sitemap.
 - `qa:live-conversion` passes against live (digital end-to-end flow through Stripe -> success -> download).
 - `qa:funnel-reconcile --days 14` currently reports zero variance (`payment_verified=3`, Stripe paid sessions `=3`).
+- `qa:ga4-smoke` passes (`page_view` + `funnel_step` events visible in dataLayer with consent update flow).
 - Added print operations monitor script: `npm run qa:print-ops`.
 - Added funnel reconciliation script: `npm run qa:funnel-reconcile`.
 - `qa:release-gate --live` now includes funnel reconciliation when Stripe credentials are present.

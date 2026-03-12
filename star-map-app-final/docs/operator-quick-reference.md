@@ -16,6 +16,12 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Stripe dashboard**: `https://dashboard.stripe.com/payments`
 - **Print checkout sessions** (metadata includes `orderType=print`): `https://dashboard.stripe.com/checkout/sessions`
 - **Promo codes**: `https://dashboard.stripe.com/coupons`
+- **Two-sided referral offer controls**:
+  - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
+  - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion
+  - For "free HD for both sides":
+    - Set `STRIPE_REFERRAL_PROMO_CODE_ID` to a 100% single-HD promo in Stripe
+    - Keep `REFERRAL_REWARD_CREDITS=1`
 
 ### Update the signup promo code safely
 
@@ -41,10 +47,20 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 ## 4) Merchant Center feed
 
 - Feed URL: `https://starmapco.com/merchant-feed.xml`
+- Merchant Center (source of truth): `https://merchants.google.com/`
+- Search Console "Merchant listings" can lag behind Merchant Center eligibility by 24-72 hours.
 - Regenerate locally:
   - `node scripts/generate-merchant-feed.mjs`
 - Feed sanity:
   - `npm run qa:merchant-feed`
+- Generate shipping reference CSV for Merchant Center setup:
+  - `npm run merchant:shipping-reference`
+  - output: `docs/merchant-shipping-reference.csv`
+- Generate grouped shipping rates for faster setup:
+  - `npm run merchant:shipping-groups`
+  - output: `docs/merchant-shipping-groups.md`
+- Full fix workflow:
+  - `docs/merchant-center-fix-playbook.md`
 
 ## 5) Release gate commands (minimum safe set)
 
@@ -55,4 +71,3 @@ Run from `star-map-app-final/`:
 - `npm run qa:smoke:commerce`
 - `npm run qa:live-smoke`
 - `npm run deploy`
-

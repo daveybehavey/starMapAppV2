@@ -34,7 +34,13 @@ npm run qa:sitemap-health -- --sitemap https://starmapco.com/sitemap.xml --concu
 
 # Print order visibility (Stripe sessions + KV status)
 npm run qa:print-ops -- --hours 168 --limit 40
+
+# Refresh proof images from recent Printful test orders
+npm run assets:printproof
 ```
+
+`assets:printproof` updates `public/printproof/framed-latest.png` (and unframed if available) plus
+`public/printproof/manifest.json`. The homepage proof section will use the framed proof image when present.
 
 ## Staged rollout
 
