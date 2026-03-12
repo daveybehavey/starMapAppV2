@@ -40,6 +40,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Manual review mode is ON** if `PRINTFUL_AUTO_CONFIRM=false`.
 - **Ops check**:
   - `npm run qa:print-ops -- --hours 168 --limit 40`
+- **Upsell rollout scoring**:
+  - `npm run qa:upsell-matrix`
+  - Output: `docs/upsell-rollout-matrix.md`
+  - Launch policy: `docs/upsell-rollout-policy.md`
 - **Admin endpoints** (token-protected):
   - `POST /api/print/orders/retry`
   - `GET /api/print/orders/status?sessionId=...`

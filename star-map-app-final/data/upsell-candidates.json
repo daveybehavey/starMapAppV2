@@ -1,0 +1,57 @@
+[
+  {
+    "id": "poster_unframed_18x18",
+    "label": "Museum-grade poster (18x18)",
+    "variantId": 6242,
+    "targetMarginUsd": 30,
+    "proposedPriceUsd": 49,
+    "fit": "high",
+    "phase": "core",
+    "bundleOnly": false,
+    "notes": "Current unframed checkout SKU."
+  },
+  {
+    "id": "poster_framed_14x14",
+    "label": "Framed print (14x14)",
+    "variantId": 4654,
+    "targetMarginUsd": 40,
+    "proposedPriceUsd": 99,
+    "fit": "high",
+    "phase": "core",
+    "bundleOnly": false,
+    "notes": "Current premium print SKU."
+  },
+  {
+    "id": "canvas_entry",
+    "label": "Canvas (entry size)",
+    "variantId": 19291,
+    "targetMarginUsd": 30,
+    "proposedPriceUsd": 59,
+    "fit": "high",
+    "phase": "phase-2",
+    "bundleOnly": false,
+    "notes": "Candidate premium add-on after poster flow is stable."
+  },
+  {
+    "id": "mug_black_glossy_11oz",
+    "label": "Black glossy mug (11oz)",
+    "variantId": 9323,
+    "targetMarginUsd": 20,
+    "proposedPriceUsd": 39,
+    "fit": "medium",
+    "phase": "phase-2",
+    "bundleOnly": false,
+    "notes": "Candidate add-on SKU if attach rate is healthy."
+  },
+  {
+    "id": "greeting_card_4x6",
+    "label": "Greeting card (4x6)",
+    "variantId": 14457,
+    "targetMarginUsd": 15,
+    "proposedPriceUsd": 19,
+    "fit": "high",
+    "phase": "phase-3",
+    "bundleOnly": true,
+    "notes": "Use as checkout add-on only; weak standalone economics."
+  }
+]
