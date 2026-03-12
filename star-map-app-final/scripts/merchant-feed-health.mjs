@@ -17,6 +17,7 @@ const DEFAULT_FEED_URL = `${DEFAULT_SITE}/merchant-feed.xml`;
 function parseArgs(argv) {
   const args = {
     feed: DEFAULT_FEED_URL,
+    file: "",
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -28,11 +29,18 @@ function parseArgs(argv) {
       i += 1;
       continue;
     }
+    if (token === "--file") {
+      const next = argv[i + 1];
+      if (!next) throw new Error("Missing value for --file");
+      args.file = next;
+      i += 1;
+      continue;
+    }
     if (token === "-h" || token === "--help") {
-      console.log(`Usage: node scripts/merchant-feed-health.mjs [--feed <url>]
+      console.log(`Usage: node scripts/merchant-feed-health.mjs [--feed <url> | --file <path>]
 
 Checks live Google Merchant feed health:
-  - feed URL responds 200
+  - feed URL responds 200 (or local file is readable)
   - XML contains expected item blocks
   - item image URLs resolve to images
   - shipping countries align with configured target countries`);
@@ -129,18 +137,28 @@ async function main() {
     mapCountries.length ? mapCountries : ["US"],
   );
 
-  console.log(`Merchant feed URL: ${args.feed}`);
+  const sourceLabel = args.file
+    ? `Merchant feed file: ${resolve(process.cwd(), args.file)}`
+    : `Merchant feed URL: ${args.feed}`;
+  console.log(sourceLabel);
   console.log(`Expected shipping countries: ${expectedCountries.join(", ")}`);
 
-  const feed = await fetchText(args.feed);
-  if (!feed.response.ok) {
-    throw new Error(`Feed request failed: HTTP ${feed.response.status}`);
+  let feedText = "";
+  if (args.file) {
+    feedText = readFileSync(resolve(process.cwd(), args.file), "utf8");
+  } else {
+    const feed = await fetchText(args.feed);
+    if (!feed.response.ok) {
+      throw new Error(`Feed request failed: HTTP ${feed.response.status}`);
+    }
+    feedText = feed.text;
   }
-  if (!feed.text.includes("<rss") || !feed.text.includes("<channel>")) {
+
+  if (!feedText.includes("<rss") || !feedText.includes("<channel>")) {
     throw new Error("Feed XML does not contain expected RSS/channel tags.");
   }
 
-  const items = splitItems(feed.text);
+  const items = splitItems(feedText);
   if (items.length === 0) {
     throw new Error("Feed contains zero <item> entries.");
   }

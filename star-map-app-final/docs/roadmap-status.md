@@ -52,6 +52,7 @@ Updated: 2026-03-11
   - Shipping lines now normalize to feed currency when provider rates are in a different currency.
   - Product image links now use dedicated square examples for better Merchant compatibility.
   - Merchant feed image links now use stable PNG/JPG assets (instead of WebP-only references) for broader crawler compatibility.
+  - Merchant feed health script now supports `--file` for fast local validation before deploy.
 - Mobile date-input resilience hardening:
   - iOS-safe date inputs now accept both `YYYYMMDD` and `MMDDYYYY` numeric typing and normalize to `YYYY-MM-DD`.
   - Static homepage date form now supports numeric-only keyboard entry without requiring manual `-` separators.

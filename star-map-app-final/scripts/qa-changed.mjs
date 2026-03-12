@@ -137,7 +137,10 @@ function buildPlan(files, includeLint) {
   if (touchesUi) push("npm run qa:smoke:ui");
   if (touchesRender) push("npm run qa:smoke:render");
   if (touchesCommerce) push("npm run qa:smoke:commerce");
-  if (touchesMerchant) push("node scripts/generate-merchant-feed.mjs");
+  if (touchesMerchant) {
+    push("node scripts/generate-merchant-feed.mjs");
+    push("node scripts/merchant-feed-health.mjs --file public/merchant-feed.xml");
+  }
 
   return commands;
 }
