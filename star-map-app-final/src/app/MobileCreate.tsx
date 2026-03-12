@@ -1216,9 +1216,16 @@ export function MobileCreate({
                     disabled={!printShippingCountry || printCheckoutInFlight}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
                   >
-                    {printCheckoutInFlight
-                      ? "Opening secure checkout..."
-                      : `🖼️ Framed + HD (recommended) • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`}
+                    {printCheckoutInFlight ? (
+                      "Opening secure checkout..."
+                    ) : (
+                      <span className="text-center leading-tight">
+                        <span className="block text-[11px] font-semibold">🖼️ Framed + HD (recommended)</span>
+                        <span className="block text-[10px] text-amber-100/95">
+                          {printPriceLabels.framed} + {framedShippingLabel} + {printPriceLabels.digitalAddOn}
+                        </span>
+                      </span>
+                    )}
                   </button>
                   <button
                     type="button"
@@ -1226,9 +1233,16 @@ export function MobileCreate({
                     disabled={!printShippingCountry || printCheckoutInFlight}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
                   >
-                    {printCheckoutInFlight
-                      ? "Opening secure checkout..."
-                      : `🖼️ Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}`}
+                    {printCheckoutInFlight ? (
+                      "Opening secure checkout..."
+                    ) : (
+                      <span className="text-center leading-tight">
+                        <span className="block text-[11px] font-semibold">🖼️ Framed print</span>
+                        <span className="block text-[10px] text-amber-100/90">
+                          {printPriceLabels.framed} + {framedShippingLabel}
+                        </span>
+                      </span>
+                    )}
                   </button>
                   <button
                     type="button"
@@ -1236,9 +1250,16 @@ export function MobileCreate({
                     disabled={!printShippingCountry || printCheckoutInFlight}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
                   >
-                    {printCheckoutInFlight
-                      ? "Opening secure checkout..."
-                      : `🖼️ Unframed print • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
+                    {printCheckoutInFlight ? (
+                      "Opening secure checkout..."
+                    ) : (
+                      <span className="text-center leading-tight">
+                        <span className="block text-[11px] font-semibold">🖼️ Unframed print</span>
+                        <span className="block text-[10px] text-amber-100/90">
+                          {printPriceLabels.unframed} + {unframedShippingLabel}
+                        </span>
+                      </span>
+                    )}
                   </button>
                 </div>
                 {!printShippingCountry && (
