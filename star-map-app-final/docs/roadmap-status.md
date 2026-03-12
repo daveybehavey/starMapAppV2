@@ -146,6 +146,7 @@ Recent status:
     - `qa:smoke:ui`
     - `qa:smoke:render`
     - `qa:smoke:commerce`
+  - Added `qa:changed` helper to run only mapped QA checks for current local file edits.
   - Playwright now runs against an isolated Next dist directory (`.next-playwright`) to avoid lock conflicts with local `next dev`.
   - Preview wait helper now tolerates aria-label fallback states while the editor transitions.
   - Homepage gallery smoke check now pre-seeds consent, targets exact showcase images, and validates static asset responses directly.
