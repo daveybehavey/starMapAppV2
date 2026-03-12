@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { track, trackFunnelStep, trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import ResilientImage from "@/components/ResilientImage";
 import {
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
@@ -23,11 +24,15 @@ type HomeOfferStackProps = {
     framed: string;
     digitalAddOn: string;
   };
+  proofImages: {
+    framed: string;
+    unframed: string;
+  };
 };
 
 type DeliveryChoice = "digital" | "print_unframed" | "print_framed";
 
-export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferStackProps) {
+export default function HomeOfferStack({ priceLabels, printLabels, proofImages }: HomeOfferStackProps) {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
   const itemListsTrackedRef = useRef(false);
@@ -195,6 +200,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </article>
 
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
+            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/40 bg-white/10">
+              <ResilientImage
+                src={proofImages.framed}
+                fallbackSrc="/printproof/framed-catalog.jpg"
+                alt="Framed StarMapCo print preview"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover"
+              />
+            </div>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
               <span className="rounded-full border border-amber-200/70 bg-amber-200/30 px-2 py-0.5 text-[10px] font-bold text-amber-100">
@@ -222,6 +237,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </article>
 
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
+            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/15 bg-white/10">
+              <ResilientImage
+                src={proofImages.unframed}
+                fallbackSrc="/printproof/unframed-catalog.jpg"
+                alt="Unframed StarMapCo poster preview"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover"
+              />
+            </div>
             <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
               Physical saver
             </span>

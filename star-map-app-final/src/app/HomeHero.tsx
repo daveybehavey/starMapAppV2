@@ -3,13 +3,27 @@
 import HeroEditorDeferred from "@/components/HeroEditorDeferred";
 import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
 import { track, trackFunnelStep } from "@/lib/analytics";
-import { getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintPriceWithShipping,
+  getPrintAvailabilityBadgeLabel,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import { formatPrice } from "@/lib/pricing";
 import { getPrintPricingTiers } from "@/lib/pricing";
 
 export default function HomeHero() {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
   const printTiers = getPrintPricingTiers();
+  const digitalSingle = formatPrice(900, "USD");
+  const framedPrice = formatPrintPriceWithShipping(
+    printTiers.poster_framed.amountCents,
+    printTiers.poster_framed.currency,
+  );
+  const unframedPrice = formatPrintPriceWithShipping(
+    printTiers.poster_unframed.amountCents,
+    printTiers.poster_unframed.currency,
+  );
 
   const handlePrintOptionsClick = () => {
     track("print_options_clicked", {
@@ -30,6 +44,17 @@ export default function HomeHero() {
     trackFunnelStep("hero_plan_click", {
       source: "home-hero",
       plan: "print_guide",
+    });
+  };
+
+  const handleOfferLadderClick = (choice: "digital" | "framed" | "unframed") => {
+    track("home_offer_ladder_clicked", {
+      source: "home-hero",
+      choice,
+    });
+    trackFunnelStep("hero_plan_click", {
+      source: "home-hero-ladder",
+      plan: choice,
     });
   };
 
@@ -71,6 +96,35 @@ export default function HomeHero() {
               See framed print options
             </a>
           </div>
+          <div className="mx-auto grid w-full max-w-3xl gap-2 pt-3 sm:grid-cols-3">
+            <a
+              href="/editor?mode=quick&source=home-hero-offer-digital"
+              onClick={() => handleOfferLadderClick("digital")}
+              className="rounded-xl border border-white/15 bg-white/6 px-3 py-3 text-left transition hover:-translate-y-[1px] hover:bg-white/10"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">Instant</p>
+              <p className="mt-1 text-sm font-semibold text-white">Digital HD</p>
+              <p className="mt-1 text-sm font-semibold text-amber-200">{digitalSingle}</p>
+            </a>
+            <a
+              href="/editor?mode=quick&source=home-hero-offer-framed&checkout=print&print_variant=poster_framed"
+              onClick={() => handleOfferLadderClick("framed")}
+              className="rounded-xl border border-amber-300/50 bg-amber-300/16 px-3 py-3 text-left transition hover:-translate-y-[1px] hover:bg-amber-300/24"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100">Most popular</p>
+              <p className="mt-1 text-sm font-semibold text-white">Framed gift</p>
+              <p className="mt-1 text-sm font-semibold text-amber-100">{framedPrice}</p>
+            </a>
+            <a
+              href="/editor?mode=quick&source=home-hero-offer-unframed&checkout=print&print_variant=poster_unframed"
+              onClick={() => handleOfferLadderClick("unframed")}
+              className="rounded-xl border border-white/15 bg-white/6 px-3 py-3 text-left transition hover:-translate-y-[1px] hover:bg-white/10"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">Lower total</p>
+              <p className="mt-1 text-sm font-semibold text-white">Unframed poster</p>
+              <p className="mt-1 text-sm font-semibold text-amber-200">{unframedPrice}</p>
+            </a>
+          </div>
         </div>
 
         <HeroEditorDeferred />
@@ -93,6 +147,13 @@ export default function HomeHero() {
           <p className="mt-3 text-xs text-neutral-200">
             After preview, choose digital HD, gift-ready {printTiers.poster_framed.label.toLowerCase()}, or the lower-cost{" "}
             {printTiers.poster_unframed.label.toLowerCase()}. {shippingDisclosure}
+            <a href="/shipping" className="ml-1.5 font-semibold text-amber-200 underline hover:text-amber-100">
+              Shipping policy
+            </a>
+            <span className="text-neutral-300"> · </span>
+            <a href="/returns" className="font-semibold text-amber-200 underline hover:text-amber-100">
+              Returns
+            </a>
             <a
               href="/how-to-print-star-map"
               onClick={handlePrintGuideClick}

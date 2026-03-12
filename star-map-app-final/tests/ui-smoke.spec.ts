@@ -33,6 +33,32 @@ test("homepage date field auto-formats 8-digit iOS-style input", async ({ browse
   await context.close();
 });
 
+test("editor date field accepts numeric-only iOS input", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await primeLocalStorage(page);
+  await page.addInitScript(() => {
+    const define = (obj: object, key: string, value: unknown) => {
+      try {
+        Object.defineProperty(obj, key, { configurable: true, get: () => value });
+      } catch {
+        // ignore readonly overrides in some environments
+      }
+    };
+    define(navigator, "userAgent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
+    define(navigator, "platform", "iPhone");
+    define(navigator, "maxTouchPoints", 5);
+  });
+
+  await page.goto("/editor?mode=quick", { waitUntil: "domcontentloaded" });
+  const dateInput = page.getByLabel("Date").first();
+  await expect(dateInput).toBeVisible({ timeout: 30_000 });
+  await dateInput.fill("");
+  await dateInput.type("06012024");
+  await expect(dateInput).toHaveValue("2024-06-01");
+  await context.close();
+});
+
 test("location warnings and validation errors render", async ({ page }) => {
   // Use force=desktop for deterministic test
   await gotoEditor(page, { force: "desktop" });
@@ -66,6 +92,37 @@ test("homepage finished example images load correctly", async ({ page }) => {
     const contentType = response.headers()["content-type"] ?? "";
     expect(contentType).toMatch(/^image\//);
   }
+});
+
+test("homepage framed proof image resolves", async ({ page }) => {
+  await primeLocalStorage(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const framedProof = page.getByRole("img", { name: /Framed StarMapCo print displayed on a wall/i }).first();
+  await expect(framedProof).toBeVisible({ timeout: 30000 });
+  const src = (await framedProof.getAttribute("src")) ?? "";
+  expect(src).toMatch(
+    /(printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|blog\/anniversary\/framed-star-map\.jpg|blog%2Fanniversary%2Fframed-star-map\.jpg)/,
+  );
+});
+
+test("homepage delivery cards show framed and unframed proof visuals", async ({ page }) => {
+  await primeLocalStorage(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const framedCardImage = page.getByRole("img", { name: /Framed StarMapCo print preview/i }).first();
+  const unframedCardImage = page.getByRole("img", { name: /Unframed StarMapCo poster preview/i }).first();
+
+  await expect(framedCardImage).toBeVisible({ timeout: 30000 });
+  await expect(unframedCardImage).toBeVisible({ timeout: 30000 });
+
+  const framedSrc = (await framedCardImage.getAttribute("src")) ?? "";
+  const unframedSrc = (await unframedCardImage.getAttribute("src")) ?? "";
+  expect(framedSrc).toMatch(
+    /(printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/framed-catalog\.jpg|printproof%2Fframed-catalog\.jpg)/,
+  );
+  expect(unframedSrc).toMatch(
+    /(printproof\/unframed-latest\.png|printproof%2Funframed-latest\.png|printproof\/unframed-catalog\.jpg|printproof%2Funframed-catalog\.jpg|examples\/example-wedding-aurora-heart\.webp|examples%2Fexample-wedding-aurora-heart\.webp)/,
+  );
 });
 
 test("occasion preset preserves manual location context", async ({ page }) => {

@@ -259,6 +259,48 @@
         gap: 12px;
         font-size: 0.9rem;
       }
+      .hero-offer-ladder {
+        margin-top: 12px;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+      .hero-offer-card {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.07);
+        padding: 10px 12px;
+        text-align: left;
+        transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+      }
+      .hero-offer-card:hover {
+        transform: translateY(-1px);
+        border-color: rgba(251, 191, 36, 0.7);
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .hero-offer-card.recommended {
+        border-color: rgba(251, 191, 36, 0.7);
+        background: rgba(251, 191, 36, 0.18);
+      }
+      .hero-offer-card strong {
+        display: block;
+        font-size: 0.7rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(251, 191, 36, 0.95);
+      }
+      .hero-offer-card .offer-name {
+        margin-top: 5px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.95);
+      }
+      .hero-offer-card .offer-price {
+        margin-top: 3px;
+        font-size: 0.84rem;
+        color: rgba(255, 239, 192, 0.95);
+        font-weight: 700;
+      }
       .hero-link {
         color: rgba(251, 191, 36, 0.95);
         font-weight: 700;
@@ -901,6 +943,41 @@
             <button type="submit">Preview your map</button>
           </form>
           <p class="hero-note">Free preview · No account required. Date format: YYYY-MM-DD (or type YYYYMMDD)</p>
+        <div class="hero-offer-ladder">
+          <a
+            class="hero-offer-card"
+            href="/editor?mode=quick&source=home-static-offer-digital"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_offer_ladder"
+            data-funnel-plan="digital"
+          >
+            <strong>Instant</strong>
+            <span class="offer-name">Digital HD</span>
+            <span class="offer-price">$9.00</span>
+          </a>
+          <a
+            class="hero-offer-card recommended"
+            href="/editor?mode=quick&source=home-static-offer-framed&checkout=print&print_variant=poster_framed"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_offer_ladder"
+            data-funnel-plan="print_framed"
+          >
+            <strong>Most popular</strong>
+            <span class="offer-name">Framed gift</span>
+            <span class="offer-price">$99.00 + shipping</span>
+          </a>
+          <a
+            class="hero-offer-card"
+            href="/editor?mode=quick&source=home-static-offer-unframed&checkout=print&print_variant=poster_unframed"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_offer_ladder"
+            data-funnel-plan="print_unframed"
+          >
+            <strong>Lower total</strong>
+            <span class="offer-name">Unframed print</span>
+            <span class="offer-price">$49.00 + shipping</span>
+          </a>
+        </div>
         <div class="hero-cta-row">
           <a
             class="hero-link secondary"

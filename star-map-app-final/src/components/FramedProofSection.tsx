@@ -1,10 +1,11 @@
-import Image from "next/image";
 import Link from "next/link";
+import ResilientImage from "@/components/ResilientImage";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getFramedProofImage } from "@/lib/printProofAssets";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type FramedProofSectionProps = {
@@ -31,14 +32,16 @@ export default function FramedProofSection({
     printTiers.poster_unframed.currency,
   );
   const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
+  const framedProofImage = getFramedProofImage();
 
   return (
     <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
       <div className="grid gap-0 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="grid gap-3 bg-neutral-100 p-3 sm:grid-cols-2 sm:p-4">
           <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm sm:row-span-2">
-            <Image
-              src="/blog/anniversary/framed-star-map.jpg"
+            <ResilientImage
+              src={framedProofImage}
+              fallbackSrc="/blog/anniversary/framed-star-map.jpg"
               alt="Framed StarMapCo print displayed on a wall"
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
@@ -49,8 +52,9 @@ export default function FramedProofSection({
             </div>
           </div>
           <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-            <Image
+            <ResilientImage
               src="/blog/anniversary/couple-under-stars.jpg"
+              fallbackSrc="/custom-star-map-anniversary.webp"
               alt="Couple under the night sky"
               fill
               sizes="(max-width: 1024px) 100vw, 25vw"
@@ -61,8 +65,9 @@ export default function FramedProofSection({
             </div>
           </div>
           <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-            <Image
+            <ResilientImage
               src="/blog/anniversary/anniversary-night-sky.jpg"
+              fallbackSrc="/custom-star-map-anniversary.webp"
               alt="Night sky over a landscape"
               fill
               sizes="(max-width: 1024px) 100vw, 25vw"

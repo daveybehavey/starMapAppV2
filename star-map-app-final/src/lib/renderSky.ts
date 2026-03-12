@@ -169,6 +169,42 @@ type StyleRenderProfile = {
   minimalDrop: MinimalDropChances | null;
 };
 
+type QualityVisualTuning = {
+  lineAlphaMultiplier: number;
+  haloRadiusMultiplier: number;
+  haloAlphaMultiplier: number;
+  sparkleEnabled: boolean;
+  sparkleBrightnessCutoff: number;
+  sparkleAlphaMultiplier: number;
+};
+
+const QUALITY_VISUAL_TUNING: Record<RenderQuality, QualityVisualTuning> = {
+  preview: {
+    lineAlphaMultiplier: 1.06,
+    haloRadiusMultiplier: 1.08,
+    haloAlphaMultiplier: 1.08,
+    sparkleEnabled: true,
+    sparkleBrightnessCutoff: 0.85,
+    sparkleAlphaMultiplier: 0.38,
+  },
+  og: {
+    lineAlphaMultiplier: 1.04,
+    haloRadiusMultiplier: 1.05,
+    haloAlphaMultiplier: 1.06,
+    sparkleEnabled: true,
+    sparkleBrightnessCutoff: 0.72,
+    sparkleAlphaMultiplier: 0.32,
+  },
+  export: {
+    lineAlphaMultiplier: 1,
+    haloRadiusMultiplier: 1,
+    haloAlphaMultiplier: 1,
+    sparkleEnabled: false,
+    sparkleBrightnessCutoff: -1,
+    sparkleAlphaMultiplier: 0,
+  },
+};
+
 const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
   navyGold: {
     useFixedStarColor: false,
@@ -406,7 +442,19 @@ export function renderStarMap({
   if (recipe.selectedStyle === "parchmentScroll") {
     drawPaperTexture(ctx, width, targetHeight, quality);
   }
-  drawSky(ctx, width, targetHeight, recipe, recipe.selectedStyle, sky, recipe.renderOptions, mode, scale, premium);
+  drawSky(
+    ctx,
+    width,
+    targetHeight,
+    recipe,
+    recipe.selectedStyle,
+    sky,
+    recipe.renderOptions,
+    mode,
+    scale,
+    premium,
+    quality,
+  );
   if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
     drawPremiumVignette(ctx, width, targetHeight, mode);
   }
@@ -622,6 +670,7 @@ function drawConstellationLayer(
   renderOptions: MapRecipe["renderOptions"] | undefined,
   mode: ModeSettings | undefined,
   styleProfile: StyleRenderProfile,
+  qualityTuning: QualityVisualTuning,
   palette: SkyPalette,
   lineFactor: number,
   scale: number,
@@ -641,7 +690,10 @@ function drawConstellationLayer(
         ? 0.8 * lineFactor
         : 0.8 * lineFactor;
   const strokeWidth = lineWidth * lineScale * scale * styleProfile.lineStrokeBoost;
-  const rawLineAlpha = (mode?.lineAlpha ?? 0.3) * styleProfile.lineAlphaMultiplier;
+  const rawLineAlpha =
+    (mode?.lineAlpha ?? 0.3) *
+    styleProfile.lineAlphaMultiplier *
+    qualityTuning.lineAlphaMultiplier;
   const lineAlpha = styleProfile.lineAlphaClamp
     ? clamp(rawLineAlpha, styleProfile.lineAlphaClamp.min, styleProfile.lineAlphaClamp.max)
     : rawLineAlpha;
@@ -665,6 +717,7 @@ function drawStarLayer(
   renderOptions: MapRecipe["renderOptions"] | undefined,
   mode: ModeSettings | undefined,
   styleProfile: StyleRenderProfile,
+  qualityTuning: QualityVisualTuning,
   palette: SkyPalette,
   premiumStars: boolean,
   premiumThreshold: number,
@@ -723,13 +776,20 @@ function drawStarLayer(
     if (styleProfile.allowGlow && starGlowEnabled && star.magnitude <= glowMagnitudeCutoff) {
       const isBright = star.magnitude <= 1.2;
       const isMidBrightness = star.magnitude <= 2.4;
-      const haloRadius = radius * (isBright ? 3.2 : isMidBrightness ? 2.5 : 2.1);
+      const haloRadius =
+        radius *
+        (isBright ? 3.2 : isMidBrightness ? 2.5 : 2.1) *
+        qualityTuning.haloRadiusMultiplier;
       const haloCoreAlpha = isBright
-        ? Math.min(0.72, alpha * 0.92)
+        ? Math.min(0.72, alpha * 0.92 * qualityTuning.haloAlphaMultiplier)
         : isMidBrightness
-          ? Math.min(0.58, alpha * 0.72)
-          : Math.min(0.44, alpha * 0.58);
-      const haloMidAlpha = isBright ? alpha * 0.36 : isMidBrightness ? alpha * 0.28 : alpha * 0.2;
+          ? Math.min(0.58, alpha * 0.72 * qualityTuning.haloAlphaMultiplier)
+          : Math.min(0.44, alpha * 0.58 * qualityTuning.haloAlphaMultiplier);
+      const haloMidAlpha = isBright
+        ? alpha * 0.36 * qualityTuning.haloAlphaMultiplier
+        : isMidBrightness
+          ? alpha * 0.28 * qualityTuning.haloAlphaMultiplier
+          : alpha * 0.2 * qualityTuning.haloAlphaMultiplier;
 
       ctx.save();
       ctx.shadowBlur = 0;
@@ -750,6 +810,15 @@ function drawStarLayer(
     ctx.beginPath();
     ctx.arc(star.x, star.y, radius, 0, TWO_PI);
     ctx.fill();
+
+    if (
+      qualityTuning.sparkleEnabled &&
+      star.magnitude <= qualityTuning.sparkleBrightnessCutoff &&
+      radius > 0.9 * scale
+    ) {
+      const sparkleAlpha = clamp(alpha * qualityTuning.sparkleAlphaMultiplier, 0.06, 0.38);
+      drawStarSparkle(ctx, star.x, star.y, radius, sparkleAlpha, color);
+    }
   }
 
   ctx.restore();
@@ -844,6 +913,7 @@ function drawSky(
   mode?: ModeSettings,
   scale = 1,
   premium = false,
+  quality: RenderQuality = "preview",
 ) {
   if (!sky) return;
   const theme = STYLE_THEME[styleId];
@@ -859,7 +929,19 @@ function drawSky(
   const premiumPlanets = premium && (renderOptions?.premiumPlanets ?? "off") !== "off";
   const premiumThreshold = (renderOptions?.premiumStars ?? "off") === "realistic" ? 2.2 : 0.6;
   const styleProfile = STYLE_RENDER_PROFILES[styleId];
-  drawConstellationLayer(ctx, sky, renderOptions, mode, styleProfile, palette, lineFactor, scale, premium);
+  const qualityTuning = QUALITY_VISUAL_TUNING[quality];
+  drawConstellationLayer(
+    ctx,
+    sky,
+    renderOptions,
+    mode,
+    styleProfile,
+    qualityTuning,
+    palette,
+    lineFactor,
+    scale,
+    premium,
+  );
 
   if (premium && styleProfile.showMilkyWayBand) {
     const bandColor = resolveBandColor(palette.star);
@@ -872,6 +954,7 @@ function drawSky(
     renderOptions,
     mode,
     styleProfile,
+    qualityTuning,
     palette,
     premiumStars,
     premiumThreshold,
@@ -912,6 +995,42 @@ function drawPremiumVignette(
   ctx.save();
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function drawStarSparkle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  alpha: number,
+  color: string,
+) {
+  const primaryArm = radius * 2.2;
+  const secondaryArm = radius * 1.45;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = toRgba(color, 0.85);
+  ctx.lineWidth = Math.max(0.2, radius * 0.18);
+  ctx.lineCap = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(-primaryArm, 0);
+  ctx.lineTo(primaryArm, 0);
+  ctx.moveTo(0, -primaryArm);
+  ctx.lineTo(0, primaryArm);
+  ctx.stroke();
+
+  ctx.globalAlpha = alpha * 0.6;
+  ctx.lineWidth = Math.max(0.2, radius * 0.12);
+  ctx.beginPath();
+  ctx.moveTo(-secondaryArm, -secondaryArm);
+  ctx.lineTo(secondaryArm, secondaryArm);
+  ctx.moveTo(-secondaryArm, secondaryArm);
+  ctx.lineTo(secondaryArm, -secondaryArm);
+  ctx.stroke();
   ctx.restore();
 }
 

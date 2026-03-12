@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-03-12T17:12:21.323Z",
+  "framed": {
+    "orderId": "148094220",
+    "created": 1772405999,
+    "sourceUrl": "https://files.cdn.printful.com/files/136/136177d8ed3b408ecbef93a0e986c7df_preview.png",
+    "localPath": "/printproof/framed-latest.png"
+  },
+  "unframed": null,
+  "catalog": {
+    "framed": {
+      "variantId": 4654,
+      "label": "Enhanced Matte Paper Framed Poster (Black/14″×14″)",
+      "sourceUrl": "https://files.cdn.printful.com/products/2/4654_1527683172.jpg",
+      "localPath": "/printproof/framed-catalog.jpg"
+    },
+    "unframed": {
+      "variantId": 6242,
+      "label": "Enhanced Matte Paper Poster 18″×18″",
+      "sourceUrl": "https://files.cdn.printful.com/products/1/6242_1527678943.jpg",
+      "localPath": "/printproof/unframed-catalog.jpg"
+    }
+  }
+}

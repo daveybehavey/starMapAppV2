@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 
 import type { InputHTMLAttributes } from "react";
-import type { ChangeEvent, FocusEvent } from "react";
+import type { ChangeEvent, FocusEvent, FormEvent } from "react";
 
 type IOSSafeDateInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const DATE_ERROR_MESSAGE = "Use a real date in YYYYMMDD or YYYY-MM-DD format.";
+const DATE_ERROR_MESSAGE = "Use a real date in YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY format.";
 
 function detectIOS() {
-  if (typeof navigator === "undefined") return false;
+  if (typeof navigator === "undefined" || typeof document === "undefined") return false;
   const ua = navigator.userAgent || "";
   const platform = navigator.platform || "";
   const maxTouchPoints = navigator.maxTouchPoints || 0;
-  return /iPad|iPhone|iPod/.test(ua) || (platform === "MacIntel" && maxTouchPoints > 1);
+  const iosUA = /iPad|iPhone|iPod/.test(ua);
+  const ipadDesktopUA = /Macintosh|MacIntel/.test(platform || ua) && maxTouchPoints > 1;
+  const iosWebkitShell = /AppleWebKit/i.test(ua) && /Mobile/i.test(ua) && !/Android/i.test(ua);
+  return iosUA || ipadDesktopUA || iosWebkitShell;
 }
 
 function isValidIsoDate(value: string) {
@@ -30,7 +33,24 @@ function isValidIsoDate(value: string) {
 }
 
 function normalizeIsoDateInput(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const yearFirst = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(trimmed);
+  if (yearFirst) {
+    const [, y, m, d] = yearFirst;
+    const candidate = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    if (isValidIsoDate(candidate)) return candidate;
+  }
+
+  const monthFirst = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(trimmed);
+  if (monthFirst) {
+    const [, m, d, y] = monthFirst;
+    const candidate = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    if (isValidIsoDate(candidate)) return candidate;
+  }
+
+  const digits = trimmed.replace(/\D/g, "").slice(0, 8);
   if (digits.length === 8) {
     const startYear = Number(digits.slice(0, 4));
     const endYear = Number(digits.slice(4, 8));
@@ -60,14 +80,9 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
       ? valueProp
       : (typeof defaultValue === "string" ? defaultValue : "");
 
-  // Start with text mode on first paint so iOS never flashes native date UI before detection.
-  const [useTextFallback, setUseTextFallback] = useState(true);
+  const [useTextFallback] = useState(() => detectIOS());
   const [textValue, setTextValue] = useState(initialTextValue);
   const [isInvalid, setIsInvalid] = useState(false);
-
-  useEffect(() => {
-    setUseTextFallback(detectIOS());
-  }, []);
 
   useEffect(() => {
     if (useTextFallback && typeof valueProp === "string") {
@@ -90,12 +105,26 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
     onChange?.(event);
   };
 
+  const handleInput = (event: FormEvent<HTMLInputElement>) => {
+    if (!useTextFallback) return;
+    const target = event.currentTarget;
+    const normalized = normalizeIsoDateInput(target.value.trim());
+    if (target.value !== normalized) {
+      target.value = normalized;
+    }
+    setTextValue(normalized);
+    const shouldValidate = normalized.length === 10;
+    const valid = shouldValidate ? isValidIsoDate(normalized) : true;
+    target.setCustomValidity(valid ? "" : DATE_ERROR_MESSAGE);
+    setIsInvalid(!valid);
+  };
+
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     if (useTextFallback) {
       const normalized = normalizeIsoDateInput(event.currentTarget.value.trim());
       setTextValue(normalized);
       event.currentTarget.value = normalized;
-      const valid = isValidIsoDate(normalized);
+      const valid = !normalized || isValidIsoDate(normalized);
       event.currentTarget.setCustomValidity(valid ? "" : DATE_ERROR_MESSAGE);
       setIsInvalid(!valid);
     }
@@ -109,8 +138,14 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
         type="text"
         value={textValue}
         inputMode="numeric"
+        autoCapitalize="off"
+        autoCorrect="off"
+        autoComplete={inputProps.autoComplete ?? "off"}
+        maxLength={10}
+        pattern={undefined}
         placeholder={inputProps.placeholder ?? "YYYY-MM-DD"}
         aria-invalid={isInvalid ? "true" : inputProps["aria-invalid"]}
+        onInput={handleInput}
         onChange={handleChange}
         onBlur={handleBlur}
       />

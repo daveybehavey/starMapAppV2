@@ -87,6 +87,15 @@ const PROMO_CODE_KEY = "star-map-promo-code";
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const REVEAL_ANIMATION_MS = 650;
 
+function isLikelyLowMemoryDevice() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const mobileUA = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
+  const maybeDeviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const lowMemoryHint = typeof maybeDeviceMemory === "number" && maybeDeviceMemory > 0 && maybeDeviceMemory <= 4;
+  return mobileUA || lowMemoryHint;
+}
+
 function normalizePromoCode(raw: string | null | undefined) {
   if (!raw) return null;
   const normalized = raw.trim().toUpperCase();
@@ -293,17 +302,31 @@ export function EditorExperience({
   const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
+  const setPrintShippingCountryValue = useCallback(
+    (country: string, source: "initial" | "query-param" | "editor-panel" | "mobile-preview" | "paywall-modal") => {
+      const normalized = country.trim().toUpperCase();
+      if (!printShippingCountries.includes(normalized)) return;
+      setPrintShippingCountry(normalized);
+      storePrintShippingCountry(normalized);
+      if (source !== "initial" && normalized !== printShippingCountry) {
+        track("print_shipping_country_selected", {
+          source,
+          country: normalized,
+        });
+      }
+    },
+    [printShippingCountries, printShippingCountry],
+  );
   useEffect(() => {
     const stored = readStoredPrintShippingCountry();
     if (stored && printShippingCountries.includes(stored)) {
-      setPrintShippingCountry(stored);
+      setPrintShippingCountryValue(stored, "initial");
       return;
     }
     if (printShippingCountries.length) {
-      setPrintShippingCountry(printShippingCountries[0]);
-      storePrintShippingCountry(printShippingCountries[0]);
+      setPrintShippingCountryValue(printShippingCountries[0], "initial");
     }
-  }, [printShippingCountries]);
+  }, [printShippingCountries, setPrintShippingCountryValue]);
   const readStoredPromoCode = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -601,8 +624,7 @@ export function EditorExperience({
       setPreferredPrintVariant(printVariantParam);
     }
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
-      setPrintShippingCountry(shippingCountryParam);
-      storePrintShippingCountry(shippingCountryParam);
+      setPrintShippingCountryValue(shippingCountryParam, "query-param");
     }
     if (
       checkoutParam === "print" ||
@@ -626,7 +648,15 @@ export function EditorExperience({
     }
 
     prefillAppliedRef.current = true;
-  }, [printShippingCountries, restored, searchParams, setDateTime, setLocation, setRevealed]);
+  }, [
+    printShippingCountries,
+    restored,
+    searchParams,
+    setDateTime,
+    setLocation,
+    setPrintShippingCountryValue,
+    setRevealed,
+  ]);
 
   useEffect(() => {
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
@@ -1027,27 +1057,47 @@ export function EditorExperience({
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
           let lastAssetError: string | null = null;
+          const lowMemoryDevice = isLikelyLowMemoryDevice();
           const exportWidths =
             printVariant === "poster_framed"
-              ? [4600, 4200, 3800, 3400, 3000]
-              : [6000, 5400, 5000, 4600, 4200, 3800, 3400];
+              ? lowMemoryDevice
+                ? [3200, 2800, 2400, 2000, 1700]
+                : [4200, 3800, 3400, 3000, 2600]
+              : lowMemoryDevice
+                ? [3600, 3200, 2800, 2400, 2000, 1700]
+                : [5400, 5000, 4600, 4200, 3800, 3400];
           const uploadQualities = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44];
           for (const exportWidth of exportWidths) {
             if (uploadedAssetId) break;
             const exportHeight = Math.max(1, Math.round(exportWidth / ratio));
             const printCanvas = document.createElement("canvas");
-            await renderStarMap({
-              recipe: recipeForCheckout,
-              canvas: printCanvas,
-              width: exportWidth,
-              height: exportHeight,
-              watermark: false,
-              quality: "export",
-              premium: true,
-            });
+            try {
+              await renderStarMap({
+                recipe: recipeForCheckout,
+                canvas: printCanvas,
+                width: exportWidth,
+                height: exportHeight,
+                watermark: false,
+                quality: "export",
+                premium: true,
+              });
+            } catch {
+              lastAssetError = "print_render_failed";
+              continue;
+            }
             for (let index = 0; index < uploadQualities.length; index += 1) {
               const quality = uploadQualities[index];
-              const dataUrl = printCanvas.toDataURL("image/jpeg", quality);
+              let dataUrl = "";
+              try {
+                dataUrl = printCanvas.toDataURL("image/jpeg", quality);
+              } catch {
+                lastAssetError = "print_asset_generation_failed";
+                continue;
+              }
+              if (!dataUrl.startsWith("data:image/jpeg;base64,")) {
+                lastAssetError = "print_asset_generation_failed";
+                continue;
+              }
               if (estimateDataUrlBytes(dataUrl) > MAX_PRINT_ASSET_BYTES) {
                 lastAssetError = "print_asset_too_large";
                 continue;
@@ -1079,8 +1129,18 @@ export function EditorExperience({
             }
           }
           if (!uploadedAssetId) {
+            track("print_asset_generation_failed", {
+              source: "editor_checkout",
+              reason: lastAssetError ?? "unknown",
+              printVariant,
+              lowMemoryDevice,
+              shippingCountry: printShippingCountry,
+            });
             if (lastAssetError === "print_asset_too_large") {
               throw new Error("print_asset_too_large");
+            }
+            if (lastAssetError === "print_render_failed") {
+              throw new Error("print_render_failed");
             }
             throw new Error("print_asset_failed");
           }
@@ -1117,6 +1177,9 @@ export function EditorExperience({
           if (data?.code === "print_shipping_country_invalid") {
             throw new Error("print_shipping_country_invalid");
           }
+          if (data?.code === "print_margin_guard_blocked") {
+            throw new Error("print_margin_guard_blocked");
+          }
           if (data?.code === "missing_shipping_country") {
             throw new Error("missing_shipping_country");
           }
@@ -1150,12 +1213,16 @@ export function EditorExperience({
               ? "We couldn't verify your promo code right now. Please try again in a moment."
               : reason === "print_asset_failed"
                 ? "We couldn't prepare your print file. Please try again."
-                : reason === "print_asset_too_large"
-                  ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
+              : reason === "print_asset_too_large"
+                ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
+                : reason === "print_render_failed"
+                  ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
                 : reason === "missing_shipping_country"
                   ? "Select your shipping country to continue with print checkout."
                 : reason === "print_shipping_country_invalid"
                   ? "Shipping isn’t available for that country yet. Please select another."
+                  : reason === "print_margin_guard_blocked"
+                    ? "That print option is temporarily unavailable for the selected country. Try another format or country."
                 : reason === "print_checkout_disabled"
                   ? "Print checkout is not live yet."
               : "Checkout is unavailable right now. Please try again shortly.";
@@ -2160,11 +2227,16 @@ export function EditorExperience({
                             <div className="absolute top-[62%] left-1/2 flex w-full max-w-[320px] -translate-x-1/2 flex-col items-center gap-2 px-4 text-center">
                               {canReveal ? (
                                 isRevealing ? (
-                                  <div className="w-full rounded-xl border border-amber-200/35 bg-slate-900/45 px-4 py-3 text-center">
+                                  <div className="reveal-loader-card w-full rounded-xl px-4 py-3 text-center">
                                     <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
                                       <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
                                     </div>
                                     <p className="text-xs font-semibold text-amber-100">Revealing your sky...</p>
+                                    <div className="mt-2 reveal-star-row">
+                                      <span className="reveal-star-dot" />
+                                      <span className="reveal-star-dot" />
+                                      <span className="reveal-star-dot" />
+                                    </div>
                                     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                                       <div className="h-full w-full animate-pulse bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300" />
                                     </div>
@@ -2346,8 +2418,7 @@ export function EditorExperience({
                                 value={printShippingCountry ?? ""}
                                 onChange={(event) => {
                                   const next = event.target.value;
-                                  setPrintShippingCountry(next);
-                                  storePrintShippingCountry(next);
+                                  setPrintShippingCountryValue(next, "editor-panel");
                                 }}
                                 className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
                                 style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
@@ -2480,8 +2551,7 @@ export function EditorExperience({
               printShippingCountries={printShippingCountries}
               printCheckoutInFlight={checkoutInFlight}
               onPrintShippingCountryChange={(country) => {
-                setPrintShippingCountry(country);
-                storePrintShippingCountry(country);
+                setPrintShippingCountryValue(country, "mobile-preview");
               }}
               onStartPrintCheckout={
                 printCheckoutEnabled
@@ -2508,8 +2578,7 @@ export function EditorExperience({
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
               onPrintShippingCountryChange={(country) => {
-                setPrintShippingCountry(country);
-                storePrintShippingCountry(country);
+                setPrintShippingCountryValue(country, "paywall-modal");
               }}
               variant={paywallVariant}
               purchaseIntent={paywallIntent}

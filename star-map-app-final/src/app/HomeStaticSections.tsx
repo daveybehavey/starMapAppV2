@@ -1,11 +1,12 @@
-import Image from "next/image";
 import FramedProofSection from "@/components/FramedProofSection";
 import HomeOfferStack from "@/components/HomeOfferStack";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
+import ResilientImage from "@/components/ResilientImage";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
+import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import {
   formatPrintPriceWithShipping,
@@ -42,10 +43,14 @@ export default function HomeStaticSections({
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
   const isUsOnlyPrint = isUsOnlyPrintCheckout();
+  const proofImages = {
+    framed: getFramedProofImage(),
+    unframed: getUnframedProofImage(),
+  };
 
   return (
     <>
-      <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} />
+      <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} proofImages={proofImages} />
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
@@ -155,8 +160,9 @@ export default function HomeStaticSections({
                 className="card-hover-glow group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30"
               >
                 <div className="relative aspect-square overflow-hidden">
-                  <Image
+                  <ResilientImage
                     src={item.imageSrc}
+                    fallbackSrc="/custom-star-map-anniversary.webp"
                     alt={`${item.occasion} · ${item.renderMode}`}
                     width={900}
                     height={900}
