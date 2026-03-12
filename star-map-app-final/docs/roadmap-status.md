@@ -82,6 +82,7 @@ Updated: 2026-03-11
   - `scripts/print-ops-report.mjs` now surfaces min-charge and negative-margin anomalies explicitly.
   - Added `--strict` and `--min-charge-cents` flags so ops can fail fast when risky sent orders are detected.
   - Live release gate now includes `qa:print-ops -- --hours 72 --strict` to catch new fulfillment anomalies before sign-off.
+  - Added a convenience billing health command: `npm run qa:billing` (commerce smoke + funnel reconcile + print ops snapshot).
 
 ### In progress
 
