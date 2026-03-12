@@ -51,6 +51,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
     () => getPrintShippingCountryLabel(printShippingCountry),
     [printShippingCountry],
   );
+  const shippingCoverageLabel = useMemo(() => {
+    const count = printShippingCountryOptions.length;
+    if (count <= 0) return "Shipping estimates shown before payment";
+    return `Shipping estimates for ${count} countries`;
+  }, [printShippingCountryOptions]);
 
   useEffect(() => {
     const stored = readStoredPrintShippingCountry();
@@ -152,10 +157,27 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a lower-cost
             unframed poster.
           </p>
+          <div className="grid gap-2 pt-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
+              <p className="font-semibold text-amber-200">Fastest route</p>
+              <p className="mt-1">HD file unlocks right after payment.</p>
+            </div>
+            <div className="rounded-xl border border-amber-300/30 bg-amber-300/14 px-3 py-2 text-xs text-amber-100">
+              <p className="font-semibold">Highest gift impact</p>
+              <p className="mt-1">Framed print stays the premium presentation.</p>
+            </div>
+            <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
+              <p className="font-semibold text-amber-200">Global planning</p>
+              <p className="mt-1">{shippingCoverageLabel}.</p>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
+            <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
+              Instant
+            </span>
             <p className="text-sm font-semibold text-white">Instant digital</p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-200">HD file unlocks immediately after payment.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
@@ -166,11 +188,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <a
               href="/editor?mode=quick&source=home-delivery-digital"
               onClick={() => handleDeliveryChoice("digital")}
-            className="mt-auto inline-flex rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/20"
-          >
-            Start free preview
-          </a>
-        </article>
+              className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/20"
+            >
+              Start free preview
+            </a>
+          </article>
 
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
             <div className="flex items-center justify-between">
@@ -179,9 +201,13 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 MOST POPULAR
               </span>
             </div>
+            <p className="mt-1 inline-flex w-fit rounded-full border border-amber-300/40 bg-amber-300/16 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
+              Premium gift
+            </p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-200">Ready-to-hang 14x14 option for the strongest premium gift presentation.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
+              <li>Most buyers pair this with the HD add-on</li>
               <li>Best-looking premium option for special occasions</li>
               <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
               <li>{printLabels.framed}</li>
@@ -189,13 +215,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <a
               href={`/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
               onClick={() => handleDeliveryChoice("print_framed")}
-              className="mt-auto inline-flex rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
+              className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
             >
-              Preview then buy framed
+              Preview framed gift
             </a>
           </article>
 
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
+            <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
+              Physical saver
+            </span>
             <p className="text-sm font-semibold text-white">Unframed print</p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-200">Professionally printed 18x18 poster for buyers who already have a frame plan.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
@@ -207,9 +236,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <a
               href={`/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
               onClick={() => handleDeliveryChoice("print_unframed")}
-              className="mt-auto inline-flex rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
+              className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
             >
-              See unframed option
+              Preview unframed print
             </a>
           </article>
         </div>
