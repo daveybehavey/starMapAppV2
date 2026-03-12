@@ -219,6 +219,7 @@ Recent status:
 - Added a reusable deliverables section (`WhatYouReceiveModule`) on the same three pages for explicit post-checkout expectations.
 - Added testimonial rendering scaffolding (`TestimonialHighlights` + `src/data/testimonials.ts`) that stays hidden until real, permissioned quotes are added.
 - Added staged reveal state on desktop and mobile editor flows so “Generate preview” now transitions through a short “Revealing your sky...” moment before showing the final map state.
+- Added `docs/operator-quick-reference.md` so sales/analytics/print checks and promo updates are operationally consistent.
 
 ## Phase 5: Print Scale (Planned)
 
