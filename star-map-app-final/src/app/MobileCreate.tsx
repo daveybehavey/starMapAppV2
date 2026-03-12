@@ -280,7 +280,9 @@ export function MobileCreate({
 
   const handleReveal = useCallback(() => {
     if (!canReveal || isRevealing) return;
+    const revealStartedAt = Date.now();
     setIsRevealing(true);
+    track("preview_reveal_animation_started", { source: "mobile" });
     if (typeof window !== "undefined" && revealTimerRef.current) {
       window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = null;
@@ -290,6 +292,10 @@ export function MobileCreate({
       setIsRevealing(false);
       revealTimerRef.current = null;
       track("preview_revealed", { source: "mobile" });
+      track("preview_reveal_animation_completed", {
+        source: "mobile",
+        durationMs: Math.max(0, Date.now() - revealStartedAt),
+      });
       trackFunnelStep("editor_reveal", { source: "mobile" });
       setTimeout(() => {
         document.getElementById("mobile-preview")?.scrollIntoView({

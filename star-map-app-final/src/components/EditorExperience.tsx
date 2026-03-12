@@ -701,7 +701,12 @@ export function EditorExperience({
       inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
+    const revealStartedAt = Date.now();
     setIsRevealing(true);
+    track("preview_reveal_animation_started", {
+      source: getPreviewSource() ?? "editor",
+      visualMode: renderOptions.visualMode,
+    });
     if (typeof window !== "undefined" && revealTimerRef.current) {
       window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = null;
@@ -721,6 +726,10 @@ export function EditorExperience({
         advanced: true,
       }));
       track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
+      track("preview_reveal_animation_completed", {
+        source: getPreviewSource() ?? "editor",
+        durationMs: Math.max(0, Date.now() - revealStartedAt),
+      });
       trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
       if (typeof window !== "undefined") {
         try {
