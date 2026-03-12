@@ -87,7 +87,11 @@ function buildPlan(files, includeLint) {
   }
 
   const hasCodeChange = touchesRegex(files, [/\.(ts|tsx|js|jsx|mjs|cjs)$/]);
-  const touchesUi = touches(files, ["src/components/", "src/app/", "public/"]);
+  const touchesPublicUi = files.some((file) => {
+    if (!file.startsWith("public/")) return false;
+    return !["public/merchant-feed.xml"].includes(file);
+  });
+  const touchesUi = touches(files, ["src/components/", "src/app/"]) || touchesPublicUi;
   const touchesRender = touches(files, [
     "src/lib/renderSky.ts",
     "src/lib/astronomy.ts",
