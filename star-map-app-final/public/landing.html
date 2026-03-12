@@ -1544,7 +1544,7 @@
 
           if (!isValid) {
             event.preventDefault();
-            dateInput.setCustomValidity("Use a real date in YYYY-MM-DD format.");
+            dateInput.setCustomValidity("Use a real date in YYYYMMDD or YYYY-MM-DD format.");
             dateInput.reportValidity();
             return;
           }
@@ -1559,7 +1559,7 @@
             dateInput.value = normalized;
           }
           if (normalized.length === 10 && !isRealIsoDate(normalized)) {
-            dateInput.setCustomValidity("Use a real date in YYYY-MM-DD format.");
+            dateInput.setCustomValidity("Use a real date in YYYYMMDD or YYYY-MM-DD format.");
             return;
           }
           dateInput.setCustomValidity("");
@@ -1574,7 +1574,7 @@
             dateInput.setCustomValidity("");
             return;
           }
-          dateInput.setCustomValidity(isRealIsoDate(normalized) ? "" : "Use a real date in YYYY-MM-DD format.");
+          dateInput.setCustomValidity(isRealIsoDate(normalized) ? "" : "Use a real date in YYYYMMDD or YYYY-MM-DD format.");
         });
       })();
     </script>

@@ -276,7 +276,7 @@ export function SimplifiedEditor() {
         return;
       }
       if (!isValidIsoDateInput(nextValue)) {
-        setDateError("Use a real date in YYYY-MM-DD format.");
+        setDateError("Use a real date in YYYYMMDD or YYYY-MM-DD format.");
         return;
       }
       if (nextValue > maxDateValue) {
