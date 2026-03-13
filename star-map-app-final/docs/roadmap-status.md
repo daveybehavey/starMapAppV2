@@ -119,6 +119,9 @@ Updated: 2026-03-12
   - copy-ready post text button
   - top social traffic and top referral-sales source summaries in referral stats
 - Current production wrangler mode is `LIVE_READY`; local `.env.local` remains `CHECKOUT_ONLY` for safer testing.
+- Print operator alerting now covers both:
+  - approval-needed draft orders
+  - paid print failures that require manual intervention
 
 ## Phase 3: Launch Readiness (Current Priority)
 
@@ -215,6 +218,7 @@ Recent status:
 2. Money-page conversion depth:
    - keep trust modules active on `/personalized-star-map`, `/star-map-gift`, `/wedding`
    - replace testimonial scaffolding with real customer-approved quotes/photos
+   - intake template now lives at `docs/testimonial-intake-template.md`
 3. Print launch staging:
    - keep `PRINT_ORDER_SUBMISSION_ENABLED=false` until internal matrix is rerun
    - rerun print matrix (framed success, unframed success, forced failure, admin retry)

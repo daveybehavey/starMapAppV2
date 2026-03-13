@@ -55,6 +55,8 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - `PRINT_ORDER_ALERT_TO`
     - `PRINT_ORDER_ALERT_FROM`
     - `PRINT_ORDER_ALERT_REPLY_TO`
+  - Delivery provider env:
+    - `RESEND_API_KEY` or `SENDGRID_API_KEY`
 - **Ops check**:
   - `npm run qa:print-ops -- --hours 168 --limit 40`
 - **Upsell rollout scoring**:
@@ -64,6 +66,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Admin endpoints** (token-protected):
   - `POST /api/print/orders/retry`
   - `GET /api/print/orders/status?sessionId=...`
+- **Testimonial intake**:
+  - `docs/testimonial-intake-template.md`
+  - publish approved quotes only into `src/data/testimonials.ts`
 
 ## 4) Merchant Center feed
 
