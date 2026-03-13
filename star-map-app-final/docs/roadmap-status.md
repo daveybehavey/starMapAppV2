@@ -260,6 +260,42 @@ Recent status:
   - Generated matrix at `docs/upsell-rollout-matrix.md`
   - Policy guardrails in `docs/upsell-rollout-policy.md`
 
+## Priority Queue (Next 10)
+
+1. Replace testimonial placeholders with real approved customer quotes/photos on the 3 money pages.
+2. Run and document a full print matrix in live mode (framed success, unframed success, forced failure, admin retry).
+3. Add operator email alerting for new paid print sessions and failed fulfillment attempts.
+4. Add event-level dashboard check (GA4/PostHog) for `landing -> preview -> checkout -> paid` and weekly reconcile.
+5. Improve success/download upsell cards with real framed/unframed product photography from fulfilled samples.
+6. Add low-friction post-purchase add-on flow (`digital -> print` and `print -> digital`) with explicit margin guard.
+7. Ship a refined reveal animation pass (faster perceived load + deterministic loading copy).
+8. Launch first social referral campaign (tracked links + source performance review cadence).
+9. Create one authority asset page (`How accurate are star maps?`) and link it from money pages.
+10. Add per-country shipping ETA language to key print CTA surfaces (homepage, paywall, download upsell).
+
+## Extended Backlog (Next 20)
+
+11. Implement referral friend-offer variant testing (free HD vs 50% off single) with abuse controls.
+12. Build automated weekly commerce digest (paid sessions, print submissions, failure rates, referral sales).
+13. Add lightweight save-and-resume map links before full account system rollout.
+14. Expand print catalog from approved high-margin candidates (pilot one SKU at a time).
+15. Add a dedicated product comparison block for digital vs unframed vs framed on `/star-map-gift-formats`.
+16. Add conversion-focused FAQ refresh with shipping, refund, and print quality objections.
+17. Add per-market digital pricing experiment framework for selected lower-ARPU countries.
+18. Build a simple operator screen for print order states (pending/sent/failed) and retry actions.
+19. Add post-purchase review capture flow for social proof acquisition.
+20. Publish a print quality explainer page (materials, dimensions, processing, damage handling).
+21. Add campaign-level attribution tags to all social profile links and pinned posts.
+22. Expand intent pages only where unique proof assets exist (avoid thin programmatic expansion).
+23. Add a rollout checklist command that validates env flags + QA scripts + print ops snapshot in one run.
+24. Add style QA snapshots for homepage/editor/checkout-critical sections.
+25. Add an ops runbook for manual order review and expected response SLAs.
+26. Pilot one lifecycle email sequence focused on print hesitation removal.
+27. Add controlled A/B tests for homepage product hierarchy (framed-default vs balanced layout).
+28. Add weekly SEO health report (sitemap, canonicals, noindex exclusions, merchant feed sanity).
+29. Build a periodic merchant-feed currency/shipping cross-check to avoid country drift regressions.
+30. Add CMYK-safe export experimentation behind a feature flag for higher-end print workflows.
+
 ## No-Go Conditions
 
 Do not deploy print launch if any are true:
