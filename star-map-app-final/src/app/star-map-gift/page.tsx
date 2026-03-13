@@ -4,6 +4,7 @@ import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
+import GiftFormatRoadmapModule from "@/components/GiftFormatRoadmapModule";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -107,6 +108,7 @@ export default function StarMapGiftPage() {
         intro="For last-minute gifting, digital is fastest. For a ready-to-open keepsake, framed print is usually the strongest choice. Start with the same free preview either way."
         sourcePrefix="gift-format"
       />
+      <GiftFormatRoadmapModule sourcePrefix="gift-format-roadmap" />
       <FramedProofSection sourcePrefix="gift-proof" />
 
       <PurchaseTrustPanel
