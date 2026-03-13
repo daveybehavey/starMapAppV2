@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import ResilientImage from "@/components/ResilientImage";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import {
   formatPrice,
@@ -15,6 +16,7 @@ import {
   getPrintAllowedCountries,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
 import { getPrintShippingEstimate } from "@/lib/printfulShipping";
 
 export const revalidate = 86400;
@@ -48,6 +50,10 @@ export default function StarMapGiftFormatsPage() {
   const digitalAddOn = getPrintDigitalAddOnPrice();
   const printCountryCount = getPrintAllowedCountries().length;
   const shippingDisclosure = getPrintShippingDisclosure();
+  const proofImages = {
+    framed: getFramedProofImage(),
+    unframed: getUnframedProofImage(),
+  };
 
   const usFramedShipping = getPrintShippingEstimate("poster_framed", "US");
   const usUnframedShipping = getPrintShippingEstimate("poster_unframed", "US");
@@ -65,6 +71,10 @@ export default function StarMapGiftFormatsPage() {
       price: formatPrice(pricing.single.amountCents, pricing.single.currency),
       detail: "Best for same-day gifting and local print shops.",
       href: "/editor?mode=quick&source=gift-formats-digital",
+      imageSrc: "/custom-star-map-anniversary.webp",
+      fallbackSrc: "/custom-star-map-anniversary.png",
+      bulletA: "Up to 6000x6000 PNG",
+      bulletB: "Immediate access after payment",
     },
     {
       title: `${printPricing.poster_framed.label}`,
@@ -72,6 +82,10 @@ export default function StarMapGiftFormatsPage() {
       price: formatPrintPriceWithShipping(printPricing.poster_framed.amountCents, printPricing.poster_framed.currency),
       detail: `Premium ready-to-hang gift path. US shipping starts around ${usFramedShippingLabel}.`,
       href: "/editor?mode=quick&source=gift-formats-framed&checkout=print&print_variant=poster_framed&shipping_country=US",
+      imageSrc: proofImages.framed,
+      fallbackSrc: "/printproof/framed-catalog.jpg",
+      bulletA: "Ready-to-hang framed delivery",
+      bulletB: "Highest gift conversion path",
     },
     {
       title: `${printPricing.poster_unframed.label}`,
@@ -79,6 +93,10 @@ export default function StarMapGiftFormatsPage() {
       price: formatPrintPriceWithShipping(printPricing.poster_unframed.amountCents, printPricing.poster_unframed.currency),
       detail: `Professional poster print path. US shipping starts around ${usUnframedShippingLabel}.`,
       href: "/editor?mode=quick&source=gift-formats-unframed&checkout=print&print_variant=poster_unframed&shipping_country=US",
+      imageSrc: proofImages.unframed,
+      fallbackSrc: "/printproof/unframed-catalog.jpg",
+      bulletA: "Museum-grade poster stock",
+      bulletB: "Best lower-cost physical option",
     },
   ] as const;
 
@@ -110,6 +128,36 @@ export default function StarMapGiftFormatsPage() {
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-midnight">See the actual output style first</h2>
+          <p className="text-sm text-neutral-800 sm:text-base">
+            This page is the full format catalog: live checkout options now, plus pilots queued for future launch.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { src: "/custom-star-map-anniversary.webp", fallback: "/custom-star-map-anniversary.png", label: "Digital preview quality" },
+            { src: proofImages.framed, fallback: "/printproof/framed-catalog.jpg", label: "Framed print look" },
+            { src: proofImages.unframed, fallback: "/printproof/unframed-catalog.jpg", label: "Unframed poster look" },
+          ].map((item) => (
+            <div key={item.label} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+              <div className="relative aspect-square">
+                <ResilientImage
+                  src={item.src}
+                  fallbackSrc={item.fallback}
+                  alt={item.label}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 33vw"
+                  className="object-cover"
+                />
+              </div>
+              <p className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Live checkout formats</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           We keep live options focused on formats that perform well for quality, delivery, and support. {shippingDisclosure}
@@ -117,12 +165,26 @@ export default function StarMapGiftFormatsPage() {
         <div className="grid gap-3 md:grid-cols-3">
           {liveFormats.map((item) => (
             <article key={item.title} className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+              <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-black/10 bg-neutral-100">
+                <ResilientImage
+                  src={item.imageSrc}
+                  fallbackSrc={item.fallbackSrc}
+                  alt={item.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                />
+              </div>
               <p className="inline-flex rounded-full border border-amber-300/60 bg-amber-100/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-800">
                 {item.badge}
               </p>
               <h3 className="mt-2 text-sm font-semibold text-midnight">{item.title}</h3>
               <p className="mt-1 text-sm font-semibold text-amber-700">{item.price}</p>
               <p className="mt-2 text-xs text-neutral-700">{item.detail}</p>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-700">
+                <li>{item.bulletA}</li>
+                <li>{item.bulletB}</li>
+              </ul>
               <Link
                 href={item.href}
                 prefetch={false}
@@ -138,7 +200,7 @@ export default function StarMapGiftFormatsPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-amber-200 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-xl font-semibold text-midnight">Format expansion queue</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          These are the next candidate products. We only launch a format when it passes margin and fulfillment checks.
+          These are the next candidate products. We only launch a format when it passes margin, quality, and support-risk checks.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           {plannedFormats.map((item) => (
@@ -173,6 +235,17 @@ export default function StarMapGiftFormatsPage() {
           Current print coverage: {printCountryCount} shipping countries. Current print + HD add-on price:{" "}
           {formatPrice(digitalAddOn.amountCents, digitalAddOn.currency)}.
         </p>
+        <div className="flex flex-wrap gap-2 pt-1 text-xs">
+          <Link href="/star-map-gift" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+            Back to star map gift page
+          </Link>
+          <Link href="/shipping" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+            View shipping policy
+          </Link>
+          <Link href="/how-to-print-star-map" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+            View print guide
+          </Link>
+        </div>
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
