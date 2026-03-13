@@ -11,7 +11,12 @@ import {
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { normalizeReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
-import { parseReferralCookieValue, REFERRAL_COOKIE_NAME } from "@/lib/referralCookie";
+import {
+  parseReferralCookieValue,
+  parseReferralSourceCookieValue,
+  REFERRAL_COOKIE_NAME,
+  REFERRAL_SOURCE_COOKIE_NAME,
+} from "@/lib/referralCookie";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
@@ -19,6 +24,7 @@ import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { getPrintfulShippingRate } from "@/lib/printfulShipping";
+import type { ReferralAttribution } from "@/lib/referralAttribution";
 
 export const runtime = "nodejs";
 
@@ -243,6 +249,10 @@ function readReferralCodeFromCookie(req: NextRequest) {
   return parsed?.code;
 }
 
+function readReferralAttributionFromCookie(req: NextRequest): ReferralAttribution | null {
+  return parseReferralSourceCookieValue(req.cookies.get(REFERRAL_SOURCE_COOKIE_NAME)?.value ?? null);
+}
+
 async function resolveReferral(raw?: string, currentSessionId?: string): Promise<ReferralResolution> {
   const code = normalizeReferralCode(raw);
   if (!code) return {};
@@ -283,6 +293,7 @@ async function createCheckoutSession(
     clientCountry?: string | null;
     referralCode?: string;
     referrerSessionId?: string;
+    referralAttribution?: ReferralAttribution | null;
     promotionSource?: PromotionSource;
   },
 ): Promise<CheckoutSessionResult> {
@@ -299,6 +310,7 @@ async function createCheckoutSession(
     clientCountry,
     referralCode,
     referrerSessionId,
+    referralAttribution,
     promotionSource = "none",
   } = input;
   if (!stripe) {
@@ -388,6 +400,10 @@ async function createCheckoutSession(
   if (promotionSource === "referral_auto") metadata.referral_offer_applied = "true";
   if (referralCode) metadata.referral_code = referralCode;
   if (referrerSessionId) metadata.referrer_session_id = referrerSessionId;
+  if (referralCode && referralAttribution?.source) metadata.referral_source = referralAttribution.source;
+  if (referralCode && referralAttribution?.medium) metadata.referral_medium = referralAttribution.medium;
+  if (referralCode && referralAttribution?.campaign) metadata.referral_campaign = referralAttribution.campaign;
+  if (referralCode && referralAttribution?.content) metadata.referral_content = referralAttribution.content;
   if (geoDigitalSingle) {
     metadata.geo_pricing_country = geoDigitalSingle.country;
     metadata.geo_pricing_amount_cents = String(geoDigitalSingle.amountCents);
@@ -604,6 +620,7 @@ export async function GET(req: NextRequest) {
   const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
   const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
   const fallbackReferralCode = readReferralCodeFromCookie(req);
+  const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const promotion = orderType === "digital" && plan === "subscription"
     ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
@@ -649,6 +666,7 @@ export async function GET(req: NextRequest) {
       clientCountry,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
+      referralAttribution,
     });
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
@@ -741,6 +759,7 @@ export async function POST(req: NextRequest) {
 
     const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
     const fallbackReferralCode = readReferralCodeFromCookie(req);
+    const referralAttribution = readReferralAttributionFromCookie(req);
     const referral = await resolveReferral(referralCode ?? fallbackReferralCode, currentSessionId);
     if (orderType === "print" && !printCheckoutEnabled) {
       return NextResponse.json(
@@ -799,6 +818,7 @@ export async function POST(req: NextRequest) {
       clientCountry,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
+      referralAttribution,
     });
     if (promoCode && session.discountRejected) {
       return NextResponse.json(

@@ -13,14 +13,25 @@ import {
   type PrintVariant,
 } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  buildReferralShareUrl,
+  getReferralFriendOfferLabel,
+  getReferralShareMessage,
+} from "@/lib/referralShare";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
+type ReferralSourceSummary = {
+  source: string;
+  visits: number;
+};
 type ReferralSummary = {
   visits: number;
   conversions: number;
   rewardsGranted: number;
   lastConvertedAt: number | null;
+  topVisitSources: ReferralSourceSummary[];
+  topConversionSources: ReferralSourceSummary[];
 };
 
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
@@ -28,9 +39,13 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   conversions: 0,
   rewardsGranted: 0,
   lastConvertedAt: null,
+  topVisitSources: [],
+  topConversionSources: [],
 };
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
+const referralFriendOfferLabel = getReferralFriendOfferLabel();
+const referralShareMessage = getReferralShareMessage();
 
 export default function SuccessClient() {
   const router = useRouter();
@@ -54,6 +69,7 @@ export default function SuccessClient() {
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
@@ -215,6 +231,8 @@ export default function SuccessClient() {
             conversions?: number;
             rewardsGranted?: number;
             lastConvertedAt?: number | null;
+            topVisitSources?: Array<{ source?: unknown; visits?: unknown }>;
+            topConversionSources?: Array<{ source?: unknown; conversions?: unknown }>;
           }
         | null;
       if (!res.ok || !data?.ok) {
@@ -229,6 +247,30 @@ export default function SuccessClient() {
           typeof data.lastConvertedAt === "number" && Number.isFinite(data.lastConvertedAt)
             ? data.lastConvertedAt
             : null,
+        topVisitSources: Array.isArray(data.topVisitSources)
+          ? data.topVisitSources
+              .map((entry) => ({
+                source: typeof entry?.source === "string" ? entry.source.trim().toLowerCase() : "",
+                visits:
+                  typeof entry?.visits === "number" && Number.isFinite(entry.visits)
+                    ? Math.max(0, Math.floor(entry.visits))
+                    : 0,
+              }))
+              .filter((entry) => entry.source && entry.visits > 0)
+              .slice(0, 3)
+          : [],
+        topConversionSources: Array.isArray(data.topConversionSources)
+          ? data.topConversionSources
+              .map((entry) => ({
+                source: typeof entry?.source === "string" ? entry.source.trim().toLowerCase() : "",
+                visits:
+                  typeof entry?.conversions === "number" && Number.isFinite(entry.conversions)
+                    ? Math.max(0, Math.floor(entry.conversions))
+                    : 0,
+              }))
+              .filter((entry) => entry.source && entry.visits > 0)
+              .slice(0, 3)
+          : [],
       });
       setReferralStatus("ready");
     } catch {
@@ -267,10 +309,33 @@ export default function SuccessClient() {
     if (!referralLink) return;
     pauseRedirect();
     try {
-      await navigator.clipboard.writeText(referralLink);
+      const shareUrl = buildReferralShareUrl({
+        referralUrl: referralLink,
+        platform: "copy",
+        surface: "success",
+      });
+      await navigator.clipboard.writeText(shareUrl);
       setReferralCopied(true);
       window.setTimeout(() => setReferralCopied(false), 2000);
       track("referral_link_copied", { source: "success" });
+    } catch {
+      // ignore clipboard failures
+    }
+  }, [pauseRedirect, referralLink]);
+
+  const handleCopyReferralPost = useCallback(async () => {
+    if (!referralLink) return;
+    pauseRedirect();
+    try {
+      const shareUrl = buildReferralShareUrl({
+        referralUrl: referralLink,
+        platform: "copy",
+        surface: "success",
+      });
+      await navigator.clipboard.writeText(`${referralShareMessage} ${shareUrl}`);
+      setReferralPostCopied(true);
+      window.setTimeout(() => setReferralPostCopied(false), 2000);
+      track("referral_post_template_copied", { source: "success" });
     } catch {
       // ignore clipboard failures
     }
@@ -280,12 +345,17 @@ export default function SuccessClient() {
     async (platform: "x" | "facebook" | "pinterest" | "native") => {
       if (!referralLink) return;
       pauseRedirect();
+      const shareUrlValue = buildReferralShareUrl({
+        referralUrl: referralLink,
+        platform,
+        surface: "success",
+      });
       if (platform === "native" && typeof navigator !== "undefined" && typeof navigator.share === "function") {
         try {
           await navigator.share({
             title: "Create your custom star map",
-            text: "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
-            url: referralLink,
+            text: referralShareMessage,
+            url: shareUrlValue,
           });
           track("referral_link_shared", { source: "success", platform: "native" });
           return;
@@ -293,10 +363,8 @@ export default function SuccessClient() {
           // Fall through to web share URLs.
         }
       }
-      const encodedUrl = encodeURIComponent(referralLink);
-      const encodedText = encodeURIComponent(
-        "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
-      );
+      const encodedUrl = encodeURIComponent(shareUrlValue);
+      const encodedText = encodeURIComponent(referralShareMessage);
       const shareUrl = (() => {
         if (platform === "x" || platform === "native") {
           return `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
@@ -718,7 +786,7 @@ export default function SuccessClient() {
                       </p>
                     </div>
                     <p className="mt-1 text-xs text-amber-100/80">
-                      Share your link. Each paid checkout adds 1 HD credit.
+                      Share your link on social. Friends get {referralFriendOfferLabel} and each paid checkout adds 1 HD credit.
                     </p>
                     <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
                       <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
@@ -750,7 +818,14 @@ export default function SuccessClient() {
                             onClick={() => void handleCopyReferralLink()}
                             className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30"
                           >
-                            {referralCopied ? "Copied" : "Copy link"}
+                            {referralCopied ? "Copied" : "Copy social link"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyReferralPost()}
+                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                          >
+                            {referralPostCopied ? "Post text copied" : "Copy post text"}
                           </button>
                           <button
                             type="button"
@@ -786,6 +861,27 @@ export default function SuccessClient() {
                     {referralSummary.lastConvertedAt ? (
                       <p className="mt-2 text-[11px] text-amber-100/70">
                         Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
+                      </p>
+                    ) : null}
+                    {referralSummary.topVisitSources.length > 0 ? (
+                      <p className="mt-1 text-[11px] text-amber-100/70">
+                        Top social traffic:{" "}
+                        {referralSummary.topVisitSources
+                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
+                          .join(" • ")}
+                      </p>
+                    ) : null}
+                    {referralSummary.topConversionSources.length > 0 ? (
+                      <p className="mt-1 text-[11px] text-amber-100/70">
+                        Top referral sales:{" "}
+                        {referralSummary.topConversionSources
+                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
+                          .join(" • ")}
+                      </p>
+                    ) : null}
+                    {referralLink ? (
+                      <p className="mt-1 text-[11px] text-amber-100/70">
+                        Suggested social caption: {referralShareMessage}
                       </p>
                     ) : null}
                     {referralStatus === "loading" && (

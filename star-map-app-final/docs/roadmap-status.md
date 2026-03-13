@@ -114,6 +114,10 @@ Updated: 2026-03-12
 - Referral attribution is now time-bounded client-side (30-day window) instead of indefinite local storage.
 - Referral auto-offer can now be configured via `STRIPE_REFERRAL_PROMO_CODE_ID` with safe fallback when Stripe rejects discount application.
 - Referrer reward quantity is now configurable via `REFERRAL_REWARD_CREDITS` (default `1` HD credit per qualified referral conversion).
+- Success/download referral cards now support social-first sharing:
+  - tracking-tagged share links per platform (`utm_*` + `ref_src`)
+  - copy-ready post text button
+  - top social traffic source summary in referral stats
 - Current production wrangler mode is `LIVE_READY`; local `.env.local` remains `CHECKOUT_ONLY` for safer testing.
 
 ## Phase 3: Launch Readiness (Current Priority)

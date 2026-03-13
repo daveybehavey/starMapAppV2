@@ -19,9 +19,21 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion
+  - `NEXT_PUBLIC_REFERRAL_FRIEND_OFFER_LABEL` = user-facing text shown in referral share cards (example: `a free HD download`)
   - For "free HD for both sides":
     - Set `STRIPE_REFERRAL_PROMO_CODE_ID` to a 100% single-HD promo in Stripe
     - Keep `REFERRAL_REWARD_CREDITS=1`
+
+### Run social referral posts
+
+1. Complete a paid order and open `/success` or `/download`.
+2. In **Referral bonus**, click:
+   - `Copy social link` for the tracking link only, or
+   - `Copy post text` for ready-to-paste social caption + link.
+3. Share to X/Facebook/Pinterest directly from those same buttons.
+4. Watch source breakdown in the same card:
+   - `Top social traffic` (visit sources)
+   - `Top referral sales` (conversion sources)
 
 ### Update the signup promo code safely
 

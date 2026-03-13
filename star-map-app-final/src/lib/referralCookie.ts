@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { normalizeReferralCode } from "@/lib/referrals";
+import { normalizeReferralAttribution, type ReferralAttribution } from "@/lib/referralAttribution";
 
 export const REFERRAL_COOKIE_NAME = "starmap_ref";
+export const REFERRAL_SOURCE_COOKIE_NAME = "starmap_ref_src";
 export const REFERRAL_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 type ReferralCookiePayload = {
@@ -68,4 +70,33 @@ export function parseReferralCookieValue(raw: unknown, now = Date.now()): Referr
   if (!timingSafeEqual(actualBuffer, expectedBuffer)) return null;
 
   return { code, issuedAt };
+}
+
+export function createReferralSourceCookieValue(input: ReferralAttribution | null): string | null {
+  const normalized = normalizeReferralAttribution({
+    source: input?.source,
+    medium: input?.medium,
+    campaign: input?.campaign,
+    content: input?.content,
+  });
+  if (!normalized) return null;
+  return Buffer.from(JSON.stringify(normalized)).toString("base64url");
+}
+
+export function parseReferralSourceCookieValue(raw: unknown): ReferralAttribution | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const decoded = Buffer.from(trimmed, "base64url").toString("utf8");
+    const parsed = JSON.parse(decoded) as {
+      source?: unknown;
+      medium?: unknown;
+      campaign?: unknown;
+      content?: unknown;
+    };
+    return normalizeReferralAttribution(parsed);
+  } catch {
+    return null;
+  }
 }

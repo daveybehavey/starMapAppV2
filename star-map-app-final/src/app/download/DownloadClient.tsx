@@ -17,6 +17,11 @@ import {
 } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { readStoredPrintShippingCountry } from "@/lib/printfulShipping";
+import {
+  buildReferralShareUrl,
+  getReferralFriendOfferLabel,
+  getReferralShareMessage,
+} from "@/lib/referralShare";
 import EditorFontShell from "@/components/EditorFontShell";
 
 const DRAFT_KEY = "star-map-draft";
@@ -28,11 +33,17 @@ const LEGACY_CHECKOUT_MAP_KEY = "checkout-map-id";
 type Status = "checking" | "ready" | "downloading" | "error" | "no-draft" | "not-paid";
 type PreviewStatus = "idle" | "rendering" | "ready" | "error";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
+type ReferralSourceSummary = {
+  source: string;
+  visits: number;
+};
 type ReferralSummary = {
   visits: number;
   conversions: number;
   rewardsGranted: number;
   lastConvertedAt: number | null;
+  topVisitSources: ReferralSourceSummary[];
+  topConversionSources: ReferralSourceSummary[];
 };
 
 const PREVIEW_BASE_WIDTH = 1200;
@@ -48,11 +59,15 @@ const referralRewardCredits = (() => {
   return parsed;
 })();
 const referralRewardCreditsLabel = `${referralRewardCredits} bonus HD credit${referralRewardCredits === 1 ? "" : "s"}`;
+const referralFriendOfferLabel = getReferralFriendOfferLabel();
+const referralShareMessage = getReferralShareMessage();
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   visits: 0,
   conversions: 0,
   rewardsGranted: 0,
   lastConvertedAt: null,
+  topVisitSources: [],
+  topConversionSources: [],
 };
 
 function getPreviewSource() {
@@ -210,6 +225,7 @@ export default function DownloadClient() {
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
 
@@ -871,6 +887,8 @@ export default function DownloadClient() {
             conversions?: number;
             rewardsGranted?: number;
             lastConvertedAt?: number | null;
+            topVisitSources?: Array<{ source?: unknown; visits?: unknown }>;
+            topConversionSources?: Array<{ source?: unknown; conversions?: unknown }>;
           }
         | null;
       if (!res.ok || !data?.ok) {
@@ -885,6 +903,30 @@ export default function DownloadClient() {
           typeof data.lastConvertedAt === "number" && Number.isFinite(data.lastConvertedAt)
             ? data.lastConvertedAt
             : null,
+        topVisitSources: Array.isArray(data.topVisitSources)
+          ? data.topVisitSources
+              .map((entry) => ({
+                source: typeof entry?.source === "string" ? entry.source.trim().toLowerCase() : "",
+                visits:
+                  typeof entry?.visits === "number" && Number.isFinite(entry.visits)
+                    ? Math.max(0, Math.floor(entry.visits))
+                    : 0,
+              }))
+              .filter((entry) => entry.source && entry.visits > 0)
+              .slice(0, 3)
+          : [],
+        topConversionSources: Array.isArray(data.topConversionSources)
+          ? data.topConversionSources
+              .map((entry) => ({
+                source: typeof entry?.source === "string" ? entry.source.trim().toLowerCase() : "",
+                visits:
+                  typeof entry?.conversions === "number" && Number.isFinite(entry.conversions)
+                    ? Math.max(0, Math.floor(entry.conversions))
+                    : 0,
+              }))
+              .filter((entry) => entry.source && entry.visits > 0)
+              .slice(0, 3)
+          : [],
       });
       setReferralStatus("ready");
     } catch {
@@ -921,7 +963,12 @@ export default function DownloadClient() {
   const handleCopyReferralLink = useCallback(async () => {
     if (!referralLink) return;
     try {
-      await navigator.clipboard.writeText(referralLink);
+      const shareUrl = buildReferralShareUrl({
+        referralUrl: referralLink,
+        platform: "copy",
+        surface: "download",
+      });
+      await navigator.clipboard.writeText(shareUrl);
       setReferralCopied(true);
       window.setTimeout(() => setReferralCopied(false), 2000);
       track("referral_link_copied", { source: "download" });
@@ -930,15 +977,37 @@ export default function DownloadClient() {
     }
   }, [referralLink]);
 
+  const handleCopyReferralPost = useCallback(async () => {
+    if (!referralLink) return;
+    try {
+      const shareUrl = buildReferralShareUrl({
+        referralUrl: referralLink,
+        platform: "copy",
+        surface: "download",
+      });
+      await navigator.clipboard.writeText(`${referralShareMessage} ${shareUrl}`);
+      setReferralPostCopied(true);
+      window.setTimeout(() => setReferralPostCopied(false), 2000);
+      track("referral_post_template_copied", { source: "download" });
+    } catch {
+      // ignore clipboard failures
+    }
+  }, [referralLink]);
+
   const handleShareReferralLink = useCallback(
     async (platform: "x" | "facebook" | "pinterest" | "native") => {
       if (!referralLink) return;
+      const shareUrlValue = buildReferralShareUrl({
+        referralUrl: referralLink,
+        platform,
+        surface: "download",
+      });
       if (platform === "native" && typeof navigator !== "undefined" && typeof navigator.share === "function") {
         try {
           await navigator.share({
             title: "Create your custom star map",
-            text: "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
-            url: referralLink,
+            text: referralShareMessage,
+            url: shareUrlValue,
           });
           track("referral_link_shared", { source: "download", platform: "native" });
           return;
@@ -946,10 +1015,8 @@ export default function DownloadClient() {
           // Fall through to web share URLs.
         }
       }
-      const encodedUrl = encodeURIComponent(referralLink);
-      const encodedText = encodeURIComponent(
-        "Create your custom star map with StarMapCo. Free preview, HD download in seconds.",
-      );
+      const encodedUrl = encodeURIComponent(shareUrlValue);
+      const encodedText = encodeURIComponent(referralShareMessage);
       const shareUrl = (() => {
         if (platform === "x" || platform === "native") {
           return `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
@@ -1209,7 +1276,8 @@ export default function DownloadClient() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-neutral-200">
-                  Share your referral link. Each paid checkout through your link adds {referralRewardCreditsLabel}.
+                  Share on social. Friends get {referralFriendOfferLabel} and each paid checkout through your link adds{" "}
+                  {referralRewardCreditsLabel}.
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
@@ -1230,6 +1298,22 @@ export default function DownloadClient() {
                     Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
                   </p>
                 ) : null}
+                {referralSummary.topVisitSources.length > 0 ? (
+                  <p className="mt-1 text-[11px] text-amber-100/70">
+                    Top social traffic:{" "}
+                    {referralSummary.topVisitSources
+                      .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
+                      .join(" • ")}
+                  </p>
+                ) : null}
+                {referralSummary.topConversionSources.length > 0 ? (
+                  <p className="mt-1 text-[11px] text-amber-100/70">
+                    Top referral sales:{" "}
+                    {referralSummary.topConversionSources
+                      .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
+                      .join(" • ")}
+                  </p>
+                ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -1246,7 +1330,14 @@ export default function DownloadClient() {
                         onClick={() => void handleCopyReferralLink()}
                         className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
                       >
-                        {referralCopied ? "Copied" : "Copy link"}
+                        {referralCopied ? "Copied" : "Copy social link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyReferralPost()}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        {referralPostCopied ? "Post text copied" : "Copy post text"}
                       </button>
                       <button
                         type="button"
@@ -1286,6 +1377,11 @@ export default function DownloadClient() {
                     Create your referral link once and use it everywhere.
                   </p>
                 )}
+                {referralLink ? (
+                  <p className="mt-1 text-[11px] text-amber-100/70">
+                    Suggested social caption: {referralShareMessage}
+                  </p>
+                ) : null}
                 {referralStatus === "loading" && (
                   <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
                 )}

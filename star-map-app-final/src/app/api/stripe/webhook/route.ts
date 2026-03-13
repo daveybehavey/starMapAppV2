@@ -306,6 +306,14 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   const orderType = getOrderType(session);
   const hasDigitalAddOn = includesDigitalAddOn(session);
   const amountTotal = typeof session.amount_total === "number" ? session.amount_total : 0;
+  const referralSource =
+    typeof session.metadata?.referral_source === "string" ? session.metadata.referral_source.trim().toLowerCase() : undefined;
+  const referralMedium =
+    typeof session.metadata?.referral_medium === "string" ? session.metadata.referral_medium.trim().toLowerCase() : undefined;
+  const referralCampaign =
+    typeof session.metadata?.referral_campaign === "string" ? session.metadata.referral_campaign.trim().toLowerCase() : undefined;
+  const referralContent =
+    typeof session.metadata?.referral_content === "string" ? session.metadata.referral_content.trim().toLowerCase() : undefined;
   const rewardEligible = (orderType === "digital" || hasDigitalAddOn) && amountTotal > 0;
   let rewardGranted = 0;
   const checkoutCustomerId = typeof session.customer === "string" ? session.customer.trim() : "";
@@ -367,6 +375,10 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
       orderType,
       amountTotal,
       rewardGranted,
+      source: referralSource,
+      medium: referralMedium,
+      campaign: referralCampaign,
+      content: referralContent,
     },
   });
 
@@ -378,6 +390,10 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
       details: {
         checkoutSessionId: session.id,
         rewardGranted,
+        source: referralSource,
+        medium: referralMedium,
+        campaign: referralCampaign,
+        content: referralContent,
       },
     });
   } else {
@@ -388,6 +404,10 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
       details: {
         checkoutSessionId: session.id,
         reason: rewardSkipReason ?? "not_eligible",
+        source: referralSource,
+        medium: referralMedium,
+        campaign: referralCampaign,
+        content: referralContent,
       },
     });
   }

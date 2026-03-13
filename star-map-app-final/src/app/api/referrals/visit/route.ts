@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit"
 import { normalizeReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { appendReferralEvent } from "@/lib/referralLedger";
+import { normalizeReferralAttribution } from "@/lib/referralAttribution";
 
 export const runtime = "nodejs";
 
@@ -26,11 +27,32 @@ export async function POST(req: NextRequest) {
   }
 
   let code: string | null = null;
+  let attribution:
+    | {
+        source?: string;
+        medium?: string;
+        campaign?: string;
+        content?: string;
+      }
+    | null = null;
   try {
-    const body = (await req.json()) as { code?: unknown } | null;
+    const body = (await req.json()) as {
+      code?: unknown;
+      source?: unknown;
+      medium?: unknown;
+      campaign?: unknown;
+      content?: unknown;
+    } | null;
     code = normalizeReferralCode(body?.code);
+    attribution = normalizeReferralAttribution({
+      source: body?.source,
+      medium: body?.medium,
+      campaign: body?.campaign,
+      content: body?.content,
+    });
   } catch {
     code = null;
+    attribution = null;
   }
   if (!code) {
     return NextResponse.json({ ok: false, error: "Invalid referral code" }, { status: 400 });
@@ -46,7 +68,7 @@ export async function POST(req: NextRequest) {
     await appendReferralEvent({
       code,
       type: "visit_deduped",
-      details: { reason: "self_visit" },
+      details: { reason: "self_visit", ...(attribution ?? {}) },
     });
     return NextResponse.json({ ok: true, deduped: true });
   }
@@ -58,7 +80,7 @@ export async function POST(req: NextRequest) {
     await appendReferralEvent({
       code,
       type: "visit_deduped",
-      details: { reason: "recent_duplicate" },
+      details: { reason: "recent_duplicate", ...(attribution ?? {}) },
     });
     return NextResponse.json({ ok: true, deduped: true });
   }
@@ -76,6 +98,7 @@ export async function POST(req: NextRequest) {
   await appendReferralEvent({
     code,
     type: "visit_recorded",
+    details: attribution ?? undefined,
   });
 
   return NextResponse.json({ ok: true, deduped: false });

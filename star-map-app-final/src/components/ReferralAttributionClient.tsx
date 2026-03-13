@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeReferralCode, writeStoredReferralCode } from "@/lib/referrals";
+import { getReferralAttributionFromSearchParams } from "@/lib/referralAttribution";
 
 export default function ReferralAttributionClient() {
   const searchParams = useSearchParams();
   const lastHandledCodeRef = useRef<string | null>(null);
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
+  const attribution = getReferralAttributionFromSearchParams(searchParams);
 
   useEffect(() => {
     if (!queryReferralCode || typeof window === "undefined") return;
@@ -18,7 +20,10 @@ export default function ReferralAttributionClient() {
     void fetch("/api/referrals/attribution", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: queryReferralCode }),
+      body: JSON.stringify({
+        code: queryReferralCode,
+        ...attribution,
+      }),
     }).catch(() => {
       // ignore attribution failures; checkout still has localStorage fallback
     });
@@ -36,7 +41,10 @@ export default function ReferralAttributionClient() {
     void fetch("/api/referrals/visit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: queryReferralCode }),
+      body: JSON.stringify({
+        code: queryReferralCode,
+        ...attribution,
+      }),
     }).then((res) => {
       if (res.ok) return;
       try {
@@ -51,7 +59,7 @@ export default function ReferralAttributionClient() {
         // ignore sessionStorage errors
       }
     });
-  }, [queryReferralCode]);
+  }, [attribution, queryReferralCode]);
 
   return null;
 }
