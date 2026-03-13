@@ -210,6 +210,7 @@ Use for:
 ### Seasonal Campaigns
 
 - [Mother's Day Campaign Pack](./mothers-day-campaign-pack.md)
+- [Social Referral Campaign Playbook](./social-referral-campaign-playbook.md)
 
 Use for:
 
@@ -217,6 +218,7 @@ Use for:
 - gift angles and scripts
 - email and paid support timing
 - Pinterest and seasonal execution
+- referral-driven social posting and offer tracking
 
 ## 8. First 5 Videos To Prioritize
 

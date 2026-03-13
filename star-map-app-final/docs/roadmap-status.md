@@ -117,7 +117,7 @@ Updated: 2026-03-12
 - Success/download referral cards now support social-first sharing:
   - tracking-tagged share links per platform (`utm_*` + `ref_src`)
   - copy-ready post text button
-  - top social traffic source summary in referral stats
+  - top social traffic and top referral-sales source summaries in referral stats
 - Current production wrangler mode is `LIVE_READY`; local `.env.local` remains `CHECKOUT_ONLY` for safer testing.
 
 ## Phase 3: Launch Readiness (Current Priority)
