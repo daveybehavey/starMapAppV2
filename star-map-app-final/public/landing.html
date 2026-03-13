@@ -936,13 +936,13 @@
                 autocapitalize="off"
                 spellcheck="false"
                 placeholder="YYYY-MM-DD"
-                title="Use YYYYMMDD or YYYY-MM-DD format"
+                title="Use YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY format"
               />
               <input name="location" type="text" placeholder="City or address" aria-label="Location" autocomplete="address-level2" />
             </div>
             <button type="submit">Preview your map</button>
           </form>
-          <p class="hero-note">Free preview · No account required. Date format: YYYY-MM-DD (or type YYYYMMDD)</p>
+          <p class="hero-note">Free preview · No account required. Date format: YYYY-MM-DD (or type YYYYMMDD or MMDDYYYY)</p>
         <div class="hero-offer-ladder">
           <a
             class="hero-offer-card"
@@ -1621,7 +1621,7 @@
 
           if (!isValid) {
             event.preventDefault();
-            dateInput.setCustomValidity("Use a real date in YYYYMMDD or YYYY-MM-DD format.");
+            dateInput.setCustomValidity("Use a real date in YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY format.");
             dateInput.reportValidity();
             return;
           }
@@ -1636,7 +1636,7 @@
             dateInput.value = normalized;
           }
           if (normalized.length === 10 && !isRealIsoDate(normalized)) {
-            dateInput.setCustomValidity("Use a real date in YYYYMMDD or YYYY-MM-DD format.");
+            dateInput.setCustomValidity("Use a real date in YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY format.");
             return;
           }
           dateInput.setCustomValidity("");
@@ -1651,7 +1651,9 @@
             dateInput.setCustomValidity("");
             return;
           }
-          dateInput.setCustomValidity(isRealIsoDate(normalized) ? "" : "Use a real date in YYYYMMDD or YYYY-MM-DD format.");
+          dateInput.setCustomValidity(
+            isRealIsoDate(normalized) ? "" : "Use a real date in YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY format."
+          );
         });
       })();
     </script>
