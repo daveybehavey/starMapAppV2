@@ -103,6 +103,13 @@ export default function DeliveryFormatModule({
           Start with the preview. You can decide on digital, unframed, or framed delivery after you see the final
           design, and physical orders show shipping before payment.
         </p>
+        <Link
+          href="/star-map-gift-formats"
+          prefetch={false}
+          className="mt-2 inline-flex text-xs font-semibold text-amber-700 underline hover:text-amber-800"
+        >
+          Explore full gift formats and pilot queue
+        </Link>
       </div>
     </section>
   );
