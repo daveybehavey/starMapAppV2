@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import GiftFormatCtaLink from "@/components/GiftFormatCtaLink";
+import GiftFormatsTelemetry from "@/components/GiftFormatsTelemetry";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import ResilientImage from "@/components/ResilientImage";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -75,6 +77,11 @@ export default function StarMapGiftFormatsPage() {
       fallbackSrc: "/custom-star-map-anniversary.png",
       bulletA: "Up to 6000x6000 PNG",
       bulletB: "Immediate access after payment",
+      source: "gift-formats-digital-cta",
+      orderType: "digital" as const,
+      plan: "single" as const,
+      printVariant: undefined,
+      index: 0,
     },
     {
       title: `${printPricing.poster_framed.label}`,
@@ -86,6 +93,11 @@ export default function StarMapGiftFormatsPage() {
       fallbackSrc: "/printproof/framed-catalog.jpg",
       bulletA: "Ready-to-hang framed delivery",
       bulletB: "Highest gift conversion path",
+      source: "gift-formats-framed-cta",
+      orderType: "print" as const,
+      plan: "single" as const,
+      printVariant: "poster_framed" as const,
+      index: 1,
     },
     {
       title: `${printPricing.poster_unframed.label}`,
@@ -97,6 +109,11 @@ export default function StarMapGiftFormatsPage() {
       fallbackSrc: "/printproof/unframed-catalog.jpg",
       bulletA: "Museum-grade poster stock",
       bulletB: "Best lower-cost physical option",
+      source: "gift-formats-unframed-cta",
+      orderType: "print" as const,
+      plan: "single" as const,
+      printVariant: "poster_unframed" as const,
+      index: 2,
     },
   ] as const;
 
@@ -110,6 +127,7 @@ export default function StarMapGiftFormatsPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:pt-14">
+      <GiftFormatsTelemetry source="gift-formats-page" />
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
@@ -185,13 +203,19 @@ export default function StarMapGiftFormatsPage() {
                 <li>{item.bulletA}</li>
                 <li>{item.bulletB}</li>
               </ul>
-              <Link
+              <GiftFormatCtaLink
                 href={item.href}
-                prefetch={false}
                 className="mt-4 inline-flex rounded-full border border-black/10 bg-midnight px-4 py-2 text-xs font-semibold text-white hover:bg-midnight/90"
+                source={item.source}
+                plan={item.plan}
+                orderType={item.orderType}
+                printVariant={item.printVariant}
+                listId="gift_formats_live_options"
+                listName="Gift formats live options"
+                index={item.index}
               >
                 Preview this format
-              </Link>
+              </GiftFormatCtaLink>
             </article>
           ))}
         </div>
