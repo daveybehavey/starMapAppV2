@@ -22,6 +22,7 @@ import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
 } from "@/lib/printfulShipping";
+import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
 const REVEAL_ANIMATION_MS = 650;
@@ -115,6 +116,7 @@ export function MobileCreate({
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [revealStageIndex, setRevealStageIndex] = useState(0);
   const revealTimerRef = useRef<number | null>(null);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
@@ -131,6 +133,8 @@ export function MobileCreate({
   const showEditor = revealed && showAdvanced;
   const showSetupPanels = !revealed || showEditor;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
+  const revealStage = REVEAL_STAGES[revealStageIndex];
+  const revealProgress = getRevealProgressPercent(revealStageIndex);
   const hdCreditLabel =
     currentPlan === "subscription"
       ? "Unlimited HD"
@@ -281,6 +285,7 @@ export function MobileCreate({
   const handleReveal = useCallback(() => {
     if (!canReveal || isRevealing) return;
     const revealStartedAt = Date.now();
+    setRevealStageIndex(0);
     setIsRevealing(true);
     track("preview_reveal_animation_started", { source: "mobile" });
     if (typeof window !== "undefined" && revealTimerRef.current) {
@@ -290,6 +295,7 @@ export function MobileCreate({
     revealTimerRef.current = window.setTimeout(() => {
       setRevealed(true);
       setIsRevealing(false);
+      setRevealStageIndex(0);
       revealTimerRef.current = null;
       track("preview_revealed", { source: "mobile" });
       track("preview_reveal_animation_completed", {
@@ -304,6 +310,24 @@ export function MobileCreate({
       }, 100);
     }, REVEAL_ANIMATION_MS);
   }, [canReveal, isRevealing, setRevealed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isRevealing) {
+      setRevealStageIndex(0);
+      return;
+    }
+    setRevealStageIndex(0);
+    let nextStage = 0;
+    const stageInterval = window.setInterval(() => {
+      nextStage = Math.min(REVEAL_STAGES.length - 1, nextStage + 1);
+      setRevealStageIndex(nextStage);
+      if (nextStage >= REVEAL_STAGES.length - 1) {
+        window.clearInterval(stageInterval);
+      }
+    }, Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length)));
+    return () => window.clearInterval(stageInterval);
+  }, [isRevealing]);
 
   useEffect(() => {
     return () => {
@@ -617,7 +641,7 @@ export function MobileCreate({
           <div className="text-xs text-neutral-400">
             <p>
               {isRevealing
-                ? "Aligning stars with your selected moment..."
+                ? revealStage.description
                 : "Add date + location to unlock your preview. Presets optional."}
             </p>
             <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
@@ -1108,14 +1132,42 @@ export function MobileCreate({
                   </p>
                   {canReveal ? (
                     isRevealing ? (
-                      <div className="rounded-xl border border-amber-200/35 bg-slate-900/45 px-3 py-2">
+                      <div className="reveal-loader-card rounded-xl px-3 py-3 text-center">
                         <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
                           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
                         </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                          <div className="h-full w-full animate-pulse bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300" />
+                        <p className="text-[9px] font-semibold tracking-[0.22em] text-amber-100/80 uppercase">
+                          Preparing preview
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-amber-50">{revealStage.title}</p>
+                        <p className="mt-1 text-[10px] leading-4 text-neutral-200">{revealStage.description}</p>
+                        <div className="mt-2 grid grid-cols-3 gap-1 text-[8px] font-semibold tracking-[0.18em] text-neutral-300 uppercase">
+                          {REVEAL_STAGES.map((stage, index) => {
+                            const isActive = index === revealStageIndex;
+                            const isComplete = index < revealStageIndex;
+                            return (
+                              <span
+                                key={stage.label}
+                                className={`rounded-full border px-1.5 py-1 ${
+                                  isComplete
+                                    ? "border-amber-200/50 bg-amber-200/18 text-amber-50"
+                                    : isActive
+                                      ? "border-amber-200/45 bg-white/8 text-amber-100"
+                                      : "border-white/10 bg-white/[0.04] text-neutral-400"
+                                }`}
+                              >
+                                {stage.label}
+                              </span>
+                            );
+                          })}
                         </div>
-                        <p className="mt-2 text-[10px] text-neutral-200">Revealing your sky...</p>
+                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
+                            style={{ width: revealProgress }}
+                          />
+                        </div>
+                        <p className="mt-2 text-[10px] text-neutral-300">Usually under a second.</p>
                       </div>
                     ) : (
                       <button

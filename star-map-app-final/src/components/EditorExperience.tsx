@@ -35,6 +35,7 @@ import {
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
+import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -292,6 +293,7 @@ export function EditorExperience({
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [autoExportPending, setAutoExportPending] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [revealStageIndex, setRevealStageIndex] = useState(0);
   const revealTimerRef = useRef<number | null>(null);
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
@@ -302,6 +304,8 @@ export function EditorExperience({
   const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
+  const revealStage = REVEAL_STAGES[revealStageIndex];
+  const revealProgress = getRevealProgressPercent(revealStageIndex);
   const setPrintShippingCountryValue = useCallback(
     (country: string, source: "initial" | "query-param" | "editor-panel" | "mobile-preview" | "paywall-modal") => {
       const normalized = country.trim().toUpperCase();
@@ -732,6 +736,7 @@ export function EditorExperience({
       return;
     }
     const revealStartedAt = Date.now();
+    setRevealStageIndex(0);
     setIsRevealing(true);
     track("preview_reveal_animation_started", {
       source: getPreviewSource() ?? "editor",
@@ -744,6 +749,7 @@ export function EditorExperience({
     revealTimerRef.current = window.setTimeout(() => {
       setRevealed(true);
       setIsRevealing(false);
+      setRevealStageIndex(0);
       revealTimerRef.current = null;
       // Shift into edit mode with a compact default panel state.
       setCollapsedCards((prev) => ({
@@ -773,6 +779,24 @@ export function EditorExperience({
       });
     }, REVEAL_ANIMATION_MS);
   }, [canReveal, getPreviewSource, hasDate, isRevealing, paid, renderOptions.visualMode, setRevealed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isRevealing) {
+      setRevealStageIndex(0);
+      return;
+    }
+    setRevealStageIndex(0);
+    let nextStage = 0;
+    const stageInterval = window.setInterval(() => {
+      nextStage = Math.min(REVEAL_STAGES.length - 1, nextStage + 1);
+      setRevealStageIndex(nextStage);
+      if (nextStage >= REVEAL_STAGES.length - 1) {
+        window.clearInterval(stageInterval);
+      }
+    }, Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length)));
+    return () => window.clearInterval(stageInterval);
+  }, [isRevealing]);
 
   const applySampleMoment = useCallback(() => {
     const preset = occasionPresets.find((item) => item.id === "wedding") ?? occasionPresets[0];
@@ -2228,20 +2252,47 @@ export function EditorExperience({
                               {canReveal ? (
                                 isRevealing ? (
                                   <div className="reveal-loader-card w-full rounded-xl px-4 py-3 text-center">
-                                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
+                                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
                                       <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
                                     </div>
-                                    <p className="text-xs font-semibold text-amber-100">Revealing your sky...</p>
-                                    <div className="mt-2 reveal-star-row">
+                                    <p className="text-[10px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
+                                      Preparing preview
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold text-amber-50">{revealStage.title}</p>
+                                    <p className="mt-1 text-[11px] leading-5 text-neutral-200">{revealStage.description}</p>
+                                    <div className="mt-3 reveal-star-row">
                                       <span className="reveal-star-dot" />
                                       <span className="reveal-star-dot" />
                                       <span className="reveal-star-dot" />
                                     </div>
-                                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                                      <div className="h-full w-full animate-pulse bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300" />
+                                    <div className="mt-3 grid grid-cols-3 gap-1.5 text-[9px] font-semibold tracking-[0.22em] text-neutral-300 uppercase">
+                                      {REVEAL_STAGES.map((stage, index) => {
+                                        const isActive = index === revealStageIndex;
+                                        const isComplete = index < revealStageIndex;
+                                        return (
+                                          <span
+                                            key={stage.label}
+                                            className={`rounded-full border px-2 py-1 ${
+                                              isComplete
+                                                ? "border-amber-200/50 bg-amber-200/18 text-amber-50"
+                                                : isActive
+                                                  ? "border-amber-200/45 bg-white/8 text-amber-100"
+                                                  : "border-white/10 bg-white/[0.04] text-neutral-400"
+                                            }`}
+                                          >
+                                            {stage.label}
+                                          </span>
+                                        );
+                                      })}
                                     </div>
-                                    <p className="mt-2 text-[10px] text-neutral-200">
-                                      Locking your date, location, and constellations...
+                                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                      <div
+                                        className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
+                                        style={{ width: revealProgress }}
+                                      />
+                                    </div>
+                                    <p className="mt-2 text-[10px] text-neutral-300">
+                                      Usually under a second. HD and print options unlock after this step.
                                     </p>
                                   </div>
                                 ) : (
