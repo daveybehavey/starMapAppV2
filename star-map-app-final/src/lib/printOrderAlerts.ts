@@ -1,6 +1,7 @@
 import type { PrintOrderRecord } from "@/lib/printOrders";
 
 type PrintOrderAlertProvider = "resend" | "sendgrid" | "none";
+type PrintOrderAlertKind = "approval" | "failure";
 
 export type PrintOrderAlertResult = {
   delivered: boolean;
@@ -82,17 +83,41 @@ function getPrintfulReviewUrl(order: PrintOrderRecord) {
   return "https://www.printful.com/dashboard/default/orders";
 }
 
-function getSubject(order: PrintOrderRecord) {
+function getApprovalSubject(order: PrintOrderRecord) {
   const prefix = order.includesDigitalAddOn ? "Print + HD" : "Print";
   return `New ${prefix} order ready for approval`;
 }
 
-function getCopy(order: PrintOrderRecord) {
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
-  const approvalMode =
-    /^(0|false|no)$/i.test((process.env.PRINTFUL_AUTO_CONFIRM ?? "true").trim())
+function getFailureSubject(order: PrintOrderRecord) {
+  const prefix = order.includesDigitalAddOn ? "Print + HD" : "Print";
+  return `${prefix} order needs intervention`;
+}
+
+function getFailureReason(order: PrintOrderRecord) {
+  return order.error?.trim() || "unknown_failure";
+}
+
+function getIntro(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+  if (kind === "approval") {
+    return /^(0|false|no)$/i.test((process.env.PRINTFUL_AUTO_CONFIRM ?? "true").trim())
       ? "Printful created a draft order that still needs manual approval."
       : "Printful order was created automatically.";
+  }
+  if (order.status === "pending" && getFailureReason(order) === "submission_disabled") {
+    return "A paid print order is waiting because fulfillment submission is disabled.";
+  }
+  return "A paid print order could not move into fulfillment and needs operator review.";
+}
+
+function getFooterNote(kind: PrintOrderAlertKind) {
+  if (kind === "approval") {
+    return "Approve this draft in Printful when you are ready to submit it to fulfillment.";
+  }
+  return "Check the stored error, correct the issue, then retry the order from the admin endpoint or Printful workflow.";
+}
+
+function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
   const createdAt = new Date(order.createdAt || Date.now()).toLocaleString("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -101,11 +126,13 @@ function getCopy(order: PrintOrderRecord) {
   const destination = formatDestination(order);
   const customer = order.customerName || order.customerEmail || "Unknown";
   const printfulReviewUrl = getPrintfulReviewUrl(order);
-  const subject = getSubject(order);
-  const text = [
+  const subject = kind === "approval" ? getApprovalSubject(order) : getFailureSubject(order);
+  const intro = getIntro(order, kind);
+  const failureReason = getFailureReason(order);
+  const textLines = [
     subject,
     "",
-    approvalMode,
+    intro,
     "",
     `Session ID: ${order.sessionId}`,
     `Printful order ID: ${order.printfulOrderId ?? "Unknown"}`,
@@ -115,10 +142,21 @@ function getCopy(order: PrintOrderRecord) {
     `Customer: ${customer}`,
     `Destination: ${destination}`,
     `Created: ${createdAt}`,
-    "",
-    `Review in Printful: ${printfulReviewUrl}`,
-    `Site: ${siteUrl}`,
-  ].join("\n");
+  ];
+  if (kind === "failure") {
+    textLines.push(`Failure reason: ${failureReason}`);
+  }
+  textLines.push("", `Review in Printful: ${printfulReviewUrl}`, `Site: ${siteUrl}`);
+
+  const accentBg = kind === "approval" ? "#f4c74e" : "#f87171";
+  const accentText = kind === "approval" ? "#141414" : "#ffffff";
+  const accentSubtle = kind === "approval" ? "#d9c78d" : "#fecaca";
+  const failureRow =
+    kind === "failure"
+      ? `<tr><td style="padding: 6px 0; font-weight: 700;">Failure reason</td><td style="padding: 6px 0;">${escapeHtml(
+          failureReason,
+        )}</td></tr>`
+      : "";
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 620px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
@@ -126,37 +164,38 @@ function getCopy(order: PrintOrderRecord) {
         <div style="padding: 18px 22px; background: linear-gradient(135deg, #07112b, #11234d); color: #f7f1e6;">
           <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.82;">StarMapCo Print Ops</div>
           <p style="font-size: 24px; font-weight: 700; margin: 8px 0 0;">${escapeHtml(subject)}</p>
-          <p style="margin: 8px 0 0; color: #d9c78d;">${escapeHtml(approvalMode)}</p>
+          <p style="margin: 8px 0 0; color: ${accentSubtle};">${escapeHtml(intro)}</p>
         </div>
         <div style="padding: 20px 22px;">
-          <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #f4c74e; color: #1b1b1b; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+          <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: ${accentBg}; color: ${accentText}; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
             ${escapeHtml(getVariantLabel(order))}${order.includesDigitalAddOn ? " + HD" : ""}
           </div>
           <div style="margin: 16px 0 20px; font-size: 28px; font-weight: 700; color: #0b1324;">${escapeHtml(amount)}</div>
           <table style="width: 100%; border-collapse: collapse; margin: 0 0 22px;">
-        <tbody>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Customer</td><td style="padding: 6px 0;">${escapeHtml(customer)}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Destination</td><td style="padding: 6px 0;">${escapeHtml(destination)}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Created</td><td style="padding: 6px 0;">${escapeHtml(createdAt)}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Printful order ID</td><td style="padding: 6px 0;">${escapeHtml(String(order.printfulOrderId ?? "Unknown"))}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Session ID</td><td style="padding: 6px 0; font-size: 13px;">${escapeHtml(order.sessionId)}</td></tr>
-          <tr><td style="padding: 6px 0; font-weight: 700;">Digital add-on</td><td style="padding: 6px 0;">${order.includesDigitalAddOn ? "Yes" : "No"}</td></tr>
-        </tbody>
+            <tbody>
+              <tr><td style="padding: 6px 0; font-weight: 700;">Customer</td><td style="padding: 6px 0;">${escapeHtml(customer)}</td></tr>
+              <tr><td style="padding: 6px 0; font-weight: 700;">Destination</td><td style="padding: 6px 0;">${escapeHtml(destination)}</td></tr>
+              <tr><td style="padding: 6px 0; font-weight: 700;">Created</td><td style="padding: 6px 0;">${escapeHtml(createdAt)}</td></tr>
+              <tr><td style="padding: 6px 0; font-weight: 700;">Printful order ID</td><td style="padding: 6px 0;">${escapeHtml(String(order.printfulOrderId ?? "Unknown"))}</td></tr>
+              <tr><td style="padding: 6px 0; font-weight: 700;">Session ID</td><td style="padding: 6px 0; font-size: 13px;">${escapeHtml(order.sessionId)}</td></tr>
+              <tr><td style="padding: 6px 0; font-weight: 700;">Digital add-on</td><td style="padding: 6px 0;">${order.includesDigitalAddOn ? "Yes" : "No"}</td></tr>
+              ${failureRow}
+            </tbody>
           </table>
           <p style="margin: 0 0 14px;">
-            <a href="${printfulReviewUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700; margin-right: 10px;">Review in Printful</a>
+            <a href="${printfulReviewUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: ${accentBg}; color: ${accentText}; text-decoration: none; font-weight: 700; margin-right: 10px;">Review in Printful</a>
             <a href="${siteUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; border: 1px solid #c7b481; color: #0b1324; text-decoration: none; font-weight: 700;">Open StarMapCo</a>
           </p>
-          <p style="font-size: 12px; color: #5f6677; margin: 0;">Approve this draft in Printful when you are ready to submit it to fulfillment.</p>
+          <p style="font-size: 12px; color: #5f6677; margin: 0;">${escapeHtml(getFooterNote(kind))}</p>
         </div>
       </div>
     </div>
   `;
 
-  return { subject, text, html };
+  return { subject, text: textLines.join("\n"), html };
 }
 
-async function sendWithResend(order: PrintOrderRecord) {
+async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || "";
   const from = getAlertFrom();
   const to = getAlertRecipient();
@@ -174,7 +213,7 @@ async function sendWithResend(order: PrintOrderRecord) {
   } = {
     from,
     to: [to],
-    ...getCopy(order),
+    ...getCopy(order, kind),
   };
 
   const replyTo = getAlertReplyTo();
@@ -204,7 +243,7 @@ async function sendWithResend(order: PrintOrderRecord) {
   return { delivered: true, provider: "resend" as const };
 }
 
-async function sendWithSendgrid(order: PrintOrderRecord) {
+async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
   const sendgridApiKey = process.env.SENDGRID_API_KEY?.trim() || "";
   const from = parseEmailAddress(getAlertFrom());
   const to = getAlertRecipient();
@@ -212,7 +251,7 @@ async function sendWithSendgrid(order: PrintOrderRecord) {
     return { delivered: false, provider: "none" as const, error: "print_alert_not_configured" };
   }
 
-  const copy = getCopy(order);
+  const copy = getCopy(order, kind);
   const replyTo = parseEmailAddress(getAlertReplyTo());
 
   const payload = {
@@ -247,12 +286,15 @@ async function sendWithSendgrid(order: PrintOrderRecord) {
   return { delivered: true, provider: "sendgrid" as const };
 }
 
-export async function sendPrintOrderApprovalAlert(order: PrintOrderRecord): Promise<PrintOrderAlertResult> {
+async function sendPrintOrderAlert(
+  order: PrintOrderRecord,
+  kind: PrintOrderAlertKind,
+): Promise<PrintOrderAlertResult> {
   try {
-    const resendResult = await sendWithResend(order);
+    const resendResult = await sendWithResend(order, kind);
     if (resendResult.provider !== "none") return resendResult;
 
-    const sendgridResult = await sendWithSendgrid(order);
+    const sendgridResult = await sendWithSendgrid(order, kind);
     if (sendgridResult.provider !== "none") return sendgridResult;
 
     return { delivered: false, provider: "none", error: "print_alert_not_configured" };
@@ -263,4 +305,12 @@ export async function sendPrintOrderApprovalAlert(order: PrintOrderRecord): Prom
       error: error instanceof Error ? error.message.slice(0, 280) : "print_alert_failed",
     };
   }
+}
+
+export async function sendPrintOrderApprovalAlert(order: PrintOrderRecord): Promise<PrintOrderAlertResult> {
+  return sendPrintOrderAlert(order, "approval");
+}
+
+export async function sendPrintOrderFailureAlert(order: PrintOrderRecord): Promise<PrintOrderAlertResult> {
+  return sendPrintOrderAlert(order, "failure");
 }

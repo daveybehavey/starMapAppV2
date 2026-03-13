@@ -254,6 +254,9 @@ Recent status:
 
 - Operational visibility shipped via `qa:print-ops` (Stripe print sessions + KV order status correlation).
 - Admin retry/status endpoints are already live and token-protected.
+- Operator email alerting now covers both:
+  - sent/draft print orders ready for manual approval
+  - failed fulfillment attempts that need operator attention
 - Added SKU expansion gate tooling:
   - Candidate list in `data/upsell-candidates.json`
   - Margin scoring command `npm run qa:upsell-matrix`

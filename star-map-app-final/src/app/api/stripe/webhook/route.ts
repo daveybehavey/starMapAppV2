@@ -20,7 +20,7 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
-import { sendPrintOrderApprovalAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 
@@ -417,6 +417,25 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   if (!session.id) return;
   if (getOrderType(session) !== "print") return;
 
+  const persistProblemPrintOrder = async (record: PrintOrderRecord) => {
+    const nextRecord: PrintOrderRecord = {
+      ...record,
+      error: record.error ?? "print_order_needs_review",
+    };
+    if (!nextRecord.operatorFailureAlertedAt) {
+      const alertResult = await sendPrintOrderFailureAlert(nextRecord);
+      if (alertResult.delivered) {
+        nextRecord.operatorFailureAlertedAt = Date.now();
+        nextRecord.operatorFailureAlertProvider = alertResult.provider;
+        nextRecord.operatorFailureAlertError = undefined;
+      } else {
+        nextRecord.operatorFailureAlertProvider = alertResult.provider;
+        nextRecord.operatorFailureAlertError = alertResult.error;
+      }
+    }
+    await kv.set(printOrderKey(session.id), nextRecord);
+  };
+
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
   if (existing?.status === "sent") return;
 
@@ -439,7 +458,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
 
   const printAssetId = payload.printAssetId;
   if (!printAssetId) {
-    await kv.set(printOrderKey(session.id), {
+    await persistProblemPrintOrder({
       ...payload,
       status: "failed",
       error: "print_asset_missing",
@@ -470,7 +489,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     }
   }
   if (!recipient) {
-    await kv.set(printOrderKey(session.id), {
+    await persistProblemPrintOrder({
       ...payload,
       printAssetUrl,
       status: "failed",
@@ -480,7 +499,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   if (!hasSufficientPrintCharge(payload.amountTotal)) {
-    await kv.set(printOrderKey(session.id), {
+    await persistProblemPrintOrder({
       ...payload,
       printAssetUrl,
       status: "failed",
@@ -495,7 +514,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     amountTotalCents: payload.amountTotal ?? null,
   });
   if (!marginCheck.allowed) {
-    await kv.set(printOrderKey(session.id), {
+    await persistProblemPrintOrder({
       ...payload,
       printAssetUrl,
       status: "failed",
@@ -508,7 +527,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   if (!printOrderSubmissionEnabled) {
-    await kv.set(printOrderKey(session.id), {
+    await persistProblemPrintOrder({
       ...payload,
       printAssetUrl,
       status: "pending",
@@ -518,7 +537,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
-    await kv.set(printOrderKey(session.id), {
+    await persistProblemPrintOrder({
       ...payload,
       printAssetUrl,
       status: "failed",
@@ -535,7 +554,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       recipient,
     });
     if (!printfulResult.ok) {
-      await kv.set(printOrderKey(session.id), {
+      await persistProblemPrintOrder({
         ...payload,
         printAssetUrl,
         status: "failed",
@@ -595,7 +614,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     }
   } catch (error) {
     if (!isPrintfulConfigured()) {
-      await kv.set(printOrderKey(session.id), {
+      await persistProblemPrintOrder({
         ...payload,
         printAssetUrl,
         status: "failed",

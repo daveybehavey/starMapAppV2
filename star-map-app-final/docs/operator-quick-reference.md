@@ -50,6 +50,11 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 
 - **Printful orders**: `https://www.printful.com/dashboard/default/orders`
 - **Manual review mode is ON** if `PRINTFUL_AUTO_CONFIRM=false`.
+- **Operator alert inbox**:
+  - New sent/draft print orders and failed fulfillment attempts use:
+    - `PRINT_ORDER_ALERT_TO`
+    - `PRINT_ORDER_ALERT_FROM`
+    - `PRINT_ORDER_ALERT_REPLY_TO`
 - **Ops check**:
   - `npm run qa:print-ops -- --hours 168 --limit 40`
 - **Upsell rollout scoring**:
