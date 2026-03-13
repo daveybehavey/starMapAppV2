@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
@@ -64,6 +65,7 @@ export default function StarMapGeneratorPage() {
           <li>Print-ready digital download</li>
         </ul>
       </section>
+      <AccuracyAuthorityCard source="generator-accuracy-card" />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">How to use the star map generator</h2>

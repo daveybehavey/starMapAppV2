@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
@@ -99,6 +100,7 @@ export default function PersonalizedStarMapPage() {
           </Link>
         </div>
       </section>
+      <AccuracyAuthorityCard source="personalized-accuracy-card" />
 
       <DeliveryFormatModule
         heading="Pick the right format after you preview"

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
@@ -99,6 +100,7 @@ export default function AnniversaryPage() {
           </Link>
         </div>
       </section>
+      <AccuracyAuthorityCard source="anniversary-accuracy-card" />
 
       <DeliveryFormatModule
         heading="Choose how you want to keep the anniversary map"

@@ -222,8 +222,7 @@ export function ViewClient({ id, searchParams }: Props) {
                   ⭐ Matches professional planetarium accuracy
                 </summary>
                 <p className="mt-2 text-neutral-200">
-                  Built on Yale Bright Star Catalog & NASA-grade ephemeris.
-                  Timezone-corrected, location-accurate to 0.01°.
+                  Built from timezone-aware date conversion, observer coordinates, astronomy-engine calculations, and bundled star catalog data.
                 </p>
               </details>
             </div>

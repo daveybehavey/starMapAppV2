@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
@@ -103,6 +104,7 @@ export default function WeddingPage() {
           </Link>
         </div>
       </section>
+      <AccuracyAuthorityCard source="wedding-accuracy-card" />
 
       <DeliveryFormatModule
         heading="Choose how you want to keep or gift it"

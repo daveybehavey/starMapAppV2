@@ -267,6 +267,8 @@ Recent status:
 - Download upsell now uses the same selected-country shipping logic as homepage/editor/paywall:
   - shipping country selector is visible before starting print checkout
   - framed and unframed buttons show the live shipping estimate instead of generic `+ shipping`
+- Added a dedicated authority asset page at `/how-accurate-are-star-maps` and linked it from key money pages.
+- Corrected public-facing astronomy claims so copy now matches the actual rendering stack more closely.
 - Added SKU expansion gate tooling:
   - Candidate list in `data/upsell-candidates.json`
   - Margin scoring command `npm run qa:upsell-matrix`

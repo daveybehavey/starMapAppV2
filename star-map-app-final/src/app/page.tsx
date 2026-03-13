@@ -159,7 +159,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "How accurate are StarMapCo custom star maps?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Extremely accurate—using professional astronomy libraries based on skyfield and Yale catalogs for precise star positions.",
+              text: "StarMapCo uses real date, time, timezone, and location inputs, then calculates the sky with astronomy-engine and bundled star catalog data.",
             },
           },
           {

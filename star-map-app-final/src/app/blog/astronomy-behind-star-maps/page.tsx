@@ -91,7 +91,7 @@ export default function AstronomyBehindStarMaps() {
               <li>Yale Bright Star Catalog: 9,000+ stars with positions/magnitudes.</li>
               <li>Hipparcos/Tycho: ESA satellite data for precise parallax and motion.</li>
               <li>
-                Astronomy libraries: Tools like astronomy-engine (Skyfield-based) compute positions using ephemerides.
+                Astronomy libraries: Tools like astronomy-engine calculate star, planet, and Moon positions for the selected moment.
               </li>
             </ul>
           </section>
@@ -138,7 +138,7 @@ export default function AstronomyBehindStarMaps() {
                   </tr>
                   <tr className="border-t border-amber-200/30">
                     <td className="p-3">Accuracy</td>
-                    <td className="p-3">99.9%+</td>
+                    <td className="p-3">High when date, time, timezone, and location are correct</td>
                     <td className="p-3">Variable</td>
                   </tr>
                 </tbody>
@@ -183,10 +183,10 @@ export default function AstronomyBehindStarMaps() {
                 <strong>Is precession important?</strong> Yes—over decades it shifts constellations.
               </li>
               <li>
-                <strong>Can I verify accuracy?</strong> Compare with tools like Skyfield or observatory data.
+                <strong>Can I verify accuracy?</strong> Compare your result against known constellations, local time, and another trusted astronomy app or observatory reference.
               </li>
               <li>
-                <strong>Why trust the science?</strong> Based on NASA/ESA data and validated calculations.
+                <strong>Why trust the science?</strong> Because the map is generated from the actual date, time, timezone, and place instead of a stock illustration.
               </li>
             </ol>
           </section>

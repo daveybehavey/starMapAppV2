@@ -172,8 +172,7 @@ export default function WeddingsPostPage() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">FAQs for Wedding Star Maps</h2>
             <ol className="space-y-2 pl-5">
               <li>
-                <strong>How accurate are the maps?</strong> They use professional astronomy libraries (Skyfield/Yale
-                catalogs) for precise star positions at your exact date/time/location.
+                <strong>How accurate are the maps?</strong> They use astronomy-engine calculations and star catalog data for the selected date, time, timezone, and location.
               </li>
               <li>
                 <strong>Can we add our vows or song lyrics?</strong> Yes—add custom text, coordinates, and shapes like a

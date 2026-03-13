@@ -1,3 +1,4 @@
+import Link from "next/link";
 import FramedProofSection from "@/components/FramedProofSection";
 import HomeOfferStack from "@/components/HomeOfferStack";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -246,7 +247,7 @@ export default function HomeStaticSections({
             {[
               {
                 q: "How accurate are StarMapCo star maps?",
-                a: "Extremely accurate—using professional astronomy libraries for precise star positions.",
+                a: "They are calculated from real date, time, timezone, and location inputs using astronomy-engine plus bundled star catalog data.",
               },
               {
                 q: "Can I customize the text and styles?",
@@ -280,12 +281,20 @@ export default function HomeStaticSections({
             ))}
           </div>
           <div className="pt-2">
-            <a
-              href="#preview"
-              className="cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-midnight shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
-            >
-              Ready to create yours? Start now →
-            </a>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="#preview"
+                className="cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-midnight shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
+              >
+                Ready to create yours? Start now →
+              </a>
+              <Link
+                href="/how-accurate-are-star-maps"
+                className="inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-white/70 px-5 py-2.5 text-sm font-semibold text-midnight transition hover:-translate-y-1 hover:bg-white"
+              >
+                Read the accuracy guide
+              </Link>
+            </div>
           </div>
         </div>
       </section>
