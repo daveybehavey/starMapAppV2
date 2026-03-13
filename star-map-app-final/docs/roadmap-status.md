@@ -236,6 +236,7 @@ Recent status:
 - Added testimonial rendering scaffolding (`TestimonialHighlights` + `src/data/testimonials.ts`) that stays hidden until real, permissioned quotes are added.
 - Added staged reveal state on desktop and mobile editor flows so “Generate preview” now transitions through a short “Revealing your sky...” moment before showing the final map state.
 - Added `docs/operator-quick-reference.md` so sales/analytics/print checks and promo updates are operationally consistent.
+- Added a dedicated gift-format depth page (`/star-map-gift-formats`) and linked it from key conversion surfaces so we can expose broader options without bloating homepage checkout.
 
 ## Phase 5: Print Scale (Planned)
 

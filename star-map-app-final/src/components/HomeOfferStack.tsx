@@ -353,6 +353,12 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           <p className="text-xs text-neutral-300">
             Physical orders can include the HD digital file add-on for {printLabels.digitalAddOn}.
           </p>
+          <a
+            href="/star-map-gift-formats"
+            className="text-xs font-semibold text-amber-200 underline hover:text-amber-100"
+          >
+            Explore all gift formats and upcoming pilots
+          </a>
         </div>
       </div>
     </section>

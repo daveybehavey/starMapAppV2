@@ -20,6 +20,13 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
           We intentionally keep checkout focused. You get the highest-converting options first, then we add formats that
           pass quality, shipping, and margin checks.
         </p>
+        <Link
+          href="/star-map-gift-formats"
+          prefetch={false}
+          className="inline-flex text-xs font-semibold text-amber-700 underline hover:text-amber-800"
+        >
+          See full format catalog and pilot queue
+        </Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
