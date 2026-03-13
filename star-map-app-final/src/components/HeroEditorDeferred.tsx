@@ -3,6 +3,7 @@
 import { type FormEvent, useCallback } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
+import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
 
 export default function HeroEditorDeferred() {
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
@@ -59,7 +60,7 @@ export default function HeroEditorDeferred() {
               id="hero-date"
               name="date"
               autoComplete="bday"
-              placeholder="YYYY-MM-DD"
+              placeholder={STANDARD_DATE_PLACEHOLDER}
               className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40"
             />
           </div>
@@ -77,6 +78,7 @@ export default function HeroEditorDeferred() {
             />
           </div>
         </div>
+        <p className="mt-2 text-xs text-white/60">{MOBILE_DATE_HELPER_TEXT}</p>
         <button
           type="submit"
           className="mt-5 w-full rounded-full bg-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-300"

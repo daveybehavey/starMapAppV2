@@ -3,6 +3,7 @@
 import { type FormEvent, useCallback } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
+import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
 
 type PreviewStartFormProps = {
   title?: string;
@@ -50,7 +51,7 @@ export default function PreviewStartForm({
               id="preview-date"
               name="date"
               autoComplete="bday"
-              placeholder="YYYY-MM-DD"
+              placeholder={STANDARD_DATE_PLACEHOLDER}
               className="ios-form-control min-w-0 w-full rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 placeholder:text-neutral-400 shadow-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-200"
             />
           </div>
@@ -68,6 +69,7 @@ export default function PreviewStartForm({
             />
           </div>
         </div>
+        <p className="mt-2 text-xs text-neutral-600">{MOBILE_DATE_HELPER_TEXT}</p>
         <button
           type="submit"
           className="mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"

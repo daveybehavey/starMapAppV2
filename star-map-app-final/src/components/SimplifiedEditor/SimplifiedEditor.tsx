@@ -18,6 +18,17 @@ import dynamic from "next/dynamic";
 import { LocationInput } from "./LocationInput";
 import { AdvancedOptionsPanel } from "./AdvancedOptionsPanel";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
+import {
+  DATE_INPUT_ERROR_MESSAGE,
+  DEFAULT_TIME,
+  MOBILE_DATE_HELPER_TEXT,
+  STANDARD_DATE_PLACEHOLDER,
+  combineDateTime,
+  formatDateInput,
+  formatTimeInput,
+  isValidIsoDateInput,
+  toISODate,
+} from "@/lib/dateInput";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -88,7 +99,7 @@ type EditorMode = "sample" | "customizing";
 const DRAFT_STORAGE_KEY = "starmap-simplified-draft";
 const SHARED_DRAFT_STORAGE_KEY = "star-map-draft";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
-const DEFAULT_EXACT_TIME = "00:00:00";
+const DEFAULT_EXACT_TIME = DEFAULT_TIME;
 
 export function SimplifiedEditor() {
   const [mode, setMode] = useState<EditorMode>("sample");
@@ -276,7 +287,7 @@ export function SimplifiedEditor() {
         return;
       }
       if (!isValidIsoDateInput(nextValue)) {
-        setDateError("Use a real date in YYYYMMDD or YYYY-MM-DD format.");
+        setDateError(DATE_INPUT_ERROR_MESSAGE);
         return;
       }
       if (nextValue > maxDateValue) {
@@ -696,7 +707,7 @@ export function SimplifiedEditor() {
               onChange={handleDateChange}
               onBlur={() => setDateTouched(true)}
               max={maxDateValue}
-              placeholder="YYYY-MM-DD"
+              placeholder={STANDARD_DATE_PLACEHOLDER}
               disabled={mode === "sample"}
               aria-invalid={showDateError}
               aria-describedby={`${formId}-date-hint${showDateError ? ` ${formId}-date-error` : ""}`}
@@ -705,6 +716,7 @@ export function SimplifiedEditor() {
             <span id={`${formId}-date-hint`} className="sr-only">
               Select the date of your special moment
             </span>
+            <p className="mt-1 text-[11px] text-white/55">{MOBILE_DATE_HELPER_TEXT}</p>
             {showDateError && (
               <p id={`${formId}-date-error`} className="mt-1 text-[10px] text-red-300">
                 {dateError ?? "Please choose a valid date."}
@@ -992,116 +1004,6 @@ export function SimplifiedEditor() {
 }
 
 export default SimplifiedEditor;
-
-function formatDateInput(date: Date) {
-  if (!Number.isFinite(date.getTime())) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function formatTimeInput(date: Date) {
-  if (!Number.isFinite(date.getTime())) return DEFAULT_EXACT_TIME;
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  const s = String(date.getSeconds()).padStart(2, "0");
-  return `${h}:${m}:${s}`;
-}
-
-function combineDateTime(date: string, time: string, timezone?: string) {
-  if (!date) return null;
-  const normalizedTime = normalizeTimeInput(time);
-
-  if (!timezone || timezone === "UTC") {
-    const combined = new Date(`${date}T${normalizedTime}`);
-    if (!Number.isFinite(combined.getTime())) return null;
-    return combined.toISOString();
-  }
-
-  try {
-    const [yearStr, monthStr, dayStr] = date.split("-");
-    const [hourStr, minuteStr] = normalizedTime.split(":");
-    const year = Number(yearStr);
-    const month = Number(monthStr);
-    const day = Number(dayStr);
-    const hour = Number(hourStr);
-    const minute = Number(minuteStr);
-
-    if (
-      !Number.isFinite(year) ||
-      !Number.isFinite(month) ||
-      !Number.isFinite(day) ||
-      !Number.isFinite(hour) ||
-      !Number.isFinite(minute)
-    ) {
-      return null;
-    }
-
-    const testDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-
-    const parts = formatter.formatToParts(testDate);
-    const localYear = Number(parts.find((p) => p.type === "year")?.value);
-    const localMonth = Number(parts.find((p) => p.type === "month")?.value);
-    const localDay = Number(parts.find((p) => p.type === "day")?.value);
-    const localHour = Number(parts.find((p) => p.type === "hour")?.value);
-    const localMinute = Number(parts.find((p) => p.type === "minute")?.value);
-
-    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
-    const utcMs = testDate.getTime();
-    const offsetMs = utcMs - localMs;
-
-    const targetLocalMs = Date.UTC(year, month - 1, day, hour, minute, 0);
-    const result = new Date(targetLocalMs + offsetMs);
-
-    if (!Number.isFinite(result.getTime())) return null;
-    return result.toISOString();
-  } catch (error) {
-    console.warn("Failed to convert timezone in combineDateTime:", timezone, error);
-    const combined = new Date(`${date}T${normalizedTime}`);
-    if (!Number.isFinite(combined.getTime())) return null;
-    return combined.toISOString();
-  }
-}
-
-function normalizeTimeInput(time: string) {
-  if (!time) return DEFAULT_EXACT_TIME;
-  if (time.length === 5) return `${time}:00`;
-  return time;
-}
-
-function isValidIsoDateInput(value: string) {
-  const trimmed = value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
-  const [yearStr, monthStr, dayStr] = trimmed.split("-");
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return false;
-  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
-  return (
-    parsed.getFullYear() === year &&
-    parsed.getMonth() === month - 1 &&
-    parsed.getDate() === day
-  );
-}
-
-function toISODate(date: Date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 function formatTimeLabel(time: string) {
   const [h, m] = time.split(":").map(Number);
