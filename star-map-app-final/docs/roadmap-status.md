@@ -261,6 +261,9 @@ Recent status:
 - Operator email alerting now covers both:
   - sent/draft print orders ready for manual approval
   - failed fulfillment attempts that need operator attention
+- Added unified commerce operator digest:
+  - `npm run qa:commerce-digest -- --days 7`
+  - combines funnel totals, Stripe revenue mix, print order states, and paid referral sources
 - Added SKU expansion gate tooling:
   - Candidate list in `data/upsell-candidates.json`
   - Margin scoring command `npm run qa:upsell-matrix`

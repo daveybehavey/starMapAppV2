@@ -10,6 +10,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Quick local verification**:
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
+  - `npm run qa:commerce-digest -- --days 7`
 
 ## 2) Stripe revenue and checkout
 
@@ -59,6 +60,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - `RESEND_API_KEY` or `SENDGRID_API_KEY`
 - **Ops check**:
   - `npm run qa:print-ops -- --hours 168 --limit 40`
+  - `npm run qa:commerce-digest -- --days 7`
 - **Upsell rollout scoring**:
   - `npm run qa:upsell-matrix`
   - Output: `docs/upsell-rollout-matrix.md`
