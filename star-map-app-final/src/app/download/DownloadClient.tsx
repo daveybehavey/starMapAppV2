@@ -15,8 +15,14 @@ import {
   type CheckoutPlan,
   type PrintVariant,
 } from "@/lib/pricing";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
-import { readStoredPrintShippingCountry } from "@/lib/printfulShipping";
+import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintShippingEstimate,
+  getPrintShippingCountryLabel,
+  getPrintShippingCountryOptions,
+  readStoredPrintShippingCountry,
+  storePrintShippingCountry,
+} from "@/lib/printfulShipping";
 import {
   buildReferralShareUrl,
   getReferralFriendOfferLabel,
@@ -228,6 +234,14 @@ export default function DownloadClient() {
   const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
+  const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
+  const printShippingCountryOptions = useMemo(
+    () => getPrintShippingCountryOptions(printShippingCountries),
+    [printShippingCountries],
+  );
+  const [printShippingCountry, setPrintShippingCountry] = useState<string>(
+    printShippingCountryOptions[0]?.code ?? "US",
+  );
 
   const printPriceLabels = useMemo(() => {
     const printTiers = getPrintPricingTiers();
@@ -238,6 +252,32 @@ export default function DownloadClient() {
       framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
     };
   }, []);
+  const framedShippingLabel = useMemo(
+    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
+    [printShippingCountry],
+  );
+  const unframedShippingLabel = useMemo(
+    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
+    [printShippingCountry],
+  );
+  const shippingCountryLabel = useMemo(
+    () => getPrintShippingCountryLabel(printShippingCountry),
+    [printShippingCountry],
+  );
+
+  useEffect(() => {
+    if (!printCheckoutEnabled) return;
+    const stored = readStoredPrintShippingCountry();
+    if (stored && printShippingCountries.includes(stored)) {
+      setPrintShippingCountry(stored);
+      return;
+    }
+    if (printShippingCountryOptions[0]?.code) {
+      const fallback = printShippingCountryOptions[0].code;
+      setPrintShippingCountry(fallback);
+      storePrintShippingCountry(fallback);
+    }
+  }, [printShippingCountries, printShippingCountryOptions]);
 
   useEffect(() => {
     if (!printCheckoutEnabled || status !== "ready" || !paid) return;
@@ -738,7 +778,7 @@ export default function DownloadClient() {
       setPrintCheckoutLoading(true);
       setPrintCheckoutError(null);
       try {
-        const shippingCountry = readStoredPrintShippingCountry();
+        const shippingCountry = printShippingCountry?.trim().toUpperCase() || readStoredPrintShippingCountry();
         if (!shippingCountry) {
           throw new Error("missing_shipping_country");
         }
@@ -871,7 +911,7 @@ export default function DownloadClient() {
         setPrintCheckoutLoading(false);
       }
     },
-    [mapIdFromUrl, printCheckoutLoading, recipe, resolveShapeAndRatio],
+    [mapIdFromUrl, printCheckoutLoading, printShippingCountry, recipe, resolveShapeAndRatio],
   );
 
   const loadReferralStatus = useCallback(async () => {
@@ -1233,6 +1273,36 @@ export default function DownloadClient() {
                     ? `Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish. ${printShippingDisclosure}`
                     : `Start print checkout with your current map already attached. ${printShippingDisclosure}`}
                 </p>
+                {printShippingCountryOptions.length > 0 ? (
+                  <div className="mt-3 rounded-xl border border-white/10 bg-white/6 p-3">
+                    <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
+                    <select
+                      value={printShippingCountry}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setPrintShippingCountry(next);
+                        storePrintShippingCountry(next);
+                      }}
+                      className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
+                      style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                    >
+                      {printShippingCountryOptions.map((country) => (
+                        <option
+                          key={country.code}
+                          value={country.code}
+                          className="text-midnight"
+                          style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                        >
+                          {country.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-[11px] text-neutral-300">
+                      Estimated shipping to {shippingCountryLabel}: framed {framedShippingLabel} · unframed{" "}
+                      {unframedShippingLabel}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
                     type="button"
@@ -1244,7 +1314,7 @@ export default function DownloadClient() {
                         : "border-amber-200/60 bg-amber-400/20 text-amber-50 hover:border-amber-200 hover:bg-amber-400/30"
                     }`}
                   >
-                    {printPriceLabels.framedName} (recommended) • {printPriceLabels.framed} + shipping
+                    {printPriceLabels.framedName} (recommended) • {printPriceLabels.framed} + {framedShippingLabel}
                   </button>
                   <button
                     type="button"
@@ -1256,7 +1326,7 @@ export default function DownloadClient() {
                         : "border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15"
                     }`}
                   >
-                    {printPriceLabels.unframedName} • {printPriceLabels.unframed} + shipping
+                    {printPriceLabels.unframedName} • {printPriceLabels.unframed} + {unframedShippingLabel}
                   </button>
                 </div>
                 {upsellIntent ? (
