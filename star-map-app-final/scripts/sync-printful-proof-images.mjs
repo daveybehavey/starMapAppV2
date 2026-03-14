@@ -62,7 +62,7 @@ function extractPreviewUrl(order, expectedVariantId, mode) {
     if (inferred) return inferred;
   }
 
-  if (mode === "framed") {
+  if (!expectedVariantId && mode === "framed") {
     for (const item of order.items) {
       const any = pickPreviewFromItem(item);
       if (any) return any;

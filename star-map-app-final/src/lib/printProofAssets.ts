@@ -7,6 +7,10 @@ type PrintProofManifestEntry = {
 };
 
 type PrintProofManifest = {
+  mockups?: {
+    framed?: PrintProofManifestEntry | null;
+    unframed?: PrintProofManifestEntry | null;
+  } | null;
   framed?: PrintProofManifestEntry | null;
   unframed?: PrintProofManifestEntry | null;
   catalog?: {
@@ -38,7 +42,8 @@ function resolveLocalPublicPath(pathValue: string) {
 export function getFramedProofImage() {
   const fallback = "/blog/anniversary/framed-star-map.jpg";
   const manifest = readManifest();
-  const candidate = manifest?.framed?.localPath || manifest?.catalog?.framed?.localPath;
+  const candidate =
+    manifest?.mockups?.framed?.localPath || manifest?.framed?.localPath || manifest?.catalog?.framed?.localPath;
   if (!candidate || !isSafePublicPath(candidate)) return fallback;
   if (!existsSync(resolveLocalPublicPath(candidate))) return fallback;
   return candidate;
@@ -47,7 +52,8 @@ export function getFramedProofImage() {
 export function getUnframedProofImage() {
   const fallback = "/examples/example-wedding-aurora-heart.webp";
   const manifest = readManifest();
-  const candidate = manifest?.unframed?.localPath || manifest?.catalog?.unframed?.localPath;
+  const candidate =
+    manifest?.mockups?.unframed?.localPath || manifest?.unframed?.localPath || manifest?.catalog?.unframed?.localPath;
   if (!candidate || !isSafePublicPath(candidate)) return fallback;
   if (!existsSync(resolveLocalPublicPath(candidate))) return fallback;
   return candidate;

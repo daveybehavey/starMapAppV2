@@ -149,14 +149,14 @@ export default function StarMapGiftFormatsPage() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-midnight">See the actual output style first</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            This page is the full format catalog: live checkout options now, plus pilots queued for future launch.
+            This page is the full format catalog: current-engine render quality, live print mockups, and the pilot queue for future launch.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
-            { src: "/custom-star-map-anniversary.webp", fallback: "/custom-star-map-anniversary.png", label: "Digital preview quality" },
-            { src: proofImages.framed, fallback: "/printproof/framed-catalog.jpg", label: "Framed print look" },
-            { src: proofImages.unframed, fallback: "/printproof/unframed-catalog.jpg", label: "Unframed poster look" },
+            { src: "/examples/example-anniversary-heirloom.webp", fallback: "/custom-star-map-anniversary.png", label: "Current engine render" },
+            { src: proofImages.framed, fallback: "/printproof/framed-catalog.jpg", label: "Framed print mockup" },
+            { src: proofImages.unframed, fallback: "/printproof/unframed-catalog.jpg", label: "Unframed poster mockup" },
           ].map((item) => (
             <div key={item.label} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
               <div className="relative aspect-square">

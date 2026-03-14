@@ -5,7 +5,7 @@ import {
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { getFramedProofImage } from "@/lib/printProofAssets";
+import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type FramedProofSectionProps = {
@@ -33,6 +33,7 @@ export default function FramedProofSection({
   );
   const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
   const framedProofImage = getFramedProofImage();
+  const unframedProofImage = getUnframedProofImage();
 
   return (
     <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
@@ -42,39 +43,39 @@ export default function FramedProofSection({
             <ResilientImage
               src={framedProofImage}
               fallbackSrc="/blog/anniversary/framed-star-map.jpg"
-              alt="Framed StarMapCo print displayed on a wall"
+              alt="Framed StarMapCo star map mockup"
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover"
             />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
-              Framed in a real space
+              Framed print mockup
             </div>
           </div>
           <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
             <ResilientImage
-              src="/blog/anniversary/couple-under-stars.jpg"
-              fallbackSrc="/custom-star-map-anniversary.webp"
-              alt="Couple under the night sky"
+              src={unframedProofImage}
+              fallbackSrc="/printproof/unframed-catalog.jpg"
+              alt="Unframed StarMapCo poster mockup"
               fill
               sizes="(max-width: 1024px) 100vw, 25vw"
               className="object-cover"
             />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
-              Gift-ready sentiment
+              Unframed poster mockup
             </div>
           </div>
           <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
             <ResilientImage
-              src="/blog/anniversary/anniversary-night-sky.jpg"
+              src="/examples/example-anniversary-heirloom.webp"
               fallbackSrc="/custom-star-map-anniversary.webp"
-              alt="Night sky over a landscape"
+              alt="Rendered star map from the current StarMapCo engine"
               fill
               sizes="(max-width: 1024px) 100vw, 25vw"
               className="object-cover"
             />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
-              The moment captured
+              Current engine render
             </div>
           </div>
         </div>

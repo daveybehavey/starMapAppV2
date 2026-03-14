@@ -189,6 +189,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
               />
+              <span className="absolute bottom-2 left-2 rounded-full border border-white/15 bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                Current render
+              </span>
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-white">Instant digital</p>
@@ -225,6 +228,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
               />
+              <span className="absolute bottom-2 left-2 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
+                Real mockup
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
@@ -262,6 +268,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
               />
+              <span className="absolute bottom-2 left-2 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
+                Real mockup
+              </span>
             </div>
             <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
               Physical saver

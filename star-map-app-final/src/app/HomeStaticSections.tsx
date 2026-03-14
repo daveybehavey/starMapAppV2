@@ -133,17 +133,24 @@ export default function HomeStaticSections({
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">What your map could look like</p>
             <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">See the render and the framed finish before you start</h2>
             <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              A mix of freshly rendered examples from the current engine and a photographed framed piece, so buyers can judge both the on-screen design and the physical gift.
+              A mix of current-engine renders and real product mockups, so buyers can judge both the on-screen design and the physical gift before checkout.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 xl:grid-cols-4 lg:gap-6 stagger-children visible">
             {[
               {
-                imageSrc: "/blog/anniversary/framed-star-map.jpg",
+                imageSrc: proofImages.framed,
                 occasion: "Framed print",
-                renderMode: "Real space",
-                caption: "Physical proof photographed on the wall",
+                renderMode: "Mockup",
+                caption: "Generated from the same artwork buyers preview before checkout",
                 badge: "FRAMED",
+              },
+              {
+                imageSrc: proofImages.unframed,
+                occasion: "Unframed poster",
+                renderMode: "Mockup",
+                caption: "Lower-cost physical option with the same star map artwork",
+                badge: "POSTER",
               },
               ...featuredRenderExamples.map((item) => {
                 const [occasion, renderMode] = item.title.split(" · ");
@@ -186,7 +193,7 @@ export default function HomeStaticSections({
             ))}
           </div>
           <p className="text-sm text-neutral-200 sm:text-base lg:text-[13px] lg:leading-snug">
-            Compare the framed finish with strong current-engine examples before you ever reach checkout. The goal is simple: no guessing about what the gift will look like.
+            Compare the physical product mockups with current-engine render examples before you ever reach checkout. The goal is simple: no guessing about what the gift will look like.
           </p>
         </div>
       </section>

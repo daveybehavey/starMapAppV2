@@ -97,11 +97,11 @@ test("homepage finished example images load correctly", async ({ page }) => {
 test("homepage framed proof image resolves", async ({ page }) => {
   await primeLocalStorage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  const framedProof = page.getByRole("img", { name: /Framed StarMapCo print displayed on a wall/i }).first();
+  const framedProof = page.getByRole("img", { name: /Framed StarMapCo star map mockup/i }).first();
   await expect(framedProof).toBeVisible({ timeout: 30000 });
   const src = (await framedProof.getAttribute("src")) ?? "";
   expect(src).toMatch(
-    /(printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|blog\/anniversary\/framed-star-map\.jpg|blog%2Fanniversary%2Fframed-star-map\.jpg)/,
+    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|blog\/anniversary\/framed-star-map\.jpg|blog%2Fanniversary%2Fframed-star-map\.jpg)/,
   );
 });
 
@@ -118,10 +118,10 @@ test("homepage delivery cards show framed and unframed proof visuals", async ({ 
   const framedSrc = (await framedCardImage.getAttribute("src")) ?? "";
   const unframedSrc = (await unframedCardImage.getAttribute("src")) ?? "";
   expect(framedSrc).toMatch(
-    /(printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/framed-catalog\.jpg|printproof%2Fframed-catalog\.jpg)/,
+    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/framed-catalog\.jpg|printproof%2Fframed-catalog\.jpg)/,
   );
   expect(unframedSrc).toMatch(
-    /(printproof\/unframed-latest\.png|printproof%2Funframed-latest\.png|printproof\/unframed-catalog\.jpg|printproof%2Funframed-catalog\.jpg|examples\/example-wedding-aurora-heart\.webp|examples%2Fexample-wedding-aurora-heart\.webp)/,
+    /(printproof\/unframed-mockup\.jpg|printproof%2Funframed-mockup\.jpg|printproof\/unframed-latest\.png|printproof%2Funframed-latest\.png|printproof\/unframed-catalog\.jpg|printproof%2Funframed-catalog\.jpg|examples\/example-wedding-aurora-heart\.webp|examples%2Fexample-wedding-aurora-heart\.webp)/,
   );
 });
 

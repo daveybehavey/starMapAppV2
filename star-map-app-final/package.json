@@ -18,6 +18,7 @@
     "deploy": "node scripts/opennext-cloudflare.mjs deploy",
     "deploy:safe": "node scripts/deploy-safe.mjs",
     "assets:examples": "node scripts/export-examples.mjs",
+    "assets:printproof:drafts": "node scripts/create-printful-proof-drafts.mjs",
     "assets:printproof": "node scripts/sync-printful-proof-images.mjs",
     "assets:commerce-refresh": "node scripts/generate-merchant-feed.mjs && npm run qa:merchant-feed -- --file public/merchant-feed.xml",
     "assets:commerce-refresh:with-proof": "node -r dotenv/config scripts/sync-printful-proof-images.mjs dotenv_config_path=.env.local && npm run assets:commerce-refresh",
