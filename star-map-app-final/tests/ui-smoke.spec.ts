@@ -125,6 +125,19 @@ test("homepage delivery cards show framed and unframed proof visuals", async ({ 
   );
 });
 
+test("homepage delivery section links to format comparison and shipping details", async ({ page }) => {
+  await primeLocalStorage(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const compareLink = page.getByRole("link", { name: /Compare all gift formats/i }).first();
+  const shippingLink = page.getByRole("link", { name: /See shipping details/i }).first();
+
+  await expect(compareLink).toBeVisible({ timeout: 30000 });
+  await expect(shippingLink).toBeVisible({ timeout: 30000 });
+  await expect(compareLink).toHaveAttribute("href", "/star-map-gift-formats");
+  await expect(shippingLink).toHaveAttribute("href", "/shipping");
+});
+
 test("occasion preset preserves manual location context", async ({ page }) => {
   await gotoEditor(page, { force: "desktop" });
   const locationInput = page.getByPlaceholder("Search city, landmark, or address");
@@ -210,6 +223,24 @@ test("customize more reveals advanced editor controls", async ({ page }) => {
   // Already in full editor mode; ensure required controls are present.
   await expect(saveRemixButton).toBeVisible();
   await expect(textStylingCard).toBeVisible();
+});
+
+test("preview reveal shows staged reveal state before final map", async ({ page }) => {
+  await gotoEditor(page, { force: "desktop" });
+
+  await expect(page.getByPlaceholder("Search city, landmark, or address")).toBeVisible();
+  await page.getByPlaceholder("Search city, landmark, or address").fill("Paris, France");
+  await page.getByLabel("Date").fill("2024-06-01");
+
+  const generateButton = page.getByRole("button", { name: /Generate preview/i }).first();
+  await expect(generateButton).toBeVisible({ timeout: 15000 });
+  await generateButton.click();
+
+  await expect(page.getByText(/Revealing your sky/i).first()).toBeVisible({ timeout: 4000 });
+  await expect(page.getByText(/Pinning down your moment|Tracing the visible sky|Finishing the keepsake preview/i).first()).toBeVisible({
+    timeout: 4000,
+  });
+  await expect(page.getByRole("button", { name: /Customize more/i }).first()).toBeVisible({ timeout: 15000 });
 });
 
 test("referral landing logs one visit per browser session", async ({ page }) => {
