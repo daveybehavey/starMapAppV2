@@ -42,7 +42,7 @@ export default function FramedProofSection({
           <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm sm:row-span-2">
             <ResilientImage
               src={framedProofImage}
-              fallbackSrc="/blog/anniversary/framed-star-map.jpg"
+              fallbackSrc="/printproof/framed-mockup.jpg"
               alt="Framed StarMapCo star map mockup"
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
@@ -55,7 +55,7 @@ export default function FramedProofSection({
           <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
             <ResilientImage
               src={unframedProofImage}
-              fallbackSrc="/printproof/unframed-catalog.jpg"
+              fallbackSrc="/printproof/unframed-mockup.jpg"
               alt="Unframed StarMapCo poster mockup"
               fill
               sizes="(max-width: 1024px) 100vw, 25vw"

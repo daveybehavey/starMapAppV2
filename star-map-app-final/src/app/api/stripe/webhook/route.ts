@@ -443,7 +443,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     status: "pending",
     sessionId: session.id,
     mapId: getMapId(session),
-    printVariant: getPrintVariant(session) ?? "poster_unframed",
+    printVariant: getPrintVariant(session) ?? "poster_framed",
     includesDigitalAddOn: includesDigitalAddOn(session),
     printAssetId: getPrintAssetId(session),
     amountTotal: session.amount_total,

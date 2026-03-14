@@ -1,0 +1,56 @@
+# Proof Collection Playbook
+
+Use this when moving from mockup-based proof into real buyer proof.
+
+## Goal
+
+Collect real, permissioned customer proof without publishing fake testimonials or unlabeled stock-style material.
+
+## What counts as publishable proof
+
+- buyer quote with explicit permission
+- buyer photo with explicit image permission
+- support email confirming safe delivery or print quality
+- unboxing or wall photo tied to a real order
+
+## Publish order
+
+1. Keep live Printful mockups on public pages as baseline proof.
+2. Add real buyer quotes to `src/data/testimonials.ts`.
+3. Add real buyer photos to `public/testimonials/` only after written approval.
+4. Place the approved testimonial on the matching money page:
+   - `personalized`
+   - `gift`
+   - `wedding`
+   - `anniversary`
+   - `nightSkyGift`
+
+## Recommended post-purchase proof asks
+
+Ask for:
+
+- one short sentence about the occasion
+- whether they chose digital, unframed, or framed
+- one photo of the finished piece if they are willing
+- explicit permission to publish quote and image
+
+## Placement rules
+
+- put proof near the highest-friction purchase decision, not buried in the footer
+- use framed proof on gift-heavy pages first
+- keep quotes concrete: occasion + format + outcome
+- do not rewrite a customer quote beyond trimming obvious typos
+
+## File locations
+
+- Quotes: `src/data/testimonials.ts`
+- Intake template: `docs/testimonial-intake-template.md`
+- Buyer photos: `public/testimonials/`
+- Physical mockups: `public/printproof/`
+
+## Do not do
+
+- no invented testimonials
+- no AI-generated customer quotes
+- no unapproved customer images
+- no star ratings unless backed by a real source

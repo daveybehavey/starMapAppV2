@@ -1,13 +1,14 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import { featuredRenderExamples } from "@/lib/galleryExamples";
+import TestimonialHighlights from "@/components/TestimonialHighlights";
+import { testimonialsByPage } from "@/data/testimonials";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -94,6 +95,16 @@ export default function NightSkyMapGiftPage() {
         intro="The preview proves the design. This framed photo proves the physical result. Use both before you decide how the gift should be delivered."
         sourcePrefix="night-sky-gift-proof"
       />
+      <PhysicalProductGallerySection
+        heading="Compare the framed and unframed physical finish"
+        intro="Use these real proof assets to judge the premium framed route against the lower-cost unframed poster before you leave the page."
+        sourcePrefix="night-sky-gift-physical-proof"
+      />
+      <TestimonialHighlights
+        heading="Verified night-sky gift feedback"
+        intro="Real night-sky gift buyer comments are shown here as they are collected."
+        testimonials={testimonialsByPage.nightSkyGift}
+      />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">More gift inspiration</h2>
@@ -109,43 +120,6 @@ export default function NightSkyMapGiftPage() {
           </Link>
           <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
             Star map gallery
-          </Link>
-        </div>
-      </section>
-
-      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-midnight">Recent gift-ready examples</h2>
-          <p className="text-sm text-neutral-800 sm:text-base">
-            A few freshly rendered examples plus a framed proof image, so you can judge both the design and the physical finish.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              src: "/blog/anniversary/framed-star-map.jpg",
-              label: "Framed print · Real space",
-            },
-            ...featuredRenderExamples.map((item) => ({ src: item.src, label: item.shortLabel })),
-          ].map((item) => (
-            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-              <div className="relative aspect-square">
-                <Image
-                  src={item.src}
-                  alt={item.label}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="text-sm">
-          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
-            View full gallery
           </Link>
         </div>
       </section>

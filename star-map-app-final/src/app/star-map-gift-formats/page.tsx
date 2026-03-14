@@ -4,6 +4,7 @@ import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import GiftFormatCtaLink from "@/components/GiftFormatCtaLink";
 import GiftFormatsTelemetry from "@/components/GiftFormatsTelemetry";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import ResilientImage from "@/components/ResilientImage";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -145,35 +146,11 @@ export default function StarMapGiftFormatsPage() {
         secondaryPlan="print_framed"
       />
 
-      <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-midnight">See the actual output style first</h2>
-          <p className="text-sm text-neutral-800 sm:text-base">
-            This page is the full format catalog: current-engine render quality, live print mockups, and the pilot queue for future launch.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { src: "/examples/example-anniversary-heirloom.webp", fallback: "/custom-star-map-anniversary.png", label: "Current engine render" },
-            { src: proofImages.framed, fallback: "/printproof/framed-catalog.jpg", label: "Framed print mockup" },
-            { src: proofImages.unframed, fallback: "/printproof/unframed-catalog.jpg", label: "Unframed poster mockup" },
-          ].map((item) => (
-            <div key={item.label} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-              <div className="relative aspect-square">
-                <ResilientImage
-                  src={item.src}
-                  fallbackSrc={item.fallback}
-                  alt={item.label}
-                  fill
-                  sizes="(max-width: 640px) 100vw, 33vw"
-                  className="object-cover"
-                />
-              </div>
-              <p className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <PhysicalProductGallerySection
+        heading="See the live physical formats first"
+        intro="This is the physical side of the catalog: framed and unframed proof assets generated from current StarMapCo artwork, not generic room mockups detached from the render engine."
+        sourcePrefix="gift-formats-physical-proof"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Live checkout formats</h2>

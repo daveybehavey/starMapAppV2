@@ -9,7 +9,9 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { testimonialsByPage } from "@/data/testimonials";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -155,6 +157,11 @@ export default function AnniversaryPage() {
       <RevenueTrustModule
         heading="Anniversary gift confidence"
         intro="Most couples decide faster once the wording, size plan, and whether they want framed or digital-only are already clear."
+      />
+      <TestimonialHighlights
+        heading="Verified anniversary buyer feedback"
+        intro="Real anniversary-buyer comments are shown here as they are collected."
+        testimonials={testimonialsByPage.anniversary}
       />
 
       <OccasionLinks />

@@ -199,6 +199,11 @@ Recent status:
   - `DateTimeControls`
   - `SimplifiedEditor`
 - Fixed a production SEO blocker in code (blog OG-image SVG fallback) that should clear live sitemap 503s after next deploy.
+- Added proof-asset upgrade block across high-intent pages:
+  - weak framed placeholder imagery replaced with current Printful mockups
+  - dedicated physical-product gallery block added to homepage/gift surfaces
+  - checkout defaults now fall back to framed print instead of unframed when no variant is specified
+  - testimonial placement scaffolding expanded to anniversary and night-sky gift pages without publishing fake quotes
 
 ## Phase 4: Growth and Conversion (Planned)
 

@@ -998,7 +998,7 @@ export function EditorExperience({
       const promoCode = getCheckoutPromoCode();
       const referralCode = getCheckoutReferralCode();
       const orderType = options?.orderType === "print" ? "print" : "digital";
-      const printVariant = options?.printVariant === "poster_framed" ? "poster_framed" : "poster_unframed";
+      const printVariant = options?.printVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
       const recipeForCheckout = buildRecipeFromState({
         dateTime,

@@ -163,14 +163,20 @@ function renderItem(item) {
 const baseDescription =
   "Create a custom star map of any date and location. Preview instantly, customize the design, and download or order a professional print.";
 
+const framedMockupPath = resolve(process.cwd(), "public", "printproof", "framed-mockup.jpg");
+const unframedMockupPath = resolve(process.cwd(), "public", "printproof", "unframed-mockup.jpg");
 const framedProofPath = resolve(process.cwd(), "public", "printproof", "framed-latest.png");
 const unframedProofPath = resolve(process.cwd(), "public", "printproof", "unframed-latest.png");
-const framedImageLink = usePrintProofImages && existsSync(framedProofPath)
-  ? `${SITE_URL}/printproof/framed-latest.png`
-  : `${SITE_URL}/blog/anniversary/framed-star-map.jpg`;
-const unframedImageLink = usePrintProofImages && existsSync(unframedProofPath)
-  ? `${SITE_URL}/printproof/unframed-latest.png`
-  : `${SITE_URL}/examples/example-wedding-aurora-heart.webp`;
+const framedImageLink = existsSync(framedMockupPath)
+  ? `${SITE_URL}/printproof/framed-mockup.jpg`
+  : usePrintProofImages && existsSync(framedProofPath)
+    ? `${SITE_URL}/printproof/framed-latest.png`
+    : `${SITE_URL}/blog/anniversary/framed-star-map.jpg`;
+const unframedImageLink = existsSync(unframedMockupPath)
+  ? `${SITE_URL}/printproof/unframed-mockup.jpg`
+  : usePrintProofImages && existsSync(unframedProofPath)
+    ? `${SITE_URL}/printproof/unframed-latest.png`
+    : `${SITE_URL}/examples/example-wedding-aurora-heart.webp`;
 
 const items = [
   {

@@ -164,7 +164,7 @@ function parseOrderType(raw: unknown): CheckoutOrderType {
 }
 
 function parsePrintVariant(raw: unknown): PrintVariant {
-  return raw === "poster_framed" ? "poster_framed" : "poster_unframed";
+  return raw === "poster_unframed" ? "poster_unframed" : "poster_framed";
 }
 
 function parseBoolean(raw: unknown, fallback = false) {
@@ -304,7 +304,7 @@ async function createCheckoutSession(
     promotionCodeId,
     fallbackOnDiscountError = true,
     orderType = "digital",
-    printVariant = "poster_unframed",
+    printVariant = "poster_framed",
     includeDigitalAddOn = false,
     shippingCountry,
     clientCountry,
@@ -699,7 +699,7 @@ export async function POST(req: NextRequest) {
     let mapId: string | undefined;
     let plan: CheckoutPlan = "single";
     let orderType: CheckoutOrderType = "digital";
-    let printVariant: PrintVariant = "poster_unframed";
+    let printVariant: PrintVariant = "poster_framed";
     let includeDigitalAddOn = false;
     let printAssetId: string | undefined;
     let promoCode: string | undefined;

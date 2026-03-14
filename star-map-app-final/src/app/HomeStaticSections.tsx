@@ -1,6 +1,7 @@
 import Link from "next/link";
 import FramedProofSection from "@/components/FramedProofSection";
 import HomeOfferStack from "@/components/HomeOfferStack";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
 import ResilientImage from "@/components/ResilientImage";
@@ -123,6 +124,11 @@ export default function HomeStaticSections({
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
         <FramedProofSection sourcePrefix="home-proof" />
+        <PhysicalProductGallerySection
+          heading="What the physical gift actually looks like"
+          intro="Use real framed and unframed proof imagery to judge the finish before you ever enter checkout. These mockups come from current StarMapCo artwork rather than generic stock placeholders."
+          sourcePrefix="home-physical-proof"
+        />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />

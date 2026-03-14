@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -7,13 +6,13 @@ import FramedProofSection from "@/components/FramedProofSection";
 import GiftFormatRoadmapModule from "@/components/GiftFormatRoadmapModule";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
-import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -142,6 +141,11 @@ export default function StarMapGiftPage() {
         intro="Real comments from gift buyers are shown here as they are collected."
         testimonials={testimonialsByPage.gift}
       />
+      <PhysicalProductGallerySection
+        heading="See the physical gift before you buy"
+        intro="These framed and unframed mockups come from current StarMapCo artwork pushed through live Printful proofs, so the physical finish is clear before checkout."
+        sourcePrefix="gift-physical-proof"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Related gift ideas</h2>
@@ -160,43 +164,6 @@ export default function StarMapGiftPage() {
           </Link>
           <Link href="/personalized-star-map" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
             Personalized star map
-          </Link>
-        </div>
-      </section>
-
-      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-midnight">Recent gift-ready examples</h2>
-          <p className="text-sm text-neutral-800 sm:text-base">
-            See both the framed finish and freshly rendered current-engine examples before you build your own gift.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              src: "/blog/anniversary/framed-star-map.jpg",
-              label: "Framed print · Real space",
-            },
-            ...featuredRenderExamples.map((item) => ({ src: item.src, label: item.shortLabel })),
-          ].map((item) => (
-            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-              <div className="relative aspect-square">
-                <Image
-                  src={item.src}
-                  alt={item.label}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="text-sm">
-          <Link href="/star-map-gallery" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
-            View full gallery
           </Link>
         </div>
       </section>

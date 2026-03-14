@@ -40,7 +40,7 @@ function resolveLocalPublicPath(pathValue: string) {
 }
 
 export function getFramedProofImage() {
-  const fallback = "/blog/anniversary/framed-star-map.jpg";
+  const fallback = "/printproof/framed-mockup.jpg";
   const manifest = readManifest();
   const candidate =
     manifest?.mockups?.framed?.localPath || manifest?.framed?.localPath || manifest?.catalog?.framed?.localPath;
@@ -50,7 +50,7 @@ export function getFramedProofImage() {
 }
 
 export function getUnframedProofImage() {
-  const fallback = "/examples/example-wedding-aurora-heart.webp";
+  const fallback = "/printproof/unframed-mockup.jpg";
   const manifest = readManifest();
   const candidate =
     manifest?.mockups?.unframed?.localPath || manifest?.unframed?.localPath || manifest?.catalog?.unframed?.localPath;
