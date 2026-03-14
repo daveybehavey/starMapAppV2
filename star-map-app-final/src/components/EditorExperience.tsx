@@ -2469,6 +2469,20 @@ export function EditorExperience({
                               Secure Stripe checkout. Shipping is shown before payment, and your print order draft is
                               created right after payment for manual review. {shippingDisclosure}
                             </p>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                              <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
+                                <p className="font-semibold text-amber-100">Fastest</p>
+                                <p className="mt-1">Digital only. Instant access after payment.</p>
+                              </div>
+                              <div className="rounded-xl border border-amber-300/35 bg-black/20 px-3 py-2 text-[11px] text-amber-100/90">
+                                <p className="font-semibold text-amber-100">Best gift</p>
+                                <p className="mt-1">Framed print. Easiest premium route.</p>
+                              </div>
+                              <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
+                                <p className="font-semibold text-amber-100">Lower total</p>
+                                <p className="mt-1">Unframed poster if you already have a frame plan.</p>
+                              </div>
+                            </div>
                             <div className="mt-3">
                               <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
                               <select
@@ -2574,6 +2588,20 @@ export function EditorExperience({
                                 Choose a shipping country to unlock print checkout.
                               </p>
                             )}
+                            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                              <a
+                                href="/star-map-gift-formats"
+                                className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2 hover:text-white"
+                              >
+                                Compare formats
+                              </a>
+                              <a
+                                href="/shipping"
+                                className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2 hover:text-white"
+                              >
+                                Shipping details
+                              </a>
+                            </div>
                             {checkoutError && (
                               <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
                             )}

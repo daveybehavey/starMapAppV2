@@ -209,6 +209,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <li>Great for local print shops</li>
               <li>No shipping required</li>
             </ul>
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-neutral-200">
+              Best for last-minute gifting, fast turnaround, and buyers who want total print control later.
+            </div>
             <a
               href="/editor?mode=quick&source=home-delivery-digital"
               onClick={() => handleDeliveryChoice("digital")}
@@ -249,6 +252,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
               <li>{printLabels.framed}</li>
             </ul>
+            <div className="mt-3 rounded-xl border border-amber-300/35 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
+              Best for the strongest unboxing moment, easier gifting, and buyers who do not want to handle framing.
+            </div>
             <a
               href={`/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
               onClick={() => handleDeliveryChoice("print_framed")}
@@ -283,6 +289,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <li>Estimated shipping to {shippingCountryLabel}: {unframedShippingLabel}</li>
               <li>{printLabels.unframed}</li>
             </ul>
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-neutral-200">
+              Best for physical delivery at a lower price, especially if the buyer already has a frame plan.
+            </div>
             <a
               href={`/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
               onClick={() => handleDeliveryChoice("print_unframed")}
@@ -291,6 +300,24 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               Preview unframed print
             </a>
           </article>
+        </div>
+
+        <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/15 p-4 md:grid-cols-3">
+          <div className="space-y-1 text-sm text-neutral-200">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Fastest path</p>
+            <p className="font-semibold text-white">Digital HD</p>
+            <p className="text-xs leading-relaxed">Immediate delivery, no shipping, and still usable for local framing later.</p>
+          </div>
+          <div className="space-y-1 text-sm text-neutral-200">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Best gift route</p>
+            <p className="font-semibold text-white">Framed print</p>
+            <p className="text-xs leading-relaxed">Most polished presentation. This is the route to push when the goal is emotional impact.</p>
+          </div>
+          <div className="space-y-1 text-sm text-neutral-200">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Best lower-cost physical</p>
+            <p className="font-semibold text-white">Unframed poster</p>
+            <p className="text-xs leading-relaxed">Keeps physical checkout available without forcing buyers into the premium frame cost.</p>
+          </div>
         </div>
 
         <div className="brand-dark-card rounded-2xl p-4">

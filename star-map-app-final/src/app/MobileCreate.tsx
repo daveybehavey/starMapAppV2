@@ -1245,6 +1245,10 @@ export function MobileCreate({
                   Secure checkout collects shipping details, shows shipping before payment, and creates your print
                   order right after payment. {shippingDisclosure}
                 </p>
+                <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
+                  <span className="font-semibold text-amber-100">Best gift:</span> framed print.{" "}
+                  <span className="font-semibold text-amber-100">Lower total:</span> unframed poster.
+                </div>
                 {printShippingCountries.length > 0 && (
                   <div className="mt-2">
                     <label className="text-[10px] font-semibold text-amber-100/80">Shipping country</label>
@@ -1331,6 +1335,20 @@ export function MobileCreate({
                     Choose your shipping country to unlock print checkout buttons.
                   </p>
                 )}
+                <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                  <a
+                    href="/star-map-gift-formats"
+                    className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2"
+                  >
+                    Compare formats
+                  </a>
+                  <a
+                    href="/shipping"
+                    className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2"
+                  >
+                    Shipping details
+                  </a>
+                </div>
               </div>
             )}
 

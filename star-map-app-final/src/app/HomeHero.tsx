@@ -73,6 +73,9 @@ export default function HomeHero() {
             Build your map in minutes, preview it live, then choose instant HD delivery or the physical gift route with{" "}
             {printTiers.poster_framed.label.toLowerCase()} and {printTiers.poster_unframed.label.toLowerCase()} options.
           </p>
+          <p className="mx-auto max-w-2xl text-sm text-amber-100/85 sm:text-base">
+            Digital stays fastest. Framed stays premium. Unframed keeps the physical total lower.
+          </p>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">No account required</span>
@@ -105,6 +108,7 @@ export default function HomeHero() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">Instant</p>
               <p className="mt-1 text-sm font-semibold text-white">Digital HD</p>
               <p className="mt-1 text-sm font-semibold text-amber-200">{digitalSingle}</p>
+              <p className="mt-2 text-xs leading-relaxed text-neutral-300">Best for same-day gifting, local printing, or zero shipping friction.</p>
             </a>
             <a
               href="/editor?mode=quick&source=home-hero-offer-framed&checkout=print&print_variant=poster_framed"
@@ -114,6 +118,7 @@ export default function HomeHero() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100">Most popular</p>
               <p className="mt-1 text-sm font-semibold text-white">Framed gift</p>
               <p className="mt-1 text-sm font-semibold text-amber-100">{framedPrice}</p>
+              <p className="mt-2 text-xs leading-relaxed text-amber-100/85">Best for weddings, anniversaries, and premium presentation right out of the box.</p>
             </a>
             <a
               href="/editor?mode=quick&source=home-hero-offer-unframed&checkout=print&print_variant=poster_unframed"
@@ -123,6 +128,7 @@ export default function HomeHero() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">Lower total</p>
               <p className="mt-1 text-sm font-semibold text-white">Unframed poster</p>
               <p className="mt-1 text-sm font-semibold text-amber-200">{unframedPrice}</p>
+              <p className="mt-2 text-xs leading-relaxed text-neutral-300">Best if you want the physical print but already know how you want to frame it.</p>
             </a>
           </div>
         </div>
