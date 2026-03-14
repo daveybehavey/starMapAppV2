@@ -17,7 +17,7 @@ test.describe("Homepage with SimplifiedEditor", () => {
 
     // Take screenshot of initial homepage
     await page.screenshot({
-      path: "tests/screenshots/homepage_1_initial.png",
+      path: "test-results/homepage_1_initial.png",
       fullPage: false,
     });
 
@@ -51,13 +51,13 @@ test.describe("Homepage with SimplifiedEditor", () => {
 
     // Take screenshot after navigation to editor
     await page.screenshot({
-      path: "tests/screenshots/homepage_2_customizing.png",
+      path: "test-results/homepage_2_customizing.png",
       fullPage: false,
     });
 
     // Take screenshot once editor is loaded
     await page.screenshot({
-      path: "tests/screenshots/homepage_3_style_changed.png",
+      path: "test-results/homepage_3_style_changed.png",
       fullPage: false,
     });
 
