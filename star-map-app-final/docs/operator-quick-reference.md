@@ -7,6 +7,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **GA4 realtime**: `https://analytics.google.com/analytics/web/`
   - Property: `G-N4PPJ50JQ7`
   - Check `page_view`, `funnel_step`, and checkout-related events.
+- **Current live baseline (last verified on 2026-03-14)**:
+  - `npm run qa:commerce-digest -- --days 7`
+  - Latest snapshot: `landing_view=151`, `preview_started=111`, `checkout_started=110`, `payment_verified=0`
 - **Quick local verification**:
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
@@ -99,3 +102,14 @@ Run from `star-map-app-final/`:
 - `npm run qa:smoke:commerce`
 - `npm run qa:live-smoke`
 - `npm run deploy`
+
+## 6) Current production notes
+
+- Print checkout is visible in production.
+- `PRINT_ORDER_SUBMISSION_ENABLED=true`
+- `PRINTFUL_AUTO_CONFIRM=false`
+- Meaning: paid print orders can submit into Printful, but remain in manual-approval mode until you approve them in Printful.
+- Current marketing promo:
+  - `PROMOTION_COUPON_CODE=FIRST50`
+  - `PROMOTION_COUPON_PERCENT=50`
+  - intended for the first single HD digital file

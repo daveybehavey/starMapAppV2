@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-12
+Updated: 2026-03-14
 
 ## Phase 0: Foundation (Done)
 
@@ -243,8 +243,31 @@ Recent status:
 - Added a reusable deliverables section (`WhatYouReceiveModule`) on the same three pages for explicit post-checkout expectations.
 - Added testimonial rendering scaffolding (`TestimonialHighlights` + `src/data/testimonials.ts`) that stays hidden until real, permissioned quotes are added.
 - Added staged reveal state on desktop and mobile editor flows so “Generate preview” now transitions through a short “Revealing your sky...” moment before showing the final map state.
+- Reveal loader polish is now live on desktop and mobile:
+  - clearer stage names (`Moment`, `Sky`, `Finish`)
+  - explicit free-preview framing
+  - progress glow / stage progress indicator
+  - slower, less abrupt reveal timing
 - Added `docs/operator-quick-reference.md` so sales/analytics/print checks and promo updates are operationally consistent.
 - Added a dedicated gift-format depth page (`/star-map-gift-formats`) and linked it from key conversion surfaces so we can expose broader options without bloating homepage checkout.
+- Homepage delivery hierarchy is now stronger:
+  - digital card uses the same proof-image treatment as print cards
+  - clearer CTA split between digital / framed / unframed
+  - direct links to full gift-format comparison and shipping details
+
+### Most recent verified ops snapshot
+
+- `qa:live-smoke` passes against live after the reveal/homepage updates.
+- `qa:billing` passes locally:
+  - commerce smoke: pass
+  - funnel reconcile: pass (`payment_verified=1`, Stripe paid sessions `=1` over last 14 days)
+  - print ops: no sent/pending/failed anomalies in last 168 hours; 2 unpaid print sessions observed
+- `qa:commerce-digest -- --days 7` snapshot:
+  - landing views: 151
+  - preview started: 111
+  - checkout started: 110
+  - payment verified: 0
+  - paid sessions: 0
 
 ## Phase 5: Print Scale (Planned)
 
