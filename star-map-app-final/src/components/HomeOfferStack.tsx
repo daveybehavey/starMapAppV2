@@ -180,15 +180,31 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
 
         <div className="grid gap-3 md:grid-cols-3">
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
-            <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
-              Instant
-            </span>
-            <p className="text-sm font-semibold text-white">Instant digital</p>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-200">HD file unlocks immediately after payment.</p>
+            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/15 bg-white/10">
+              <ResilientImage
+                src="/custom-star-map-anniversary.webp"
+                fallbackSrc="/custom-star-map-anniversary.png"
+                alt="Digital StarMapCo preview"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-white">Instant digital</p>
+              <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
+                Instant
+              </span>
+            </div>
+            <p className="mt-1 inline-flex w-fit rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100">
+              Fastest checkout
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">HD file unlocks immediately after payment with no shipping wait.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Up to 6000x6000 PNG</li>
               <li>No watermark on paid export</li>
               <li>Great for local print shops</li>
+              <li>No shipping required</li>
             </ul>
             <a
               href="/editor?mode=quick&source=home-delivery-digital"
@@ -309,6 +325,29 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
             <li>✓ {printBadgeLabel}</li>
           </ul>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Need the full comparison?</p>
+            <p className="mt-1 text-xs text-neutral-300">
+              Compare live digital, framed, and unframed routes before you enter checkout.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/star-map-gift-formats"
+              className="inline-flex items-center justify-center rounded-full border border-amber-300/50 bg-amber-300/15 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/22"
+            >
+              Compare all gift formats
+            </a>
+            <a
+              href="/shipping"
+              className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/6 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/10"
+            >
+              See shipping details
+            </a>
+          </div>
         </div>
 
         <div className="brand-dark-card rounded-2xl p-4">
