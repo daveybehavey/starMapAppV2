@@ -763,29 +763,38 @@ export default function SuccessClient() {
                           label: printPriceLabels.framedName,
                           badge: "Best gift",
                           detail: "Ready-to-hang presentation with the strongest gift feel.",
-                          price: `${printPriceLabels.framed} + shipping`,
+                          bestFor: "Best for premium gifting",
+                          price: `${printPriceLabels.framed} + shipping shown at checkout`,
                           imageSrc: PRINT_PROOF_IMAGE_PATHS.framed.src,
                           fallbackSrc: PRINT_PROOF_IMAGE_PATHS.framed.fallback,
+                          stageClass:
+                            "bg-[radial-gradient(circle_at_top,rgba(248,227,175,0.72),rgba(238,230,214,0.96)_48%,rgba(225,217,205,1)_100%)]",
+                          imageClass: "object-contain p-6 drop-shadow-[0_22px_22px_rgba(0,0,0,0.22)]",
                         },
                         {
                           key: "poster_unframed",
                           label: printPriceLabels.unframedName,
                           badge: "Lower total",
                           detail: "Same map, lower entry price, ideal if they already have a frame plan.",
-                          price: `${printPriceLabels.unframed} + shipping`,
+                          bestFor: "Best for lower-cost physical delivery",
+                          price: `${printPriceLabels.unframed} + shipping shown at checkout`,
                           imageSrc: PRINT_PROOF_IMAGE_PATHS.unframed.src,
                           fallbackSrc: PRINT_PROOF_IMAGE_PATHS.unframed.fallback,
+                          stageClass:
+                            "bg-[radial-gradient(circle_at_top,rgba(255,250,238,0.96),rgba(243,236,226,0.98)_52%,rgba(232,226,216,1)_100%)]",
+                          imageClass: "object-contain p-6 drop-shadow-[0_20px_20px_rgba(0,0,0,0.18)]",
                         },
                       ].map((option) => (
                         <div key={option.key} className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                          <div className="relative aspect-[4/3] overflow-hidden">
+                          <div className={`relative aspect-[4/3] overflow-hidden ${option.stageClass}`}>
+                            <div className="absolute inset-x-8 bottom-4 h-8 rounded-full bg-black/15 blur-2xl" />
                             <ResilientImage
                               src={option.imageSrc}
                               fallbackSrc={option.fallbackSrc}
                               alt={option.label}
                               fill
                               sizes="(max-width: 768px) 100vw, 50vw"
-                              className="object-cover"
+                              className={option.imageClass}
                             />
                           </div>
                           <div className="space-y-1 p-3">
@@ -796,6 +805,7 @@ export default function SuccessClient() {
                               </span>
                             </div>
                             <p className="text-[11px] text-amber-100/80">{option.detail}</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/75">{option.bestFor}</p>
                             <p className="text-[11px] font-semibold text-amber-100">{option.price}</p>
                           </div>
                         </div>
