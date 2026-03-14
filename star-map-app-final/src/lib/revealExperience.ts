@@ -1,18 +1,18 @@
 export const REVEAL_STAGES = [
   {
-    label: "Time",
-    title: "Matching your exact night sky",
-    description: "Anchoring your date, time, and location for an accurate sky.",
+    label: "Moment",
+    title: "Pinning down your moment",
+    description: "Locking the exact date, local time, and place that matter for this sky.",
   },
   {
-    label: "Stars",
-    title: "Plotting stars and constellations",
-    description: "Balancing brightness, structure, and detail for a clean preview.",
+    label: "Sky",
+    title: "Tracing the visible sky",
+    description: "Plotting stars, constellations, and balance for your location.",
   },
   {
     label: "Finish",
-    title: "Composing your keepsake preview",
-    description: "Preparing the final preview so HD and print options are ready next.",
+    title: "Finishing the keepsake preview",
+    description: "Composing the final map so HD and print options are ready next.",
   },
 ] as const;
 

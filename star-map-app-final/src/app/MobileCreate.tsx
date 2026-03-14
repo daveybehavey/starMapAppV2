@@ -25,7 +25,7 @@ import {
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
-const REVEAL_ANIMATION_MS = 650;
+const REVEAL_ANIMATION_MS = 900;
 
 interface MobileCreateProps {
   onExport: (mode: "preview" | "hd") => void | Promise<void>;
@@ -1133,11 +1133,17 @@ export function MobileCreate({
                   {canReveal ? (
                     isRevealing ? (
                       <div className="reveal-loader-card rounded-xl px-3 py-3 text-center">
+                        <div className="reveal-glow reveal-glow-left" aria-hidden="true" />
+                        <div className="reveal-glow reveal-glow-right" aria-hidden="true" />
+                        <div className="mb-2 flex items-center justify-between gap-3 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-100/75">
+                          <span>Free preview</span>
+                          <span>{revealProgress}</span>
+                        </div>
                         <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
                           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
                         </div>
                         <p className="text-[9px] font-semibold tracking-[0.22em] text-amber-100/80 uppercase">
-                          Preparing preview
+                          Revealing your sky
                         </p>
                         <p className="mt-1 text-xs font-semibold text-amber-50">{revealStage.title}</p>
                         <p className="mt-1 text-[10px] leading-4 text-neutral-200">{revealStage.description}</p>
@@ -1163,11 +1169,11 @@ export function MobileCreate({
                         </div>
                         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
+                            className="reveal-progress-fill h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
                             style={{ width: revealProgress }}
                           />
                         </div>
-                        <p className="mt-2 text-[10px] text-neutral-300">Usually under a second.</p>
+                        <p className="mt-2 text-[10px] text-neutral-300">Usually takes about a second. No charge yet.</p>
                       </div>
                     ) : (
                       <button

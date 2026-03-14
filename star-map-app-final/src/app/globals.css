@@ -333,6 +333,29 @@ details > summary:hover {
   animation: reveal-sweep 1.9s ease-in-out infinite;
 }
 
+.reveal-glow {
+  pointer-events: none;
+  position: absolute;
+  top: -22%;
+  width: 10rem;
+  height: 10rem;
+  border-radius: 9999px;
+  opacity: 0.55;
+  filter: blur(32px);
+  background:
+    radial-gradient(circle at center, rgba(251, 191, 36, 0.2) 0%, rgba(251, 191, 36, 0.08) 38%, transparent 72%);
+}
+
+.reveal-glow-left {
+  left: -2.5rem;
+}
+
+.reveal-glow-right {
+  right: -2.5rem;
+  background:
+    radial-gradient(circle at center, rgba(191, 219, 254, 0.18) 0%, rgba(191, 219, 254, 0.06) 40%, transparent 72%);
+}
+
 .reveal-star-row {
   display: inline-flex;
   align-items: center;
@@ -356,6 +379,12 @@ details > summary:hover {
   animation-delay: 0.32s;
 }
 
+.reveal-progress-fill {
+  box-shadow:
+    0 0 18px rgba(251, 191, 36, 0.34),
+    0 0 8px rgba(255, 255, 255, 0.18);
+}
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -370,6 +399,15 @@ details > summary:hover {
   .stagger-children > * {
     opacity: 1;
     transform: none;
+  }
+
+  .reveal-loader-card::before,
+  .reveal-star-dot {
+    animation: none;
+  }
+
+  .reveal-glow {
+    display: none;
   }
 }
 

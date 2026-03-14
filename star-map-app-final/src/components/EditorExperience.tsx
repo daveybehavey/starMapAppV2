@@ -86,7 +86,7 @@ const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const PROMO_CODE_KEY = "star-map-promo-code";
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
-const REVEAL_ANIMATION_MS = 650;
+const REVEAL_ANIMATION_MS = 900;
 
 function isLikelyLowMemoryDevice() {
   if (typeof navigator === "undefined") return false;
@@ -2252,11 +2252,17 @@ export function EditorExperience({
                               {canReveal ? (
                                 isRevealing ? (
                                   <div className="reveal-loader-card w-full rounded-xl px-4 py-3 text-center">
+                                    <div className="reveal-glow reveal-glow-left" aria-hidden="true" />
+                                    <div className="reveal-glow reveal-glow-right" aria-hidden="true" />
+                                    <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-100/75">
+                                      <span>Free preview</span>
+                                      <span>{revealProgress}</span>
+                                    </div>
                                     <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
                                       <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
                                     </div>
                                     <p className="text-[10px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
-                                      Preparing preview
+                                      Revealing your sky
                                     </p>
                                     <p className="mt-1 text-sm font-semibold text-amber-50">{revealStage.title}</p>
                                     <p className="mt-1 text-[11px] leading-5 text-neutral-200">{revealStage.description}</p>
@@ -2287,12 +2293,12 @@ export function EditorExperience({
                                     </div>
                                     <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                                       <div
-                                        className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
+                                        className="reveal-progress-fill h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
                                         style={{ width: revealProgress }}
                                       />
                                     </div>
                                     <p className="mt-2 text-[10px] text-neutral-300">
-                                      Usually under a second. HD and print options unlock after this step.
+                                      Usually takes about a second. No charge yet — HD and print options come after this.
                                     </p>
                                   </div>
                                 ) : (
