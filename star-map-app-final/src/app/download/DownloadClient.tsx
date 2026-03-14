@@ -29,6 +29,8 @@ import {
   getReferralShareMessage,
 } from "@/lib/referralShare";
 import EditorFontShell from "@/components/EditorFontShell";
+import ResilientImage from "@/components/ResilientImage";
+import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -1273,6 +1275,60 @@ export default function DownloadClient() {
                     ? `Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish. ${printShippingDisclosure}`
                     : `Start print checkout with your current map already attached. ${printShippingDisclosure}`}
                 </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {[
+                    {
+                      key: "poster_framed",
+                      label: printPriceLabels.framedName,
+                      badge: "Best gift",
+                      detail: "Ready-to-hang look with the strongest presentation.",
+                      price: `${printPriceLabels.framed} + ${framedShippingLabel}`,
+                      imageSrc: PRINT_PROOF_IMAGE_PATHS.framed.src,
+                      fallbackSrc: PRINT_PROOF_IMAGE_PATHS.framed.fallback,
+                      selected: upsellIntent === "poster_framed",
+                    },
+                    {
+                      key: "poster_unframed",
+                      label: printPriceLabels.unframedName,
+                      badge: "Lower total",
+                      detail: "Professional print path if you already have a frame plan.",
+                      price: `${printPriceLabels.unframed} + ${unframedShippingLabel}`,
+                      imageSrc: PRINT_PROOF_IMAGE_PATHS.unframed.src,
+                      fallbackSrc: PRINT_PROOF_IMAGE_PATHS.unframed.fallback,
+                      selected: upsellIntent === "poster_unframed",
+                    },
+                  ].map((option) => (
+                    <div
+                      key={option.key}
+                      className={`overflow-hidden rounded-2xl border ${
+                        option.selected
+                          ? "border-amber-200/70 bg-white/10 shadow-[0_0_0_1px_rgba(251,191,36,0.18)]"
+                          : "border-white/10 bg-white/5"
+                      }`}
+                    >
+                      <div className="relative aspect-[4/3] overflow-hidden">
+                        <ResilientImage
+                          src={option.imageSrc}
+                          fallbackSrc={option.fallbackSrc}
+                          alt={option.label}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 50vw"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="space-y-1 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-white">{option.label}</p>
+                          <span className="rounded-full border border-amber-200/35 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                            {option.badge}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-300">{option.detail}</p>
+                        <p className="text-[11px] font-semibold text-amber-100">{option.price}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 {printShippingCountryOptions.length > 0 ? (
                   <div className="mt-3 rounded-xl border border-white/10 bg-white/6 p-3">
                     <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>

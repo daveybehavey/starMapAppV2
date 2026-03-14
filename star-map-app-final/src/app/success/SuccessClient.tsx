@@ -18,6 +18,8 @@ import {
   getReferralFriendOfferLabel,
   getReferralShareMessage,
 } from "@/lib/referralShare";
+import ResilientImage from "@/components/ResilientImage";
+import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -753,6 +755,51 @@ export default function SuccessClient() {
                       <span className="rounded-full border border-amber-200/40 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                         Framed recommended
                       </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      {[
+                        {
+                          key: "poster_framed",
+                          label: printPriceLabels.framedName,
+                          badge: "Best gift",
+                          detail: "Ready-to-hang presentation with the strongest gift feel.",
+                          price: `${printPriceLabels.framed} + shipping`,
+                          imageSrc: PRINT_PROOF_IMAGE_PATHS.framed.src,
+                          fallbackSrc: PRINT_PROOF_IMAGE_PATHS.framed.fallback,
+                        },
+                        {
+                          key: "poster_unframed",
+                          label: printPriceLabels.unframedName,
+                          badge: "Lower total",
+                          detail: "Same map, lower entry price, ideal if they already have a frame plan.",
+                          price: `${printPriceLabels.unframed} + shipping`,
+                          imageSrc: PRINT_PROOF_IMAGE_PATHS.unframed.src,
+                          fallbackSrc: PRINT_PROOF_IMAGE_PATHS.unframed.fallback,
+                        },
+                      ].map((option) => (
+                        <div key={option.key} className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                          <div className="relative aspect-[4/3] overflow-hidden">
+                            <ResilientImage
+                              src={option.imageSrc}
+                              fallbackSrc={option.fallbackSrc}
+                              alt={option.label}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              className="object-cover"
+                            />
+                          </div>
+                          <div className="space-y-1 p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-semibold text-white">{option.label}</p>
+                              <span className="rounded-full border border-amber-200/35 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                {option.badge}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-amber-100/80">{option.detail}</p>
+                            <p className="text-[11px] font-semibold text-amber-100">{option.price}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
