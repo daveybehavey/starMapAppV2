@@ -173,7 +173,7 @@ export default function StarMapGiftPage() {
       />
       <PhysicalProductGallerySection
         heading="See the physical gift before you buy"
-        intro="These framed and unframed mockups come from current StarMapCo artwork pushed through live Printful proofs, so the physical finish is clear before checkout."
+        intro="These framed and unframed mockups come from current StarMapCo artwork and current proof renders, so the physical finish is clear before checkout."
         sourcePrefix="gift-physical-proof"
       />
 

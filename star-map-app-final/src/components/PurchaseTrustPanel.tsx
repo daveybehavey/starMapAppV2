@@ -64,7 +64,7 @@ export default function PurchaseTrustPanel({
             <li>Most buyers choose digital HD or the framed print path; unframed stays available if you already have a frame plan.</li>
             <li>
               {printAutoConfirm
-                ? "Production begins after payment once the order reaches Printful."
+                ? "Production begins after payment once the order is submitted for fulfillment."
                 : "Physical orders are reviewed before production while manual approval is enabled."}
             </li>
             <li>If a print arrives damaged, contact support@starmapco.com and we will help resolve it.</li>

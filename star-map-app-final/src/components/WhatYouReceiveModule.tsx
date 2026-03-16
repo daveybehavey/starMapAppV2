@@ -105,7 +105,7 @@ export default function WhatYouReceiveModule({
             <>
               <li>
                 {printAutoConfirm
-                  ? "If you add print, the physical order is sent to Printful after payment."
+                  ? "If you add print, the physical order is submitted for fulfillment after payment."
                   : "If you add print, the physical order is created for manual review before production starts."}
               </li>
               <li>{shippingDisclosure}</li>

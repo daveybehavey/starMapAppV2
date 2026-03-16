@@ -146,13 +146,13 @@ export default function ValentinesStarMapPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">When to order & how to present it</h2>
           <p className="text-neutral-200">
-            Orders ship worldwide, but Valentine’s Day weekbooks fill fast. Finish your design by early February, then
-            frame it before wrapping. For an in-person reveal, pair the print with a handwritten note or the playlist you
-            fell in love to.
+            Physical shipping availability depends on the destination shown at checkout, and Valentine's Day production
+            windows tighten fast. Finish your design by early February, then frame it before wrapping. For an in-person
+            reveal, pair the print with a handwritten note or the playlist you fell in love to.
           </p>
           <p className="text-sm text-neutral-400">
-            Need it in a rush? Digital downloads arrive instantly, so you can email a surprise “Our stars are ready” message
-            while unlocking courier shipping for the framed print.
+            Need it in a rush? Digital downloads arrive instantly, so you can email a surprise “Our stars are ready”
+            message while deciding whether to keep it digital or add the framed print route after preview.
           </p>
         </section>
 
