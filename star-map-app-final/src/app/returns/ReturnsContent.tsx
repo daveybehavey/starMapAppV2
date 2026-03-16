@@ -8,39 +8,57 @@ export default function ReturnsContent() {
 
         <div className="mt-6 space-y-5 text-neutral-900 sm:text-lg">
           <section>
-            <h2 className="text-xl font-semibold text-midnight">Introduction</h2>
+            <h2 className="text-xl font-semibold text-midnight">Custom-order policy</h2>
             <p className="mt-2">
-              At StarMapCo, we offer custom digital star maps that are personalized and instantly accessible. Due to
-              their nature, most purchases are non-refundable.
+              StarMapCo sells personalized products. Every star map is generated from the date, time, location, and
+              design choices entered by the customer, so digital downloads and physical prints are treated differently
+              from off-the-shelf goods.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-midnight">Eligibility</h2>
+            <h2 className="text-xl font-semibold text-midnight">Digital downloads</h2>
             <p className="mt-2">
-              Refunds are not available for unlocked or downloaded digital products. Exceptions: Full refunds for
-              technical errors (e.g., generation failure) or unprocessed payments. No returns for physical prints if
-              added later.
+              Free preview is available before purchase. Once an HD download has been unlocked or downloaded, it is
+              generally non-refundable. Exceptions may be made for duplicate charges, failed delivery caused by a
+              technical issue on our side, or other billing errors that prevented the order from being fulfilled
+              correctly.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-midnight">Process</h2>
+            <h2 className="text-xl font-semibold text-midnight">Physical prints</h2>
             <p className="mt-2">
-              To request a refund, contact support@starmapco.com within 7 days of purchase with order details and issue
-              description. We process approved refunds via the original payment method within 5-10 business days.
+              Physical prints are custom-made after checkout, so change-of-mind returns are not accepted once
+              production has started. If a print arrives damaged, defective, or materially different from the approved
+              order, contact support@starmapco.com within 7 days of delivery with photos and order details. Approved
+              cases may be resolved with a replacement or refund.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-midnight">Timelines</h2>
-            <p className="mt-2">Refunds must be requested within 7 days; no refunds after 30 days.</p>
+            <h2 className="text-xl font-semibold text-midnight">International shipping charges</h2>
+            <p className="mt-2">
+              Import duties, customs fees, VAT, brokerage charges, or other destination-country fees are not refunded
+              by default unless they were charged incorrectly by StarMapCo. If a package is delayed, held, or returned
+              because local import charges were not paid or the delivery information was incorrect, contact
+              support@starmapco.com so we can review the next step with you.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-midnight">Contact</h2>
+            <h2 className="text-xl font-semibold text-midnight">How to request help</h2>
             <p className="mt-2">
-              Email: support@starmapco.com. Response time: 24-48 hours.
+              Email support@starmapco.com with your order email, order number if available, and a short description of
+              the issue. For print problems, include clear photos of the packaging and the product.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-midnight">Refund timing</h2>
+            <p className="mt-2">
+              When a refund is approved, it is sent back to the original payment method. Bank processing times vary,
+              but most refunds appear within 5-10 business days.
             </p>
           </section>
         </div>

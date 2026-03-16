@@ -29,7 +29,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map | StarMapCo",
   description:
-    "Create a personalized wedding star map from your ceremony date and location. Choose HD download, U.S. unframed and framed print checkout.",
+    "Create a personalized wedding star map from your ceremony date and location. Choose HD download, unframed and framed print checkout.",
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map | StarMapCo",
@@ -56,12 +56,42 @@ export default function WeddingPage() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. unframed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
         </div>
       </header>
 
-      <PreviewStartForm source="wedding" />
+      <PreviewStartForm
+        source="wedding"
+        title="Start your wedding preview"
+        description="Enter the wedding date and place, then go straight into the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed wedding print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best when the keepsake should arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best for couples who already know their frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until you approve the design.",
+          },
+        ]}
+      />
       <StickyCtaBar
         source="sticky-wedding"
         secondaryButtonLabel="Preview framed wedding print"

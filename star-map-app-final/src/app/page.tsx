@@ -6,7 +6,7 @@ import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrint
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus U.S. printed and framed checkout options at StarMapCo.";
+  "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options at StarMapCo.";
 
 export const metadata: Metadata = {
   title: "Custom Star Map & Constellation Map | StarMapCo",
@@ -112,7 +112,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Delivery",
             value: printCheckoutEnabled
               ? isUsOnlyPrint
-                ? "Instant digital + optional U.S. physical print checkout"
+                ? "Instant digital + optional physical print checkout"
                 : "Instant digital + optional physical print checkout"
               : "Instant digital",
           },

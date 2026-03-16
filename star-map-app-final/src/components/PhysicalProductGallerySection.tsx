@@ -10,7 +10,7 @@ type PhysicalProductGallerySectionProps = {
 
 export default function PhysicalProductGallerySection({
   heading = "See the physical gift options side by side",
-  intro = "These proof images come from live Printful mockups created with current StarMapCo artwork, so buyers can compare the framed and unframed finish before checkout.",
+  intro = "These styled product proofs use current StarMapCo artwork so buyers can compare the framed and unframed finish in realistic contexts before checkout.",
   sourcePrefix = "physical-proof-gallery",
 }: PhysicalProductGallerySectionProps) {
   const framedProofImage = getFramedProofImage();
@@ -18,41 +18,39 @@ export default function PhysicalProductGallerySection({
 
   const heroCards = [
     {
-      src: framedProofImage,
-      fallbackSrc: "/printproof/framed-catalog.jpg",
-      alt: "Framed StarMapCo print product mockup",
+      src: "/printproof/gallery/wedding-framed.jpg",
+      fallbackSrc: framedProofImage,
+      alt: "Framed StarMapCo print shown hanging in a styled room",
       eyebrow: "Premium default",
-      title: "Framed gift-ready print",
-      detail: "Ready-to-hang 14x14 black frame for the strongest presentation and easiest gifting path.",
+      title: "Framed on the wall",
+      detail: "Shows the ready-to-hang route in the setting buyers actually imagine: a finished gift already up and presented.",
       bestFor: "Best for anniversaries, weddings, and premium gifting.",
-      stageClass:
-        "bg-[radial-gradient(circle_at_top,rgba(248,227,175,0.78),rgba(238,230,214,0.97)_48%,rgba(225,217,205,1)_100%)]",
-      imageClass: "object-contain p-8 drop-shadow-[0_24px_24px_rgba(0,0,0,0.22)]",
-      badgeClass: "border-amber-300/55 bg-amber-300/18 text-amber-900",
+      stageClass: "bg-[linear-gradient(180deg,rgba(20,24,32,0.04),rgba(6,9,15,0.16))]",
+      imageClass: "object-cover scale-[1.02]",
+      badgeClass: "border-white/25 bg-black/40 text-white",
     },
     {
-      src: unframedProofImage,
-      fallbackSrc: "/printproof/unframed-catalog.jpg",
-      alt: "Unframed StarMapCo poster product mockup",
+      src: "/printproof/gallery/wedding-unframed.jpg",
+      fallbackSrc: unframedProofImage,
+      alt: "Unframed StarMapCo poster shown in a styled setting",
       eyebrow: "Lower total",
-      title: "Museum-grade poster",
-      detail: "18x18 unframed poster if you want the physical version without paying for the frame.",
+      title: "Unframed in a styled setup",
+      detail: "Shows the physical print route without the frame cost, while still feeling intentional and giftable.",
       bestFor: "Best for buyers who already know their own frame plan.",
-      stageClass:
-        "bg-[radial-gradient(circle_at_top,rgba(255,250,238,0.98),rgba(243,236,226,0.98)_52%,rgba(232,226,216,1)_100%)]",
-      imageClass: "object-contain p-8 drop-shadow-[0_20px_20px_rgba(0,0,0,0.18)]",
+      stageClass: "bg-[radial-gradient(circle_at_top,rgba(255,247,222,0.45),rgba(233,227,217,0.95)_58%,rgba(223,217,209,1)_100%)]",
+      imageClass: "object-cover scale-[1.02]",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
     },
   ] as const;
 
   const supportCards = [
     {
-      src: "/printproof/gallery/wedding-framed.jpg",
+      src: "/printproof/gallery/birthday-framed.jpg",
       fallbackSrc: framedProofImage,
-      alt: "Framed StarMapCo print shown in a styled room",
+      alt: "Framed StarMapCo print shown in a second styled interior",
       eyebrow: "In-room proof",
-      title: "Framed in a real room",
-      detail: "Shows the finished framed piece landing in a real interior instead of a flat mockup stage.",
+      title: "Second framed room view",
+      detail: "Gives buyers another real-space reference so the premium option does not rely on one isolated mockup.",
       stageClass:
         "bg-[linear-gradient(180deg,rgba(25,28,35,0.03),rgba(10,14,22,0.14))]",
       imageClass: "object-cover scale-[1.02]",
@@ -61,10 +59,10 @@ export default function PhysicalProductGallerySection({
     {
       src: "/printproof/gallery/graduation-unframed.jpg",
       fallbackSrc: unframedProofImage,
-      alt: "Unframed StarMapCo poster shown in a styled scene",
+      alt: "Unframed StarMapCo poster shown in another styled scene",
       eyebrow: "Styled proof",
-      title: "Poster in a styled space",
-      detail: "Confirms the lower-cost route still feels intentional when staged well.",
+      title: "Second unframed context view",
+      detail: "Confirms the lower-cost route still feels deliberate when staged in a more editorial setup.",
       stageClass:
         "bg-[radial-gradient(circle_at_top,rgba(255,247,222,0.45),rgba(233,227,217,0.95)_58%,rgba(223,217,209,1)_100%)]",
       imageClass: "object-cover scale-[1.02]",

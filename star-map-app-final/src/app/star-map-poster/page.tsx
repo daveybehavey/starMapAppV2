@@ -5,8 +5,11 @@ import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getBusinessProfile } from "@/lib/businessProfile";
+import { getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -21,12 +24,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Poster | StarMapCo",
   description:
-    "Design a star map poster (night sky poster) for any date and location. High-resolution digital download plus U.S. unframed and framed print checkout.",
+    "Create a made-to-order custom star map poster from any date and location. Choose unframed or framed wall art checkout after preview.",
   alternates: { canonical: `${siteUrl}/star-map-poster` },
   openGraph: {
     title: "Star Map Poster | StarMapCo",
     description:
-      "Design a star map poster (night sky poster) for any date and location. High-resolution digital download plus U.S. unframed and framed print checkout.",
+      "Create a made-to-order custom star map poster from any date and location. Choose unframed or framed wall art checkout after preview.",
     url: `${siteUrl}/star-map-poster`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -36,6 +39,40 @@ export const metadata: Metadata = {
 
 export default function StarMapPosterPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const profile = getBusinessProfile();
+  const printTiers = getPrintPricingTiers();
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Product",
+        name: "Custom Star Map Poster",
+        description:
+          "Made-to-order custom star map wall art created from your chosen date and location, available as an unframed poster or framed print after preview.",
+        brand: { "@type": "Brand", name: "StarMapCo" },
+        image: [`${siteUrl}/printproof/unframed-mockup.jpg`, `${siteUrl}/printproof/framed-mockup.jpg`],
+        category: "Home & Garden > Decor > Artwork > Posters, Prints, & Visual Artwork",
+        offers: [
+          {
+            "@type": "Offer",
+            name: "Custom Star Map Poster (Unframed)",
+            priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+            price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+            availability: "https://schema.org/InStock",
+            url: `${siteUrl}/editor?mode=quick&source=poster-schema-print-unframed&checkout=print&print_variant=poster_unframed`,
+          },
+          {
+            "@type": "Offer",
+            name: "Custom Star Map Framed Print",
+            priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
+            price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+            availability: "https://schema.org/InStock",
+            url: `${siteUrl}/editor?mode=quick&source=poster-schema-print-framed&checkout=print&print_variant=poster_framed`,
+          },
+        ],
+      },
+    ],
+  };
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -44,25 +81,55 @@ export default function StarMapPosterPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Poster</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Create a star map poster from the exact night sky of a special moment. This night sky poster is a print-ready
-          download that looks beautiful in a frame.
+          Create a custom star map poster from the exact night sky of a special moment. Preview the design first, then
+          choose a made-to-order unframed poster or ready-to-hang framed print.
         </p>
       </header>
 
-      <PreviewStartForm source="star-map-poster" />
+      <PreviewStartForm
+        source="star-map-poster"
+        title="Start your poster preview"
+        description="Enter the date and location, then choose whether to open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best for gifting or ready-to-hang wall art.",
+          },
+          {
+            label: "Preview unframed poster",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Lower total if you already have a frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Open the editor without preselecting a checkout path.",
+          },
+        ]}
+      />
       <StickyCtaBar source="sticky-star-map-poster" />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Poster-quality, print-ready detail</h2>
+        <h2 className="text-xl font-semibold text-midnight">Made-to-order wall art from your approved design</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          Your star map poster is exported in high resolution so lines, stars, and text stay sharp when printed. Choose a
-          layout and style that matches your space, then download instantly once unlocked.
+          Your star map is rendered from the exact date, time, and location you enter, then routed into a poster or
+          framed print after you approve the preview. Shipping appears before payment for physical orders.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate night sky based on real astronomical data</li>
-          <li>High-resolution digital download for framing</li>
-          <li>Clean typography and customizable text</li>
-          <li>Flexible pricing: single, bundle, or subscription</li>
+          <li>Museum-grade unframed poster or ready-to-hang framed print</li>
+          <li>Preview before purchase so the artwork is approved first</li>
+          <li>Shipping is added at checkout before payment is finalized</li>
         </ul>
       </section>
 
@@ -72,7 +139,7 @@ export default function StarMapPosterPage() {
           <li>Enter the date, time, and location</li>
           <li>Pick a poster style and color palette</li>
           <li>Preview the map and adjust text</li>
-          <li>Unlock and download the HD file</li>
+          <li>Choose unframed or framed print checkout</li>
         </ol>
         <div className="pt-2">
           <Link
@@ -84,15 +151,32 @@ export default function StarMapPosterPage() {
         </div>
       </section>
 
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="This is a custom physical product, so the important things should be clear before payment: what you are ordering, when shipping appears, how support works, and what happens if there is a print issue."
+        leftTitle="What you are ordering"
+        leftPoints={[
+          "A made-to-order custom star map created from your approved preview.",
+          `Choose unframed poster or framed print in checkout.`,
+          `Support is handled directly by ${profile.name} at ${profile.email}.`,
+        ]}
+        rightTitle="What happens after checkout"
+        rightPoints={[
+          shippingDisclosure,
+          "Physical orders are reviewed before production while manual approval mode is enabled.",
+          "If a print arrives damaged or defective, contact support within 7 days with photos and order details.",
+        ]}
+      />
+
       <DeliveryFormatModule
-        heading="Choose whether this poster stays digital or ships physically"
-        intro={`Some buyers want the HD poster file for local printing. Others want the same design routed into U.S. unframed or framed checkout. The preview supports both paths. ${shippingDisclosure}`}
+        heading="Choose the physical format after preview"
+        intro={`Preview the artwork first, then decide whether this moment should arrive as an unframed poster or a ready-to-hang framed print. ${shippingDisclosure}`}
         sourcePrefix="poster-format"
       />
 
       <FramedProofSection
         heading="Poster design on screen, framed result on the wall"
-        intro={`Use the poster layout to design the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display. ${shippingDisclosure}`}
+        intro={`Use the poster layout to approve the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display. ${shippingDisclosure}`}
         sourcePrefix="poster-proof"
       />
 
@@ -137,15 +221,15 @@ export default function StarMapPosterPage() {
           <div>
             <h3 className="font-semibold text-midnight">Is this a physical star map poster?</h3>
             <p>
-              It starts as a high-resolution digital poster file, and after preview you can keep it digital or move into
-              U.S. unframed or framed print checkout from the same design. {shippingDisclosure}
+              Yes. After preview, you can choose an unframed poster or framed print from the same approved design.
+              {` ${shippingDisclosure}`}
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">What size is the star map poster file?</h3>
+            <h3 className="font-semibold text-midnight">Do I see shipping before paying?</h3>
             <p>
-              The HD export is a 6000×6000px PNG designed for crisp prints and posters. You can print multiple sizes from
-              the same file.
+              Yes. Physical checkout shows the shipping charge before payment is finalized, and orders are reviewed
+              before production begins while manual approval mode is enabled.
             </p>
           </div>
         </div>
@@ -155,16 +239,17 @@ export default function StarMapPosterPage() {
           {
             question: "Is this a physical star map poster?",
             answer:
-              `It starts as a high-resolution digital poster file, and after preview you can keep it digital or move into U.S. unframed or framed print checkout from the same design. ${shippingDisclosure}`,
+              `Yes. After preview, you can choose an unframed poster or framed print from the same approved design. ${shippingDisclosure}`,
           },
           {
-            question: "What size is the star map poster file?",
+            question: "Do I see shipping before paying?",
             answer:
-              "The HD export is a 6000×6000px PNG designed for crisp prints and posters. You can print multiple sizes from the same file.",
+              "Yes. Physical checkout shows the shipping charge before payment is finalized, and orders are reviewed before production begins while manual approval mode is enabled.",
           },
         ]}
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
     </main>
   );
 }

@@ -9,7 +9,9 @@ type PurchaseTrustPanelProps = {
   rightTitle: string;
   rightPoints: string[];
   guideLabel?: string;
+  shippingLabel?: string;
   returnsLabel?: string;
+  contactLabel?: string;
 };
 
 export default function PurchaseTrustPanel({
@@ -20,7 +22,9 @@ export default function PurchaseTrustPanel({
   rightTitle,
   rightPoints,
   guideLabel = "Print and frame guide",
+  shippingLabel = "Shipping policy",
   returnsLabel = "Returns and refunds",
+  contactLabel = "Contact support",
 }: PurchaseTrustPanelProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
@@ -57,7 +61,7 @@ export default function PurchaseTrustPanel({
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             <li>{shippingDisclosure}</li>
-            <li>Most buyers choose digital HD or the U.S. framed print path; unframed stays available if you already have a frame plan.</li>
+            <li>Most buyers choose digital HD or the framed print path; unframed stays available if you already have a frame plan.</li>
             <li>
               {printAutoConfirm
                 ? "Production begins after payment once the order reaches Printful."
@@ -71,8 +75,14 @@ export default function PurchaseTrustPanel({
         <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
           {guideLabel}
         </Link>
+        <Link href="/shipping" className="text-amber-700 underline hover:text-amber-800">
+          {shippingLabel}
+        </Link>
         <Link href="/returns" className="text-amber-700 underline hover:text-amber-800">
           {returnsLabel}
+        </Link>
+        <Link href="/contact" className="text-amber-700 underline hover:text-amber-800">
+          {contactLabel}
         </Link>
       </div>
     </section>

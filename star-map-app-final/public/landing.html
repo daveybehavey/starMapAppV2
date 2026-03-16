@@ -739,6 +739,20 @@
         color: #ffe29a;
         border-color: rgba(248, 212, 117, 1);
       }
+      .footer-meta {
+        margin: 8px 0 0;
+        color: #d5ddf2;
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+      .footer-meta-link {
+        color: #f8d475;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .footer-meta-link:hover {
+        color: #ffe29a;
+      }
       .footer-nav-title,
       .footer-social-title {
         margin: 0 0 12px;
@@ -1220,51 +1234,51 @@
 
       <section class="section content-visibility-auto" id="physical-proof-gallery">
         <h2>See the physical gift options side by side</h2>
-        <p>Real Printful mockups generated from current StarMapCo artwork, so you can compare the framed and unframed finishes before checkout.</p>
+        <p>Styled product proofs generated from current StarMapCo artwork, so you can compare the framed and unframed finishes in realistic contexts before checkout.</p>
         <div class="gallery">
           <figure>
             <img
-              src="/printproof/framed-mockup.jpg"
-              alt="Framed print mockup"
-              loading="lazy"
-              decoding="async"
-              width="900"
-              height="900"
-            />
-            <figcaption>Framed print mockup — ready-to-hang premium gift</figcaption>
-          </figure>
-          <figure>
-            <img
               src="/printproof/gallery/wedding-framed.jpg"
-              alt="Framed star map shown in a styled room"
+              alt="Framed star map hanging in a styled room"
               loading="lazy"
               decoding="async"
               width="900"
               height="900"
             />
-            <figcaption>Framed in a real room — shows the finished wall presentation</figcaption>
+            <figcaption>Framed on the wall — ready-to-hang premium gift</figcaption>
           </figure>
           <figure>
             <img
-              src="/printproof/unframed-mockup.jpg"
-              alt="Unframed poster mockup"
+              src="/printproof/gallery/birthday-framed.jpg"
+              alt="Framed star map shown in a second styled room"
               loading="lazy"
               decoding="async"
               width="900"
               height="900"
             />
-            <figcaption>Unframed poster mockup — lower physical cost, same artwork</figcaption>
+            <figcaption>Second framed room view — shows the finished wall presentation</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="/printproof/gallery/wedding-unframed.jpg"
+              alt="Unframed star map shown in a styled setup"
+              loading="lazy"
+              decoding="async"
+              width="900"
+              height="900"
+            />
+            <figcaption>Unframed in a styled setup — lower physical cost, same artwork</figcaption>
           </figure>
           <figure>
             <img
               src="/printproof/gallery/graduation-unframed.jpg"
-              alt="Unframed star map poster shown in context"
+              alt="Unframed star map poster shown in another styled context"
               loading="lazy"
               decoding="async"
               width="900"
               height="900"
             />
-            <figcaption>Unframed in context — best if you already have your own frame plan</figcaption>
+            <figcaption>Second unframed context view — best if you already have your own frame plan</figcaption>
           </figure>
         </div>
         <div class="links">
@@ -1377,7 +1391,7 @@
         <div class="faq">
           <div class="faq-item">
             <strong>How accurate are StarMapCo star maps?</strong>
-            <p>Extremely accurate—using professional astronomy libraries for precise star positions.</p>
+            <p>StarMapCo uses real date, time, timezone, and location inputs with astronomy calculations to recreate the sky for the selected moment.</p>
           </div>
           <div class="faq-item">
             <strong>Can I customize the text and styles?</strong>
@@ -1433,13 +1447,18 @@
             <strong>StarMapCo</strong>
             <p>Personalized night sky maps for weddings, anniversaries, birthdays, and once-in-a-lifetime moments.</p>
             <a class="footer-contact" href="mailto:support@starmapco.com">support@starmapco.com</a>
+            <p class="footer-meta">Phone: <a class="footer-meta-link" href="tel:+17786786242">778-678-6242</a></p>
+            <p class="footer-meta">Support hours: Mon-Sat, 9:00 AM-5:00 PM</p>
           </div>
           <nav aria-label="Footer">
             <p class="footer-nav-title">Quick links</p>
             <div class="footer-nav-grid">
+              <a href="/about">About</a>
               <a href="/star-map-gallery">Gallery</a>
               <a href="/star-map-gift-ideas">Gift ideas</a>
               <a href="/blog">Blog</a>
+              <a href="/contact">Contact</a>
+              <a href="/terms">Terms</a>
               <a href="/shipping">Shipping Policy</a>
               <a href="/privacy">Privacy Policy</a>
               <a href="/returns">Returns &amp; Refunds</a>
@@ -1479,6 +1498,14 @@
             "name": "StarMapCo",
             "url": "https://starmapco.com",
             "logo": "https://starmapco.com/favicon.ico",
+            "email": "support@starmapco.com",
+            "telephone": "+17786786242",
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "customer support",
+              "email": "support@starmapco.com",
+              "telephone": "+17786786242"
+            },
             "sameAs": [
               "https://www.facebook.com/profile.php?id=61584233102201",
               "https://ca.pinterest.com/StarMapCo/",
@@ -1494,7 +1521,7 @@
           {
             "@type": "Product",
             "name": "Custom Star Map",
-            "description": "Personalized star map generator for special dates and locations.",
+            "description": "Personalized star map generator for special dates and locations with HD downloads and optional made-to-order print checkout.",
             "brand": { "@type": "Brand", "name": "StarMapCo" },
             "image": ["https://starmapco.com/custom-star-map-anniversary.webp"],
             "offers": {
@@ -1514,7 +1541,7 @@
                 "name": "How accurate are StarMapCo star maps?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Extremely accurate—using professional astronomy libraries for precise star positions."
+                  "text": "StarMapCo uses real date, time, timezone, and location inputs with astronomy calculations to recreate the sky for the selected moment."
                 }
               },
               {

@@ -39,41 +39,47 @@ export default function FramedProofSection({
     <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
       <div className="grid gap-0 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="grid gap-3 bg-neutral-100 p-3 sm:grid-cols-2 sm:p-4">
-          <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm sm:row-span-2">
-            <ResilientImage
-              src={framedProofImage}
-              fallbackSrc="/printproof/framed-mockup.jpg"
-              alt="Framed StarMapCo star map mockup"
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover"
-            />
+          <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm sm:row-span-2 proof-wall-panel">
+            <div className="proof-wall-stage">
+              <ResilientImage
+                src={framedProofImage}
+                fallbackSrc="/printproof/framed-mockup.jpg"
+                alt="Framed StarMapCo star map mockup"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover proof-wall-image"
+              />
+            </div>
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Framed print mockup
             </div>
           </div>
-          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-            <ResilientImage
-              src={unframedProofImage}
-              fallbackSrc="/printproof/unframed-mockup.jpg"
-              alt="Unframed StarMapCo poster mockup"
-              fill
-              sizes="(max-width: 1024px) 100vw, 25vw"
-              className="object-cover"
-            />
+          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm proof-wall-panel">
+            <div className="proof-wall-stage">
+              <ResilientImage
+                src={unframedProofImage}
+                fallbackSrc="/printproof/unframed-mockup.jpg"
+                alt="Unframed StarMapCo poster mockup"
+                fill
+                sizes="(max-width: 1024px) 100vw, 25vw"
+                className="object-cover proof-wall-image"
+              />
+            </div>
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Unframed poster mockup
             </div>
           </div>
-          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-            <ResilientImage
-              src="/examples/example-anniversary-heirloom.webp"
-              fallbackSrc="/custom-star-map-anniversary.webp"
-              alt="Rendered star map from the current StarMapCo engine"
-              fill
-              sizes="(max-width: 1024px) 100vw, 25vw"
-              className="object-cover"
-            />
+          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm proof-wall-panel">
+            <div className="proof-wall-stage">
+              <ResilientImage
+                src="/examples/example-anniversary-heirloom.webp"
+                fallbackSrc="/custom-star-map-anniversary.webp"
+                alt="Rendered star map from the current StarMapCo engine"
+                fill
+                sizes="(max-width: 1024px) 100vw, 25vw"
+                className="object-cover proof-wall-image"
+              />
+            </div>
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Current engine render
             </div>

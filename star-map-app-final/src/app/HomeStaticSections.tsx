@@ -14,7 +14,6 @@ import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
-  isUsOnlyPrintCheckout,
 } from "@/lib/printCheckoutConfig";
 
 type PriceLabels = {
@@ -44,7 +43,6 @@ export default function HomeStaticSections({
   };
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
-  const isUsOnlyPrint = isUsOnlyPrintCheckout();
   const proofImages = {
     framed: getFramedProofImage(),
     unframed: getUnframedProofImage(),
@@ -72,7 +70,7 @@ export default function HomeStaticSections({
           ]}
           rightTitle="Print and delivery clarity"
           rightPoints={[
-            "Most buyers choose digital HD or the U.S. framed print path",
+            "Most buyers choose digital HD or the framed print path",
             shippingDisclosure,
             "Physical orders stay in manual review before production starts",
             `Optional HD digital add-on is available on print orders for ${printLabels.digitalAddOn}`,
@@ -114,9 +112,7 @@ export default function HomeStaticSections({
         <div className="rounded-3xl border border-white/12 bg-white/5 px-5 py-4 text-center text-neutral-200 shadow-sm shadow-black/20 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
           <p className="mt-2 text-sm sm:text-base">
-            {isUsOnlyPrint
-              ? "Instant HD digital download plus U.S. physical checkout, led by the ready-to-hang framed print option."
-              : "Instant HD digital download plus physical checkout, led by the ready-to-hang framed print option."}
+            Instant HD digital download plus physical checkout, led by the ready-to-hang framed print option.
           </p>
           <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
         </div>

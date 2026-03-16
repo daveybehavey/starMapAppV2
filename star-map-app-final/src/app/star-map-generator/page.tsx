@@ -21,12 +21,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Generator | StarMapCo",
   description:
-    "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus U.S. unframed and framed print checkout.",
+    "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus unframed and framed print checkout.",
   alternates: { canonical: `${siteUrl}/star-map-generator` },
   openGraph: {
     title: "Star Map Generator | StarMapCo",
     description:
-      "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus U.S. unframed and framed print checkout.",
+      "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus unframed and framed print checkout.",
     url: `${siteUrl}/star-map-generator`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -127,7 +127,7 @@ export default function StarMapGeneratorPage() {
 
       <FramedProofSection
         heading="The same generated map can become a framed gift"
-        intro={`This is the part most generator pages skip. You are not locked into a digital-only flow. After preview, the same design can move into U.S. unframed or framed checkout without rebuilding the map. ${shippingDisclosure}`}
+        intro={`This is the part most generator pages skip. You are not locked into a digital-only flow. After preview, the same design can move into unframed or framed checkout without rebuilding the map. ${shippingDisclosure}`}
         sourcePrefix="generator-proof"
       />
 

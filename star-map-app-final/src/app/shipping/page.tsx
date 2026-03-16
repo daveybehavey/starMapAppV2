@@ -98,6 +98,19 @@ export default function ShippingPage() {
             then tracking is provided by the print partner.
           </p>
           <p>
+            Physical orders are fulfilled through third-party print facilities selected by destination and production
+            availability, while StarMapCo handles customer support directly.
+          </p>
+          <p>
+            Delivery ranges on this page are estimates in business days after order review and production. They are not
+            guaranteed delivery dates and may change due to customs processing, carrier delays, weather, or local
+            disruptions.
+          </p>
+          <p>
+            Local import duties, customs charges, VAT, or brokerage fees may apply in some destinations and are the
+            customer&apos;s responsibility unless they are already included at checkout.
+          </p>
+          <p>
             If a print arrives damaged or there is a shipping issue, contact{" "}
             <a href="mailto:support@starmapco.com" className="font-semibold text-midnight underline">
               support@starmapco.com

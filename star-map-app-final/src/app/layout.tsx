@@ -5,6 +5,7 @@ import "./globals.css";
 import { Playfair_Display } from "next/font/google";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
+import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -18,6 +19,7 @@ const playfair = Playfair_Display({
 export const revalidate = 3600;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const businessProfile = getBusinessProfile();
 type SocialLink = {
   label: string;
   href: string;
@@ -31,10 +33,13 @@ const defaultSocialLinks: SocialLink[] = [
 ];
 
 const footerLinks = [
+  { label: "About", href: "/about" },
   { label: "Gallery", href: "/star-map-gallery" },
   { label: "Gift Ideas", href: "/star-map-gift-ideas" },
   { label: "Gift Formats", href: "/star-map-gift-formats" },
   { label: "Blog", href: "/blog" },
+  { label: "Contact", href: "/contact" },
+  { label: "Terms", href: "/terms" },
   { label: "Shipping Policy", href: "/shipping" },
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Returns & Refunds", href: "/returns" },
@@ -162,15 +167,18 @@ const siteSchema = {
   "@graph": [
     {
       "@type": "Organization",
-      name: "StarMapCo",
+      name: businessProfile.name,
       url: siteUrl,
       logo: `${siteUrl}/favicon.ico`,
-      email: "support@starmapco.com",
+      email: businessProfile.email,
+      ...(businessProfile.phone ? { telephone: getBusinessPhoneHref() } : {}),
+      ...(businessProfile.address ? { address: businessProfile.address } : {}),
       contactPoint: [
         {
           "@type": "ContactPoint",
           contactType: "customer support",
-          email: "support@starmapco.com",
+          email: businessProfile.email,
+          ...(businessProfile.phone ? { telephone: getBusinessPhoneHref() } : {}),
         },
       ],
       ...(socialProfiles.length ? { sameAs: socialProfiles } : {}),
@@ -204,17 +212,35 @@ export default function RootLayout({
             <div className="grid gap-5 sm:gap-8 md:grid-cols-[1.2fr_1fr_auto] md:items-start">
               <div>
                 <Link href="/" prefetch={false} className="inline-flex items-center text-base font-semibold tracking-wide text-[#f8e8bf] sm:text-lg">
-                  StarMapCo
+                  {businessProfile.name}
                 </Link>
                 <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-[#d5ddf2] sm:mt-2 sm:text-sm">
                   Personalized night sky maps for weddings, anniversaries, birthdays, and once-in-a-lifetime moments.
                 </p>
                 <a
-                  href="mailto:support@starmapco.com"
+                  href={`mailto:${businessProfile.email}`}
                   className="mt-3 inline-flex items-center rounded-full border border-[#b5934f]/60 bg-[rgba(8,18,51,0.78)] px-3.5 py-1.5 text-xs font-semibold text-[#f8d475] transition hover:border-[#f8d475] hover:text-[#ffe29a] sm:mt-4 sm:px-4 sm:text-sm"
                 >
-                  support@starmapco.com
+                  {businessProfile.email}
                 </a>
+                {businessProfile.phone ? (
+                  <a
+                    href={`tel:${getBusinessPhoneHref()}`}
+                    className="mt-2 inline-flex items-center text-xs font-semibold text-[#f7f0e2] sm:text-sm"
+                  >
+                    {businessProfile.phone}
+                  </a>
+                ) : null}
+                {businessProfile.address ? (
+                  <p className="mt-2 text-[11px] text-[#cbd6ee] sm:text-xs">
+                    {businessProfile.address}
+                  </p>
+                ) : null}
+                {businessProfile.hours ? (
+                  <p className="mt-1 text-[11px] text-[#cbd6ee] sm:text-xs">
+                    Support hours: {businessProfile.hours}
+                  </p>
+                ) : null}
               </div>
 
               <nav aria-label="Footer links">

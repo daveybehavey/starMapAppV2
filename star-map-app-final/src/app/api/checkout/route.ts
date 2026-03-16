@@ -541,7 +541,7 @@ async function createCheckoutSession(
               : "Secure payment • Instant access • No subscription",
       },
       terms_of_service_acceptance: {
-        message: `I agree to the [Terms of Service](${siteUrl}/returns) and [Privacy Policy](${siteUrl}/privacy)`,
+        message: `I agree to the [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy)`,
       },
     },
     payment_method_types: ["card"],

@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const occasion = getOccasion(slug);
   if (!occasion) return {};
   const shouldIndex = isIndexableOccasionSlug(occasion.slug);
-  const description = `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with HD plus U.S. unframed and framed print options.`;
+  const description = `Create a star map for ${occasion.label.toLowerCase()}. Capture the exact night sky from your date and location with HD plus unframed and framed print options.`;
 
   return {
     title: `Star Map for ${occasion.label} | StarMapCo`,
@@ -87,8 +87,8 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         <p className="text-sm text-white/90 sm:text-base">{occasion.intro}</p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. unframed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
         </div>
       </header>
 

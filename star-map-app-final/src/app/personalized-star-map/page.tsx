@@ -29,12 +29,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Star Map | StarMapCo",
   description:
-    "Create a personalized star map with names, dates, and locations. Choose HD download plus U.S. unframed and framed print checkout.",
+    "Create a personalized star map with names, dates, and locations. Choose HD download plus unframed and framed print checkout.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
     title: "Personalized Star Map | StarMapCo",
     description:
-      "Create a personalized star map with names, dates, and locations. Choose HD download plus U.S. unframed and framed print checkout.",
+      "Create a personalized star map with names, dates, and locations. Choose HD download plus unframed and framed print checkout.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -56,12 +56,42 @@ export default function PersonalizedStarMapPage() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital download</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. unframed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">U.S. framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
         </div>
       </header>
 
-      <PreviewStartForm source="personalized-star-map" />
+      <PreviewStartForm
+        source="personalized-star-map"
+        title="Start your personalized preview"
+        description="Enter the date and location, then choose the framed path, unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed version",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best when the final piece should arrive presentation-ready.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you want the print but will handle framing yourself.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Open the editor without locking in a delivery path yet.",
+          },
+        ]}
+      />
       <StickyCtaBar
         source="sticky-personalized-star-map"
         secondaryButtonLabel="Preview framed version"
