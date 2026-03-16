@@ -1280,30 +1280,30 @@ export default function DownloadClient() {
                     {
                       key: "poster_framed",
                       label: printPriceLabels.framedName,
+                      sceneLabel: "Wall-ready proof",
                       badge: "Best gift",
-                      detail: "Ready-to-hang look with the strongest presentation.",
+                      detail: "Ready-to-hang presentation that already feels like the finished gift.",
                       bestFor: "Best for premium gifting",
                       price: `${printPriceLabels.framed} + ${framedShippingLabel}`,
                       imageSrc: PRINT_PROOF_IMAGE_PATHS.framed.src,
                       fallbackSrc: PRINT_PROOF_IMAGE_PATHS.framed.fallback,
                       selected: upsellIntent === "poster_framed",
-                      stageClass:
-                        "bg-[radial-gradient(circle_at_top,rgba(248,227,175,0.72),rgba(238,230,214,0.96)_48%,rgba(225,217,205,1)_100%)]",
-                      imageClass: "object-contain p-6 drop-shadow-[0_22px_22px_rgba(0,0,0,0.22)]",
+                      sceneClass: "proof-wall-stage proof-wall-stage--gallery",
+                      imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
                     },
                     {
                       key: "poster_unframed",
                       label: printPriceLabels.unframedName,
+                      sceneLabel: "Tabletop proof",
                       badge: "Lower total",
-                      detail: "Professional print path if you already have a frame plan.",
+                      detail: "Professional print route if you already know how you want to frame it.",
                       bestFor: "Best for lower-cost physical delivery",
                       price: `${printPriceLabels.unframed} + ${unframedShippingLabel}`,
                       imageSrc: PRINT_PROOF_IMAGE_PATHS.unframed.src,
                       fallbackSrc: PRINT_PROOF_IMAGE_PATHS.unframed.fallback,
                       selected: upsellIntent === "poster_unframed",
-                      stageClass:
-                        "bg-[radial-gradient(circle_at_top,rgba(255,250,238,0.96),rgba(243,236,226,0.98)_52%,rgba(232,226,216,1)_100%)]",
-                      imageClass: "object-contain p-6 drop-shadow-[0_20px_20px_rgba(0,0,0,0.18)]",
+                      sceneClass: "proof-wall-stage proof-wall-stage--tabletop",
+                      imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
                     },
                   ].map((option) => (
                     <div
@@ -1314,16 +1314,22 @@ export default function DownloadClient() {
                           : "border-white/10 bg-white/5"
                       }`}
                     >
-                      <div className={`relative aspect-[4/3] overflow-hidden ${option.stageClass}`}>
-                        <div className="absolute inset-x-8 bottom-4 h-8 rounded-full bg-black/15 blur-2xl" />
-                        <ResilientImage
-                          src={option.imageSrc}
-                          fallbackSrc={option.fallbackSrc}
-                          alt={option.label}
-                          fill
-                          sizes="(max-width: 640px) 100vw, 50vw"
-                          className={option.imageClass}
-                        />
+                      <div className="p-3 pb-0">
+                        <div className="relative aspect-[4/3] overflow-hidden rounded-[1.35rem]">
+                          <div className={option.sceneClass}>
+                            <ResilientImage
+                              src={option.imageSrc}
+                              fallbackSrc={option.fallbackSrc}
+                              alt={option.label}
+                              fill
+                              sizes="(max-width: 640px) 100vw, 50vw"
+                              className={option.imageClass}
+                            />
+                          </div>
+                          <span className="absolute left-4 top-4 rounded-full border border-black/10 bg-white/88 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-midnight shadow-sm">
+                            {option.sceneLabel}
+                          </span>
+                        </div>
                       </div>
                       <div className="space-y-1 p-3">
                         <div className="flex items-center justify-between gap-2">
@@ -1397,7 +1403,7 @@ export default function DownloadClient() {
                 </div>
                 {upsellIntent ? (
                   <p className="mt-2 text-[11px] text-amber-100/75">
-                    You can still keep the digital file only. This just opens the matching print checkout.
+                    You can still keep the digital file only. This simply carries the same approved map into print checkout.
                   </p>
                 ) : null}
                 {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}

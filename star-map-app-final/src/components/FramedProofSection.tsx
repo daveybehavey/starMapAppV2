@@ -40,46 +40,49 @@ export default function FramedProofSection({
       <div className="grid gap-0 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="grid gap-3 bg-neutral-100 p-3 sm:grid-cols-2 sm:p-4">
           <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm sm:row-span-2 proof-wall-panel">
-            <div className="proof-wall-stage">
+            <div className="proof-wall-stage proof-wall-stage--gallery">
               <ResilientImage
                 src={framedProofImage}
                 fallbackSrc="/printproof/framed-mockup.jpg"
                 alt="Framed StarMapCo star map mockup"
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover proof-wall-image"
+                className="object-contain px-5 py-6 sm:px-7 sm:py-8 proof-wall-image"
               />
             </div>
+            <div className="pointer-events-none absolute inset-x-6 bottom-5 h-5 rounded-full bg-black/18 blur-xl" />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Framed print mockup
             </div>
           </div>
           <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm proof-wall-panel">
-            <div className="proof-wall-stage">
+            <div className="proof-wall-stage proof-wall-stage--tabletop">
               <ResilientImage
                 src={unframedProofImage}
                 fallbackSrc="/printproof/unframed-mockup.jpg"
                 alt="Unframed StarMapCo poster mockup"
                 fill
                 sizes="(max-width: 1024px) 100vw, 25vw"
-                className="object-cover proof-wall-image"
+                className="object-contain px-4 py-5 sm:px-5 sm:py-6 proof-wall-image"
               />
             </div>
+            <div className="pointer-events-none absolute inset-x-7 bottom-5 h-4 rounded-full bg-black/14 blur-xl" />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Unframed poster mockup
             </div>
           </div>
           <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm proof-wall-panel">
-            <div className="proof-wall-stage">
+            <div className="proof-wall-stage proof-wall-stage--editorial">
               <ResilientImage
-                src="/examples/example-anniversary-heirloom.webp"
-                fallbackSrc="/custom-star-map-anniversary.webp"
-                alt="Rendered star map from the current StarMapCo engine"
+                src="/printproof/digital-preview.webp"
+                fallbackSrc="/printproof/digital-preview.png"
+                alt="Digital StarMapCo preview shown as the instant file route"
                 fill
                 sizes="(max-width: 1024px) 100vw, 25vw"
-                className="object-cover proof-wall-image"
+                className="object-contain px-5 py-5 sm:px-6 sm:py-6 proof-wall-image"
               />
             </div>
+            <div className="pointer-events-none absolute inset-x-8 bottom-5 h-4 rounded-full bg-black/16 blur-xl" />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Current engine render
             </div>
@@ -122,6 +125,9 @@ export default function FramedProofSection({
             <li className="brand-light-card rounded-2xl px-4 py-3">
               Paid print orders are created for review first, then approved manually before production starts.
             </li>
+            <li className="brand-light-card rounded-2xl px-4 py-3">
+              The same approved map can stay digital, ship unframed, or arrive framed without rebuilding the design.
+            </li>
           </ul>
 
           <div className="flex flex-wrap gap-3">
@@ -129,13 +135,13 @@ export default function FramedProofSection({
               href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-framed`)}&checkout=print&print_variant=poster_framed`}
               className="inline-flex items-center justify-center rounded-full bg-midnight px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-midnight/90"
             >
-              Preview framed print
+              Start with framed preview
             </Link>
             <Link
               href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-unframed`)}&checkout=print&print_variant=poster_unframed`}
               className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-neutral-50"
             >
-              Preview unframed print
+              See unframed route
             </Link>
             <Link
               href="/star-map-gallery"
