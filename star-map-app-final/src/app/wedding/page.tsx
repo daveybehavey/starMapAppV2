@@ -29,11 +29,11 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map | StarMapCo",
   description:
-    "Create a personalized wedding star map from your ceremony date and location. Choose HD download, unframed and framed print checkout.",
+    "Create a personalized wedding star map from your ceremony date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map | StarMapCo",
-    description: "Capture the exact night sky from your wedding day and place. HD, unframed print, and framed checkout options.",
+    description: "Capture the exact night sky from your wedding day and place. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/wedding`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -55,9 +55,9 @@ export default function WeddingPage() {
           your vows.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
@@ -120,17 +120,17 @@ export default function WeddingPage() {
           <li>Enter your wedding location (city or venue)</li>
           <li>Select the wedding date (and time if you want to be exact)</li>
           <li>Choose a style and add your names or vows</li>
-          <li>Reveal the sky, then choose HD download, unframed print, or framed print at checkout</li>
+          <li>Reveal the sky, then choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
-          You can share a preview for free. Upgrade once to unlock the HD, watermark-free file for framing.
+          You can share a preview for free. Once the layout feels right, take the framed route, the unframed route, or instant HD delivery from the same design.
         </p>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=wedding-cta"
+            href="/editor?mode=quick&source=wedding-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Craft your wedding star map
+            Start with framed wedding preview
           </Link>
         </div>
       </section>
@@ -138,7 +138,7 @@ export default function WeddingPage() {
 
       <DeliveryFormatModule
         heading="Choose how you want to keep or gift it"
-        intro="Wedding buyers usually decide between instant HD for local framing and the ready-to-display framed option. The preview is the same either way, so you can wait to choose until the design feels right."
+        intro="Wedding buyers usually decide between the ready-to-display framed option and the lower-total unframed route. HD digital stays available when you need instant delivery or local printing."
         sourcePrefix="wedding-format"
       />
       <FramedProofSection sourcePrefix="wedding-proof" />
@@ -173,8 +173,8 @@ export default function WeddingPage() {
         <h2 className="text-lg font-semibold text-midnight">What makes it special</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Every map uses the same rendering engine for preview and HD export, so what you see is exactly what you receive.
-          You can toggle constellations, glow, labels, and choose fonts to match your wedding aesthetic. Flexible pricing
-          includes single downloads, bundles, or an unlimited subscription.
+          You can toggle constellations, glow, labels, and choose fonts to match your wedding aesthetic. The same approved
+          design can stay digital, go unframed, or arrive framed without rebuilding the map.
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
@@ -188,7 +188,7 @@ export default function WeddingPage() {
 
       <PurchaseTrustPanel
         heading="Before you buy"
-        intro="Preview for free first. Upgrade only when both of you are happy with the layout and text."
+        intro="Preview for free first. Most wedding buyers take the framed route once the layout and wording feel final, while unframed and HD stay available from the same design."
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
@@ -254,7 +254,7 @@ export default function WeddingPage() {
           <div>
             <h3 className="font-semibold text-midnight">Can I order a framed wedding print directly?</h3>
             <p>
-              Yes. After preview, checkout includes both unframed and framed print options plus HD digital download. {shippingDisclosure}
+              Yes. After preview, checkout includes framed print, unframed print, and HD digital delivery. {shippingDisclosure}
             </p>
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function WeddingPage() {
           },
           {
             question: "Can I order a framed wedding print directly?",
-            answer: `Yes. After preview, checkout includes both unframed and framed print options plus HD digital download. ${shippingDisclosure}`,
+            answer: `Yes. After preview, checkout includes framed print, unframed print, and HD digital delivery. ${shippingDisclosure}`,
           },
         ]}
       />

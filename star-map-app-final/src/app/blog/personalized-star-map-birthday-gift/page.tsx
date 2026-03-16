@@ -212,8 +212,8 @@ export default function PersonalizedBirthdayPost() {
             </h2>
             <p>
               Look for providers with accurate data, HD options, and easy customization. Ready to make one?{" "}
-              <Link href="/" className="text-amber-300 hover:underline">
-                create your personalized star map birthday gift today
+              <Link href="/editor?mode=quick&source=blog-birthday-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
+                start with a framed birthday preview today
               </Link>
               .
             </p>
@@ -235,7 +235,7 @@ export default function PersonalizedBirthdayPost() {
                 <strong>Are they suitable for children?</strong> Absolutely, with fun designs and constellations.
               </li>
               <li>
-                <strong>What formats are available?</strong> Digital downloads or printed posters.
+                <strong>What formats are available?</strong> Framed print, unframed poster, or HD digital delivery after the free preview.
               </li>
               <li>
                 <strong>Can I add custom text?</strong> Yes—names, quotes, and dedications.

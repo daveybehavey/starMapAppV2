@@ -61,7 +61,7 @@ export default function PurchaseTrustPanel({
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             <li>{shippingDisclosure}</li>
-            <li>Most buyers choose digital HD or the framed print path; unframed stays available if you already have a frame plan.</li>
+            <li>Most buyers start with the framed print path; unframed and HD stay available if a different route fits better.</li>
             <li>
               {printAutoConfirm
                 ? "Production begins after payment once the order is submitted for fulfillment."

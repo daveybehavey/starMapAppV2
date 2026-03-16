@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import { seoOccasions } from "@/data/seoOccasions";
 import { isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
@@ -30,12 +31,12 @@ const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasion
 export const metadata: Metadata = {
   title: "Star Map for Occasions | StarMapCo",
   description:
-    "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD plus unframed and framed print options.",
+    "Find a star map for proposals, engagements, graduations, memorials, and more. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/star-map-for` },
   openGraph: {
     title: "Star Map for Occasions | StarMapCo",
     description:
-      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD plus unframed and framed print options.",
+      "Find a star map for proposals, engagements, graduations, memorials, and more. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/star-map-for`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Find a star map for proposals, engagements, graduations, memorials, and more. Create a personalized star map with HD plus unframed and framed print options.",
+      "Find a star map for proposals, engagements, graduations, memorials, and more. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     images: [ogImage],
   },
 };
@@ -61,9 +62,9 @@ export default function StarMapForOccasionsPage() {
           From proposals to graduations, create a custom star map that captures the exact night sky from your date and location.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
@@ -103,24 +104,41 @@ export default function StarMapForOccasionsPage() {
         </div>
       </section>
 
-      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Preview your star map</h2>
-        <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Enter your date and location, preview the exact sky, and then choose HD, unframed print, or framed print when ready.
-        </p>
-        <div className="pt-3">
-          <Link
-            href="/editor?mode=quick&source=star-map-for-cta"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start a preview
-          </Link>
-        </div>
-      </section>
+      <PreviewStartForm
+        source="star-map-for"
+        title="Start your occasion preview"
+        description="Enter the date and location, then choose the framed path, the unframed path, or a neutral preview-first route."
+        intentOptions={[
+          {
+            label: "Preview framed print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best when the finished piece should arrive ready to hang.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you want the physical print but already know the frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the design feels right.",
+          },
+        ]}
+      />
 
       <DeliveryFormatModule
         heading="Choose the format after preview"
-        intro="The preview is the same either way. Use it first, then decide whether the occasion should stay digital or move into unframed or framed print checkout."
+        intro="Most buyers choose between gift-ready framed print and the lower-total unframed route. HD digital stays available when instant delivery matters more than shipping."
         sourcePrefix="star-map-for-hub"
       />
 

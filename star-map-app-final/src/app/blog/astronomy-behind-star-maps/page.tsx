@@ -158,8 +158,8 @@ export default function AstronomyBehindStarMaps() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Where to Experience Accurate Star Maps</h2>
             <p>
               Choose tools with proven libraries and real catalogs. Ready to see your sky?{" "}
-              <Link href="/" className="text-amber-300 hover:underline">
-                create your accurate custom star map
+              <Link href="/editor?mode=quick&source=blog-astronomy-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
+                start with a framed preview
               </Link>
               .
             </p>

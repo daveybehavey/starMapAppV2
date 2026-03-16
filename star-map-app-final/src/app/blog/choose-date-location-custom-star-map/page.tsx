@@ -143,8 +143,8 @@ export default function ChooseDateLocationPost() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">How to Finalize</h2>
             <p>
               Preview tools show real-time changes. Ready to lock it in?{" "}
-              <Link href="/" className="text-amber-300 hover:underline">
-                create your custom star map
+              <Link href="/editor?mode=quick&source=blog-date-location-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
+                start with a framed preview
               </Link>{" "}
               with confidence.
             </p>

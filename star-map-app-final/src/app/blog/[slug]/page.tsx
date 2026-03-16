@@ -117,15 +117,15 @@ export default async function BlogPostPage({ params }: Props) {
         <div className="mt-8 rounded-2xl border border-amber-200/60 bg-white/70 px-4 py-5 text-neutral-800 shadow-md">
           <h2 className="text-midnight text-lg font-semibold">Ready to create your own star map?</h2>
           <p className="mt-2 text-sm text-neutral-700">
-            Build a custom star map from any date and location. Instant preview, print-ready downloads, and
-            flexible pricing.
+            Build a custom star map from any date and location. Start with a free preview, then choose framed print,
+            unframed poster, or HD digital delivery.
           </p>
           <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold">
             <Link
-              href="/"
+              href="/editor?mode=quick&source=blog-template-framed&checkout=print&print_variant=poster_framed"
               className="text-midnight rounded-full bg-amber-400 px-4 py-2 shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
             >
-              Start free preview
+              Start with framed preview
             </Link>
             <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-900">
               Star map generator

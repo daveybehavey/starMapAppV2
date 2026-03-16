@@ -29,12 +29,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Star Map | StarMapCo",
   description:
-    "Create a personalized star map with names, dates, and locations. Choose HD download plus unframed and framed print checkout.",
+    "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
     title: "Personalized Star Map | StarMapCo",
     description:
-      "Create a personalized star map with names, dates, and locations. Choose HD download plus unframed and framed print checkout.",
+      "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -55,9 +55,9 @@ export default function PersonalizedStarMapPage() {
           Personalize a star map with names, a date, and a location to capture the exact night sky from a meaningful moment.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital download</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
@@ -103,13 +103,13 @@ export default function PersonalizedStarMapPage() {
         <h2 className="text-xl font-semibold text-midnight">Make it truly personal</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
           Add a title, names, and a short dedication line. Choose a style that matches the person or place you are
-          celebrating, then download a print-ready file.
+          celebrating, then approve the same design as a framed print, unframed poster, or HD file.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate night sky based on real astronomical data</li>
           <li>Custom text, fonts, and layout options</li>
           <li>Instant preview so you can fine-tune details</li>
-          <li>Flexible pricing options for HD download</li>
+          <li>One preview can flow into framed, unframed, or HD delivery</li>
         </ul>
       </section>
 
@@ -119,14 +119,14 @@ export default function PersonalizedStarMapPage() {
           <li>Enter the date, time, and location</li>
           <li>Add names, a title, and a short message</li>
           <li>Preview the design instantly</li>
-          <li>Choose HD download, unframed print, or framed print at checkout</li>
+          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=personalized-star-map-cta"
+            href="/editor?mode=quick&source=personalized-star-map-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Personalize your star map
+            Start with framed preview
           </Link>
         </div>
       </section>
@@ -134,7 +134,7 @@ export default function PersonalizedStarMapPage() {
 
       <DeliveryFormatModule
         heading="Pick the right format after you preview"
-        intro="Most buyers decide faster when the delivery choice is clear up front. Start with the free preview, then choose whether this moment should stay digital, be printed, or arrive framed."
+        intro="Most buyers decide fastest between gift-ready framed print and the lower-total unframed route. HD digital stays available when instant delivery matters more than shipping."
         sourcePrefix="personalized-format"
       />
       <FramedProofSection sourcePrefix="personalized-proof" />
@@ -172,12 +172,12 @@ export default function PersonalizedStarMapPage() {
 
       <PurchaseTrustPanel
         heading="Buy with confidence"
-        intro="Preview first, then pay only when the design feels right. Checkout is secure, and your watermark-free HD file unlocks immediately after payment."
+        intro="Preview first, then pay only when the design feels right. Most buyers start with framed print, while unframed and HD stay available from the same approved design."
         leftTitle="Checkout and delivery"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after successful payment",
-          "Single map, 3-pack, or unlimited plans",
+          "One-time checkout for framed print, unframed print, or HD digital delivery",
+          "Instant HD file unlock after successful payment",
         ]}
         rightTitle="Print quality and support"
         rightPoints={[
@@ -236,7 +236,7 @@ export default function PersonalizedStarMapPage() {
           <div>
             <h3 className="font-semibold text-midnight">Can I order a printed or framed version directly?</h3>
             <p>
-              Yes. After preview, you can choose HD download, unframed print, or framed print during checkout. {shippingDisclosure}
+              Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. {shippingDisclosure}
             </p>
           </div>
         </div>
@@ -263,7 +263,7 @@ export default function PersonalizedStarMapPage() {
           },
           {
             question: "Can I order a printed or framed version directly?",
-            answer: `Yes. After preview, you can choose HD download, unframed print, or framed print during checkout. ${shippingDisclosure}`,
+            answer: `Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. ${shippingDisclosure}`,
           },
         ]}
       />

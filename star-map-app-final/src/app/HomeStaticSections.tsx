@@ -66,11 +66,11 @@ export default function HomeStaticSections({
           leftPoints={[
             "Secure Stripe checkout on every order",
             "HD file unlocks immediately after successful payment",
-            "Single map, 3-pack, or unlimited monthly access",
+            "One-time checkout works for framed print, unframed print, or HD digital delivery",
           ]}
           rightTitle="Print and delivery clarity"
           rightPoints={[
-            "Most buyers choose digital HD or the framed print path",
+            "Most gift buyers start with framed print; unframed stays available if you already have a frame plan",
             shippingDisclosure,
             "Physical orders stay in manual review before production starts",
             `Optional HD digital add-on is available on print orders for ${printLabels.digitalAddOn}`,
@@ -112,7 +112,7 @@ export default function HomeStaticSections({
         <div className="rounded-3xl border border-white/12 bg-white/5 px-5 py-4 text-center text-neutral-200 shadow-sm shadow-black/20 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
           <p className="mt-2 text-sm sm:text-base">
-            Instant HD digital download plus physical checkout, led by the ready-to-hang framed print option.
+            Preview first, then choose gift-ready framed print, unframed poster, or HD digital delivery from the same design.
           </p>
           <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
         </div>
@@ -264,7 +264,7 @@ export default function HomeStaticSections({
               },
               {
                 q: "What does premium unlock include?",
-                a: `HD downloads start at ${priceLabels.single}, with 3-packs and unlimited monthly options.`,
+                a: `After the free preview, you can take the framed route from ${printLabels.framed}, the unframed route from ${printLabels.unframed}, or unlock HD digital from ${priceLabels.single}. Digital packs and subscription stay optional for repeat exports.`,
               },
               {
                 q: "Are the maps print-ready?",

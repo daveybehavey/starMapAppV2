@@ -6,7 +6,7 @@ import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrint
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a custom star map or constellation map of any date and location. Instant preview, HD downloads, plus printed and framed checkout options at StarMapCo.";
+  "Create a custom star map or constellation map of any date and location. Start with a free live preview, then choose framed print, unframed poster, or HD digital delivery at StarMapCo.";
 
 export const metadata: Metadata = {
   title: "Custom Star Map & Constellation Map | StarMapCo",
@@ -97,7 +97,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         "@type": "Product",
         name: "Custom Star Map",
         description:
-          "Personalized star map generator for special dates and locations with HD digital downloads and optional physical print checkout.",
+          "Personalized star map generator for special dates and locations with a free live preview, framed print, unframed poster, and HD digital delivery.",
         brand: { "@type": "Brand", name: "StarMapCo" },
         image: [`${siteUrl}/custom-star-map-anniversary.webp`],
         category: "Personalized gifts",
@@ -183,7 +183,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "What is included in the free version vs. premium unlock?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: `Free offers a basic preview and watermarked export. Premium unlocks start at ${priceLabel} per HD download, with ${packLabel} for 3 or ${subscriptionLabel}/mo unlimited options.`,
+              text: `Free preview lets you confirm the date, location, and layout first. Paid checkout can unlock framed print (${printFramedLabel}), unframed print (${printUnframedOfferLabel}), or HD digital delivery from ${priceLabel}. Digital packs and subscription stay available if you need repeat exports.`,
             },
           },
           {
@@ -196,10 +196,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           },
           {
             "@type": "Question",
-            name: "Is this a one-time purchase or subscription?",
+            name: "Do I have to subscribe to buy a star map?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Both: one-time HD downloads or an unlimited monthly subscription.",
+              text: "No. Most buyers use one-time checkout for framed print, unframed print, or a single HD file. Subscription is optional only for repeat digital exports.",
             },
           },
           {
@@ -217,7 +217,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             acceptedAnswer: {
               "@type": "Answer",
               text: printCheckoutEnabled
-                ? `Yes. Checkout supports unframed print (${printUnframedOfferLabel}) and framed print (${printFramedLabel}) options in addition to HD digital downloads.`
+                ? `Yes. After the free preview, checkout supports framed print (${printFramedLabel}), unframed print (${printUnframedOfferLabel}), and HD digital delivery.`
                 : "Physical print checkout is in staged rollout. You can always download a print-ready HD file immediately after payment.",
             },
           },
@@ -258,7 +258,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Why choose StarMapCo over other star map generators?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Instant real-time preview, accurate science, premium visuals, and flexible pricing for one-time or unlimited access.",
+              text: "Free live preview, accurate science, and a clear delivery ladder: framed for premium gifting, unframed for lower physical cost, or HD digital for instant access.",
             },
           },
         ],

@@ -76,7 +76,7 @@ export default function AnniversaryPostPage() {
             Anniversaries mark more than just a date on the calendar—they celebrate shared memories,
             commitment, and love that has grown over time. Finding a gift that truly captures all of that can
             feel overwhelming. That’s exactly why a custom star map for anniversary occasions has become one
-            of the most cherished and meaningful gifts for couples worldwide.
+            of the most cherished and meaningful gifts for couples who want something more personal than a generic keepsake.
           </p>
           <p>
             Instead of something temporary or generic, a custom star map captures the actual night sky from a
@@ -264,8 +264,8 @@ export default function AnniversaryPostPage() {
               Look for accurate astronomical data, high-quality printing options, clear customization
               previews, and reliable delivery timelines. If you’re ready to turn your special moment into a
               celestial keepsake, you can{" "}
-              <Link href="/" className="text-amber-300 hover:underline">
-                create your custom star map
+              <Link href="/editor?mode=quick&source=blog-anniversary-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
+                start with a framed anniversary preview
               </Link>{" "}
               with confidence and ease.
             </p>

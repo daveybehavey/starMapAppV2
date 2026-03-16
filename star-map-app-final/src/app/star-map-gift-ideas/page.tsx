@@ -79,11 +79,41 @@ export default function StarMapGiftIdeasPage() {
 
       <PreviewStartForm
         source="star-map-gift-ideas"
-        title="Start your free preview"
-        description="Choose the date and location that make the gift personal."
-        buttonLabel="Preview your gift"
+        title="Start your gift preview"
+        description="Choose the date and location, then start with framed print, unframed print, or a neutral preview-first route."
+        intentOptions={[
+          {
+            label: "Preview framed gift",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best when the gift should arrive ready to hang.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you want the physical print but already know the frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the design feels right.",
+          },
+        ]}
       />
-      <StickyCtaBar source="sticky-star-map-gift-ideas" />
+      <StickyCtaBar
+        source="sticky-star-map-gift-ideas"
+        secondaryButtonLabel="Preview framed gift"
+        secondaryHref="/editor?mode=quick&source=sticky-star-map-gift-ideas-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
@@ -182,7 +212,7 @@ export default function StarMapGiftIdeasPage() {
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Can I preview the map before purchasing?</h3>
-            <p>Yes. You can preview the exact sky for free before unlocking the HD download.</p>
+            <p>Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD digital delivery.</p>
           </div>
         </div>
       </section>
@@ -194,7 +224,7 @@ export default function StarMapGiftIdeasPage() {
           },
           {
             question: "Can I preview the map before purchasing?",
-            answer: "Yes. You can preview the exact sky for free before unlocking the HD download.",
+            answer: "Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD digital delivery.",
           },
         ]}
       />

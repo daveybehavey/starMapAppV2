@@ -179,8 +179,8 @@ export default function WeddingsPostPage() {
                 heart or circle.
               </li>
               <li>
-                <strong>Is this a one-time purchase?</strong> You can buy a single HD download, a 3-pack, or choose an
-                unlimited monthly subscription.
+                <strong>Do we have to subscribe?</strong> No. Most wedding orders are one-time, and after the preview you
+                can choose framed print, unframed print, or HD digital delivery.
               </li>
               <li>
                 <strong>Is it print-ready?</strong> Yes—export up to 6000x6000 for posters and frames.
@@ -198,8 +198,8 @@ export default function WeddingsPostPage() {
             </h2>
             <p>
               Capture the sky from your ceremony, first dance, or proposal. Start your map now and{" "}
-              <Link href="/" className="text-amber-300 hover:underline">
-                create your custom wedding star map
+              <Link href="/editor?mode=quick&source=blog-wedding-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
+                start with a framed wedding preview
               </Link>{" "}
               in minutes.
             </p>
