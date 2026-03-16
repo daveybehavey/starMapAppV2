@@ -2,14 +2,9 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { readWranglerVars } from "./wrangler-vars.mjs";
+import { seedEnv } from "./merchant-shipping-common.mjs";
 
-const wranglerVars = await readWranglerVars(process.cwd());
-for (const [key, value] of Object.entries(wranglerVars)) {
-  if (process.env[key] === undefined) {
-    process.env[key] = value;
-  }
-}
+await seedEnv();
 
 const DEFAULT_SITE = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://starmapco.com";
 const DEFAULT_FEED_URL = `${DEFAULT_SITE}/merchant-feed.xml`;
@@ -211,8 +206,15 @@ async function main() {
     if (!title) issues.push(`${id}: missing g:title`);
     if (!price || !/\s[A-Z]{3}$/.test(price)) issues.push(`${id}: missing/invalid g:price (${price || "empty"})`);
     if (!imageLink) issues.push(`${id}: missing g:image_link`);
-    if (id.startsWith("print_") && shippingLabel !== "print") {
-      issues.push(`${id}: expected g:shipping_label=print (received ${shippingLabel || "empty"})`);
+    if (id === "print_poster_unframed" && shippingLabel !== "print_unframed") {
+      issues.push(
+        `${id}: expected g:shipping_label=print_unframed (received ${shippingLabel || "empty"})`,
+      );
+    }
+    if (id === "print_poster_framed" && shippingLabel !== "print_framed") {
+      issues.push(
+        `${id}: expected g:shipping_label=print_framed (received ${shippingLabel || "empty"})`,
+      );
     }
     if (id.startsWith("digital_") && shippingLabel !== "digital") {
       issues.push(`${id}: expected g:shipping_label=digital (received ${shippingLabel || "empty"})`);

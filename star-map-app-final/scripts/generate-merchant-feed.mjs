@@ -2,14 +2,9 @@
 
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { readWranglerVars } from "./wrangler-vars.mjs";
+import { seedEnv } from "./merchant-shipping-common.mjs";
 
-const wranglerVars = await readWranglerVars(process.cwd());
-for (const [key, value] of Object.entries(wranglerVars)) {
-  if (process.env[key] === undefined) {
-    process.env[key] = value;
-  }
-}
+await seedEnv();
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY || "usd").trim().toUpperCase();
@@ -86,6 +81,7 @@ const configuredFeedCountries = parseCountryListEnv(
 );
 const includeRestrictedCountries = parseBooleanEnv("MERCHANT_FEED_INCLUDE_RESTRICTED", false);
 const usePrintProofImages = parseBooleanEnv("MERCHANT_FEED_USE_PRINT_PROOF_IMAGES", false);
+const includeDigitalInFeed = parseBooleanEnv("MERCHANT_FEED_INCLUDE_DIGITAL", false);
 const restrictedCountries = includeRestrictedCountries
   ? []
   : parseCountryListEnv("MERCHANT_FEED_EXCLUDED_COUNTRIES", ["KR"]);
@@ -160,8 +156,8 @@ function renderItem(item) {
     .join("");
 }
 
-const baseDescription =
-  "Create a custom star map of any date and location. Preview instantly, customize the design, and download or order a professional print.";
+const printBaseDescription =
+  "Create a custom star map from any date and location, preview the design, and order a made-to-order wall art print from the approved artwork.";
 
 const framedMockupPath = resolve(process.cwd(), "public", "printproof", "framed-mockup.jpg");
 const unframedMockupPath = resolve(process.cwd(), "public", "printproof", "unframed-mockup.jpg");
@@ -179,32 +175,37 @@ const unframedImageLink = existsSync(unframedMockupPath)
     : `${SITE_URL}/examples/example-wedding-aurora-heart.webp`;
 
 const items = [
-  {
-    id: "digital_single_hd",
-    title: "Custom Star Map HD Download",
-    description: `${baseDescription} Instant high-resolution digital download.`,
-    link: `${SITE_URL}/personalized-star-map`,
-    imageLink: `${SITE_URL}/custom-star-map-anniversary.png`,
-    additionalImageLinks: [`${SITE_URL}/examples/example-anniversary-heirloom.webp`],
-    availability: "in_stock",
-    condition: "new",
-    price: formatPrice(PRICE_SINGLE_CENTS),
-    productType: "Digital download",
-    shippingLabel: "digital",
-    googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
-    identifierExists: false,
-    brand: "StarMapCo",
-    shipping: shippingMap
-      ? MERCHANT_FEED_COUNTRIES.map((country) => ({
-          country,
-          price: formatPrice(0),
-        }))
-      : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(0) }],
-  },
+  ...(includeDigitalInFeed
+    ? [
+        {
+          id: "digital_single_hd",
+          title: "Custom Star Map HD Download",
+          description:
+            "Create a custom star map from any date and location, preview the design, and unlock an instant high-resolution digital download.",
+          link: `${SITE_URL}/personalized-star-map`,
+          imageLink: `${SITE_URL}/custom-star-map-anniversary.png`,
+          additionalImageLinks: [`${SITE_URL}/examples/example-anniversary-heirloom.webp`],
+          availability: "in_stock",
+          condition: "new",
+          price: formatPrice(PRICE_SINGLE_CENTS),
+          productType: "Digital download",
+          shippingLabel: "digital",
+          googleProductCategory: "Software > Digital Goods & Currency > Digital Artwork",
+          identifierExists: false,
+          brand: "StarMapCo",
+          shipping: shippingMap
+            ? MERCHANT_FEED_COUNTRIES.map((country) => ({
+                country,
+                price: formatPrice(0),
+              }))
+            : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(0) }],
+        },
+      ]
+    : []),
   {
     id: "print_poster_unframed",
     title: "Custom Star Map Poster (Unframed)",
-    description: `${baseDescription} Museum-grade unframed poster print.`,
+    description: `${printBaseDescription} Museum-grade unframed poster print.`,
     link: `${SITE_URL}/star-map-poster`,
     imageLink: unframedImageLink,
     additionalImageLinks: [`${SITE_URL}/custom-star-map-anniversary.png`],
@@ -212,8 +213,8 @@ const items = [
     condition: "new",
     price: formatPrice(PRINT_UNFRAMED_CENTS),
     productType: "Print poster",
-    shippingLabel: "print",
-    googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
+    shippingLabel: "print_unframed",
+    googleProductCategory: "Home & Garden > Decor > Artwork > Posters, Prints, & Visual Artwork",
     identifierExists: false,
     brand: "StarMapCo",
     shipping: shippingMap
@@ -230,7 +231,7 @@ const items = [
   {
     id: "print_poster_framed",
     title: "Custom Star Map Framed Print",
-    description: `${baseDescription} Framed print ready to hang.`,
+    description: `${printBaseDescription} Framed print ready to hang.`,
     link: `${SITE_URL}/star-map-poster`,
     imageLink: framedImageLink,
     additionalImageLinks: [`${SITE_URL}/custom-star-map-anniversary.png`],
@@ -238,8 +239,8 @@ const items = [
     condition: "new",
     price: formatPrice(PRINT_FRAMED_CENTS),
     productType: "Framed print",
-    shippingLabel: "print",
-    googleProductCategory: "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Craft Supplies",
+    shippingLabel: "print_framed",
+    googleProductCategory: "Home & Garden > Decor > Artwork > Posters, Prints, & Visual Artwork",
     identifierExists: false,
     brand: "StarMapCo",
     shipping: shippingMap

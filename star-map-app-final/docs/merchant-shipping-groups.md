@@ -6,7 +6,7 @@ Generated from `data/printful-shipping.json` for quick Merchant Center service s
 - Excluded: KR
 - Currency: USD
 
-## Print (shipping_label=print) — framed
+## Print (shipping_label=print_framed)
 
 | Shipping (USD) | Delivery (days) | Countries |
 | --- | --- | --- |
@@ -48,7 +48,7 @@ Generated from `data/printful-shipping.json` for quick Merchant Center service s
 | 14.84 | 18-25 | HK |
 | 19.11 | 9-12 | JP |
 
-## Print (shipping_label=print) — unframed
+## Print (shipping_label=print_unframed)
 
 | Shipping (USD) | Delivery (days) | Countries |
 | --- | --- | --- |

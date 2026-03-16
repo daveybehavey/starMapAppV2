@@ -90,7 +90,7 @@ if (restrictedCountries.length && !includeRestrictedCountries) {
 }
 lines.push("- Currency: USD");
 lines.push("");
-lines.push("## Print (shipping_label=print) — framed");
+lines.push("## Print (shipping_label=print_framed)");
 lines.push("");
 lines.push("| Shipping (USD) | Delivery (days) | Countries |");
 lines.push("| --- | --- | --- |");
@@ -98,7 +98,7 @@ for (const group of framedGroups) {
   lines.push(`| ${group.shippingUsd} | ${group.deliveryDays || "-"} | ${group.countries.join(", ")} |`);
 }
 lines.push("");
-lines.push("## Print (shipping_label=print) — unframed");
+lines.push("## Print (shipping_label=print_unframed)");
 lines.push("");
 lines.push("| Shipping (USD) | Delivery (days) | Countries |");
 lines.push("| --- | --- | --- |");

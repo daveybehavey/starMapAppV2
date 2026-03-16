@@ -154,8 +154,9 @@ async function main() {
     runCheck("Personalized page responds 200", personalizedRes.status === 200, `status=${personalizedRes.status}`);
     runCheck(
       "Personalized page references physical print checkout",
-      personalizedHtml.includes("U.S. unframed print") &&
-        personalizedHtml.includes("U.S. framed print"),
+      /unframed print/i.test(personalizedHtml) &&
+        /framed print/i.test(personalizedHtml) &&
+        /shipping is added at checkout|shipping shows before payment/i.test(personalizedHtml),
       "print intent copy",
     );
   } catch (error) {

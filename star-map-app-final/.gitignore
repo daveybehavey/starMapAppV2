@@ -38,6 +38,9 @@ testzip.zip
 /exports/custom/
 /exports/
 /.tmp/
+/secrets/
+*service-account*.json
+google-merchant-*.json
 
 # debug
 npm-debug.log*
