@@ -52,19 +52,19 @@ const PAYWALL_COPY: Record<
 > = {
   control: {
     title: "Download your print-ready star map",
-    subtitle: "Free preview stays available. Unlock HD only when you are ready to export.",
-    singleCta: "Continue with single",
-    packCta: "Get 3 downloads",
-    subscriptionCta: "Start unlimited",
-    badgeLabel: "Best value",
+    subtitle: "Free preview stays available. Choose a one-time HD file or switch to printed gift checkout.",
+    singleCta: "Get 1 HD file",
+    packCta: "Get 3 HD files",
+    subscriptionCta: "Use unlimited plan",
+    badgeLabel: "Repeat use",
   },
   value_anchor: {
     title: "Unlock HD exports in seconds",
-    subtitle: "Most gift buyers pick 3-pack or unlimited to avoid repeat checkout later.",
-    singleCta: "Get 1 HD map",
-    packCta: "Get 3 HD maps",
-    subscriptionCta: "Go unlimited",
-    badgeLabel: "Most flexible",
+    subtitle: "Most single-gift buyers only need one HD file. Use packs or unlimited only if you expect repeat exports.",
+    singleCta: "Get 1 HD file",
+    packCta: "Get 3 HD files",
+    subscriptionCta: "Use unlimited plan",
+    badgeLabel: "Repeat use",
   },
 };
 
@@ -203,6 +203,11 @@ export function PaywallModal({
           <li>• Secure Stripe checkout</li>
           <li>{activeIntent === "print" ? "• Print order draft is created right after payment" : "• Instant digital download"}</li>
         </ul>
+        {activeIntent === "digital" && (
+          <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
+            Just need this one map? The one-time HD option is enough. Packs and unlimited only make sense for repeat exports.
+          </p>
+        )}
 
         {hasPrintOptions && (
           <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-amber-200/70 bg-white/70 p-1">
@@ -333,8 +338,13 @@ export function PaywallModal({
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-midnight">One HD export</p>
-                <p className="text-xs text-neutral-600">1 print-ready download</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-midnight">One HD export</p>
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                    One-time
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-600">1 print-ready download • no subscription</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 <span>{priceLabels.single}</span>
@@ -348,13 +358,14 @@ export function PaywallModal({
             >
               {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
             </button>
+            <p className="mt-2 text-[11px] text-neutral-600">Most buyers who only need this map start here.</p>
           </div>
 
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-midnight">3-pack</p>
-                <p className="text-xs text-neutral-600">3 HD downloads</p>
+                <p className="text-xs text-neutral-600">3 HD downloads for multiple versions or gifts</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 {priceLabels.pack3}
@@ -379,7 +390,7 @@ export function PaywallModal({
                     {copy.badgeLabel}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-700">Unlimited HD exports • cancel anytime</p>
+                <p className="text-xs text-neutral-700">Unlimited HD exports for ongoing use • cancel anytime</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-900">
                 {priceLabels.subscription}

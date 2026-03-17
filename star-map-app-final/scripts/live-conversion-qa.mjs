@@ -140,10 +140,17 @@ async function createDiscountedCheckoutSession(stripe, site, promotionCodeId) {
     mode: "payment",
     success_url: `${normalizedSite}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${normalizedSite}/`,
+    client_reference_id: "qa-live-conversion",
     line_items: [{ price: singlePriceId, quantity: 1 }],
     discounts: [{ promotion_code: promotionCodeId }],
     billing_address_collection: "auto",
     payment_method_types: ["card"],
+    metadata: {
+      plan: "single",
+      order_type: "digital",
+      qa_run: "true",
+      qa_source: "live_conversion_qa",
+    },
   });
   if (!session.url) {
     throw new Error("Discounted checkout fallback session missing URL");
