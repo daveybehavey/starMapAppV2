@@ -257,6 +257,14 @@ Recent status:
 - Added post-purchase proof capture scaffolding on `/success` and `/download`:
   - asks buyers to email a real photo + short note
   - explicitly states nothing is published without permission
+- Added a stricter server-side checkout funnel milestone:
+  - `checkout_session_created` now records successful Stripe session creation separately from generic checkout intent
+  - this makes it easier to diagnose whether drop-off is happening before Stripe session creation or after handoff
+- Hardened the promo signup system:
+  - signed unsubscribe links are now included in promo emails
+  - `/unsubscribe` now records opt-outs instead of only claiming unsubscribe support
+  - promo capture now uses a hidden honeypot field to cut basic bot spam
+  - added an admin-only subscriber list endpoint for operator visibility
 - Added a reusable trust-depth section (`RevenueTrustModule`) with:
   - checkout confidence cards
   - print planning quick guide

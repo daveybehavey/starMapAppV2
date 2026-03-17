@@ -4,9 +4,15 @@ import path from "node:path";
 
 type KvSetOptions = { ex?: number; px?: number };
 type KvIncrOptions = { ex?: number; px?: number };
+type KvListOptions = { prefix?: string; cursor?: string; limit?: number };
 type CloudflareKvNamespace = {
   get<T>(key: string, type: "json"): Promise<T | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  list(options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{
+    keys: Array<{ name: string }>;
+    list_complete: boolean;
+    cursor?: string;
+  }>;
 };
 
 const CLOUDFLARE_KV_BINDING = "STAR_MAP_KV";
@@ -116,5 +122,38 @@ export const kv = {
     memoryStore.set(key, next);
     await writeFallbackValue(key, next);
     return next;
+  },
+  async list(options?: KvListOptions): Promise<{ keys: string[]; listComplete: boolean; cursor?: string | null }> {
+    const cfKv = await getCloudflareKv();
+    if (cfKv) {
+      try {
+        const result = await cfKv.list({
+          prefix: options?.prefix,
+          cursor: options?.cursor,
+          limit: options?.limit,
+        });
+        return {
+          keys: result.keys.map((entry) => entry.name),
+          listComplete: result.list_complete,
+          cursor: result.cursor ?? null,
+        };
+      } catch {
+        // Fall through to local fallback storage in dev/test or transient KV outages.
+      }
+    }
+
+    const prefix = options?.prefix ?? "";
+    const limit = Math.max(1, Math.min(1000, Math.floor(options?.limit ?? 1000)));
+    const localKeys = Array.from(memoryStore.keys())
+      .filter((key) => key.startsWith(prefix))
+      .sort();
+    const startIndex = options?.cursor ? Number.parseInt(options.cursor, 10) || 0 : 0;
+    const slice = localKeys.slice(startIndex, startIndex + limit);
+    const nextCursor = startIndex + slice.length < localKeys.length ? String(startIndex + slice.length) : null;
+    return {
+      keys: slice,
+      listComplete: nextCursor === null,
+      cursor: nextCursor,
+    };
   },
 };

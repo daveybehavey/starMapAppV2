@@ -10,6 +10,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Current live baseline (last verified on 2026-03-14)**:
   - `npm run qa:commerce-digest -- --days 7`
   - Latest snapshot: `landing_view=151`, `preview_started=111`, `checkout_started=110`, `payment_verified=0`
+- **Funnel truth note**:
+  - treat `checkout_started` as checkout intent
+  - treat `checkout_session_created` as successful Stripe session creation
+  - treat `payment_verified` as the paid truth metric
 - **Quick local verification**:
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
@@ -53,6 +57,13 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
    - `PROMOTION_COUPON_CODE`
    - `STRIPE_PROMO_CODE_ID`
 
+### Inspect captured promo signups
+
+1. Use the admin token with the live API:
+   - `curl -H "x-admin-token: $PRINT_ADMIN_TOKEN" "https://starmapco.com/api/promotions/subscribers?limit=100"`
+2. Add `include_unsubscribed=true` if you need the full list including opted-out records.
+3. Treat this as the source of truth for promo signup capture until signups are moved into a dedicated ESP/list.
+
 ## 3) Print operations
 
 - **Printful orders**: `https://www.printful.com/dashboard/default/orders`
@@ -81,6 +92,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `/success`
   - `/download`
   - both now include a non-public-facing proof request card that asks buyers to email a photo + short note with permission before anything is published
+- **Promo signup hardening**:
+  - promo emails now include a signed unsubscribe link
+  - `/unsubscribe` updates promo signup state server-side
+  - signup capture includes a hidden honeypot field to cut obvious bot submissions
 
 ## 4) Merchant Center feed
 

@@ -339,7 +339,13 @@ function printHumanReport(report) {
   if (!report.funnel) {
     console.log(`unavailable (${report.funnelError || "unknown"})`);
   } else {
-    const stepOrder = ["landing_view", "preview_started", "checkout_started", "payment_verified"];
+    const stepOrder = [
+      "landing_view",
+      "preview_started",
+      "checkout_started",
+      "checkout_session_created",
+      "payment_verified",
+    ];
     for (const step of stepOrder) {
       console.log(`${step}: ${Number(report.funnel[step] || 0)}`);
     }

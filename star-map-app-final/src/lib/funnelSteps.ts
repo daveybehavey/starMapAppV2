@@ -4,6 +4,7 @@ export const FUNNEL_STEPS = [
   "preview_started",
   "editor_reveal",
   "checkout_started",
+  "checkout_session_created",
   "checkout_redirected",
   "checkout_expired",
   "payment_verified",

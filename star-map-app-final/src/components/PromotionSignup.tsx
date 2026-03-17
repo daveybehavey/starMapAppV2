@@ -41,6 +41,15 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
             autoComplete="email"
             className="w-full rounded-lg border border-amber-200/60 bg-white/80 px-3 py-2 text-sm text-midnight shadow-inner shadow-black/5 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
           />
+          <input type="hidden" name="source" value="promotion_signup_static" />
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="pointer-events-none absolute left-[-9999px] top-auto h-px w-px opacity-0"
+          />
           <button
             type="submit"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-amber-50"

@@ -1378,6 +1378,8 @@
           <p>Framed and unframed prints are the main gift routes. If you want the lowest-cost first purchase, join the insiders list for a one-time 50% off code on your first single HD digital checkout.</p>
           <form method="POST" action="/api/promotions/subscribe?redirect=editor">
             <input type="email" name="email" placeholder="you@email.com" required autocomplete="email" />
+            <input type="hidden" name="source" value="homepage_static_signup" />
+            <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
             <button type="submit">Get HD starter code</button>
           </form>
           <p style="margin-top:10px;font-size:0.75rem;color:#4b5563;">

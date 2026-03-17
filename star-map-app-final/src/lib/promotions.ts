@@ -1,3 +1,5 @@
+import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
+
 type PromotionAutomationProvider = "resend" | "sendgrid" | "webhook" | "none";
 
 export const PROMOTION_COUPON_CODE = process.env.PROMOTION_COUPON_CODE ?? "FIRST50";
@@ -55,10 +57,11 @@ function parseEmailAddress(value?: string): ParsedEmailAddress | null {
   return { email: trimmed };
 }
 
-function getPromotionCopy(couponCode: string): EmailCopy {
+function getPromotionCopy(email: string, couponCode: string): EmailCopy {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
   const checkoutUrl = `${siteUrl}/`;
   const subject = promotionSubject;
+  const unsubscribeUrl = getPromotionUnsubscribeUrl(email) ?? null;
   const text = [
     "Thanks for joining the StarMapCo insider list.",
     "",
@@ -70,9 +73,12 @@ function getPromotionCopy(couponCode: string): EmailCopy {
     "Framed and unframed prints remain available separately after preview.",
     "",
     "Need help? Reply to this email and we can help.",
+    unsubscribeUrl ? `Unsubscribe: ${unsubscribeUrl}` : undefined,
     "",
     "— StarMapCo",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
@@ -84,6 +90,7 @@ function getPromotionCopy(couponCode: string): EmailCopy {
       <p style="font-size: 13px; color: #3f485b;">This one-time offer applies to your first single HD digital checkout.</p>
       <p style="font-size: 13px; color: #3f485b;">Framed and unframed print routes still stay available after preview.</p>
       <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
+      ${unsubscribeUrl ? `<p style="font-size: 12px; color: #6b7280;">No longer want updates? <a href="${unsubscribeUrl}" style="color: #6b7280;">Unsubscribe</a>.</p>` : ""}
       <p style="margin-top: 18px;">— StarMapCo</p>
     </div>
   `;
@@ -91,12 +98,13 @@ function getPromotionCopy(couponCode: string): EmailCopy {
   return { subject, text, html };
 }
 
-function getPromotionFollowupCopy(couponCode: string): EmailCopy {
+function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
   const checkoutUrl = `${siteUrl}/`;
   const printGuideUrl = `${siteUrl}/how-to-print-star-map`;
   const galleryUrl = `${siteUrl}/star-map-gallery`;
   const subject = promotionFollowupSubject;
+  const unsubscribeUrl = getPromotionUnsubscribeUrl(email) ?? null;
   const text = [
     "Quick print tips for your star map:",
     "",
@@ -110,9 +118,12 @@ function getPromotionFollowupCopy(couponCode: string): EmailCopy {
     `Start or finish your map here: ${checkoutUrl}`,
     "",
     "Need help? Reply to this email and we can help.",
+    unsubscribeUrl ? `Unsubscribe: ${unsubscribeUrl}` : undefined,
     "",
     "— StarMapCo",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
@@ -130,6 +141,7 @@ function getPromotionFollowupCopy(couponCode: string): EmailCopy {
         Need inspiration? Browse the <a href="${galleryUrl}" style="color: #b07d1b; text-decoration: none;">star map gallery</a>.
       </p>
       <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
+      ${unsubscribeUrl ? `<p style="font-size: 12px; color: #6b7280;">No longer want updates? <a href="${unsubscribeUrl}" style="color: #6b7280;">Unsubscribe</a>.</p>` : ""}
       <p style="margin-top: 18px;">— StarMapCo</p>
     </div>
   `;
@@ -269,7 +281,7 @@ export async function runPromotionAutomation(
   couponCode: string,
 ): Promise<PromotionAutomationResult> {
   try {
-    const copy = getPromotionCopy(couponCode);
+    const copy = getPromotionCopy(email, couponCode);
     const resendResult = await sendWithResend(email, copy);
     if (resendResult.provider !== "none") return resendResult;
 
@@ -291,7 +303,7 @@ export async function runPromotionFollowup(
   couponCode: string,
 ): Promise<PromotionAutomationResult> {
   try {
-    const copy = getPromotionFollowupCopy(couponCode);
+    const copy = getPromotionFollowupCopy(email, couponCode);
     const sendAt = Math.floor(Date.now() / 1000) + promotionFollowupDelaySeconds;
 
     const resendResult = await sendWithResend(email, copy);

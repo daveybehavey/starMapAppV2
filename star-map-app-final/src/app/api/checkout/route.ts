@@ -846,6 +846,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
     await recordFunnelStep({
+      step: "checkout_session_created",
+      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+      plan: orderType === "print" ? printVariant : plan,
+    });
+    await recordFunnelStep({
       step: "checkout_redirected",
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
@@ -1001,6 +1006,11 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    await recordFunnelStep({
+      step: "checkout_session_created",
+      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+      plan: orderType === "print" ? printVariant : plan,
+    });
 
     await recordFunnelStep({
       step: "checkout_redirected",

@@ -66,6 +66,7 @@ export function PromotionForm({
   const [responseMessage, setResponseMessage] = useState("");
   const [successCoupon, setSuccessCoupon] = useState<string | null>(null);
   const [couponCopied, setCouponCopied] = useState(false);
+  const [website, setWebsite] = useState("");
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     setEmail(event.target.value);
@@ -96,7 +97,7 @@ export function PromotionForm({
       const res = await fetch("/api/promotions/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed }),
+        body: JSON.stringify({ email: trimmed, website, source }),
       });
 
       if (!res.ok) {
@@ -161,6 +162,16 @@ export function PromotionForm({
           onChange={handleInputChange}
           autoComplete="email"
           aria-label="Email address"
+        />
+        <input
+          type="text"
+          name="website"
+          value={website}
+          onChange={(event) => setWebsite(event.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[-9999px] top-auto h-px w-px opacity-0"
         />
         <Button variant="cta" size="lg" type="submit" fullWidth isLoading={status === "loading"}>
           {buttonLabel}
