@@ -28,8 +28,8 @@ export default function EditorPageClient({ promoStatus, promoCode }: EditorPageC
   const promoMessage =
     promoStatus === "success"
       ? promoCode
-        ? `You're on the list! Code ${promoCode} is saved for your first single HD digital checkout.`
-        : "You're on the list! Watch your inbox for your 50% off first HD file code."
+        ? `Your HD starter offer is ready. Code ${promoCode} is saved for your first single HD digital checkout.`
+        : "You're on the list. Watch your inbox for your 50% off HD starter code."
       : "We couldn't save that email. Please try again.";
 
   return (

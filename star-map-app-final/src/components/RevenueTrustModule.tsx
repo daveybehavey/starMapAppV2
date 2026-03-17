@@ -39,7 +39,9 @@ export default function RevenueTrustModule({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">Secure payment</p>
-          <p className="mt-1 text-xs text-neutral-700">Stripe checkout with card security and explicit terms confirmation.</p>
+          <p className="mt-1 text-xs text-neutral-700">
+            Stripe Checkout with card security, plus Apple Pay, Google Pay, or Link on supported devices and browsers.
+          </p>
         </div>
         <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">

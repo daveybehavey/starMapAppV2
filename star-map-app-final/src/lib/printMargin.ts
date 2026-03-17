@@ -12,6 +12,7 @@ type PrintMarginGuardConfig = {
 
 export type PrintMarginEstimate = {
   revenueCents: number;
+  discountAmountCents: number;
   stripeFeeCents: number;
   fulfillmentCents: number;
   shippingChargeCents: number;
@@ -82,6 +83,7 @@ function buildEstimate(input: {
   shippingCountry: string;
   shippingChargeCents: number;
   revenueCents: number;
+  discountAmountCents?: number;
   config: PrintMarginGuardConfig;
 }): PrintMarginEstimate | null {
   const shippingEstimate = getPrintShippingEstimate(input.variant, input.shippingCountry);
@@ -95,6 +97,7 @@ function buildEstimate(input: {
 
   return {
     revenueCents: input.revenueCents,
+    discountAmountCents: Math.max(0, Math.round(input.discountAmountCents ?? 0)),
     stripeFeeCents,
     fulfillmentCents,
     shippingChargeCents: input.shippingChargeCents,
@@ -109,6 +112,7 @@ export function evaluatePrintMarginForCheckout(input: {
   shippingCountry: string | null;
   shippingChargeCents: number | null;
   includeDigitalAddOn: boolean;
+  discountAmountCents?: number | null;
 }): PrintMarginEvaluation {
   const config = getPrintMarginGuardConfig();
   const enforced = config.enabled && config.minMarginCents > 0;
@@ -127,15 +131,20 @@ export function evaluatePrintMarginForCheckout(input: {
   const fallbackShippingCharge = Number.isFinite(input.shippingChargeCents ?? Number.NaN)
     ? Math.max(0, Math.round(input.shippingChargeCents ?? 0))
     : getPrintShippingEstimate(input.variant, input.shippingCountry)?.amountCents ?? 0;
-  const revenueCents =
+  const baseRevenueCents =
     printTier.amountCents +
     (input.includeDigitalAddOn ? digitalAddOn.amountCents : 0) +
     fallbackShippingCharge;
+  const discountAmountCents = Number.isFinite(input.discountAmountCents ?? Number.NaN)
+    ? Math.max(0, Math.round(input.discountAmountCents ?? 0))
+    : 0;
+  const revenueCents = Math.max(0, baseRevenueCents - discountAmountCents);
   const estimate = buildEstimate({
     variant: input.variant,
     shippingCountry: input.shippingCountry,
     shippingChargeCents: fallbackShippingCharge,
     revenueCents,
+    discountAmountCents,
     config,
   });
 
@@ -206,6 +215,7 @@ export function evaluatePrintMarginForPaidOrder(input: {
     shippingCountry,
     shippingChargeCents: shippingEstimate.amountCents,
     revenueCents: amountTotalCents,
+    discountAmountCents: 0,
     config,
   });
 

@@ -28,12 +28,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Gift | StarMapCo",
   description:
-    "Give a personalized star map gift that recreates the exact night sky from a special date. HD plus unframed and framed print checkout options.",
+    "Give a personalized star map gift that recreates the exact night sky from a special date. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/star-map-gift` },
   openGraph: {
     title: "Star Map Gift | StarMapCo",
     description:
-      "Give a personalized star map gift that recreates the exact night sky from a special date. HD plus unframed and framed print checkout options.",
+      "Give a personalized star map gift that recreates the exact night sky from a special date. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/star-map-gift`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -51,13 +51,13 @@ export default function StarMapGiftPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          A personalized star map gift captures the exact sky from a meaningful moment. It is personal, timeless, and ready
-          to print.
+          A personalized star map gift captures the exact sky from a meaningful moment. Start with a free preview, then
+          choose the ready-to-display framed route, the lower-total unframed route, or HD digital delivery.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital gift</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
@@ -119,22 +119,22 @@ export default function StarMapGiftPage() {
           <li>Choose the date and location that matter most</li>
           <li>Add names, a title, and a dedication line</li>
           <li>Preview the map instantly</li>
-          <li>Choose HD download, unframed print, or framed print at checkout</li>
+          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=star-map-gift-cta"
+            href="/editor?mode=quick&source=star-map-gift-cta-framed&checkout=print&print_variant=poster_framed"
             prefetch={false}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Make a star map gift
+            Start with framed gift preview
           </Link>
         </div>
       </section>
 
       <DeliveryFormatModule
         heading="Choose the gift format after preview"
-        intro="For last-minute gifting, digital is fastest. For a ready-to-open keepsake, framed print is usually the strongest choice. Start with the same free preview either way."
+        intro="Most gift buyers decide between the ready-to-display framed route and the lower-total unframed route. HD digital stays available when you need same-day delivery or local printing."
         sourcePrefix="gift-format"
       />
       <GiftFormatRoadmapModule sourcePrefix="gift-format-roadmap" />
@@ -142,18 +142,18 @@ export default function StarMapGiftPage() {
 
       <PurchaseTrustPanel
         heading="Confidence before checkout"
-        intro="Build and share your preview for free. Pay only when you are ready to unlock the final HD file."
+        intro="Build and share your preview for free. Pay only when the wording, frame choice, and delivery route feel right."
         leftTitle="What happens after payment"
         leftPoints={[
           "Secure Stripe checkout",
           "Immediate HD unlock with no watermark",
-          "Download-ready for print or frame shops",
+          "The same approved design can move into framed or unframed print checkout",
         ]}
         rightTitle="Support and policy"
         rightPoints={[
           "Clear returns and refund policy",
           shippingDisclosure,
-          "Step-by-step print guidance included",
+          "Manual review stays in place before physical production begins",
           "Direct support at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"
@@ -226,13 +226,14 @@ export default function StarMapGiftPage() {
           <div>
             <h3 className="font-semibold text-midnight">What if I need a quick gift turnaround?</h3>
             <p>
-              This works well for same-day gifting because checkout and HD download are instant.
+              For same-day gifting, HD digital delivery is the fastest route. If you want a shipped keepsake, start with
+              the framed preview and check shipping timing before payment.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Can I send a physical print instead of digital only?</h3>
             <p>
-              Yes. You can choose an unframed print or framed print in checkout after previewing your design. {shippingDisclosure}
+              Yes. You can choose framed print or unframed print in checkout after previewing your design. {shippingDisclosure}
             </p>
           </div>
         </div>

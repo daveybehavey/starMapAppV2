@@ -34,7 +34,7 @@ const defaultItems: ReceiveItem[] = [
 
 export default function WhatYouReceiveModule({
   heading = "What you receive",
-  intro = "Exactly what unlocks when you move from free preview to paid HD export.",
+  intro = "Exactly what unlocks when you move from free preview to final purchase.",
   items = defaultItems,
 }: WhatYouReceiveModuleProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
