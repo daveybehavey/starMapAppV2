@@ -10,7 +10,7 @@ type DeliveryFormatModuleProps = {
 
 export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
-  intro = "You only build the map once. After preview, most buyers either unlock the HD file instantly or move into the framed gift path. Unframed stays available if you already have a frame plan.",
+  intro = "You only build the map once. After preview, most buyers choose the framed gift path or the lower-total unframed route. HD digital stays available when instant access matters more than shipping.",
   sourcePrefix = "delivery-format",
 }: DeliveryFormatModuleProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
@@ -32,7 +32,7 @@ export default function DeliveryFormatModule({
 
       <div className={`grid gap-3 ${printCheckoutEnabled ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
         <article className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-midnight">Instant HD download</p>
+          <p className="text-sm font-semibold text-midnight">HD digital delivery</p>
           <p className="mt-1 text-xs text-neutral-700">Best for same-day gifting, local printing, or testing different frame shops.</p>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
             <li>Unlocks immediately after payment</li>

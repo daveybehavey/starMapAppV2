@@ -21,12 +21,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Generator | StarMapCo",
   description:
-    "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus unframed and framed print checkout.",
+    "Use a star map generator to create a custom star map or night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/star-map-generator` },
   openGraph: {
     title: "Star Map Generator | StarMapCo",
     description:
-      "Use a star map generator to create a custom star map or night sky map from any date and location. Instant preview, HD download, plus unframed and framed print checkout.",
+      "Use a star map generator to create a custom star map or night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/star-map-generator`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -44,13 +44,48 @@ export default function StarMapGeneratorPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Generator</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Build a custom star map with our star map generator. Enter the date, time, and location to preview the exact night
-          sky map instantly.
+          Build a custom star map with our star map generator. Enter the date, time, and location to preview the exact
+          night sky, then choose framed print, unframed print, or HD digital delivery.
         </p>
       </header>
 
-      <PreviewStartForm source="star-map-generator" />
-      <StickyCtaBar source="sticky-star-map-generator" />
+      <PreviewStartForm
+        source="star-map-generator"
+        title="Start your generator preview"
+        description="Enter the date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best if you want the finished piece to arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you want the physical print with a lower total.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the design feels right.",
+          },
+        ]}
+      />
+      <StickyCtaBar
+        source="sticky-star-map-generator"
+        secondaryButtonLabel="Preview framed print"
+        secondaryHref="/editor?mode=quick&source=sticky-star-map-generator-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Generate a map that is actually accurate</h2>
@@ -62,7 +97,7 @@ export default function StarMapGeneratorPage() {
           <li>Accurate to the minute and precise location</li>
           <li>Instant preview so you can refine details</li>
           <li>Multiple styles and layout options</li>
-          <li>Print-ready digital download</li>
+          <li>The same approved design can stay digital or move into framed or unframed print</li>
         </ul>
       </section>
       <AccuracyAuthorityCard source="generator-accuracy-card" />
@@ -73,14 +108,14 @@ export default function StarMapGeneratorPage() {
           <li>Enter the date, time, and location that matter to you</li>
           <li>Choose a style, shape, and text layout</li>
           <li>Preview the sky instantly</li>
-          <li>Unlock and download the HD file</li>
+          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=star-map-generator-cta"
+            href="/editor?mode=quick&source=star-map-generator-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start the generator
+            Start with framed preview
           </Link>
         </div>
       </section>
@@ -121,13 +156,13 @@ export default function StarMapGeneratorPage() {
 
       <DeliveryFormatModule
         heading="Choose digital, unframed print, or framed print after preview"
-        intro={`The generator starts the same way for every buyer: build the exact sky first, then decide whether this should stay digital or become a physical gift. ${shippingDisclosure}`}
+        intro={`The generator starts the same way for every buyer: build the exact sky first, then decide whether this should become a framed gift, a lower-total unframed print, or HD digital delivery. ${shippingDisclosure}`}
         sourcePrefix="generator-format"
       />
 
       <FramedProofSection
         heading="The same generated map can become a framed gift"
-        intro={`This is the part most generator pages skip. You are not locked into a digital-only flow. After preview, the same design can move into unframed or framed checkout without rebuilding the map. ${shippingDisclosure}`}
+        intro={`This is the part most generator pages skip. After preview, the same design can move into framed checkout, unframed checkout, or HD digital delivery without rebuilding the map. ${shippingDisclosure}`}
         sourcePrefix="generator-proof"
       />
 
@@ -172,7 +207,7 @@ export default function StarMapGeneratorPage() {
             <h3 className="font-semibold text-midnight">Can I create a star map for any date and location?</h3>
             <p>
               Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before
-              downloading.
+              choosing framed print, unframed print, or HD digital delivery.
             </p>
           </div>
         </div>
@@ -187,7 +222,7 @@ export default function StarMapGeneratorPage() {
           {
             question: "Can I create a star map for any date and location?",
             answer:
-              "Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before downloading.",
+              "Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before choosing framed print, unframed print, or HD digital delivery.",
           },
         ]}
       />

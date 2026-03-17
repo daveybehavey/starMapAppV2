@@ -18,12 +18,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Custom Constellation Map | StarMapCo",
   description:
-    "Create a custom constellation map (star map of constellations) for any date and location. Accurate star positions, instant preview, and print-ready download.",
+    "Create a custom constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/constellation-map` },
   openGraph: {
     title: "Custom Constellation Map | StarMapCo",
     description:
-      "Create a custom constellation map (star map of constellations) for any date and location. Accurate star positions, instant preview, and print-ready download.",
+      "Create a custom constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/constellation-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -39,13 +39,48 @@ export default function ConstellationMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Constellation Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Capture the exact constellation layout from any date and place. This custom constellation map is a personal night
-          sky map you can preview instantly and download in high resolution.
+          Capture the exact constellation layout from any date and place. Start with a free preview, then choose framed
+          print, unframed print, or HD digital delivery from the same design.
         </p>
       </header>
 
-      <PreviewStartForm source="constellation-map" />
-      <StickyCtaBar source="sticky-constellation-map" />
+      <PreviewStartForm
+        source="constellation-map"
+        title="Start your constellation preview"
+        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best if you want the finished piece to arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you want the physical print with a lower total.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the constellation layout feels right.",
+          },
+        ]}
+      />
+      <StickyCtaBar
+        source="sticky-constellation-map"
+        secondaryButtonLabel="Preview framed print"
+        secondaryHref="/editor?mode=quick&source=sticky-constellation-map-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why a constellation map is special</h2>
@@ -56,9 +91,9 @@ export default function ConstellationMapPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate to the date, time, and location you choose</li>
-          <li>Instant preview so you can refine details before download</li>
+          <li>Instant preview so you can refine details before checkout</li>
           <li>Elegant styles and clean layouts for framing or gifting</li>
-          <li>Flexible pricing for a print-ready digital file</li>
+          <li>The same approved design can stay digital, go unframed, or arrive framed</li>
         </ul>
       </section>
 
@@ -68,15 +103,15 @@ export default function ConstellationMapPage() {
           <li>Enter the date, time, and location</li>
           <li>Choose a layout, style, and optional labels</li>
           <li>Preview your exact sky instantly</li>
-          <li>Unlock and download the HD file</li>
+          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=constellation-map-cta"
+            href="/editor?mode=quick&source=constellation-map-cta-framed&checkout=print&print_variant=poster_framed"
             prefetch={false}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Create a constellation map
+            Start with framed preview
           </Link>
         </div>
       </section>
@@ -84,8 +119,8 @@ export default function ConstellationMapPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">What you get</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Your preview and HD export use the same rendering engine, so what you see is what you download. The file is
-          designed for framing and printing, with crisp stars, constellation lines, and clean typography.
+          Your preview and final export use the same rendering engine, so what you see is what you buy. The same approved
+          design can move into framed print, unframed print, or HD digital delivery.
         </p>
       </section>
 
@@ -104,7 +139,8 @@ export default function ConstellationMapPage() {
           <div>
             <h3 className="font-semibold text-midnight">Can I personalize a constellation map?</h3>
             <p>
-              Yes. Add names, a date line, and a dedication, then choose styles and labels before downloading the HD file.
+              Yes. Add names, a date line, and a dedication, then choose styles and labels before deciding on framed print,
+              unframed print, or HD digital delivery.
             </p>
           </div>
         </div>
@@ -119,7 +155,7 @@ export default function ConstellationMapPage() {
           {
             question: "Can I personalize a constellation map?",
             answer:
-              "Yes. Add names, a date line, and a dedication, then choose styles and labels before downloading the HD file.",
+              "Yes. Add names, a date line, and a dedication, then choose styles and labels before deciding on framed print, unframed print, or HD digital delivery.",
           },
         ]}
       />

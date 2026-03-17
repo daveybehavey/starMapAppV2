@@ -109,7 +109,7 @@ export default function StarMapGiftPage() {
           <li>Perfect for anniversaries, weddings, birthdays, and memorials</li>
           <li>Accurate night sky based on real astronomical data</li>
           <li>Instant preview and easy personalization</li>
-          <li>Print‑ready digital download</li>
+          <li>Choose the same approved design for framed print, unframed print, or HD digital delivery</li>
         </ul>
       </section>
 
@@ -213,14 +213,15 @@ export default function StarMapGiftPage() {
           <div>
             <h3 className="font-semibold text-midnight">Can I add names and a date?</h3>
             <p>
-              You can personalize the star map with names, a title, a date line, and a dedication before downloading the HD
-              file.
+              You can personalize the star map with names, a title, a date line, and a dedication before approving the
+              same design for framed print, unframed print, or HD digital delivery.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Can I create it now and buy later?</h3>
             <p>
-              Yes. You can design and preview first, then return to unlock HD only when you are fully happy with the result.
+              Yes. You can design and preview first, then come back when you are ready to take the framed route, the
+              unframed route, or HD digital delivery.
             </p>
           </div>
           <div>
@@ -248,20 +249,21 @@ export default function StarMapGiftPage() {
           {
             question: "Can I add names and a date?",
             answer:
-              "You can personalize the star map with names, a title, a date line, and a dedication before downloading the HD file.",
+              "You can personalize the star map with names, a title, a date line, and a dedication before approving the same design for framed print, unframed print, or HD digital delivery.",
           },
           {
             question: "Can I create it now and buy later?",
             answer:
-              "Yes. You can design and preview first, then return to unlock HD only when you are fully happy with the result.",
+              "Yes. You can design and preview first, then come back when you are ready to take the framed route, the unframed route, or HD digital delivery.",
           },
           {
             question: "What if I need a quick gift turnaround?",
-            answer: "This works well for same-day gifting because checkout and HD download are instant.",
+            answer:
+              "For same-day gifting, HD digital delivery is the fastest route. If you want a shipped keepsake, start with the framed preview and check shipping timing before payment.",
           },
           {
             question: "Can I send a physical print instead of digital only?",
-            answer: `Yes. You can choose an unframed print or framed print in checkout after previewing your design. ${shippingDisclosure}`,
+            answer: `Yes. You can choose framed print or unframed print in checkout after previewing your design. ${shippingDisclosure}`,
           },
         ]}
       />

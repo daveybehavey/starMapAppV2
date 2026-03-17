@@ -23,12 +23,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Night Sky Map Gift | StarMapCo",
   description:
-    "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Accurate, personal, and print-ready in minutes.",
+    "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/night-sky-map-gift` },
   openGraph: {
     title: "Night Sky Map Gift | StarMapCo",
     description:
-      "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Accurate, personal, and print-ready in minutes.",
+      "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/night-sky-map-gift`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -44,13 +44,48 @@ export default function NightSkyMapGiftPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Night Sky Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          A night sky map gift captures the exact stars from a meaningful date and place. This personalized star map gift is
-          timeless and ready to print.
+          A night sky map gift captures the exact stars from a meaningful date and place. Start with a free preview, then
+          choose the framed gift route, the lower-total unframed route, or HD digital delivery.
         </p>
       </header>
 
-      <PreviewStartForm source="night-sky-map-gift" />
-      <StickyCtaBar source="sticky-night-sky-map-gift" />
+      <PreviewStartForm
+        source="night-sky-map-gift"
+        title="Start the night-sky gift preview"
+        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed gift",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best when the final gift should arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you want the physical print with a lower total.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the design feels right.",
+          },
+        ]}
+      />
+      <StickyCtaBar
+        source="sticky-night-sky-map-gift"
+        secondaryButtonLabel="Preview framed gift"
+        secondaryHref="/editor?mode=quick&source=sticky-night-sky-map-gift-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why night sky maps make unforgettable gifts</h2>
@@ -62,7 +97,7 @@ export default function NightSkyMapGiftPage() {
           <li>Perfect for anniversaries, weddings, birthdays, and memorials</li>
           <li>Accurate sky based on real astronomical data</li>
           <li>Instant preview and easy personalization</li>
-          <li>Print-ready download for framing</li>
+          <li>One approved design can stay digital, go unframed, or arrive framed</li>
         </ul>
       </section>
 
@@ -72,21 +107,21 @@ export default function NightSkyMapGiftPage() {
           <li>Choose the date and location that matter most</li>
           <li>Pick a style and add names or a dedication</li>
           <li>Preview the map instantly</li>
-          <li>Unlock and download the HD file</li>
+          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=night-sky-map-gift-cta"
+            href="/editor?mode=quick&source=night-sky-map-gift-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Make a night sky map gift
+            Start with framed gift preview
           </Link>
         </div>
       </section>
 
       <DeliveryFormatModule
         heading="Choose the format after you preview the night sky"
-        intro="Night sky gift buyers usually want one of three outcomes: instant HD, a lower-cost unframed print, or a framed piece that arrives presentation-ready."
+        intro="Night sky gift buyers usually decide between the presentation-ready framed route and the lower-total unframed route. HD digital stays available for same-day delivery."
         sourcePrefix="night-sky-gift-format"
       />
 
@@ -132,7 +167,8 @@ export default function NightSkyMapGiftPage() {
           <div>
             <h3 className="font-semibold text-midnight">How fast do I receive a night sky map gift?</h3>
             <p>
-              You can preview your night sky map instantly. After unlocking, the HD file downloads right away for printing.
+              You can preview your night sky map instantly. HD digital delivery is fastest for same-day gifting, while framed
+              and unframed print routes show shipping before payment.
             </p>
           </div>
           <div>
@@ -148,7 +184,7 @@ export default function NightSkyMapGiftPage() {
           {
             question: "How fast do I receive a night sky map gift?",
             answer:
-              "You can preview your night sky map instantly. After unlocking, the HD file downloads right away for printing.",
+              "You can preview your night sky map instantly. HD digital delivery is fastest for same-day gifting, while framed and unframed print routes show shipping before payment.",
           },
           {
             question: "What makes this a personalized gift?",

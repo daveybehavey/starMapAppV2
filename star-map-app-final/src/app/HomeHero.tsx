@@ -70,16 +70,17 @@ export default function HomeHero() {
             </span>
           </h1>
           <p className="mx-auto max-w-2xl text-base text-neutral-200 sm:text-lg">
-            Build your map in minutes, preview it live, then choose instant HD delivery or the physical gift route with{" "}
-            {printTiers.poster_framed.label.toLowerCase()} and {printTiers.poster_unframed.label.toLowerCase()} options.
+            Build your map in minutes, preview it live, then choose gift-ready{" "}
+            {printTiers.poster_framed.label.toLowerCase()}, the lower-total {printTiers.poster_unframed.label.toLowerCase()},
+            or HD digital delivery from the same design.
           </p>
           <p className="mx-auto max-w-2xl text-sm text-amber-100/85 sm:text-base">
-            Digital stays fastest. Framed stays premium. Unframed keeps the physical total lower.
+            Framed stays premium. Unframed keeps the physical total lower. HD stays fastest when same-day delivery matters.
           </p>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">No account required</span>
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD export in seconds</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Choose delivery after preview</span>
             <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100">
               {printBadgeLabel}
             </span>
