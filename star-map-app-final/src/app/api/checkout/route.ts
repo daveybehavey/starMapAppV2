@@ -57,6 +57,7 @@ const stripe =
     httpClient: Stripe.createFetchHttpClient(),
     timeout: 20_000,
   });
+const stripePriceProductIdCache = new Map<string, Promise<string | null>>();
 
 function siteOrigin() {
   return siteUrl.replace(/\/+$/, "");
@@ -180,7 +181,7 @@ function parseBoolean(raw: unknown, fallback = false) {
 }
 
 function canUseManualPromotionCode(orderType: CheckoutOrderType, plan: CheckoutPlan) {
-  return orderType === "digital" && plan === "single";
+  return orderType === "print" || (orderType === "digital" && plan === "single");
 }
 
 function shouldRetryCheckoutWithoutDiscount(error: unknown) {
@@ -200,8 +201,17 @@ function shouldRetryCheckoutWithoutDiscount(error: unknown) {
 
 type PromotionResolution = {
   promotionCodeId?: string;
+  promotionCode?: ResolvedPromotionCode;
   invalid: boolean;
   lookupFailed: boolean;
+};
+
+type ResolvedPromotionCode = {
+  id: string;
+  code: string;
+  coupon: Stripe.Coupon;
+  minimumAmount: number | null;
+  minimumAmountCurrency: string | null;
 };
 
 type ReferralResolution = {
@@ -209,12 +219,53 @@ type ReferralResolution = {
   referrerSessionId?: string;
 };
 
+function resolveExpandedPromotionCode(promotionCode: Stripe.PromotionCode | null | undefined): ResolvedPromotionCode | null {
+  if (!promotionCode) return null;
+  const coupon = typeof promotionCode.coupon === "string" ? null : promotionCode.coupon;
+  if (!coupon || coupon.valid === false) return null;
+  return {
+    id: promotionCode.id,
+    code: promotionCode.code,
+    coupon,
+    minimumAmount:
+      typeof promotionCode.restrictions?.minimum_amount === "number"
+        ? promotionCode.restrictions.minimum_amount
+        : null,
+    minimumAmountCurrency:
+      typeof promotionCode.restrictions?.minimum_amount_currency === "string"
+        ? promotionCode.restrictions.minimum_amount_currency
+        : null,
+  };
+}
+
+async function fetchPromotionCodeById(promotionCodeId: string): Promise<ResolvedPromotionCode | null> {
+  if (!stripe) return null;
+  try {
+    const promotionCode = await stripe.promotionCodes.retrieve(promotionCodeId, {
+      expand: ["coupon.applies_to"],
+    });
+    return resolveExpandedPromotionCode(promotionCode);
+  } catch (error) {
+    console.error("Promotion code retrieve failed", error);
+    return null;
+  }
+}
+
 async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionResolution> {
   const trimmed = promoCode?.trim();
   if (!trimmed) return { invalid: false, lookupFailed: false };
 
   if (configuredPromoCode && configuredStripePromotionCodeId && trimmed.toUpperCase() === configuredPromoCode) {
-    return { promotionCodeId: configuredStripePromotionCodeId, invalid: false, lookupFailed: false };
+    const configuredPromotion = await fetchPromotionCodeById(configuredStripePromotionCodeId);
+    if (configuredPromotion) {
+      return {
+        promotionCodeId: configuredPromotion.id,
+        promotionCode: configuredPromotion,
+        invalid: false,
+        lookupFailed: false,
+      };
+    }
+    return { invalid: false, lookupFailed: true };
   }
 
   if (!stripe) {
@@ -226,6 +277,7 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
       code: trimmed,
       active: true,
       limit: 10,
+      expand: ["data.coupon.applies_to"],
     });
 
     const matched = list.data.find((item) =>
@@ -239,7 +291,17 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
       return { invalid: true, lookupFailed: false };
     }
 
-    return { promotionCodeId: matched.id, invalid: false, lookupFailed: false };
+    const resolvedPromotion = resolveExpandedPromotionCode(matched);
+    if (!resolvedPromotion) {
+      return { invalid: true, lookupFailed: false };
+    }
+
+    return {
+      promotionCodeId: resolvedPromotion.id,
+      promotionCode: resolvedPromotion,
+      invalid: false,
+      lookupFailed: false,
+    };
   } catch (error) {
     console.error("Promotion code lookup failed", error);
     return { invalid: false, lookupFailed: true };
@@ -262,6 +324,80 @@ async function resolveReferral(raw?: string, currentSessionId?: string): Promise
   if (!record?.sessionId) return {};
   if (currentSessionId && record.sessionId === currentSessionId) return {};
   return { code, referrerSessionId: record.sessionId };
+}
+
+async function getStripeProductIdForPrice(priceId?: string | null): Promise<string | null> {
+  const normalizedPriceId = priceId?.trim();
+  if (!normalizedPriceId || !stripe) return null;
+  const cached = stripePriceProductIdCache.get(normalizedPriceId);
+  if (cached) return cached;
+
+  const lookup = stripe.prices
+    .retrieve(normalizedPriceId, { expand: ["product"] })
+    .then((price) => {
+      const product = price.product;
+      return typeof product === "string" ? product : product?.id ?? null;
+    })
+    .catch((error) => {
+      console.error("Stripe price lookup failed", { priceId: normalizedPriceId, error });
+      return null;
+    });
+
+  stripePriceProductIdCache.set(normalizedPriceId, lookup);
+  return lookup;
+}
+
+async function estimatePromotionDiscountCents(input: {
+  promotionCode?: ResolvedPromotionCode;
+  currency: string;
+  lineItems: Array<{ amountCents: number; priceId?: string | null }>;
+}): Promise<number | null> {
+  const promotionCode = input.promotionCode;
+  if (!promotionCode) return 0;
+
+  const coupon = promotionCode.coupon;
+  const normalizedCurrency = input.currency.trim().toLowerCase();
+  const lineItemSubtotalCents = input.lineItems.reduce((total, item) => total + Math.max(0, item.amountCents), 0);
+
+  if (
+    promotionCode.minimumAmount !== null &&
+    promotionCode.minimumAmount > 0 &&
+    promotionCode.minimumAmountCurrency &&
+    promotionCode.minimumAmountCurrency.trim().toLowerCase() !== normalizedCurrency
+  ) {
+    return null;
+  }
+
+  if (promotionCode.minimumAmount !== null && lineItemSubtotalCents < promotionCode.minimumAmount) {
+    return 0;
+  }
+
+  let eligibleSubtotalCents = lineItemSubtotalCents;
+  const scopedProductIds = coupon.applies_to?.products ?? [];
+  if (scopedProductIds.length > 0) {
+    eligibleSubtotalCents = 0;
+    for (const item of input.lineItems) {
+      const productId = await getStripeProductIdForPrice(item.priceId);
+      if (productId && scopedProductIds.includes(productId)) {
+        eligibleSubtotalCents += Math.max(0, item.amountCents);
+      }
+    }
+  }
+
+  if (eligibleSubtotalCents <= 0) return 0;
+
+  if (typeof coupon.percent_off === "number" && Number.isFinite(coupon.percent_off) && coupon.percent_off > 0) {
+    return Math.min(eligibleSubtotalCents, Math.ceil((eligibleSubtotalCents * coupon.percent_off) / 100));
+  }
+
+  if (typeof coupon.amount_off === "number" && Number.isFinite(coupon.amount_off) && coupon.amount_off > 0) {
+    if ((coupon.currency ?? "").trim().toLowerCase() !== normalizedCurrency) {
+      return null;
+    }
+    return Math.min(eligibleSubtotalCents, coupon.amount_off);
+  }
+
+  return 0;
 }
 
 type CheckoutSessionResult = {
@@ -287,6 +423,7 @@ async function createCheckoutSession(
     mapId?: string;
     printAssetId?: string;
     promotionCodeId?: string;
+    resolvedPromotionCode?: ResolvedPromotionCode;
     fallbackOnDiscountError?: boolean;
     orderType?: CheckoutOrderType;
     printVariant?: PrintVariant;
@@ -304,6 +441,7 @@ async function createCheckoutSession(
     mapId,
     printAssetId,
     promotionCodeId,
+    resolvedPromotionCode,
     fallbackOnDiscountError = true,
     orderType = "digital",
     printVariant = "poster_framed",
@@ -368,21 +506,6 @@ async function createCheckoutSession(
   const geoDigitalSingle =
     !isPrintOrder && effectivePlan === "single" ? getGeoDigitalSinglePrice(clientCountry) : null;
   const useGeoDigitalSinglePricing = Boolean(geoDigitalSingle?.amountCents);
-  if (isPrintOrder) {
-    const marginCheck = evaluatePrintMarginForCheckout({
-      variant: normalizedPrintVariant,
-      shippingCountry: resolvedShippingCountry,
-      shippingChargeCents: printShippingChargeCents,
-      includeDigitalAddOn,
-    });
-    if (!marginCheck.allowed) {
-      throw new CheckoutError(
-        "This print option is not available for the selected shipping country right now. Please pick a different country or format.",
-        "print_margin_guard_blocked",
-        400,
-      );
-    }
-  }
 
   const metadata: Record<string, string> = { order_type: normalizedOrderType };
   if (mapId) metadata.map_id = mapId;
@@ -421,6 +544,7 @@ async function createCheckoutSession(
   const useDigitalPriceId = Boolean(digitalPriceId) && !useGeoDigitalSinglePricing;
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+  const promotionEstimateLineItems: Array<{ amountCents: number; priceId?: string | null }> = [];
   if (isPrintOrder) {
     const printPriceId = stripePrintPriceIds[normalizedPrintVariant]?.trim();
     lineItems.push({
@@ -441,6 +565,10 @@ async function createCheckoutSession(
           }),
       quantity: 1,
     });
+    promotionEstimateLineItems.push({
+      amountCents: printTier.amountCents,
+      priceId: printPriceId || null,
+    });
     if (includeDigitalAddOn) {
       const digitalAddOnPriceId = stripePrintPriceIds.digital_addon?.trim();
       lineItems.push({
@@ -456,8 +584,12 @@ async function createCheckoutSession(
                   images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                 },
               },
-            }),
+        }),
         quantity: 1,
+      });
+      promotionEstimateLineItems.push({
+        amountCents: digitalAddOnTier.amountCents,
+        priceId: digitalAddOnPriceId || null,
       });
     }
   } else {
@@ -507,6 +639,43 @@ async function createCheckoutSession(
       ...digitalLineItem,
       quantity: 1,
     });
+  }
+
+  let estimatedPromotionDiscountCents = 0;
+  if (isPrintOrder && promotionCodeId) {
+    const discountEstimate = await estimatePromotionDiscountCents({
+      promotionCode: resolvedPromotionCode,
+      currency: printTier.currency,
+      lineItems: promotionEstimateLineItems,
+    });
+    if (discountEstimate === null || discountEstimate <= 0) {
+      throw new CheckoutError(
+        "That promo code does not apply to this print order.",
+        "promotion_not_applicable",
+        400,
+      );
+    }
+    estimatedPromotionDiscountCents = discountEstimate;
+    metadata.promotion_discount_estimate_cents = String(estimatedPromotionDiscountCents);
+  }
+
+  if (isPrintOrder) {
+    const marginCheck = evaluatePrintMarginForCheckout({
+      variant: normalizedPrintVariant,
+      shippingCountry: resolvedShippingCountry,
+      shippingChargeCents: printShippingChargeCents,
+      includeDigitalAddOn,
+      discountAmountCents: estimatedPromotionDiscountCents,
+    });
+    if (!marginCheck.allowed) {
+      throw new CheckoutError(
+        promotionCodeId
+          ? "That promo code is not available for this print route right now."
+          : "This print option is not available for the selected shipping country right now. Please pick a different country or format.",
+        promotionCodeId ? "print_promotion_margin_blocked" : "print_margin_guard_blocked",
+        400,
+      );
+    }
   }
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -662,6 +831,7 @@ export async function GET(req: NextRequest) {
       mapId,
       printAssetId,
       promotionCodeId: selectedPromotion.promotionCodeId,
+      resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
       orderType,
       printVariant,
@@ -813,6 +983,7 @@ export async function POST(req: NextRequest) {
       mapId,
       printAssetId,
       promotionCodeId: selectedPromotion.promotionCodeId,
+      resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
       fallbackOnDiscountError: !promoCode,
       orderType,

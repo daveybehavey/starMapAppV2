@@ -29,6 +29,7 @@ import {
   getReferralShareMessage,
 } from "@/lib/referralShare";
 import EditorFontShell from "@/components/EditorFontShell";
+import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
 import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
 
@@ -1533,6 +1534,7 @@ export default function DownloadClient() {
                 {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
               </div>
             ) : null}
+            <PostPurchaseProofRequest source="download" orderType="digital" />
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>

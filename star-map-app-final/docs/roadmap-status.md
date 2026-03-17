@@ -247,6 +247,16 @@ Recent status:
 
 ### Current Phase 4 Progress
 
+- Manual print-promo support is now wired into checkout safely:
+  - valid manual promo codes can now be evaluated on print checkout, not just digital single
+  - print margin guard now considers the estimated promotion discount before checkout is created
+  - print-ineligible promo codes are rejected before Checkout instead of slipping through and failing later
+- Added a repeatable Stripe wallet audit script:
+  - `npm run qa:stripe-payment-methods`
+  - current live payment-method configuration confirms `card`, `Apple Pay`, `Google Pay`, and `Link` are all on
+- Added post-purchase proof capture scaffolding on `/success` and `/download`:
+  - asks buyers to email a real photo + short note
+  - explicitly states nothing is published without permission
 - Added a reusable trust-depth section (`RevenueTrustModule`) with:
   - checkout confidence cards
   - print planning quick guide

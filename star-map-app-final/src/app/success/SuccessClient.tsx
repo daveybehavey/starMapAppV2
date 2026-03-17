@@ -19,6 +19,7 @@ import {
   getReferralShareMessage,
 } from "@/lib/referralShare";
 import ResilientImage from "@/components/ResilientImage";
+import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
@@ -956,6 +957,7 @@ export default function SuccessClient() {
                     {referralError && <p className="mt-2 text-[11px] text-rose-200">{referralError}</p>}
                   </div>
                 )}
+                <PostPurchaseProofRequest source="success" orderType={orderType} />
               </div>
             )}
           </>

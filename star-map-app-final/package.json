@@ -46,6 +46,7 @@
     "qa:printful": "node scripts/printful-verify.mjs",
     "qa:print-ops": "node scripts/print-ops-report.mjs",
     "qa:print-margin": "node scripts/print-margin-audit.mjs",
+    "qa:stripe-payment-methods": "node scripts/stripe-payment-method-audit.mjs",
     "qa:upsell-matrix": "node scripts/generate-upsell-rollout-matrix.mjs",
     "qa:funnel-reconcile": "node scripts/funnel-reconcile.mjs",
     "qa:commerce-digest": "node scripts/commerce-digest.mjs",

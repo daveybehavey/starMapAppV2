@@ -1192,6 +1192,9 @@ export function EditorExperience({
           if (data?.code === "invalid_promotion_code") {
             throw new Error("invalid_promotion_code");
           }
+          if (data?.code === "promotion_not_applicable") {
+            throw new Error("promotion_not_applicable");
+          }
           if (data?.code === "promotion_lookup_failed") {
             throw new Error("promotion_lookup_failed");
           }
@@ -1203,6 +1206,9 @@ export function EditorExperience({
           }
           if (data?.code === "print_margin_guard_blocked") {
             throw new Error("print_margin_guard_blocked");
+          }
+          if (data?.code === "print_promotion_margin_blocked") {
+            throw new Error("print_promotion_margin_blocked");
           }
           if (data?.code === "missing_shipping_country") {
             throw new Error("missing_shipping_country");
@@ -1233,6 +1239,8 @@ export function EditorExperience({
         const checkoutErrorMessage =
           reason === "invalid_promotion_code"
             ? "That promo code is invalid or expired. Try another code."
+            : reason === "promotion_not_applicable"
+              ? "That promo code does not apply to this order."
             : reason === "promotion_lookup_failed"
               ? "We couldn't verify your promo code right now. Please try again in a moment."
               : reason === "print_asset_failed"
@@ -1245,6 +1253,8 @@ export function EditorExperience({
                   ? "Select your shipping country to continue with print checkout."
                 : reason === "print_shipping_country_invalid"
                   ? "Shipping isn’t available for that country yet. Please select another."
+                  : reason === "print_promotion_margin_blocked"
+                    ? "That promo code would make this print order unavailable for the selected route or country."
                   : reason === "print_margin_guard_blocked"
                     ? "That print option is temporarily unavailable for the selected country. Try another format or country."
                 : reason === "print_checkout_disabled"

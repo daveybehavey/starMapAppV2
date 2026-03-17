@@ -20,6 +20,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Stripe dashboard**: `https://dashboard.stripe.com/payments`
 - **Print checkout sessions** (metadata includes `orderType=print`): `https://dashboard.stripe.com/checkout/sessions`
 - **Promo codes**: `https://dashboard.stripe.com/coupons`
+- **Wallet/payment-method audit**:
+  - `npm run qa:stripe-payment-methods`
+  - Confirms current Stripe payment-method configuration for `card`, `Apple Pay`, `Google Pay`, `Link`, and `PayPal`
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion
@@ -74,6 +77,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Testimonial intake**:
   - `docs/testimonial-intake-template.md`
   - publish approved quotes only into `src/data/testimonials.ts`
+- **Real-proof collection surfaces**:
+  - `/success`
+  - `/download`
+  - both now include a non-public-facing proof request card that asks buyers to email a photo + short note with permission before anything is published
 
 ## 4) Merchant Center feed
 
