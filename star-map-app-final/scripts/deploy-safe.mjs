@@ -118,7 +118,7 @@ async function main() {
     if (!skipBuild) {
       run("npx", ["opennextjs-cloudflare", "build"], { env: deployEnv });
     }
-    run("npx", ["opennextjs-cloudflare", "deploy"], { env: deployEnv });
+    run("node", ["scripts/opennext-cloudflare.mjs", "deploy-built"], { env: deployEnv });
   } finally {
     await restoreEnvFiles(backups);
   }

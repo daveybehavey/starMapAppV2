@@ -399,6 +399,7 @@ function printHumanReport(report) {
       "landing_view",
       "preview_started",
       "checkout_started",
+      "checkout_request_received",
       "checkout_session_created",
       "payment_verified",
     ];
@@ -409,8 +410,29 @@ function printHumanReport(report) {
     console.log("");
     console.log("Checkout conversion");
     const checkoutStarted = Number(report.funnel.checkout_started || 0);
+    const checkoutRequestReceived = Number(report.funnel.checkout_request_received || 0);
     const sessionCreated = Number(report.funnel.checkout_session_created || 0);
     const paid = Number(report.funnel.payment_verified || 0);
+    if (checkoutStarted > 0) {
+      console.log(
+        `intent -> api request: ${((checkoutRequestReceived / checkoutStarted) * 100).toFixed(2)}% (${checkoutRequestReceived}/${checkoutStarted})`,
+      );
+    } else {
+      console.log("intent -> api request: n/a");
+    }
+    if (checkoutRequestReceived > 0) {
+      if (checkoutRequestReceived < sessionCreated) {
+        console.log(
+          `api request -> session created: partial history (${sessionCreated} sessions, ${checkoutRequestReceived} api requests tracked in-window)`,
+        );
+      } else {
+        console.log(
+          `api request -> session created: ${((sessionCreated / checkoutRequestReceived) * 100).toFixed(2)}% (${sessionCreated}/${checkoutRequestReceived})`,
+        );
+      }
+    } else {
+      console.log("api request -> session created: n/a");
+    }
     if (checkoutStarted > 0) {
       console.log(
         `intent -> session created: ${((sessionCreated / checkoutStarted) * 100).toFixed(2)}% (${sessionCreated}/${checkoutStarted})`,

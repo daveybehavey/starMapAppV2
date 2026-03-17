@@ -12,9 +12,12 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - Latest snapshot: `landing_view=151`, `preview_started=111`, `checkout_started=110`, `payment_verified=0`
 - **Funnel truth note**:
   - treat `checkout_started` as checkout intent
+  - treat `checkout_request_received` as requests that actually reached `/api/checkout`
   - treat `checkout_session_created` as successful Stripe session creation
   - treat `payment_verified` as the paid truth metric
-  - if `checkout_started` is high but `checkout_session_created` is low, the drop is before Stripe handoff
+  - `checkout_request_received` started later than the older steps, so expect one report window of partial-history skew while it fills in
+  - if `checkout_started` is high but `checkout_request_received` is low, the drop is before the checkout API handoff
+  - if `checkout_request_received` is healthy but `checkout_session_created` is low, the drop is inside checkout preparation
   - if `checkout_session_created` is healthy but `payment_verified` is low, the drop is inside or after Checkout
 - **Quick local verification**:
   - `npm run qa:ga4-smoke`

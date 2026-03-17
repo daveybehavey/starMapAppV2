@@ -827,6 +827,11 @@ export async function GET(req: NextRequest) {
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
+    await recordFunnelStep({
+      step: "checkout_request_received",
+      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+      plan: orderType === "print" ? printVariant : plan,
+    });
     const { url: sessionUrl } = await createCheckoutSession({
       plan,
       mapId,
@@ -991,6 +996,11 @@ export async function POST(req: NextRequest) {
 
     await recordFunnelStep({
       step: "checkout_started",
+      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+      plan: orderType === "print" ? printVariant : plan,
+    });
+    await recordFunnelStep({
+      step: "checkout_request_received",
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
     });

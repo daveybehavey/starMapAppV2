@@ -4,6 +4,11 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { buildEnvWithWranglerVars } from "./wrangler-vars.mjs";
 
+function writeCaptured(result) {
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+}
+
 function run(command, args, env) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
@@ -14,10 +19,47 @@ function run(command, args, env) {
   }
 }
 
+function runCapture(command, args, env) {
+  return spawnSync(command, args, {
+    stdio: "pipe",
+    encoding: "utf8",
+    env,
+  });
+}
+
+function isRecoverableR2DeployFailure(output) {
+  return (
+    /Populating R2 incremental cache/i.test(output) &&
+    (/403 Forbidden/i.test(output) || /Error uploading/i.test(output))
+  );
+}
+
+function deployWorkerDirect(env) {
+  console.warn(
+    "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
+  );
+  run("npx", ["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
+}
+
+function deployBuilt(env) {
+  const result = runCapture("npx", ["opennextjs-cloudflare", "deploy"], env);
+  writeCaptured(result);
+
+  if (result.status === 0) return;
+
+  const combined = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (isRecoverableR2DeployFailure(combined)) {
+    deployWorkerDirect(env);
+    return;
+  }
+
+  throw new Error(`Command failed: npx opennextjs-cloudflare deploy`);
+}
+
 async function main() {
   const [mode] = process.argv.slice(2);
-  if (!mode || !["build", "deploy", "preview"].includes(mode)) {
-    console.error("Usage: node scripts/opennext-cloudflare.mjs <build|deploy|preview>");
+  if (!mode || !["build", "deploy", "deploy-built", "preview"].includes(mode)) {
+    console.error("Usage: node scripts/opennext-cloudflare.mjs <build|deploy|deploy-built|preview>");
     process.exit(1);
   }
 
@@ -31,7 +73,12 @@ async function main() {
 
   if (mode === "deploy") {
     run("npx", ["opennextjs-cloudflare", "build"], env);
-    run("npx", ["opennextjs-cloudflare", "deploy"], env);
+    deployBuilt(env);
+    return;
+  }
+
+  if (mode === "deploy-built") {
+    deployBuilt(env);
     return;
   }
 

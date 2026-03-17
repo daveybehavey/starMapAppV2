@@ -269,10 +269,13 @@ Recent status:
   - checkout API failures now record reason counts in KV
   - `/api/analytics/checkout-diagnostics` exposes read-only blocker totals behind admin auth
   - `qa:commerce-digest` now shows:
+    - `checkout_started -> checkout_request_received`
     - `checkout_started -> checkout_session_created`
+    - `checkout_request_received -> checkout_session_created`
     - `checkout_session_created -> payment_verified`
     - top checkout blocker reasons
     - promo signup totals
+- Added `checkout_request_received` as a second server-side checkout milestone so operator reporting can separate pre-API drop-off from failures during checkout preparation.
 - Added a reusable trust-depth section (`RevenueTrustModule`) with:
   - checkout confidence cards
   - print planning quick guide
