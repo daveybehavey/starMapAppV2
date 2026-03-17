@@ -46,9 +46,11 @@ function parseArgs(argv) {
 
 One operator-facing report for:
   - funnel step totals
+  - checkout failure reasons
   - Stripe paid revenue split
   - print order states + missing operator alerts
   - referral-attributed paid sessions
+  - promo signup totals
 
 Required env vars:
   STRIPE_SECRET_KEY
@@ -155,6 +157,46 @@ async function getFunnelData(site, days) {
   return { ok: true, steps };
 }
 
+async function getCheckoutDiagnostics(site, days) {
+  const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
+  if (!adminToken) {
+    return { ok: false, error: "admin_token_missing" };
+  }
+  const res = await fetch(`${site}/api/analytics/checkout-diagnostics?days=${days}`, {
+    headers: { "x-admin-token": adminToken },
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body?.ok || !body?.data) {
+    return { ok: false, error: `checkout_diagnostics_${res.status}` };
+  }
+  return { ok: true, rows: Array.isArray(body.data.rows) ? body.data.rows : [] };
+}
+
+async function getPromotionSubscribers(site) {
+  const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
+  if (!adminToken) {
+    return { ok: false, error: "admin_token_missing" };
+  }
+  const res = await fetch(`${site}/api/promotions/subscribers?limit=500&include_unsubscribed=true`, {
+    headers: { "x-admin-token": adminToken },
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body?.ok || !Array.isArray(body?.subscribers)) {
+    return { ok: false, error: `promotion_subscribers_${res.status}` };
+  }
+  const subscribers = body.subscribers;
+  return {
+    ok: true,
+    total: subscribers.length,
+    active: subscribers.filter((row) => !row.unsubscribedAt).length,
+    unsubscribed: subscribers.filter((row) => row.unsubscribedAt).length,
+    listComplete: Boolean(body.listComplete),
+    nextCursor: body.nextCursor ?? null,
+  };
+}
+
 async function loadSessions(days) {
   const stripeSecret = process.env.STRIPE_SECRET_KEY?.trim() || "";
   if (!stripeSecret) throw new Error("Missing STRIPE_SECRET_KEY");
@@ -193,8 +235,10 @@ async function getPrintStatus(site, sessionId, adminToken) {
 }
 
 async function buildReport(args) {
-  const [funnel, sessions] = await Promise.all([
+  const [funnel, checkoutDiagnostics, promotionSubscribers, sessions] = await Promise.all([
     getFunnelData(args.site, args.days),
+    getCheckoutDiagnostics(args.site, args.days),
+    getPromotionSubscribers(args.site),
     loadSessions(args.days),
   ]);
 
@@ -270,6 +314,18 @@ async function buildReport(args) {
     days: args.days,
     funnel: funnel.ok ? funnel.steps : null,
     funnelError: funnel.ok ? null : funnel.error,
+    checkoutDiagnostics: checkoutDiagnostics.ok ? checkoutDiagnostics.rows : null,
+    checkoutDiagnosticsError: checkoutDiagnostics.ok ? null : checkoutDiagnostics.error,
+    promotionSubscribers: promotionSubscribers.ok
+      ? {
+          total: promotionSubscribers.total,
+          active: promotionSubscribers.active,
+          unsubscribed: promotionSubscribers.unsubscribed,
+          listComplete: promotionSubscribers.listComplete,
+          nextCursor: promotionSubscribers.nextCursor,
+        }
+      : null,
+    promotionSubscribersError: promotionSubscribers.ok ? null : promotionSubscribers.error,
     stripe: {
       sessionsScanned: sessions.length,
       paidSessions: paidSessions.length,
@@ -348,6 +404,51 @@ function printHumanReport(report) {
     ];
     for (const step of stepOrder) {
       console.log(`${step}: ${Number(report.funnel[step] || 0)}`);
+    }
+
+    console.log("");
+    console.log("Checkout conversion");
+    const checkoutStarted = Number(report.funnel.checkout_started || 0);
+    const sessionCreated = Number(report.funnel.checkout_session_created || 0);
+    const paid = Number(report.funnel.payment_verified || 0);
+    if (checkoutStarted > 0) {
+      console.log(
+        `intent -> session created: ${((sessionCreated / checkoutStarted) * 100).toFixed(2)}% (${sessionCreated}/${checkoutStarted})`,
+      );
+    } else {
+      console.log("intent -> session created: n/a");
+    }
+    if (sessionCreated > 0) {
+      console.log(
+        `session created -> paid: ${((paid / sessionCreated) * 100).toFixed(2)}% (${paid}/${sessionCreated})`,
+      );
+    } else {
+      console.log("session created -> paid: n/a");
+    }
+  }
+
+  console.log("");
+  console.log("Checkout blockers");
+  if (!report.checkoutDiagnostics) {
+    console.log(`unavailable (${report.checkoutDiagnosticsError || "unknown"})`);
+  } else if (!report.checkoutDiagnostics.length) {
+    console.log("none");
+  } else {
+    for (const item of report.checkoutDiagnostics.slice(0, 8)) {
+      console.log(`${item.reason}: last_${report.days}d=${item.lastNDays} total=${item.total}`);
+    }
+  }
+
+  console.log("");
+  console.log("Promo signups");
+  if (!report.promotionSubscribers) {
+    console.log(`unavailable (${report.promotionSubscribersError || "unknown"})`);
+  } else {
+    console.log(
+      `active=${report.promotionSubscribers.active} unsubscribed=${report.promotionSubscribers.unsubscribed} total=${report.promotionSubscribers.total}`,
+    );
+    if (!report.promotionSubscribers.listComplete) {
+      console.log(`partial list (nextCursor=${report.promotionSubscribers.nextCursor || "unknown"})`);
     }
   }
 

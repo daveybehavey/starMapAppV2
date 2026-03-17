@@ -25,6 +25,7 @@ import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { getPrintfulShippingRate } from "@/lib/printfulShipping";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
+import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
 
 export const runtime = "nodejs";
 
@@ -858,8 +859,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(sessionUrl, { status: 303 });
   } catch (err) {
     if (err instanceof CheckoutError) {
+      await recordCheckoutFailure({
+        reason: err.code,
+        source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+        plan: orderType === "print" ? printVariant : plan,
+      });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
+    await recordCheckoutFailure({
+      reason: "unknown_error",
+      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+      plan: orderType === "print" ? printVariant : plan,
+    });
     console.error("Stripe checkout error", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
@@ -873,12 +884,13 @@ export async function POST(req: NextRequest) {
     return rateLimitResponse(rateLimit.resetIn);
   }
 
+  let plan: CheckoutPlan = "single";
+  let orderType: CheckoutOrderType = "digital";
+  let printVariant: PrintVariant = "poster_framed";
+
   try {
     const clientCountry = getRequestCountry(req);
     let mapId: string | undefined;
-    let plan: CheckoutPlan = "single";
-    let orderType: CheckoutOrderType = "digital";
-    let printVariant: PrintVariant = "poster_framed";
     let includeDigitalAddOn = false;
     let printAssetId: string | undefined;
     let promoCode: string | undefined;
@@ -1026,8 +1038,18 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof CheckoutError) {
+      await recordCheckoutFailure({
+        reason: err.code,
+        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+        plan: orderType === "print" ? printVariant : plan,
+      });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
+    await recordCheckoutFailure({
+      reason: "unknown_error",
+      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+      plan: orderType === "print" ? printVariant : plan,
+    });
     console.error("Stripe checkout error", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }

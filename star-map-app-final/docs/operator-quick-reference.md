@@ -14,10 +14,13 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - treat `checkout_started` as checkout intent
   - treat `checkout_session_created` as successful Stripe session creation
   - treat `payment_verified` as the paid truth metric
+  - if `checkout_started` is high but `checkout_session_created` is low, the drop is before Stripe handoff
+  - if `checkout_session_created` is healthy but `payment_verified` is low, the drop is inside or after Checkout
 - **Quick local verification**:
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
   - `npm run qa:commerce-digest -- --days 7`
+  - `GET /api/analytics/checkout-diagnostics` is now available behind `PRINT_ADMIN_TOKEN` for checkout blocker counts
 
 ## 2) Stripe revenue and checkout
 
@@ -63,6 +66,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
    - `curl -H "x-admin-token: $PRINT_ADMIN_TOKEN" "https://starmapco.com/api/promotions/subscribers?limit=100"`
 2. Add `include_unsubscribed=true` if you need the full list including opted-out records.
 3. Treat this as the source of truth for promo signup capture until signups are moved into a dedicated ESP/list.
+4. `npm run qa:commerce-digest -- --days 14` now also shows:
+   - active vs unsubscribed promo signup totals
+   - checkout blockers from server-side checkout failures
 
 ## 3) Print operations
 

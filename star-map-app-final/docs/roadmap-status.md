@@ -265,6 +265,14 @@ Recent status:
   - `/unsubscribe` now records opt-outs instead of only claiming unsubscribe support
   - promo capture now uses a hidden honeypot field to cut basic bot spam
   - added an admin-only subscriber list endpoint for operator visibility
+- Added server-side checkout blocker diagnostics:
+  - checkout API failures now record reason counts in KV
+  - `/api/analytics/checkout-diagnostics` exposes read-only blocker totals behind admin auth
+  - `qa:commerce-digest` now shows:
+    - `checkout_started -> checkout_session_created`
+    - `checkout_session_created -> payment_verified`
+    - top checkout blocker reasons
+    - promo signup totals
 - Added a reusable trust-depth section (`RevenueTrustModule`) with:
   - checkout confidence cards
   - print planning quick guide
