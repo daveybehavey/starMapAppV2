@@ -27,11 +27,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Anniversary Star Map | StarMapCo",
   description:
-    "Celebrate your years together with a personalized anniversary star map. Capture the exact night sky from your special date and place with HD plus unframed and framed print options.",
+    "Celebrate your years together with a personalized anniversary star map. Start with a free preview, then choose framed print, unframed print, or HD digital delivery from the same design.",
   alternates: { canonical: `${siteUrl}/anniversary` },
   openGraph: {
     title: "Personalized Anniversary Star Map | StarMapCo",
-    description: "Commemorate your anniversary with the exact night sky from your milestone. HD plus unframed and framed print options.",
+    description:
+      "Commemorate your anniversary with the exact night sky from your milestone. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/anniversary`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -53,13 +54,43 @@ export default function AnniversaryPage() {
           your story. A keepsake that grows more meaningful each year.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
-      <PreviewStartForm source="anniversary" />
+      <PreviewStartForm
+        source="anniversary"
+        title="Start your anniversary preview"
+        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed anniversary print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best if you want the finished keepsake to arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you already know your frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the anniversary design feels final.",
+          },
+        ]}
+      />
       <StickyCtaBar
         source="sticky-anniversary"
         secondaryButtonLabel="Preview framed anniversary print"
@@ -88,17 +119,17 @@ export default function AnniversaryPage() {
           <li>Enter the anniversary location (city or venue)</li>
           <li>Select the anniversary date (add time if you want to be exact)</li>
           <li>Choose a style and add your dedication line</li>
-          <li>Reveal the sky, then choose HD download, unframed print, or framed print at checkout</li>
+          <li>Reveal the sky, then choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Share a preview for free. Upgrade once to unlock the HD, watermark-free file for framing.
+          Share a preview for free. Once the wording feels right, take the framed route, the unframed route, or instant HD delivery from the same approved design.
         </p>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=anniversary-cta"
+            href="/editor?mode=quick&source=anniversary-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Create your anniversary star map
+            Start with framed anniversary preview
           </Link>
         </div>
       </section>
@@ -106,7 +137,7 @@ export default function AnniversaryPage() {
 
       <DeliveryFormatModule
         heading="Choose how you want to keep the anniversary map"
-        intro="Some couples want the instant HD file for local framing. Others want the finished framed version ready to gift. You can decide after you see the preview."
+        intro="Most anniversary buyers decide between the finished framed route and the lower-total unframed route. HD digital stays available when you want instant delivery or local printing."
         sourcePrefix="anniversary-format"
       />
       <FramedProofSection
@@ -119,8 +150,7 @@ export default function AnniversaryPage() {
         <h2 className="text-lg font-semibold text-midnight">What you get</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           The preview and HD export use the same rendering engine—what you see is what you download. Toggle constellations,
-          glow, labels, and choose fonts to match your style. You can keep it digital or move into unframed or framed print
-          checkout without rebuilding the map.
+          glow, labels, and choose fonts to match your style. The same approved design can stay digital, go unframed, or arrive framed without rebuilding the map.
         </p>
         <div className="flex gap-3 text-sm text-neutral-800">
           <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
@@ -156,7 +186,7 @@ export default function AnniversaryPage() {
       />
       <RevenueTrustModule
         heading="Anniversary gift confidence"
-        intro="Most couples decide faster once the wording, size plan, and whether they want framed or digital-only are already clear."
+        intro="Most couples decide faster once the wording, frame plan, and whether they want the finished framed route are already clear."
       />
       <TestimonialHighlights
         heading="Verified anniversary buyer feedback"

@@ -59,6 +59,54 @@ test("editor date field accepts numeric-only iOS input", async ({ browser }) => 
   await context.close();
 });
 
+test("editor canvas supports direct text editing and keyboard nudging", async ({ page }) => {
+  await gotoEditor(page, { force: "desktop" });
+  await applySampleMoment(page);
+
+  const preview = page.getByLabel(/Star map preview/i).first();
+  await expect(preview).toBeVisible({ timeout: 20_000 });
+  const bounds = await preview.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (!bounds) throw new Error("Missing preview bounds");
+
+  await page.mouse.click(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.14);
+
+  const directTextInput = page.getByLabel(/Edit Title text/i);
+  await expect(directTextInput).toBeVisible({ timeout: 10_000 });
+  await directTextInput.fill("Our Perfect Night");
+
+  const before = await page.evaluate(() => {
+    const store = (window as unknown as {
+      __ZUSTAND_STORE__?: {
+        getState: () => { textBoxes: Array<{ id: string; text: string; position?: { x: number; y: number } }> };
+      };
+    }).__ZUSTAND_STORE__;
+    if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+    const title = store.getState().textBoxes.find((box) => box.id === "title");
+    if (!title?.position) throw new Error("Missing title text box position");
+    return { text: title.text, y: title.position.y };
+  });
+
+  expect(before.text).toBe("Our Perfect Night");
+
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(150);
+
+  const after = await page.evaluate(() => {
+    const store = (window as unknown as {
+      __ZUSTAND_STORE__?: {
+        getState: () => { textBoxes: Array<{ id: string; position?: { x: number; y: number } }> };
+      };
+    }).__ZUSTAND_STORE__;
+    if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+    const title = store.getState().textBoxes.find((box) => box.id === "title");
+    if (!title?.position) throw new Error("Missing title text box position");
+    return title.position.y;
+  });
+
+  expect(after).toBeGreaterThan(before.y);
+});
+
 test("location warnings and validation errors render", async ({ page }) => {
   // Use force=desktop for deterministic test
   await gotoEditor(page, { force: "desktop" });

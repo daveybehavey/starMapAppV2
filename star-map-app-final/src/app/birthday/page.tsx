@@ -24,11 +24,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Birthday Star Map | StarMapCo",
   description:
-    "Celebrate a birthday with a personalized star map showing the exact night sky from their special date and place. Choose HD plus unframed and framed print checkout.",
+    "Celebrate a birthday with a personalized star map showing the exact night sky from their special date and place. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
     title: "Personalized Birthday Star Map | StarMapCo",
-    description: "Capture the night sky from their birthday with HD plus unframed and framed print options.",
+    description:
+      "Capture the night sky from their birthday with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/birthday`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -50,13 +51,43 @@ export default function BirthdayPage() {
           keepsake that feels personal, timeless, and ready to frame.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
-      <PreviewStartForm source="birthday" />
+      <PreviewStartForm
+        source="birthday"
+        title="Start your birthday preview"
+        description="Enter the birth date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed birthday print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best if you want the final gift to arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you already know the frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the birthday layout is approved.",
+          },
+        ]}
+      />
       <StickyCtaBar
         source="sticky-birthday"
         secondaryButtonLabel="Preview framed birthday print"
@@ -85,24 +116,24 @@ export default function BirthdayPage() {
           <li>Enter the birth location (city or hospital)</li>
           <li>Select the birth date (add time if you want to be exact)</li>
           <li>Choose a style and add a dedication line</li>
-          <li>Reveal the sky, then choose HD download, unframed print, or framed print at checkout</li>
+          <li>Reveal the sky, then choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Share a preview for free. Upgrade once to unlock the HD, watermark-free file for framing.
+          Share a preview for free. Once the wording feels right, take the framed route, the unframed route, or instant HD delivery from the same approved design.
         </p>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=birthday-cta"
+            href="/editor?mode=quick&source=birthday-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Make their birthday star map
+            Start with framed birthday preview
           </Link>
         </div>
       </section>
 
       <DeliveryFormatModule
         heading="Choose the birthday delivery format"
-        intro="Some buyers want instant HD for same-day gifting. Others want a framed version ready to display. You decide after the preview."
+        intro="Most birthday buyers decide between the ready-to-display framed route and the lower-total unframed route. HD digital stays available for same-day gifting or local printing."
         sourcePrefix="birthday-format"
       />
       <FramedProofSection
@@ -115,8 +146,7 @@ export default function BirthdayPage() {
         <h2 className="text-lg font-semibold text-midnight">What you get</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Preview and HD export share the same rendering engine, so the final download matches what you see. Toggle
-          constellations, glow, labels, and choose fonts to fit their style. You can keep it digital or move into
-          unframed or framed print checkout without rebuilding the map.
+          constellations, glow, labels, and choose fonts to fit their style. The same approved design can stay digital, go unframed, or arrive framed without rebuilding the map.
         </p>
         <div className="flex gap-3 text-sm text-neutral-800">
           <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
@@ -152,7 +182,7 @@ export default function BirthdayPage() {
       />
       <RevenueTrustModule
         heading="Birthday gift confidence"
-        intro="Most buyers decide faster once the wording, print plan, and whether they need the framed version are already settled."
+        intro="Most buyers decide faster once the wording, frame plan, and whether they want the finished framed route are already settled."
       />
 
       <OccasionLinks />

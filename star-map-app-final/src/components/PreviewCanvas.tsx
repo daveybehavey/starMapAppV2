@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   aspectRatioToNumber,
   buildRecipeFromState,
@@ -85,6 +85,7 @@ export default function PreviewCanvas({
   );
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const directEditInputRef = useRef<HTMLInputElement>(null);
 
   // Debounce astronomy-intensive state changes (date, location) to reduce CPU load
   // Text box changes render immediately for responsive drag feedback
@@ -102,6 +103,11 @@ export default function PreviewCanvas({
   useEffect(() => {
     dragPreviewRef.current = dragPreviewPosition;
   }, [dragPreviewPosition]);
+
+  const activeTextBox = useMemo(
+    () => textBoxes.find((box) => box.id === activeBox) ?? null,
+    [activeBox, textBoxes]
+  );
 
   // Memoize the recipe to avoid recalculating when only render-related props change
   // When externalRecipe is provided (read-only mode), use it directly instead of store state
@@ -351,12 +357,90 @@ export default function PreviewCanvas({
     };
   }, [readOnly, updateTextBox]);
 
+  const nudgeActiveTextBox = useCallback((deltaX: number, deltaY: number) => {
+    if (readOnly || !activeBox) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const bounds = canvas.getBoundingClientRect();
+    const rect = textBoundsRef.current.get(activeBox);
+    const currentBox = textBoxes.find((box) => box.id === activeBox);
+    if (!currentBox) return;
+
+    const fallbackCenterX = clamp(currentBox.position?.x ?? 0.5, 0, 1) * Math.max(bounds.width, 1);
+    const fallbackCenterY = clamp(currentBox.position?.y ?? 0.5, 0, 1) * Math.max(bounds.height, 1);
+    const centerX = rect ? rect.x + rect.width / 2 : fallbackCenterX;
+    const centerY = rect ? rect.y + rect.height / 2 : fallbackCenterY;
+    const { x, y } = clampPositionToCanvas(centerX + deltaX, centerY + deltaY, bounds, rect);
+
+    updateTextBox(activeBox, { position: { x, y } });
+    setDragPreviewPosition(null);
+    const nextRect = textBoundsRef.current.get(activeBox);
+    if (nextRect) setBoxRect(nextRect);
+  }, [activeBox, readOnly, textBoxes, updateTextBox]);
+
+  useEffect(() => {
+    if (readOnly || !activeBox) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName;
+      const isTypingTarget =
+        target?.isContentEditable ||
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT";
+
+      if (event.key === "Escape") {
+        setActiveBox(null);
+        setBoxRect(null);
+        setDragPreviewPosition(null);
+        dragActiveRef.current = false;
+        setIsDragging(false);
+        return;
+      }
+
+      if (event.key === "Enter" && !isTypingTarget) {
+        event.preventDefault();
+        directEditInputRef.current?.focus();
+        directEditInputRef.current?.select();
+        return;
+      }
+
+      if (isTypingTarget || event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const step = event.shiftKey ? 10 : 4;
+      switch (event.key) {
+        case "ArrowUp":
+          event.preventDefault();
+          nudgeActiveTextBox(0, -step);
+          break;
+        case "ArrowDown":
+          event.preventDefault();
+          nudgeActiveTextBox(0, step);
+          break;
+        case "ArrowLeft":
+          event.preventDefault();
+          nudgeActiveTextBox(-step, 0);
+          break;
+        case "ArrowRight":
+          event.preventDefault();
+          nudgeActiveTextBox(step, 0);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeBox, nudgeActiveTextBox, readOnly]);
+
   useEffect(() => {
     if (readOnly) return;
     const handleOutside = (event: PointerEvent) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      if (!canvas.contains(event.target as Node)) {
+      const container = containerRef.current;
+      if (!container) return;
+      if (!container.contains(event.target as Node)) {
         setActiveBox(null);
         setBoxRect(null);
         setDragPreviewPosition(null);
@@ -416,6 +500,87 @@ export default function PreviewCanvas({
           }}
         />
       )}
+      {activeTextBox && !readOnly && (
+        <div className="absolute inset-x-3 bottom-3 z-10 rounded-2xl border border-white/15 bg-[#081122]/88 p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.34)] backdrop-blur md:inset-x-auto md:right-3 md:w-[320px]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200/75">
+                Selected text
+              </p>
+              <p className="mt-1 text-sm font-semibold text-white">{activeTextBox.label}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveBox(null);
+                setBoxRect(null);
+                setDragPreviewPosition(null);
+              }}
+              className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+            >
+              Done
+            </button>
+          </div>
+          <div className="mt-3 space-y-3">
+            <div className="space-y-1">
+              <label
+                htmlFor={`direct-text-input-${activeTextBox.id}`}
+                className="text-[11px] font-medium text-white/70"
+              >
+                Edit {activeTextBox.label} text
+              </label>
+              <input
+                ref={directEditInputRef}
+                id={`direct-text-input-${activeTextBox.id}`}
+                type="text"
+                value={activeTextBox.text}
+                onChange={(event) => updateTextBox(activeTextBox.id, { text: event.target.value })}
+                className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div />
+              <button
+                type="button"
+                aria-label={`Nudge ${activeTextBox.label} up`}
+                onClick={() => nudgeActiveTextBox(0, -4)}
+                className="rounded-xl border border-white/15 bg-white/6 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/12"
+              >
+                ↑
+              </button>
+              <div />
+              <button
+                type="button"
+                aria-label={`Nudge ${activeTextBox.label} left`}
+                onClick={() => nudgeActiveTextBox(-4, 0)}
+                className="rounded-xl border border-white/15 bg-white/6 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/12"
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                aria-label={`Nudge ${activeTextBox.label} down`}
+                onClick={() => nudgeActiveTextBox(0, 4)}
+                className="rounded-xl border border-white/15 bg-white/6 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/12"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                aria-label={`Nudge ${activeTextBox.label} right`}
+                onClick={() => nudgeActiveTextBox(4, 0)}
+                className="rounded-xl border border-white/15 bg-white/6 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/12"
+              >
+                →
+              </button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-white/62">
+              Drag directly on the preview, or use arrow keys to nudge. Hold Shift for bigger moves. Press Enter to
+              focus the text field.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/10" />
     </div>
   );
@@ -446,8 +611,14 @@ function hitTestText(
   x: number,
   y: number
 ) {
+  const padding = 18;
   for (const [id, rect] of Array.from(bounds.entries()).reverse()) {
-    if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) {
+    if (
+      x >= rect.x - padding &&
+      x <= rect.x + rect.width + padding &&
+      y >= rect.y - padding &&
+      y <= rect.y + rect.height + padding
+    ) {
       return { id, centerX: rect.x + rect.width / 2, centerY: rect.y + rect.height / 2 };
     }
   }

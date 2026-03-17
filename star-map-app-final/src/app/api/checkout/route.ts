@@ -43,6 +43,8 @@ const stripePrintPriceIds = {
 const configuredPromoCode = process.env.PROMOTION_COUPON_CODE?.trim().toUpperCase() ?? "";
 const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim() ?? "";
 const configuredReferralPromotionCodeId = process.env.STRIPE_REFERRAL_PROMO_CODE_ID?.trim() ?? "";
+const stripePaymentMethodConfigurationId =
+  process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID?.trim() ?? "";
 const printAllowedCountries = parseAllowedShippingCountries(process.env.PRINT_ALLOWED_COUNTRIES);
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_CHECKOUT_ENABLED || "").trim());
 const printDynamicShippingEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_DYNAMIC_SHIPPING || "").trim());
@@ -544,7 +546,9 @@ async function createCheckoutSession(
         message: `I agree to the [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy)`,
       },
     },
-    payment_method_types: ["card"],
+    ...(stripePaymentMethodConfigurationId
+      ? { payment_method_configuration: stripePaymentMethodConfigurationId }
+      : {}),
     shipping_address_collection: isPrintOrder
       ? {
           allowed_countries: resolvedShippingCountry

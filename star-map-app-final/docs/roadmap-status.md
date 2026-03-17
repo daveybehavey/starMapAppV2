@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-14
+Updated: 2026-03-16
 
 ## Phase 0: Foundation (Done)
 
@@ -233,6 +233,17 @@ Recent status:
 5. Reveal experience polish:
    - make the transition from setup -> revealed sky feel intentional on desktop + mobile
    - reduce dead-click ambiguity with explicit “revealing” states while preview is initializing
+6. Text-editor UX hardening:
+   - keep the current normalized text model and export renderer as the source of truth
+   - improve on-canvas text interaction first (selection state, clearer bounds, keyboard nudging, less clunky drag feedback)
+   - add DOM-overlay editing for the active text box instead of moving text entry deeper into side panels
+   - only evaluate `react-konva` if we need transform handles / richer on-canvas manipulation
+   - only evaluate `Fabric.js` if we intentionally move toward a fuller design-tool editor
+7. Checkout payment-method optimization:
+   - move off hard-coded card-only Checkout sessions
+   - keep Stripe Checkout as the single payment stack
+   - prefer wallet-friendly dynamic methods (`Apple Pay`, `Google Pay`, `Link`) over adding a separate PayPal flow
+   - keep async / BNPL / redirect methods off unless webhook and fulfillment flows are deliberately expanded
 
 ### Current Phase 4 Progress
 
@@ -338,6 +349,10 @@ Recent status:
 28. Add weekly SEO health report (sitemap, canonicals, noindex exclusions, merchant feed sanity).
 29. Build a periodic merchant-feed currency/shipping cross-check to avoid country drift regressions.
 30. Add CMYK-safe export experimentation behind a feature flag for higher-end print workflows.
+31. Add a formal text-canvas migration checkpoint:
+   - stay on the custom renderer if the need is limited to drag/edit/style
+   - evaluate `react-konva` for richer interaction without replacing the final render pipeline
+   - reserve `Fabric.js` for a deliberate “mini design editor” scope, not as a casual dependency swap
 
 ## No-Go Conditions
 

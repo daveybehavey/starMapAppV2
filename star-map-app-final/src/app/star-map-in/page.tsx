@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
@@ -19,12 +20,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map by City | StarMapCo",
   description:
-    "Explore custom star maps by city. Create a star map for your location with HD plus unframed and framed print options.",
+    "Explore custom star maps by city. Start with a free preview, then choose framed print, unframed print, or HD digital delivery for your location.",
   alternates: { canonical: `${siteUrl}/star-map-in` },
   openGraph: {
     title: "Star Map by City | StarMapCo",
     description:
-      "Explore custom star maps by city. Create a star map for your location with HD plus unframed and framed print options.",
+      "Explore custom star maps by city. Start with a free preview, then choose framed print, unframed print, or HD digital delivery for your location.",
     url: `${siteUrl}/star-map-in`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Explore custom star maps by city. Create a star map for your location with HD plus unframed and framed print options.",
+      "Explore custom star maps by city. Start with a free preview, then choose framed print, unframed print, or HD digital delivery for your location.",
     images: [ogImage],
   },
 };
@@ -51,9 +52,9 @@ export default function StarMapByCityPage() {
           Pick your city to create a custom star map of the exact night sky from a meaningful date and location.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
@@ -78,21 +79,53 @@ export default function StarMapByCityPage() {
       <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Start your map in minutes</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Enter your date and location, preview the exact sky, and then choose HD, unframed print, or framed print when ready.
+          Enter your date and location, preview the exact sky, and then choose framed print, unframed print, or HD digital delivery when ready.
         </p>
         <div className="pt-3">
           <Link
-            href="/editor?mode=quick&source=star-map-in-cta"
+            href="/editor?mode=quick&source=star-map-in-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Preview your star map
+            Start with framed preview
           </Link>
         </div>
       </section>
 
+      <PreviewStartForm
+        source="star-map-in-hub"
+        title="Start a location-based preview"
+        description="Enter your date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        intentOptions={[
+          {
+            label: "Preview framed print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best if you want the finished map to arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you already know the frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the city, text, and layout look right.",
+          },
+        ]}
+      />
+
       <DeliveryFormatModule
         heading="Choose the format after preview"
-        intro="Use the same map preview to decide between instant HD, unframed print, or the finished framed version once the location details look right."
+        intro="Use the same map preview to decide between the finished framed route, the lower-total unframed route, or HD digital delivery once the location details look right."
         sourcePrefix="star-map-in-hub"
       />
 

@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!location) return {};
   const display = formatLocationDisplay(location);
   const shouldIndex = isIndexableLocationSlug(location.slug);
-  const description = `Create a custom star map in ${display}. Capture the exact night sky from your date and location with HD plus unframed and framed print options.`;
+  const description = `Create a custom star map in ${display}. Start with a free preview, then choose framed print, unframed print, or HD digital delivery from the same design.`;
 
   return {
     title: `Star Map in ${display} | StarMapCo`,
@@ -96,20 +96,45 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map in {display}</h1>
         <p className="text-sm text-white/90 sm:text-base">
           Create a custom star map for {display} and capture the exact night sky from your date and location. Preview instantly,
-          then choose HD, unframed print, or framed print from the same design.
+          then choose framed print, unframed print, or HD digital delivery from the same design.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital keepsake</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
 
       <PreviewStartForm
         title={`Preview a ${display} star map`}
-        description="Add your date and location to open the editor with your sky ready to customize."
-        buttonLabel="Start the preview"
+        description="Add your date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
         source={`city-${location.slug}`}
+        intentOptions={[
+          {
+            label: "Preview framed print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best if you want the finished map to arrive ready to display.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you already know the frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the city, text, and layout look right.",
+          },
+        ]}
       />
       <StickyCtaBar source={`sticky-city-${location.slug}`} />
 
@@ -133,21 +158,21 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           <li>Enter the date, time, and location</li>
           <li>Preview the sky instantly</li>
           <li>Customize text, styles, and shapes</li>
-          <li>Unlock HD or continue into unframed or framed print checkout</li>
+          <li>Continue into framed print, unframed print, or HD digital delivery once the preview looks right</li>
         </ol>
         <div className="pt-2">
           <Link
-            href={`/editor?mode=quick&source=star-map-in-${location.slug}-cta`}
+            href={`/editor?mode=quick&source=star-map-in-${location.slug}-cta-framed&checkout=print&print_variant=poster_framed`}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Preview your map
+            Start with framed preview
           </Link>
         </div>
       </section>
 
       <DeliveryFormatModule
         heading={`Choose how you want to keep the ${display} map`}
-        intro={`Use the same preview to decide between instant HD, an unframed print, or the finished framed version for ${display}.`}
+        intro={`Use the same preview to decide between the finished framed route, the lower-total unframed route, or HD digital delivery for ${display}.`}
         sourcePrefix={`location-${location.slug}-format`}
       />
 
