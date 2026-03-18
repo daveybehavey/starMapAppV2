@@ -1248,28 +1248,28 @@ export function MobileCreate({
           <div className="flex gap-2">
             <button
               type="button"
-                onClick={() => void onExport("preview")}
-                aria-label="Free export"
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
-              >
-                Free ⬇️
-              </button>
-              <button
-                type="button"
-                onClick={() => void onExport("hd")}
-                aria-label="HD export"
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
-              >
-                {!paid && "🔒 "}HD ⬇️
-              </button>
+              onClick={() => void onExport("preview")}
+              aria-label="Free export"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
+            >
+              Free preview
+            </button>
+            <button
+              type="button"
+              onClick={() => void onExport("hd")}
+              aria-label="HD export"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
+            >
+              {paid ? "HD download" : "Unlock HD"}
+            </button>
+          </div>
+          {hdCreditLabel && (
+            <div className="mt-2 flex justify-end">
+              <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
+                {hdCreditLabel}
+              </span>
             </div>
-            {hdCreditLabel && (
-              <div className="mt-2 flex justify-end">
-                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
-                  {hdCreditLabel}
-                </span>
-              </div>
-            )}
+          )}
             {printCheckoutEnabled && printPriceLabels && onStartPrintCheckout && (
               <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
                 <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>

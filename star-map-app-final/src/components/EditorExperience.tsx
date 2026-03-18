@@ -2438,7 +2438,7 @@ export function EditorExperience({
                             aria-label="Free export"
                             className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                           >
-                            Free ⬇️
+                            Free preview
                           </button>
                           <button
                             type="button"
@@ -2448,7 +2448,7 @@ export function EditorExperience({
                             className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                             title="Unlock to export HD without watermark; preview stays free."
                           >
-                            {hdExportInFlight ? "Preparing..." : `${!paid ? "🔒 " : ""}HD ⬇️`}
+                            {hdExportInFlight ? "Preparing..." : paid ? "HD download" : "Unlock HD"}
                           </button>
                           {printCheckoutEnabled && (
                             <button
@@ -2466,7 +2466,7 @@ export function EditorExperience({
                               className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-300/25 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/35 focus:ring-2 focus:ring-offset-2 focus:outline-none"
                               title="Buy a printed star map with framing options."
                             >
-                              🖼️ Print & frame
+                              Print & frame
                             </button>
                           )}
                           {hdCreditLabel && (
