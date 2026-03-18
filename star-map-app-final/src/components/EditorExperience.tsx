@@ -1423,6 +1423,14 @@ export function EditorExperience({
     requestAnimationFrame(() => handleEditScroll());
   }, [handleEditScroll, isQuick, router, allowAdvancedInQuick]);
 
+  const handleLessOptions = useCallback(() => {
+    if (!allowAdvanced) return;
+    setShowAdvancedState(false);
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [allowAdvanced]);
+
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
   const showSetupPanels = !revealed || showEditor;
@@ -1500,13 +1508,24 @@ export function EditorExperience({
                           </p>
                           <p className="text-sm font-semibold text-white">Refine your map</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleStartScratch}
-                          className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
-                        >
-                          Start over
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {isQuick && allowAdvancedInQuick ? (
+                            <button
+                              type="button"
+                              onClick={handleLessOptions}
+                              className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
+                            >
+                              Less options
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={handleStartScratch}
+                            className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
+                          >
+                            Start over
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
