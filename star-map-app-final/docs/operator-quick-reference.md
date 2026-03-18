@@ -36,10 +36,14 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion
+  - `REFERRAL_MAX_REWARDS_PER_REFERRER_30D` = anti-abuse cap for how many rewards a single referrer can earn in a rolling 30-day window (`0` disables)
   - `NEXT_PUBLIC_REFERRAL_FRIEND_OFFER_LABEL` = user-facing text shown in referral share cards (example: `a free HD download`)
   - For "free HD for both sides":
     - Set `STRIPE_REFERRAL_PROMO_CODE_ID` to a 100% single-HD promo in Stripe
     - Keep `REFERRAL_REWARD_CREDITS=1`
+  - Refund/dispute behavior:
+    - referral conversions are reversed on `charge.refunded` / dispute-withdrawn webhooks
+    - granted referrer reward credits are reclaimed when available
 
 ### Run social referral posts
 
@@ -51,6 +55,8 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 4. Watch source breakdown in the same card:
    - `Top social traffic` (visit sources)
    - `Top referral sales` (conversion sources)
+5. For deeper referral diagnostics (skip reasons, reversal counts, offer-variant breakdown), query:
+   - `GET /api/referrals/status` (requires active premium session cookie)
 
 ### Update the signup promo code safely
 

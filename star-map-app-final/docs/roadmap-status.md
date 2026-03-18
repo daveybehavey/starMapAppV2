@@ -114,6 +114,11 @@ Updated: 2026-03-16
 - Referral attribution is now time-bounded client-side (30-day window) instead of indefinite local storage.
 - Referral auto-offer can now be configured via `STRIPE_REFERRAL_PROMO_CODE_ID` with safe fallback when Stripe rejects discount application.
 - Referrer reward quantity is now configurable via `REFERRAL_REWARD_CREDITS` (default `1` HD credit per qualified referral conversion).
+- Referral v2 hardening is now in place:
+  - optional anti-abuse cap: `REFERRAL_MAX_REWARDS_PER_REFERRER_30D`
+  - referral conversion + reward reversal on refunds/disputes
+  - referral event ledger now tracks `conversion_reversed` and `reward_reversed`
+  - checkout metadata now records referral offer variant (`referral_auto_promo`, `manual_promo_override`, `referral_no_discount`)
 - Success/download referral cards now support social-first sharing:
   - tracking-tagged share links per platform (`utm_*` + `ref_src`)
   - copy-ready post text button

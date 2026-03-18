@@ -9,7 +9,9 @@ export type ReferralEventType =
   | "visit_recorded"
   | "visit_deduped"
   | "conversion_recorded"
+  | "conversion_reversed"
   | "reward_granted"
+  | "reward_reversed"
   | "reward_skipped";
 
 export type ReferralEvent = {

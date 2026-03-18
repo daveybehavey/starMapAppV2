@@ -55,6 +55,36 @@ function summarizeReferralConversionSources(events: ReferralEvent[]) {
     .map(([source, conversions]) => ({ source, conversions }));
 }
 
+function summarizeEventDetailCounts(
+  events: ReferralEvent[],
+  input: {
+    type: ReferralEvent["type"];
+    detailKey: string;
+    fallback: string;
+    limit?: number;
+  },
+) {
+  const buckets = new Map<string, number>();
+  for (const event of events) {
+    if (event.type !== input.type) continue;
+    const raw = event.details?.[input.detailKey];
+    const key =
+      typeof raw === "string" && raw.trim()
+        ? raw.trim().toLowerCase()
+        : input.fallback;
+    buckets.set(key, (buckets.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(buckets.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, input.limit ?? 5)
+    .map(([value, count]) => ({ value, count }));
+}
+
+function countEventsByType(events: ReferralEvent[], type: ReferralEvent["type"]) {
+  return events.reduce((count, event) => (event.type === type ? count + 1 : count), 0);
+}
+
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
   const rateLimit = await checkRateLimit(`referrals:status:${ip}`, 30, 60);
@@ -88,6 +118,12 @@ export async function GET(req: NextRequest) {
       conversions: 0,
       rewardsGranted: 0,
       lastConvertedAt: null,
+      topVisitSources: [],
+      topConversionSources: [],
+      topRewardSkipReasons: [],
+      topOfferVariants: [],
+      rewardReversals: 0,
+      conversionReversals: 0,
       events: [],
     });
   }
@@ -102,6 +138,12 @@ export async function GET(req: NextRequest) {
       conversions: 0,
       rewardsGranted: 0,
       lastConvertedAt: null,
+      topVisitSources: [],
+      topConversionSources: [],
+      topRewardSkipReasons: [],
+      topOfferVariants: [],
+      rewardReversals: 0,
+      conversionReversals: 0,
       events: [],
     });
   }
@@ -110,6 +152,18 @@ export async function GET(req: NextRequest) {
   const events = await getReferralEvents(code, 50);
   const topVisitSources = summarizeReferralVisitSources(events);
   const topConversionSources = summarizeReferralConversionSources(events);
+  const topRewardSkipReasons = summarizeEventDetailCounts(events, {
+    type: "reward_skipped",
+    detailKey: "reason",
+    fallback: "unknown",
+  });
+  const topOfferVariants = summarizeEventDetailCounts(events, {
+    type: "conversion_recorded",
+    detailKey: "offerVariant",
+    fallback: "unspecified",
+  });
+  const rewardReversals = countEventsByType(events, "reward_reversed");
+  const conversionReversals = countEventsByType(events, "conversion_reversed");
   return NextResponse.json({
     ok: true,
     code,
@@ -120,6 +174,10 @@ export async function GET(req: NextRequest) {
     lastConvertedAt: record.lastConvertedAt ?? null,
     topVisitSources,
     topConversionSources,
+    topRewardSkipReasons,
+    topOfferVariants,
+    rewardReversals,
+    conversionReversals,
     events,
   });
 }

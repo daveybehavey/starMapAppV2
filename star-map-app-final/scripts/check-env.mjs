@@ -51,6 +51,7 @@ const OPTIONAL = [
   "PRINT_ADMIN_TOKEN",
   "STRIPE_REFERRAL_PROMO_CODE_ID",
   "REFERRAL_REWARD_CREDITS",
+  "REFERRAL_MAX_REWARDS_PER_REFERRER_30D",
   "NEXT_PUBLIC_REFERRAL_REWARD_CREDITS",
   "REFERRAL_SIGNING_SECRET",
 ];
@@ -108,6 +109,15 @@ const checkInt = (key) => {
   }
 };
 
+const checkNonNegativeInt = (key) => {
+  const val = process.env[key];
+  if (!val) return;
+  const parsed = Number.parseInt(val, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    errors.push(`Invalid ${key} (expected non-negative integer)`);
+  }
+};
+
 const parseBooleanEnv = (key) => {
   const raw = process.env[key];
   if (!raw || !raw.trim()) return null;
@@ -140,6 +150,7 @@ checkInt("PRINT_COGS_POSTER_FRAMED_CENTS");
 checkInt("GEO_DIGITAL_SINGLE_MIN_CENTS");
 checkInt("REFERRAL_REWARD_CREDITS");
 checkInt("NEXT_PUBLIC_REFERRAL_REWARD_CREDITS");
+checkNonNegativeInt("REFERRAL_MAX_REWARDS_PER_REFERRER_30D");
 
 const stripePercentRaw = process.env.PRINT_MARGIN_STRIPE_PERCENT?.trim();
 if (stripePercentRaw) {

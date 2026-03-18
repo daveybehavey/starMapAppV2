@@ -185,6 +185,16 @@ function canUseManualPromotionCode(orderType: CheckoutOrderType, plan: CheckoutP
   return orderType === "print" || (orderType === "digital" && plan === "single");
 }
 
+function resolveReferralOfferVariant(input: {
+  referralCode?: string;
+  promotionSource: PromotionSource;
+}): string | undefined {
+  if (!input.referralCode?.trim()) return undefined;
+  if (input.promotionSource === "referral_auto") return "referral_auto_promo";
+  if (input.promotionSource === "manual") return "manual_promo_override";
+  return "referral_no_discount";
+}
+
 function shouldRetryCheckoutWithoutDiscount(error: unknown) {
   if (!error || typeof error !== "object") return false;
   const stripeError = error as { code?: string; message?: string; param?: string };
@@ -524,6 +534,8 @@ async function createCheckoutSession(
   }
   if (promotionCodeId) metadata.promotion_code_id = promotionCodeId;
   if (promotionSource === "referral_auto") metadata.referral_offer_applied = "true";
+  const referralOfferVariant = resolveReferralOfferVariant({ referralCode, promotionSource });
+  if (referralOfferVariant) metadata.referral_offer_variant = referralOfferVariant;
   if (referralCode) metadata.referral_code = referralCode;
   if (referrerSessionId) metadata.referrer_session_id = referrerSessionId;
   if (referralCode && referralAttribution?.source) metadata.referral_source = referralAttribution.source;
@@ -744,6 +756,11 @@ async function createCheckoutSession(
     const fallbackMetadata = { ...metadata };
     delete fallbackMetadata.promotion_code_id;
     delete fallbackMetadata.referral_offer_applied;
+    if (referralCode) {
+      fallbackMetadata.referral_offer_variant = "referral_no_discount";
+    } else {
+      delete fallbackMetadata.referral_offer_variant;
+    }
     const fallbackParams: Stripe.Checkout.SessionCreateParams = {
       ...sessionParams,
       allow_promotion_codes: allowPromotionCodes,
