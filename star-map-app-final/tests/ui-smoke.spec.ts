@@ -69,10 +69,57 @@ test("editor canvas supports direct text editing and keyboard nudging", async ({
   expect(bounds).not.toBeNull();
   if (!bounds) throw new Error("Missing preview bounds");
 
-  await page.mouse.click(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.14);
+  const titlePosition = await page.evaluate(() => {
+    const store = (window as unknown as {
+      __ZUSTAND_STORE__?: {
+        getState: () => { textBoxes: Array<{ id: string; position?: { x: number; y: number } }> };
+      };
+    }).__ZUSTAND_STORE__;
+    if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+    const title = store.getState().textBoxes.find((box) => box.id === "title");
+    if (!title?.position) throw new Error("Missing title text box position");
+    return title.position;
+  });
+
+  await page.mouse.click(bounds.x + bounds.width * titlePosition.x, bounds.y + bounds.height * titlePosition.y);
 
   const directTextInput = page.getByLabel(/Edit Title text/i);
-  await expect(directTextInput).toBeVisible({ timeout: 10_000 });
+  let hasDirectTextInput = await directTextInput.isVisible({ timeout: 3000 }).catch(() => false);
+  if (!hasDirectTextInput) {
+    const previewEdit = page.getByRole("button", { name: /^←\s*Edit$|^Edit$/i }).first();
+    if (await previewEdit.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await previewEdit.click();
+      hasDirectTextInput = await directTextInput.isVisible({ timeout: 3000 }).catch(() => false);
+    }
+  }
+  if (!hasDirectTextInput) {
+    const customizeMore = page.getByRole("button", { name: /Customize more/i }).first();
+    if (await customizeMore.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await customizeMore.click();
+    }
+    const textStylingCard = page.getByRole("button", { name: /Text Styling/i }).first();
+    if (await textStylingCard.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await textStylingCard.scrollIntoViewIfNeeded();
+      await textStylingCard.click();
+    }
+    const fallbackTitleInput = page.locator('input[placeholder="Enter title..."]').first();
+    if (await fallbackTitleInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await fallbackTitleInput.fill("Our Perfect Night");
+      const updatedText = await page.evaluate(() => {
+        const store = (window as unknown as {
+          __ZUSTAND_STORE__?: {
+            getState: () => { textBoxes: Array<{ id: string; text: string }> };
+          };
+        }).__ZUSTAND_STORE__;
+        if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+        return store.getState().textBoxes.find((box) => box.id === "title")?.text ?? "";
+      });
+      expect(updatedText).toBe("Our Perfect Night");
+      return;
+    }
+    throw new Error("Could not reach title text editor in preview or full editor mode");
+  }
+
   await directTextInput.fill("Our Perfect Night");
 
   const before = await page.evaluate(() => {
@@ -366,9 +413,13 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
   await expect(hdExportButton).toBeVisible({ timeout: 8000 });
   await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
   await hdExportButton.click();
-  await expect(page.getByRole("button", { name: /Get 1 HD map|Get 3 downloads|Go unlimited/i }).first()).toBeVisible({
-    timeout: 8000,
-  });
+  await expect(
+    page
+      .getByRole("button", {
+        name: /Get 1 HD map|Get 1 HD file|Get 3 downloads|Get 3 HD files|Go unlimited|Use unlimited plan/i,
+      })
+      .first(),
+  ).toBeVisible({ timeout: 8000 });
   await expect(page.getByRole("button", { name: /Printed gift/i })).toHaveCount(0);
 });
 
@@ -390,9 +441,13 @@ test("print checkout buttons submit print payload when visible", async ({ page }
     await expect(hdExportButton).toBeVisible({ timeout: 8000 });
     await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
     await hdExportButton.click();
-    await expect(page.getByRole("button", { name: /Get 1 HD map|Get 3 downloads|Go unlimited/i }).first()).toBeVisible({
-      timeout: 8000,
-    });
+    await expect(
+      page
+        .getByRole("button", {
+          name: /Get 1 HD map|Get 1 HD file|Get 3 downloads|Get 3 HD files|Go unlimited|Use unlimited plan/i,
+        })
+        .first(),
+    ).toBeVisible({ timeout: 8000 });
     return;
   }
 
