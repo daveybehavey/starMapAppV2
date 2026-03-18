@@ -222,17 +222,20 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </article>
 
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
-            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/40 bg-white/10">
-              <ResilientImage
-                src={proofImages.framed}
-                fallbackSrc="/printproof/framed-catalog.jpg"
-                alt="Framed StarMapCo print preview"
-                fill
-                sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover"
-              />
-              <span className="absolute bottom-2 left-2 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
-                Real mockup
+            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/45 bg-[linear-gradient(180deg,#ece3d7_0%,#d9d0c3_100%)]">
+              <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0px,rgba(255,255,255,0.05)_2px,rgba(0,0,0,0.02)_2px,rgba(0,0,0,0.02)_4px)]" />
+              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/70 bg-[#f3ece1] shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
+                <ResilientImage
+                  src={proofImages.framed}
+                  fallbackSrc="/printproof/framed-catalog.jpg"
+                  alt="Framed StarMapCo print preview"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                />
+              </div>
+              <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
+                Wall-stage mockup
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -265,17 +268,20 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </article>
 
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
-            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/15 bg-white/10">
-              <ResilientImage
-                src={proofImages.unframed}
-                fallbackSrc="/printproof/unframed-catalog.jpg"
-                alt="Unframed StarMapCo poster preview"
-                fill
-                sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover"
-              />
-              <span className="absolute bottom-2 left-2 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
-                Real mockup
+            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/18 bg-[linear-gradient(180deg,#ece9e4_0%,#d9d4ce_100%)]">
+              <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.05)_0px,rgba(255,255,255,0.05)_2px,rgba(0,0,0,0.018)_2px,rgba(0,0,0,0.018)_4px)]" />
+              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/70 bg-[#f4f1eb] shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
+                <ResilientImage
+                  src={proofImages.unframed}
+                  fallbackSrc="/printproof/unframed-catalog.jpg"
+                  alt="Unframed StarMapCo poster preview"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                />
+              </div>
+              <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
+                Wall-stage mockup
               </span>
             </div>
             <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">

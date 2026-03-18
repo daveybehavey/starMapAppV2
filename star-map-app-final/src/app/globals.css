@@ -1151,19 +1151,21 @@ input[type="range"]:hover::-moz-range-thumb {
 .proof-wall-panel {
   position: relative;
   isolation: isolate;
-  padding: 1.4rem;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.95), rgba(243, 236, 223, 0.9));
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(248, 244, 238, 0.98), rgba(236, 229, 218, 0.96));
   border-radius: 1.5rem;
-  box-shadow: 0 30px 55px rgba(5, 9, 21, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(5, 9, 21, 0.08);
+  box-shadow: 0 16px 30px rgba(5, 9, 21, 0.16);
+  border: 1px solid rgba(5, 9, 21, 0.09);
 }
 
 .proof-wall-panel::after {
   content: "";
   position: absolute;
-  inset: 10px;
+  inset: 8px;
   border-radius: 1.3rem;
-  background: radial-gradient(circle at 20% 30%, rgba(251, 191, 36, 0.15), transparent 55%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  opacity: 0.65;
   pointer-events: none;
   z-index: 0;
 }
@@ -1174,32 +1176,48 @@ input[type="range"]:hover::-moz-range-thumb {
   height: 100%;
   border-radius: 1.35rem;
   overflow: hidden;
-  background: linear-gradient(180deg, #fefdf7, #e8dfd0);
+  background: linear-gradient(180deg, #f4eee3 0%, #e7dece 100%);
   border: 1px solid rgba(5, 9, 21, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 0 20px rgba(5, 9, 21, 0.08), 0 22px 38px rgba(5, 9, 21, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5), 0 12px 22px rgba(5, 9, 21, 0.14);
   z-index: 1;
 }
 
 .proof-wall-stage--gallery {
   background:
-    linear-gradient(180deg, rgba(255, 251, 242, 0.98), rgba(235, 226, 211, 0.96)),
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.55), transparent 36%),
-    linear-gradient(90deg, rgba(163, 145, 122, 0.08), rgba(255, 255, 255, 0.02) 12%, rgba(147, 132, 115, 0.08) 24%, rgba(255, 255, 255, 0.02) 36%, rgba(144, 129, 112, 0.08) 48%, rgba(255, 255, 255, 0.02) 60%, rgba(143, 128, 111, 0.08) 72%, rgba(255, 255, 255, 0.02) 84%, rgba(143, 128, 111, 0.08));
-  background-blend-mode: normal, screen, multiply;
+    linear-gradient(180deg, rgba(247, 241, 231, 0.98), rgba(232, 223, 208, 0.98)),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.05) 0px,
+      rgba(255, 255, 255, 0.05) 2px,
+      rgba(0, 0, 0, 0.02) 2px,
+      rgba(0, 0, 0, 0.02) 4px
+    );
+  background-blend-mode: normal, multiply;
 }
 
 .proof-wall-stage--tabletop {
   background:
-    linear-gradient(180deg, rgba(250, 244, 233, 0.98) 0%, rgba(241, 233, 219, 0.94) 62%, rgba(175, 146, 114, 0.55) 62.5%, rgba(131, 101, 74, 0.92) 100%),
-    radial-gradient(circle at 22% 20%, rgba(255, 255, 255, 0.45), transparent 32%),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03), rgba(87, 60, 35, 0.08) 18%, rgba(255, 255, 255, 0.03) 36%, rgba(87, 60, 35, 0.08) 54%, rgba(255, 255, 255, 0.03) 72%, rgba(87, 60, 35, 0.08));
-  background-blend-mode: normal, screen, multiply;
+    linear-gradient(180deg, rgba(247, 241, 232, 0.98) 0%, rgba(238, 231, 220, 0.97) 63%, rgba(206, 189, 163, 0.9) 63.5%, rgba(192, 173, 147, 0.95) 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04) 0px,
+      rgba(255, 255, 255, 0.04) 3px,
+      rgba(0, 0, 0, 0.018) 3px,
+      rgba(0, 0, 0, 0.018) 6px
+    );
+  background-blend-mode: normal, multiply;
 }
 
 .proof-wall-stage--editorial {
   background:
-    radial-gradient(circle at 24% 18%, rgba(255, 237, 201, 0.46), transparent 34%),
-    linear-gradient(180deg, rgba(252, 247, 235, 0.98) 0%, rgba(242, 233, 215, 0.96) 62%, rgba(216, 201, 177, 0.84) 62.5%, rgba(202, 186, 161, 0.92) 100%);
+    linear-gradient(180deg, rgba(245, 240, 232, 0.98) 0%, rgba(233, 226, 213, 0.97)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 4px,
+      rgba(0, 0, 0, 0.018) 4px,
+      rgba(0, 0, 0, 0.018) 8px
+    );
   background-blend-mode: screen, normal;
 }
 
@@ -1209,34 +1227,28 @@ input[type="range"]:hover::-moz-range-thumb {
   position: absolute;
   inset: 12px;
   border-radius: 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 12px 16px rgba(5, 9, 21, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 12px rgba(5, 9, 21, 0.1);
   pointer-events: none;
   z-index: 1;
 }
 
 .proof-wall-stage::after {
-  inset: 22px;
-  border-color: rgba(5, 9, 21, 0.12);
-  box-shadow: 0 35px 60px rgba(5, 9, 21, 0.35);
+  inset: auto 18px 14px;
+  height: 18%;
+  border: 0;
+  background: radial-gradient(circle, rgba(5, 9, 21, 0.16), rgba(5, 9, 21, 0));
+  box-shadow: none;
 }
 
 .proof-wall-stage--tabletop::after {
-  inset: auto 18px 14px;
-  height: 26%;
-  border-radius: 999px;
-  border: 0;
-  background: linear-gradient(180deg, rgba(46, 27, 10, 0.02), rgba(46, 27, 10, 0.18));
-  box-shadow: 0 26px 36px rgba(46, 27, 10, 0.22);
+  height: 16%;
+  background: radial-gradient(circle, rgba(74, 52, 32, 0.16), rgba(74, 52, 32, 0));
 }
 
 .proof-wall-stage--editorial::after {
-  inset: auto 16px 14px;
-  height: 24%;
-  border-radius: 999px;
-  border: 0;
-  background: radial-gradient(circle, rgba(26, 18, 8, 0.18), rgba(26, 18, 8, 0));
-  box-shadow: none;
+  height: 14%;
+  background: radial-gradient(circle, rgba(26, 18, 8, 0.14), rgba(26, 18, 8, 0));
 }
 
 .proof-wall-image {

@@ -547,14 +547,13 @@
       #physical-proof-gallery .gallery figure {
         position: relative;
         overflow: hidden;
-        border-color: rgba(255, 255, 255, 0.22);
-        background: #d8d0c4;
+        border-color: rgba(255, 255, 255, 0.18);
+        background: #e6dfd2;
       }
       #physical-proof-gallery .gallery figure::before {
         content: "";
         position: absolute;
         inset: 0;
-        transform: scale(1.03);
       }
       #physical-proof-gallery .gallery figure::after {
         content: "";
@@ -562,46 +561,44 @@
         inset: 0;
       }
       #physical-proof-gallery .gallery figure.wall-warm::before {
-        background: linear-gradient(180deg, #ece3d7 0%, #dbd1c4 100%);
+        background: linear-gradient(180deg, #f2ece2 0%, #dfd5c8 100%);
       }
       #physical-proof-gallery .gallery figure.wall-warm::after {
         background-image:
           repeating-linear-gradient(
             45deg,
-            rgba(255, 255, 255, 0.045) 0px,
-            rgba(255, 255, 255, 0.045) 2px,
-            rgba(0, 0, 0, 0.018) 2px,
-            rgba(0, 0, 0, 0.018) 4px
+            rgba(255, 255, 255, 0.05) 0px,
+            rgba(255, 255, 255, 0.05) 2px,
+            rgba(0, 0, 0, 0.02) 2px,
+            rgba(0, 0, 0, 0.02) 4px
           ),
-          radial-gradient(circle at 24% 14%, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 42%),
-          linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.12));
+          linear-gradient(180deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.1));
       }
       #physical-proof-gallery .gallery figure.wall-cool::before {
-        background: linear-gradient(180deg, #ece9e4 0%, #d9d4ce 100%);
+        background: linear-gradient(180deg, #efece6 0%, #ddd8d1 100%);
       }
       #physical-proof-gallery .gallery figure.wall-cool::after {
         background-image:
           repeating-linear-gradient(
             0deg,
-            rgba(255, 255, 255, 0.04) 0px,
-            rgba(255, 255, 255, 0.04) 2px,
-            rgba(0, 0, 0, 0.016) 2px,
-            rgba(0, 0, 0, 0.016) 4px
+            rgba(255, 255, 255, 0.05) 0px,
+            rgba(255, 255, 255, 0.05) 2px,
+            rgba(0, 0, 0, 0.018) 2px,
+            rgba(0, 0, 0, 0.018) 4px
           ),
-          radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 40%),
-          linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.11));
+          linear-gradient(180deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.1));
       }
       #physical-proof-gallery .gallery .wall-frame {
         position: relative;
         z-index: 1;
-        margin: 16px;
+        margin: 14px;
         border-radius: 14px;
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.72);
+        background: rgba(244, 239, 231, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.62);
         box-shadow:
-          0 18px 28px rgba(0, 0, 0, 0.22),
-          0 4px 10px rgba(0, 0, 0, 0.14),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.62);
+          0 12px 20px rgba(0, 0, 0, 0.18),
+          0 3px 8px rgba(0, 0, 0, 0.1),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.55);
       }
       #physical-proof-gallery .gallery .wall-frame img {
         aspect-ratio: 1 / 1;
@@ -612,9 +609,9 @@
       #physical-proof-gallery .gallery figcaption {
         position: relative;
         z-index: 1;
-        color: rgba(255, 255, 255, 0.88);
-        background: linear-gradient(180deg, rgba(12, 16, 26, 0.48), rgba(12, 16, 26, 0.64));
-        border-top: 1px solid rgba(255, 255, 255, 0.16);
+        color: rgba(255, 255, 255, 0.9);
+        background: linear-gradient(180deg, rgba(12, 16, 26, 0.44), rgba(12, 16, 26, 0.58));
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
       }
       .product-proof {
         display: grid;
