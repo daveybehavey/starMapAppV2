@@ -546,44 +546,66 @@
       }
       #physical-proof-gallery .gallery figure {
         position: relative;
-        border-color: rgba(255, 255, 255, 0.18);
-        background: #0d1427;
+        overflow: hidden;
+        border-color: rgba(255, 255, 255, 0.22);
+        background: #d8d0c4;
       }
       #physical-proof-gallery .gallery figure::before {
         content: "";
         position: absolute;
         inset: 0;
-        background-size: cover;
-        background-position: center;
-        transform: scale(1.04);
-        filter: saturate(0.78) contrast(1.04) brightness(0.94);
+        transform: scale(1.03);
       }
       #physical-proof-gallery .gallery figure::after {
         content: "";
         position: absolute;
         inset: 0;
-        background: linear-gradient(180deg, rgba(8, 12, 22, 0.18), rgba(8, 12, 22, 0.56));
       }
-      #physical-proof-gallery .gallery figure.wall-brick::before {
-        background-image: url('/printproof/backgrounds/brick-loft-wall-unsplash.jpg');
+      #physical-proof-gallery .gallery figure.wall-warm::before {
+        background-image:
+          radial-gradient(circle at 16% 14%, rgba(255, 255, 255, 0.44) 0%, rgba(255, 255, 255, 0) 36%),
+          radial-gradient(circle at 82% 84%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0) 42%),
+          linear-gradient(180deg, #eee3d1 0%, #d6c8b6 100%);
       }
-      #physical-proof-gallery .gallery figure.wall-plaster::before {
-        background-image: url('/printproof/backgrounds/gray-plaster-wall-unsplash.jpg');
+      #physical-proof-gallery .gallery figure.wall-warm::after {
+        background-image:
+          repeating-linear-gradient(
+            20deg,
+            rgba(255, 255, 255, 0.06) 0px,
+            rgba(255, 255, 255, 0.06) 2px,
+            rgba(0, 0, 0, 0.03) 2px,
+            rgba(0, 0, 0, 0.03) 4px
+          ),
+          linear-gradient(180deg, rgba(18, 22, 30, 0.1), rgba(18, 22, 30, 0.24));
       }
-      #physical-proof-gallery .gallery figure.wall-plaster::after {
-        background: linear-gradient(180deg, rgba(10, 14, 24, 0.3), rgba(10, 14, 24, 0.62));
+      #physical-proof-gallery .gallery figure.wall-cool::before {
+        background-image:
+          radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 40%),
+          radial-gradient(circle at 78% 80%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0) 44%),
+          linear-gradient(180deg, #ece9e4 0%, #d7d2cc 100%);
+      }
+      #physical-proof-gallery .gallery figure.wall-cool::after {
+        background-image:
+          repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.05) 0px,
+            rgba(255, 255, 255, 0.05) 1px,
+            rgba(0, 0, 0, 0.035) 1px,
+            rgba(0, 0, 0, 0.035) 3px
+          ),
+          linear-gradient(180deg, rgba(14, 18, 26, 0.12), rgba(14, 18, 26, 0.26));
       }
       #physical-proof-gallery .gallery .wall-frame {
         position: relative;
         z-index: 1;
-        margin: 18px;
+        margin: 22px;
         border-radius: 14px;
-        background: rgba(255, 255, 255, 0.94);
-        border: 1px solid rgba(255, 255, 255, 0.45);
+        background: rgba(250, 247, 240, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.65);
         box-shadow:
-          0 24px 38px rgba(0, 0, 0, 0.42),
-          0 4px 10px rgba(0, 0, 0, 0.24),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+          0 26px 36px rgba(0, 0, 0, 0.24),
+          0 6px 14px rgba(0, 0, 0, 0.16),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.58);
       }
       #physical-proof-gallery .gallery .wall-frame img {
         aspect-ratio: 1 / 1;
@@ -594,9 +616,9 @@
       #physical-proof-gallery .gallery figcaption {
         position: relative;
         z-index: 1;
-        color: rgba(255, 255, 255, 0.82);
-        background: rgba(10, 14, 24, 0.6);
-        border-top: 1px solid rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.88);
+        background: linear-gradient(180deg, rgba(12, 16, 26, 0.54), rgba(12, 16, 26, 0.72));
+        border-top: 1px solid rgba(255, 255, 255, 0.18);
       }
       .product-proof {
         display: grid;
@@ -1293,7 +1315,7 @@
         <h2>See the physical gift options side by side</h2>
         <p>Styled product proofs generated from current StarMapCo artwork, so you can compare the framed and unframed finishes in realistic contexts before checkout.</p>
         <div class="gallery">
-          <figure class="wall-brick">
+          <figure class="wall-warm">
             <div class="wall-frame">
               <img
                 src="/printproof/gallery/wedding-framed.jpg"
@@ -1306,7 +1328,7 @@
             </div>
             <figcaption>Framed on the wall — ready-to-hang premium gift</figcaption>
           </figure>
-          <figure class="wall-plaster">
+          <figure class="wall-cool">
             <div class="wall-frame">
               <img
                 src="/printproof/gallery/birthday-framed.jpg"
@@ -1319,7 +1341,7 @@
             </div>
             <figcaption>Second framed room view — shows the finished wall presentation</figcaption>
           </figure>
-          <figure class="wall-brick">
+          <figure class="wall-warm">
             <div class="wall-frame">
               <img
                 src="/printproof/gallery/wedding-unframed.jpg"
@@ -1332,7 +1354,7 @@
             </div>
             <figcaption>Unframed in a styled setup — lower physical cost, same artwork</figcaption>
           </figure>
-          <figure class="wall-plaster">
+          <figure class="wall-cool">
             <div class="wall-frame">
               <img
                 src="/printproof/gallery/graduation-unframed.jpg"
