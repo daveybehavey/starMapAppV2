@@ -152,7 +152,22 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - Full fix workflow:
   - `docs/merchant-center-fix-playbook.md`
 
-## 5) Release gate commands (minimum safe set)
+## 5) Loop Marketing Ops
+
+- Playbook:
+  - `docs/loop-marketing-playbook.md`
+- Weekly loop review commands:
+  - `npm run qa:commerce-digest -- --days 14`
+  - `npm run qa:funnel-reconcile -- --days 14`
+- Loop surfaces to review every week:
+  - `/success` referral + proof request cards
+  - `/download` referral + proof request cards
+- Loop data touchpoints:
+  - referral stats: `GET /api/referrals/status` (authenticated session)
+  - promo subscribers: `GET /api/promotions/subscribers` (admin token)
+  - proof publishing source-of-truth: permissioned submissions only
+
+## 6) Release gate commands (minimum safe set)
 
 Run from `star-map-app-final/`:
 
@@ -165,7 +180,7 @@ Run from `star-map-app-final/`:
 - `npm run qa:content-consistency`
 - `npm run deploy`
 
-## 6) Current production notes
+## 7) Current production notes
 
 - Print checkout is visible in production.
 - `PRINT_ORDER_SUBMISSION_ENABLED=true`

@@ -229,6 +229,11 @@ Recent status:
   - one top occasion page.
 - Build 2-3 authority assets for link earning.
 - Start social publishing cadence and UGC loops.
+- Formalize loop marketing operations:
+  - referral share loop
+  - proof/UGC trust loop
+  - promo capture lifecycle loop
+  - playbook: `docs/loop-marketing-playbook.md`
 
 ### Immediate next execution batch (March 2026)
 
@@ -259,6 +264,11 @@ Recent status:
    - keep Stripe Checkout as the single payment stack
    - prefer wallet-friendly dynamic methods (`Apple Pay`, `Google Pay`, `Link`) over adding a separate PayPal flow
    - keep async / BNPL / redirect methods off unless webhook and fulfillment flows are deliberately expanded
+8. Loop marketing setup and instrumentation:
+   - ship a weekly loop scorecard (referral, proof, promo-capture)
+   - keep referral share surface active on `/success` + `/download`
+   - operationalize proof publishing queue from permissioned submissions
+   - launch first lifecycle email sequence for promo captures
 
 ### Current Phase 4 Progress
 
@@ -272,6 +282,9 @@ Recent status:
 - Added post-purchase proof capture scaffolding on `/success` and `/download`:
   - asks buyers to email a real photo + short note
   - explicitly states nothing is published without permission
+- Added loop marketing playbook:
+  - `docs/loop-marketing-playbook.md`
+  - defines active loops, KPIs, and 30-day execution plan
 - Added a stricter server-side checkout funnel milestone:
   - `checkout_session_created` now records successful Stripe session creation separately from generic checkout intent
   - this makes it easier to diagnose whether drop-off is happening before Stripe session creation or after handoff
@@ -391,6 +404,7 @@ Recent status:
 8. Launch first social referral campaign (tracked links + source performance review cadence).
 9. Create one authority asset page (`How accurate are star maps?`) and link it from money pages.
 10. Add per-country shipping ETA language to key print CTA surfaces (homepage, paywall, download upsell).
+11. Start weekly loop-marketing scorecard and review cadence from `docs/loop-marketing-playbook.md`.
 
 ## Extended Backlog (Next 20)
 
@@ -418,6 +432,8 @@ Recent status:
    - stay on the custom renderer if the need is limited to drag/edit/style
    - evaluate `react-konva` for richer interaction without replacing the final render pipeline
    - reserve `Fabric.js` for a deliberate “mini design editor” scope, not as a casual dependency swap
+32. Build a lightweight proof-submission queue screen for faster UGC throughput.
+33. Add loop-level dashboard endpoint (referral/proof/promo) for weekly executive snapshot.
 
 ## Execution Board (Now / Next / Later)
 
