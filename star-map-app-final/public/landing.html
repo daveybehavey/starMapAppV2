@@ -541,6 +541,63 @@
         font-size: 0.85rem;
         color: rgba(255, 255, 255, 0.7);
       }
+      #physical-proof-gallery .gallery {
+        gap: 16px;
+      }
+      #physical-proof-gallery .gallery figure {
+        position: relative;
+        border-color: rgba(255, 255, 255, 0.18);
+        background: #0d1427;
+      }
+      #physical-proof-gallery .gallery figure::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-size: cover;
+        background-position: center;
+        transform: scale(1.04);
+        filter: saturate(0.78) contrast(1.04) brightness(0.94);
+      }
+      #physical-proof-gallery .gallery figure::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(8, 12, 22, 0.18), rgba(8, 12, 22, 0.56));
+      }
+      #physical-proof-gallery .gallery figure.wall-brick::before {
+        background-image: url('/printproof/backgrounds/brick-loft-wall-unsplash.jpg');
+      }
+      #physical-proof-gallery .gallery figure.wall-plaster::before {
+        background-image: url('/printproof/backgrounds/gray-plaster-wall-unsplash.jpg');
+      }
+      #physical-proof-gallery .gallery figure.wall-plaster::after {
+        background: linear-gradient(180deg, rgba(10, 14, 24, 0.3), rgba(10, 14, 24, 0.62));
+      }
+      #physical-proof-gallery .gallery .wall-frame {
+        position: relative;
+        z-index: 1;
+        margin: 18px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        box-shadow:
+          0 24px 38px rgba(0, 0, 0, 0.42),
+          0 4px 10px rgba(0, 0, 0, 0.24),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+      }
+      #physical-proof-gallery .gallery .wall-frame img {
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        border-radius: 12px;
+        background: transparent;
+      }
+      #physical-proof-gallery .gallery figcaption {
+        position: relative;
+        z-index: 1;
+        color: rgba(255, 255, 255, 0.82);
+        background: rgba(10, 14, 24, 0.6);
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
+      }
       .product-proof {
         display: grid;
         gap: 18px;
@@ -1236,48 +1293,56 @@
         <h2>See the physical gift options side by side</h2>
         <p>Styled product proofs generated from current StarMapCo artwork, so you can compare the framed and unframed finishes in realistic contexts before checkout.</p>
         <div class="gallery">
-          <figure>
-            <img
-              src="/printproof/gallery/wedding-framed.jpg"
-              alt="Framed star map hanging in a styled room"
-              loading="lazy"
-              decoding="async"
-              width="900"
-              height="900"
-            />
+          <figure class="wall-brick">
+            <div class="wall-frame">
+              <img
+                src="/printproof/gallery/wedding-framed.jpg"
+                alt="Framed star map hanging in a styled room"
+                loading="lazy"
+                decoding="async"
+                width="900"
+                height="900"
+              />
+            </div>
             <figcaption>Framed on the wall — ready-to-hang premium gift</figcaption>
           </figure>
-          <figure>
-            <img
-              src="/printproof/gallery/birthday-framed.jpg"
-              alt="Framed star map shown in a second styled room"
-              loading="lazy"
-              decoding="async"
-              width="900"
-              height="900"
-            />
+          <figure class="wall-plaster">
+            <div class="wall-frame">
+              <img
+                src="/printproof/gallery/birthday-framed.jpg"
+                alt="Framed star map shown in a second styled room"
+                loading="lazy"
+                decoding="async"
+                width="900"
+                height="900"
+              />
+            </div>
             <figcaption>Second framed room view — shows the finished wall presentation</figcaption>
           </figure>
-          <figure>
-            <img
-              src="/printproof/gallery/wedding-unframed.jpg"
-              alt="Unframed star map shown in a styled setup"
-              loading="lazy"
-              decoding="async"
-              width="900"
-              height="900"
-            />
+          <figure class="wall-brick">
+            <div class="wall-frame">
+              <img
+                src="/printproof/gallery/wedding-unframed.jpg"
+                alt="Unframed star map shown in a styled setup"
+                loading="lazy"
+                decoding="async"
+                width="900"
+                height="900"
+              />
+            </div>
             <figcaption>Unframed in a styled setup — lower physical cost, same artwork</figcaption>
           </figure>
-          <figure>
-            <img
-              src="/printproof/gallery/graduation-unframed.jpg"
-              alt="Unframed star map poster shown in another styled context"
-              loading="lazy"
-              decoding="async"
-              width="900"
-              height="900"
-            />
+          <figure class="wall-plaster">
+            <div class="wall-frame">
+              <img
+                src="/printproof/gallery/graduation-unframed.jpg"
+                alt="Unframed star map poster shown in another styled context"
+                loading="lazy"
+                decoding="async"
+                width="900"
+                height="900"
+              />
+            </div>
             <figcaption>Second unframed context view — best if you already have your own frame plan</figcaption>
           </figure>
         </div>

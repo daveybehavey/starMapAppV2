@@ -23,7 +23,7 @@ import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
-import { getPrintfulShippingRate } from "@/lib/printfulShipping";
+import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
 
@@ -65,7 +65,8 @@ function siteOrigin() {
 }
 
 function parseAllowedShippingCountries(raw: string | undefined) {
-  const fallback: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[] = ["US"];
+  const shippingMapFallback = getPrintfulShippingCountries().filter((token) => /^[A-Z]{2}$/.test(token));
+  const fallback = (shippingMapFallback.length ? shippingMapFallback : ["US"]) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
   if (!raw) return fallback;
   const parsed = raw
     .split(",")

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getFunnelDashboard } from "@/lib/funnel";
 import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
 import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
+import { getReferralDashboard } from "@/lib/referralDashboard";
 import { FunnelCsvDownloader } from "@/components/funnel/FunnelCsvDownloader";
 
 export const dynamic = "force-dynamic";
@@ -84,10 +85,11 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
     );
   }
 
-  const [dashboard, checkoutDiagnostics, promotionSubscribers] = await Promise.all([
+  const [dashboard, checkoutDiagnostics, promotionSubscribers, referralDashboard] = await Promise.all([
     getFunnelDashboard(days),
     getCheckoutFailureDashboard(days),
     getPromotionSubscriberSummary(500),
+    getReferralDashboard(days),
   ]);
   const lastStep = dashboard.rows[dashboard.rows.length - 1];
   const landingTotal = dashboard.rows.find((row) => row.step === "landing_view")?.total ?? 0;
@@ -191,6 +193,23 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
               {promotionSubscribers.total.toLocaleString()} total • {promotionSubscribers.unsubscribed.toLocaleString()} unsubscribed
             </p>
           </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Referral conversions</p>
+            <p className="text-2xl font-bold">{referralDashboard.lastNDays.conversions.toLocaleString()}</p>
+            <p className="text-sm text-neutral-400">
+              {referralDashboard.lastNDays.rewardsGrantedCredits.toLocaleString()} credits granted •{" "}
+              {referralDashboard.lastNDays.rewardSkips.toLocaleString()} skips in last {days}d
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Referral reversals</p>
+            <p className="text-2xl font-bold">
+              {referralDashboard.lastNDays.conversionReversals.toLocaleString()}
+            </p>
+            <p className="text-sm text-neutral-400">
+              conversion reversals • {referralDashboard.lastNDays.rewardReversals.toLocaleString()} reward reversals
+            </p>
+          </div>
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4 md:col-span-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Top checkout blocker</p>
             <p className="text-2xl font-bold">{topCheckoutBlocker?.reason ?? "No recorded blockers"}</p>
@@ -198,7 +217,37 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
               {topCheckoutBlocker ? `${topCheckoutBlocker.lastNDays.toLocaleString()} in the last ${days} days` : "No server-side checkout failures recorded."}
             </p>
           </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4 md:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Top referral skip reasons</p>
+            <p className="text-sm text-neutral-300">
+              {referralDashboard.topSkipReasons.length > 0
+                ? referralDashboard.topSkipReasons.map((entry) => `${entry.value} (${entry.count})`).join(" • ")
+                : "No skip reasons recorded in this window."}
+            </p>
+            <p className="mt-2 text-xs text-neutral-400">
+              Offer variants:{" "}
+              {referralDashboard.topOfferVariants.length > 0
+                ? referralDashboard.topOfferVariants.map((entry) => `${entry.value} (${entry.count})`).join(" • ")
+                : "none"}
+            </p>
+          </div>
         </div>
+        {referralDashboard.topReferrers.length > 0 ? (
+          <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
+            <h2 className="text-sm font-semibold text-white">Top referral codes (last {days}d)</h2>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {referralDashboard.topReferrers.map((entry) => (
+                <div key={entry.code} className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+                  <p className="text-sm font-medium text-white">{entry.code}</p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    {entry.conversions.toLocaleString()} conversions • {entry.rewardsGranted.toLocaleString()} credits granted •{" "}
+                    {entry.rewardSkips.toLocaleString()} skips
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {checkoutDiagnostics.rows.length > 0 ? (
           <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center justify-between gap-3">

@@ -38,6 +38,7 @@
     "seo:scoreboard": "node scripts/seo-scoreboard.mjs",
     "qa:live-conversion": "node scripts/live-conversion-qa.mjs",
     "qa:live-smoke": "node scripts/live-smoke.mjs --site https://starmapco.com",
+    "qa:content-consistency": "node scripts/content-consistency-sweep.mjs --site https://starmapco.com",
     "qa:ga4-smoke": "node scripts/ga4-smoke.mjs",
     "qa:sitemap-health": "node scripts/sitemap-health.mjs",
     "qa:merchant-feed": "node scripts/merchant-feed-health.mjs",
