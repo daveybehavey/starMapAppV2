@@ -29,6 +29,7 @@ import {
   isValidIsoDateInput,
   toISODate,
 } from "@/lib/dateInput";
+import { trackFunnelStep } from "@/lib/analytics";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -543,6 +544,10 @@ export function SimplifiedEditor() {
       // Create checkout session
       const checkoutPayload: { mapId?: string; plan: string } = { plan: "single" };
       if (mapId) checkoutPayload.mapId = mapId;
+      trackFunnelStep("checkout_started", {
+        source: "simplified_editor",
+        plan: "single",
+      });
 
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 30000);

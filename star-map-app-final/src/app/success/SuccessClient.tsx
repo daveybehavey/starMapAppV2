@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { track, trackBeginCheckout, trackPurchaseCompleted, trackSelectItem, trackViewItemList } from "@/lib/analytics";
+import {
+  track,
+  trackBeginCheckout,
+  trackFunnelStep,
+  trackPurchaseCompleted,
+  trackSelectItem,
+  trackViewItemList,
+} from "@/lib/analytics";
 import {
   formatPrice,
   getPricingTiers,
@@ -166,6 +173,10 @@ export default function SuccessClient() {
     setDigitalAddOnLoading(true);
     setMessage(null);
     try {
+      trackFunnelStep("checkout_started", {
+        source: "success",
+        plan: "single",
+      });
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

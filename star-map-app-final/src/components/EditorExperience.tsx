@@ -1030,6 +1030,12 @@ export function EditorExperience({
           promoApplied: Boolean(promoCode),
           referralApplied: Boolean(referralCode),
         });
+        trackFunnelStep("checkout_started", {
+          source: previewSource,
+          plan: orderType === "print" ? printVariant : plan,
+          experiment: PAYWALL_COPY_EXPERIMENT,
+          variant: paywallVariant,
+        });
         trackBeginCheckout({
           source: previewSource,
           plan,

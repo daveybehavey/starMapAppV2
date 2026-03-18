@@ -288,6 +288,10 @@ Recent status:
 - Added a stricter server-side checkout funnel milestone:
   - `checkout_session_created` now records successful Stripe session creation separately from generic checkout intent
   - this makes it easier to diagnose whether drop-off is happening before Stripe session creation or after handoff
+- Tightened checkout intent semantics (March 18, 2026):
+  - `checkout_started` now records on the client at real checkout initiation points (editor, simplified editor, success add-on, download print)
+  - `/api/checkout` now records `checkout_request_received` + `checkout_session_created` without duplicating `checkout_started`
+  - this makes `checkout_started -> checkout_request_received` a true pre-API handoff metric instead of a blended server proxy
 - Hardened the promo signup system:
   - signed unsubscribe links are now included in promo emails
   - `/unsubscribe` now records opt-outs instead of only claiming unsubscribe support

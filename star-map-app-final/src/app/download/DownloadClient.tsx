@@ -860,6 +860,10 @@ export default function DownloadClient() {
           }
           throw new Error("asset_upload_failed");
         }
+        trackFunnelStep("checkout_started", {
+          source: "download",
+          plan: variant,
+        });
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
