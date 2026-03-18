@@ -54,6 +54,10 @@ const printMarginGuardEnabled = parseBool(
 );
 const minPrintMarginRaw = (process.env.PRINT_MIN_MARGIN_CENTS || "").trim();
 const minPrintMarginCents = minPrintMarginRaw ? Number.parseInt(minPrintMarginRaw, 10) : 0;
+const referralCap24hRaw = (process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_24H || "").trim();
+const referralCap24h = referralCap24hRaw ? Number.parseInt(referralCap24hRaw, 10) : 0;
+const referralCap30dRaw = (process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_30D || "").trim();
+const referralCap30d = referralCap30dRaw ? Number.parseInt(referralCap30dRaw, 10) : 0;
 const geoPricingEnabled = parseBool(
   process.env.GEO_DIGITAL_SINGLE_PRICING_ENABLED,
   "GEO_DIGITAL_SINGLE_PRICING_ENABLED",
@@ -102,6 +106,17 @@ if (Number.isFinite(minPrintMarginCents) && minPrintMarginCents < 0) {
 }
 if (printMarginGuardEnabled && minPrintMarginCents <= 0) {
   warnings.push("PRINT_MARGIN_GUARD_ENABLED=true but PRINT_MIN_MARGIN_CENTS is not > 0.");
+}
+if (referralCap24hRaw && (!Number.isFinite(referralCap24h) || referralCap24h < 0)) {
+  issues.push("REFERRAL_MAX_REWARDS_PER_REFERRER_24H must be a non-negative integer when set.");
+}
+if (referralCap30dRaw && (!Number.isFinite(referralCap30d) || referralCap30d < 0)) {
+  issues.push("REFERRAL_MAX_REWARDS_PER_REFERRER_30D must be a non-negative integer when set.");
+}
+if (referralCap24h > 0 && referralCap30d > 0 && referralCap24h > referralCap30d) {
+  warnings.push(
+    "REFERRAL_MAX_REWARDS_PER_REFERRER_24H is higher than REFERRAL_MAX_REWARDS_PER_REFERRER_30D; caps may not behave as expected.",
+  );
 }
 
 if (geoPricingEnabled) {

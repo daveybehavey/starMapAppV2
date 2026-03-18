@@ -45,7 +45,14 @@ const referralMaxRewardsPerReferrer30d = (() => {
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
   return parsed;
 })();
-const REFERRAL_REWARD_CAP_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const referralMaxRewardsPerReferrer24h = (() => {
+  const raw = process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_24H?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return parsed;
+})();
+const REFERRAL_REWARD_CAP_WINDOW_24H_MS = 24 * 60 * 60 * 1000;
+const REFERRAL_REWARD_CAP_WINDOW_30D_MS = 30 * 24 * 60 * 60 * 1000;
 const stripe =
   stripeSecret &&
   new Stripe(stripeSecret, {
@@ -164,9 +171,9 @@ function getReferralOfferVariant(session: Stripe.Checkout.Session) {
   return value || undefined;
 }
 
-async function countRecentReferralRewards(code: string, now = Date.now()) {
+async function countRecentReferralRewards(code: string, windowMs: number, now = Date.now()) {
   const events = await getReferralEvents(code, 200);
-  const windowStart = now - REFERRAL_REWARD_CAP_WINDOW_MS;
+  const windowStart = now - windowMs;
   return events.reduce((count, event) => {
     if (event.type !== "reward_granted") return count;
     if (event.createdAt < windowStart) return count;
@@ -449,10 +456,24 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   let rewardSkipReason: string | undefined;
   if (rewardEligible) {
     if (referrer.plan !== "subscription") {
-      if (referralMaxRewardsPerReferrer30d > 0) {
-        const recentRewardCount = await countRecentReferralRewards(referralCode, timestamp);
-        if (recentRewardCount >= referralMaxRewardsPerReferrer30d) {
-          rewardSkipReason = "reward_cap_reached";
+      if (referralMaxRewardsPerReferrer24h > 0) {
+        const recentRewardCount24h = await countRecentReferralRewards(
+          referralCode,
+          REFERRAL_REWARD_CAP_WINDOW_24H_MS,
+          timestamp,
+        );
+        if (recentRewardCount24h >= referralMaxRewardsPerReferrer24h) {
+          rewardSkipReason = "reward_cap_24h_reached";
+        }
+      }
+      if (!rewardSkipReason && referralMaxRewardsPerReferrer30d > 0) {
+        const recentRewardCount30d = await countRecentReferralRewards(
+          referralCode,
+          REFERRAL_REWARD_CAP_WINDOW_30D_MS,
+          timestamp,
+        );
+        if (recentRewardCount30d >= referralMaxRewardsPerReferrer30d) {
+          rewardSkipReason = "reward_cap_30d_reached";
         }
       }
       if (!rewardSkipReason) {

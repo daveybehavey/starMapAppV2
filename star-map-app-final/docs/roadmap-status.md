@@ -282,6 +282,9 @@ Recent status:
 - Expanded operator payment-method visibility:
   - `qa:commerce-digest` now reports paid payment-method mix across all paid sessions plus digital/print splits
   - `live-conversion-qa` discounted fallback now uses wallet-friendly payment method configuration (if configured) instead of forcing card-only
+- Tightened referral anti-abuse controls:
+  - added optional `REFERRAL_MAX_REWARDS_PER_REFERRER_24H` cap for rapid repeat rewards
+  - webhook reward logic now checks 24-hour cap before 30-day cap
 - Added post-purchase proof capture scaffolding on `/success` and `/download`:
   - asks buyers to email a real photo + short note
   - explicitly states nothing is published without permission
