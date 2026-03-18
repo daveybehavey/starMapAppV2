@@ -115,6 +115,8 @@ export function MobileCreate({
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
+  const [showOccasionPresets, setShowOccasionPresets] = useState(() => !isQuick);
+  const [showProPresets, setShowProPresets] = useState(() => !isQuick);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
   const revealTimerRef = useRef<number | null>(null);
@@ -163,6 +165,12 @@ export function MobileCreate({
     },
     [hookApplyPreset]
   );
+
+  useEffect(() => {
+    if (selectedOccasion) {
+      setShowOccasionPresets(true);
+    }
+  }, [selectedOccasion]);
 
   // Restore selectedOccasion from draft on mount
   useEffect(() => {
@@ -245,6 +253,7 @@ export function MobileCreate({
   );
 
   const handleStartPreset = useCallback(() => {
+    setShowOccasionPresets(true);
     presetRailRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
@@ -410,37 +419,40 @@ export function MobileCreate({
             Create your star map
           </p>
           <h2 className="text-3xl font-semibold text-white sm:text-4xl">
-            Design your sky in seconds
+            Build your map in 3 quick steps
           </h2>
           <p className="text-base text-neutral-200">
-            Start from a preset, fine-tune the details, and see a finished map before you unlock.
+            Enter date and place, add your title, then generate a free preview.
           </p>
+          <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-300">
+            <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">1. Date + place</span>
+            <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">2. Title</span>
+            <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">3. Preview</span>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={handleStartPreset}
-              className="rounded-full border border-amber-200/40 bg-amber-100/10 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:border-amber-200/70 hover:bg-amber-100/20"
+              onClick={applySampleMoment}
+              className="rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
             >
-              Start with a preset
+              Try a sample moment
+            </button>
+            <button
+              type="button"
+              onClick={handleStartPreset}
+              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
+            >
+              Browse occasion presets
             </button>
             <button
               type="button"
               onClick={handleStartScratch}
               className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
             >
-              Start from scratch
+              Start empty
             </button>
           </div>
-          <button
-            type="button"
-            onClick={applySampleMoment}
-            className="w-fit text-xs font-semibold text-amber-200/80 underline decoration-amber-200/40 underline-offset-4 transition hover:text-amber-100"
-          >
-            Try a sample moment
-          </button>
-          <p className="text-xs text-neutral-300">
-            Preset optional · Add date + location · Add a line of text → Preview
-          </p>
+          <p className="text-xs text-neutral-300">Need deeper control? Use “Customize more” after preview.</p>
         </div>
       )}
 
@@ -451,11 +463,15 @@ export function MobileCreate({
           className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-sm shadow-black/30"
         >
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-white">Choose an Occasion</h3>
+            <h3 className="text-xs font-semibold text-white">Occasion presets</h3>
             <div className="flex items-center gap-2">
-              <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-200">
-                Presets optional
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowOccasionPresets((prev) => !prev)}
+                className="rounded-full border border-white/15 bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-200 transition hover:border-white/25 hover:bg-white/12"
+              >
+                {showOccasionPresets ? "Hide presets" : "Show presets"}
+              </button>
               {customOccasion && (
                 <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-200">
                   Custom
@@ -463,41 +479,49 @@ export function MobileCreate({
               )}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {occasionPresets.map((preset) => {
-              const occasionStyles = {
-                wedding: "border-pink-300/40 bg-gradient-to-br from-pink-100/15 to-rose-100/15 text-pink-100 hover:border-pink-300/60 hover:bg-pink-100/20",
-                anniversary: "border-amber-300/40 bg-gradient-to-br from-amber-100/15 to-orange-100/15 text-amber-100 hover:border-amber-300/60 hover:bg-amber-100/20",
-                birthday: "border-cyan-300/40 bg-gradient-to-br from-cyan-100/15 to-blue-100/15 text-cyan-100 hover:border-cyan-300/60 hover:bg-cyan-100/20",
-                birth: "border-green-300/40 bg-gradient-to-br from-green-100/15 to-emerald-100/15 text-green-100 hover:border-green-300/60 hover:bg-green-100/20",
-                memorial: "border-purple-300/40 bg-gradient-to-br from-purple-100/15 to-violet-100/15 text-purple-100 hover:border-purple-300/60 hover:bg-purple-100/20",
-                graduation: "border-yellow-300/40 bg-gradient-to-br from-yellow-100/15 to-amber-100/15 text-yellow-100 hover:border-yellow-300/60 hover:bg-yellow-100/20",
-              };
+          {showOccasionPresets ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {occasionPresets.map((preset) => {
+                  const occasionStyles = {
+                    wedding: "border-pink-300/40 bg-gradient-to-br from-pink-100/15 to-rose-100/15 text-pink-100 hover:border-pink-300/60 hover:bg-pink-100/20",
+                    anniversary: "border-amber-300/40 bg-gradient-to-br from-amber-100/15 to-orange-100/15 text-amber-100 hover:border-amber-300/60 hover:bg-amber-100/20",
+                    birthday: "border-cyan-300/40 bg-gradient-to-br from-cyan-100/15 to-blue-100/15 text-cyan-100 hover:border-cyan-300/60 hover:bg-cyan-100/20",
+                    birth: "border-green-300/40 bg-gradient-to-br from-green-100/15 to-emerald-100/15 text-green-100 hover:border-green-300/60 hover:bg-green-100/20",
+                    memorial: "border-purple-300/40 bg-gradient-to-br from-purple-100/15 to-violet-100/15 text-purple-100 hover:border-purple-300/60 hover:bg-purple-100/20",
+                    graduation: "border-yellow-300/40 bg-gradient-to-br from-yellow-100/15 to-amber-100/15 text-yellow-100 hover:border-yellow-300/60 hover:bg-yellow-100/20",
+                  };
 
-              const occasionEmojis = {
-                wedding: "💍",
-                anniversary: "❤️",
-                birthday: "🎉",
-                birth: "👶",
-                memorial: "🕊️",
-                graduation: "🎓",
-              };
+                  const occasionEmojis = {
+                    wedding: "💍",
+                    anniversary: "❤️",
+                    birthday: "🎉",
+                    birth: "👶",
+                    memorial: "🕊️",
+                    graduation: "🎓",
+                  };
 
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => applyPreset(preset.id)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-95 ${
-                    occasionStyles[preset.id as keyof typeof occasionStyles]
-                  } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70 btn-selection-pulse btn-selected-glow" : ""}`}
-                >
-                  {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
-                </button>
-              );
-            })}
-          </div>
-          {presetHint && <p className="mt-2 text-xs text-amber-100/80">{presetHint}</p>}
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPreset(preset.id)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-95 ${
+                        occasionStyles[preset.id as keyof typeof occasionStyles]
+                      } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70 btn-selection-pulse btn-selected-glow" : ""}`}
+                    >
+                      {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {presetHint && <p className="mt-2 text-xs text-amber-100/80">{presetHint}</p>}
+            </>
+          ) : (
+            <p className="text-xs text-neutral-300">
+              Keep this hidden if you already know the exact date and location.
+            </p>
+          )}
         </section>
       )}
 
@@ -523,37 +547,45 @@ export function MobileCreate({
               <h3 className="text-xs font-semibold text-white">Pro Presets</h3>
               <p className="text-[10px] text-neutral-300">Curated looks with balanced typography.</p>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] uppercase tracking-wide text-neutral-200">
-              New
-            </span>
+            <button
+              type="button"
+              onClick={() => setShowProPresets((prev) => !prev)}
+              className="rounded-full border border-white/15 bg-white/8 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-200 transition hover:border-white/25 hover:bg-white/12"
+            >
+              {showProPresets ? "Hide" : "Show"}
+            </button>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {proPresets.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyProPreset(preset.id)}
-                className={`group overflow-hidden rounded-lg border bg-[#0b0f24]/80 text-left shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:shadow-lg active:scale-[0.98] ${
-                  selectedOccasion === preset.id ? "border-amber-300/70 ring-1 ring-amber-300/30 btn-selection-pulse btn-selected-glow" : "border-white/10"
-                }`}
-              >
-                <div className="relative aspect-[4/5] overflow-hidden">
-                  <Image
-                    src={preset.thumbnail}
-                    alt={preset.label}
-                    fill
-                    loading="lazy"
-                    sizes="(min-width: 640px) 180px, 45vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                </div>
-                <div className="border-t border-white/10 px-2 py-2">
-                  <div className="text-xs font-semibold text-white">{preset.label}</div>
-                  <div className="text-[10px] text-neutral-300">{preset.note}</div>
-                </div>
-              </button>
-            ))}
-          </div>
+          {showProPresets ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {proPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyProPreset(preset.id)}
+                  className={`group overflow-hidden rounded-lg border bg-[#0b0f24]/80 text-left shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:shadow-lg active:scale-[0.98] ${
+                    selectedOccasion === preset.id ? "border-amber-300/70 ring-1 ring-amber-300/30 btn-selection-pulse btn-selected-glow" : "border-white/10"
+                  }`}
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden">
+                    <Image
+                      src={preset.thumbnail}
+                      alt={preset.label}
+                      fill
+                      loading="lazy"
+                      sizes="(min-width: 640px) 180px, 45vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="border-t border-white/10 px-2 py-2">
+                    <div className="text-xs font-semibold text-white">{preset.label}</div>
+                    <div className="text-[10px] text-neutral-300">{preset.note}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-neutral-300">Show this when you want curated style shortcuts.</p>
+          )}
         </section>
       )}
 

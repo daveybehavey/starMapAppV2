@@ -1,8 +1,49 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { applySampleMoment, gotoEditor, primeLocalStorage } from "./test-helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 test.setTimeout(60_000);
+
+async function ensureOccasionPresetsOpen(page: Page) {
+  const weddingPreset = page.getByRole("button", { name: /Wedding/i }).first();
+  if (await weddingPreset.isVisible({ timeout: 1200 }).catch(() => false)) {
+    return;
+  }
+
+  const browseOccasions = page.getByRole("button", { name: /Browse occasion presets/i }).first();
+  if (await browseOccasions.isVisible({ timeout: 1200 }).catch(() => false)) {
+    await browseOccasions.click();
+  }
+
+  if (await weddingPreset.isVisible({ timeout: 1200 }).catch(() => false)) {
+    return;
+  }
+
+  const sectionToggle = page
+    .locator("section,div")
+    .filter({ hasText: /Occasion presets/i })
+    .getByRole("button", { name: /Show presets/i })
+    .first();
+  if (await sectionToggle.isVisible({ timeout: 1200 }).catch(() => false)) {
+    await sectionToggle.click();
+  }
+}
+
+async function ensureProPresetsOpen(page: Page) {
+  const auroraPreset = page.getByRole("button", { name: /Aurora Night/i }).first();
+  if (await auroraPreset.isVisible({ timeout: 1200 }).catch(() => false)) {
+    return;
+  }
+
+  const showToggle = page
+    .locator("section,div")
+    .filter({ hasText: /Pro Presets/i })
+    .getByRole("button", { name: /^Show$/i })
+    .first();
+  if (await showToggle.isVisible({ timeout: 1200 }).catch(() => false)) {
+    await showToggle.click();
+  }
+}
 
 test("homepage date field auto-formats 8-digit iOS-style input", async ({ browser }) => {
   const context = await browser.newContext();
@@ -235,6 +276,7 @@ test("homepage delivery section links to format comparison and shipping details"
 
 test("occasion preset preserves manual location context", async ({ page }) => {
   await gotoEditor(page, { force: "desktop" });
+  await ensureOccasionPresetsOpen(page);
   const locationInput = page.getByPlaceholder("Search city, landmark, or address");
   await expect(locationInput).toBeVisible();
 
@@ -262,6 +304,7 @@ test("occasion preset preserves manual location context", async ({ page }) => {
 
 test("occasion preset auto-fills date and location", async ({ page }) => {
   await gotoEditor(page, { force: "desktop" });
+  await ensureOccasionPresetsOpen(page);
   const locationInput = page.getByPlaceholder("Search city, landmark, or address");
   await expect(locationInput).toBeVisible();
 
@@ -290,6 +333,7 @@ test("pro preset updates the message styling", async ({ page }) => {
 
   // Find and click a pro preset card
   await expect(page.getByText("Pro Presets")).toBeVisible();
+  await ensureProPresetsOpen(page);
   const auroraPreset = page.getByRole("button", { name: /Aurora Night/i });
   await expect(auroraPreset).toBeVisible();
   await auroraPreset.click();
