@@ -128,6 +128,12 @@ if (printCheckoutEnabled && !hasValue("STRIPE_WEBHOOK_SECRET")) {
   issues.push("PRINT_CHECKOUT_ENABLED=true requires STRIPE_WEBHOOK_SECRET.");
 }
 
+if (printCheckoutEnabled && !hasValue("STRIPE_PAYMENT_METHOD_CONFIGURATION_ID")) {
+  warnings.push(
+    "STRIPE_PAYMENT_METHOD_CONFIGURATION_ID is not set. Checkout may fall back to dashboard defaults instead of wallet-optimized method configuration.",
+  );
+}
+
 if (printCheckoutEnabled && !hasPrintShippingConfig) {
   issues.push("PRINT_CHECKOUT_ENABLED=true requires explicit print shipping configuration.");
 }

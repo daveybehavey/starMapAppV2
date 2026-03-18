@@ -134,6 +134,86 @@ function topBuckets(map, labelKey) {
     .map(([name, count]) => ({ [labelKey]: name, count }));
 }
 
+function normalizeToken(value) {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase();
+}
+
+function classifyResolvedPaymentMethod(paymentIntent) {
+  if (!paymentIntent || typeof paymentIntent !== "object") return "unknown";
+  const paymentMethod = paymentIntent.payment_method;
+  if (!paymentMethod || typeof paymentMethod === "string") return "unknown";
+
+  const paymentMethodType = normalizeToken(paymentMethod.type);
+  if (paymentMethodType === "card") {
+    const walletType = normalizeToken(paymentMethod.card?.wallet?.type);
+    if (walletType === "apple_pay") return "apple_pay";
+    if (walletType === "google_pay") return "google_pay";
+    if (walletType === "link") return "link";
+    if (walletType) return `wallet_${walletType}`;
+    return "card";
+  }
+
+  if (paymentMethodType === "link") return "link";
+  if (!paymentMethodType) return "unknown";
+  return paymentMethodType;
+}
+
+async function resolvePaidSessionPaymentMethods(stripe, paidSessions) {
+  const intentCache = new Map();
+  const bySessionId = new Map();
+  const totals = new Map();
+
+  for (const session of paidSessions) {
+    const sessionId = typeof session.id === "string" ? session.id : "";
+    if (!sessionId) continue;
+
+    const paymentStatus = String(session.payment_status || "");
+    const paymentIntentRef = session.payment_intent;
+    const paymentIntentId =
+      typeof paymentIntentRef === "string"
+        ? paymentIntentRef
+        : typeof paymentIntentRef?.id === "string"
+          ? paymentIntentRef.id
+          : "";
+
+    if (paymentStatus === "no_payment_required" || (!paymentIntentId && Number(session.amount_total || 0) <= 0)) {
+      const method = "no_payment_required";
+      bySessionId.set(sessionId, method);
+      incrementBucket(totals, method);
+      continue;
+    }
+
+    if (!paymentIntentId) {
+      const method = "unknown";
+      bySessionId.set(sessionId, method);
+      incrementBucket(totals, method);
+      continue;
+    }
+
+    let paymentIntent = intentCache.get(paymentIntentId);
+    if (!paymentIntent) {
+      try {
+        paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+          expand: ["payment_method"],
+        });
+        intentCache.set(paymentIntentId, paymentIntent);
+      } catch {
+        const method = "lookup_failed";
+        bySessionId.set(sessionId, method);
+        incrementBucket(totals, method);
+        continue;
+      }
+    }
+
+    const method = classifyResolvedPaymentMethod(paymentIntent);
+    bySessionId.set(sessionId, method);
+    incrementBucket(totals, method);
+  }
+
+  return { bySessionId, totals };
+}
+
 async function getFunnelData(site, days) {
   const token = process.env.FUNNEL_DASHBOARD_TOKEN?.trim() || "";
   const res = await fetch(`${site}/api/analytics/funnel?days=${days}`, {
@@ -197,10 +277,7 @@ async function getPromotionSubscribers(site) {
   };
 }
 
-async function loadSessions(days) {
-  const stripeSecret = process.env.STRIPE_SECRET_KEY?.trim() || "";
-  if (!stripeSecret) throw new Error("Missing STRIPE_SECRET_KEY");
-  const stripe = new Stripe(stripeSecret);
+async function loadSessions(stripe, days) {
   const createdGte = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
   const sessions = [];
   let startingAfter = undefined;
@@ -235,26 +312,39 @@ async function getPrintStatus(site, sessionId, adminToken) {
 }
 
 async function buildReport(args) {
+  const stripeSecret = process.env.STRIPE_SECRET_KEY?.trim() || "";
+  if (!stripeSecret) throw new Error("Missing STRIPE_SECRET_KEY");
+  const stripe = new Stripe(stripeSecret);
+
   const [funnel, checkoutDiagnostics, promotionSubscribers, sessions] = await Promise.all([
     getFunnelData(args.site, args.days),
     getCheckoutDiagnostics(args.site, args.days),
     getPromotionSubscribers(args.site),
-    loadSessions(args.days),
+    loadSessions(stripe, args.days),
   ]);
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session));
   const digitalPaid = paidSessions.filter((session) => classifyOrder(session) === "digital");
   const printPaid = paidSessions.filter((session) => classifyOrder(session) === "print");
+  const paymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, paidSessions);
 
   const digitalPlanCounts = new Map();
   const printVariantCounts = new Map();
   const referralSourceCounts = new Map();
+  const paidPaymentMethodCounts = new Map();
+  const digitalPaymentMethodCounts = new Map();
+  const printPaymentMethodCounts = new Map();
 
   let digitalRevenueCents = 0;
   let printRevenueCents = 0;
 
   for (const session of digitalPaid) {
     incrementBucket(digitalPlanCounts, getPlan(session));
+    const paymentMethod = paymentMethodMix.bySessionId.get(session.id);
+    if (paymentMethod) {
+      incrementBucket(paidPaymentMethodCounts, paymentMethod);
+      incrementBucket(digitalPaymentMethodCounts, paymentMethod);
+    }
     digitalRevenueCents += Number(session.amount_total || 0);
     const referralSource = getReferralSource(session);
     if (referralSource) incrementBucket(referralSourceCounts, referralSource);
@@ -262,6 +352,11 @@ async function buildReport(args) {
 
   for (const session of printPaid) {
     incrementBucket(printVariantCounts, getPrintVariant(session));
+    const paymentMethod = paymentMethodMix.bySessionId.get(session.id);
+    if (paymentMethod) {
+      incrementBucket(paidPaymentMethodCounts, paymentMethod);
+      incrementBucket(printPaymentMethodCounts, paymentMethod);
+    }
     printRevenueCents += Number(session.amount_total || 0);
     const referralSource = getReferralSource(session);
     if (referralSource) incrementBucket(referralSourceCounts, referralSource);
@@ -337,6 +432,9 @@ async function buildReport(args) {
       currency: "usd",
       digitalPlanCounts: topBuckets(digitalPlanCounts, "plan"),
       printVariantCounts: topBuckets(printVariantCounts, "variant"),
+      paidPaymentMethods: topBuckets(paidPaymentMethodCounts, "method"),
+      digitalPaymentMethods: topBuckets(digitalPaymentMethodCounts, "method"),
+      printPaymentMethods: topBuckets(printPaymentMethodCounts, "method"),
       referralPaidSources: topBuckets(referralSourceCounts, "source"),
     },
     printOps,
@@ -377,6 +475,21 @@ function printHumanReport(report) {
   } else {
     for (const item of report.stripe.printVariantCounts) {
       console.log(`${item.variant}: ${item.count}`);
+    }
+  }
+
+  console.log("");
+  console.log("Paid payment methods");
+  if (!report.stripe.paidPaymentMethods.length) {
+    console.log("none");
+  } else {
+    for (const item of report.stripe.paidPaymentMethods) {
+      console.log(`${item.method}: ${item.count}`);
+    }
+    const methodList = report.stripe.paidPaymentMethods.slice(0, 5).map((item) => `${item.method}:${item.count}`);
+    if (methodList.length) {
+      console.log(`Digital mix: ${report.stripe.digitalPaymentMethods.map((item) => `${item.method}:${item.count}`).join(", ") || "none"}`);
+      console.log(`Print mix: ${report.stripe.printPaymentMethods.map((item) => `${item.method}:${item.count}`).join(", ") || "none"}`);
     }
   }
 

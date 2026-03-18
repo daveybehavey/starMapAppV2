@@ -32,7 +32,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Promo codes**: `https://dashboard.stripe.com/coupons`
 - **Wallet/payment-method audit**:
   - `npm run qa:stripe-payment-methods`
-  - Confirms current Stripe payment-method configuration for `card`, `Apple Pay`, `Google Pay`, `Link`, and `PayPal`
+  - Confirms current Stripe payment-method configuration for `card`, `Apple Pay`, `Google Pay`, and `Link`
+  - Keep `PayPal` off unless we intentionally expand checkout methods and fulfillment handling
+  - `npm run qa:commerce-digest -- --days 14` now shows paid payment-method mix (overall + digital + print)
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion

@@ -132,6 +132,7 @@ async function createOneTimePromo(stripe) {
 
 async function createDiscountedCheckoutSession(stripe, site, promotionCodeId) {
   const singlePriceId = (process.env.STRIPE_PRICE_ID_SINGLE || "").trim();
+  const paymentMethodConfigurationId = (process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID || "").trim();
   if (!singlePriceId) {
     throw new Error("STRIPE_PRICE_ID_SINGLE is required for discounted checkout fallback");
   }
@@ -144,7 +145,9 @@ async function createDiscountedCheckoutSession(stripe, site, promotionCodeId) {
     line_items: [{ price: singlePriceId, quantity: 1 }],
     discounts: [{ promotion_code: promotionCodeId }],
     billing_address_collection: "auto",
-    payment_method_types: ["card"],
+    ...(paymentMethodConfigurationId
+      ? { payment_method_configuration: paymentMethodConfigurationId }
+      : {}),
     metadata: {
       plan: "single",
       order_type: "digital",

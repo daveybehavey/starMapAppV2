@@ -54,6 +54,7 @@ const OPTIONAL = [
   "REFERRAL_MAX_REWARDS_PER_REFERRER_30D",
   "NEXT_PUBLIC_REFERRAL_REWARD_CREDITS",
   "REFERRAL_SIGNING_SECRET",
+  "STRIPE_PAYMENT_METHOD_CONFIGURATION_ID",
 ];
 
 const loadEnvFile = (filename) => {
@@ -246,6 +247,7 @@ if (promotionPercent) {
 
 checkStripeIdPrefix("STRIPE_PROMO_CODE_ID", "promo_");
 checkStripeIdPrefix("STRIPE_REFERRAL_PROMO_CODE_ID", "promo_");
+checkStripeIdPrefix("STRIPE_PAYMENT_METHOD_CONFIGURATION_ID", "pmc_");
 
 if (process.env.RESEND_API_KEY && !process.env.PROMOTION_EMAIL_FROM) {
   warnings.push("PROMOTION_EMAIL_FROM is required when RESEND_API_KEY is set");

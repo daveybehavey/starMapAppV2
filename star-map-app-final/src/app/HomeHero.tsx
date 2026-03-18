@@ -145,7 +145,7 @@ export default function HomeHero() {
               <p className="font-semibold text-amber-200">Museum-quality print options</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="font-semibold text-amber-200">Secure Stripe checkout</p>
+              <p className="font-semibold text-amber-200">Wallet-friendly Stripe checkout</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
               <p className="font-semibold text-amber-200">Manual review before production</p>
