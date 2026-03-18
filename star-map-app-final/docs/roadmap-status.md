@@ -404,6 +404,71 @@ Recent status:
    - evaluate `react-konva` for richer interaction without replacing the final render pipeline
    - reserve `Fabric.js` for a deliberate “mini design editor” scope, not as a casual dependency swap
 
+## Execution Board (Now / Next / Later)
+
+### Now (0-2 weeks)
+
+1. Run conversion-first operator cadence daily:
+   - `npm run qa:commerce-digest -- --days 14`
+   - `npm run qa:live-smoke`
+   - `npm run qa:merchant-feed:live`
+   - `npm run qa:stripe-payment-methods -- --json`
+2. Keep merchant configuration stable while approved:
+   - no country/feed/policy churn unless diagnostics break
+3. Complete Referral v2 foundation:
+   - add offer variant metadata to referral conversion events
+   - add stricter anti-abuse caps for rapid repeat rewards
+   - keep existing self-referral and idempotency guards
+4. Launch one controlled offer test:
+   - framed-focused friend/checkout offer with explicit margin protection
+   - compare against current HD-starter baseline
+5. Keep paywall/editor handoff cleanup tied to diagnostics:
+   - prioritize fixes where `checkout_started` does not become `checkout_request_received`
+6. Build proof intake operations:
+   - process incoming proof requests from success/download flows
+   - keep a permission checklist and publishing queue
+
+### Next (2-6 weeks)
+
+1. Country expansion in controlled batches:
+   - batch 1: add `SG`
+   - batch 2: add `ZA`
+   - after each batch: run feed/shipping checks and monitor diagnostics for 48-72h
+2. Referral v2 completion:
+   - refund/dispute reward reversal handling
+   - richer referral dashboard metrics (qualified, skipped, reversed)
+3. Add Google Customer Reviews integration on order confirmation surfaces.
+4. Convert promo capture into a true lifecycle channel:
+   - list hygiene
+   - suppression handling
+   - first lifecycle sequence for checkout hesitation
+5. Add one A/B test for homepage offer hierarchy:
+   - framed-default vs balanced format selection
+
+### Later (6+ weeks)
+
+1. Save-and-resume links with lightweight project history.
+2. Expand print catalog from matrix-approved, margin-safe candidates.
+3. Add structured operator surface for print status/retries.
+4. Evaluate text-editor migration checkpoint:
+   - continue current custom model by default
+   - escalate to `react-konva` only if interaction requirements exceed current architecture
+   - use `Fabric.js` only for deliberate full design-tool scope
+5. Reassess broader international and localization strategy after stable conversion trend.
+
+### Execution Gates
+
+1. Do not expand countries unless:
+   - live merchant feed health is green
+   - shipping settings are aligned for the new countries
+   - no active account-level GMC issue
+2. Do not scale referral incentives unless:
+   - anti-abuse checks are enforced
+   - reward reversals are in place for refunds/disputes
+3. Do not launch new catalog SKUs unless:
+   - margin matrix is green in target markets
+   - print ops error/retry rates are stable
+
 ## No-Go Conditions
 
 Do not deploy print launch if any are true:
