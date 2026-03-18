@@ -29,7 +29,7 @@ import {
   isValidIsoDateInput,
   toISODate,
 } from "@/lib/dateInput";
-import { trackFunnelStep } from "@/lib/analytics";
+import { trackCheckoutClientDiagnostic, trackFunnelStep } from "@/lib/analytics";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -507,6 +507,7 @@ export function SimplifiedEditor() {
     // User hasn't paid - save recipe and redirect to checkout
     hdExportInFlightRef.current = true;
     setHdExporting(true);
+    let checkoutApiResponseReceived = false;
     try {
       // Save the recipe first
       const recipe = buildRecipeFromState({
@@ -557,6 +558,7 @@ export function SimplifiedEditor() {
         body: JSON.stringify(checkoutPayload),
         signal: controller.signal,
       });
+      checkoutApiResponseReceived = true;
       window.clearTimeout(timeout);
 
       if (!res.ok) {
@@ -578,6 +580,15 @@ export function SimplifiedEditor() {
       throw new Error("No checkout URL");
     } catch (err) {
       console.error("Checkout error:", err);
+      const reason = err instanceof Error ? err.message : "checkout_failed";
+      if (!checkoutApiResponseReceived) {
+        trackCheckoutClientDiagnostic({
+          reason,
+          source: "simplified_editor",
+          plan: "single",
+          orderType: "digital",
+        });
+      }
       setExportError("Unable to start checkout. Please try again.");
       // Reset state on error
       hdExportInFlightRef.current = false;

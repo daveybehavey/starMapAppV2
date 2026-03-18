@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import {
   track,
   trackBeginCheckout,
+  trackCheckoutClientDiagnostic,
   trackFunnelStep,
   trackPurchaseCompleted,
   trackSelectItem,
@@ -172,6 +173,7 @@ export default function SuccessClient() {
     pauseRedirect();
     setDigitalAddOnLoading(true);
     setMessage(null);
+    let checkoutApiResponseReceived = false;
     try {
       trackFunnelStep("checkout_started", {
         source: "success",
@@ -186,6 +188,7 @@ export default function SuccessClient() {
           mapId: resolvedMapId ?? undefined,
         }),
       });
+      checkoutApiResponseReceived = true;
       const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
       if (!res.ok || !data?.url) {
         throw new Error(data?.error ?? "checkout_failed");
@@ -201,7 +204,16 @@ export default function SuccessClient() {
         orderType: "digital",
       });
       window.location.assign(data.url);
-    } catch {
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "checkout_failed";
+      if (!checkoutApiResponseReceived) {
+        trackCheckoutClientDiagnostic({
+          reason,
+          source: "success",
+          plan: "single",
+          orderType: "digital",
+        });
+      }
       setMessage("We couldn't start digital add-on checkout. Please try again.");
       setDigitalAddOnLoading(false);
     }

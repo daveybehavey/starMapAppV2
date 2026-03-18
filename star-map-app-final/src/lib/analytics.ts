@@ -257,6 +257,71 @@ function postFunnelCounter(payload: {
   }).catch(() => {});
 }
 
+const CHECKOUT_CLIENT_DIAGNOSTIC_ALLOWED_REASONS = new Set([
+  "missing_shipping_country",
+  "print_render_failed",
+  "print_asset_failed",
+  "print_asset_too_large",
+  "asset_upload_failed",
+  "missing_recipe",
+  "missing_print_asset",
+  "invalid_promotion_code",
+  "promotion_not_applicable",
+  "promotion_lookup_failed",
+  "print_checkout_disabled",
+  "print_shipping_country_invalid",
+  "print_margin_guard_blocked",
+  "print_promotion_margin_blocked",
+  "checkout_failed",
+  "no_checkout_url",
+  "no_url",
+  "network_error",
+  "request_aborted",
+  "unknown_client_error",
+]);
+
+function normalizeCheckoutClientDiagnosticReason(input: string | undefined) {
+  if (!input) return "unknown_client_error";
+  const normalized = input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+  if (!normalized) return "unknown_client_error";
+  if (normalized.includes("failed_to_fetch") || normalized.includes("networkerror")) return "network_error";
+  if (normalized.includes("abort")) return "request_aborted";
+  if (CHECKOUT_CLIENT_DIAGNOSTIC_ALLOWED_REASONS.has(normalized)) return normalized;
+  return "unknown_client_error";
+}
+
+function postCheckoutClientDiagnostic(payload: {
+  reason: string;
+  source?: string;
+  plan?: string;
+  orderType?: CheckoutOrderType;
+  printVariant?: PrintVariant;
+  includeDigitalAddOn?: boolean;
+}) {
+  if (typeof window === "undefined") return;
+  const body = JSON.stringify(removeUndefinedValues(payload));
+  try {
+    if (typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([body], { type: "application/json" });
+      navigator.sendBeacon("/api/analytics/checkout-diagnostics", blob);
+      return;
+    }
+  } catch {
+    // Fallback to fetch below.
+  }
+  void fetch("/api/analytics/checkout-diagnostics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
 type FunnelEventProps = EventProps & {
   source?: string;
   plan?: string;
@@ -279,6 +344,39 @@ export function trackFunnelStep(step: FunnelStep, props?: FunnelEventProps) {
       plan: typeof payload.plan === "string" ? payload.plan : undefined,
       experiment: typeof payload.experiment === "string" ? payload.experiment : undefined,
       variant: typeof payload.variant === "string" ? payload.variant : undefined,
+    });
+  }
+}
+
+export function trackCheckoutClientDiagnostic(input: {
+  reason: string;
+  source?: string;
+  plan?: string;
+  orderType?: CheckoutOrderType;
+  printVariant?: PrintVariant;
+  includeDigitalAddOn?: boolean;
+}) {
+  const reason = normalizeCheckoutClientDiagnosticReason(input.reason);
+  const payload = removeUndefinedValues({
+    reason,
+    source: input.source,
+    plan: input.plan,
+    orderType: input.orderType,
+    printVariant: input.printVariant,
+    includeDigitalAddOn: input.includeDigitalAddOn,
+  });
+  if (canTrackAnalytics()) {
+    track("checkout_client_blocked", payload);
+  }
+  if (canTrackFunnelCounters()) {
+    postCheckoutClientDiagnostic({
+      reason,
+      source: typeof payload.source === "string" ? payload.source : undefined,
+      plan: typeof payload.plan === "string" ? payload.plan : undefined,
+      orderType: payload.orderType === "print" ? "print" : payload.orderType === "digital" ? "digital" : undefined,
+      printVariant: payload.printVariant === "poster_unframed" ? "poster_unframed" : payload.printVariant,
+      includeDigitalAddOn:
+        typeof payload.includeDigitalAddOn === "boolean" ? payload.includeDigitalAddOn : undefined,
     });
   }
 }

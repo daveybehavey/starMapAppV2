@@ -8,7 +8,14 @@ import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, type MapRecip
 import { FONT_STACKS } from "@/lib/fonts";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
-import { track, trackBeginCheckout, trackFunnelStep, trackSelectItem, trackViewItemList } from "@/lib/analytics";
+import {
+  track,
+  trackBeginCheckout,
+  trackCheckoutClientDiagnostic,
+  trackFunnelStep,
+  trackSelectItem,
+  trackViewItemList,
+} from "@/lib/analytics";
 import {
   formatPrice,
   getPrintPricingTiers,
@@ -792,6 +799,8 @@ export default function DownloadClient() {
       });
       setPrintCheckoutLoading(true);
       setPrintCheckoutError(null);
+      let checkoutApiResponseReceived = false;
+      let checkoutStartedTracked = false;
       try {
         const shippingCountry = printShippingCountry?.trim().toUpperCase() || readStoredPrintShippingCountry();
         if (!shippingCountry) {
@@ -864,6 +873,7 @@ export default function DownloadClient() {
           source: "download",
           plan: variant,
         });
+        checkoutStartedTracked = true;
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -877,6 +887,7 @@ export default function DownloadClient() {
             shippingCountry,
           }),
         });
+        checkoutApiResponseReceived = true;
         const data = (await res.json().catch(() => null)) as
           | { url?: string; error?: string; code?: string }
           | null;
@@ -910,6 +921,16 @@ export default function DownloadClient() {
         window.location.assign(data.url);
       } catch (error) {
         const reason = error instanceof Error ? error.message : "checkout_failed";
+        if (checkoutStartedTracked && !checkoutApiResponseReceived) {
+          trackCheckoutClientDiagnostic({
+            reason,
+            source: "download",
+            plan: variant,
+            orderType: "print",
+            printVariant: variant,
+            includeDigitalAddOn: false,
+          });
+        }
         const messageByReason =
           reason === "missing_recipe"
             ? "We couldn't find your saved map. Open the editor once, then try print checkout again."

@@ -92,6 +92,38 @@ test.describe("API route regressions", () => {
     });
   });
 
+  test("checkout diagnostics endpoint validates and accepts client-side blocker events", async ({ request }) => {
+    const missingReason = await requestUntilReady(request, "/api/analytics/checkout-diagnostics", {
+      method: "POST",
+      data: {},
+    });
+    expect(missingReason.status()).toBe(400);
+    expect((await missingReason.json()) as { ok?: boolean; error?: string }).toEqual({
+      ok: false,
+      error: "Missing reason",
+    });
+
+    const acceptedKnownReason = await requestUntilReady(request, "/api/analytics/checkout-diagnostics", {
+      method: "POST",
+      data: {
+        reason: "missing_shipping_country",
+        source: "playwright_api_test",
+        plan: "poster_framed",
+      },
+    });
+    expect(acceptedKnownReason.status()).toBe(200);
+    expect((await acceptedKnownReason.json()) as { ok?: boolean }).toEqual({ ok: true });
+
+    const acceptedUnknownReason = await requestUntilReady(request, "/api/analytics/checkout-diagnostics", {
+      method: "POST",
+      data: {
+        reason: "this should normalize to fallback",
+      },
+    });
+    expect(acceptedUnknownReason.status()).toBe(200);
+    expect((await acceptedUnknownReason.json()) as { ok?: boolean }).toEqual({ ok: true });
+  });
+
   test("stripe portal endpoint blocks missing or unknown entitlements", async ({ request }) => {
     const noCookieResponse = await requestUntilReady(request, "/api/stripe/portal", { method: "POST" });
     expect(noCookieResponse.status()).toBe(401);

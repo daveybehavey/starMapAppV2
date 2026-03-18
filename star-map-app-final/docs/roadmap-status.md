@@ -313,6 +313,10 @@ Recent status:
     - `checkout_session_created -> payment_verified`
     - top checkout blocker reasons
     - promo signup totals
+- Added client-side checkout blocker diagnostics for handoff debugging:
+  - client now reports `checkout_client_blocked` diagnostics when checkout starts but no checkout API response is received
+  - diagnostics are normalized into `client_*` reason buckets in the same checkout diagnostics store
+  - `qa:commerce-digest` now splits blockers into client-side (`client_*`) vs server-side (`/api/checkout`) sections
 - Added `checkout_request_received` as a second server-side checkout milestone so operator reporting can separate pre-API drop-off from failures during checkout preparation.
 - Repositioned homepage digital plan messaging so one-time HD is the default mental model, while 3-pack and unlimited are framed as repeat-use options instead of the default recommendation.
 - Improved post-purchase proof requests:

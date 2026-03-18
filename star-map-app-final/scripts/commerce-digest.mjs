@@ -569,8 +569,23 @@ function printHumanReport(report) {
   } else if (!report.checkoutDiagnostics.length) {
     console.log("none");
   } else {
-    for (const item of report.checkoutDiagnostics.slice(0, 8)) {
-      console.log(`${item.reason}: last_${report.days}d=${item.lastNDays} total=${item.total}`);
+    const clientRows = report.checkoutDiagnostics.filter((item) => String(item.reason).startsWith("client_"));
+    const serverRows = report.checkoutDiagnostics.filter((item) => !String(item.reason).startsWith("client_"));
+    if (clientRows.length) {
+      console.log("client-side (before checkout API response):");
+      for (const item of clientRows.slice(0, 6)) {
+        console.log(`  ${item.reason}: last_${report.days}d=${item.lastNDays} total=${item.total}`);
+      }
+    } else {
+      console.log("client-side (before checkout API response): none");
+    }
+    if (serverRows.length) {
+      console.log("server-side (/api/checkout):");
+      for (const item of serverRows.slice(0, 6)) {
+        console.log(`  ${item.reason}: last_${report.days}d=${item.lastNDays} total=${item.total}`);
+      }
+    } else {
+      console.log("server-side (/api/checkout): none");
     }
   }
 

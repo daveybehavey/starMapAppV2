@@ -5,7 +5,13 @@ import { TextBox, useStore } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { Shape } from "@/lib/types";
-import { track, trackBeginCheckout, trackExperimentExposure, trackFunnelStep } from "@/lib/analytics";
+import {
+  track,
+  trackBeginCheckout,
+  trackCheckoutClientDiagnostic,
+  trackExperimentExposure,
+  trackFunnelStep,
+} from "@/lib/analytics";
 import {
   formatPrice,
   getPricingTiers,
@@ -1017,6 +1023,7 @@ export function EditorExperience({
         shape,
         renderOptions,
       });
+      let checkoutApiResponseReceived = false;
       try {
         checkoutInFlightRef.current = true;
         setCheckoutInFlight(true);
@@ -1195,6 +1202,7 @@ export function EditorExperience({
         };
 
         const res = await fetch("/api/checkout", checkoutInit);
+        checkoutApiResponseReceived = true;
         const data = (await res.json().catch(() => null)) as {
           url?: string;
           error?: string;
@@ -1250,6 +1258,16 @@ export function EditorExperience({
       } catch (err) {
         console.error(err);
         const reason = (err as Error)?.message ?? "unknown";
+        if (!checkoutApiResponseReceived) {
+          trackCheckoutClientDiagnostic({
+            reason,
+            source: previewSource,
+            plan: orderType === "print" ? printVariant : plan,
+            orderType,
+            printVariant: orderType === "print" ? printVariant : undefined,
+            includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
+          });
+        }
         const checkoutErrorMessage =
           reason === "invalid_promotion_code"
             ? "That promo code is invalid or expired. Try another code."
