@@ -11,7 +11,7 @@ dotenv.config();
 
 const DEFAULT_SITE = "https://starmapco.com";
 const PAYWALL_HEADING = /Download your print-ready star map|Unlock HD exports in seconds/i;
-const SINGLE_CTA = /Continue with single|Get 1 HD map|Buy single/i;
+const SINGLE_CTA = /Continue with single|Get 1 HD map|Get 1 HD file|Buy single/i;
 
 function parseArgs(argv) {
   const args = {
@@ -342,12 +342,19 @@ async function run() {
   const qaEmail = `qa+${Date.now()}@starmapco.com`;
   let sessionId = null;
   let checkoutOnlyComplete = false;
+  const captureScreenshot = async (pathOnDisk, label) => {
+    screenshots.push(pathOnDisk);
+    await page.screenshot({ path: pathOnDisk, fullPage: true, timeout: 15_000 }).catch((error) => {
+      report.friction.push(
+        `${label} screenshot failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+  };
 
   try {
     await page.goto(`${args.site}/`, { waitUntil: "networkidle", timeout: 60_000 });
     report.steps.push("Homepage loaded");
-    screenshots.push("/tmp/qa-live-01-home.png");
-    await page.screenshot({ path: screenshots[screenshots.length - 1], fullPage: true });
+    await captureScreenshot("/tmp/qa-live-01-home.png", "home");
 
     const dateInput = page.locator("input[name='date']").first();
     const locationInput = page.locator("input[name='location']").first();
@@ -359,8 +366,7 @@ async function run() {
 
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2500);
-    screenshots.push("/tmp/qa-live-02-editor.png");
-    await page.screenshot({ path: screenshots[screenshots.length - 1], fullPage: true });
+    await captureScreenshot("/tmp/qa-live-02-editor.png", "editor");
 
     const sampleBtn = page.getByRole("button", { name: /Try a sample moment/i }).first();
     if (await sampleBtn.isVisible().catch(() => false)) {
@@ -386,8 +392,7 @@ async function run() {
     await singleCta.click();
     await page.waitForURL(/checkout\.stripe\.com/, { timeout: 40_000 });
     report.steps.push("Redirected to Stripe Checkout");
-    screenshots.push("/tmp/qa-live-03-stripe.png");
-    await page.screenshot({ path: screenshots[screenshots.length - 1], fullPage: true });
+    await captureScreenshot("/tmp/qa-live-03-stripe.png", "stripe");
 
     if (args.checkoutOnly) {
       const webhookHealth = await inspectWebhookHealth(stripe, null);
@@ -498,13 +503,11 @@ async function run() {
       if (!sessionId) throw new Error("Missing session_id after successful checkout redirect");
       report.steps.push("Reached success page");
       report.stripe.sessionId = sessionId;
-      screenshots.push("/tmp/qa-live-04-success.png");
-      await page.screenshot({ path: screenshots[screenshots.length - 1], fullPage: true });
+      await captureScreenshot("/tmp/qa-live-04-success.png", "success");
 
       await page.waitForURL(/\/download/, { timeout: 90_000 });
       report.steps.push("Auto-redirected to download page");
-      screenshots.push("/tmp/qa-live-05-download.png");
-      await page.screenshot({ path: screenshots[screenshots.length - 1], fullPage: true });
+      await captureScreenshot("/tmp/qa-live-05-download.png", "download");
 
       const verifyResult = await waitForPaidVerification(args.site, sessionId);
       report.stripe.verifyApi = verifyResult;
