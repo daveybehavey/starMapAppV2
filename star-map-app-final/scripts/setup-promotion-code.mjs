@@ -35,9 +35,29 @@ const couponCode = (process.env.PROMOTION_COUPON_CODE ?? "FIRST50").trim().toUpp
 const percentOff = Number.parseFloat(process.env.PROMOTION_COUPON_PERCENT ?? "50");
 const maxRedemptions = Number.parseInt(process.env.PROMOTION_COUPON_MAX_REDEMPTIONS ?? "0", 10);
 const firstTimeOnly = (process.env.PROMOTION_COUPON_FIRST_TIME_ONLY ?? "true").toLowerCase() !== "false";
-const scopeToSingleDigital =
+const legacyScopeToSingleDigital =
   (process.env.PROMOTION_COUPON_DIGITAL_SINGLE_ONLY ?? "true").toLowerCase() !== "false";
 const singleDigitalPriceId = (process.env.STRIPE_PRICE_ID_SINGLE ?? "").trim();
+const framedPrintPriceId = (process.env.STRIPE_PRICE_ID_PRINT_FRAMED ?? "").trim();
+const unframedPrintPriceId = (process.env.STRIPE_PRICE_ID_PRINT_UNFRAMED ?? "").trim();
+
+function normalizeTargetScope(value) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  switch (normalized) {
+    case "single_digital":
+    case "print_framed":
+    case "print_unframed":
+    case "any_print":
+    case "any":
+      return normalized;
+    default:
+      return null;
+  }
+}
+
+const promotionTargetScope =
+  normalizeTargetScope(process.env.PROMOTION_TARGET_SCOPE) ??
+  (legacyScopeToSingleDigital ? "single_digital" : "any");
 
 if (!Number.isFinite(percentOff) || percentOff <= 0 || percentOff > 100) {
   console.error("PROMOTION_COUPON_PERCENT must be between 0 and 100");
@@ -79,29 +99,54 @@ async function findExistingPromotionCode(code) {
   }
 }
 
-async function resolveCouponProductScope() {
-  if (!scopeToSingleDigital) return null;
-  if (!singleDigitalPriceId) {
-    console.warn("STRIPE_PRICE_ID_SINGLE missing; coupon scope will not be restricted to digital single.");
-    return null;
+async function resolveProductIdsForPriceIds(priceIds, warningLabel) {
+  const uniquePriceIds = Array.from(new Set(priceIds.filter(Boolean)));
+  if (!uniquePriceIds.length) {
+    console.warn(`${warningLabel} missing; coupon scope will not be restricted.`);
+    return [];
   }
 
-  try {
-    const price = await stripe.prices.retrieve(singleDigitalPriceId, { expand: ["product"] });
-    const productId = typeof price.product === "string" ? price.product : price.product?.id;
-    if (!productId) {
-      console.warn("Could not resolve Stripe product for STRIPE_PRICE_ID_SINGLE; coupon scope left unrestricted.");
-      return null;
+  const productIds = new Set();
+  for (const priceId of uniquePriceIds) {
+    try {
+      const price = await stripe.prices.retrieve(priceId, { expand: ["product"] });
+      const productId = typeof price.product === "string" ? price.product : price.product?.id;
+      if (!productId) {
+        console.warn(`Could not resolve Stripe product for ${priceId}; coupon scope left unrestricted.`);
+        return [];
+      }
+      productIds.add(productId);
+    } catch (error) {
+      console.warn(`Could not load ${priceId} for coupon scope; coupon scope left unrestricted.`, error);
+      return [];
     }
-    return productId;
-  } catch (error) {
-    console.warn("Could not load STRIPE_PRICE_ID_SINGLE for coupon scope; coupon scope left unrestricted.", error);
-    return null;
+  }
+
+  return Array.from(productIds);
+}
+
+async function resolveCouponProductScope() {
+  switch (promotionTargetScope) {
+    case "single_digital":
+      return resolveProductIdsForPriceIds([singleDigitalPriceId], "STRIPE_PRICE_ID_SINGLE");
+    case "print_framed":
+      return resolveProductIdsForPriceIds([framedPrintPriceId], "STRIPE_PRICE_ID_PRINT_FRAMED");
+    case "print_unframed":
+      return resolveProductIdsForPriceIds([unframedPrintPriceId], "STRIPE_PRICE_ID_PRINT_UNFRAMED");
+    case "any_print":
+      return resolveProductIdsForPriceIds(
+        [framedPrintPriceId, unframedPrintPriceId],
+        "STRIPE_PRICE_ID_PRINT_FRAMED / STRIPE_PRICE_ID_PRINT_UNFRAMED",
+      );
+    case "any":
+    default:
+      return [];
   }
 }
 
 async function main() {
   console.log(`Setting up Stripe promotion code: ${couponCode} (${percentOff}% off)`);
+  console.log(`- target scope: ${promotionTargetScope}`);
 
   const existingPromotion = await findExistingPromotionCode(couponCode);
   if (existingPromotion) {
@@ -112,14 +157,14 @@ async function main() {
     return;
   }
 
-  const scopedProductId = await resolveCouponProductScope();
+  const scopedProductIds = await resolveCouponProductScope();
 
   const coupon = await stripe.coupons.create({
     percent_off: percentOff,
     duration: "once",
     name: `StarMap signup ${percentOff}% off`,
     ...(maxRedemptions > 0 ? { max_redemptions: maxRedemptions } : {}),
-    ...(scopedProductId ? { applies_to: { products: [scopedProductId] } } : {}),
+    ...(scopedProductIds.length ? { applies_to: { products: scopedProductIds } } : {}),
   });
 
   const promotionCode = await stripe.promotionCodes.create({
@@ -138,8 +183,8 @@ async function main() {
   console.log("Created Stripe coupon + promotion code:");
   console.log(`- coupon: ${coupon.id}`);
   console.log(`- promotion code: ${promotionCode.id}`);
-  if (scopedProductId) {
-    console.log(`- scoped product: ${scopedProductId} (single digital price)`);
+  if (scopedProductIds.length) {
+    console.log(`- scoped products: ${scopedProductIds.join(", ")}`);
   }
   console.log("Updated .env.local with PROMOTION_COUPON_CODE + STRIPE_PROMO_CODE_ID");
 }

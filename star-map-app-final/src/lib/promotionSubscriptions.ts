@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { kv } from "@/lib/kv";
 
 export const LEGACY_SUBSCRIPTION_KEY = "promotions:emails";
 export const LEGACY_SENT_KEY = "promotions:coupon-sent";
@@ -91,4 +92,36 @@ export function getPromotionUnsubscribeUrl(email: string) {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
   const params = new URLSearchParams({ email: normalized, token });
   return `${siteUrl}/unsubscribe?${params.toString()}`;
+}
+
+export type PromotionSubscriberSummary = {
+  total: number;
+  active: number;
+  unsubscribed: number;
+  listComplete: boolean;
+};
+
+export async function getPromotionSubscriberSummary(limit = 500): Promise<PromotionSubscriberSummary> {
+  const listed = await kv.list({ prefix: EMAIL_STATE_PREFIX, limit });
+  const states = await Promise.all(
+    listed.keys.map((key) => kv.get<PromotionEmailState>(key)),
+  );
+
+  let active = 0;
+  let unsubscribed = 0;
+  for (const state of states) {
+    if (!state) continue;
+    if (state.unsubscribedAt) {
+      unsubscribed += 1;
+    } else {
+      active += 1;
+    }
+  }
+
+  return {
+    total: listed.keys.length,
+    active,
+    unsubscribed,
+    listComplete: listed.listComplete,
+  };
 }

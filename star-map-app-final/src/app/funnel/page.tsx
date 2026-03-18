@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { getFunnelDashboard } from "@/lib/funnel";
+import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
+import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
 import { FunnelCsvDownloader } from "@/components/funnel/FunnelCsvDownloader";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +60,15 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
+function percentage(numerator: number, denominator: number) {
+  if (!denominator) return null;
+  return (numerator / denominator) * 100;
+}
+
+function findStepTotal(rows: Awaited<ReturnType<typeof getFunnelDashboard>>["rows"], step: string) {
+  return rows.find((row) => row.step === step)?.lastNDays ?? 0;
+}
+
 export default async function FunnelDashboardPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const days = toNumber(params.days, 14);
@@ -73,10 +84,22 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
     );
   }
 
-  const dashboard = await getFunnelDashboard(days);
+  const [dashboard, checkoutDiagnostics, promotionSubscribers] = await Promise.all([
+    getFunnelDashboard(days),
+    getCheckoutFailureDashboard(days),
+    getPromotionSubscriberSummary(500),
+  ]);
   const lastStep = dashboard.rows[dashboard.rows.length - 1];
   const landingTotal = dashboard.rows.find((row) => row.step === "landing_view")?.total ?? 0;
   const landingConvertedPct = landingTotal > 0 ? (lastStep?.total ?? 0) / landingTotal : 0;
+  const checkoutStarted = findStepTotal(dashboard.rows, "checkout_started");
+  const checkoutRequests = findStepTotal(dashboard.rows, "checkout_request_received");
+  const checkoutSessions = findStepTotal(dashboard.rows, "checkout_session_created");
+  const paymentsVerified = findStepTotal(dashboard.rows, "payment_verified");
+  const requestShare = percentage(checkoutRequests, checkoutStarted);
+  const sessionShare = percentage(checkoutSessions, checkoutRequests);
+  const paidShare = percentage(paymentsVerified, checkoutSessions);
+  const topCheckoutBlocker = checkoutDiagnostics.rows[0] ?? null;
   const dropStep = dashboard.rows.reduce<{ row: typeof dashboard.rows[0] | null; pct: number }>(
     (acc, row, index) => {
       if (index === 0) return acc;
@@ -104,7 +127,7 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
           Updated {new Date(dashboard.generatedAt).toLocaleString()} • Last {dashboard.days} days + lifetime totals
         </p>
         <p className="mt-3 text-xs uppercase tracking-[0.4em] text-neutral-500">
-          Token-based access only — set <code className="rounded bg-black/10 px-1 py-0.5 text-[11px]">NEXT_PUBLIC_FUNNEL_TOKEN</code>
+          Token-based access only — set <code className="rounded bg-black/10 px-1 py-0.5 text-[11px]">FUNNEL_DASHBOARD_TOKEN</code>
           in your environment to view this page.
         </p>
         {dropAlert ? (
@@ -136,7 +159,66 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
               </p>
             </div>
           ) : null}
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Checkout handoff</p>
+            <p className="text-2xl font-bold">
+              {requestShare === null ? "—" : `${requestShare.toFixed(1)}%`}
+            </p>
+            <p className="text-sm text-neutral-400">
+              {checkoutRequests.toLocaleString()} requests from {checkoutStarted.toLocaleString()} checkout starts
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Stripe session creation</p>
+            <p className="text-2xl font-bold">
+              {sessionShare === null ? "—" : `${sessionShare.toFixed(1)}%`}
+            </p>
+            <p className="text-sm text-neutral-400">
+              {checkoutSessions.toLocaleString()} sessions from {checkoutRequests.toLocaleString()} requests
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Paid after Stripe</p>
+            <p className="text-2xl font-bold">{paidShare === null ? "—" : `${paidShare.toFixed(1)}%`}</p>
+            <p className="text-sm text-neutral-400">
+              {paymentsVerified.toLocaleString()} payments from {checkoutSessions.toLocaleString()} sessions
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Promo signups</p>
+            <p className="text-2xl font-bold">{promotionSubscribers.active.toLocaleString()}</p>
+            <p className="text-sm text-neutral-400">
+              {promotionSubscribers.total.toLocaleString()} total • {promotionSubscribers.unsubscribed.toLocaleString()} unsubscribed
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4 md:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Top checkout blocker</p>
+            <p className="text-2xl font-bold">{topCheckoutBlocker?.reason ?? "No recorded blockers"}</p>
+            <p className="text-sm text-neutral-400">
+              {topCheckoutBlocker ? `${topCheckoutBlocker.lastNDays.toLocaleString()} in the last ${days} days` : "No server-side checkout failures recorded."}
+            </p>
+          </div>
         </div>
+        {checkoutDiagnostics.rows.length > 0 ? (
+          <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Checkout blockers</h2>
+                <p className="mt-1 text-xs text-neutral-400">Server-side reasons recorded before Stripe session creation.</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              {checkoutDiagnostics.rows.slice(0, 6).map((row) => (
+                <div key={row.reason} className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+                  <p className="text-sm font-medium text-white">{row.reason}</p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    {row.lastNDays.toLocaleString()} last {days}d • {row.total.toLocaleString()} lifetime
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="mt-5 overflow-x-auto rounded-xl border border-white/10">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-white/5 text-neutral-200">

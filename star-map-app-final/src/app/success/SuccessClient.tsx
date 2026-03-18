@@ -957,7 +957,13 @@ export default function SuccessClient() {
                     {referralError && <p className="mt-2 text-[11px] text-rose-200">{referralError}</p>}
                   </div>
                 )}
-                <PostPurchaseProofRequest source="success" orderType={orderType} />
+                <PostPurchaseProofRequest
+                  source="success"
+                  orderType={orderType}
+                  sessionId={searchParams.get("session_id")}
+                  plan={currentPlan}
+                  printVariant={printVariant}
+                />
               </div>
             )}
           </>

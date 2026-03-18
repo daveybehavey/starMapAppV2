@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import EditorFontShell from "@/components/EditorFontShell";
+import { getPromotionTargetLabel } from "@/lib/promotionOffer";
 
 const EditorExperience = dynamic(
   () => import("@/components/EditorExperience").then((mod) => mod.EditorExperience),
@@ -24,11 +25,12 @@ type EditorPageClientProps = {
 };
 
 export default function EditorPageClient({ promoStatus, promoCode }: EditorPageClientProps) {
+  const promotionTargetLabel = getPromotionTargetLabel();
   const showPromo = promoStatus === "success" || promoStatus === "error";
   const promoMessage =
     promoStatus === "success"
       ? promoCode
-        ? `Your HD starter offer is ready. Code ${promoCode} is saved for your first single HD digital checkout.`
+        ? `Your HD starter offer is ready. Code ${promoCode} is saved for ${promotionTargetLabel}.`
         : "You're on the list. Watch your inbox for your 50% off HD starter code."
       : "We couldn't save that email. Please try again.";
 

@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, type InputVariant } from "@/components/ui/Input";
 import { track } from "@/lib/analytics";
+import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
 
 type SubmissionStatus = "idle" | "loading" | "success" | "error";
 
@@ -28,15 +29,17 @@ const friendlyErrorMessage = (error?: string) => {
 };
 
 const successMessageFor = (payload: SubscribeSuccessResponse) => {
+  const promotionOfferName = getPromotionOfferName();
+  const promotionTargetLabel = getPromotionTargetLabel();
   const coupon = typeof payload.couponCode === "string" ? payload.couponCode : undefined;
-  if (!coupon) return "You're on the list. Watch your inbox for your 50% off HD starter code and future drops.";
+  if (!coupon) return `You're on the list. Watch your inbox for your 50% off ${promotionOfferName} and future drops.`;
   if (payload.isNewSubscriber === false) {
-    return `You're already on the list. Use code ${coupon} on your first single HD digital checkout.`;
+    return `You're already on the list. Use code ${coupon} on ${promotionTargetLabel}.`;
   }
   if (payload.emailDelivered) {
-    return `Done. Code ${coupon} was emailed to you for your first single HD digital checkout.`;
+    return `Done. Code ${coupon} was emailed to you for ${promotionTargetLabel}.`;
   }
-  return `You're in. Use code ${coupon} on your first single HD digital checkout, and we'll email the details soon.`;
+  return `You're in. Use code ${coupon} on ${promotionTargetLabel}, and we'll email the details soon.`;
 };
 
 type PromotionSuccessPayload = {
@@ -55,12 +58,13 @@ export interface PromotionFormProps {
 }
 
 export function PromotionForm({
-  buttonLabel = "Get HD starter code",
+  buttonLabel,
   inputVariant = "light",
   hideDisclaimer = false,
   source = "homepage_inline",
   onSuccess,
 }: PromotionFormProps) {
+  const promotionOfferName = getPromotionOfferName();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<SubmissionStatus>("idle");
   const [responseMessage, setResponseMessage] = useState("");
@@ -146,6 +150,8 @@ export function PromotionForm({
     }
   };
 
+  const resolvedButtonLabel = buttonLabel ?? `Get ${promotionOfferName}`;
+
   return (
     <>
       <form
@@ -174,7 +180,7 @@ export function PromotionForm({
           className="pointer-events-none absolute left-[-9999px] top-auto h-px w-px opacity-0"
         />
         <Button variant="cta" size="lg" type="submit" fullWidth isLoading={status === "loading"}>
-          {buttonLabel}
+          {resolvedButtonLabel}
         </Button>
       </form>
 

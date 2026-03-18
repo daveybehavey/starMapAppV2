@@ -3,13 +3,29 @@
 import { useMemo, useState } from "react";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/businessProfile";
+import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
 
 type PostPurchaseProofRequestProps = {
   source: "success" | "download";
   orderType: "digital" | "print";
+  sessionId?: string | null;
+  plan?: CheckoutPlan | null;
+  printVariant?: PrintVariant | null;
 };
 
-function buildChecklist(orderType: "digital" | "print") {
+function formatPrintVariant(printVariant?: PrintVariant | null) {
+  if (printVariant === "poster_unframed") return "unframed poster";
+  if (printVariant === "poster_framed") return "framed print";
+  return null;
+}
+
+function buildEmailDraft(input: {
+  orderType: "digital" | "print";
+  sessionId?: string | null;
+  plan?: CheckoutPlan | null;
+  printVariant?: PrintVariant | null;
+}) {
+  const { orderType, sessionId, plan, printVariant } = input;
   const intro =
     orderType === "print"
       ? "When your order arrives, send us:"
@@ -27,36 +43,55 @@ function buildChecklist(orderType: "digital" | "print") {
           "your permission if you want us to feature it later",
         ];
 
-  return [intro, ...items.map((item) => `- ${item}`), "", "We only publish anything with permission."].join("\n");
+  const details = [
+    sessionId ? `Order reference: ${sessionId}` : null,
+    plan ? `Plan: ${plan}` : null,
+    formatPrintVariant(printVariant) ? `Format: ${formatPrintVariant(printVariant)}` : null,
+  ].filter(Boolean);
+
+  return [
+    "Hi StarMapCo,",
+    "",
+    orderType === "print"
+      ? "My order arrived and I wanted to share a real photo."
+      : "I wanted to share how I used my StarMapCo map.",
+    ...(details.length ? ["", ...details] : []),
+    "",
+    intro,
+    ...items.map((item) => `- ${item}`),
+    "",
+    "We only publish anything with permission.",
+  ].join("\n");
 }
 
-export default function PostPurchaseProofRequest({ source, orderType }: PostPurchaseProofRequestProps) {
+export default function PostPurchaseProofRequest({
+  source,
+  orderType,
+  sessionId,
+  plan,
+  printVariant,
+}: PostPurchaseProofRequestProps) {
   const [copied, setCopied] = useState(false);
   const business = getBusinessProfile();
   const supportEmail = business.email;
-  const checklist = useMemo(() => buildChecklist(orderType), [orderType]);
+  const emailDraft = useMemo(
+    () => buildEmailDraft({ orderType, sessionId, plan, printVariant }),
+    [orderType, plan, printVariant, sessionId],
+  );
   const subject = orderType === "print" ? "My StarMapCo print arrived" : "My StarMapCo map in use";
+  const subjectWithReference = sessionId ? `${subject} (${sessionId})` : subject;
   const mailtoHref = useMemo(() => {
-    const body = [
-      "Hi StarMapCo,",
-      "",
-      orderType === "print"
-        ? "My print order arrived and I wanted to share a photo."
-        : "I wanted to share how I used my StarMapCo map.",
-      "",
-      checklist,
-    ].join("\n");
-    return `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  }, [checklist, orderType, subject, supportEmail]);
+    return `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(subjectWithReference)}&body=${encodeURIComponent(emailDraft)}`;
+  }, [emailDraft, subjectWithReference, supportEmail]);
 
-  async function handleCopyChecklist() {
+  async function handleCopyEmailDraft() {
     try {
-      await navigator.clipboard.writeText(checklist);
+      await navigator.clipboard.writeText(emailDraft);
       setCopied(true);
-      track("proof_request_checklist_copied", { source, orderType });
+      track("proof_request_email_draft_copied", { source, orderType });
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      track("proof_request_checklist_copy_failed", { source, orderType });
+      track("proof_request_email_draft_copy_failed", { source, orderType });
     }
   }
 
@@ -69,6 +104,7 @@ export default function PostPurchaseProofRequest({ source, orderType }: PostPurc
           <p className="mt-1 text-xs text-neutral-200">
             Email {supportEmail} with a photo and a short note. We only use real examples and only publish them with permission.
           </p>
+          {sessionId ? <p className="mt-1 text-[11px] text-amber-100/70">Reference: {sessionId}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <a
@@ -80,10 +116,10 @@ export default function PostPurchaseProofRequest({ source, orderType }: PostPurc
           </a>
           <button
             type="button"
-            onClick={() => void handleCopyChecklist()}
+            onClick={() => void handleCopyEmailDraft()}
             className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
           >
-            {copied ? "Checklist copied" : "Copy checklist"}
+            {copied ? "Email draft copied" : "Copy email draft"}
           </button>
         </div>
       </div>

@@ -276,6 +276,27 @@ Recent status:
     - top checkout blocker reasons
     - promo signup totals
 - Added `checkout_request_received` as a second server-side checkout milestone so operator reporting can separate pre-API drop-off from failures during checkout preparation.
+- Repositioned homepage digital plan messaging so one-time HD is the default mental model, while 3-pack and unlimited are framed as repeat-use options instead of the default recommendation.
+- Improved post-purchase proof requests:
+  - proof email drafts now include order reference and purchase details where available
+  - this reduces operator cleanup when real customer proof starts coming in
+- Added config-driven promo target messaging:
+  - `PROMOTION_TARGET_SCOPE`
+  - `PROMOTION_TARGET_LABEL`
+  - `PROMOTION_OFFER_NAME`
+  - `NEXT_PUBLIC_PROMOTION_TARGET_SCOPE`
+  - `NEXT_PUBLIC_PROMOTION_TARGET_LABEL`
+  - `NEXT_PUBLIC_PROMOTION_OFFER_NAME`
+  - this makes a future framed-offer test possible without another sitewide copy sweep
+- Fixed a paywall print upsell dead-end:
+  - users on the digital tab are now pushed to the print tab to select shipping country before print checkout if shipping country is missing
+  - this avoids sending print-intent users into a missing-country error
+- Expanded the internal funnel page so it now shows:
+  - checkout handoff rate
+  - Stripe session creation rate
+  - paid-after-Stripe rate
+  - promo signup counts
+  - top checkout blockers
 - Added a reusable trust-depth section (`RevenueTrustModule`) with:
   - checkout confidence cards
   - print planning quick guide

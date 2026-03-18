@@ -89,6 +89,7 @@ export function PaywallModal({
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
+  const [printUpsellHint, setPrintUpsellHint] = useState<string | null>(null);
   const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
   const viewedListsRef = useRef<Set<string>>(new Set());
@@ -113,6 +114,12 @@ export function PaywallModal({
     }
     setActiveIntent(purchaseIntent === "print" ? "print" : "digital");
   }, [hasPrintOptions, purchaseIntent]);
+
+  useEffect(() => {
+    if (printShippingCountry) {
+      setPrintUpsellHint(null);
+    }
+  }, [printShippingCountry]);
 
   useEffect(() => {
     if (!viewedListsRef.current.has("paywall_digital_options")) {
@@ -169,6 +176,7 @@ export function PaywallModal({
     options: { variant: PrintVariant; includeDigitalAddOn: boolean },
     listId: "paywall_print_options" | "paywall_print_upsell",
   ) => {
+    setPrintUpsellHint(null);
     trackSelectItem({
       itemListId: listId,
       itemListName: listId === "paywall_print_options" ? "Paywall print options" : "Paywall print upsell",
@@ -188,6 +196,15 @@ export function PaywallModal({
     onStartPrintCheckout?.(options);
   };
 
+  const handlePrintUpsellClick = (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => {
+    if (!canPrintCheckout) {
+      setActiveIntent("print");
+      setPrintUpsellHint("Select your shipping country first so we can show the correct print checkout.");
+      return;
+    }
+    handlePrintCheckoutClick(options, "paywall_print_upsell");
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25">
@@ -200,7 +217,7 @@ export function PaywallModal({
         <ul className="mt-3 space-y-1 text-xs text-neutral-700">
           <li>• 6000px high resolution (poster quality)</li>
           <li>• No watermark</li>
-          <li>• Secure Stripe checkout</li>
+          <li>• Secure checkout with card, Apple Pay, Google Pay, and Link on supported devices</li>
           <li>{activeIntent === "print" ? "• Print order draft is created right after payment" : "• Instant digital download"}</li>
         </ul>
         {activeIntent === "digital" && (
@@ -280,6 +297,11 @@ export function PaywallModal({
                   )}
                 </div>
               )}
+              {printUpsellHint ? (
+                <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
+                  {printUpsellHint}
+                </p>
+              ) : null}
               <div className="mt-3 grid gap-2">
                 <button
                   type="button"
@@ -418,43 +440,39 @@ export function PaywallModal({
               <p className="mt-1 text-xs text-amber-100/80">
                 Ships to your address. Add digital access now or later.
               </p>
+              {!canPrintCheckout && (
+                <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
+                  Choose your shipping country on the print tab first so checkout uses the correct route and shipping price.
+                </p>
+              )}
               <div className="mt-3 grid gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    handlePrintCheckoutClick(
-                      { variant: "poster_framed", includeDigitalAddOn: true },
-                      "paywall_print_upsell",
-                    )}
+                  onClick={() => handlePrintUpsellClick({ variant: "poster_framed", includeDigitalAddOn: true })}
                   disabled={checkoutInFlight}
                   className="w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Framed + HD file • {printPriceLabels.framed} + {framedShippingLabel} +{" "}
-                  {printPriceLabels.digitalAddOn}
+                  {canPrintCheckout
+                    ? `Framed + HD file • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`
+                    : "See framed + HD print route"}
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    handlePrintCheckoutClick(
-                      { variant: "poster_framed", includeDigitalAddOn: false },
-                      "paywall_print_upsell",
-                    )}
+                  onClick={() => handlePrintUpsellClick({ variant: "poster_framed", includeDigitalAddOn: false })}
                   disabled={checkoutInFlight}
                   className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Framed print • {printPriceLabels.framed} + {framedShippingLabel}
+                  {canPrintCheckout ? `Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}` : "See framed print route"}
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    handlePrintCheckoutClick(
-                      { variant: "poster_unframed", includeDigitalAddOn: false },
-                      "paywall_print_upsell",
-                    )}
+                  onClick={() => handlePrintUpsellClick({ variant: "poster_unframed", includeDigitalAddOn: false })}
                   disabled={checkoutInFlight}
                   className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Unframed print • {printPriceLabels.unframed} + {unframedShippingLabel}
+                  {canPrintCheckout
+                    ? `Unframed print • ${printPriceLabels.unframed} + ${unframedShippingLabel}`
+                    : "See unframed print route"}
                 </button>
               </div>
             </div>
@@ -462,7 +480,7 @@ export function PaywallModal({
         </div>
 
         <p className="mt-3 text-[11px] text-neutral-600">
-          Secure checkout. Subscription can be canceled anytime. Need help? Email support@starmapco.com.
+          Secure checkout with card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be canceled anytime. Need help? Email support@starmapco.com.
         </p>
         <p className="mt-2 text-xs font-semibold text-neutral-700">
           Have a promo code? It can be applied at checkout.

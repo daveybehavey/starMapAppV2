@@ -57,11 +57,32 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 1. Set env in shell (example):
    - `export PROMOTION_COUPON_CODE=FIRST50`
    - `export PROMOTION_COUPON_PERCENT=50`
+   - `export PROMOTION_TARGET_SCOPE=single_digital`
+   - `export PROMOTION_TARGET_LABEL="your first single HD digital checkout"`
+   - `export PROMOTION_OFFER_NAME="HD starter code"`
 2. Run:
    - `npm run promo:setup`
 3. Confirm `.env.local` has updated:
    - `PROMOTION_COUPON_CODE`
    - `STRIPE_PROMO_CODE_ID`
+4. If you want to pivot the promo later without rewriting copy, update:
+   - `PROMOTION_TARGET_SCOPE`
+   - `PROMOTION_TARGET_LABEL`
+   - `PROMOTION_OFFER_NAME`
+   - `NEXT_PUBLIC_PROMOTION_TARGET_LABEL`
+   - `NEXT_PUBLIC_PROMOTION_TARGET_SCOPE`
+   - `NEXT_PUBLIC_PROMOTION_OFFER_NAME`
+
+### Internal funnel page
+
+- Open `/funnel?token=<FUNNEL_DASHBOARD_TOKEN>`
+- The page now shows:
+  - landing conversion
+  - checkout handoff (`checkout_started` -> `checkout_request_received`)
+  - Stripe session creation (`checkout_request_received` -> `checkout_session_created`)
+  - paid-after-Stripe conversion
+  - promo signup counts
+  - top checkout blockers
 
 ### Inspect captured promo signups
 
@@ -101,6 +122,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `/success`
   - `/download`
   - both now include a non-public-facing proof request card that asks buyers to email a photo + short note with permission before anything is published
+  - success-page proof requests now include the Stripe session reference in the email draft for easier support follow-up
 - **Promo signup hardening**:
   - promo emails now include a signed unsubscribe link
   - `/unsubscribe` updates promo signup state server-side

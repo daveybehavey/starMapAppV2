@@ -1,4 +1,5 @@
 import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
+import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
 
 type PromotionAutomationProvider = "resend" | "sendgrid" | "webhook" | "none";
 
@@ -9,6 +10,8 @@ const promotionPercent = Number.isFinite(rawPromotionPercent)
   ? Math.min(100, Math.max(1, Math.round(rawPromotionPercent)))
   : 50;
 const promotionPercentLabel = `${promotionPercent}%`;
+const promotionOfferName = getPromotionOfferName();
+const promotionTargetLabel = getPromotionTargetLabel();
 
 type PromotionAutomationResult = {
   delivered: boolean;
@@ -17,10 +20,10 @@ type PromotionAutomationResult = {
 };
 
 const promotionSubject =
-  process.env.PROMOTION_EMAIL_SUBJECT ?? `Your ${promotionPercentLabel} off HD starter code from StarMapCo`;
+  process.env.PROMOTION_EMAIL_SUBJECT ?? `Your ${promotionPercentLabel} off ${promotionOfferName} from StarMapCo`;
 const promotionFollowupSubject =
   process.env.PROMOTION_FOLLOWUP_SUBJECT ??
-  `Print tips for your star map (and your ${promotionPercentLabel} off HD starter code)`;
+  `Print tips for your star map (and your ${promotionPercentLabel} off ${promotionOfferName})`;
 const promotionFollowupDelayHours = Number.parseInt(
   process.env.PROMOTION_FOLLOWUP_DELAY_HOURS ?? "24",
   10,
@@ -65,11 +68,11 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
   const text = [
     "Thanks for joining the StarMapCo insider list.",
     "",
-    `Here is your ${promotionPercentLabel} off code for your first single HD digital checkout: ${couponCode}`,
+    `Here is your ${promotionPercentLabel} off code for ${promotionTargetLabel}: ${couponCode}`,
     "",
     `Use it at checkout here: ${checkoutUrl}`,
     "",
-    "This one-time offer applies to your first single HD digital checkout.",
+    `This one-time offer applies to ${promotionTargetLabel}.`,
     "Framed and unframed prints remain available separately after preview.",
     "",
     "Need help? Reply to this email and we can help.",
@@ -83,11 +86,11 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
       <p>Thanks for joining the StarMapCo insider list.</p>
-      <p style="font-size: 18px; font-weight: 700; margin: 20px 0 8px;">Your ${promotionPercentLabel} off HD starter code</p>
+      <p style="font-size: 18px; font-weight: 700; margin: 20px 0 8px;">Your ${promotionPercentLabel} off ${promotionOfferName}</p>
       <p style="font-size: 28px; font-weight: 700; margin: 0 0 18px; letter-spacing: 1px; color: #b07d1b;">${couponCode}</p>
       <p>Use it at checkout:</p>
       <p><a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Create your star map</a></p>
-      <p style="font-size: 13px; color: #3f485b;">This one-time offer applies to your first single HD digital checkout.</p>
+      <p style="font-size: 13px; color: #3f485b;">This one-time offer applies to ${promotionTargetLabel}.</p>
       <p style="font-size: 13px; color: #3f485b;">Framed and unframed print routes still stay available after preview.</p>
       <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
       ${unsubscribeUrl ? `<p style="font-size: 12px; color: #6b7280;">No longer want updates? <a href="${unsubscribeUrl}" style="color: #6b7280;">Unsubscribe</a>.</p>` : ""}
@@ -114,7 +117,7 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
     "",
     `Full guide: ${printGuideUrl}`,
     "",
-    `Your ${promotionPercentLabel} off HD starter code still works: ${couponCode}`,
+    `Your ${promotionPercentLabel} off code for ${promotionTargetLabel} still works: ${couponCode}`,
     `Start or finish your map here: ${checkoutUrl}`,
     "",
     "Need help? Reply to this email and we can help.",
@@ -134,7 +137,7 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
         <li>A simple black or wood frame keeps it timeless.</li>
       </ol>
       <p><a href="${printGuideUrl}" style="color: #b07d1b; font-weight: 700; text-decoration: none;">Read the full print guide</a></p>
-      <p style="margin-top: 18px;">Your ${promotionPercentLabel} off HD starter code still works:</p>
+      <p style="margin-top: 18px;">Your ${promotionPercentLabel} off ${promotionOfferName} still works:</p>
       <p style="font-size: 24px; font-weight: 700; margin: 0 0 14px; letter-spacing: 1px; color: #b07d1b;">${couponCode}</p>
       <p><a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Continue your map</a></p>
       <p style="font-size: 13px; color: #3f485b; margin-top: 14px;">

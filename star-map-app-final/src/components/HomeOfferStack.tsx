@@ -389,32 +389,42 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital HD plans</p>
-            <span className="text-[11px] text-neutral-300">Pay only when your preview looks right.</span>
+            <span className="text-[11px] text-neutral-300">Most buyers only need one finished file.</span>
           </div>
+          <p className="mt-2 text-xs text-neutral-300">
+            Start with the one-time HD checkout unless you know you need multiple exports or ongoing use.
+          </p>
           <div className="grid gap-2 sm:grid-cols-3">
             <a
               href="/editor?mode=quick&source=home-plan-single"
               onClick={() => handlePlanInterest("single")}
-              className="rounded-xl border border-white/20 bg-white/10 p-3 text-left transition hover:border-amber-300/50 hover:bg-white/15"
+              className="rounded-xl border border-amber-300/55 bg-amber-300/15 p-3 text-left transition hover:border-amber-300/75 hover:bg-amber-300/20"
             >
-              <p className="text-sm font-semibold text-white">Single HD</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-white">Single HD</p>
+                <span className="rounded-full border border-amber-200/70 bg-amber-200/30 px-2 py-0.5 text-[10px] font-bold text-amber-100">
+                  ONE-TIME
+                </span>
+              </div>
               <p className="text-sm font-semibold text-amber-200">{priceLabels.single}</p>
+              <p className="mt-1 text-[11px] text-amber-100/80">Best if you just need this one finished map.</p>
             </a>
             <a
               href="/editor?mode=quick&source=home-plan-pack3"
               onClick={() => handlePlanInterest("pack3")}
-              className="rounded-xl border border-amber-300/55 bg-amber-300/15 p-3 text-left transition hover:border-amber-300/75 hover:bg-amber-300/20"
+              className="rounded-xl border border-white/20 bg-white/10 p-3 text-left transition hover:border-amber-300/50 hover:bg-white/15"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-white">3-pack HD</p>
-                <span className="rounded-full border border-amber-200/70 bg-amber-200/30 px-2 py-0.5 text-[10px] font-bold text-amber-100">
-                  RECOMMENDED
+                <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-neutral-200">
+                  REPEAT USE
                 </span>
               </div>
               <p className="text-sm font-semibold text-amber-200">
                 {priceLabels.pack3}
                 {priceLabels.packSavingsPercent > 0 ? ` (${priceLabels.packSavingsPercent}% off)` : ""}
               </p>
+              <p className="mt-1 text-[11px] text-neutral-300">Use this if you expect multiple gifts or alternate versions.</p>
             </a>
             <a
               href="/editor?mode=quick&source=home-plan-subscription"
@@ -423,6 +433,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             >
               <p className="text-sm font-semibold text-white">Unlimited monthly</p>
               <p className="text-sm font-semibold text-neutral-100">{priceLabels.subscription}/mo</p>
+              <p className="mt-1 text-[11px] text-neutral-300">Only for ongoing exports, not most one-off gifts.</p>
             </a>
           </div>
           <p className="text-xs text-neutral-300">
