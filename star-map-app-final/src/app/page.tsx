@@ -242,7 +242,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Can I share my custom star map with others?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Generate and share images or links now; public sharing options are coming soon.",
+              text: "Yes. You can share exported images right away and use private access or referral links from the success/download flow.",
             },
           },
           {
