@@ -131,9 +131,11 @@ function buildPlan(files, includeLint) {
   };
 
   if (includeLint) push("npm run lint");
+  if (hasCodeChange) push("npx next typegen");
   if (hasCodeChange) push("npx tsc --noEmit");
   if (touchesHomeStatic) push("npm run check:static-home");
   if (touchesUi || touchesHomeStatic) push("npm run check:static-assets");
+  if (touchesUi || touchesHomeStatic) push("npm run qa:links");
   if (touchesUi) push("npm run qa:smoke:ui");
   if (touchesRender) push("npm run qa:smoke:render");
   if (touchesCommerce) push("npm run qa:smoke:commerce");

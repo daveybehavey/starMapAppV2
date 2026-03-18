@@ -156,10 +156,13 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 
 Run from `star-map-app-final/`:
 
+- `npx next typegen`
 - `npx tsc --noEmit`
+- `npm run qa:links`
 - `npm run qa:smoke:ui`
 - `npm run qa:smoke:commerce`
 - `npm run qa:live-smoke`
+- `npm run qa:content-consistency`
 - `npm run deploy`
 
 ## 6) Current production notes

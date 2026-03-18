@@ -41,6 +41,7 @@
     "qa:content-consistency": "node scripts/content-consistency-sweep.mjs --site https://starmapco.com",
     "qa:ga4-smoke": "node scripts/ga4-smoke.mjs",
     "qa:sitemap-health": "node scripts/sitemap-health.mjs",
+    "qa:links": "node scripts/link-integrity-check.mjs",
     "qa:merchant-feed": "node scripts/merchant-feed-health.mjs",
     "qa:merchant-feed:live": "node scripts/merchant-feed-health.mjs --feed https://starmapco.com/merchant-feed.xml",
     "qa:merchant-readiness": "npm run assets:commerce-refresh && npm run merchant:shipping-reference && npm run merchant:shipping-groups",

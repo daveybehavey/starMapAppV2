@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-16
+Updated: 2026-03-18
 
 ## Phase 0: Foundation (Done)
 
@@ -79,6 +79,7 @@ Updated: 2026-03-16
   - Tightened delivery-option card hierarchy and spacing for easier scanning.
   - Simplified homepage hero and offer copy for better readability on first visit.
   - Added static-home gallery image fallback handling and smoother card hover polish for more stable premium presentation.
+  - Shifted proof/mockup surfaces to calmer flat wall textures to reduce visual noise while keeping in-room context.
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
@@ -134,7 +135,9 @@ Required pre-deploy gate:
 
 ```bash
 npm run check:env
+npm run qa:links
 npm run lint
+npx next typegen
 npx tsc --noEmit
 npm run build
 npm run qa:go-no-go
@@ -163,6 +166,7 @@ Post-deploy sanity:
 
 ```bash
 npm run qa:live-smoke
+npm run qa:content-consistency
 ```
 
 Recent status:
@@ -194,6 +198,12 @@ Recent status:
   - `npm run sync:static-home`
   - `npm run check:static-home`
   - `npm run check:static-assets`
+- Added internal link integrity guard:
+  - `npm run qa:links`
+  - integrated into `qa:release-gate` and `qa:changed` for page/link regressions
+- Expanded live content consistency sweep coverage:
+  - now checks high-intent, gift, city, and policy pages in one pass
+  - integrated into `qa:release-gate --live`
 - Added Merchant feed health guard:
   - `npm run qa:merchant-feed`
   - integrated into `qa:release-gate --live`

@@ -35,6 +35,7 @@ Default checks:
   - npm run check:env
   - npm run check:static-home
   - npm run check:static-assets
+  - npm run qa:links
   - npm run lint
   - npx next typegen
   - npx tsc --noEmit
@@ -47,6 +48,7 @@ Smoke mode (--smoke) also runs:
 Live mode (--live) also runs:
   - npm run qa:printful
   - npm run qa:print-ops -- --hours 72 --strict
+  - npm run qa:content-consistency -- --site <site-origin>
   - npm run qa:merchant-feed -- --feed <site>/merchant-feed.xml
   - npm run qa:sitemap-health -- --sitemap <url> --concurrency 8 --timeout-ms 15000
   - npm run qa:funnel-reconcile -- --days 14 (when STRIPE_SECRET_KEY is available)
@@ -81,6 +83,15 @@ function merchantFeedUrlFromSitemap(sitemapUrl) {
   }
 }
 
+function siteOriginFromSitemap(sitemapUrl) {
+  try {
+    const parsed = new URL(sitemapUrl);
+    return parsed.origin;
+  } catch {
+    return "https://starmapco.com";
+  }
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
 
@@ -88,6 +99,7 @@ function main() {
     ["Env check", "npm", ["run", "check:env"]],
     ["Static homepage sync check", "npm", ["run", "check:static-home"]],
     ["Static homepage asset check", "npm", ["run", "check:static-assets"]],
+    ["Internal link integrity", "npm", ["run", "qa:links"]],
     ["Lint", "npm", ["run", "lint"]],
     ["Typegen", "npx", ["next", "typegen"]],
     ["Typecheck", "npx", ["tsc", "--noEmit"]],
@@ -101,11 +113,17 @@ function main() {
 
   if (args.live) {
     const merchantFeedUrl = merchantFeedUrlFromSitemap(args.sitemap);
+    const siteOrigin = siteOriginFromSitemap(args.sitemap);
     steps.push(["Printful verify", "npm", ["run", "qa:printful"]]);
     steps.push([
       "Print ops anomaly check",
       "npm",
       ["run", "qa:print-ops", "--", "--hours", "72", "--strict"],
+    ]);
+    steps.push([
+      "Live content consistency",
+      "npm",
+      ["run", "qa:content-consistency", "--", "--site", siteOrigin],
     ]);
     steps.push([
       "Merchant feed health",

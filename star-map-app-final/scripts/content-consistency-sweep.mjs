@@ -44,46 +44,134 @@ async function fetchHtml(url) {
   return { status: response.status, ok: response.ok, html };
 }
 
+const commercePolicyLinks = ["/shipping", "/returns", "/privacy", "/terms"];
+
 const pageChecks = [
   {
     path: "/",
     requiredAny: ["preview framed print", "compare all gift formats"],
-    requiredAll: ["/shipping", "/returns", "support@starmapco.com"],
+    requiredAll: [...commercePolicyLinks, "support@starmapco.com"],
+    forbiddenAny: [],
   },
   {
     path: "/personalized-star-map",
     requiredAny: ["what you receive", "physical print", "framed"],
-    requiredAll: ["/shipping", "/returns"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
   },
   {
     path: "/star-map-gift",
     requiredAny: ["gift formats", "framed", "unframed"],
-    requiredAll: ["/shipping", "/returns"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
   },
   {
     path: "/wedding",
     requiredAny: ["wedding", "framed", "digital"],
-    requiredAll: ["/shipping", "/returns"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/anniversary",
+    requiredAny: ["anniversary", "framed", "digital"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/birthday",
+    requiredAny: ["birthday", "framed", "digital"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/custom-night-sky-map",
+    requiredAny: ["preview", "framed", "unframed"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/night-sky-map-gift",
+    requiredAny: ["gift", "framed", "unframed"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-generator",
+    requiredAny: ["free preview", "framed", "unframed"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-gift-formats",
+    requiredAny: ["framed", "unframed", "digital"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-gift-ideas",
+    requiredAny: ["gift ideas", "preview", "framed"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-gallery",
+    requiredAny: ["examples", "gallery", "preview"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-poster",
+    requiredAny: ["poster", "unframed", "preview"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/constellation-map",
+    requiredAny: ["constellation", "preview", "framed"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-for/anniversary",
+    requiredAny: ["anniversary", "preview", "framed"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-in/new-york-ny",
+    requiredAny: ["new york", "preview", "framed"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/blog",
+    requiredAny: ["blog", "star map"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
   },
   {
     path: "/shipping",
     requiredAny: ["shipping", "delivery"],
     requiredAll: ["/returns"],
+    forbiddenAny: [],
   },
   {
     path: "/returns",
     requiredAny: ["returns", "refund"],
     requiredAll: ["/shipping"],
+    forbiddenAny: [],
   },
   {
     path: "/privacy",
     requiredAny: ["privacy"],
     requiredAll: [],
+    forbiddenAny: [],
   },
   {
     path: "/terms",
     requiredAny: ["terms"],
     requiredAll: [],
+    forbiddenAny: [],
   },
 ];
 
@@ -100,6 +188,11 @@ function checkPageContent(input) {
   }
   if (input.requiredAny.length > 0 && !hasAnyPhrase(input.html, input.requiredAny)) {
     issues.push(`missing_any:${input.requiredAny.join("|")}`);
+  }
+  for (const phrase of input.forbiddenAny) {
+    if (hasAnyPhrase(input.html, [phrase])) {
+      issues.push(`forbidden:${phrase}`);
+    }
   }
   return issues;
 }
@@ -121,6 +214,7 @@ async function main() {
       ...response,
       requiredAll: page.requiredAll,
       requiredAny: page.requiredAny,
+      forbiddenAny: page.forbiddenAny ?? [],
     });
     report.pages.push({
       path: page.path,
