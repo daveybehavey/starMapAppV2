@@ -601,22 +601,22 @@
       #physical-proof-gallery .gallery .wall-frame {
         position: relative;
         z-index: 1;
-        margin: 10px;
+        margin: 8px;
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.22);
         box-shadow:
-          0 12px 18px rgba(0, 0, 0, 0.16),
-          0 3px 8px rgba(0, 0, 0, 0.08),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+          0 10px 16px rgba(0, 0, 0, 0.14),
+          0 2px 6px rgba(0, 0, 0, 0.07),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.12);
       }
       #physical-proof-gallery .gallery .wall-frame img {
         aspect-ratio: 1 / 1;
         object-fit: contain;
-        padding: 4px;
+        padding: 2px;
         border-radius: 12px;
         background: transparent;
-        transform: scale(1.12);
+        transform: scale(1.2);
       }
       #physical-proof-gallery .gallery figure.style-alt .wall-frame img {
         object-fit: cover;
@@ -629,6 +629,46 @@
         color: rgba(255, 255, 255, 0.9);
         background: linear-gradient(180deg, rgba(12, 16, 26, 0.44), rgba(12, 16, 26, 0.58));
         border-top: 1px solid rgba(255, 255, 255, 0.14);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #physical-proof-gallery .gallery .proof-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.98);
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        white-space: nowrap;
+      }
+      #physical-proof-gallery .links {
+        gap: 8px;
+      }
+      #physical-proof-gallery .links a {
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 8px 12px;
+      }
+      #physical-proof-gallery .links a.cta-primary {
+        background: #fbbf24;
+        color: #111827;
+        border-color: rgba(251, 191, 36, 0.88);
+      }
+      #physical-proof-gallery .links a.cta-secondary {
+        background: rgba(255, 255, 255, 0.92);
+        color: #1f2937;
+        border-color: rgba(255, 255, 255, 0.7);
+      }
+      #physical-proof-gallery .links a.cta-tertiary {
+        background: rgba(251, 191, 36, 0.24);
+        color: #fef3c7;
+        border-color: rgba(251, 191, 36, 0.5);
       }
       .product-proof {
         display: grid;
@@ -1343,7 +1383,7 @@
                 height="900"
               />
             </div>
-            <figcaption>Framed on the wall — ready-to-hang premium gift</figcaption>
+            <figcaption><span class="proof-chip">Framed · Classic</span>Ready-to-hang premium finish</figcaption>
           </figure>
           <figure class="wall-cool wall-cool-alt style-alt">
             <div class="wall-frame">
@@ -1356,7 +1396,7 @@
                 height="900"
               />
             </div>
-            <figcaption>Framed with Heirloom style — compare alternate map mood and typography</figcaption>
+            <figcaption><span class="proof-chip">Framed · Heirloom</span>Alternate typography and mood</figcaption>
           </figure>
           <figure class="wall-warm">
             <div class="wall-frame">
@@ -1369,7 +1409,7 @@
                 height="900"
               />
             </div>
-            <figcaption>Unframed in a styled setup — lower physical cost, same artwork</figcaption>
+            <figcaption><span class="proof-chip">Unframed · Classic</span>Lower-cost physical print</figcaption>
           </figure>
           <figure class="wall-cool wall-cool-alt style-alt">
             <div class="wall-frame">
@@ -1382,17 +1422,25 @@
                 height="900"
               />
             </div>
-            <figcaption>Unframed with Noir style — same physical route, different visual style</figcaption>
+            <figcaption><span class="proof-chip">Unframed · Noir</span>Darker style, same print route</figcaption>
           </figure>
         </div>
         <div class="links">
           <a
+            class="cta-primary"
             href="/editor?mode=quick&source=home-static-physical-proof-framed&checkout=print&print_variant=poster_framed"
             data-funnel-step="hero_plan_click"
             data-funnel-source="home_static_physical_gallery"
             data-funnel-plan="print_framed"
-          >Preview framed print</a>
-          <a href="/star-map-gift-formats">Compare all gift formats</a>
+          >Preview framed</a>
+          <a
+            class="cta-secondary"
+            href="/editor?mode=quick&source=home-static-physical-proof-unframed&checkout=print&print_variant=poster_unframed"
+            data-funnel-step="hero_plan_click"
+            data-funnel-source="home_static_physical_gallery"
+            data-funnel-plan="print_unframed"
+          >Preview unframed</a>
+          <a class="cta-tertiary" href="/star-map-gift-formats">Compare formats</a>
         </div>
       </section>
 
