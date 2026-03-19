@@ -224,14 +224,14 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
             <div className="home-proof-wall home-proof-wall--warm relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/45">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.35),rgba(0,0,0,0.06)_75%)]" />
-              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/70 bg-[#f3ece1] shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
+              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
                 <ResilientImage
                   src={proofImages.framed}
                   fallbackSrc="/printproof/framed-catalog.jpg"
                   alt="Framed StarMapCo print preview"
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover"
+                  className="object-contain p-2"
                 />
               </div>
               <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
@@ -270,14 +270,14 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <div className="home-proof-wall home-proof-wall--neutral relative mb-3 h-28 overflow-hidden rounded-xl border border-white/18">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.32),rgba(0,0,0,0.08)_78%)]" />
-              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/70 bg-[#f4f1eb] shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
+              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
                 <ResilientImage
                   src={proofImages.unframed}
                   fallbackSrc="/printproof/unframed-catalog.jpg"
                   alt="Unframed StarMapCo poster preview"
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover"
+                  className="object-contain p-2"
                 />
               </div>
               <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">

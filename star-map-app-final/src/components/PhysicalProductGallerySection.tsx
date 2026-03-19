@@ -18,52 +18,52 @@ export default function PhysicalProductGallerySection({
 
   const heroCards = [
     {
-      src: "/printproof/gallery/wedding-framed.jpg",
-      fallbackSrc: framedProofImage,
+      src: framedProofImage,
+      fallbackSrc: "/printproof/gallery/wedding-framed.jpg",
       alt: "Framed StarMapCo print shown hanging in a styled room",
       eyebrow: "Premium default",
       title: "Framed on the wall",
       detail: "Shows the ready-to-hang route in a clean wall-stage preview so buyers can judge finish and scale quickly.",
       bestFor: "Best for anniversaries, weddings, and premium gifting.",
       stageClass: "gallery-wall-stage gallery-wall-stage--warm",
-      imageClass: "object-cover",
+      imageClass: "object-contain p-3 sm:p-4",
       badgeClass: "border-white/25 bg-black/40 text-white",
     },
     {
-      src: "/printproof/gallery/wedding-unframed.jpg",
-      fallbackSrc: unframedProofImage,
+      src: unframedProofImage,
+      fallbackSrc: "/printproof/gallery/wedding-unframed.jpg",
       alt: "Unframed StarMapCo poster shown in a styled setting",
       eyebrow: "Lower total",
       title: "Unframed on a neutral wall stage",
       detail: "Shows the physical print route without frame cost, while still keeping a clean in-room presentation feel.",
       bestFor: "Best for buyers who already know their own frame plan.",
       stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
-      imageClass: "object-cover",
+      imageClass: "object-contain p-3 sm:p-4",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
     },
   ] as const;
 
   const supportCards = [
     {
-      src: "/printproof/gallery/birthday-framed.jpg",
-      fallbackSrc: framedProofImage,
+      src: framedProofImage,
+      fallbackSrc: "/printproof/gallery/birthday-framed.jpg",
       alt: "Framed StarMapCo print shown in a second styled interior",
       eyebrow: "In-room proof",
       title: "Second framed room view",
       detail: "Adds a second framed reference with the same wall-stage treatment for a cleaner side-by-side comparison.",
       stageClass: "gallery-wall-stage gallery-wall-stage--warm",
-      imageClass: "object-cover",
+      imageClass: "object-contain p-3 sm:p-4",
       badgeClass: "border-white/25 bg-black/40 text-white",
     },
     {
-      src: "/printproof/gallery/graduation-unframed.jpg",
-      fallbackSrc: unframedProofImage,
+      src: unframedProofImage,
+      fallbackSrc: "/printproof/gallery/graduation-unframed.jpg",
       alt: "Unframed StarMapCo poster shown in another styled scene",
       eyebrow: "Styled proof",
       title: "Second unframed context view",
       detail: "Confirms the lower-cost route still feels deliberate with a neutral, minimal wall context.",
       stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
-      imageClass: "object-cover",
+      imageClass: "object-contain p-3 sm:p-4",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
     },
   ] as const;
@@ -84,7 +84,7 @@ export default function PhysicalProductGallerySection({
               className="overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]"
             >
               <div className={`relative aspect-[5/4] overflow-hidden ${card.stageClass}`}>
-                <div className="absolute inset-5 z-10 overflow-hidden rounded-[14px] border border-white/70 bg-white/95 shadow-[0_16px_26px_rgba(0,0,0,0.18)]">
+                <div className="absolute inset-5 z-10 overflow-hidden rounded-[14px] border border-white/40 bg-transparent shadow-[0_16px_26px_rgba(0,0,0,0.18)]">
                   <ResilientImage
                     src={card.src}
                     fallbackSrc={card.fallbackSrc}
@@ -118,7 +118,7 @@ export default function PhysicalProductGallerySection({
               className="overflow-hidden rounded-[24px] border border-black/10 bg-white shadow-[0_14px_28px_rgba(0,0,0,0.08)]"
             >
               <div className={`relative aspect-[16/10] overflow-hidden ${card.stageClass}`}>
-                <div className="absolute inset-4 z-10 overflow-hidden rounded-[12px] border border-white/70 bg-white/95 shadow-[0_14px_24px_rgba(0,0,0,0.16)]">
+                <div className="absolute inset-4 z-10 overflow-hidden rounded-[12px] border border-white/40 bg-transparent shadow-[0_14px_24px_rgba(0,0,0,0.16)]">
                   <ResilientImage
                     src={card.src}
                     fallbackSrc={card.fallbackSrc}
