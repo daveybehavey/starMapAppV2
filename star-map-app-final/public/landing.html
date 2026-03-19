@@ -816,10 +816,23 @@
       }
       .signup {
         border-radius: 20px;
-        padding: 20px;
-        background: rgba(247, 241, 227, 0.95);
+        padding: 22px 20px;
+        background:
+          radial-gradient(circle at 14% 12%, rgba(247, 194, 74, 0.2), transparent 32%),
+          linear-gradient(165deg, rgba(249, 244, 232, 0.99), rgba(240, 233, 216, 0.97));
         color: var(--text);
-        border: 1px solid rgba(241, 194, 125, 0.5);
+        border: 1px solid rgba(209, 171, 103, 0.62);
+        box-shadow: 0 16px 32px rgba(5, 9, 21, 0.14);
+      }
+      .signup h2 {
+        margin: 0 0 10px;
+        color: #0f1f3a;
+      }
+      .signup > p {
+        margin: 0 0 14px;
+        color: #2b4668;
+        font-size: 0.98rem;
+        line-height: 1.58;
       }
       .signup form {
         display: grid;
@@ -829,16 +842,75 @@
       .signup input {
         padding: 12px 14px;
         border-radius: 12px;
-        border: 1px solid rgba(241, 194, 125, 0.5);
+        border: 1px solid rgba(177, 198, 236, 0.55);
+        background: #ffffff;
+        color: #0f1f3a;
+      }
+      .signup input::placeholder {
+        color: #6a7280;
       }
       .signup button {
         padding: 12px 16px;
         border-radius: 999px;
         border: none;
-        background: linear-gradient(90deg, #fbbf24, #f1c27d);
+        background: linear-gradient(90deg, var(--amber-strong), #f4cd83);
         font-weight: 700;
-        color: #1f2937;
+        color: #111827;
         cursor: pointer;
+        transition: transform 140ms ease, filter 140ms ease;
+      }
+      .signup button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.03);
+      }
+      .signup .signup-note {
+        margin-top: 10px;
+        font-size: 0.76rem;
+        color: #3f546f;
+      }
+      .occasion-shell {
+        border: 1px solid var(--line-soft);
+        border-radius: 22px;
+        padding: 24px 22px 20px;
+        background:
+          radial-gradient(circle at 12% 14%, rgba(247, 194, 74, 0.16), transparent 34%),
+          linear-gradient(160deg, rgba(10, 20, 44, 0.76), rgba(12, 31, 69, 0.86));
+        box-shadow:
+          0 18px 36px rgba(3, 8, 20, 0.28),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      .occasion-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 14px;
+      }
+      .occasion-header h2 {
+        margin: 0 0 8px;
+      }
+      .occasion-header p {
+        margin: 0;
+        max-width: 760px;
+      }
+      .occasion-links {
+        margin-top: 16px;
+        gap: 9px;
+      }
+      .occasion-links a {
+        border-radius: 999px;
+        border: 1px solid rgba(188, 210, 244, 0.54);
+        background: rgba(245, 249, 255, 0.96);
+        color: #213758;
+        font-size: 0.86rem;
+        font-weight: 700;
+        padding: 8px 13px;
+        box-shadow: 0 6px 14px rgba(3, 8, 20, 0.12);
+      }
+      .occasion-links a:hover {
+        border-color: rgba(247, 194, 74, 0.72);
+        background: rgba(247, 194, 74, 0.94);
+        color: #111827;
       }
       .links {
         display: flex;
@@ -1006,6 +1078,9 @@
       @media (max-width: 640px) {
         .signup form {
           grid-template-columns: 1fr;
+        }
+        .occasion-shell {
+          padding: 20px 16px 16px;
         }
         .site-header {
           flex-direction: column;
@@ -1497,20 +1572,26 @@
       </section>
 
       <section class="section content-visibility-auto">
-        <h2>Perfect for anniversaries, weddings, birthdays, and couples gifts</h2>
-        <p>Turn a once‑in‑a‑lifetime night into a gift that feels personal and timeless.</p>
-        <div class="links">
-          <a href="/star-map-for/anniversary">Anniversary star maps</a>
-          <a href="/star-map-for/wedding">Wedding star maps</a>
-          <a href="/star-map-for/engagement">Engagement star maps</a>
-          <a href="/star-map-for/birthday">Birthday star maps</a>
-          <a href="/star-map-for/valentines-day">Valentine's Day star maps</a>
-          <a href="/star-map-for/mothers-day">Mother's Day star maps</a>
-          <a href="/star-map-for/fathers-day">Father's Day star maps</a>
-          <a href="/star-map-gift-ideas">Star map gift ideas</a>
-          <a href="/star-map-gallery">Star map gallery</a>
-          <a href="/star-map-gift">Star map gift</a>
-          <a href="/night-sky-map-gift">Night sky map gift</a>
+        <div class="occasion-shell">
+          <div class="occasion-header">
+            <div>
+              <h2>Perfect for anniversaries, weddings, birthdays, and couples gifts</h2>
+              <p>Turn a once‑in‑a‑lifetime night into a gift that feels personal, premium, and emotionally specific.</p>
+            </div>
+          </div>
+          <div class="links occasion-links">
+            <a href="/star-map-for/anniversary">Anniversary star maps</a>
+            <a href="/star-map-for/wedding">Wedding star maps</a>
+            <a href="/star-map-for/engagement">Engagement star maps</a>
+            <a href="/star-map-for/birthday">Birthday star maps</a>
+            <a href="/star-map-for/valentines-day">Valentine's Day star maps</a>
+            <a href="/star-map-for/mothers-day">Mother's Day star maps</a>
+            <a href="/star-map-for/fathers-day">Father's Day star maps</a>
+            <a href="/star-map-gift-ideas">Star map gift ideas</a>
+            <a href="/star-map-gallery">Star map gallery</a>
+            <a href="/star-map-gift">Star map gift</a>
+            <a href="/night-sky-map-gift">Night sky map gift</a>
+          </div>
         </div>
       </section>
 
@@ -1586,7 +1667,7 @@
             <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
             <button type="submit">Get HD starter code</button>
           </form>
-          <p style="margin-top:10px;font-size:0.75rem;color:#4b5563;">
+          <p class="signup-note">
             No spam — just occasional updates. Unsubscribe anytime.
           </p>
         </div>
