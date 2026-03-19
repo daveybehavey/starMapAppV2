@@ -393,6 +393,13 @@ Recent status:
 - Added rollout guardrail docs for next expansion blocks:
   - `docs/referral-v2-rollout.md`
   - `docs/country-expansion-guardrails.md`
+- Lower-intent copy consistency sweep completed:
+  - normalized CTA language from "framed preview" to "framed print preview" across generator/poster/constellation/location/occasion/blog template surfaces
+  - aligned `/how-to-print-star-map` CTA copy to current checkout reality (framed/unframed/HD)
+- Static homepage analytics performance hardening:
+  - deferred GA external script download until explicit analytics consent grant on `public/index.html`
+  - synced static variant (`public/landing.html`) to the same behavior
+  - removed Lighthouse unused-JS attribution from `gtag.js` on non-consented first loads
 
 ### Most recent verified ops snapshot
 

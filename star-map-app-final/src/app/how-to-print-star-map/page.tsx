@@ -94,7 +94,8 @@ export default function HowToPrintStarMapPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Create your print‑ready star map</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Start with an instant preview, then unlock the HD file when you’re ready to print.
+          Start with an instant preview, then choose framed print, unframed print, or HD digital delivery once the
+          design is final.
         </p>
         <div className="pt-2">
           <Link

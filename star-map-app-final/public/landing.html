@@ -30,7 +30,6 @@
     <meta name="twitter:image" content="https://starmapco.com/custom-star-map-anniversary.png" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/favicon.ico" />
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-N4PPJ50JQ7"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -40,11 +39,6 @@
         ad_user_data: "denied",
         ad_personalization: "denied",
         wait_for_update: 500
-      });
-      gtag("js", new Date());
-      gtag("config", "G-N4PPJ50JQ7", {
-        anonymize_ip: true,
-        send_page_view: false
       });
     </script>
     <style>
@@ -1863,6 +1857,7 @@
     <script>
       (function () {
         const GA_ID = "G-N4PPJ50JQ7";
+        const GA_EXTERNAL_SCRIPT_ID = "ga4-static-external-script";
         const ANALYTICS_STORAGE_KEY = "analytics-consent";
         const LANDING_VIEW_SEEN_KEY = "funnel:landing_view:seen";
         const GA_LANDING_VIEW_SEEN_KEY = "ga:landing_view:seen";
@@ -1871,6 +1866,25 @@
         const referralVisitEndpoint = "/api/referrals/visit";
         let gaPageViewSent = false;
         let gaLandingViewSent = false;
+        let gaBootstrapped = false;
+
+        const ensureGaBootstrap = function () {
+          if (gaBootstrapped) return;
+          gaBootstrapped = true;
+          if (!document.getElementById(GA_EXTERNAL_SCRIPT_ID)) {
+            const externalScript = document.createElement("script");
+            externalScript.id = GA_EXTERNAL_SCRIPT_ID;
+            externalScript.async = true;
+            externalScript.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(GA_ID);
+            document.head.appendChild(externalScript);
+          }
+          window.gtag("js", new Date());
+          window.gtag("config", GA_ID, {
+            anonymize_ip: true,
+            allow_google_signals: false,
+            send_page_view: false
+          });
+        };
 
         const hasAnalyticsConsent = function () {
           try {
@@ -1881,6 +1895,9 @@
         };
 
         const updateAnalyticsConsent = function (granted) {
+          const disableKey = "ga-disable-" + GA_ID;
+          window[disableKey] = !granted;
+          if (granted) ensureGaBootstrap();
           if (typeof window.gtag !== "function") return;
           window.gtag("consent", "update", {
             analytics_storage: granted ? "granted" : "denied",
@@ -1892,6 +1909,7 @@
 
         const sendGaPageView = function () {
           if (gaPageViewSent || typeof window.gtag !== "function" || !hasAnalyticsConsent()) return;
+          ensureGaBootstrap();
           gaPageViewSent = true;
           window.gtag("event", "page_view", {
             page_path: window.location.pathname,
@@ -1902,6 +1920,7 @@
 
         const sendGaFunnelStep = function (step, source, plan) {
           if (typeof window.gtag !== "function" || !hasAnalyticsConsent()) return;
+          ensureGaBootstrap();
           const payload = { step: step };
           if (typeof source === "string" && source) payload.source = source;
           if (typeof plan === "string" && plan) payload.plan = plan;

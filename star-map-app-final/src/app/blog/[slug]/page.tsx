@@ -125,7 +125,7 @@ export default async function BlogPostPage({ params }: Props) {
               href="/editor?mode=quick&source=blog-template-framed&checkout=print&print_variant=poster_framed"
               className="text-midnight rounded-full bg-amber-400 px-4 py-2 shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
             >
-              Start with framed preview
+              Start with framed print preview
             </Link>
             <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-900">
               Star map generator

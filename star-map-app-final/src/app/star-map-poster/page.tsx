@@ -156,7 +156,7 @@ export default function StarMapPosterPage() {
                 href="/editor?mode=quick&source=star-map-poster-hero-framed&checkout=print&print_variant=poster_framed"
                 className="inline-flex items-center justify-center rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-200"
               >
-                Start with framed preview
+                Start with framed print preview
               </Link>
               <Link
                 href="/editor?mode=quick&source=star-map-poster-hero-unframed&checkout=print&print_variant=poster_unframed"
