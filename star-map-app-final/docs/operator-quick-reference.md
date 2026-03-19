@@ -165,6 +165,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - Playbook:
   - `docs/loop-marketing-playbook.md`
 - Weekly loop review commands:
+  - `npm run qa:loop-scorecard -- --days 14`
   - `npm run qa:commerce-digest -- --days 14`
   - `npm run qa:funnel-reconcile -- --days 14`
 - Loop surfaces to review every week:

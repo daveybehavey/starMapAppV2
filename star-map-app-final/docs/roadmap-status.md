@@ -291,6 +291,9 @@ Recent status:
 - Added loop marketing playbook:
   - `docs/loop-marketing-playbook.md`
   - defines active loops, KPIs, and 30-day execution plan
+- Added weekly loop scorecard command:
+  - `npm run qa:loop-scorecard -- --days 14`
+  - summarizes referral-share, proof-request opportunity, promo-lifecycle, and funnel proxy metrics in one report
 - Added a stricter server-side checkout funnel milestone:
   - `checkout_session_created` now records successful Stripe session creation separately from generic checkout intent
   - this makes it easier to diagnose whether drop-off is happening before Stripe session creation or after handoff

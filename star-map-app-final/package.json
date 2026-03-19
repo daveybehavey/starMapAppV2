@@ -50,6 +50,7 @@
     "qa:print-margin": "node scripts/print-margin-audit.mjs",
     "qa:stripe-payment-methods": "node scripts/stripe-payment-method-audit.mjs",
     "qa:upsell-matrix": "node scripts/generate-upsell-rollout-matrix.mjs",
+    "qa:loop-scorecard": "node scripts/loop-scorecard.mjs",
     "qa:funnel-reconcile": "node scripts/funnel-reconcile.mjs",
     "qa:commerce-digest": "node scripts/commerce-digest.mjs",
     "qa:billing": "npm run qa:smoke:commerce && npm run qa:funnel-reconcile -- --days 14 && npm run qa:print-ops -- --hours 168 --limit 40",

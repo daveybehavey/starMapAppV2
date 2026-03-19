@@ -84,11 +84,12 @@ Primary KPIs:
 
 Run once per week:
 
-1. `npm run qa:commerce-digest -- --days 14`
-2. `npm run qa:funnel-reconcile -- --days 14`
-3. Review referral source breakdown on `/download` and `/success`
-4. Process pending proof submissions and move approved items to publishing queue
-5. Export promo subscriber snapshot (`/api/promotions/subscribers`) and review unsubscribe trend
+1. `npm run qa:loop-scorecard -- --days 14`
+2. `npm run qa:commerce-digest -- --days 14`
+3. `npm run qa:funnel-reconcile -- --days 14`
+4. Review referral source breakdown on `/download` and `/success`
+5. Process pending proof submissions and move approved items to publishing queue
+6. Export promo subscriber snapshot (`/api/promotions/subscribers`) and review unsubscribe trend
 
 ## 30-Day Implementation Plan
 
