@@ -547,8 +547,15 @@
       #physical-proof-gallery .gallery figure {
         position: relative;
         overflow: hidden;
-        border-color: rgba(255, 255, 255, 0.18);
-        background: #e6dfd2;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        box-shadow: none;
+      }
+      #physical-proof-gallery .gallery figure:hover {
+        transform: translateY(-2px);
+        border-color: transparent;
+        box-shadow: none;
       }
       #physical-proof-gallery .gallery figure::before {
         content: "";
@@ -601,46 +608,57 @@
       #physical-proof-gallery .gallery .wall-frame {
         position: relative;
         z-index: 1;
-        margin: 8px;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        box-shadow:
-          0 10px 16px rgba(0, 0, 0, 0.14),
-          0 2px 6px rgba(0, 0, 0, 0.07),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+        margin: 16px 10px 4px;
+        border-radius: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        min-height: 252px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       #physical-proof-gallery .gallery .wall-frame img {
+        width: min(100%, 300px);
         aspect-ratio: 1 / 1;
         object-fit: contain;
-        padding: 2px;
-        border-radius: 12px;
+        padding: 0;
+        border-radius: 0;
         background: transparent;
+        transform: none;
+        filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.28));
+      }
+      #physical-proof-gallery .gallery img.art-framed-classic {
         transform: scale(1.2);
       }
-      #physical-proof-gallery .gallery figure.style-alt .wall-frame img {
-        object-fit: cover;
-        padding: 0;
-        transform: scale(1);
+      #physical-proof-gallery .gallery img.art-heart {
+        transform: scale(1.04) rotate(-1deg);
+      }
+      #physical-proof-gallery .gallery img.art-diamond {
+        transform: scale(0.98) rotate(0.6deg);
+      }
+      #physical-proof-gallery .gallery img.art-noir {
+        transform: scale(1.02) rotate(-0.4deg);
       }
       #physical-proof-gallery .gallery figcaption {
         position: relative;
         z-index: 1;
-        color: rgba(255, 255, 255, 0.9);
-        background: linear-gradient(180deg, rgba(12, 16, 26, 0.44), rgba(12, 16, 26, 0.58));
-        border-top: 1px solid rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.95);
+        background: transparent;
+        border-top: 0;
         display: flex;
         align-items: center;
         gap: 8px;
+        padding: 6px 2px 0;
       }
       #physical-proof-gallery .gallery .proof-chip {
         display: inline-flex;
         align-items: center;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.35);
-        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        background: rgba(0, 0, 0, 0.18);
         color: rgba(255, 255, 255, 0.98);
-        font-size: 0.68rem;
+        font-size: 0.66rem;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -1370,59 +1388,63 @@
 
       <section class="section content-visibility-auto" id="physical-proof-gallery">
         <h2>See the physical gift options side by side</h2>
-        <p>Styled product proofs mix current and alternate StarMapCo styles, so you can compare framed and unframed finishes in realistic contexts before checkout.</p>
+        <p>Real StarMapCo styles side by side: framed classic, heart, diamond, and noir variants so buyers can pick both format and visual direction before checkout.</p>
         <div class="gallery">
           <figure class="wall-warm">
             <div class="wall-frame">
               <img
                 src="/printproof/framed-latest.png"
                 alt="Framed star map proof on warm wall texture"
+                class="art-framed-classic"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Framed · Classic</span>Ready-to-hang premium finish</figcaption>
+            <figcaption><span class="proof-chip">Framed · Classic</span>Ready-to-hang</figcaption>
           </figure>
-          <figure class="wall-cool wall-cool-alt style-alt">
+          <figure class="wall-cool wall-cool-alt">
             <div class="wall-frame">
               <img
-                src="/examples/example-anniversary-heirloom.webp"
-                alt="Framed StarMapCo example with Heirloom styling"
+                src="/examples/example-wedding-aurora-heart.webp"
+                alt="Heart-style StarMapCo print example"
+                class="art-heart"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Framed · Heirloom</span>Alternate typography and mood</figcaption>
+            <figcaption><span class="proof-chip">Style · Heart</span>Romantic shape option</figcaption>
           </figure>
           <figure class="wall-warm">
             <div class="wall-frame">
               <img
-                src="/printproof/unframed-latest.png"
-                alt="Unframed star map proof on warm wall texture"
+                src="/examples/example-graduation-aurora.webp"
+                alt="Diamond-style StarMapCo print example"
+                class="art-diamond"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Unframed · Classic</span>Lower-cost physical print</figcaption>
+            <figcaption><span class="proof-chip">Style · Diamond</span>Bold geometric layout</figcaption>
           </figure>
-          <figure class="wall-cool wall-cool-alt style-alt">
+          <figure class="wall-cool wall-cool-alt">
             <div class="wall-frame">
               <img
                 src="/examples/example-birthday-noir.webp"
                 alt="Unframed StarMapCo example with Noir styling"
+                class="art-noir"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Unframed · Noir</span>Darker style, same print route</figcaption>
+            <figcaption><span class="proof-chip">Style · Noir</span>Dark modern aesthetic</figcaption>
           </figure>
         </div>
         <div class="links">
