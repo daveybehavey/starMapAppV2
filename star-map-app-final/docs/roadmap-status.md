@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-18
+Updated: 2026-03-19
 
 ## Phase 0: Foundation (Done)
 
@@ -381,6 +381,18 @@ Recent status:
     - all current blog article routes
     - `/how-accurate-are-star-maps`
     - `/how-to-print-star-map`
+- Completed top-intent messaging consistency pass:
+  - `/personalized-star-map`
+  - `/star-map-gift`
+  - `/wedding`
+  - `/star-map-gift-ideas`
+  - normalized preview CTA language so framed/unframed/HD paths match across these pages
+- Replaced weak blog media placeholders:
+  - removed favicon-based large images from blog articles
+  - switched to real StarMapCo example assets in wedding and birthday blog guides
+- Added rollout guardrail docs for next expansion blocks:
+  - `docs/referral-v2-rollout.md`
+  - `docs/country-expansion-guardrails.md`
 
 ### Most recent verified ops snapshot
 

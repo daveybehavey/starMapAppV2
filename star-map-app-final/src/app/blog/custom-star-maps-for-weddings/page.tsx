@@ -199,7 +199,7 @@ export default function WeddingsPostPage() {
             <p>
               Capture the sky from your ceremony, first dance, or proposal. Start your map now and{" "}
               <Link href="/editor?mode=quick&source=blog-wedding-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with a framed wedding preview
+                start with a framed print preview
               </Link>{" "}
               in minutes.
             </p>
@@ -207,24 +207,24 @@ export default function WeddingsPostPage() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image
-              src="/custom-star-map-anniversary.webp"
-              alt="Custom star map for wedding night sky"
+              src="/examples/example-wedding-aurora-heart.webp"
+              alt="Wedding heart-style star map example"
               width={900}
               height={650}
               className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"
               loading="lazy"
             />
             <Image
-              src="/og-default.png"
-              alt="Wedding first dance star map keepsake"
+              src="/examples/example-anniversary-heirloom.webp"
+              alt="Wedding heirloom-style star map example"
               width={900}
               height={650}
               className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"
               loading="lazy"
             />
             <Image
-              src="/favicon.ico"
-              alt="Styled custom star map for wedding décor"
+              src="/examples/example-birthday-noir.webp"
+              alt="Wedding noir-style star map example"
               width={900}
               height={650}
               className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"

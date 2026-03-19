@@ -213,7 +213,7 @@ export default function PersonalizedBirthdayPost() {
             <p>
               Look for providers with accurate data, HD options, and easy customization. Ready to make one?{" "}
               <Link href="/editor?mode=quick&source=blog-birthday-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with a framed birthday preview today
+                start with a framed print preview today
               </Link>
               .
             </p>
@@ -259,24 +259,24 @@ export default function PersonalizedBirthdayPost() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image
-              src="/custom-star-map-anniversary.webp"
-              alt="Personalized star map birthday gift preview"
+              src="/examples/example-birthday-noir.webp"
+              alt="Birthday noir-style star map example"
               width={900}
               height={650}
               className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"
               loading="lazy"
             />
             <Image
-              src="/og-default.png"
-              alt="Custom star map for birthday night sky"
+              src="/examples/example-graduation-aurora.webp"
+              alt="Birthday aurora-style star map example"
               width={900}
               height={650}
               className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"
               loading="lazy"
             />
             <Image
-              src="/favicon.ico"
-              alt="Framed birthday star map gift"
+              src="/examples/example-anniversary-heirloom.webp"
+              alt="Birthday heirloom-style star map example"
               width={900}
               height={650}
               className="w-full rounded-3xl border border-amber-200/70 object-cover shadow-lg"

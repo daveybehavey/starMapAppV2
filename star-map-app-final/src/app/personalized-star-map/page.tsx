@@ -67,7 +67,7 @@ export default function PersonalizedStarMapPage() {
         description="Enter the date and location, then choose the framed path, unframed path, or a neutral preview-first start."
         intentOptions={[
           {
-            label: "Preview framed version",
+            label: "Preview framed print",
             sourceSuffix: "framed",
             checkout: "print",
             printVariant: "poster_framed",
@@ -94,7 +94,7 @@ export default function PersonalizedStarMapPage() {
       />
       <StickyCtaBar
         source="sticky-personalized-star-map"
-        secondaryButtonLabel="Preview framed version"
+        secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-personalized-star-map-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
@@ -126,7 +126,7 @@ export default function PersonalizedStarMapPage() {
             href="/editor?mode=quick&source=personalized-star-map-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed preview
+            Start with framed print preview
           </Link>
         </div>
       </section>
@@ -134,7 +134,7 @@ export default function PersonalizedStarMapPage() {
 
       <DeliveryFormatModule
         heading="Pick the right format after you preview"
-        intro="Most buyers decide fastest between gift-ready framed print and the lower-total unframed route. HD digital stays available when instant delivery matters more than shipping."
+        intro="Most buyers decide fastest between ready-to-display framed print and the lower-total unframed route. HD digital stays available when instant delivery matters more than shipping."
         sourcePrefix="personalized-format"
       />
       <FramedProofSection sourcePrefix="personalized-proof" />

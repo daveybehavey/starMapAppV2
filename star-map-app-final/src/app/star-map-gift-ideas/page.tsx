@@ -52,12 +52,12 @@ const seasonalIdeas = [
 export const metadata: Metadata = {
   title: "Star Map Gift Ideas | StarMapCo",
   description:
-    "Star map gift ideas for anniversaries, birthdays, weddings, and seasonal holidays. Find a meaningful gift and start a free preview.",
+    "Star map gift ideas for anniversaries, birthdays, weddings, and seasonal holidays. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/star-map-gift-ideas` },
   openGraph: {
     title: "Star Map Gift Ideas | StarMapCo",
     description:
-      "Star map gift ideas for anniversaries, birthdays, weddings, and seasonal holidays. Find a meaningful gift and start a free preview.",
+      "Star map gift ideas for anniversaries, birthdays, weddings, and seasonal holidays. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/star-map-gift-ideas`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -73,8 +73,14 @@ export default function StarMapGiftIdeasPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gift Ideas</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Find the most meaningful star map gift for any occasion. Use seasonal ideas below or start with your own moment.
+          Find the most meaningful star map gift for any occasion. Use seasonal ideas below or start with your own moment,
+          then choose framed print, unframed print, or HD digital delivery.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+        </div>
       </header>
 
       <PreviewStartForm
@@ -185,8 +191,8 @@ export default function StarMapGiftIdeasPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Milestone gift ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Star maps shine for anniversaries, weddings, birthdays, new homes, and memorials. Explore occasion pages or browse the
-          gallery for inspiration.
+          Star maps shine for anniversaries, weddings, birthdays, new homes, and memorials. Start with one free preview,
+          then take the framed route, unframed route, or HD digital route that fits your timing and budget.
         </p>
         <div className="flex flex-wrap gap-3 text-sm font-semibold">
           <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">

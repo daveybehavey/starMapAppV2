@@ -190,7 +190,7 @@ export default function StarMapGiftPage() {
             Star map gift ideas
           </Link>
           <Link href="/star-map-gift-formats" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
-            Gift formats and pilots
+            Gift formats and roadmap
           </Link>
           <Link href="/personalized-star-map" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
             Personalized star map

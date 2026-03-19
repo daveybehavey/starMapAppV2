@@ -50,9 +50,9 @@ export default function WeddingPage() {
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Wedding Star Map</h1>
-        <p className="text-sm text-neutral-200 sm:text-base">
-          Capture the exact night sky from your wedding day and place. A wedding star map gift that feels as timeless as
-          your vows.
+        <p className="text-sm text-white/90 sm:text-base">
+          Capture the exact night sky from your wedding day and place. Start with a free preview, then choose framed print,
+          unframed print, or HD digital delivery from the same approved design.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -94,7 +94,7 @@ export default function WeddingPage() {
       />
       <StickyCtaBar
         source="sticky-wedding"
-        secondaryButtonLabel="Preview framed wedding print"
+        secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-wedding-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
@@ -130,7 +130,7 @@ export default function WeddingPage() {
             href="/editor?mode=quick&source=wedding-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed wedding preview
+            Start with framed print preview
           </Link>
         </div>
       </section>
