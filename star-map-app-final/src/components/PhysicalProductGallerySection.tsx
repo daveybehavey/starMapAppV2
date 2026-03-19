@@ -10,7 +10,7 @@ type PhysicalProductGallerySectionProps = {
 
 export default function PhysicalProductGallerySection({
   heading = "See the physical gift options side by side",
-  intro = "These styled product proofs use current StarMapCo artwork so buyers can compare the framed and unframed finish in realistic contexts before checkout.",
+  intro = "These styled product proofs mix current and alternate StarMapCo map styles so buyers can compare framed and unframed finishes in realistic contexts before checkout.",
   sourcePrefix = "physical-proof-gallery",
 }: PhysicalProductGallerySectionProps) {
   const framedProofImage = getFramedProofImage();
@@ -26,7 +26,11 @@ export default function PhysicalProductGallerySection({
       detail: "Shows the ready-to-hang route in a clean wall-stage preview so buyers can judge finish and scale quickly.",
       bestFor: "Best for anniversaries, weddings, and premium gifting.",
       stageClass: "gallery-wall-stage gallery-wall-stage--warm",
-      imageClass: "object-contain p-3 sm:p-4",
+      stageScrimClass:
+        "bg-[radial-gradient(circle_at_18%_16%,rgba(255,255,255,0.24),rgba(255,255,255,0)_58%)]",
+      frameClass:
+        "absolute inset-4 z-10 overflow-hidden rounded-[14px] border border-white/24 bg-white/[0.02] shadow-[0_14px_24px_rgba(0,0,0,0.16)] sm:inset-5",
+      imageClass: "object-contain p-1 sm:p-2 scale-[1.13]",
       badgeClass: "border-white/25 bg-black/40 text-white",
     },
     {
@@ -38,32 +42,44 @@ export default function PhysicalProductGallerySection({
       detail: "Shows the physical print route without frame cost, while still keeping a clean in-room presentation feel.",
       bestFor: "Best for buyers who already know their own frame plan.",
       stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
-      imageClass: "object-contain p-3 sm:p-4",
+      stageScrimClass:
+        "bg-[radial-gradient(circle_at_78%_22%,rgba(255,255,255,0.22),rgba(255,255,255,0)_56%)]",
+      frameClass:
+        "absolute inset-4 z-10 overflow-hidden rounded-[14px] border border-white/24 bg-white/[0.02] shadow-[0_14px_24px_rgba(0,0,0,0.16)] rotate-[0.35deg] sm:inset-5",
+      imageClass: "object-contain p-1 sm:p-2 scale-[1.16]",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
     },
   ] as const;
 
   const supportCards = [
     {
-      src: framedProofImage,
+      src: "/examples/example-anniversary-heirloom.webp",
       fallbackSrc: "/printproof/gallery/birthday-framed.jpg",
-      alt: "Framed StarMapCo print shown in a second styled interior",
-      eyebrow: "In-room proof",
-      title: "Second framed room view",
-      detail: "Adds a second framed reference with the same wall-stage treatment for a cleaner side-by-side comparison.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--warm",
-      imageClass: "object-contain p-3 sm:p-4",
+      alt: "Framed StarMapCo print with Heirloom style artwork",
+      eyebrow: "Heirloom style",
+      title: "Framed with alternate map styling",
+      detail: "Shows the same framed physical route using a different StarMapCo style so buyers can compare look and mood, not just format.",
+      stageClass: "gallery-wall-stage gallery-wall-stage--warm-alt",
+      stageScrimClass:
+        "bg-[radial-gradient(circle_at_28%_78%,rgba(255,255,255,0.18),rgba(255,255,255,0)_52%)]",
+      frameClass:
+        "absolute inset-3 z-10 overflow-hidden rounded-[12px] border border-white/22 bg-white/[0.02] shadow-[0_12px_20px_rgba(0,0,0,0.15)] -rotate-[0.25deg] sm:inset-4",
+      imageClass: "object-cover",
       badgeClass: "border-white/25 bg-black/40 text-white",
     },
     {
-      src: unframedProofImage,
+      src: "/examples/example-birthday-noir.webp",
       fallbackSrc: "/printproof/gallery/graduation-unframed.jpg",
-      alt: "Unframed StarMapCo poster shown in another styled scene",
-      eyebrow: "Styled proof",
-      title: "Second unframed context view",
-      detail: "Confirms the lower-cost route still feels deliberate with a neutral, minimal wall context.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
-      imageClass: "object-contain p-3 sm:p-4",
+      alt: "Unframed StarMapCo poster with Noir style artwork",
+      eyebrow: "Noir style",
+      title: "Unframed with alternate map styling",
+      detail: "Keeps the lower-cost unframed route visible while also proving a darker style option for different tastes.",
+      stageClass: "gallery-wall-stage gallery-wall-stage--neutral-alt",
+      stageScrimClass:
+        "bg-[radial-gradient(circle_at_72%_74%,rgba(255,255,255,0.2),rgba(255,255,255,0)_54%)]",
+      frameClass:
+        "absolute inset-3 z-10 overflow-hidden rounded-[12px] border border-white/22 bg-white/[0.02] shadow-[0_12px_20px_rgba(0,0,0,0.15)] rotate-[0.22deg] sm:inset-4",
+      imageClass: "object-cover",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
     },
   ] as const;
@@ -84,7 +100,8 @@ export default function PhysicalProductGallerySection({
               className="overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]"
             >
               <div className={`relative aspect-[5/4] overflow-hidden ${card.stageClass}`}>
-                <div className="absolute inset-5 z-10 overflow-hidden rounded-[14px] border border-white/40 bg-transparent shadow-[0_16px_26px_rgba(0,0,0,0.18)]">
+                <div className={`pointer-events-none absolute inset-0 z-[5] ${card.stageScrimClass}`} />
+                <div className={card.frameClass}>
                   <ResilientImage
                     src={card.src}
                     fallbackSrc={card.fallbackSrc}
@@ -118,7 +135,8 @@ export default function PhysicalProductGallerySection({
               className="overflow-hidden rounded-[24px] border border-black/10 bg-white shadow-[0_14px_28px_rgba(0,0,0,0.08)]"
             >
               <div className={`relative aspect-[16/10] overflow-hidden ${card.stageClass}`}>
-                <div className="absolute inset-4 z-10 overflow-hidden rounded-[12px] border border-white/40 bg-transparent shadow-[0_14px_24px_rgba(0,0,0,0.16)]">
+                <div className={`pointer-events-none absolute inset-0 z-[5] ${card.stageScrimClass}`} />
+                <div className={card.frameClass}>
                   <ResilientImage
                     src={card.src}
                     fallbackSrc={card.fallbackSrc}
