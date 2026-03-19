@@ -1,15 +1,8 @@
-"use client";
-
-import { useEffect, useMemo, useRef, useState } from "react";
-import { track, trackFunnelStep, trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import ResilientImage from "@/components/ResilientImage";
 import {
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
-  getPrintShippingCountryOptions,
-  readStoredPrintShippingCountry,
-  storePrintShippingCountry,
 } from "@/lib/printfulShipping";
 
 type HomeOfferStackProps = {
@@ -30,124 +23,19 @@ type HomeOfferStackProps = {
   };
 };
 
-type DeliveryChoice = "digital" | "print_unframed" | "print_framed";
-
 export default function HomeOfferStack({ priceLabels, printLabels, proofImages }: HomeOfferStackProps) {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
-  const itemListsTrackedRef = useRef(false);
-  const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
-  const printShippingCountryOptions = useMemo(
-    () => getPrintShippingCountryOptions(printShippingCountries),
-    [printShippingCountries],
-  );
-  const [printShippingCountry, setPrintShippingCountry] = useState<string>(
-    printShippingCountryOptions[0]?.code ?? "US",
-  );
-  const framedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
-    [printShippingCountry],
-  );
-  const unframedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
-    [printShippingCountry],
-  );
-  const shippingCountryLabel = useMemo(
-    () => getPrintShippingCountryLabel(printShippingCountry),
-    [printShippingCountry],
-  );
-  const shippingCoverageLabel = useMemo(() => {
-    const count = printShippingCountryOptions.length;
+  const printShippingCountry = "US";
+  const printShippingCountries = getPrintAllowedCountries();
+  const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
+  const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
+  const shippingCountryLabel = getPrintShippingCountryLabel(printShippingCountry);
+  const shippingCoverageLabel = (() => {
+    const count = printShippingCountries.length;
     if (count <= 0) return "Shipping estimates shown before payment";
     return `Shipping estimates for ${count} countries`;
-  }, [printShippingCountryOptions]);
-
-  useEffect(() => {
-    const stored = readStoredPrintShippingCountry();
-    if (stored && printShippingCountries.includes(stored)) {
-      setPrintShippingCountry(stored);
-      return;
-    }
-    if (printShippingCountryOptions[0]?.code) {
-      const fallback = printShippingCountryOptions[0].code;
-      setPrintShippingCountry(fallback);
-      storePrintShippingCountry(fallback);
-    }
-  }, [printShippingCountries, printShippingCountryOptions]);
-
-  useEffect(() => {
-    if (itemListsTrackedRef.current) return;
-    itemListsTrackedRef.current = true;
-
-    trackViewItemList({
-      itemListId: "home_print_options",
-      itemListName: "Homepage print options",
-      items: [
-        { plan: "single", orderType: "print", printVariant: "poster_framed", index: 0 },
-        { plan: "single", orderType: "print", printVariant: "poster_unframed", index: 1 },
-      ],
-    });
-
-    trackViewItemList({
-      itemListId: "home_digital_plans",
-      itemListName: "Homepage digital plans",
-      items: [
-        { plan: "single", orderType: "digital", index: 0 },
-        { plan: "pack3", orderType: "digital", index: 1 },
-        { plan: "subscription", orderType: "digital", index: 2 },
-      ],
-    });
-  }, []);
-
-  const handleDeliveryChoice = (choice: DeliveryChoice) => {
-    track("delivery_choice_split", {
-      source: "home-offer-stack",
-      choice,
-      shippingCountry: printShippingCountry,
-    });
-    track("delivery_choice_selected", {
-      source: "home-offer-stack",
-      choice,
-      shippingCountry: printShippingCountry,
-    });
-    trackFunnelStep("hero_plan_click", {
-      source: "home-offer-stack",
-      plan: `delivery_${choice}`,
-      shippingCountry: printShippingCountry,
-    });
-    if (choice === "print_unframed" || choice === "print_framed") {
-      trackSelectItem({
-        itemListId: "home_print_options",
-        itemListName: "Homepage print options",
-        item: {
-          plan: "single",
-          orderType: "print",
-          printVariant: choice === "print_framed" ? "poster_framed" : "poster_unframed",
-          index: choice === "print_framed" ? 0 : 1,
-        },
-      });
-    }
-  };
-
-  const handlePlanInterest = (plan: "single" | "pack3" | "subscription") => {
-    track("digital_plan_interest", {
-      source: "home-offer-stack",
-      plan,
-    });
-    trackFunnelStep("hero_plan_click", {
-      source: "home-offer-stack",
-      plan,
-    });
-    trackSelectItem({
-      itemListId: "home_digital_plans",
-      itemListName: "Homepage digital plans",
-      item: {
-        plan,
-        orderType: "digital",
-        index: plan === "single" ? 0 : plan === "pack3" ? 1 : 2,
-      },
-    });
-  };
+  })();
 
   return (
     <section
@@ -214,7 +102,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             </div>
             <a
               href="/editor?mode=quick&source=home-delivery-digital"
-              onClick={() => handleDeliveryChoice("digital")}
               className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/20"
             >
               Start free preview
@@ -260,7 +147,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             </div>
             <a
               href={`/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
-              onClick={() => handleDeliveryChoice("print_framed")}
               className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
             >
               Preview framed gift
@@ -300,7 +186,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             </div>
             <a
               href={`/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
-              onClick={() => handleDeliveryChoice("print_unframed")}
               className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
             >
               Preview unframed print
@@ -328,36 +213,13 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
 
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-white/5 p-3 sm:grid-cols-[minmax(0,190px),1fr] sm:items-center">
-            <label htmlFor="home-shipping-country" className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">
-              Shipping estimate country
-            </label>
-            <div className="space-y-1">
-              <select
-                id="home-shipping-country"
-                value={printShippingCountry}
-                onChange={(event) => {
-                  const nextCountry = event.target.value;
-                  setPrintShippingCountry(nextCountry);
-                  storePrintShippingCountry(nextCountry);
-                }}
-                className="print-country-select w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
-                style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
-              >
-                {printShippingCountryOptions.map((country) => (
-                  <option
-                    key={country.code}
-                    value={country.code}
-                    className="text-midnight"
-                    style={{ color: "#111827", backgroundColor: "#ffffff" }}
-                  >
-                    {country.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-neutral-300">
-                Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel}
-              </p>
-            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">
+              Shipping estimate baseline
+            </p>
+            <p className="text-[11px] text-neutral-300">
+              Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel} (shown for {shippingCountryLabel}).
+              Final shipping is shown before payment for all supported countries.
+            </p>
           </div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
@@ -403,7 +265,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           <div className="grid gap-2 sm:grid-cols-3">
             <a
               href="/editor?mode=quick&source=home-plan-single"
-              onClick={() => handlePlanInterest("single")}
               className="rounded-xl border border-amber-300/55 bg-amber-300/15 p-3 text-left transition hover:border-amber-300/75 hover:bg-amber-300/20"
             >
               <div className="flex items-center justify-between gap-2">
@@ -417,7 +278,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             </a>
             <a
               href="/editor?mode=quick&source=home-plan-pack3"
-              onClick={() => handlePlanInterest("pack3")}
               className="rounded-xl border border-white/20 bg-white/10 p-3 text-left transition hover:border-amber-300/50 hover:bg-white/15"
             >
               <div className="flex items-center justify-between gap-2">
@@ -434,7 +294,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             </a>
             <a
               href="/editor?mode=quick&source=home-plan-subscription"
-              onClick={() => handlePlanInterest("subscription")}
               className="rounded-xl border border-white/15 bg-white/5 p-3 text-left transition hover:border-white/25 hover:bg-white/10"
             >
               <p className="text-sm font-semibold text-white">Unlimited monthly</p>
@@ -449,7 +308,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             href="/star-map-gift-formats"
             className="text-xs font-semibold text-amber-200 underline hover:text-amber-100"
           >
-            Explore all gift formats and upcoming pilots
+            Explore all gift formats
           </a>
         </div>
       </div>
