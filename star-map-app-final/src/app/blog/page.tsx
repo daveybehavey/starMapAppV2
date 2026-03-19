@@ -7,9 +7,12 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 export const metadata: Metadata = {
   title: "Blog: Custom Star Map Guides | StarMapCo",
   description:
-    "Read our blog for ideas on Valentine's Day, Mother's Day, Father's Day, graduation, and wedding star maps, plus astronomy tips.",
+    "Read StarMapCo blog guides for gift-buying decisions, personalized star map ideas, seasonal occasions, and astronomy-backed customization tips.",
   keywords: [
     "custom star map blog",
+    "star map gift guide",
+    "is a star map a good gift",
+    "framed vs unframed star map",
     "personalized star map guides",
     "valentine's day star map gift ideas",
     "mother's day star map gift ideas",
@@ -51,6 +54,15 @@ type IndexPost = {
 };
 
 const indexPosts: IndexPost[] = [
+  {
+    slug: "is-a-star-map-a-good-gift",
+    title: "Is a Star Map a Good Gift? How to Choose Framed, Unframed, or Digital",
+    excerpt:
+      "Compare framed print, unframed print, and HD digital delivery so you can choose the best personalized star map gift fast.",
+    date: "2026-03-19",
+    image: "/examples/example-anniversary-heirloom.webp",
+    alt: "Framed personalized star map gift example",
+  },
   {
     slug: "mothers-day-star-map-gift-ideas",
     title: "Mother's Day Star Map Gift Ideas: A Personal Sky She'll Keep Forever",
