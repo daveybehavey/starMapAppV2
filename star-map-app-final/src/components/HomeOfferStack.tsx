@@ -222,8 +222,8 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </article>
 
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
-            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/45 bg-[linear-gradient(180deg,#ece3d7_0%,#d9d0c3_100%)]">
-              <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0px,rgba(255,255,255,0.05)_2px,rgba(0,0,0,0.02)_2px,rgba(0,0,0,0.02)_4px)]" />
+            <div className="home-proof-wall home-proof-wall--warm relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/45">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.35),rgba(0,0,0,0.06)_75%)]" />
               <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/70 bg-[#f3ece1] shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
                 <ResilientImage
                   src={proofImages.framed}
@@ -268,8 +268,8 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </article>
 
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
-            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/18 bg-[linear-gradient(180deg,#ece9e4_0%,#d9d4ce_100%)]">
-              <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.05)_0px,rgba(255,255,255,0.05)_2px,rgba(0,0,0,0.018)_2px,rgba(0,0,0,0.018)_4px)]" />
+            <div className="home-proof-wall home-proof-wall--neutral relative mb-3 h-28 overflow-hidden rounded-xl border border-white/18">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.32),rgba(0,0,0,0.08)_78%)]" />
               <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/70 bg-[#f4f1eb] shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
                 <ResilientImage
                   src={proofImages.unframed}

@@ -1184,41 +1184,29 @@ input[type="range"]:hover::-moz-range-thumb {
 
 .proof-wall-stage--gallery {
   background:
-    linear-gradient(180deg, rgba(247, 241, 231, 0.98), rgba(232, 223, 208, 0.98)),
-    repeating-linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.05) 0px,
-      rgba(255, 255, 255, 0.05) 2px,
-      rgba(0, 0, 0, 0.02) 2px,
-      rgba(0, 0, 0, 0.02) 4px
-    );
-  background-blend-mode: normal, multiply;
+    linear-gradient(180deg, rgba(252, 248, 240, 0.68), rgba(224, 212, 194, 0.7)),
+    url("/textures/beige-wall-soft.webp");
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: multiply;
 }
 
 .proof-wall-stage--tabletop {
   background:
-    linear-gradient(180deg, rgba(247, 241, 232, 0.98) 0%, rgba(238, 231, 220, 0.97) 63%, rgba(206, 189, 163, 0.9) 63.5%, rgba(192, 173, 147, 0.95) 100%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.04) 0px,
-      rgba(255, 255, 255, 0.04) 3px,
-      rgba(0, 0, 0, 0.018) 3px,
-      rgba(0, 0, 0, 0.018) 6px
-    );
-  background-blend-mode: normal, multiply;
+    linear-gradient(180deg, rgba(248, 245, 238, 0.58), rgba(211, 200, 179, 0.72)),
+    url("/textures/plaster-wall-neutral.webp");
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: multiply;
 }
 
 .proof-wall-stage--editorial {
   background:
-    linear-gradient(180deg, rgba(245, 240, 232, 0.98) 0%, rgba(233, 226, 213, 0.97)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.03) 0px,
-      rgba(255, 255, 255, 0.03) 4px,
-      rgba(0, 0, 0, 0.018) 4px,
-      rgba(0, 0, 0, 0.018) 8px
-    );
-  background-blend-mode: screen, normal;
+    linear-gradient(180deg, rgba(246, 243, 236, 0.62), rgba(216, 205, 183, 0.68)),
+    url("/textures/beige-wall-soft.webp");
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: multiply;
 }
 
 .proof-wall-stage::before,
@@ -1256,6 +1244,44 @@ input[type="range"]:hover::-moz-range-thumb {
   inset: 0;
   z-index: 2;
   border-radius: 1.25rem;
+}
+
+.home-proof-wall {
+  background-size: cover;
+  background-position: center;
+}
+
+.home-proof-wall--warm {
+  background-image:
+    linear-gradient(180deg, rgba(248, 239, 225, 0.58), rgba(216, 200, 174, 0.72)),
+    url("/textures/beige-wall-soft.webp");
+  background-blend-mode: multiply;
+}
+
+.home-proof-wall--neutral {
+  background-image:
+    linear-gradient(180deg, rgba(247, 242, 235, 0.48), rgba(217, 209, 192, 0.75)),
+    url("/textures/plaster-wall-neutral.webp");
+  background-blend-mode: multiply;
+}
+
+.gallery-wall-stage {
+  background-size: cover;
+  background-position: center;
+}
+
+.gallery-wall-stage--warm {
+  background-image:
+    linear-gradient(180deg, rgba(250, 244, 233, 0.55), rgba(217, 202, 178, 0.7)),
+    url("/textures/beige-wall-soft.webp");
+  background-blend-mode: multiply;
+}
+
+.gallery-wall-stage--neutral {
+  background-image:
+    linear-gradient(180deg, rgba(248, 243, 236, 0.46), rgba(221, 212, 198, 0.72)),
+    url("/textures/plaster-wall-neutral.webp");
+  background-blend-mode: multiply;
 }
 
 @media (prefers-reduced-motion: reduce) {

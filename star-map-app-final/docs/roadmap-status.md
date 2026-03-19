@@ -362,6 +362,15 @@ Recent status:
   - digital card uses the same proof-image treatment as print cards
   - clearer CTA split between digital / framed / unframed
   - direct links to full gift-format comparison and shipping details
+- Physical proof presentation polish shipped:
+  - homepage print proof cards now use real wall-photo textures instead of flat synthetic wall gradients
+  - proof image selection now prefers latest Printful preview PNGs (transparent cutout) before JPG mockups
+  - static homepage variants (`public/index.html`, `public/landing.html`) were synced to the same wall-stage treatment
+- Expanded consistency automation coverage:
+  - `qa:content-consistency` now also validates lower-intent/authority pages:
+    - all current blog article routes
+    - `/how-accurate-are-star-maps`
+    - `/how-to-print-star-map`
 
 ### Most recent verified ops snapshot
 

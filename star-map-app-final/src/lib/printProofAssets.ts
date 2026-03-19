@@ -43,7 +43,8 @@ export function getFramedProofImage() {
   const fallback = "/printproof/framed-mockup.jpg";
   const manifest = readManifest();
   const candidate =
-    manifest?.mockups?.framed?.localPath || manifest?.framed?.localPath || manifest?.catalog?.framed?.localPath;
+    // Prefer the order preview image first (often transparent PNG), then fall back.
+    manifest?.framed?.localPath || manifest?.mockups?.framed?.localPath || manifest?.catalog?.framed?.localPath;
   if (!candidate || !isSafePublicPath(candidate)) return fallback;
   if (!existsSync(resolveLocalPublicPath(candidate))) return fallback;
   return candidate;
@@ -53,7 +54,8 @@ export function getUnframedProofImage() {
   const fallback = "/printproof/unframed-mockup.jpg";
   const manifest = readManifest();
   const candidate =
-    manifest?.mockups?.unframed?.localPath || manifest?.unframed?.localPath || manifest?.catalog?.unframed?.localPath;
+    // Prefer the order preview image first (often transparent PNG), then fall back.
+    manifest?.unframed?.localPath || manifest?.mockups?.unframed?.localPath || manifest?.catalog?.unframed?.localPath;
   if (!candidate || !isSafePublicPath(candidate)) return fallback;
   if (!existsSync(resolveLocalPublicPath(candidate))) return fallback;
   return candidate;

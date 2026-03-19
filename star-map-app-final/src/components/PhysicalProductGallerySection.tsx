@@ -25,8 +25,7 @@ export default function PhysicalProductGallerySection({
       title: "Framed on the wall",
       detail: "Shows the ready-to-hang route in a clean wall-stage preview so buyers can judge finish and scale quickly.",
       bestFor: "Best for anniversaries, weddings, and premium gifting.",
-      stageClass:
-        "bg-[linear-gradient(180deg,#ece3d7_0%,#d9d0c3_100%)] after:absolute after:inset-0 after:bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.045)_0px,rgba(255,255,255,0.045)_2px,rgba(0,0,0,0.018)_2px,rgba(0,0,0,0.018)_4px)]",
+      stageClass: "gallery-wall-stage gallery-wall-stage--warm",
       imageClass: "object-cover",
       badgeClass: "border-white/25 bg-black/40 text-white",
     },
@@ -38,8 +37,7 @@ export default function PhysicalProductGallerySection({
       title: "Unframed on a neutral wall stage",
       detail: "Shows the physical print route without frame cost, while still keeping a clean in-room presentation feel.",
       bestFor: "Best for buyers who already know their own frame plan.",
-      stageClass:
-        "bg-[linear-gradient(180deg,#ece9e4_0%,#d9d4ce_100%)] after:absolute after:inset-0 after:bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.04)_0px,rgba(255,255,255,0.04)_2px,rgba(0,0,0,0.016)_2px,rgba(0,0,0,0.016)_4px)]",
+      stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
       imageClass: "object-cover",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
     },
@@ -53,8 +51,7 @@ export default function PhysicalProductGallerySection({
       eyebrow: "In-room proof",
       title: "Second framed room view",
       detail: "Adds a second framed reference with the same wall-stage treatment for a cleaner side-by-side comparison.",
-      stageClass:
-        "bg-[linear-gradient(180deg,#ece3d7_0%,#d9d0c3_100%)] after:absolute after:inset-0 after:bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.045)_0px,rgba(255,255,255,0.045)_2px,rgba(0,0,0,0.018)_2px,rgba(0,0,0,0.018)_4px)]",
+      stageClass: "gallery-wall-stage gallery-wall-stage--warm",
       imageClass: "object-cover",
       badgeClass: "border-white/25 bg-black/40 text-white",
     },
@@ -65,8 +62,7 @@ export default function PhysicalProductGallerySection({
       eyebrow: "Styled proof",
       title: "Second unframed context view",
       detail: "Confirms the lower-cost route still feels deliberate with a neutral, minimal wall context.",
-      stageClass:
-        "bg-[linear-gradient(180deg,#ece9e4_0%,#d9d4ce_100%)] after:absolute after:inset-0 after:bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.04)_0px,rgba(255,255,255,0.04)_2px,rgba(0,0,0,0.016)_2px,rgba(0,0,0,0.016)_4px)]",
+      stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
       imageClass: "object-cover",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
     },
