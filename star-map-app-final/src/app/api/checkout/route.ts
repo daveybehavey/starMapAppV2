@@ -44,6 +44,8 @@ const stripePrintPriceIds = {
 const configuredPromoCode = process.env.PROMOTION_COUPON_CODE?.trim().toUpperCase() ?? "";
 const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim() ?? "";
 const configuredReferralPromotionCodeId = process.env.STRIPE_REFERRAL_PROMO_CODE_ID?.trim() ?? "";
+const configuredReferralPromotionCodeIdAlt = process.env.STRIPE_REFERRAL_PROMO_CODE_ID_ALT?.trim() ?? "";
+const referralAutoOfferAltSplitPercent = parsePercentage(process.env.REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT);
 const stripePaymentMethodConfigurationId =
   process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID?.trim() ?? "";
 const printAllowedCountries = parseAllowedShippingCountries(process.env.PRINT_ALLOWED_COUNTRIES);
@@ -79,6 +81,12 @@ function parseAllowedShippingCountries(raw: string | undefined) {
 function parsePositiveInt(raw: string | undefined) {
   const parsed = raw ? Number.parseInt(raw.trim(), 10) : Number.NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parsePercentage(raw: string | undefined) {
+  const parsed = raw ? Number.parseInt(raw.trim(), 10) : Number.NaN;
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.min(100, Math.max(0, parsed));
 }
 
 function getPrintShippingOptionsForCountry(
@@ -182,6 +190,30 @@ function parseBoolean(raw: unknown, fallback = false) {
   return fallback;
 }
 
+type ReferralAutoOfferVariant = "primary" | "alt";
+
+function hashToBucket(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash % 100;
+}
+
+function resolveReferralAutoOffer(referralCode?: string): {
+  promotionCodeId?: string;
+  variant?: ReferralAutoOfferVariant;
+} {
+  const primary = configuredReferralPromotionCodeId;
+  const alt = configuredReferralPromotionCodeIdAlt;
+  if (!primary && !alt) return {};
+  if (primary && !alt) return { promotionCodeId: primary, variant: "primary" };
+  if (!primary && alt) return { promotionCodeId: alt, variant: "alt" };
+  if (!referralCode) return { promotionCodeId: primary, variant: "primary" };
+  const useAlt = hashToBucket(referralCode.trim().toUpperCase()) < referralAutoOfferAltSplitPercent;
+  return useAlt ? { promotionCodeId: alt, variant: "alt" } : { promotionCodeId: primary, variant: "primary" };
+}
+
 function canUseManualPromotionCode(orderType: CheckoutOrderType, plan: CheckoutPlan) {
   return orderType === "print" || (orderType === "digital" && plan === "single");
 }
@@ -189,9 +221,14 @@ function canUseManualPromotionCode(orderType: CheckoutOrderType, plan: CheckoutP
 function resolveReferralOfferVariant(input: {
   referralCode?: string;
   promotionSource: PromotionSource;
+  referralAutoOfferVariant?: ReferralAutoOfferVariant;
 }): string | undefined {
   if (!input.referralCode?.trim()) return undefined;
-  if (input.promotionSource === "referral_auto") return "referral_auto_promo";
+  if (input.promotionSource === "referral_auto") {
+    if (input.referralAutoOfferVariant === "alt") return "referral_auto_alt";
+    if (input.referralAutoOfferVariant === "primary") return "referral_auto_primary";
+    return "referral_auto_promo";
+  }
   if (input.promotionSource === "manual") return "manual_promo_override";
   return "referral_no_discount";
 }
@@ -446,6 +483,7 @@ async function createCheckoutSession(
     referrerSessionId?: string;
     referralAttribution?: ReferralAttribution | null;
     promotionSource?: PromotionSource;
+    referralAutoOfferVariant?: ReferralAutoOfferVariant;
   },
 ): Promise<CheckoutSessionResult> {
   const {
@@ -464,6 +502,7 @@ async function createCheckoutSession(
     referrerSessionId,
     referralAttribution,
     promotionSource = "none",
+    referralAutoOfferVariant,
   } = input;
   if (!stripe) {
     throw new Error("Stripe not configured");
@@ -535,7 +574,11 @@ async function createCheckoutSession(
   }
   if (promotionCodeId) metadata.promotion_code_id = promotionCodeId;
   if (promotionSource === "referral_auto") metadata.referral_offer_applied = "true";
-  const referralOfferVariant = resolveReferralOfferVariant({ referralCode, promotionSource });
+  const referralOfferVariant = resolveReferralOfferVariant({
+    referralCode,
+    promotionSource,
+    referralAutoOfferVariant,
+  });
   if (referralOfferVariant) metadata.referral_offer_variant = referralOfferVariant;
   if (referralCode) metadata.referral_code = referralCode;
   if (referrerSessionId) metadata.referrer_session_id = referrerSessionId;
@@ -814,6 +857,7 @@ export async function GET(req: NextRequest) {
   const fallbackReferralCode = readReferralCodeFromCookie(req);
   const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
+  const referralAutoOffer = resolveReferralAutoOffer(referral.code);
   const promotion = orderType === "digital" && plan === "subscription"
     ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
     : canUseManualPromotionCode(orderType, plan)
@@ -822,7 +866,7 @@ export async function GET(req: NextRequest) {
   const selectedPromotion = selectCheckoutPromotion({
     manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
     referralCode: referral.code,
-    referralPromotionCodeId: configuredReferralPromotionCodeId,
+    referralPromotionCodeId: referralAutoOffer.promotionCodeId,
     orderType,
     plan,
   });
@@ -860,6 +904,7 @@ export async function GET(req: NextRequest) {
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
+      referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
     });
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
@@ -970,6 +1015,7 @@ export async function POST(req: NextRequest) {
     const fallbackReferralCode = readReferralCodeFromCookie(req);
     const referralAttribution = readReferralAttributionFromCookie(req);
     const referral = await resolveReferral(referralCode ?? fallbackReferralCode, currentSessionId);
+    const referralAutoOffer = resolveReferralAutoOffer(referral.code);
     if (orderType === "print" && !printCheckoutEnabled) {
       return NextResponse.json(
         { error: "Print checkout is not enabled yet.", code: "print_checkout_disabled" },
@@ -1002,7 +1048,7 @@ export async function POST(req: NextRequest) {
     const selectedPromotion = selectCheckoutPromotion({
       manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
       referralCode: referral.code,
-      referralPromotionCodeId: configuredReferralPromotionCodeId,
+      referralPromotionCodeId: referralAutoOffer.promotionCodeId,
       orderType,
       plan,
     });
@@ -1029,6 +1075,7 @@ export async function POST(req: NextRequest) {
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
+      referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
     });
     if (promoCode && session.discountRejected) {
       return NextResponse.json(
@@ -1052,6 +1099,8 @@ export async function POST(req: NextRequest) {
       url: session.url,
       promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
       referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
+      referralOfferVariant:
+        selectedPromotion.source === "referral_auto" && !session.discountRejected ? referralAutoOffer.variant ?? null : null,
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
     });
   } catch (err) {

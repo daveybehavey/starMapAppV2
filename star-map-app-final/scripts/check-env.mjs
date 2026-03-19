@@ -50,6 +50,8 @@ const OPTIONAL = [
   "PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS",
   "PRINT_ADMIN_TOKEN",
   "STRIPE_REFERRAL_PROMO_CODE_ID",
+  "STRIPE_REFERRAL_PROMO_CODE_ID_ALT",
+  "REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT",
   "REFERRAL_REWARD_CREDITS",
   "REFERRAL_MAX_REWARDS_PER_REFERRER_24H",
   "REFERRAL_MAX_REWARDS_PER_REFERRER_30D",
@@ -155,6 +157,14 @@ checkInt("NEXT_PUBLIC_REFERRAL_REWARD_CREDITS");
 checkNonNegativeInt("REFERRAL_MAX_REWARDS_PER_REFERRER_24H");
 checkNonNegativeInt("REFERRAL_MAX_REWARDS_PER_REFERRER_30D");
 
+const referralAltSplitRaw = process.env.REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT?.trim();
+if (referralAltSplitRaw) {
+  const parsed = Number.parseInt(referralAltSplitRaw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    errors.push("Invalid REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT (expected integer 0-100)");
+  }
+}
+
 const stripePercentRaw = process.env.PRINT_MARGIN_STRIPE_PERCENT?.trim();
 if (stripePercentRaw) {
   const parsed = Number.parseFloat(stripePercentRaw);
@@ -249,6 +259,7 @@ if (promotionPercent) {
 
 checkStripeIdPrefix("STRIPE_PROMO_CODE_ID", "promo_");
 checkStripeIdPrefix("STRIPE_REFERRAL_PROMO_CODE_ID", "promo_");
+checkStripeIdPrefix("STRIPE_REFERRAL_PROMO_CODE_ID_ALT", "promo_");
 checkStripeIdPrefix("STRIPE_PAYMENT_METHOD_CONFIGURATION_ID", "pmc_");
 
 if (process.env.RESEND_API_KEY && !process.env.PROMOTION_EMAIL_FROM) {

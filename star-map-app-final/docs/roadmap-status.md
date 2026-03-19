@@ -297,6 +297,10 @@ Recent status:
 - Expanded referral offer experiment observability:
   - `qa:commerce-digest` now reports paid `referral_offer_variant` counts from Stripe session metadata
   - `qa:loop-scorecard` now surfaces the top paid referral offer variant
+- Added referral friend-offer experiment plumbing:
+  - optional `STRIPE_REFERRAL_PROMO_CODE_ID_ALT` can be enabled alongside `STRIPE_REFERRAL_PROMO_CODE_ID`
+  - optional `REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT` (0-100) deterministically splits referral auto-offers by referral code hash
+  - checkout metadata now records `referral_offer_variant` as `referral_auto_primary` / `referral_auto_alt` for paid attribution analysis
 - Added a stricter server-side checkout funnel milestone:
   - `checkout_session_created` now records successful Stripe session creation separately from generic checkout intent
   - this makes it easier to diagnose whether drop-off is happening before Stripe session creation or after handoff
