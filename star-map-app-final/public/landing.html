@@ -579,6 +579,20 @@
           url("/textures/plaster-wall-neutral.webp");
         background-blend-mode: multiply;
       }
+      #physical-proof-gallery .gallery figure.wall-warm-alt::before {
+        background-image:
+          linear-gradient(180deg, rgba(248, 241, 228, 0.5), rgba(208, 191, 165, 0.74)),
+          url("/textures/beige-wall-soft.webp");
+        background-position: 22% center;
+        background-blend-mode: multiply;
+      }
+      #physical-proof-gallery .gallery figure.wall-cool-alt::before {
+        background-image:
+          linear-gradient(180deg, rgba(245, 241, 236, 0.46), rgba(213, 204, 192, 0.75)),
+          url("/textures/plaster-wall-neutral.webp");
+        background-position: 70% center;
+        background-blend-mode: multiply;
+      }
       #physical-proof-gallery .gallery figure.wall-cool::after {
         background:
           radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.32), rgba(0, 0, 0, 0.1) 80%),
@@ -587,21 +601,27 @@
       #physical-proof-gallery .gallery .wall-frame {
         position: relative;
         z-index: 1;
-        margin: 14px;
+        margin: 10px;
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.28);
         box-shadow:
-          0 12px 20px rgba(0, 0, 0, 0.18),
-          0 3px 8px rgba(0, 0, 0, 0.1),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+          0 12px 18px rgba(0, 0, 0, 0.16),
+          0 3px 8px rgba(0, 0, 0, 0.08),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.16);
       }
       #physical-proof-gallery .gallery .wall-frame img {
         aspect-ratio: 1 / 1;
         object-fit: contain;
-        padding: 8px;
+        padding: 4px;
         border-radius: 12px;
         background: transparent;
+        transform: scale(1.12);
+      }
+      #physical-proof-gallery .gallery figure.style-alt .wall-frame img {
+        object-fit: cover;
+        padding: 0;
+        transform: scale(1);
       }
       #physical-proof-gallery .gallery figcaption {
         position: relative;
@@ -1310,7 +1330,7 @@
 
       <section class="section content-visibility-auto" id="physical-proof-gallery">
         <h2>See the physical gift options side by side</h2>
-        <p>Styled product proofs generated from current StarMapCo artwork, so you can compare the framed and unframed finishes in realistic contexts before checkout.</p>
+        <p>Styled product proofs mix current and alternate StarMapCo styles, so you can compare framed and unframed finishes in realistic contexts before checkout.</p>
         <div class="gallery">
           <figure class="wall-warm">
             <div class="wall-frame">
@@ -1325,18 +1345,18 @@
             </div>
             <figcaption>Framed on the wall — ready-to-hang premium gift</figcaption>
           </figure>
-          <figure class="wall-cool">
+          <figure class="wall-cool wall-cool-alt style-alt">
             <div class="wall-frame">
               <img
-                src="/printproof/framed-latest.png"
-                alt="Framed star map proof on neutral wall texture"
+                src="/examples/example-anniversary-heirloom.webp"
+                alt="Framed StarMapCo example with Heirloom styling"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption>Second framed room view — shows the finished wall presentation</figcaption>
+            <figcaption>Framed with Heirloom style — compare alternate map mood and typography</figcaption>
           </figure>
           <figure class="wall-warm">
             <div class="wall-frame">
@@ -1351,18 +1371,18 @@
             </div>
             <figcaption>Unframed in a styled setup — lower physical cost, same artwork</figcaption>
           </figure>
-          <figure class="wall-cool">
+          <figure class="wall-cool wall-cool-alt style-alt">
             <div class="wall-frame">
               <img
-                src="/printproof/unframed-latest.png"
-                alt="Unframed star map proof on neutral wall texture"
+                src="/examples/example-birthday-noir.webp"
+                alt="Unframed StarMapCo example with Noir styling"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption>Second unframed context view — best if you already have your own frame plan</figcaption>
+            <figcaption>Unframed with Noir style — same physical route, different visual style</figcaption>
           </figure>
         </div>
         <div class="links">
