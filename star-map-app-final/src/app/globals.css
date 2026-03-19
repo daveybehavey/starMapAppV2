@@ -3,12 +3,22 @@
 :root {
   color-scheme: light;
   --font-playfair: "Playfair Display", "Times New Roman", Georgia, serif;
-  --cosmic-midnight: #050915;
-  --cosmic-deep-blue: #0f1f3a;
+  --cosmic-midnight: #050a19;
+  --cosmic-deep-blue: #10264c;
+  --cosmic-deep-blue-alt: #19345f;
   --accent-amber: #f1c27d;
+  --accent-amber-strong: #f7c24a;
   --pale-gold: #f7f1e3;
   --pale-gold-deep: #ebddc2;
-  --nebula-gradient: linear-gradient(135deg, rgba(5, 9, 21, 0.92), rgba(15, 31, 58, 0.9));
+  --text-on-dark: #f5f8ff;
+  --text-on-dark-muted: #cad8f4;
+  --surface-dark: rgba(8, 14, 30, 0.74);
+  --surface-dark-strong: rgba(8, 14, 30, 0.88);
+  --surface-light: rgba(255, 255, 255, 0.94);
+  --surface-light-soft: rgba(248, 243, 232, 0.94);
+  --line-soft: rgba(177, 198, 236, 0.28);
+  --line-accent: rgba(247, 194, 74, 0.66);
+  --nebula-gradient: linear-gradient(145deg, var(--cosmic-midnight), var(--cosmic-deep-blue) 58%, var(--cosmic-deep-blue-alt));
   --noise-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E");
   --starscape: radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.6), transparent 50%),
     radial-gradient(1px 1px at 70% 20%, rgba(241, 194, 125, 0.55), transparent 45%),
@@ -75,8 +85,8 @@ a {
   min-height: 100vh;
   background-color: var(--cosmic-midnight);
   background-image:
-    radial-gradient(circle at 15% 15%, rgba(241, 194, 125, 0.12), transparent 28%),
-    radial-gradient(circle at 80% 10%, rgba(83, 142, 255, 0.16), transparent 22%),
+    radial-gradient(circle at 14% 12%, rgba(247, 194, 74, 0.13), transparent 30%),
+    radial-gradient(circle at 83% 9%, rgba(111, 153, 243, 0.2), transparent 26%),
     var(--nebula-gradient);
   background-blend-mode: screen, screen, normal;
   overflow: hidden;
@@ -879,53 +889,53 @@ input[type="range"]:hover::-moz-range-thumb {
 }
 
 .brand-light-panel {
-  border: 1px solid rgba(12, 16, 33, 0.08);
+  border: 1px solid rgba(18, 34, 68, 0.1);
   background:
-    radial-gradient(circle at top left, rgba(241, 194, 125, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 244, 235, 0.94));
+    radial-gradient(circle at top left, rgba(247, 194, 74, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(253, 250, 242, 0.98), rgba(245, 240, 230, 0.96));
   box-shadow:
-    0 18px 44px rgba(5, 9, 21, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+    0 18px 44px rgba(5, 9, 21, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
 .brand-light-card {
-  border: 1px solid rgba(12, 16, 33, 0.08);
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 10px 24px rgba(5, 9, 21, 0.06);
+  border: 1px solid rgba(18, 34, 68, 0.1);
+  background: var(--surface-light);
+  box-shadow: 0 12px 26px rgba(5, 9, 21, 0.08);
 }
 
 .brand-light-card-accent {
-  border: 1px solid rgba(241, 194, 125, 0.42);
+  border: 1px solid rgba(247, 194, 74, 0.4);
   background:
-    radial-gradient(circle at top left, rgba(241, 194, 125, 0.16), transparent 42%),
-    linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(249, 239, 214, 0.92));
-  box-shadow: 0 12px 28px rgba(121, 79, 16, 0.08);
+    radial-gradient(circle at top left, rgba(247, 194, 74, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(255, 251, 243, 0.99), rgba(248, 239, 216, 0.94));
+  box-shadow: 0 12px 28px rgba(86, 58, 15, 0.1);
 }
 
 .brand-dark-card {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--line-soft);
   background:
-    radial-gradient(circle at top left, rgba(241, 194, 125, 0.08), transparent 36%),
-    linear-gradient(180deg, rgba(9, 17, 39, 0.82), rgba(7, 14, 34, 0.9));
+    radial-gradient(circle at top left, rgba(247, 194, 74, 0.08), transparent 36%),
+    linear-gradient(180deg, rgba(9, 19, 42, 0.84), rgba(7, 16, 37, 0.92));
   box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 14px 30px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .brand-dark-card-accent {
-  border: 1px solid rgba(241, 194, 125, 0.35);
+  border: 1px solid rgba(247, 194, 74, 0.42);
   background:
-    radial-gradient(circle at top left, rgba(241, 194, 125, 0.12), transparent 38%),
-    linear-gradient(180deg, rgba(31, 24, 7, 0.16), rgba(9, 18, 42, 0.9));
+    radial-gradient(circle at top left, rgba(247, 194, 74, 0.13), transparent 38%),
+    linear-gradient(180deg, rgba(28, 24, 11, 0.18), rgba(9, 20, 46, 0.92));
   box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 14px 32px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .brand-pill {
-  border: 1px solid rgba(241, 194, 125, 0.35);
-  background: rgba(241, 194, 125, 0.12);
-  color: #8c5d18;
+  border: 1px solid rgba(247, 194, 74, 0.42);
+  background: rgba(247, 194, 74, 0.14);
+  color: #6b470f;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
