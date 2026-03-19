@@ -111,6 +111,12 @@ function getReferralSource(session) {
   return source || "";
 }
 
+function getReferralOfferVariant(session) {
+  const metadata = session.metadata || {};
+  const variant = String(metadata.referral_offer_variant || "").trim().toLowerCase();
+  return variant || "";
+}
+
 function formatMoney(cents, currency) {
   if (!Number.isFinite(cents)) return "0";
   const code = String(currency || "usd").toUpperCase();
@@ -331,6 +337,7 @@ async function buildReport(args) {
   const digitalPlanCounts = new Map();
   const printVariantCounts = new Map();
   const referralSourceCounts = new Map();
+  const referralOfferVariantCounts = new Map();
   const paidPaymentMethodCounts = new Map();
   const digitalPaymentMethodCounts = new Map();
   const printPaymentMethodCounts = new Map();
@@ -348,6 +355,8 @@ async function buildReport(args) {
     digitalRevenueCents += Number(session.amount_total || 0);
     const referralSource = getReferralSource(session);
     if (referralSource) incrementBucket(referralSourceCounts, referralSource);
+    const referralOfferVariant = getReferralOfferVariant(session);
+    if (referralOfferVariant) incrementBucket(referralOfferVariantCounts, referralOfferVariant);
   }
 
   for (const session of printPaid) {
@@ -360,6 +369,8 @@ async function buildReport(args) {
     printRevenueCents += Number(session.amount_total || 0);
     const referralSource = getReferralSource(session);
     if (referralSource) incrementBucket(referralSourceCounts, referralSource);
+    const referralOfferVariant = getReferralOfferVariant(session);
+    if (referralOfferVariant) incrementBucket(referralOfferVariantCounts, referralOfferVariant);
   }
 
   const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
@@ -436,6 +447,7 @@ async function buildReport(args) {
       digitalPaymentMethods: topBuckets(digitalPaymentMethodCounts, "method"),
       printPaymentMethods: topBuckets(printPaymentMethodCounts, "method"),
       referralPaidSources: topBuckets(referralSourceCounts, "source"),
+      referralOfferVariants: topBuckets(referralOfferVariantCounts, "variant"),
     },
     printOps,
   };
@@ -500,6 +512,16 @@ function printHumanReport(report) {
   } else {
     for (const item of report.stripe.referralPaidSources.slice(0, 8)) {
       console.log(`${item.source}: ${item.count}`);
+    }
+  }
+
+  console.log("");
+  console.log("Referral offer variants (paid)");
+  if (!report.stripe.referralOfferVariants.length) {
+    console.log("none");
+  } else {
+    for (const item of report.stripe.referralOfferVariants.slice(0, 8)) {
+      console.log(`${item.variant}: ${item.count}`);
     }
   }
 

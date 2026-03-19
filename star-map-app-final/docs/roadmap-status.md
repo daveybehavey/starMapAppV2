@@ -294,6 +294,9 @@ Recent status:
 - Added weekly loop scorecard command:
   - `npm run qa:loop-scorecard -- --days 14`
   - summarizes referral-share, proof-request opportunity, promo-lifecycle, and funnel proxy metrics in one report
+- Expanded referral offer experiment observability:
+  - `qa:commerce-digest` now reports paid `referral_offer_variant` counts from Stripe session metadata
+  - `qa:loop-scorecard` now surfaces the top paid referral offer variant
 - Added a stricter server-side checkout funnel milestone:
   - `checkout_session_created` now records successful Stripe session creation separately from generic checkout intent
   - this makes it easier to diagnose whether drop-off is happening before Stripe session creation or after handoff

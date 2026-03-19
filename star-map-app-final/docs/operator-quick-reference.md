@@ -28,6 +28,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
   - `npm run qa:commerce-digest -- --days 7`
+  - `qa:commerce-digest` now includes paid `referral_offer_variant` mix to validate referral offer tests
   - `GET /api/analytics/checkout-diagnostics` is now available behind `PRINT_ADMIN_TOKEN` for checkout blocker counts
 
 ## 2) Stripe revenue and checkout

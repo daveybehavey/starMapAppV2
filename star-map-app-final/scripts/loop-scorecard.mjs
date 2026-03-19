@@ -59,6 +59,11 @@ function buildScorecard(digest) {
   const referralPaidSessions = Array.isArray(digest?.stripe?.referralPaidSources)
     ? digest.stripe.referralPaidSources.reduce((sum, row) => sum + Number(row?.count || 0), 0)
     : 0;
+  const topReferralOfferVariant = Array.isArray(digest?.stripe?.referralOfferVariants)
+    ? digest.stripe.referralOfferVariants
+        .slice()
+        .sort((a, b) => Number(b?.count || 0) - Number(a?.count || 0))[0] || null
+    : null;
   const landingViews = Number(digest?.funnel?.landing_view || 0);
   const previewStarted = Number(digest?.funnel?.preview_started || 0);
   const checkoutStarted = Number(digest?.funnel?.checkout_started || 0);
@@ -85,6 +90,13 @@ function buildScorecard(digest) {
         paidReferralSessions: referralPaidSessions,
         paidSessions,
         referralShareOfPaidPct: Number(percent(referralPaidSessions, paidSessions).toFixed(2)),
+        topOfferVariant:
+          topReferralOfferVariant && Number(topReferralOfferVariant.count || 0) > 0
+            ? {
+                variant: String(topReferralOfferVariant.variant || "unknown"),
+                count: Number(topReferralOfferVariant.count || 0),
+              }
+            : null,
       },
       proofTrust: {
         proofRequestOpportunities: printPaidSessions,
@@ -129,6 +141,11 @@ function printHumanScorecard(scorecard) {
   console.log("Loop 1 · Referral share");
   console.log(`Paid referral sessions: ${scorecard.loops.referralShare.paidReferralSessions}`);
   console.log(`Referral share of paid sessions: ${scorecard.loops.referralShare.referralShareOfPaidPct.toFixed(2)}%`);
+  if (scorecard.loops.referralShare.topOfferVariant) {
+    console.log(
+      `Top paid offer variant: ${scorecard.loops.referralShare.topOfferVariant.variant} (${scorecard.loops.referralShare.topOfferVariant.count})`,
+    );
+  }
   console.log("");
 
   console.log("Loop 2 · Proof trust");
