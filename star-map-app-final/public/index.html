@@ -76,6 +76,11 @@
           linear-gradient(145deg, var(--midnight), var(--deep-blue) 58%, var(--deep-blue-alt));
         min-height: 100vh;
       }
+      @media (max-width: 900px) {
+        body {
+          background: linear-gradient(150deg, #050a19, #123063 62%, #173a70);
+        }
+      }
       a {
         color: inherit;
         text-decoration: none;
@@ -1177,7 +1182,6 @@
         color: #0f1f3a;
         padding: 10px 12px;
         box-shadow: 0 12px 28px rgba(3, 8, 24, 0.18);
-        backdrop-filter: blur(10px);
       }
       .cookie-banner-static.show {
         display: flex;
@@ -1888,9 +1892,19 @@
         const REFERRAL_VISIT_SEEN_PREFIX = "referral:visit:seen:";
         const funnelEndpoint = "/api/analytics/funnel";
         const referralVisitEndpoint = "/api/referrals/visit";
+        const hasRequestIdleCallback = typeof window.requestIdleCallback === "function";
         let gaPageViewSent = false;
         let gaLandingViewSent = false;
         let gaBootstrapped = false;
+
+        const runSoon = function (work) {
+          if (typeof work !== "function") return;
+          if (hasRequestIdleCallback) {
+            window.requestIdleCallback(function () { work(); }, { timeout: 1200 });
+            return;
+          }
+          setTimeout(work, 220);
+        };
 
         const ensureGaBootstrap = function () {
           if (gaBootstrapped) return;
@@ -2036,7 +2050,7 @@
           if (consentGrantedAtLoad) markGaLandingViewSent();
         }
 
-        logReferralVisitOnce();
+        runSoon(logReferralVisitOnce);
 
         const cookieBanner = document.getElementById("cookie-banner-static");
         if (cookieBanner instanceof HTMLElement) {
@@ -2057,7 +2071,9 @@
             updateAnalyticsConsent(false);
           }
           if (consentValue !== "true" && consentValue !== "false") {
-            cookieBanner.classList.add("show");
+            runSoon(function () {
+              cookieBanner.classList.add("show");
+            });
           }
           cookieBanner.addEventListener("click", function (event) {
             const target = event.target;
@@ -2082,24 +2098,28 @@
           });
         }
 
-        document.querySelectorAll("[data-funnel-step]").forEach(function (element) {
-          element.addEventListener("click", function () {
-            const step = element.getAttribute("data-funnel-step");
-            if (!step) return;
-            const source = element.getAttribute("data-funnel-source") || "home_static";
-            const plan = element.getAttribute("data-funnel-plan") || undefined;
-            trackStep(step, source, plan);
-          });
+        document.addEventListener("click", function (event) {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          const element = target.closest("[data-funnel-step]");
+          if (!(element instanceof HTMLElement)) return;
+          const step = element.getAttribute("data-funnel-step");
+          if (!step) return;
+          const source = element.getAttribute("data-funnel-source") || "home_static";
+          const plan = element.getAttribute("data-funnel-plan") || undefined;
+          trackStep(step, source, plan);
         });
 
         const galleryFallbackSrc = "/custom-star-map-anniversary.webp";
-        document.querySelectorAll(".gallery img, .product-proof-visual img").forEach(function (node) {
-          if (!(node instanceof HTMLImageElement)) return;
-          node.addEventListener("error", function () {
-            if (node.dataset.fallbackApplied === "true") return;
-            node.dataset.fallbackApplied = "true";
-            node.classList.add("image-fallback");
-            node.src = galleryFallbackSrc;
+        runSoon(function () {
+          document.querySelectorAll(".gallery img, .product-proof-visual img").forEach(function (node) {
+            if (!(node instanceof HTMLImageElement)) return;
+            node.addEventListener("error", function () {
+              if (node.dataset.fallbackApplied === "true") return;
+              node.dataset.fallbackApplied = "true";
+              node.classList.add("image-fallback");
+              node.src = galleryFallbackSrc;
+            });
           });
         });
 
