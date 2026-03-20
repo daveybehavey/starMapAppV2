@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import ResilientImage from "@/components/ResilientImage";
 import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
 
@@ -32,6 +33,7 @@ export default function PhysicalProductGallerySection({
         "absolute inset-4 z-10 overflow-hidden rounded-[14px] border border-white/24 bg-white/[0.02] shadow-[0_14px_24px_rgba(0,0,0,0.16)] sm:inset-5",
       imageClass: "object-contain p-1 sm:p-2 scale-[1.13]",
       badgeClass: "border-white/25 bg-black/40 text-white",
+      frameStyle: undefined as CSSProperties | undefined,
     },
     {
       src: unframedProofImage,
@@ -48,17 +50,18 @@ export default function PhysicalProductGallerySection({
         "absolute inset-4 z-10 overflow-hidden rounded-[14px] border border-white/24 bg-white/[0.02] shadow-[0_14px_24px_rgba(0,0,0,0.16)] rotate-[0.35deg] sm:inset-5",
       imageClass: "object-contain p-1 sm:p-2 scale-[1.16]",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
+      frameStyle: undefined as CSSProperties | undefined,
     },
   ] as const;
 
   const supportCards = [
     {
-      src: "/examples/example-anniversary-heirloom.webp",
-      fallbackSrc: "/printproof/gallery/birthday-framed.jpg",
-      alt: "Framed StarMapCo print with Heirloom style artwork",
-      eyebrow: "Heirloom style",
-      title: "Framed with alternate map styling",
-      detail: "Shows the same framed physical route using a different StarMapCo style so buyers can compare look and mood, not just format.",
+      src: "/examples/example-wedding-aurora-heart.webp",
+      fallbackSrc: "/examples/example-anniversary-heirloom.webp",
+      alt: "Framed StarMapCo print with heart-shape Aurora style artwork",
+      eyebrow: "Heart shape",
+      title: "Heart layout in Aurora style",
+      detail: "Shows a romantic heart-shaped layout so buyers can compare shape and mood, not just framed vs unframed format.",
       stageClass: "gallery-wall-stage gallery-wall-stage--warm-alt",
       stageScrimClass:
         "bg-[radial-gradient(circle_at_28%_78%,rgba(255,255,255,0.18),rgba(255,255,255,0)_52%)]",
@@ -66,14 +69,15 @@ export default function PhysicalProductGallerySection({
         "absolute inset-3 z-10 overflow-hidden rounded-[12px] border border-white/22 bg-white/[0.02] shadow-[0_12px_20px_rgba(0,0,0,0.15)] -rotate-[0.25deg] sm:inset-4",
       imageClass: "object-cover",
       badgeClass: "border-white/25 bg-black/40 text-white",
+      frameStyle: undefined as CSSProperties | undefined,
     },
     {
       src: "/examples/example-birthday-noir.webp",
       fallbackSrc: "/printproof/gallery/graduation-unframed.jpg",
-      alt: "Unframed StarMapCo poster with Noir style artwork",
-      eyebrow: "Noir style",
-      title: "Unframed with alternate map styling",
-      detail: "Keeps the lower-cost unframed route visible while also proving a darker style option for different tastes.",
+      alt: "Unframed StarMapCo poster with Noir style and diamond crop",
+      eyebrow: "Diamond shape",
+      title: "Diamond crop in Noir style",
+      detail: "Keeps the lower-cost unframed route visible while proving a darker design option with a geometric crop style.",
       stageClass: "gallery-wall-stage gallery-wall-stage--neutral-alt",
       stageScrimClass:
         "bg-[radial-gradient(circle_at_72%_74%,rgba(255,255,255,0.2),rgba(255,255,255,0)_54%)]",
@@ -81,6 +85,9 @@ export default function PhysicalProductGallerySection({
         "absolute inset-3 z-10 overflow-hidden rounded-[12px] border border-white/22 bg-white/[0.02] shadow-[0_12px_20px_rgba(0,0,0,0.15)] rotate-[0.22deg] sm:inset-4",
       imageClass: "object-cover",
       badgeClass: "border-black/10 bg-white/82 text-midnight",
+      frameStyle: {
+        clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
+      } as CSSProperties,
     },
   ] as const;
 
@@ -97,11 +104,11 @@ export default function PhysicalProductGallerySection({
           {heroCards.map((card) => (
             <article
               key={`${card.title}-${card.src}`}
-              className="overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]"
+              className="space-y-3"
             >
-              <div className={`relative aspect-[5/4] overflow-hidden ${card.stageClass}`}>
+              <div className={`relative aspect-[5/4] overflow-hidden rounded-[24px] border border-black/14 shadow-[0_16px_32px_rgba(0,0,0,0.16)] ${card.stageClass}`}>
                 <div className={`pointer-events-none absolute inset-0 z-[5] ${card.stageScrimClass}`} />
-                <div className={card.frameClass}>
+                <div className={card.frameClass} style={card.frameStyle}>
                   <ResilientImage
                     src={card.src}
                     fallbackSrc={card.fallbackSrc}
@@ -117,7 +124,7 @@ export default function PhysicalProductGallerySection({
                   {card.eyebrow}
                 </span>
               </div>
-              <div className="space-y-2 border-t border-black/5 px-5 py-4">
+              <div className="space-y-2 px-1">
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-midnight">{card.title}</h3>
                   <p className="text-sm leading-relaxed text-neutral-700">{card.detail}</p>
@@ -132,11 +139,11 @@ export default function PhysicalProductGallerySection({
           {supportCards.map((card) => (
             <article
               key={`${card.title}-${card.src}`}
-              className="overflow-hidden rounded-[24px] border border-black/10 bg-white shadow-[0_14px_28px_rgba(0,0,0,0.08)]"
+              className="space-y-2"
             >
-              <div className={`relative aspect-[16/10] overflow-hidden ${card.stageClass}`}>
+              <div className={`relative aspect-[16/10] overflow-hidden rounded-[20px] border border-black/12 shadow-[0_14px_24px_rgba(0,0,0,0.14)] ${card.stageClass}`}>
                 <div className={`pointer-events-none absolute inset-0 z-[5] ${card.stageScrimClass}`} />
-                <div className={card.frameClass}>
+                <div className={card.frameClass} style={card.frameStyle}>
                   <ResilientImage
                     src={card.src}
                     fallbackSrc={card.fallbackSrc}
@@ -152,7 +159,7 @@ export default function PhysicalProductGallerySection({
                   {card.eyebrow}
                 </span>
               </div>
-              <div className="space-y-1 border-t border-black/5 px-4 py-3">
+              <div className="space-y-1 px-1">
                 <h3 className="text-sm font-semibold text-midnight">{card.title}</h3>
                 <p className="text-xs leading-relaxed text-neutral-700">{card.detail}</p>
               </div>
