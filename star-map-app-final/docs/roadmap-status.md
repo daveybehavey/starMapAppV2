@@ -401,6 +401,10 @@ Recent status:
   - deferred GA external script download until explicit analytics consent grant on `public/index.html`
   - synced static variant (`public/landing.html`) to the same behavior
   - removed Lighthouse unused-JS attribution from `gtag.js` on non-consented first loads
+- Static homepage runtime/paint hardening:
+  - deferred noncritical static-home setup work (`referral visit post`, image-fallback listener wiring, cookie banner reveal) into idle-time execution
+  - switched static funnel click tracking to delegated document-level handling to reduce per-node listener registration overhead
+  - simplified mobile background painting path and removed cookie banner backdrop blur to reduce first-load paint work
 - Homepage main-thread hardening:
   - converted `HomeOfferStack` to server-rendered output to trim client hydration/runtime work on the home route
   - replaced interactive shipping-country selector in that block with a clear baseline estimate message (final shipping still shown before payment)
