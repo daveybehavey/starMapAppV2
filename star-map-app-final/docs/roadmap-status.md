@@ -400,6 +400,12 @@ Recent status:
   - deferred GA external script download until explicit analytics consent grant on `public/index.html`
   - synced static variant (`public/landing.html`) to the same behavior
   - removed Lighthouse unused-JS attribution from `gtag.js` on non-consented first loads
+- Homepage main-thread hardening:
+  - converted `HomeOfferStack` to server-rendered output to trim client hydration/runtime work on the home route
+  - replaced interactive shipping-country selector in that block with a clear baseline estimate message (final shipping still shown before payment)
+- Physical gallery visual refinement (app routes):
+  - reduced boxed card chrome in `PhysicalProductGallerySection`
+  - expanded visible style variation in gallery cards (heart + diamond layouts) for faster visual comparison
 
 ### Most recent verified ops snapshot
 
@@ -409,11 +415,11 @@ Recent status:
   - funnel reconcile: pass (`payment_verified=1`, Stripe paid sessions `=1` over last 14 days)
   - print ops: no sent/pending/failed anomalies in last 168 hours; 2 unpaid print sessions observed
 - `qa:commerce-digest -- --days 7` snapshot:
-  - landing views: 151
-  - preview started: 111
-  - checkout started: 110
-  - payment verified: 0
-  - paid sessions: 0
+  - landing views: 155
+  - preview started: 75
+  - checkout started: 47
+  - payment verified: 1
+  - paid sessions: 1
 
 ## Phase 5: Print Scale (Planned)
 
