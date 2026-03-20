@@ -557,18 +557,23 @@
         color: rgba(255, 255, 255, 0.7);
       }
       #physical-proof-gallery .gallery {
+        display: grid;
         gap: 16px;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        align-items: end;
       }
       #physical-proof-gallery .gallery figure {
+        grid-column: span 3;
         position: relative;
-        overflow: hidden;
+        overflow: visible;
         border: 0;
-        border-radius: 10px;
+        border-radius: 0;
         background: transparent;
         box-shadow: none;
+        margin: 0;
       }
       #physical-proof-gallery .gallery figure:hover {
-        transform: translateY(-2px);
+        transform: translateY(-1px);
         border-color: transparent;
         box-shadow: none;
       }
@@ -623,15 +628,26 @@
       #physical-proof-gallery .gallery .wall-frame {
         position: relative;
         z-index: 1;
-        margin: 16px 10px 4px;
-        border-radius: 0;
-        background: transparent;
-        border: 0;
-        box-shadow: none;
-        min-height: 264px;
+        margin: 0;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.1));
+        box-shadow:
+          0 14px 24px rgba(0, 0, 0, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.14);
+        min-height: 260px;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 8px;
+      }
+      #physical-proof-gallery .gallery figure.gallery-item--heart .wall-frame,
+      #physical-proof-gallery .gallery figure.gallery-item--diamond .wall-frame,
+      #physical-proof-gallery .gallery figure.gallery-item--noir .wall-frame {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
       }
       #physical-proof-gallery .gallery .wall-frame img {
         width: min(100%, 300px);
@@ -644,42 +660,40 @@
         filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.28));
       }
       #physical-proof-gallery .gallery img.art-framed-classic {
-        transform: scale(1.2);
+        transform: scale(1.18);
       }
       #physical-proof-gallery .gallery img.art-heart {
-        transform: scale(1.04) rotate(-1deg);
+        transform: scale(1.06) rotate(-0.8deg);
       }
       #physical-proof-gallery .gallery img.art-diamond {
-        transform: scale(0.98) rotate(0.6deg);
+        transform: scale(0.9);
+        clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
       }
       #physical-proof-gallery .gallery img.art-noir {
-        transform: scale(1.02) rotate(-0.4deg);
+        transform: scale(1.03) rotate(-0.25deg);
       }
       #physical-proof-gallery .gallery figcaption {
         position: relative;
         z-index: 1;
-        color: rgba(255, 255, 255, 0.95);
+        color: rgba(244, 249, 255, 0.96);
         background: transparent;
         border-top: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 7px 2px 0;
-        font-size: 0.9rem;
-        line-height: 1.34;
+        display: grid;
+        gap: 2px;
+        padding: 8px 2px 0;
+        font-size: 0.88rem;
+        line-height: 1.33;
       }
       #physical-proof-gallery .gallery .proof-chip {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.24);
-        background: rgba(0, 0, 0, 0.18);
-        color: rgba(255, 255, 255, 0.98);
-        font-size: 0.66rem;
+        display: inline-block;
+        border: 0;
+        background: transparent;
+        color: rgba(251, 205, 131, 0.96);
+        font-size: 0.63rem;
         font-weight: 700;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        padding: 3px 8px;
+        padding: 0;
         white-space: nowrap;
       }
       #physical-proof-gallery .links {
@@ -704,6 +718,16 @@
         background: rgba(251, 191, 36, 0.24);
         color: #fef3c7;
         border-color: rgba(251, 191, 36, 0.5);
+      }
+      @media (max-width: 1120px) {
+        #physical-proof-gallery .gallery figure {
+          grid-column: span 6;
+        }
+      }
+      @media (max-width: 640px) {
+        #physical-proof-gallery .gallery figure {
+          grid-column: span 12;
+        }
       }
       .product-proof {
         display: grid;
@@ -1489,7 +1513,7 @@
         <h2>See the physical gift options side by side</h2>
         <p>Real StarMapCo styles side by side: framed classic, heart, diamond, and noir variants so buyers can pick both format and visual direction before checkout.</p>
         <div class="gallery">
-          <figure class="wall-warm">
+          <figure class="wall-warm gallery-item gallery-item--framed">
             <div class="wall-frame">
               <img
                 src="/printproof/framed-latest.png"
@@ -1501,9 +1525,9 @@
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Framed · Classic</span>Ready-to-hang</figcaption>
+            <figcaption><span class="proof-chip">Framed · Classic</span>Ready-to-hang premium finish</figcaption>
           </figure>
-          <figure class="wall-cool wall-cool-alt">
+          <figure class="wall-cool wall-cool-alt gallery-item gallery-item--heart">
             <div class="wall-frame">
               <img
                 src="/examples/example-wedding-aurora-heart.webp"
@@ -1515,9 +1539,9 @@
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Style · Heart</span>Romantic shape option</figcaption>
+            <figcaption><span class="proof-chip">Shape · Heart</span>Romantic style direction</figcaption>
           </figure>
-          <figure class="wall-warm">
+          <figure class="wall-warm gallery-item gallery-item--diamond">
             <div class="wall-frame">
               <img
                 src="/examples/example-graduation-aurora.webp"
@@ -1529,9 +1553,9 @@
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Style · Diamond</span>Bold geometric layout</figcaption>
+            <figcaption><span class="proof-chip">Shape · Diamond</span>Geometric layout option</figcaption>
           </figure>
-          <figure class="wall-cool wall-cool-alt">
+          <figure class="wall-cool wall-cool-alt gallery-item gallery-item--noir">
             <div class="wall-frame">
               <img
                 src="/examples/example-birthday-noir.webp"
@@ -1543,7 +1567,7 @@
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Style · Noir</span>Dark modern aesthetic</figcaption>
+            <figcaption><span class="proof-chip">Style · Noir</span>Darker modern aesthetic</figcaption>
           </figure>
         </div>
         <div class="links">
