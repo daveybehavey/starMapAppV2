@@ -376,6 +376,7 @@ Recent status:
   - homepage print proof cards now use real wall-photo textures instead of flat synthetic wall gradients
   - proof image selection now prefers latest Printful preview PNGs (transparent cutout) before JPG mockups
   - static homepage variants (`public/index.html`, `public/landing.html`) were synced to the same wall-stage treatment
+  - reduced boxed card chrome in the static physical gallery and strengthened visible style/shape variety (classic framed, heart, diamond, noir)
 - Expanded consistency automation coverage:
   - `qa:content-consistency` now also validates lower-intent/authority pages:
     - all current blog article routes
