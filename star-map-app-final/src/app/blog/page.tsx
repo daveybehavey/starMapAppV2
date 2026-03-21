@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { blogPosts } from "@/lib/blogPosts";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -53,134 +54,24 @@ type IndexPost = {
   alt: string;
 };
 
-const indexPosts: IndexPost[] = [
-  {
-    slug: "best-personalized-gift-for-couples",
-    title: "Best Personalized Gift for Couples (2026): Why Star Maps Keep Winning",
-    excerpt:
-      "A practical gift-buying guide covering framed vs unframed vs digital, fast-turnaround options, and how to pick the date that actually matters.",
-    date: "2026-03-21",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Best personalized gift for couples guide",
-  },
-  {
-    slug: "is-a-star-map-a-good-gift",
-    title: "Is a Star Map a Good Gift? How to Choose Framed, Unframed, or Digital",
-    excerpt:
-      "Compare framed print, unframed print, and HD digital delivery so you can choose the best personalized star map gift fast.",
-    date: "2026-03-19",
-    image: "/examples/example-anniversary-heirloom.webp",
-    alt: "Framed personalized star map gift example",
-  },
-  {
-    slug: "mothers-day-star-map-gift-ideas",
-    title: "Mother's Day Star Map Gift Ideas: A Personal Sky She'll Keep Forever",
-    excerpt:
-      "A custom star map captures the night she became a mom or another milestone that deserves to be remembered.",
-    date: "2026-02-12",
-    image: "/og-mothers-day.svg",
-    alt: "Mother's Day star map gift ideas",
-  },
-  {
-    slug: "fathers-day-star-map-gift-ideas",
-    title: "Father's Day Star Map Gift Ideas: Honor the Night He Became Dad",
-    excerpt:
-      "Celebrate a meaningful night with a personalized star map gift that feels thoughtful and timeless.",
-    date: "2026-02-12",
-    image: "/og-fathers-day.svg",
-    alt: "Father's Day star map gift ideas",
-  },
-  {
-    slug: "graduation-star-map-gift",
-    title: "Graduation Star Map Gift: Celebrate the Night They Crossed the Stage",
-    excerpt:
-      "A graduation star map captures the exact sky from their ceremony and turns it into a frame-worthy keepsake.",
-    date: "2026-02-12",
-    image: "/og-graduation.svg",
-    alt: "Graduation star map gift",
-  },
-  {
-    slug: "most-meaningful-valentines-day-gift-custom-star-map",
-    title: "The Most Meaningful Valentine's Day Gift: A Custom Star Map of Your Love",
-    excerpt:
-      "Looking for a meaningful Valentine's Day gift? Discover why a custom star map is a romantic, personalized keepsake that captures your story under the stars.",
-    date: "2026-02-02",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Valentine's Day custom star map gift idea",
-  },
-  {
-    slug: "custom-star-map-milestones-guide",
-    title: "Custom Star Map Milestones Guide: Preserve Life's Moments With Meaningful Personalization",
-    excerpt:
-      "A step-by-step guide to creating a custom star map that captures engagements, graduations, and memorials, with astronomy basics and personalization ideas.",
-    date: "2026-01-24",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Custom star map for life milestones",
-  },
-  {
-    slug: "meaningful-dates-star-map",
-    title: "The Most Meaningful Dates to Turn Into a Star Map (And Why They Matter)",
-    excerpt:
-      "Not sure which date to choose? Use this guide to pick a moment that turns your map into a keepsake people actually want to display.",
-    date: "2026-01-19",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Meaningful dates for custom star maps",
-  },
-  {
-    slug: "custom-star-maps-for-weddings",
-    title: "Custom Star Maps for Weddings: How to Capture Your Night Sky",
-    excerpt:
-      "Learn how to create a personalized star map for your wedding day, from choosing location and time to styling and printing.",
-    date: "2024-06-01",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Custom star map for wedding night sky",
-  },
-  {
-    slug: "custom-star-map-for-anniversary",
-    title: "Custom Star Map for Anniversary: A Timeless Romantic Gift",
-    excerpt:
-      "Discover why a custom star map for anniversary moments is one of the most romantic, personal, and unforgettable gifts you can give.",
-    date: "2025-12-31",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Custom star map for anniversary gift",
-  },
-  {
-    slug: "personalized-star-map-birthday-gift",
-    title: "Personalized Star Map Birthday Gift - Capture the Stars on Their Special Day",
-    excerpt:
-      "A personalized star map birthday gift recreates the night sky from their birth date, making a thoughtful keepsake for any age.",
-    date: "2025-12-31",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Personalized star map birthday gift preview",
-  },
-  {
-    slug: "astronomy-behind-star-maps",
-    title: "Astronomy Behind Star Maps - How Science Makes Them Accurate",
-    excerpt:
-      "Explore how real data from catalogs and precise calculations create accurate night-sky recreations for custom star maps.",
-    date: "2025-12-31",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Astronomy behind star maps",
-  },
-  {
-    slug: "choose-date-location-custom-star-map",
-    title: "Choose Date Location Custom Star Map - Tips for Perfect Accuracy",
-    excerpt:
-      "Learn how to pick the right date and location for a custom star map, avoid common pitfalls, and capture your moment perfectly.",
-    date: "2025-12-31",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Choose date and location for custom star map",
-  },
-  {
-    slug: "new-year-star-map",
-    title: "Celebrating the New Year Under the Stars: A Meaningful Way to Begin Again",
-    excerpt:
-      "Capture the exact New Year sky with a custom star map—preserve the moment midnight struck and start the year with a keepsake that lasts.",
-    date: "2025-01-01",
-    image: "/custom-star-map-anniversary.webp",
-    alt: "Custom New Year star map",
-  },
-];
+const FALLBACK_BLOG_IMAGE = "/custom-star-map-anniversary.webp";
+
+function resolveBlogCardImage(rawImage?: string) {
+  if (!rawImage) return FALLBACK_BLOG_IMAGE;
+  if (rawImage.toLowerCase().endsWith(".svg")) return FALLBACK_BLOG_IMAGE;
+  return rawImage;
+}
+
+const indexPosts: IndexPost[] = [...blogPosts]
+  .sort((a, b) => b.date.localeCompare(a.date))
+  .map((post) => ({
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.description,
+    date: post.date,
+    image: resolveBlogCardImage(post.ogImage),
+    alt: post.title,
+  }));
 
 const blogDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
