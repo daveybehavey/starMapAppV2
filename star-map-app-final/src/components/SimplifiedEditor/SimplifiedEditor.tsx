@@ -10,6 +10,7 @@ import {
   formatDateTimeForLocation,
   type MapRecipe,
 } from "@/lib/renderSky";
+import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";
@@ -458,7 +459,10 @@ export function SimplifiedEditor() {
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = mode === "hd" ? "star-map-hd.png" : "star-map-preview.png";
+      link.download = buildStarMapDownloadFilename({
+        recipe,
+        mode: mode === "hd" ? "hd" : "preview",
+      });
       link.href = url;
       document.body.appendChild(link);
       link.click();

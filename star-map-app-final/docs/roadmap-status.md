@@ -80,6 +80,13 @@ Updated: 2026-03-19
   - Simplified homepage hero and offer copy for better readability on first visit.
   - Added static-home gallery image fallback handling and smoother card hover polish for more stable premium presentation.
   - Shifted proof/mockup surfaces to calmer flat wall textures to reduce visual noise while keeping in-room context.
+- Post-purchase download recovery hardening:
+  - Added explicit mobile download-location guidance on `/download` with iPhone/Android-specific copy.
+  - Added iPhone "Files > Downloads" reminder on `/success` before redirect.
+  - Added support lookup command `npm run support:order-lookup` to resolve receipt/session/email into verified recovery status and correct customer response templates.
+  - HD export credits are now consumed only after file generation succeeds (prevents failed renders from burning credits).
+  - Download filenames now include human-readable map/date slugs (`starmap-...png`) for easier file lookup on mobile.
+  - Pack copy clarified from "3 files" to "3 export credits" across checkout/paywall surfaces.
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
@@ -405,6 +412,13 @@ Recent status:
   - deferred noncritical static-home setup work (`referral visit post`, image-fallback listener wiring, cookie banner reveal) into idle-time execution
   - switched static funnel click tracking to delegated document-level handling to reduce per-node listener registration overhead
   - simplified mobile background painting path and removed cookie banner backdrop blur to reduce first-load paint work
+- Checkout handoff metric quality hardening:
+  - editor flow now records `checkout_started` immediately before `/api/checkout` handoff (after map/print preflight work), reducing false pre-API starts in funnel reporting
+- Referral copy consistency hardening:
+  - success-page referral reward text now uses configured `NEXT_PUBLIC_REFERRAL_REWARD_CREDITS` instead of hard-coded `1` credit wording
+- Static homepage readability polish:
+  - improved contrast for section body copy and signup helper text
+  - refined the `Perfect for ...` occasion block hierarchy (kicker + cleaner link styling) to reduce visual clutter
 - Homepage main-thread hardening:
   - converted `HomeOfferStack` to server-rendered output to trim client hydration/runtime work on the home route
   - replaced interactive shipping-country selector in that block with a clear baseline estimate message (final shipping still shown before payment)

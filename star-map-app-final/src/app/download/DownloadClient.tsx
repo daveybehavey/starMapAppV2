@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, type MapRecipe } from "@/lib/renderSky";
 import { FONT_STACKS } from "@/lib/fonts";
 import { getShapeData } from "@/lib/shapeUtils";
+import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { Shape } from "@/lib/types";
 import {
   track,
@@ -134,6 +135,18 @@ function estimateDataUrlBytes(dataUrl: string) {
   const base64 = dataUrl.slice(commaIndex + 1);
   const paddingLength = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
   return Math.floor((base64.length * 3) / 4) - paddingLength;
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+      reject(new Error("Failed to generate image blob"));
+    }, "image/png");
+  });
 }
 
 function normalizeRecipe(recipe: MapRecipe): MapRecipe {
@@ -286,6 +299,14 @@ export default function DownloadClient() {
     () => getPrintShippingCountryLabel(printShippingCountry),
     [printShippingCountry],
   );
+  const isIosDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  }, []);
+  const isAndroidDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /Android/i.test(navigator.userAgent || "");
+  }, []);
 
   useEffect(() => {
     if (!printCheckoutEnabled) return;
@@ -509,13 +530,6 @@ export default function DownloadClient() {
           return;
         }
 
-        const consumed = await consumeHdCredit();
-        if (!consumed) {
-          setStatus("not-paid");
-          setMessage("You have no HD downloads remaining. Choose a new pack or subscription to continue.");
-          return;
-        }
-
         if (!previewGeneratedRef.current) {
           setPreviewStatus("rendering");
         }
@@ -552,11 +566,26 @@ export default function DownloadClient() {
           }
         }
 
-        const url = canvas.toDataURL("image/png");
+        const blob = await canvasToPngBlob(canvas);
+        const consumed = await consumeHdCredit();
+        if (!consumed) {
+          setStatus("not-paid");
+          setMessage("You have no HD export credits remaining. Choose a new pack or subscription to continue.");
+          return;
+        }
+
+        const mapIdForFile = mapIdFromUrl || readStoredMapId();
+        const downloadFileName = buildStarMapDownloadFilename({
+          recipe: activeRecipe,
+          mode: "hd",
+          mapId: mapIdForFile,
+        });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.download = "star-map-hd.png";
+        link.download = downloadFileName;
         link.href = url;
         link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
         try {
           localStorage.removeItem(AUTO_EXPORT_KEY);
@@ -568,13 +597,13 @@ export default function DownloadClient() {
         const remaining =
           typeof consumed.creditsRemaining === "number" ? consumed.creditsRemaining : null;
         if (consumed.plan === "subscription") {
-          setMessage("Download started. Unlimited HD downloads active.");
+          setMessage("Download started. Unlimited HD exports active.");
         } else if (remaining === 0) {
-          setMessage("Download started. That was your last HD download.");
+          setMessage("Download started. That was your last HD export credit.");
         } else if (typeof remaining === "number") {
-          setMessage(`Download started. ${remaining} HD download${remaining === 1 ? "" : "s"} remaining.`);
+          setMessage(`Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining.`);
         } else {
-          setMessage("Download started. Check your downloads folder.");
+          setMessage("Download started. Check your Downloads folder for a file that starts with starmap-.");
         }
         track("export_download", { type: "hd", source });
         trackFunnelStep("download_completed", {
@@ -595,7 +624,7 @@ export default function DownloadClient() {
         setDownloadInFlight(false);
       }
     },
-    [consumeHdCredit, currentPlan, recipe, refreshPaidStatus, resolveShapeAndRatio, setPreviewFromCanvas],
+    [consumeHdCredit, currentPlan, mapIdFromUrl, recipe, refreshPaidStatus, resolveShapeAndRatio, setPreviewFromCanvas],
   );
 
   const renderPreview = useCallback(
@@ -667,7 +696,7 @@ export default function DownloadClient() {
           tokenInvalid
             ? "This access link has expired or was replaced. Open your original device to generate a new link."
             : typeof paidResult.creditsRemaining === "number"
-            ? "You have no HD downloads remaining. Choose a new pack or subscription to continue."
+            ? "You have no HD export credits remaining. Choose a new pack or subscription to continue."
             : "Payment verification is still pending. Please refresh in a moment.",
         );
         return;
@@ -1202,10 +1231,10 @@ export default function DownloadClient() {
                 <div className="text-xs text-amber-100/80">
                   {paid
                     ? currentPlan === "subscription"
-                      ? "Unlimited HD downloads active."
+                      ? "Unlimited HD exports active."
                       : typeof creditsRemaining === "number"
-                        ? `${creditsRemaining} HD download${creditsRemaining === 1 ? "" : "s"} remaining.`
-                        : "HD download access is active."
+                        ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
+                        : "HD export access is active."
                     : "Payment verification pending."}
                 </div>
                 <div
@@ -1246,6 +1275,42 @@ export default function DownloadClient() {
                 </Link>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-amber-200/30 bg-white/6 p-4 shadow-lg shadow-black/20">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-3xl space-y-2">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-amber-100">
+                Can't find your download?
+              </h2>
+              {isIosDevice ? (
+                <p className="text-sm text-neutral-100">
+                  On iPhone, downloads go to <strong>Files app → Browse → Downloads</strong> (not Photos). In Safari,
+                  you can also tap the download arrow icon to open recent files named <code>starmap-*.png</code>.
+                </p>
+              ) : isAndroidDevice ? (
+                <p className="text-sm text-neutral-100">
+                  On Android, check <strong>Files/My Files → Downloads</strong> (or your browser's download history),
+                  then open the latest <code>starmap-*.png</code> file.
+                </p>
+              ) : (
+                <p className="text-sm text-neutral-100">
+                  Mobile downloads usually save to your device's <strong>Downloads</strong> folder in the Files app.
+                  If you don't see it right away, use your browser's download history.
+                </p>
+              )}
+              <p className="text-xs text-amber-100/80">
+                You can always re-download from this page while export credits remain, and use your private access link as a
+                backup for another device.
+              </p>
+            </div>
+            <a
+              href="#access-link-panel"
+              className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+            >
+              Jump to access link
+            </a>
           </div>
         </section>
 
@@ -1313,8 +1378,8 @@ export default function DownloadClient() {
                       title: "Download credits",
                       desc:
                         typeof creditsRemaining === "number"
-                          ? `${creditsRemaining} HD download${creditsRemaining === 1 ? "" : "s"} remaining on this pack.`
-                          : "Use a 3-pack or subscription for multiple downloads.",
+                          ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining on this pack.`
+                          : "Use a 3-credit pack or subscription for multiple exports.",
                 },
               ].map((item) => (
                 <div key={item.title} className="flex gap-3 py-4 first:pt-0 last:pb-0">
@@ -1629,7 +1694,7 @@ export default function DownloadClient() {
               </div>
             ) : null}
             <PostPurchaseProofRequest source="download" orderType="digital" plan={currentPlan} />
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div id="access-link-panel" className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h4 className="text-sm font-semibold text-white">Use this on another device</h4>

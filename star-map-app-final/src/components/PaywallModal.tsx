@@ -54,7 +54,7 @@ const PAYWALL_COPY: Record<
     title: "Download your print-ready star map",
     subtitle: "Free preview stays available. Choose a one-time HD file or switch to printed gift checkout.",
     singleCta: "Get 1 HD file",
-    packCta: "Get 3 HD files",
+    packCta: "Get 3 HD credits",
     subscriptionCta: "Use unlimited plan",
     badgeLabel: "Repeat use",
   },
@@ -62,7 +62,7 @@ const PAYWALL_COPY: Record<
     title: "Unlock HD exports in seconds",
     subtitle: "Most single-gift buyers only need one HD file. Use packs or unlimited only if you expect repeat exports.",
     singleCta: "Get 1 HD file",
-    packCta: "Get 3 HD files",
+    packCta: "Get 3 HD credits",
     subscriptionCta: "Use unlimited plan",
     badgeLabel: "Repeat use",
   },
@@ -386,8 +386,8 @@ export function PaywallModal({
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-midnight">3-pack</p>
-                <p className="text-xs text-neutral-600">3 HD downloads for multiple versions or gifts</p>
+                <p className="text-sm font-semibold text-midnight">3-credit pack</p>
+                <p className="text-xs text-neutral-600">3 HD export credits for versions, revisions, or gifts</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 {priceLabels.pack3}
@@ -401,6 +401,7 @@ export function PaywallModal({
             >
               {copy.packCta}
             </button>
+            <p className="mt-2 text-[11px] text-neutral-600">Each HD export uses one credit from this pack.</p>
           </div>
 
           <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">

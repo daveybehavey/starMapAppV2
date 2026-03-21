@@ -136,7 +136,7 @@ function getCheckoutItemName(input: CheckoutAnalyticsInput) {
     const label = input.printVariant === "poster_framed" ? "Custom Framed Star Map Print" : "Custom Star Map Print";
     return input.includeDigitalAddOn ? `${label} + HD Download` : label;
   }
-  if (input.plan === "pack3") return "HD Digital Download 3-Pack";
+  if (input.plan === "pack3") return "HD Digital Export Credits (3)";
   if (input.plan === "subscription") return "Unlimited HD Monthly";
   return "Single HD Digital Download";
 }

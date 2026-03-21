@@ -57,6 +57,13 @@ const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRI
 const printShippingDisclosure = getPrintShippingDisclosure();
 const referralFriendOfferLabel = getReferralFriendOfferLabel();
 const referralShareMessage = getReferralShareMessage();
+const referralRewardCredits = (() => {
+  const raw = process.env.NEXT_PUBLIC_REFERRAL_REWARD_CREDITS?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return parsed;
+})();
+const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 
 export default function SuccessClient() {
   const router = useRouter();
@@ -640,10 +647,10 @@ export default function SuccessClient() {
                   ? "Print order + HD digital add-on unlocked."
                     : "Print order received. We'll email updates after review."
                   : currentPlan === "subscription"
-                    ? "Unlimited HD downloads unlocked."
+                    ? "Unlimited HD exports unlocked."
                     : currentPlan === "pack3"
-                      ? "3 HD downloads unlocked."
-                      : "1 HD download unlocked."}
+                      ? "3 HD export credits unlocked."
+                      : "1 HD export credit unlocked."}
               </p>
             )}
             <p className="relative mt-3 text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
@@ -717,6 +724,9 @@ export default function SuccessClient() {
                   <>
                     <p className="mt-2 text-[11px] text-amber-100/70">
                       Keep this link private — anyone with it can access your downloads.
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-100/70">
+                      Mobile tip: on iPhone, downloaded files are in <strong>Files → Downloads</strong> (not Photos).
                     </p>
                     {accessLinkStatus === "error" && (
                       <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
@@ -873,7 +883,8 @@ export default function SuccessClient() {
                       </p>
                     </div>
                     <p className="mt-1 text-xs text-amber-100/80">
-                      Share your link on social. Friends get {referralFriendOfferLabel} and each paid checkout adds 1 HD credit.
+                      Share your link on social. Friends get {referralFriendOfferLabel} and each paid checkout adds{" "}
+                      {referralRewardCreditsLabel}.
                     </p>
                     <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
                       <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">

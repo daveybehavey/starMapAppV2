@@ -126,7 +126,7 @@ export function getPricingTiers(opts?: { now?: Date }): Record<CheckoutPlan, Pri
     },
     pack3: {
       id: "pack3",
-      label: "3 HD downloads",
+      label: "3 HD export credits",
       amountCents: env.pack3PriceCents,
       currency: env.currency,
       credits: 3,

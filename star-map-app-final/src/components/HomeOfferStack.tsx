@@ -281,7 +281,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               className="rounded-xl border border-white/20 bg-white/10 p-3 text-left transition hover:border-amber-300/50 hover:bg-white/15"
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-white">3-pack HD</p>
+                <p className="text-sm font-semibold text-white">3 HD credits</p>
                 <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-neutral-200">
                   REPEAT USE
                 </span>
@@ -290,7 +290,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
                 {priceLabels.pack3}
                 {priceLabels.packSavingsPercent > 0 ? ` (${priceLabels.packSavingsPercent}% off)` : ""}
               </p>
-              <p className="mt-1 text-[11px] text-neutral-300">Use this if you expect multiple gifts or alternate versions.</p>
+              <p className="mt-1 text-[11px] text-neutral-300">Use this if you expect multiple gifts or alternate versions (1 export per credit).</p>
             </a>
             <a
               href="/editor?mode=quick&source=home-plan-subscription"

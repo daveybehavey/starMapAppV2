@@ -63,7 +63,8 @@
     "qa:release-gate:smoke": "node scripts/qa-release-gate.mjs --smoke",
     "qa:release-gate:live": "node scripts/qa-release-gate.mjs --live --sitemap https://starmapco.com/sitemap.xml",
     "qa:release-gate:live:smoke": "node scripts/qa-release-gate.mjs --smoke --live --sitemap https://starmapco.com/sitemap.xml",
-    "qa:changed": "node scripts/qa-changed.mjs"
+    "qa:changed": "node scripts/qa-changed.mjs",
+    "support:order-lookup": "node scripts/customer-order-lookup.mjs"
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",

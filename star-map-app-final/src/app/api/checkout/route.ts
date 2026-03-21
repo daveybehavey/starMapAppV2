@@ -683,10 +683,10 @@ async function createCheckoutSession(
                     currency: tier.currency,
                     unit_amount: tier.amountCents,
                     product_data: {
-                      name: effectivePlan === "pack3" ? "HD Star Map Download Pack (3)" : "HD Star Map Download",
+                      name: effectivePlan === "pack3" ? "HD Star Map Export Credits (3)" : "HD Star Map Download",
                       description:
                         effectivePlan === "pack3"
-                          ? "3 print-ready HD star maps • No watermark • Instant download"
+                          ? "3 HD export credits for your map versions • No watermark • Instant unlock"
                           : "Print-ready 6000×6000px star map • No watermark • Instant download • Perfect for framing",
                       images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                     },

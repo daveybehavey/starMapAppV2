@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { TextBox, useStore } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
+import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { Shape } from "@/lib/types";
 import {
   track,
@@ -151,6 +152,18 @@ function estimateDataUrlBytes(dataUrl: string) {
   return Math.floor((base64.length * 3) / 4) - paddingLength;
 }
 
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+      reject(new Error("Failed to generate image blob"));
+    }, "image/png");
+  });
+}
+
 type PaywallIntent = "digital" | "print";
 
 export type EditorExperienceVariant = "quick" | "full";
@@ -263,7 +276,7 @@ export function EditorExperience({
     currentPlan === "subscription"
       ? "Unlimited HD"
       : typeof creditsRemaining === "number"
-        ? `${creditsRemaining} HD left`
+        ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
         : null;
 
   useEffect(() => {
@@ -820,7 +833,7 @@ export function EditorExperience({
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [applyPreset]);
 
-  const exportImage = useCallback(
+  const renderExportFile = useCallback(
     async (mode: "preview" | "hd", premiumOverride?: boolean) => {
       // Ensure all fonts are loaded before export
       if (typeof document !== "undefined" && document.fonts) {
@@ -865,14 +878,24 @@ export function EditorExperience({
         premium,
       });
 
-      const url = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = mode === "hd" ? "star-map-hd.png" : "star-map-preview.png";
-      link.href = url;
-      link.click();
+      const blob = await canvasToPngBlob(canvas);
+      const filename = buildStarMapDownloadFilename({
+        recipe,
+        mode: mode === "hd" ? "hd" : "preview",
+      });
+      return { blob, filename };
     },
     [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]
   );
+
+  const triggerDownload = useCallback((blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = url;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }, []);
 
   useEffect(() => {
     if (!restored || !autoExportPending || !paid) return;
@@ -889,10 +912,11 @@ export function EditorExperience({
       if (hdExportInFlightRef.current) return;
       hdExportInFlightRef.current = true;
       setHdExportInFlight(true);
-      consumeHdCredit()
-        .then((ok) => {
+      renderExportFile("hd", true)
+        .then(async (rendered) => {
+          const ok = await consumeHdCredit();
           if (!ok) return;
-          return exportImage("hd", true);
+          triggerDownload(rendered.blob, rendered.filename);
         })
         .catch(() => {})
         .finally(() => {
@@ -913,7 +937,7 @@ export function EditorExperience({
       mounted = false;
       cancelAnimationFrame(id);
     };
-  }, [autoExportPending, canvasReady, consumeHdCredit, exportImage, paid]);
+  }, [autoExportPending, canvasReady, consumeHdCredit, paid, renderExportFile, triggerDownload]);
 
   const handleExport = useCallback(
     async (mode: "preview" | "hd") => {
@@ -954,12 +978,13 @@ export function EditorExperience({
       }
       try {
         if (isHd) {
+          const rendered = await renderExportFile("hd", true);
           const consumed = await consumeHdCredit();
           if (!consumed) {
             setPendingExport(mode);
             setPaywallIntent("digital");
             setPaywallOpen(true);
-            setCheckoutError("No HD downloads remaining. Choose a new pack or subscription.");
+            setCheckoutError("No HD export credits remaining. Choose a new pack or subscription.");
             return;
           }
           track("export_hd_clicked", {
@@ -969,7 +994,7 @@ export function EditorExperience({
           });
           trackFunnelStep("download_started", { source: "editor" });
           track("export_download", { type: "hd" });
-          await exportImage("hd", true);
+          triggerDownload(rendered.blob, rendered.filename);
           trackFunnelStep("download_completed", { source: "editor" });
           return;
         }
@@ -979,7 +1004,13 @@ export function EditorExperience({
           exportResolution: 1200,
         });
         track("export_download", { type: "preview" });
-        exportImage("preview", hasAccess).catch(() => {});
+        const renderedPreview = await renderExportFile("preview", hasAccess);
+        triggerDownload(renderedPreview.blob, renderedPreview.filename);
+      } catch (error) {
+        console.error("Export failed", error);
+        if (isHd) {
+          setCheckoutError("We couldn't generate your HD file. Please try again.");
+        }
       } finally {
         if (isHd) {
           hdExportInFlightRef.current = false;
@@ -989,12 +1020,13 @@ export function EditorExperience({
     },
     [
       consumeHdCredit,
-      exportImage,
       paid,
       paywallVariant,
       refreshPaidStatus,
+      renderExportFile,
       renderOptions.visualMode,
       revealed,
+      triggerDownload,
     ]
   );
 
@@ -1036,19 +1068,6 @@ export function EditorExperience({
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
           promoApplied: Boolean(promoCode),
           referralApplied: Boolean(referralCode),
-        });
-        trackFunnelStep("checkout_started", {
-          source: previewSource,
-          plan: orderType === "print" ? printVariant : plan,
-          experiment: PAYWALL_COPY_EXPERIMENT,
-          variant: paywallVariant,
-        });
-        trackBeginCheckout({
-          source: previewSource,
-          plan,
-          orderType,
-          printVariant: orderType === "print" ? printVariant : undefined,
-          includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
         });
         let mapId: string | null = null;
         try {
@@ -1200,6 +1219,22 @@ export function EditorExperience({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(checkoutPayload),
         };
+
+        // Record checkout start right before the checkout API handoff so
+        // checkout_started -> checkout_request_received reflects real handoff quality.
+        trackFunnelStep("checkout_started", {
+          source: previewSource,
+          plan: orderType === "print" ? printVariant : plan,
+          experiment: PAYWALL_COPY_EXPERIMENT,
+          variant: paywallVariant,
+        });
+        trackBeginCheckout({
+          source: previewSource,
+          plan,
+          orderType,
+          printVariant: orderType === "print" ? printVariant : undefined,
+          includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
+        });
 
         const res = await fetch("/api/checkout", checkoutInit);
         checkoutApiResponseReceived = true;
@@ -2546,10 +2581,10 @@ export function EditorExperience({
                         {(currentPlan === "subscription" || typeof creditsRemaining === "number") && (
                           <p className="mt-2 text-[11px] text-neutral-300">
                             {currentPlan === "subscription"
-                              ? "Unlimited HD downloads on your active subscription."
+                              ? "Unlimited HD exports on your active subscription."
                               : typeof creditsRemaining === "number"
-                                ? `${creditsRemaining} HD download${creditsRemaining === 1 ? "" : "s"} remaining.`
-                                : "HD downloads available."}
+                                ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
+                                : "HD export credits available."}
                           </p>
                         )}
                         {printCheckoutEnabled && (

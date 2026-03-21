@@ -82,7 +82,7 @@ function getOfferLabel(input: CheckoutRecoveryAlertInput) {
     const printLabel = input.printVariant === "poster_framed" ? "framed print" : "unframed print";
     return input.includesDigitalAddOn ? `${printLabel} + HD download` : printLabel;
   }
-  if (input.plan === "pack3") return "3-pack HD download";
+  if (input.plan === "pack3") return "3 HD export credits";
   if (input.plan === "subscription") return "unlimited HD access";
   return "HD download";
 }

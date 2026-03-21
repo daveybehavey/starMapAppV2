@@ -41,6 +41,19 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - Confirms current Stripe payment-method configuration for `card`, `Apple Pay`, `Google Pay`, and `Link`
   - Keep `PayPal` off unless we intentionally expand checkout methods and fulfillment handling
   - `npm run qa:commerce-digest -- --days 14` now shows paid payment-method mix (overall + digital + print)
+- **Customer download recovery lookup**:
+  - `npm run support:order-lookup -- --receipt 1384-7338`
+  - `npm run support:order-lookup -- --session cs_live_...`
+  - `npm run support:order-lookup -- --email customer@example.com`
+  - This returns:
+    - exact checkout session ID
+    - whether it was refunded
+    - the only valid success-link format (`/success?session_id=...`)
+    - a ready-to-send customer reply template
+    - reminder that download filenames now start with `starmap-` (easier mobile lookup)
+  - Rule: if order is refunded, do not send a download restore link (access is intentionally revoked).
+  - HD export credits are now consumed only after file generation succeeds (failed generation should not burn credits).
+  - Stripe receipt wording: ensure the Pack product label in Stripe dashboard says `3 HD export credits` (not `3 files`) to reduce support confusion.
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion
