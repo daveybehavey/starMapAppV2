@@ -728,6 +728,10 @@ export default function SuccessClient() {
                     <p className="mt-1 text-[11px] text-amber-100/70">
                       Mobile tip: on iPhone, downloaded files are in <strong>Files → Downloads</strong> (not Photos).
                     </p>
+                    <p className="mt-1 text-[11px] text-amber-100/70">
+                      If your download page says map not found, open the editor once to create/load the map, then return to
+                      download.
+                    </p>
                     {accessLinkStatus === "error" && (
                       <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
                     )}

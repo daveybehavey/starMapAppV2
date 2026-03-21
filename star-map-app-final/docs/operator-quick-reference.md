@@ -52,6 +52,11 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - a ready-to-send customer reply template
     - reminder that download filenames now start with `starmap-` (easier mobile lookup)
   - Rule: if order is refunded, do not send a download restore link (access is intentionally revoked).
+  - If you need to issue a free replacement access:
+    - `npm run support:courtesy-replacement -- --receipt 1384-7338`
+    - `npm run support:courtesy-replacement -- --session cs_live_...`
+    - `npm run support:courtesy-replacement -- --email customer@example.com`
+    - This creates a one-time 100% Stripe courtesy checkout and prints a ready-to-send customer email template.
   - HD export credits are now consumed only after file generation succeeds (failed generation should not burn credits).
   - Stripe receipt wording: ensure the Pack product label in Stripe dashboard says `3 HD export credits` (not `3 files`) to reduce support confusion.
 - **Two-sided referral offer controls**:

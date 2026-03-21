@@ -1204,6 +1204,20 @@ export default function DownloadClient() {
     }
   })();
 
+  const heroTitle =
+    status === "no-draft"
+      ? "Create your map first"
+      : status === "not-paid"
+        ? "Confirm access first"
+        : "Your download is ready";
+
+  const heroDescription =
+    status === "no-draft"
+      ? "Your HD export credits are active, but this browser has no saved map yet. Open the editor to create or reload your map, then return here to export."
+      : status === "not-paid"
+        ? "We could not verify your access yet. Reopen your secure success link and return to this page."
+        : "Your access is unlocked. Download the HD print file now, or jump back into the editor to tweak details.";
+
   return (
     <EditorFontShell>
       <main className="min-h-screen bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 py-8 text-amber-50 sm:px-6 sm:py-12 lg:px-10 lg:py-14">
@@ -1223,10 +1237,10 @@ export default function DownloadClient() {
             <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="space-y-3">
                 <h1 className="text-2xl font-semibold text-white sm:text-3xl md:text-4xl font-[var(--font-playfair)]">
-                  Your download is ready
+                  {heroTitle}
                 </h1>
                 <p className="max-w-2xl text-sm text-amber-100/90 sm:text-base">
-                  Your access is unlocked. Download the HD print file now, or jump back into the editor to tweak details.
+                  {heroDescription}
                 </p>
                 <div className="text-xs text-amber-100/80">
                   {paid
@@ -1253,14 +1267,23 @@ export default function DownloadClient() {
               </div>
 
               <div className="grid w-full gap-3 md:max-w-[260px]">
-                <button
-                  type="button"
-                  onClick={() => void startDownload(undefined, "manual")}
-                  disabled={status === "downloading" || downloadInFlight || !paid}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2.5 text-sm font-semibold text-[#201a0c] shadow-lg transition disabled:cursor-not-allowed disabled:opacity-70 hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
-                >
-                  {paid ? "Download HD file" : status === "checking" ? "Checking access..." : "Download locked"}
-                </button>
+                {status === "no-draft" ? (
+                  <Link
+                    href="/editor?mode=quick&source=download-create-first"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2.5 text-sm font-semibold text-[#201a0c] shadow-lg transition hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
+                  >
+                    Open editor to create map
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void startDownload(undefined, "manual")}
+                    disabled={status === "downloading" || downloadInFlight || !paid}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2.5 text-sm font-semibold text-[#201a0c] shadow-lg transition disabled:cursor-not-allowed disabled:opacity-70 hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
+                  >
+                    {paid ? "Download HD file" : status === "checking" ? "Checking access..." : "Download locked"}
+                  </button>
+                )}
                 <Link
                   href="/editor"
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40 focus:ring-offset-2"

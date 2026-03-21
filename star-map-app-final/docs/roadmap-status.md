@@ -83,7 +83,9 @@ Updated: 2026-03-19
 - Post-purchase download recovery hardening:
   - Added explicit mobile download-location guidance on `/download` with iPhone/Android-specific copy.
   - Added iPhone "Files > Downloads" reminder on `/success` before redirect.
+  - Download page hero state now explains "create map first" vs "access not verified" to reduce false "missing files" confusion.
   - Added support lookup command `npm run support:order-lookup` to resolve receipt/session/email into verified recovery status and correct customer response templates.
+  - Added support courtesy replacement command `npm run support:courtesy-replacement` to issue one-time free replacement checkout access when an order was refunded or recovery is needed.
   - HD export credits are now consumed only after file generation succeeds (prevents failed renders from burning credits).
   - Download filenames now include human-readable map/date slugs (`starmap-...png`) for easier file lookup on mobile.
   - Pack copy clarified from "3 files" to "3 export credits" across checkout/paywall surfaces.
