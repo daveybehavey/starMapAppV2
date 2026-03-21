@@ -36,6 +36,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Stripe dashboard**: `https://dashboard.stripe.com/payments`
 - **Print checkout sessions** (metadata includes `orderType=print`): `https://dashboard.stripe.com/checkout/sessions`
 - **Promo codes**: `https://dashboard.stripe.com/coupons`
+- **Support sender setup** (`support@starmapco.com` outbound via Gmail SMTP): `docs/support-email-send-as-setup.md`
 - **Wallet/payment-method audit**:
   - `npm run qa:stripe-payment-methods`
   - Confirms current Stripe payment-method configuration for `card`, `Apple Pay`, `Google Pay`, and `Link`
