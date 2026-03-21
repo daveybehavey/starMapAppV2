@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-19
+Updated: 2026-03-21
 
 ## Phase 0: Foundation (Done)
 
@@ -229,6 +229,21 @@ Recent status:
   - dedicated physical-product gallery block added to homepage/gift surfaces
   - checkout defaults now fall back to framed print instead of unframed when no variant is specified
   - testimonial placement scaffolding expanded to anniversary and night-sky gift pages without publishing fake quotes
+- CTA and copy consistency pass shipped across top-intent + lower-intent pages:
+  - normalized framed CTA wording to `Preview framed print` and `Start with framed print preview`
+  - aligned preview-first wording across homepage, gift pages, and blog CTAs
+  - removed mixed labels like `Preview framed gift` / `Start now` where they conflicted with offer-ladder language
+- Blog index coverage and freshness hardening:
+  - `/blog` now includes all active post slugs from the canonical blog post set (including `meaningful-dates-star-map`)
+  - corrected stale index date mismatch on `custom-star-maps-for-weddings`
+  - added new gift-buying SEO post:
+    - `/blog/best-personalized-gift-for-couples` (published `2026-03-21`)
+- Payment method audit on live Stripe config (`pmc_1TBlq4LWqD0o98657GwX3SZM`):
+  - `card`: on
+  - `link`: on
+  - `apple_pay`: on
+  - `google_pay`: on
+  - `paypal`: off/unavailable on current account config
 
 ## Phase 4: Growth and Conversion (Planned)
 
