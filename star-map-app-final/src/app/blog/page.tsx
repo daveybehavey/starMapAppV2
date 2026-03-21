@@ -109,11 +109,20 @@ const indexPosts: IndexPost[] = [
     alt: "Custom star map for life milestones",
   },
   {
+    slug: "meaningful-dates-star-map",
+    title: "The Most Meaningful Dates to Turn Into a Star Map (And Why They Matter)",
+    excerpt:
+      "Not sure which date to choose? Use this guide to pick a moment that turns your map into a keepsake people actually want to display.",
+    date: "2026-01-19",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Meaningful dates for custom star maps",
+  },
+  {
     slug: "custom-star-maps-for-weddings",
     title: "Custom Star Maps for Weddings: How to Capture Your Night Sky",
     excerpt:
       "Learn how to create a personalized star map for your wedding day, from choosing location and time to styling and printing.",
-    date: "2024-05-01",
+    date: "2024-06-01",
     image: "/custom-star-map-anniversary.webp",
     alt: "Custom star map for wedding night sky",
   },
