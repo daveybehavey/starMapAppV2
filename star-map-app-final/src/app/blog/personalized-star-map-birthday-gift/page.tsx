@@ -213,7 +213,7 @@ export default function PersonalizedBirthdayPost() {
             <p>
               Look for providers with accurate data, HD options, and easy customization. Ready to make one?{" "}
               <Link href="/editor?mode=quick&source=blog-birthday-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with a framed print preview today
+                start with framed print preview
               </Link>
               .
             </p>

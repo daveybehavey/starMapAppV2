@@ -67,7 +67,7 @@ export default function WeddingPage() {
         description="Enter the wedding date and place, then go straight into the framed path, the unframed path, or a neutral preview-first start."
         intentOptions={[
           {
-            label: "Preview framed wedding print",
+            label: "Preview framed print",
             sourceSuffix: "framed",
             checkout: "print",
             printVariant: "poster_framed",

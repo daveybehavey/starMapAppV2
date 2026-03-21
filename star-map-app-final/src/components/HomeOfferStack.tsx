@@ -149,7 +149,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               href={`/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
               className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
             >
-              Preview framed gift
+              Preview framed print
             </a>
           </article>
 

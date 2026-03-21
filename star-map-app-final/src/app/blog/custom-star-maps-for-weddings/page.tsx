@@ -197,9 +197,9 @@ export default function WeddingsPostPage() {
               Create Your Wedding Star Map Today
             </h2>
             <p>
-              Capture the sky from your ceremony, first dance, or proposal. Start your map now and{" "}
+              Capture the sky from your ceremony, first dance, or proposal. Start free preview and{" "}
               <Link href="/editor?mode=quick&source=blog-wedding-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with a framed print preview
+                start with framed print preview
               </Link>{" "}
               in minutes.
             </p>

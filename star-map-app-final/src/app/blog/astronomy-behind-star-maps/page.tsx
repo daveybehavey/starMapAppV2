@@ -159,7 +159,7 @@ export default function AstronomyBehindStarMaps() {
             <p>
               Choose tools with proven libraries and real catalogs. Ready to see your sky?{" "}
               <Link href="/editor?mode=quick&source=blog-astronomy-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with a framed preview
+                start with framed print preview
               </Link>
               .
             </p>

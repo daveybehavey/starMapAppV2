@@ -55,7 +55,7 @@ export default function NightSkyMapGiftPage() {
         description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
         intentOptions={[
           {
-            label: "Preview framed gift",
+            label: "Preview framed print",
             sourceSuffix: "framed",
             checkout: "print",
             printVariant: "poster_framed",
@@ -82,7 +82,7 @@ export default function NightSkyMapGiftPage() {
       />
       <StickyCtaBar
         source="sticky-night-sky-map-gift"
-        secondaryButtonLabel="Preview framed gift"
+        secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-night-sky-map-gift-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />

@@ -63,11 +63,11 @@ export default function StarMapGiftPage() {
 
       <PreviewStartForm
         source="star-map-gift"
-        title="Start the gift preview"
-        description="Enter the moment first, then open the editor with the most likely gift format already selected."
+        title="Start your gift preview"
+        description="Enter the moment first, then choose framed print, unframed print, or a neutral preview-first start."
         intentOptions={[
           {
-            label: "Preview framed gift",
+            label: "Preview framed print",
             sourceSuffix: "framed",
             checkout: "print",
             printVariant: "poster_framed",
@@ -94,7 +94,7 @@ export default function StarMapGiftPage() {
       />
       <StickyCtaBar
         source="sticky-star-map-gift"
-        secondaryButtonLabel="Preview framed gift"
+        secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-star-map-gift-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />

@@ -265,7 +265,7 @@ export default function AnniversaryPostPage() {
               previews, and reliable delivery timelines. If you’re ready to turn your special moment into a
               celestial keepsake, you can{" "}
               <Link href="/editor?mode=quick&source=blog-anniversary-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with a framed anniversary preview
+                start with framed print preview
               </Link>{" "}
               with confidence and ease.
             </p>

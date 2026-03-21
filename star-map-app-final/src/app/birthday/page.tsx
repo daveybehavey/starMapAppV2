@@ -63,7 +63,7 @@ export default function BirthdayPage() {
         description="Enter the birth date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
         intentOptions={[
           {
-            label: "Preview framed birthday print",
+            label: "Preview framed print",
             sourceSuffix: "framed",
             checkout: "print",
             printVariant: "poster_framed",
@@ -90,7 +90,7 @@ export default function BirthdayPage() {
       />
       <StickyCtaBar
         source="sticky-birthday"
-        secondaryButtonLabel="Preview framed birthday print"
+        secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-birthday-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
@@ -126,7 +126,7 @@ export default function BirthdayPage() {
             href="/editor?mode=quick&source=birthday-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed birthday preview
+            Start with framed print preview
           </Link>
         </div>
       </section>

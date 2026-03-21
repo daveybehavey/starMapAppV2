@@ -65,7 +65,7 @@ export default function ValentinesStarMapPage() {
             <p>Perfect for true romantics, nostalgic partners, and anyone who loves a personal story.</p>
             <p>
               <Link href="/star-map-gift" className="font-semibold text-amber-200 underline-offset-4 hover:underline">
-                Start designing your Valentine’s Day star map →
+                Start your Valentine’s Day free preview →
               </Link>
             </p>
           </div>

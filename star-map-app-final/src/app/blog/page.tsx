@@ -233,7 +233,7 @@ export default function BlogIndex() {
         <div className="mt-10 text-center text-base text-neutral-200">
           Ready to create?{" "}
           <Link href="/" className="font-semibold text-amber-300 hover:underline">
-            Start now
+            Start free preview
           </Link>
         </div>
       </section>

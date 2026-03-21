@@ -141,7 +141,7 @@ export default function StarMapGiftFormatsPage() {
       <PreviewStartForm source="star-map-gift-formats" />
       <StickyCtaBar
         source="sticky-gift-formats"
-        secondaryButtonLabel="Preview framed"
+        secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-gift-formats-framed&checkout=print&print_variant=poster_framed&shipping_country=US"
         secondaryPlan="print_framed"
       />

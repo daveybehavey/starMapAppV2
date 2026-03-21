@@ -89,7 +89,7 @@ export default function StarMapGiftIdeasPage() {
         description="Choose the date and location, then start with framed print, unframed print, or a neutral preview-first route."
         intentOptions={[
           {
-            label: "Preview framed gift",
+            label: "Preview framed print",
             sourceSuffix: "framed",
             checkout: "print",
             printVariant: "poster_framed",
@@ -116,7 +116,7 @@ export default function StarMapGiftIdeasPage() {
       />
       <StickyCtaBar
         source="sticky-star-map-gift-ideas"
-        secondaryButtonLabel="Preview framed gift"
+        secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-star-map-gift-ideas-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />

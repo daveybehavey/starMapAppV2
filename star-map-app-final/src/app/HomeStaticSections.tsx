@@ -295,7 +295,7 @@ export default function HomeStaticSections({
                 href="#preview"
                 className="cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-midnight shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
               >
-                Ready to create yours? Start now →
+                Ready to create yours? Start free preview →
               </a>
               <Link
                 href="/how-accurate-are-star-maps"

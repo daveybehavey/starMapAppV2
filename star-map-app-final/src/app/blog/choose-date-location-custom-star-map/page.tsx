@@ -144,7 +144,7 @@ export default function ChooseDateLocationPost() {
             <p>
               Preview tools show real-time changes. Ready to lock it in?{" "}
               <Link href="/editor?mode=quick&source=blog-date-location-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with a framed preview
+                start with framed print preview
               </Link>{" "}
               with confidence.
             </p>
