@@ -55,6 +55,15 @@ type IndexPost = {
 
 const indexPosts: IndexPost[] = [
   {
+    slug: "best-personalized-gift-for-couples",
+    title: "Best Personalized Gift for Couples (2026): Why Star Maps Keep Winning",
+    excerpt:
+      "A practical gift-buying guide covering framed vs unframed vs digital, fast-turnaround options, and how to pick the date that actually matters.",
+    date: "2026-03-21",
+    image: "/custom-star-map-anniversary.webp",
+    alt: "Best personalized gift for couples guide",
+  },
+  {
     slug: "is-a-star-map-a-good-gift",
     title: "Is a Star Map a Good Gift? How to Choose Framed, Unframed, or Digital",
     excerpt:
