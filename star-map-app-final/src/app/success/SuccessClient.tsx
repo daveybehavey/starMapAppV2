@@ -155,6 +155,12 @@ export default function SuccessClient() {
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }, [accessLink, pauseRedirect]);
 
+  const handleOpenAccessLink = useCallback(() => {
+    if (!accessLink) return;
+    pauseRedirect();
+    window.open(accessLink, "_blank", "noopener,noreferrer");
+  }, [accessLink, pauseRedirect]);
+
   const handleManageBilling = useCallback(async () => {
     if (portalLoading) return;
     pauseRedirect();
@@ -699,6 +705,15 @@ export default function SuccessClient() {
                       {accessLink && accessLinkStatus === "ready" && (
                         <button
                           type="button"
+                          onClick={handleOpenAccessLink}
+                          className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
+                        >
+                          Open link
+                        </button>
+                      )}
+                      {accessLink && accessLinkStatus === "ready" && (
+                        <button
+                          type="button"
                           onClick={() => {
                             pauseRedirect();
                             void createAccessLink(true);
@@ -725,6 +740,9 @@ export default function SuccessClient() {
                     <p className="mt-2 text-[11px] text-amber-100/70">
                       Keep this link private — anyone with it can access your downloads.
                     </p>
+                    {accessLink && accessLinkStatus === "ready" && (
+                      <p className="mt-1 break-all text-[11px] text-amber-100/85">{accessLink}</p>
+                    )}
                     <p className="mt-1 text-[11px] text-amber-100/70">
                       Mobile tip: on iPhone, downloaded files are in <strong>Files → Downloads</strong> (not Photos).
                     </p>
