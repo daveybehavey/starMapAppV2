@@ -443,6 +443,10 @@ Recent status:
 - Physical gallery visual refinement (app routes):
   - reduced boxed card chrome in `PhysicalProductGallerySection`
   - expanded visible style variation in gallery cards (heart + diamond layouts) for faster visual comparison
+- Static homepage visual/readability refinement:
+  - replaced flat JPEG proof cards with transparent cutout variants where available for more realistic wall-stage composition
+  - reduced boxed chrome in the static physical gallery by moving captions off the dark card strip
+  - improved text contrast in the static signup and occasion sections for easier scanning
 
 ### Most recent verified ops snapshot
 
