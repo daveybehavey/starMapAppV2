@@ -518,7 +518,7 @@
         letter-spacing: -0.01em;
       }
       .section p {
-        color: var(--text-on-dark-muted);
+        color: rgba(232, 240, 255, 0.9);
         line-height: 1.65;
         font-size: 1.01rem;
         max-width: 980px;
@@ -570,17 +570,16 @@
       #physical-proof-gallery .gallery figure {
         grid-column: span 3;
         position: relative;
-        overflow: visible;
+        overflow: hidden;
         border: 0;
-        border-radius: 0;
+        border-radius: 2px;
         background: transparent;
-        box-shadow: none;
+        box-shadow: 0 16px 24px rgba(0, 0, 0, 0.2);
         margin: 0;
       }
       #physical-proof-gallery .gallery figure:hover {
         transform: translateY(-1px);
-        border-color: transparent;
-        box-shadow: none;
+        box-shadow: 0 20px 30px rgba(0, 0, 0, 0.24);
       }
       #physical-proof-gallery .gallery figure::before {
         content: "";
@@ -634,17 +633,15 @@
         position: relative;
         z-index: 1;
         margin: 0;
-        border-radius: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.1));
-        box-shadow:
-          0 14px 24px rgba(0, 0, 0, 0.2),
-          inset 0 1px 0 rgba(255, 255, 255, 0.14);
-        min-height: 260px;
+        border-radius: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        min-height: 272px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 8px;
+        padding: 0;
       }
       #physical-proof-gallery .gallery figure.gallery-item--heart .wall-frame,
       #physical-proof-gallery .gallery figure.gallery-item--diamond .wall-frame,
@@ -655,7 +652,7 @@
         padding: 0;
       }
       #physical-proof-gallery .gallery .wall-frame img {
-        width: min(100%, 300px);
+        width: min(100%, 320px);
         aspect-ratio: 1 / 1;
         object-fit: contain;
         padding: 0;
@@ -667,25 +664,25 @@
       #physical-proof-gallery .gallery img.art-framed-classic {
         transform: scale(1.18);
       }
+      #physical-proof-gallery .gallery img.art-unframed-classic {
+        transform: scale(1.03);
+      }
       #physical-proof-gallery .gallery img.art-heart {
         transform: scale(1.06) rotate(-0.8deg);
       }
-      #physical-proof-gallery .gallery img.art-diamond {
+      #physical-proof-gallery .gallery img.art-noir-diamond {
         transform: scale(0.9);
         clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-      }
-      #physical-proof-gallery .gallery img.art-noir {
-        transform: scale(1.03) rotate(-0.25deg);
       }
       #physical-proof-gallery .gallery figcaption {
         position: relative;
         z-index: 1;
         color: rgba(244, 249, 255, 0.96);
-        background: transparent;
+        background: rgba(7, 13, 29, 0.62);
         border-top: 0;
         display: grid;
         gap: 2px;
-        padding: 8px 2px 0;
+        padding: 10px 10px 12px;
         font-size: 0.88rem;
         line-height: 1.33;
       }
@@ -708,6 +705,7 @@
         font-size: 0.82rem;
         font-weight: 700;
         padding: 9px 13px;
+        border-radius: 8px;
       }
       #physical-proof-gallery .links a.cta-primary {
         background: #fbbf24;
@@ -849,13 +847,17 @@
       }
       .signup h2 {
         margin: 0 0 10px;
-        color: #0f1f3a;
+        color: #0a1a30;
       }
       .signup > p {
         margin: 0 0 14px;
-        color: #2b4668;
-        font-size: 0.98rem;
+        color: #1f3552;
+        font-size: 1rem;
         line-height: 1.58;
+      }
+      .signup > p a {
+        color: #173a65;
+        font-weight: 700;
       }
       .signup form {
         display: grid;
@@ -889,50 +891,67 @@
       .signup .signup-note {
         margin-top: 10px;
         font-size: 0.76rem;
-        color: #3f546f;
+        color: #304968;
       }
       .occasion-shell {
-        border: 1px solid var(--line-soft);
-        border-radius: 22px;
-        padding: 24px 22px 20px;
-        background:
-          radial-gradient(circle at 12% 14%, rgba(247, 194, 74, 0.16), transparent 34%),
-          linear-gradient(160deg, rgba(10, 20, 44, 0.76), rgba(12, 31, 69, 0.86));
-        box-shadow:
-          0 18px 36px rgba(3, 8, 20, 0.28),
-          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        border: 0;
+        border-radius: 0;
+        padding: 8px 0 0;
+        background: transparent;
+        box-shadow: none;
       }
       .occasion-header {
         display: flex;
         flex-wrap: wrap;
-        align-items: flex-end;
+        align-items: flex-start;
         justify-content: space-between;
-        gap: 14px;
+        gap: 10px;
+      }
+      .occasion-kicker {
+        margin: 0 0 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(251, 205, 131, 0.95);
+      }
+      .occasion-kicker::before {
+        content: "";
+        display: inline-block;
+        width: 30px;
+        height: 1px;
+        background: rgba(251, 205, 131, 0.8);
       }
       .occasion-header h2 {
-        margin: 0 0 8px;
+        margin: 0 0 10px;
+        max-width: 940px;
+        line-height: 1.12;
       }
       .occasion-header p {
         margin: 0;
-        max-width: 760px;
+        max-width: 860px;
+        color: rgba(231, 239, 255, 0.92);
       }
       .occasion-links {
-        margin-top: 16px;
-        gap: 9px;
+        margin-top: 20px;
+        gap: 10px;
       }
       .occasion-links a {
-        border-radius: 999px;
-        border: 1px solid rgba(188, 210, 244, 0.54);
-        background: rgba(245, 249, 255, 0.96);
-        color: #213758;
+        border-radius: 8px;
+        border: 1px solid rgba(247, 203, 133, 0.36);
+        background: linear-gradient(180deg, rgba(8, 22, 50, 0.58), rgba(7, 18, 41, 0.7));
+        color: rgba(245, 249, 255, 0.96);
         font-size: 0.86rem;
-        font-weight: 700;
-        padding: 8px 13px;
-        box-shadow: 0 6px 14px rgba(3, 8, 20, 0.12);
+        font-weight: 650;
+        padding: 9px 13px;
+        box-shadow: 0 7px 14px rgba(3, 8, 20, 0.18);
       }
       .occasion-links a:hover {
         border-color: rgba(247, 194, 74, 0.72);
-        background: rgba(247, 194, 74, 0.94);
+        background: rgba(247, 194, 74, 0.92);
         color: #111827;
       }
       .links {
@@ -1515,7 +1534,7 @@
 
       <section class="section content-visibility-auto" id="physical-proof-gallery">
         <h2>See the physical gift options side by side</h2>
-        <p>Real StarMapCo styles side by side: framed classic, heart, diamond, and noir variants so buyers can pick both format and visual direction before checkout.</p>
+        <p>Compare both delivery routes first (framed vs unframed), then pick the style direction (heart or noir diamond) before checkout.</p>
         <div class="gallery">
           <figure class="wall-warm gallery-item gallery-item--framed">
             <div class="wall-frame">
@@ -1531,7 +1550,21 @@
             </div>
             <figcaption><span class="proof-chip">Framed · Classic</span>Ready-to-hang premium finish</figcaption>
           </figure>
-          <figure class="wall-cool wall-cool-alt gallery-item gallery-item--heart">
+          <figure class="wall-cool gallery-item gallery-item--unframed">
+            <div class="wall-frame">
+              <img
+                src="/printproof/gallery/graduation-unframed.jpg"
+                alt="Unframed classic StarMapCo print proof on neutral wall texture"
+                class="art-unframed-classic"
+                loading="lazy"
+                decoding="async"
+                width="900"
+                height="900"
+              />
+            </div>
+            <figcaption><span class="proof-chip">Unframed · Classic</span>Lower-cost physical route</figcaption>
+          </figure>
+          <figure class="wall-warm-alt gallery-item gallery-item--heart">
             <div class="wall-frame">
               <img
                 src="/examples/example-wedding-aurora-heart.webp"
@@ -1543,35 +1576,21 @@
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Shape · Heart</span>Romantic style direction</figcaption>
-          </figure>
-          <figure class="wall-warm gallery-item gallery-item--diamond">
-            <div class="wall-frame">
-              <img
-                src="/examples/example-graduation-aurora.webp"
-                alt="Diamond-style StarMapCo print example"
-                class="art-diamond"
-                loading="lazy"
-                decoding="async"
-                width="900"
-                height="900"
-              />
-            </div>
-            <figcaption><span class="proof-chip">Shape · Diamond</span>Geometric layout option</figcaption>
+            <figcaption><span class="proof-chip">Style · Heart</span>Romantic shape option</figcaption>
           </figure>
           <figure class="wall-cool wall-cool-alt gallery-item gallery-item--noir">
             <div class="wall-frame">
               <img
                 src="/examples/example-birthday-noir.webp"
-                alt="Unframed StarMapCo example with Noir styling"
-                class="art-noir"
+                alt="Noir-style diamond StarMapCo print example"
+                class="art-noir-diamond"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Style · Noir</span>Darker modern aesthetic</figcaption>
+            <figcaption><span class="proof-chip">Style · Noir Diamond</span>Darker geometric variant</figcaption>
           </figure>
         </div>
         <div class="links">
@@ -1597,8 +1616,9 @@
         <div class="occasion-shell">
           <div class="occasion-header">
             <div>
+              <p class="occasion-kicker">Gift routes by moment</p>
               <h2>Perfect for anniversaries, weddings, birthdays, and couples gifts</h2>
-              <p>Turn a once‑in‑a‑lifetime night into a gift that feels personal, premium, and emotionally specific.</p>
+              <p>Use these occasion routes when you want faster decisions, clearer framing, and less friction before checkout.</p>
             </div>
           </div>
           <div class="links occasion-links">
