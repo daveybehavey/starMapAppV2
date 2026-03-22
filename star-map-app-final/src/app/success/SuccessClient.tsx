@@ -66,6 +66,18 @@ const referralRewardCredits = (() => {
 const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
 
+function readStoredMapId() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CHECKOUT_MAP_KEY);
+    if (!raw) return null;
+    const trimmed = raw.trim();
+    return trimmed || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SuccessClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -225,18 +237,25 @@ export default function SuccessClient() {
         source: "success",
         plan: "single",
       });
+      const checkoutMapId = resolvedMapId ?? readStoredMapId();
+      if (!checkoutMapId) {
+        throw new Error("map_required");
+      }
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan: "single",
           orderType: "digital",
-          mapId: resolvedMapId ?? undefined,
+          mapId: checkoutMapId,
         }),
       });
       checkoutApiResponseReceived = true;
       const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
       if (!res.ok || !data?.url) {
+        const code = (data as { code?: string } | null)?.code;
+        if (code === "map_required") throw new Error("map_required");
+        if (code === "map_not_found") throw new Error("map_not_found");
         throw new Error(data?.error ?? "checkout_failed");
       }
       track("digital_addon_started", {
@@ -260,7 +279,13 @@ export default function SuccessClient() {
           orderType: "digital",
         });
       }
-      setMessage("We couldn't start digital add-on checkout. Please try again.");
+      if (reason === "map_required") {
+        setMessage("Open the editor, generate your map preview, then retry digital checkout.");
+      } else if (reason === "map_not_found") {
+        setMessage("We couldn't find that map anymore. Open the editor and regenerate preview, then retry.");
+      } else {
+        setMessage("We couldn't start digital add-on checkout. Please try again.");
+      }
       setDigitalAddOnLoading(false);
     }
   }, [digitalAddOnLoading, orderType, pauseRedirect, printVariant, resolvedMapId]);

@@ -246,6 +246,20 @@ test.describe("API route regressions", () => {
     expect(body.error).toMatch(/print checkout/i);
   });
 
+  test("digital checkout requires a saved map id", async ({ request }) => {
+    const response = await requestUntilReady(request, "/api/checkout", {
+      method: "POST",
+      data: {
+        plan: "single",
+        orderType: "digital",
+      },
+    });
+    expect(response.status()).toBe(400);
+    const body = (await response.json()) as { code?: string; error?: string };
+    expect(body.code).toBe("map_required");
+    expect(body.error).toMatch(/preview before starting checkout/i);
+  });
+
   test("print checkout rejects unsupported shipping countries when enabled", async ({ request }) => {
     const allowedCountries = new Set(parseAllowedPrintCountries());
     const candidateCountries = ["CA", "GB", "AU", "DE", "FR", "JP", "BR", "MX"];

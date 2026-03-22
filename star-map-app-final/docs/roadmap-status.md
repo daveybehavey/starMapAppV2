@@ -440,6 +440,10 @@ Recent status:
   - simplified mobile background painting path and removed cookie banner backdrop blur to reduce first-load paint work
 - Checkout handoff metric quality hardening:
   - editor flow now records `checkout_started` immediately before `/api/checkout` handoff (after map/print preflight work), reducing false pre-API starts in funnel reporting
+- Product-flow simplification hardening:
+  - digital checkout is now map-first (`map_id` required) to align purchase expectations with "buy this map" behavior
+  - checkout API now returns explicit `map_required` / `map_not_found` blockers for clearer recovery paths
+  - paywall copy now leads with a single-map purchase mental model and frames packs/unlimited as repeat-use options
 - Referral copy consistency hardening:
   - success-page referral reward text now uses configured `NEXT_PUBLIC_REFERRAL_REWARD_CREDITS` instead of hard-coded `1` credit wording
 - Static homepage readability polish:

@@ -1097,6 +1097,7 @@ export function EditorExperience({
           referralApplied: Boolean(referralCode),
         });
         let mapId: string | null = null;
+        let mapSaveError: string | null = null;
         try {
           const mapRes = await fetch("/api/maps", {
             method: "POST",
@@ -1113,9 +1114,14 @@ export function EditorExperience({
                 // ignore storage errors (e.g. private browsing)
               }
             }
+          } else {
+            mapSaveError = `save_failed_${mapRes.status}`;
           }
         } catch {
-          // Map persistence is best-effort; proceed to checkout even if it fails.
+          mapSaveError = "save_failed_network";
+        }
+        if (!mapId) {
+          throw new Error(mapSaveError ?? "map_save_failed");
         }
 
         const checkoutPayload: {
@@ -1297,6 +1303,12 @@ export function EditorExperience({
           if (data?.code === "missing_shipping_country") {
             throw new Error("missing_shipping_country");
           }
+          if (data?.code === "map_required") {
+            throw new Error("map_required");
+          }
+          if (data?.code === "map_not_found") {
+            throw new Error("map_not_found");
+          }
           throw new Error(data?.error ?? "checkout failed");
         }
         if (data?.url) {
@@ -1353,6 +1365,12 @@ export function EditorExperience({
                     ? "That print option is temporarily unavailable for the selected country. Try another format or country."
                 : reason === "print_checkout_disabled"
                   ? "Print checkout is not live yet."
+                : reason === "map_required"
+                  ? "Generate your map preview before checkout."
+                : reason === "map_not_found"
+                  ? "We couldn't find that map. Refresh preview and try checkout again."
+                : reason.startsWith("save_failed_") || reason === "map_save_failed"
+                  ? "We couldn't save this map yet. Please retry in a moment."
               : "Checkout is unavailable right now. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {

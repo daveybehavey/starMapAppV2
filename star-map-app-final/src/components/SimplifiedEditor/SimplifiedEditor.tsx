@@ -525,6 +525,7 @@ export function SimplifiedEditor() {
       });
 
       let mapId: string | null = null;
+      let mapSaveError: string | null = null;
       try {
         const mapRes = await fetch("/api/maps", {
           method: "POST",
@@ -541,9 +542,14 @@ export function SimplifiedEditor() {
               // ignore storage errors
             }
           }
+        } else {
+          mapSaveError = `save_failed_${mapRes.status}`;
         }
       } catch {
-        // Map persistence is best-effort
+        mapSaveError = "save_failed_network";
+      }
+      if (!mapId) {
+        throw new Error(mapSaveError ?? "map_save_failed");
       }
 
       // Create checkout session
@@ -566,7 +572,10 @@ export function SimplifiedEditor() {
       window.clearTimeout(timeout);
 
       if (!res.ok) {
-        throw new Error("Checkout failed");
+        const payload = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
+        if (payload?.code === "map_required") throw new Error("map_required");
+        if (payload?.code === "map_not_found") throw new Error("map_not_found");
+        throw new Error(payload?.error ?? "checkout_failed");
       }
 
       const data = (await res.json()) as { url?: string };
@@ -593,7 +602,15 @@ export function SimplifiedEditor() {
           orderType: "digital",
         });
       }
-      setExportError("Unable to start checkout. Please try again.");
+      if (reason === "map_required") {
+        setExportError("Generate a preview before checkout.");
+      } else if (reason === "map_not_found") {
+        setExportError("We couldn't find your saved map. Refresh and try again.");
+      } else if (reason.startsWith("save_failed_") || reason === "map_save_failed") {
+        setExportError("We couldn't save your map yet. Please retry.");
+      } else {
+        setExportError("Unable to start checkout. Please try again.");
+      }
       // Reset state on error
       hdExportInFlightRef.current = false;
       setHdExporting(false);

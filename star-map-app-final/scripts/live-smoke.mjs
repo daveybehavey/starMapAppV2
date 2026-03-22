@@ -430,12 +430,67 @@ async function main() {
   }
 
   try {
+    const mapCreateRes = await fetchWithTimeout(
+      `${site}/api/maps`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          version: 1,
+          seed: "live-smoke-checkout",
+          datetimeISO: "2024-06-15T12:00:00.000Z",
+          location: {
+            name: "New York, NY, USA",
+            latitude: 40.7128,
+            longitude: -74.006,
+            timezone: "America/New_York",
+          },
+          selectedStyle: "navyGold",
+          aspectRatio: "square",
+          shape: "rectangle",
+          textBoxes: [
+            {
+              id: "title",
+              label: "Title",
+              text: "Live Smoke Map",
+              fontFamily: "cinzel",
+              color: "#d7b56c",
+              size: 40,
+              align: "center",
+            },
+          ],
+          renderOptions: {
+            visualMode: "enhanced",
+            starIntensity: "normal",
+            starGlow: true,
+            constellationLines: "thin",
+            constellationLabels: false,
+            showGrid: false,
+            showPlanets: true,
+            premiumStars: "off",
+            premiumPlanets: "off",
+            planetEmphasis: "highlighted",
+            showMoon: true,
+            moonSize: "large",
+            shapeMask: "rectangle",
+            frameEnabled: true,
+          },
+        }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    const mapCreateJson = await mapCreateRes.json().catch(() => ({}));
+    const mapId = typeof mapCreateJson?.id === "string" ? mapCreateJson.id.trim() : "";
+    runCheck("Map save endpoint responds 200", mapCreateRes.status === 200, `status=${mapCreateRes.status}`);
+    runCheck("Map save returns map id", /^[0-9a-f-]{36}$/i.test(mapId), mapId || "missing id");
+
     const checkoutRes = await fetchWithTimeout(
       `${site}/api/checkout`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan: "single" }),
+        body: JSON.stringify({ plan: "single", mapId }),
         cache: "no-store",
       },
       args.timeoutMs,

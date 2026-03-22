@@ -34,7 +34,6 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "**/*.mts",
-    ".next/dev/types/**/*.ts",
     ".next-playwright/types/**/*.ts",
     ".next-playwright/dev/types/**/*.ts"
   ],

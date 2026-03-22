@@ -19,6 +19,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - if `checkout_started` is high but `checkout_request_received` is low, the drop is before the checkout API handoff
   - if `checkout_request_received` is healthy but `checkout_session_created` is low, the drop is inside checkout preparation
   - if `checkout_session_created` is healthy but `payment_verified` is low, the drop is inside or after Checkout
+- **Map-first checkout rule (live)**:
+  - digital checkout now requires a saved `map_id` (preview-first flow)
+  - direct digital checkout without a map returns `map_required`
+  - if a map link is stale, checkout returns `map_not_found` and user should regenerate preview
 - **Checkout blocker split**:
   - `qa:commerce-digest` now separates checkout blockers into:
     - `client_*` reasons (drop-off before checkout API response)

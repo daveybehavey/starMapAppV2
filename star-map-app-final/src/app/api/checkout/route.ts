@@ -48,6 +48,7 @@ const configuredReferralPromotionCodeIdAlt = process.env.STRIPE_REFERRAL_PROMO_C
 const referralAutoOfferAltSplitPercent = parsePercentage(process.env.REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT);
 const stripePaymentMethodConfigurationId =
   process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID?.trim() ?? "";
+const MAP_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const printAllowedCountries = parseAllowedShippingCountries(process.env.PRINT_ALLOWED_COUNTRIES);
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_CHECKOUT_ENABLED || "").trim());
 const printDynamicShippingEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_DYNAMIC_SHIPPING || "").trim());
@@ -188,6 +189,37 @@ function parseBoolean(raw: unknown, fallback = false) {
     if (normalized === "false" || normalized === "0" || normalized === "no") return false;
   }
   return fallback;
+}
+
+function parseCheckoutMapId(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  if (!MAP_ID_REGEX.test(trimmed)) return undefined;
+  return trimmed;
+}
+
+async function mapExists(mapId: string): Promise<boolean> {
+  const record = await kv.get<unknown>(`map:${mapId}`);
+  return Boolean(record);
+}
+
+async function assertDigitalCheckoutMap(mapId: string | undefined) {
+  if (!mapId) {
+    throw new CheckoutError(
+      "Create your map preview before starting checkout.",
+      "map_required",
+      400,
+    );
+  }
+  const exists = await mapExists(mapId);
+  if (!exists) {
+    throw new CheckoutError(
+      "We couldn't find that map. Open the editor, generate your preview, then retry checkout.",
+      "map_not_found",
+      404,
+    );
+  }
 }
 
 type ReferralAutoOfferVariant = "primary" | "alt";
@@ -851,7 +883,7 @@ export async function GET(req: NextRequest) {
   const printAssetId =
     printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim()) ? printAssetIdParam.trim() : undefined;
   const clientCountry = getRequestCountry(req);
-  const mapId = mapParam ? mapParam.slice(0, 120) : undefined;
+  const mapId = parseCheckoutMapId(mapParam);
   const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
   const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
   const fallbackReferralCode = readReferralCodeFromCookie(req);
@@ -881,6 +913,21 @@ export async function GET(req: NextRequest) {
       { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
       { status: 400 },
     );
+  }
+  if (orderType !== "print") {
+    try {
+      await assertDigitalCheckoutMap(mapId);
+    } catch (error) {
+      if (error instanceof CheckoutError) {
+        await recordCheckoutFailure({
+          reason: error.code,
+          source: "checkout_api_digital_get",
+          plan,
+        });
+        return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+      }
+      throw error;
+    }
   }
 
   try {
@@ -971,12 +1018,7 @@ export async function POST(req: NextRequest) {
         shippingCountry?: string;
         referralCode?: string;
       } | null;
-      if (body?.mapId && typeof body.mapId === "string") {
-        const trimmed = body.mapId.trim();
-        if (trimmed) {
-          mapId = trimmed.slice(0, 120);
-        }
-      }
+      mapId = parseCheckoutMapId(body?.mapId);
       if (body?.plan && ["single", "pack3", "subscription"].includes(body.plan)) {
         plan = body.plan;
       }
@@ -1027,6 +1069,9 @@ export async function POST(req: NextRequest) {
         { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
         { status: 400 },
       );
+    }
+    if (orderType !== "print") {
+      await assertDigitalCheckoutMap(mapId);
     }
     const promotion = orderType === "digital" && plan === "subscription"
       ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }

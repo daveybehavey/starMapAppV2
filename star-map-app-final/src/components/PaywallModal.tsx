@@ -51,19 +51,19 @@ const PAYWALL_COPY: Record<
   }
 > = {
   control: {
-    title: "Download your print-ready star map",
-    subtitle: "Free preview stays available. Choose a one-time HD file or switch to printed gift checkout.",
-    singleCta: "Get 1 HD file",
-    packCta: "Get 3 HD credits",
-    subscriptionCta: "Use unlimited plan",
+    title: "Buy this map in HD or print",
+    subtitle: "You already built this map. Start with one-time HD, or choose a printed gift checkout.",
+    singleCta: "Buy this map in HD",
+    packCta: "Buy 3 HD exports",
+    subscriptionCta: "Start unlimited",
     badgeLabel: "Repeat use",
   },
   value_anchor: {
-    title: "Unlock HD exports in seconds",
-    subtitle: "Most single-gift buyers only need one HD file. Use packs or unlimited only if you expect repeat exports.",
-    singleCta: "Get 1 HD file",
-    packCta: "Get 3 HD credits",
-    subscriptionCta: "Use unlimited plan",
+    title: "Buy this map in HD",
+    subtitle: "Most first-time buyers only need one HD export. Use packs or unlimited if you plan to create more maps.",
+    singleCta: "Buy this map in HD",
+    packCta: "Buy 3 HD exports",
+    subscriptionCta: "Start unlimited",
     badgeLabel: "Repeat use",
   },
 };
@@ -366,7 +366,7 @@ export function PaywallModal({
                     One-time
                   </span>
                 </div>
-                <p className="text-xs text-neutral-600">1 print-ready download • no subscription</p>
+                <p className="text-xs text-neutral-600">1 print-ready download for this map • no subscription</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 <span>{priceLabels.single}</span>
@@ -387,7 +387,7 @@ export function PaywallModal({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-midnight">3-credit pack</p>
-                <p className="text-xs text-neutral-600">3 HD export credits for versions, revisions, or gifts</p>
+                <p className="text-xs text-neutral-600">Use when you plan to make more maps, revisions, or gifts</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 {priceLabels.pack3}

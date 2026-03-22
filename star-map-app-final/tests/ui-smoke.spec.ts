@@ -458,11 +458,11 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
   await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
   await hdExportButton.click();
   await expect(
-    page
-      .getByRole("button", {
-        name: /Get 1 HD map|Get 1 HD file|Get 3 downloads|Get 3 HD files|Go unlimited|Use unlimited plan/i,
-      })
-      .first(),
+      page
+        .getByRole("button", {
+        name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
+        })
+        .first(),
   ).toBeVisible({ timeout: 8000 });
   await expect(page.getByRole("button", { name: /Printed gift/i })).toHaveCount(0);
 });
@@ -488,7 +488,7 @@ test("print checkout buttons submit print payload when visible", async ({ page }
     await expect(
       page
         .getByRole("button", {
-          name: /Get 1 HD map|Get 1 HD file|Get 3 downloads|Get 3 HD files|Go unlimited|Use unlimited plan/i,
+          name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
         })
         .first(),
     ).toBeVisible({ timeout: 8000 });
