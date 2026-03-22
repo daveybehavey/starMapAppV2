@@ -302,6 +302,22 @@ async function main() {
   }
 
   try {
+    const accountSessionsRes = await fetchWithTimeout(
+      `${site}/api/account/sessions?email=test@example.com`,
+      { cache: "no-store" },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Account sessions endpoint requires auth",
+      accountSessionsRes.status === 401,
+      `status=${accountSessionsRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Account sessions endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const printDisabledRes = await fetchWithTimeout(
       `${site}/api/checkout`,
       {

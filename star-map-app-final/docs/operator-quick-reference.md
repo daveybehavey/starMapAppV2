@@ -60,6 +60,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - This creates a one-time 100% Stripe courtesy checkout and prints a ready-to-send customer email template.
   - HD export credits are now consumed only after file generation succeeds (failed generation should not burn credits).
   - Stripe receipt wording: ensure the Pack product label in Stripe dashboard says `3 HD export credits` (not `3 files`) to reduce support confusion.
+- **Account-lite foundation lookup (admin-only)**:
+  - `GET /api/account/sessions?email=<customer_email>&limit=20`
+  - Auth required via `x-admin-token` / `x-print-admin-token` / `Authorization: Bearer`
+  - Returns recent paid session index entries for that email plus current session state from KV.
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion

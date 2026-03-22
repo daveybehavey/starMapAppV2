@@ -448,6 +448,11 @@ Recent status:
   - replaced flat JPEG proof cards with transparent cutout variants where available for more realistic wall-stage composition
   - reduced boxed chrome in the static physical gallery by moving captions off the dark card strip
   - improved text contrast in the static signup and occasion sections for easier scanning
+- Account-lite backend foundation:
+  - paid sessions are now indexed in KV by normalized customer email hash for future cross-device history/recovery
+  - added admin-only session snapshot endpoint:
+    - `GET /api/account/sessions?email=customer@example.com&limit=20`
+  - guest-first checkout is unchanged; this is groundwork for optional account flows
 
 ### Most recent verified ops snapshot
 

@@ -23,6 +23,7 @@ import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funn
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
+import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
 
 export const runtime = "nodejs";
 
@@ -272,6 +273,23 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
         : undefined,
     referralOfferVariant: getReferralOfferVariant(session),
   });
+
+  if (customerEmail) {
+    await upsertAccountLiteEmailSession({
+      email: customerEmail,
+      session: {
+        sessionId: session.id,
+        createdAt: typeof session.created === "number" ? session.created * 1000 : Date.now(),
+        mapId: getMapId(session),
+        plan,
+        orderType,
+        printVariant,
+        includesDigitalAddOn: hasDigitalAddOn,
+        amountTotal: session.amount_total ?? null,
+        currency: session.currency ?? null,
+      },
+    });
+  }
 
   if (paymentIntentId) {
     await kv.set(paymentIntentKey(paymentIntentId), session.id);
