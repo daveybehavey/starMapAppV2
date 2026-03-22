@@ -814,6 +814,18 @@ export default function SuccessClient() {
                       Go to download now
                     </button>
                   )}
+                  {hasDigitalEntitlement && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pauseRedirect();
+                        router.replace("/my-downloads");
+                      }}
+                      className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
+                    >
+                      My downloads
+                    </button>
+                  )}
                   {!hasDigitalEntitlement && (
                     <button
                       type="button"
