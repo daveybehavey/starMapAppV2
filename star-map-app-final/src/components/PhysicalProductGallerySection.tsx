@@ -72,7 +72,7 @@ export default function PhysicalProductGallerySection({
       src: "/examples/example-birthday-noir.webp",
       fallbackSrc: "/examples/example-anniversary-heirloom.webp",
       alt: "Noir-style diamond StarMapCo example map",
-      eyebrow: "Style · Noir Diamond",
+      eyebrow: "Style · Noir",
       title: "Darker geometric variant",
       detail: "Noir + diamond layout proves a high-contrast modern style for buyers who want a bolder look.",
       stageClass: "gallery-wall-stage gallery-wall-stage--neutral-alt",
