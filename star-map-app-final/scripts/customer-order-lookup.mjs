@@ -179,6 +179,9 @@ function buildSummary(session, charge, input, siteUrl) {
     totalCredits && totalCredits > 1
       ? `Your purchase includes ${totalCredits} HD export credits, so you can generate and download multiple maps.`
       : "Your purchase includes HD export access for your map.";
+  const creationHint = mapId
+    ? ""
+    : "\nIf you haven't created your map yet, open the editor first, generate a preview, then return to this link.";
   const activeAccessLink = sessionId
     ? `${siteUrl}/success?session_id=${encodeURIComponent(sessionId)}`
     : mapId
@@ -216,7 +219,7 @@ function buildSummary(session, charge, input, siteUrl) {
     recommendation,
     templates: {
       activeAccess: activeAccessLink && !refunded
-          ? `${greeting}\n\nThanks for your message — I restored your access.\n\nPlease open this secure link:\n${activeAccessLink}\n\n${deliverableLine}\nThen tap “Download HD file” from your download page.\nOn iPhone, downloads are in Files app → Browse → Downloads (not Photos), and the file name starts with starmap-.\n\nBest,\nStarMapCo Support`
+          ? `${greeting}\n\nThanks for your message — I restored your access.\n\nPlease open this secure link:\n${activeAccessLink}\n\n${deliverableLine}${creationHint}\nThen tap “Download HD file” from your download page.\nOn iPhone, downloads are in Files app → Browse → Downloads (not Photos), and the file name starts with starmap-.\n\nBest,\nStarMapCo Support`
           : null,
       refunded:
         refunded
