@@ -318,6 +318,27 @@ async function main() {
   }
 
   try {
+    const accountRecoverRes = await fetchWithTimeout(
+      `${site}/api/account/recover`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "not-an-email" }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Account recovery endpoint validates email input",
+      accountRecoverRes.status === 400,
+      `status=${accountRecoverRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Account recovery endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const printDisabledRes = await fetchWithTimeout(
       `${site}/api/checkout`,
       {

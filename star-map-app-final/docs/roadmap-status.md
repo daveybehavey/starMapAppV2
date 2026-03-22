@@ -453,6 +453,11 @@ Recent status:
   - added admin-only session snapshot endpoint:
     - `GET /api/account/sessions?email=customer@example.com&limit=20`
   - guest-first checkout is unchanged; this is groundwork for optional account flows
+  - added self-serve recovery request endpoint:
+    - `POST /api/account/recover` with customer email
+    - returns generic response (no account enumeration)
+    - emails fresh secure `/download?token=...` links for recent paid sessions when found
+  - wired `/download` with an `Email recovery links` form so customers can restore access without support intervention
 
 ### Most recent verified ops snapshot
 

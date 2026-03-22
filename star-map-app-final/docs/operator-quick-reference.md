@@ -64,6 +64,16 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `GET /api/account/sessions?email=<customer_email>&limit=20`
   - Auth required via `x-admin-token` / `x-print-admin-token` / `Authorization: Bearer`
   - Returns recent paid session index entries for that email plus current session state from KV.
+- **Self-serve customer recovery flow**:
+  - Download page now includes an `Email recovery links` form.
+  - Public endpoint: `POST /api/account/recover` with `{ "email": "customer@example.com" }`
+  - Behavior:
+    - always returns a generic success message (no account enumeration)
+    - if matching paid sessions exist, sends fresh `/download?token=...` links by email
+    - requires outbound provider config (`RESEND_API_KEY` or `SENDGRID_API_KEY`, plus sender address)
+  - Optional sender overrides:
+    - `ACCOUNT_RECOVERY_EMAIL_FROM`
+    - `ACCOUNT_RECOVERY_EMAIL_REPLY_TO`
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion

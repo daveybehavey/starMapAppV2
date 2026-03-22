@@ -86,6 +86,7 @@ const referralRewardCredits = (() => {
 const referralRewardCreditsLabel = `${referralRewardCredits} bonus HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const referralFriendOfferLabel = getReferralFriendOfferLabel();
 const referralShareMessage = getReferralShareMessage();
+const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   visits: 0,
   conversions: 0,
@@ -258,6 +259,9 @@ export default function DownloadClient() {
   const downloadInFlightRef = useRef(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryStatus, setRecoveryStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [printCheckoutLoading, setPrintCheckoutLoading] = useState(false);
   const [printCheckoutError, setPrintCheckoutError] = useState<string | null>(null);
   const printUpsellRef = useRef<HTMLDivElement | null>(null);
@@ -797,6 +801,54 @@ export default function DownloadClient() {
     window.open(accessLink, "_blank", "noopener,noreferrer");
   }, [accessLink]);
 
+  const handleSendRecoveryEmail = useCallback(async () => {
+    const email = recoveryEmail.trim().toLowerCase();
+    if (!email) {
+      setRecoveryStatus("error");
+      setRecoveryMessage("Enter the checkout email used for your purchase.");
+      return;
+    }
+    setRecoveryStatus("sending");
+    setRecoveryMessage(null);
+    try {
+      const res = await fetch("/api/account/recover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        if (res.status === 429) {
+          setRecoveryStatus("error");
+          setRecoveryMessage("Too many attempts. Please wait a bit before trying again.");
+          track("account_recovery_requested", { source: "download", outcome: "rate_limited" });
+          return;
+        }
+        const payload = (await res.json().catch(() => null)) as { error?: string; supportEmail?: string } | null;
+        if (payload?.error === "recovery_email_not_configured") {
+          const contact = payload.supportEmail || supportEmail;
+          setRecoveryStatus("error");
+          setRecoveryMessage(`Recovery email is unavailable right now. Contact ${contact} and we can restore access.`);
+          track("account_recovery_requested", { source: "download", outcome: "not_configured" });
+          return;
+        }
+        if (res.status === 400) {
+          setRecoveryStatus("error");
+          setRecoveryMessage("Use a valid email address.");
+          track("account_recovery_requested", { source: "download", outcome: "invalid_email" });
+          return;
+        }
+        throw new Error("request_failed");
+      }
+      setRecoveryStatus("sent");
+      setRecoveryMessage("If that email matches a paid order, we sent fresh recovery links.");
+      track("account_recovery_requested", { source: "download", outcome: "accepted" });
+    } catch {
+      setRecoveryStatus("error");
+      setRecoveryMessage(`Couldn't send recovery links yet. Please retry or contact ${supportEmail}.`);
+      track("account_recovery_requested", { source: "download", outcome: "error" });
+    }
+  }, [recoveryEmail]);
+
   const handleManageBilling = useCallback(async () => {
     if (portalLoading) return;
     setPortalLoading(true);
@@ -1333,12 +1385,58 @@ export default function DownloadClient() {
                 backup for another device.
               </p>
             </div>
-            <a
-              href="#access-link-panel"
-              className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-            >
-              Jump to access link
-            </a>
+            <div className="w-full max-w-[380px] rounded-xl border border-white/12 bg-white/8 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100">
+                Email Recovery Links
+              </p>
+              <p className="mt-1 text-[11px] text-neutral-300">
+                Enter your checkout email and we&apos;ll send fresh secure links for recent paid orders.
+              </p>
+              <form
+                className="mt-2 flex flex-col gap-2 sm:flex-row"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSendRecoveryEmail();
+                }}
+              >
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(event) => {
+                    setRecoveryEmail(event.target.value);
+                    if (recoveryStatus !== "idle") {
+                      setRecoveryStatus("idle");
+                      setRecoveryMessage(null);
+                    }
+                  }}
+                  placeholder="you@email.com"
+                  autoComplete="email"
+                  className="min-w-0 flex-1 rounded-full border border-white/20 bg-white px-3 py-2 text-xs text-midnight placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
+                />
+                <button
+                  type="submit"
+                  disabled={recoveryStatus === "sending"}
+                  className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {recoveryStatus === "sending" ? "Sending..." : "Send links"}
+                </button>
+              </form>
+              {recoveryMessage && (
+                <p
+                  className={`mt-2 text-[11px] ${
+                    recoveryStatus === "sent" ? "text-emerald-200" : "text-rose-200"
+                  }`}
+                >
+                  {recoveryMessage}
+                </p>
+              )}
+              <a
+                href="#access-link-panel"
+                className="mt-3 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+              >
+                Jump to access link
+              </a>
+            </div>
           </div>
         </section>
 
