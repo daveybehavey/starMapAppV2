@@ -607,7 +607,11 @@ export default function DownloadClient() {
         } else if (remaining === 0) {
           setMessage("Download started. That was your last HD export credit.");
         } else if (typeof remaining === "number") {
-          setMessage(`Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining.`);
+          setMessage(
+            consumed.plan === "pack3"
+              ? `Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining. Create/edit another map, then download again for your next file.`
+              : `Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining.`,
+          );
         } else {
           setMessage("Download started. Check your Downloads folder for a file that starts with starmap-.");
         }
@@ -1305,7 +1309,9 @@ export default function DownloadClient() {
       ? "Your HD export credits are active, but this browser has no saved map yet. Open the editor to create or reload your map, then return here to export."
       : status === "not-paid"
         ? "We could not verify your access yet. Reopen your secure success link and return to this page."
-        : "Your access is unlocked. Download the HD print file now, or jump back into the editor to tweak details.";
+        : currentPlan === "pack3"
+          ? "Your 3-credit pack is active. Each HD download exports the current map and uses 1 credit. Edit or create another map between downloads to get all 3 files."
+          : "Your access is unlocked. Download the HD print file now, or jump back into the editor to tweak details.";
 
   return (
     <EditorFontShell>
@@ -1353,6 +1359,12 @@ export default function DownloadClient() {
                   {statusLabel}
                 </div>
                 {message && <p className="text-xs text-amber-100/80">{message}</p>}
+                {status === "ready" && currentPlan === "pack3" && (
+                  <div className="max-w-2xl rounded-xl border border-amber-200/35 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-100/90">
+                    Pack tip: each click downloads the <strong>current map only</strong>. For all 3 files, make your
+                    next map in the editor and return to download again.
+                  </div>
+                )}
               </div>
 
               <div className="grid w-full gap-3 md:max-w-[260px]">
@@ -1416,6 +1428,11 @@ export default function DownloadClient() {
                 You can always re-download from this page while export credits remain, and use your private access link as a
                 backup for another device.
               </p>
+              {currentPlan === "pack3" && (
+                <p className="text-xs text-amber-100/80">
+                  3-credit pack reminder: one credit = one HD export of the map currently loaded.
+                </p>
+              )}
             </div>
             <div className="w-full max-w-[380px] rounded-xl border border-white/12 bg-white/8 p-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100">
@@ -1541,8 +1558,10 @@ export default function DownloadClient() {
                   : {
                       title: "Download credits",
                       desc:
-                        typeof creditsRemaining === "number"
-                          ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining on this pack.`
+                        currentPlan === "pack3" && typeof creditsRemaining === "number"
+                          ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining. Each export uses one credit for the current map.`
+                          : typeof creditsRemaining === "number"
+                            ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining on this pack.`
                           : "Use a 3-credit pack or subscription for multiple exports.",
                 },
               ].map((item) => (

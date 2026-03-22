@@ -713,7 +713,7 @@ export default function SuccessClient() {
                   : currentPlan === "subscription"
                     ? "Unlimited HD exports unlocked."
                     : currentPlan === "pack3"
-                      ? "3 HD export credits unlocked."
+                      ? "3 HD export credits unlocked. Each export uses one credit for the current map."
                       : "1 HD export credit unlocked."}
               </p>
             )}
@@ -809,6 +809,12 @@ export default function SuccessClient() {
                       If your download page says map not found, open the editor once to create/load the map, then return to
                       download.
                     </p>
+                    {currentPlan === "pack3" && (
+                      <p className="mt-1 text-[11px] text-amber-100/70">
+                        3-credit pack reminder: each HD export is for one map at a time. To get all 3 files, edit/create
+                        your next map between downloads.
+                      </p>
+                    )}
                     {accessLinkStatus === "error" && (
                       <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
                     )}

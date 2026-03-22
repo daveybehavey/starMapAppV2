@@ -260,6 +260,10 @@ export default function MyDownloadsClient() {
                 </p>
               ) : (
                 <div className="mt-4 grid gap-3">
+                  <p className="text-xs text-amber-100/80">
+                    Tip: a 3-credit pack means one HD export per map. If you want different files, create/edit the next
+                    map in the editor before opening the next download.
+                  </p>
                   {sessions.map((item) => (
                     <article key={item.sessionId} className="rounded-xl border border-white/12 bg-white/8 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -285,6 +289,8 @@ export default function MyDownloadsClient() {
                       <p className="mt-2 text-[11px] text-neutral-300">
                         {item.subscriptionActive
                           ? "Unlimited HD active."
+                          : item.plan === "pack3" && typeof item.creditsRemaining === "number"
+                            ? `${item.creditsRemaining} HD credit${item.creditsRemaining === 1 ? "" : "s"} remaining. Each export uses one credit for the current map.`
                           : typeof item.creditsRemaining === "number"
                             ? `${item.creditsRemaining} HD credit${item.creditsRemaining === 1 ? "" : "s"} remaining.`
                             : "Availability depends on this order state."}

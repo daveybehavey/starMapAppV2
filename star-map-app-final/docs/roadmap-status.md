@@ -94,6 +94,7 @@ Updated: 2026-03-21
   - HD export credits are now consumed only after file generation succeeds (prevents failed renders from burning credits).
   - Download filenames now include human-readable map/date slugs (`starmap-...png`) for easier file lookup on mobile.
   - Pack copy clarified from "3 files" to "3 export credits" across checkout/paywall surfaces.
+  - Added explicit "how to use 3-credit pack" guidance on `/success`, `/download`, and `/my-downloads` (one credit per current-map export; create/edit between exports for different files).
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
