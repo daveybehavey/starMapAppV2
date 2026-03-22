@@ -463,6 +463,12 @@ Recent status:
     - `POST /api/account/magic/request` to send short-lived sign-in links
     - `POST /api/account/magic/claim` to establish an account-lite cookie session
     - `GET /api/account/my-sessions` to list recent paid sessions and launch `/download?token=...` links
+  - added one-click resend endpoint for active buyers:
+    - `POST /api/account/access-email`
+    - wired into success/download UI as `Email me link`
+  - added automatic first-payment access email:
+    - webhook now auto-sends a secure `/download?token=...` link when digital entitlement becomes paid
+    - includes delivery metadata on the session record for operator debugging
 
 ### Most recent verified ops snapshot
 

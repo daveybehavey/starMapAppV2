@@ -24,6 +24,8 @@ import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/p
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
+import { getOrCreateClaimToken, hasRecoverableAccess } from "@/lib/accountAccessLinks";
+import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/accountAccessAlerts";
 
 export const runtime = "nodejs";
 
@@ -91,6 +93,9 @@ type SessionRecord = {
   recoveryEmailSentAt?: number;
   recoveryEmailProvider?: string;
   recoveryEmailError?: string;
+  accessEmailSentAt?: number;
+  accessEmailProvider?: string;
+  accessEmailError?: string;
 };
 
 type ReferralConversionState = {
@@ -124,6 +129,8 @@ const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
 const recoveryEmailKey = (id: string) => `stripe:checkout_recovery:email:${id}`;
 const RECOVERY_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
+const accessEmailKey = (id: string) => `stripe:access_link:email:${id}`;
+const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 
 function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -237,6 +244,10 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
   const customerId = typeof session.customer === "string" ? session.customer : null;
   const customerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
+  const hasDigitalEntitlementCandidate =
+    orderType === "print"
+      ? hasDigitalAddOn && (plan === "subscription" || credits > 0)
+      : plan === "subscription" || credits > 0;
   if (paymentIntentId) {
     const revokedRecord = await kv.get<{ revoked?: boolean; reason?: string }>(
       revokedPaymentIntentKey(paymentIntentId),
@@ -318,6 +329,27 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
       source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",
       plan: plan ?? undefined,
     });
+  }
+
+  if (!alreadyPaid && customerEmail && hasDigitalEntitlementCandidate && isAccountAccessEmailConfigured()) {
+    const shouldSend = await kv.incr(accessEmailKey(session.id), 1, { ex: ACCESS_EMAIL_TTL_SECONDS });
+    if (shouldSend === 1) {
+      const current = await kv.get<SessionRecord>(sessionKey(session.id));
+      if (current && hasRecoverableAccess(current)) {
+        const token = await getOrCreateClaimToken(session.id, current);
+        const link = `${siteUrl}/download?token=${encodeURIComponent(token)}`;
+        const alertResult = await sendAccountAccessAlert({
+          email: customerEmail,
+          link,
+        });
+        await kv.set(sessionKey(session.id), {
+          ...current,
+          accessEmailSentAt: alertResult.delivered ? Date.now() : current.accessEmailSentAt,
+          accessEmailProvider: alertResult.provider,
+          accessEmailError: alertResult.delivered ? undefined : alertResult.error,
+        });
+      }
+    }
   }
 }
 

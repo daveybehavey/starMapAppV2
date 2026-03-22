@@ -252,6 +252,8 @@ export default function DownloadClient() {
   const accessLinkInitRef = useRef(false);
   const initCompletedRef = useRef(false);
   const [accessLinkCopied, setAccessLinkCopied] = useState(false);
+  const [accessEmailStatus, setAccessEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [accessEmailMessage, setAccessEmailMessage] = useState<string | null>(null);
   const consumePromiseRef = useRef<
     Promise<false | { creditsRemaining?: number | null; plan?: CheckoutPlan | null }> | null
   >(null);
@@ -787,14 +789,44 @@ export default function DownloadClient() {
     }
   }, [accessLink]);
 
-  const handleEmailAccessLink = useCallback(() => {
-    if (!accessLink) return;
-    const subject = encodeURIComponent("Your StarMapCo access link");
-    const body = encodeURIComponent(
-      `Here’s your private access link:\\n\\n${accessLink}\\n\\nUse this link on any device to restore your downloads.`,
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  }, [accessLink]);
+  const handleSendAccessEmail = useCallback(async () => {
+    setAccessEmailStatus("sending");
+    setAccessEmailMessage(null);
+    try {
+      const res = await fetch("/api/account/access-email", { method: "POST" });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string; supportEmail?: string } | null;
+        if (res.status === 401 || res.status === 403) {
+          setAccessEmailStatus("error");
+          setAccessEmailMessage("Access isn't verified on this device yet. Reopen your secure link and retry.");
+          track("access_link_email_requested", { source: "download", outcome: "unauthorized" });
+          return;
+        }
+        if (payload?.error === "missing_customer_email") {
+          const contact = payload.supportEmail || supportEmail;
+          setAccessEmailStatus("error");
+          setAccessEmailMessage(`No checkout email is attached to this order. Contact ${contact}.`);
+          track("access_link_email_requested", { source: "download", outcome: "missing_email" });
+          return;
+        }
+        if (payload?.error === "account_access_email_not_configured") {
+          const contact = payload.supportEmail || supportEmail;
+          setAccessEmailStatus("error");
+          setAccessEmailMessage(`Email delivery is unavailable right now. Contact ${contact}.`);
+          track("access_link_email_requested", { source: "download", outcome: "not_configured" });
+          return;
+        }
+        throw new Error(payload?.error ?? "request_failed");
+      }
+      setAccessEmailStatus("sent");
+      setAccessEmailMessage("Sent. Check your inbox for the secure access link.");
+      track("access_link_email_requested", { source: "download", outcome: "sent" });
+    } catch {
+      setAccessEmailStatus("error");
+      setAccessEmailMessage(`Couldn't send the email yet. Please retry or contact ${supportEmail}.`);
+      track("access_link_email_requested", { source: "download", outcome: "error" });
+    }
+  }, []);
 
   const handleOpenAccessLink = useCallback(() => {
     if (!accessLink) return;
@@ -1850,10 +1882,11 @@ export default function DownloadClient() {
                   {accessLink && accessLinkStatus === "ready" && (
                     <button
                       type="button"
-                      onClick={handleEmailAccessLink}
+                      onClick={() => void handleSendAccessEmail()}
+                      disabled={accessEmailStatus === "sending"}
                       className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
                     >
-                      Email link
+                      {accessEmailStatus === "sending" ? "Sending..." : "Email me link"}
                     </button>
                   )}
                   {accessLink && accessLinkStatus === "ready" && (
@@ -1884,6 +1917,11 @@ export default function DownloadClient() {
               )}
               {accessLinkStatus === "error" && (
                 <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
+              )}
+              {accessEmailMessage && (
+                <p className={`mt-2 text-xs ${accessEmailStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+                  {accessEmailMessage}
+                </p>
               )}
             </div>
             {currentPlan === "subscription" && (

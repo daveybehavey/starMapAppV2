@@ -80,6 +80,14 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - Claim sign-in link: `POST /api/account/magic/claim` with `{ "token": "..." }`
   - List recent sessions for signed-in email: `GET /api/account/my-sessions`
   - Sign out and clear account cookie: `POST /api/account/magic/logout`
+- **One-click access-link email resend**:
+  - Authenticated endpoint: `POST /api/account/access-email`
+  - Used by success/download UI button `Email me link`.
+  - Requires active premium cookie and customer email on the Stripe session record.
+  - Returns `401/403` when access is not currently verified on that device.
+- **Automatic post-payment access email**:
+  - On first paid webhook verification (digital entitlement only), StarMapCo now auto-sends one secure `/download?token=...` link email.
+  - Delivery metadata is stored on the session record (`accessEmailSentAt`, provider/error fields).
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion

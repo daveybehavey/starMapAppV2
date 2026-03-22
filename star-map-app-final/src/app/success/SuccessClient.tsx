@@ -64,6 +64,7 @@ const referralRewardCredits = (() => {
   return parsed;
 })();
 const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
+const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
 
 export default function SuccessClient() {
   const router = useRouter();
@@ -78,6 +79,8 @@ export default function SuccessClient() {
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessLinkStatus, setAccessLinkStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [accessLinkCopied, setAccessLinkCopied] = useState(false);
+  const [accessEmailStatus, setAccessEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [accessEmailMessage, setAccessEmailMessage] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [digitalAddOnLoading, setDigitalAddOnLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
@@ -145,15 +148,45 @@ export default function SuccessClient() {
     }
   }, [accessLink, pauseRedirect]);
 
-  const handleEmailAccessLink = useCallback(() => {
-    if (!accessLink) return;
+  const handleSendAccessEmail = useCallback(async () => {
     pauseRedirect();
-    const subject = encodeURIComponent("Your StarMapCo access link");
-    const body = encodeURIComponent(
-      `Here’s your private access link:\\n\\n${accessLink}\\n\\nUse this link on any device to restore your downloads.`,
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  }, [accessLink, pauseRedirect]);
+    setAccessEmailStatus("sending");
+    setAccessEmailMessage(null);
+    try {
+      const res = await fetch("/api/account/access-email", { method: "POST" });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string; supportEmail?: string } | null;
+        if (res.status === 401 || res.status === 403) {
+          setAccessEmailStatus("error");
+          setAccessEmailMessage("Sign in again from your success link, then retry email delivery.");
+          track("access_link_email_requested", { source: "success", outcome: "unauthorized" });
+          return;
+        }
+        if (payload?.error === "missing_customer_email") {
+          const contact = payload.supportEmail || supportEmail;
+          setAccessEmailStatus("error");
+          setAccessEmailMessage(`We couldn't find a checkout email on this order. Contact ${contact} for help.`);
+          track("access_link_email_requested", { source: "success", outcome: "missing_email" });
+          return;
+        }
+        if (payload?.error === "account_access_email_not_configured") {
+          const contact = payload.supportEmail || supportEmail;
+          setAccessEmailStatus("error");
+          setAccessEmailMessage(`Email delivery is unavailable right now. Contact ${contact}.`);
+          track("access_link_email_requested", { source: "success", outcome: "not_configured" });
+          return;
+        }
+        throw new Error(payload?.error ?? "request_failed");
+      }
+      setAccessEmailStatus("sent");
+      setAccessEmailMessage("Sent. Check your email for the secure access link.");
+      track("access_link_email_requested", { source: "success", outcome: "sent" });
+    } catch {
+      setAccessEmailStatus("error");
+      setAccessEmailMessage(`Couldn't send the email yet. Please retry or contact ${supportEmail}.`);
+      track("access_link_email_requested", { source: "success", outcome: "error" });
+    }
+  }, [pauseRedirect]);
 
   const handleOpenAccessLink = useCallback(() => {
     if (!accessLink) return;
@@ -696,10 +729,11 @@ export default function SuccessClient() {
                       {accessLink && accessLinkStatus === "ready" && (
                         <button
                           type="button"
-                          onClick={handleEmailAccessLink}
+                          onClick={() => void handleSendAccessEmail()}
+                          disabled={accessEmailStatus === "sending"}
                           className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
                         >
-                          Email link
+                          {accessEmailStatus === "sending" ? "Sending..." : "Email me link"}
                         </button>
                       )}
                       {accessLink && accessLinkStatus === "ready" && (
@@ -752,6 +786,11 @@ export default function SuccessClient() {
                     </p>
                     {accessLinkStatus === "error" && (
                       <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
+                    )}
+                    {accessEmailMessage && (
+                      <p className={`mt-2 text-xs ${accessEmailStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+                        {accessEmailMessage}
+                      </p>
                     )}
                   </>
                 ) : (

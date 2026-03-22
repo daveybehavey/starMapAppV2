@@ -363,6 +363,25 @@ async function main() {
   }
 
   try {
+    const accountAccessEmailRes = await fetchWithTimeout(
+      `${site}/api/account/access-email`,
+      {
+        method: "POST",
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Account access-email endpoint requires auth",
+      accountAccessEmailRes.status === 401,
+      `status=${accountAccessEmailRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Account access-email endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const accountMagicClaimRes = await fetchWithTimeout(
       `${site}/api/account/magic/claim`,
       {
