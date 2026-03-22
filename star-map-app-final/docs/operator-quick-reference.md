@@ -74,6 +74,12 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - Optional sender overrides:
     - `ACCOUNT_RECOVERY_EMAIL_FROM`
     - `ACCOUNT_RECOVERY_EMAIL_REPLY_TO`
+- **Passwordless My Downloads flow**:
+  - Customer page: `/my-downloads` (noindex).
+  - Request sign-in link: `POST /api/account/magic/request` with `{ "email": "customer@example.com" }`
+  - Claim sign-in link: `POST /api/account/magic/claim` with `{ "token": "..." }`
+  - List recent sessions for signed-in email: `GET /api/account/my-sessions`
+  - Sign out and clear account cookie: `POST /api/account/magic/logout`
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion

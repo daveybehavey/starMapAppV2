@@ -173,9 +173,17 @@ async function main() {
       /<meta name="robots" content="noindex, nofollow"/i.test(editorHtml),
       "robots meta",
     );
+    const myDownloadsRes = await fetchWithTimeout(`${site}/my-downloads`, { cache: "no-store" }, args.timeoutMs);
+    const myDownloadsHtml = await myDownloadsRes.text();
+    runCheck("My Downloads responds 200", myDownloadsRes.status === 200, `status=${myDownloadsRes.status}`);
+    runCheck(
+      "My Downloads route has noindex",
+      /<meta name="robots" content="noindex, nofollow"/i.test(myDownloadsHtml),
+      "robots meta",
+    );
   } catch (error) {
     failed = true;
-    runCheck("Editor checks", false, error instanceof Error ? error.message : String(error));
+    runCheck("Editor/My Downloads checks", false, error instanceof Error ? error.message : String(error));
   }
 
   try {
@@ -336,6 +344,43 @@ async function main() {
   } catch (error) {
     failed = true;
     runCheck("Account recovery endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const accountMySessionsRes = await fetchWithTimeout(
+      `${site}/api/account/my-sessions`,
+      { cache: "no-store" },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Account my-sessions endpoint requires auth",
+      accountMySessionsRes.status === 401,
+      `status=${accountMySessionsRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Account my-sessions endpoint checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const accountMagicClaimRes = await fetchWithTimeout(
+      `${site}/api/account/magic/claim`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: "invalid" }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Account magic claim endpoint rejects invalid token",
+      accountMagicClaimRes.status === 404,
+      `status=${accountMagicClaimRes.status}`,
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Account magic claim endpoint checks", false, error instanceof Error ? error.message : String(error));
   }
 
   try {

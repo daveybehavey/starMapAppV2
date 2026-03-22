@@ -8,43 +8,19 @@ import {
   sendAccountRecoveryAlert,
   type AccountRecoveryLinkItem,
 } from "@/lib/accountRecoveryAlerts";
-import { PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
-import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { getOfferLabel, getOrCreateClaimToken, hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
 
 export const runtime = "nodejs";
 
-const CLAIM_TOKEN_TTL_SECONDS = PREMIUM_COOKIE_TTL_SECONDS;
 const MAX_LINKS_PER_EMAIL = 5;
 const MAX_SCANNED_SESSIONS = 20;
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com";
-
-type SessionRecord = {
-  paid?: boolean;
-  revoked?: boolean;
-  created?: number;
-  mapId?: string;
-  plan?: CheckoutPlan;
-  creditsRemaining?: number;
-  subscriptionActive?: boolean;
-  orderType?: CheckoutOrderType;
-  printVariant?: PrintVariant;
-  includesDigitalAddOn?: boolean;
-  customerEmail?: string | null;
-  claimToken?: string;
-};
-
-type ClaimRecord = {
-  sessionId: string;
-  mapId?: string;
-  createdAt: number;
-};
 
 type RecoveryRequestPayload = {
   email?: unknown;
 };
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
-const claimKey = (token: string) => `claim:${token}`;
 
 function isValidEmail(input: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
@@ -52,52 +28,6 @@ function isValidEmail(input: string) {
 
 function hashEmail(normalizedEmail: string) {
   return createHash("sha256").update(normalizedEmail).digest("base64url").slice(0, 40);
-}
-
-function hasRecoverableAccess(record: SessionRecord) {
-  if (record.revoked) return false;
-  const isPrintOnly = record.orderType === "print" && !record.includesDigitalAddOn;
-  if (isPrintOnly) return false;
-  if (record.plan === "subscription") return Boolean(record.subscriptionActive);
-  const creditsRemaining = typeof record.creditsRemaining === "number" ? record.creditsRemaining : 0;
-  return creditsRemaining > 0 || Boolean(record.paid);
-}
-
-function getOfferLabel(record: SessionRecord, fallbackPlan: CheckoutPlan | undefined) {
-  if (record.orderType === "print") {
-    const printLabel = record.printVariant === "poster_framed" ? "Framed print order" : "Unframed print order";
-    return record.includesDigitalAddOn ? `${printLabel} + HD add-on` : printLabel;
-  }
-  const plan = record.plan ?? fallbackPlan;
-  if (plan === "pack3") return "3 HD export credits";
-  if (plan === "subscription") return "Unlimited HD plan";
-  return "Single HD download";
-}
-
-async function getOrCreateClaimToken(sessionId: string, record: SessionRecord) {
-  let token = record.claimToken?.trim() || "";
-  if (token) {
-    const existing = await kv.get<ClaimRecord>(claimKey(token));
-    if (!existing || existing.sessionId !== sessionId) {
-      token = "";
-    }
-  }
-
-  if (!token) {
-    token = crypto.randomUUID();
-    const claim: ClaimRecord = {
-      sessionId,
-      mapId: record.mapId,
-      createdAt: Date.now(),
-    };
-    await kv.set(claimKey(token), claim, { ex: CLAIM_TOKEN_TTL_SECONDS });
-    await kv.set(sessionKey(sessionId), {
-      ...record,
-      claimToken: token,
-    });
-  }
-
-  return token;
 }
 
 function genericSuccess() {
@@ -153,7 +83,7 @@ export async function POST(req: NextRequest) {
   for (const indexed of lookup.sessions.slice(0, MAX_SCANNED_SESSIONS)) {
     if (links.length >= MAX_LINKS_PER_EMAIL) break;
     if (!indexed?.sessionId) continue;
-    const current = await kv.get<SessionRecord>(sessionKey(indexed.sessionId));
+    const current = await kv.get<AccountAccessSessionRecord>(sessionKey(indexed.sessionId));
     if (!current || !hasRecoverableAccess(current)) continue;
     const currentEmail = normalizeAccountLiteEmail(current.customerEmail);
     if (currentEmail && currentEmail !== email) continue;

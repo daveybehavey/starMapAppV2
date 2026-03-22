@@ -1436,6 +1436,12 @@ export default function DownloadClient() {
               >
                 Jump to access link
               </a>
+              <Link
+                href="/my-downloads"
+                className="mt-2 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+              >
+                Open My Downloads
+              </Link>
             </div>
           </div>
         </section>

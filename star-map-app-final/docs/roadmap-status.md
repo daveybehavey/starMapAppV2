@@ -458,6 +458,11 @@ Recent status:
     - returns generic response (no account enumeration)
     - emails fresh secure `/download?token=...` links for recent paid sessions when found
   - wired `/download` with an `Email recovery links` form so customers can restore access without support intervention
+  - added passwordless `My Downloads` surface:
+    - `/my-downloads` (noindex) with email magic-link sign-in
+    - `POST /api/account/magic/request` to send short-lived sign-in links
+    - `POST /api/account/magic/claim` to establish an account-lite cookie session
+    - `GET /api/account/my-sessions` to list recent paid sessions and launch `/download?token=...` links
 
 ### Most recent verified ops snapshot
 
