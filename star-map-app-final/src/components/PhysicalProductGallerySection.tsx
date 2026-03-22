@@ -82,9 +82,7 @@ export default function PhysicalProductGallerySection({
         "absolute inset-[11%] z-10 overflow-hidden border border-black/15 bg-[#0a1230] shadow-[0_14px_22px_rgba(0,0,0,0.28)]",
       imageClass: "object-cover",
       eyebrowClass: "text-slate-700",
-      artWrapStyle: {
-        clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
-      } as CSSProperties,
+      artWrapStyle: undefined as CSSProperties | undefined,
     },
   ] as const;
 
