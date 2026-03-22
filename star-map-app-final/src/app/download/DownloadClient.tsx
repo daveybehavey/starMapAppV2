@@ -259,6 +259,14 @@ export default function DownloadClient() {
   >(null);
   const [downloadInFlight, setDownloadInFlight] = useState(false);
   const downloadInFlightRef = useRef(false);
+  const statusTrackedRef = useRef<Record<Status, boolean>>({
+    checking: false,
+    ready: false,
+    downloading: false,
+    error: false,
+    "no-draft": false,
+    "not-paid": false,
+  });
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
   const [recoveryEmail, setRecoveryEmail] = useState("");
@@ -782,12 +790,24 @@ export default function DownloadClient() {
     return () => window.clearTimeout(timer);
   }, [paid, previewStatus, previewUrl, recipe, renderPreview]);
 
+  useEffect(() => {
+    if (statusTrackedRef.current[status]) return;
+    statusTrackedRef.current[status] = true;
+    track("download_state_seen", {
+      state: status,
+      plan: currentPlan ?? undefined,
+      has_map_id: Boolean(mapIdFromUrl || readStoredMapId()),
+      credits_remaining: typeof creditsRemaining === "number" ? creditsRemaining : undefined,
+    });
+  }, [creditsRemaining, currentPlan, mapIdFromUrl, status]);
+
   const handleCopyAccessLink = useCallback(async () => {
     if (!accessLink) return;
     try {
       await navigator.clipboard.writeText(accessLink);
       setAccessLinkCopied(true);
       window.setTimeout(() => setAccessLinkCopied(false), 2000);
+      track("download_recovery_action", { action: "copy_access_link", source: "access_panel" });
     } catch {
       // ignore clipboard errors
     }
@@ -834,6 +854,7 @@ export default function DownloadClient() {
 
   const handleOpenAccessLink = useCallback(() => {
     if (!accessLink) return;
+    track("download_recovery_action", { action: "open_access_link", source: "access_panel" });
     window.open(accessLink, "_blank", "noopener,noreferrer");
   }, [accessLink]);
 
@@ -1371,6 +1392,9 @@ export default function DownloadClient() {
                 {status === "no-draft" ? (
                   <Link
                     href="/editor?mode=quick&source=download-create-first"
+                    onClick={() => {
+                      track("download_recovery_action", { action: "open_editor_create_map", source: "hero" });
+                    }}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2.5 text-sm font-semibold text-[#201a0c] shadow-lg transition hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
                   >
                     Open editor to create map
@@ -1387,12 +1411,18 @@ export default function DownloadClient() {
                 )}
                 <Link
                   href="/editor"
+                  onClick={() => {
+                    track("download_recovery_action", { action: "open_editor_keep_editing", source: "hero" });
+                  }}
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40 focus:ring-offset-2"
                 >
                   Keep editing
                 </Link>
                 <Link
                   href="/"
+                  onClick={() => {
+                    track("download_recovery_action", { action: "back_home", source: "hero" });
+                  }}
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-transparent px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80 transition hover:text-amber-100"
                 >
                   Back to homepage
@@ -1433,6 +1463,11 @@ export default function DownloadClient() {
                   3-credit pack reminder: one credit = one HD export of the map currently loaded.
                 </p>
               )}
+              <ol className="list-decimal space-y-1 pl-4 text-xs text-amber-100/85">
+                <li>Check your device Downloads folder first.</li>
+                <li>Use your private access link or My Downloads to reopen access.</li>
+                <li>If you have a 3-credit pack, create/edit the next map before each download.</li>
+              </ol>
             </div>
             <div className="w-full max-w-[380px] rounded-xl border border-white/12 bg-white/8 p-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100">
@@ -1481,12 +1516,18 @@ export default function DownloadClient() {
               )}
               <a
                 href="#access-link-panel"
+                onClick={() => {
+                  track("download_recovery_action", { action: "jump_access_link", source: "recovery_card" });
+                }}
                 className="mt-3 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
               >
                 Jump to access link
               </a>
               <Link
                 href="/my-downloads"
+                onClick={() => {
+                  track("download_recovery_action", { action: "open_my_downloads", source: "recovery_card" });
+                }}
                 className="mt-2 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
               >
                 Open My Downloads
@@ -1920,7 +1961,10 @@ export default function DownloadClient() {
                   {accessLink && accessLinkStatus === "ready" && (
                     <button
                       type="button"
-                      onClick={() => void createAccessLink(true)}
+                      onClick={() => {
+                        track("download_recovery_action", { action: "new_access_link", source: "access_panel" });
+                        void createAccessLink(true);
+                      }}
                       className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
                     >
                       New link

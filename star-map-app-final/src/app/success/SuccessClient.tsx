@@ -107,6 +107,7 @@ export default function SuccessClient() {
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
   const printUpsellTrackedRef = useRef(false);
+  const accessPanelTrackedRef = useRef(false);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
   const printPriceLabels = {
     framedName: getPrintPricingTiers().poster_framed.label,
@@ -155,6 +156,7 @@ export default function SuccessClient() {
       await navigator.clipboard.writeText(accessLink);
       setAccessLinkCopied(true);
       window.setTimeout(() => setAccessLinkCopied(false), 2000);
+      track("success_recovery_action", { action: "copy_access_link" });
     } catch {
       // ignore clipboard errors
     }
@@ -203,6 +205,7 @@ export default function SuccessClient() {
   const handleOpenAccessLink = useCallback(() => {
     if (!accessLink) return;
     pauseRedirect();
+    track("success_recovery_action", { action: "open_access_link" });
     window.open(accessLink, "_blank", "noopener,noreferrer");
   }, [accessLink, pauseRedirect]);
 
@@ -233,6 +236,7 @@ export default function SuccessClient() {
     setMessage(null);
     let checkoutApiResponseReceived = false;
     try {
+      track("success_recovery_action", { action: "add_digital_download_clicked" });
       trackFunnelStep("checkout_started", {
         source: "success",
         plan: "single",
@@ -640,6 +644,17 @@ export default function SuccessClient() {
     });
   }, [hasDigitalEntitlement, isPrintOrder, status]);
 
+  useEffect(() => {
+    if (accessPanelTrackedRef.current) return;
+    if (status !== "success" || !hasDigitalEntitlement) return;
+    accessPanelTrackedRef.current = true;
+    track("success_recovery_panel_seen", {
+      order_type: orderType,
+      plan: currentPlan ?? undefined,
+      has_map_id: Boolean(resolvedMapId),
+    });
+  }, [currentPlan, hasDigitalEntitlement, orderType, resolvedMapId, status]);
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
       {/* Celebration stars animation */}
@@ -775,6 +790,7 @@ export default function SuccessClient() {
                           type="button"
                           onClick={() => {
                             pauseRedirect();
+                            track("success_recovery_action", { action: "new_access_link" });
                             void createAccessLink(true);
                           }}
                           className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
@@ -835,6 +851,7 @@ export default function SuccessClient() {
                       type="button"
                       onClick={() => {
                         pauseRedirect();
+                        track("success_recovery_action", { action: "go_to_download_now" });
                         const nextUrl = resolvedMapId
                           ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
                           : "/download";
@@ -850,6 +867,7 @@ export default function SuccessClient() {
                       type="button"
                       onClick={() => {
                         pauseRedirect();
+                        track("success_recovery_action", { action: "open_my_downloads" });
                         router.replace("/my-downloads");
                       }}
                       className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"

@@ -95,6 +95,13 @@ Updated: 2026-03-21
   - Download filenames now include human-readable map/date slugs (`starmap-...png`) for easier file lookup on mobile.
   - Pack copy clarified from "3 files" to "3 export credits" across checkout/paywall surfaces.
   - Added explicit "how to use 3-credit pack" guidance on `/success`, `/download`, and `/my-downloads` (one credit per current-map export; create/edit between exports for different files).
+  - Added recovery instrumentation events to monitor support-friction points:
+    - `download_state_seen`
+    - `download_recovery_action`
+    - `success_recovery_panel_seen`
+    - `success_recovery_action`
+    - `my_downloads_sessions_loaded`
+    - `my_downloads_open_download_clicked`
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.

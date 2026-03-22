@@ -120,6 +120,13 @@ export default function MyDownloadsClient() {
     }
   }, [claimMagicToken, loadSessions, searchParams]);
 
+  useEffect(() => {
+    if (view !== "ready") return;
+    track("my_downloads_sessions_loaded", {
+      session_count: sessions.length,
+    });
+  }, [sessions.length, view]);
+
   const requestMagicLink = useCallback(async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -276,6 +283,13 @@ export default function MyDownloadsClient() {
                         {item.downloadUrl ? (
                           <a
                             href={item.downloadUrl}
+                            onClick={() => {
+                              track("my_downloads_open_download_clicked", {
+                                order_type: item.orderType,
+                                plan: item.plan ?? undefined,
+                                print_variant: item.printVariant ?? undefined,
+                              });
+                            }}
                             className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
                           >
                             Open download
