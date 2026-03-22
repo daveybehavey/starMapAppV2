@@ -392,6 +392,10 @@ Recent status:
   - explicit free-preview framing
   - progress glow / stage progress indicator
   - slower, less abrupt reveal timing
+- Editor onboarding clarity pass shipped (desktop + mobile):
+  - setup chips now show real progress (`Date + place`, optional title personalization, preview)
+  - pre-reveal guidance now explains exactly what input is missing (date, place, or both)
+  - desktop onboarding now surfaces a visible autosave timestamp hint after draft writes
 - Added `docs/operator-quick-reference.md` so sales/analytics/print checks and promo updates are operationally consistent.
 - Added a dedicated gift-format depth page (`/star-map-gift-formats`) and linked it from key conversion surfaces so we can expose broader options without bloating homepage checkout.
 - Homepage delivery hierarchy is now stronger:

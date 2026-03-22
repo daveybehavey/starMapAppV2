@@ -26,6 +26,7 @@ import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience"
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
 const REVEAL_ANIMATION_MS = 900;
+const DEFAULT_TITLE_TEXT = "our night sky";
 
 interface MobileCreateProps {
   onExport: (mode: "preview" | "hd") => void | Promise<void>;
@@ -71,6 +72,7 @@ export function MobileCreate({
   // Use shared editor logic hook
   const {
     dateTime,
+    location,
     setDateTime,
     textBoxes,
     setTextBoxes,
@@ -102,6 +104,7 @@ export function MobileCreate({
     setCustomOccasion,
     presetHint,
     // Derived state
+    hasDate,
     canReveal,
     // Actions
     applyVisualOptions,
@@ -137,6 +140,25 @@ export function MobileCreate({
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
+  const hasLocation = Boolean(location.name?.trim());
+  const titleText =
+    textBoxes.find((box) => box.id === "title")?.text?.trim() ??
+    textBoxes[0]?.text?.trim() ??
+    "";
+  const hasPersonalizedTitle =
+    titleText.length > 0 && titleText.toLowerCase() !== DEFAULT_TITLE_TEXT;
+  const setupSteps = [
+    { label: "Date + place", done: hasDate && hasLocation, optional: false },
+    { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
+    { label: "Preview", done: revealed, optional: false },
+  ];
+  const revealBlockedMessage = !hasDate && !hasLocation
+    ? "Add your date and place to unlock preview."
+    : !hasDate
+      ? "Add your date to unlock preview."
+      : !hasLocation
+        ? "Add your place to unlock preview."
+        : "Presets optional.";
   const hdCreditLabel =
     currentPlan === "subscription"
       ? "Unlimited HD"
@@ -425,9 +447,19 @@ export function MobileCreate({
             Enter date and place, add your title, then generate a free preview.
           </p>
           <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-300">
-            <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">1. Date + place</span>
-            <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">2. Title</span>
-            <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">3. Preview</span>
+            {setupSteps.map((step, index) => (
+              <span
+                key={step.label}
+                className={`rounded-full border px-3 py-1 ${
+                  step.done
+                    ? "border-emerald-300/70 bg-emerald-300/20 text-emerald-100"
+                    : "border-white/12 bg-white/8"
+                }`}
+              >
+                {step.done ? "Done" : `${index + 1}.`} {step.label}
+                {step.optional && !step.done ? " (optional)" : ""}
+              </span>
+            ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -674,7 +706,7 @@ export function MobileCreate({
             <p>
               {isRevealing
                 ? revealStage.description
-                : "Add date + location to unlock your preview. Presets optional."}
+                : revealBlockedMessage}
             </p>
             <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
           </div>

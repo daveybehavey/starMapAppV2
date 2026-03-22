@@ -94,6 +94,7 @@ const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const PROMO_CODE_KEY = "star-map-promo-code";
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const REVEAL_ANIMATION_MS = 900;
+const DEFAULT_TITLE_TEXT = "our night sky";
 
 function isLikelyLowMemoryDevice() {
   if (typeof navigator === "undefined") return false;
@@ -315,6 +316,7 @@ export function EditorExperience({
   const [autoExportPending, setAutoExportPending] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
+  const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const revealTimerRef = useRef<number | null>(null);
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
@@ -437,6 +439,25 @@ export function EditorExperience({
   const presetRailRef = useRef<HTMLDivElement>(null);
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const hasLocation = Boolean(location.name?.trim());
+  const titleText =
+    textBoxes.find((box) => box.id === "title")?.text?.trim() ??
+    textBoxes[0]?.text?.trim() ??
+    "";
+  const hasPersonalizedTitle =
+    titleText.length > 0 && titleText.toLowerCase() !== DEFAULT_TITLE_TEXT;
+  const setupSteps = [
+    { label: "Date + place", done: hasDate && hasLocation, optional: false },
+    { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
+    { label: "Preview", done: revealed, optional: false },
+  ];
+  const revealBlockedMessage = !hasDate && !hasLocation
+    ? "Add your date and place to unlock preview."
+    : !hasDate
+      ? "Add your date to unlock preview."
+      : !hasLocation
+        ? "Add your place to unlock preview."
+        : "Presets optional.";
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(
@@ -732,6 +753,12 @@ export function EditorExperience({
     const draft = { ...recipe, selectedOccasion };
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      setLastDraftSavedAt(
+        new Date().toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      );
     } catch {
       // ignore storage errors (e.g. private browsing)
     }
@@ -1530,9 +1557,19 @@ export function EditorExperience({
                           Enter date and place, add your title, then generate a free preview.
                         </p>
                         <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-300">
-                          <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">1. Date + place</span>
-                          <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">2. Title</span>
-                          <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1">3. Preview</span>
+                          {setupSteps.map((step, index) => (
+                            <span
+                              key={step.label}
+                              className={`rounded-full border px-3 py-1 ${
+                                step.done
+                                  ? "border-emerald-300/70 bg-emerald-300/20 text-emerald-100"
+                                  : "border-white/12 bg-white/8"
+                              }`}
+                            >
+                              {step.done ? "Done" : `${index + 1}.`} {step.label}
+                              {step.optional && !step.done ? " (optional)" : ""}
+                            </span>
+                          ))}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <button
@@ -1558,6 +1595,11 @@ export function EditorExperience({
                           </button>
                         </div>
                         <p className="text-xs text-neutral-300">Need deeper control? Use “Customize more” after preview.</p>
+                        <p className="text-[11px] text-neutral-400">
+                          {lastDraftSavedAt
+                            ? `Draft autosaved on this device at ${lastDraftSavedAt}.`
+                            : "Draft autosaves on this device."}
+                        </p>
                       </>
                     ) : (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
@@ -1847,7 +1889,7 @@ export function EditorExperience({
                                 <p>
                                   {isRevealing
                                     ? "Aligning constellations for your selected moment..."
-                                    : "Add date + location to unlock your preview. Presets optional."}
+                                    : revealBlockedMessage}
                                 </p>
                                 <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
                               </div>
@@ -2443,7 +2485,7 @@ export function EditorExperience({
                                 )
                               ) : (
                                 <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-neutral-200 shadow-sm backdrop-blur">
-                                  Add date + location to reveal your sky. Presets optional.
+                                  {revealBlockedMessage}
                                 </div>
                               )}
                               {canReveal && (
