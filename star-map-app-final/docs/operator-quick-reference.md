@@ -44,6 +44,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:commerce-digest -- --days 14` now shows paid payment-method mix (overall + digital + print)
 - **Customer download recovery lookup**:
   - `npm run support:order-lookup -- --receipt 1384-7338`
+  - `npm run support:order-lookup -- --receipt 1384-7338 --name Christie`
   - `npm run support:order-lookup -- --session cs_live_...`
   - `npm run support:order-lookup -- --email customer@example.com`
   - This returns:
@@ -51,6 +52,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - whether it was refunded
     - the only valid success-link format (`/success?session_id=...`)
     - a ready-to-send customer reply template
+    - optional personalized greeting when you pass `--name`
     - reminder that download filenames now start with `starmap-` (easier mobile lookup)
   - Rule: if order is refunded, do not send a download restore link (access is intentionally revoked).
   - If you need to issue a free replacement access:

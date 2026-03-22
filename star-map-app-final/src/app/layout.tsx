@@ -38,6 +38,7 @@ const footerLinks = [
   { label: "Gift Ideas", href: "/star-map-gift-ideas" },
   { label: "Gift Formats", href: "/star-map-gift-formats" },
   { label: "Blog", href: "/blog" },
+  { label: "My Downloads", href: "/my-downloads" },
   { label: "Contact", href: "/contact" },
   { label: "Terms", href: "/terms" },
   { label: "Shipping Policy", href: "/shipping" },

@@ -86,6 +86,7 @@ Updated: 2026-03-21
   - Download page hero state now explains "create map first" vs "access not verified" to reduce false "missing files" confusion.
   - Success and download access-link panels now show the generated link inline and include an `Open link` action in addition to copy/email actions.
   - Added support lookup command `npm run support:order-lookup` to resolve receipt/session/email into verified recovery status and correct customer response templates.
+  - Support lookup templates are now name-agnostic by default and support optional `--name` personalization to avoid hard-coded customer-name mistakes.
   - Added support courtesy replacement command `npm run support:courtesy-replacement` to issue one-time free replacement checkout access when an order was refunded or recovery is needed.
   - Added support sender setup runbook for `support@starmapco.com` outbound sending via Gmail + SMTP (`docs/support-email-send-as-setup.md`).
   - HD export credits are now consumed only after file generation succeeds (prevents failed renders from burning credits).

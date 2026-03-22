@@ -49,16 +49,19 @@ function usage() {
   node scripts/customer-order-lookup.mjs --session <checkout_session_id>
   node scripts/customer-order-lookup.mjs --receipt <receipt_number> [--days 120]
   node scripts/customer-order-lookup.mjs --email <customer_email> [--days 120]
+  node scripts/customer-order-lookup.mjs --receipt <receipt_number> --name <customer_name>
 
 Options:
   --session <id>     Stripe Checkout Session ID (cs_...)
   --receipt <num>    Stripe receipt number (example: 1384-7338)
   --email <email>    Customer email to find recent sessions
+  --name <name>      Optional customer name for reply template
   --days <n>         Search window for receipt/email lookup (default: 120)
   --json             Print JSON only
 
 Examples:
   npm run support:order-lookup -- --receipt 1384-7338
+  npm run support:order-lookup -- --receipt 1384-7338 --name Christie
   npm run support:order-lookup -- --session cs_live_...
 `);
 }
@@ -74,6 +77,18 @@ function formatAmount(cents, currency) {
   if (typeof cents !== "number" || !Number.isFinite(cents)) return null;
   const normalizedCurrency = (currency || "usd").toUpperCase();
   return `${(cents / 100).toFixed(2)} ${normalizedCurrency}`;
+}
+
+function normalizeCustomerName(rawName) {
+  if (!rawName || typeof rawName !== "string") return null;
+  const cleaned = rawName
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N}\s.'-]/gu, "");
+  if (!cleaned) return null;
+  const firstToken = cleaned.split(" ")[0];
+  if (!firstToken) return null;
+  return firstToken.charAt(0).toUpperCase() + firstToken.slice(1);
 }
 
 async function findChargeByReceipt(stripe, receiptNumber, days) {
@@ -154,6 +169,21 @@ function buildSummary(session, charge, input, siteUrl) {
     : session?.payment_status === "paid"
       ? "SEND_SUCCESS_LINK"
       : "PAYMENT_NOT_COMPLETE";
+  const customerName = normalizeCustomerName(input.customerName);
+  const greeting = customerName ? `Hi ${customerName},` : "Hi there,";
+  const fallbackCredits =
+    plan === "pack3" ? 3 : plan === "single" ? 1 : null;
+  const numericCredits = Number.parseInt(String(credits ?? ""), 10);
+  const totalCredits = Number.isFinite(numericCredits) && numericCredits > 0 ? numericCredits : fallbackCredits;
+  const deliverableLine =
+    totalCredits && totalCredits > 1
+      ? `Your purchase includes ${totalCredits} HD export credits, so you can generate and download multiple maps.`
+      : "Your purchase includes HD export access for your map.";
+  const activeAccessLink = sessionId
+    ? `${siteUrl}/success?session_id=${encodeURIComponent(sessionId)}`
+    : mapId
+      ? `${siteUrl}/download?map_id=${encodeURIComponent(mapId)}`
+      : null;
 
   return {
     input,
@@ -185,15 +215,12 @@ function buildSummary(session, charge, input, siteUrl) {
     },
     recommendation,
     templates: {
-      activeAccess:
-        sessionId && !refunded
-          ? `Hi Christie,\n\nThanks for your message — I restored your access.\n\nPlease open this secure link:\n${siteUrl}/success?session_id=${encodeURIComponent(
-              sessionId,
-            )}\n\nThen tap “Download HD file”.\nOn iPhone, downloads are in Files app → Browse → Downloads (not Photos), and the file name starts with starmap-.\n\nBest,\nStarMapCo Support`
+      activeAccess: activeAccessLink && !refunded
+          ? `${greeting}\n\nThanks for your message — I restored your access.\n\nPlease open this secure link:\n${activeAccessLink}\n\n${deliverableLine}\nThen tap “Download HD file” from your download page.\nOn iPhone, downloads are in Files app → Browse → Downloads (not Photos), and the file name starts with starmap-.\n\nBest,\nStarMapCo Support`
           : null,
       refunded:
         refunded
-          ? "Hi Christie,\n\nThanks for reaching out. I checked your order and it has already been refunded, which removes download access.\n\nIf you still want the files, reply and I’ll immediately issue a replacement access link or new courtesy checkout.\n\nBest,\nStarMapCo Support"
+          ? `${greeting}\n\nThanks for reaching out. I checked your order and it has already been refunded, which removes download access.\n\nIf you still want the files, reply and I’ll immediately issue a replacement access link or new courtesy checkout.\n\nBest,\nStarMapCo Support`
           : null,
     },
   };
@@ -207,6 +234,7 @@ async function main() {
   const sessionId = typeof args.session === "string" ? args.session.trim() : "";
   const receiptNumber = typeof args.receipt === "string" ? args.receipt.trim() : "";
   const email = typeof args.email === "string" ? args.email.trim() : "";
+  const customerName = typeof args.name === "string" ? args.name.trim() : "";
   const daysRaw = typeof args.days === "string" ? Number.parseInt(args.days, 10) : 120;
   const days = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(365, daysRaw) : 120;
   const outputJson = args.json === "true";
@@ -232,7 +260,7 @@ async function main() {
   if (sessionId) {
     session = await stripe.checkout.sessions.retrieve(sessionId);
     charge = await loadChargeForSession(stripe, session);
-    input = { type: "session", value: sessionId };
+    input = { type: "session", value: sessionId, customerName };
   } else if (receiptNumber) {
     charge = await findChargeByReceipt(stripe, receiptNumber, days);
     if (!charge) {
@@ -245,14 +273,14 @@ async function main() {
       });
       session = sessions.data[0] ?? null;
     }
-    input = { type: "receipt", value: receiptNumber, days };
+    input = { type: "receipt", value: receiptNumber, days, customerName };
   } else {
     session = await findLatestSessionByEmail(stripe, email, days);
     if (!session) {
       throw new Error(`No checkout session found for ${email} in last ${days} days.`);
     }
     charge = await loadChargeForSession(stripe, session);
-    input = { type: "email", value: email, days };
+    input = { type: "email", value: email, days, customerName };
   }
 
   if (!session && !charge) {
