@@ -34,6 +34,45 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 const SNAP_THRESHOLD = 0.012;
+const STANDARD_PREVIEW_PIXEL_BUDGET = 4_400_000;
+const HIGH_PREVIEW_PIXEL_BUDGET = 7_200_000;
+const DRAG_PREVIEW_PIXEL_BUDGET = 2_200_000;
+
+function clampPixelRatioToBudget(
+  width: number,
+  height: number,
+  targetRatio: number,
+  pixelBudget: number,
+) {
+  if (width <= 0 || height <= 0) return 1;
+  const maxRatioForBudget = Math.sqrt(pixelBudget / (width * height));
+  return clamp(targetRatio, 1, Math.max(1, maxRatioForBudget));
+}
+
+function resolvePreviewPixelRatio({
+  width,
+  height,
+  previewFidelity,
+  isDragging,
+}: {
+  width: number;
+  height: number;
+  previewFidelity: "standard" | "high";
+  isDragging: boolean;
+}) {
+  const deviceRatio = window.devicePixelRatio || 1;
+  const fidelityFloor = previewFidelity === "high" ? 2 : 1.5;
+  const fidelityCap = previewFidelity === "high" ? 3 : 2.25;
+  const pixelBudget = isDragging
+    ? DRAG_PREVIEW_PIXEL_BUDGET
+    : previewFidelity === "high"
+      ? HIGH_PREVIEW_PIXEL_BUDGET
+      : STANDARD_PREVIEW_PIXEL_BUDGET;
+  const targetRatio = isDragging
+    ? Math.min(deviceRatio, 1.1)
+    : Math.min(Math.max(deviceRatio, fidelityFloor), fidelityCap);
+  return clampPixelRatioToBudget(width, height, targetRatio, pixelBudget);
+}
 
 export default function PreviewCanvas({
   onRendered,
@@ -206,9 +245,12 @@ export default function PreviewCanvas({
 
     rafRef.current = requestAnimationFrame(() => {
       const { width, height } = dimensions;
-      const deviceRatio = window.devicePixelRatio || 1;
-      const fidelityBoost = previewFidelity === "high" ? 2 : 1;
-      const pixelRatio = Math.min(deviceRatio * fidelityBoost, 3);
+      const pixelRatio = resolvePreviewPixelRatio({
+        width,
+        height,
+        previewFidelity,
+        isDragging: false,
+      });
       renderStarMap({
         recipe: baseRecipe,
         canvas,
@@ -246,10 +288,12 @@ export default function PreviewCanvas({
     const canvas = canvasRef.current;
     if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
     const { width, height } = dimensions;
-    const deviceRatio = window.devicePixelRatio || 1;
-    const fidelityBoost = previewFidelity === "high" ? 2 : 1;
-    // Drag text at lower DPR to keep interactions smooth on lower-end devices.
-    const pixelRatio = isDragging ? 1 : Math.min(deviceRatio * fidelityBoost, 3);
+    const pixelRatio = resolvePreviewPixelRatio({
+      width,
+      height,
+      previewFidelity,
+      isDragging,
+    });
     renderStarMapTextLayer({
       canvas,
       width,
@@ -260,7 +304,20 @@ export default function PreviewCanvas({
     });
     if (activeBox) {
       const rect = textBoundsRef.current.get(activeBox);
-      if (rect) setBoxRect(rect);
+      if (rect) {
+        setBoxRect((current) => {
+          if (
+            current &&
+            Math.abs(current.x - rect.x) < 0.4 &&
+            Math.abs(current.y - rect.y) < 0.4 &&
+            Math.abs(current.width - rect.width) < 0.4 &&
+            Math.abs(current.height - rect.height) < 0.4
+          ) {
+            return current;
+          }
+          return rect;
+        });
+      }
     }
   }, [dimensions, textLayerBoxes, activeBox, previewFidelity, isDragging]);
 
@@ -351,7 +408,20 @@ export default function PreviewCanvas({
           return { id: activeDrag.id, x: newX, y: newY };
         });
         const nextRect = textBoundsRef.current.get(activeDrag.id);
-        if (nextRect) setBoxRect(nextRect);
+        if (nextRect) {
+          setBoxRect((current) => {
+            if (
+              current &&
+              Math.abs(current.x - nextRect.x) < 0.4 &&
+              Math.abs(current.y - nextRect.y) < 0.4 &&
+              Math.abs(current.width - nextRect.width) < 0.4 &&
+              Math.abs(current.height - nextRect.height) < 0.4
+            ) {
+              return current;
+            }
+            return nextRect;
+          });
+        }
       });
     };
 
@@ -509,7 +579,7 @@ export default function PreviewCanvas({
       <canvas
         ref={baseCanvasRef}
         className={`pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500 ${
-          isLoading ? "opacity-0" : "canvas-twinkle opacity-100"
+          isLoading ? "opacity-0" : `${readOnly ? "canvas-twinkle " : ""}opacity-100`
         }`}
       />
       <canvas
