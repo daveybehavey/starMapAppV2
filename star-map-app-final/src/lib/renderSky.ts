@@ -368,6 +368,7 @@ export function renderStarMap({
   textBounds,
   skyOverride,
   skipSkyCompute = false,
+  includeText = true,
 }: {
   recipe: MapRecipe;
   canvas: CanvasLike;
@@ -380,6 +381,7 @@ export function renderStarMap({
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
   skyOverride?: VisibleSky | null;
   skipSkyCompute?: boolean;
+  includeText?: boolean;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -473,11 +475,54 @@ export function renderStarMap({
   }
 
   // Overlays
-  drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
+  if (includeText) {
+    drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
+  } else if (textBounds) {
+    textBounds.clear();
+  }
   drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
   if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
     drawFilmGrain(ctx, width, targetHeight, mode, quality);
   }
+  ctx.restore();
+}
+
+export function renderStarMapTextLayer({
+  canvas,
+  width,
+  height,
+  textBoxes,
+  pixelRatio = 1,
+  textBounds,
+}: {
+  canvas: CanvasLike;
+  width: number;
+  height: number;
+  textBoxes: TextBox[];
+  pixelRatio?: number;
+  textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
+}) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  if (width <= 0 || height <= 0) {
+    if (textBounds) textBounds.clear();
+    return;
+  }
+
+  canvas.width = Math.max(1, Math.round(width * pixelRatio));
+  canvas.height = Math.max(1, Math.round(height * pixelRatio));
+  if (canvas.style) {
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.scale(pixelRatio, pixelRatio);
+  const scale = width / BASE_CANVAS_WIDTH;
+  drawText(ctx, width, height, textBoxes, textBounds, scale);
   ctx.restore();
 }
 

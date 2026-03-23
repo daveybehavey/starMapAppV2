@@ -673,8 +673,8 @@
       #physical-proof-gallery .gallery img.art-unframed-classic {
         transform: scale(1.08);
       }
-      #physical-proof-gallery .gallery img.art-diamond {
-        transform: scale(0.94);
+      #physical-proof-gallery .gallery img.art-noir {
+        transform: scale(1.02);
       }
       #physical-proof-gallery .gallery figcaption {
         position: relative;
@@ -852,10 +852,10 @@
       }
       .signup > p {
         margin: 0 0 14px;
-        color: #122d4a;
+        color: #162f4f;
         font-size: 1rem;
-        font-weight: 500;
-        line-height: 1.58;
+        font-weight: 600;
+        line-height: 1.6;
       }
       .signup > p a {
         color: #123b6d;
@@ -869,7 +869,7 @@
       .signup input {
         padding: 12px 14px;
         border-radius: 12px;
-        border: 1px solid rgba(177, 198, 236, 0.55);
+        border: 1px solid rgba(145, 175, 224, 0.78);
         background: #ffffff;
         color: #0f1f3a;
       }
@@ -893,8 +893,8 @@
       .signup .signup-note {
         margin-top: 10px;
         font-size: 0.79rem;
-        color: #203a5d;
-        font-weight: 500;
+        color: #1a3556;
+        font-weight: 600;
       }
       .occasion-shell {
         border: 1px solid rgba(248, 204, 126, 0.3);
@@ -938,21 +938,32 @@
       .occasion-header p {
         margin: 0;
         max-width: 860px;
+        line-height: 1.58;
         color: rgba(239, 245, 255, 0.97);
       }
       .occasion-links {
         margin-top: 18px;
+        display: grid;
         gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       }
       .occasion-links a {
-        border-radius: 999px;
+        border-radius: 12px;
         border: 1px solid rgba(229, 239, 255, 0.74);
         background: rgba(245, 249, 255, 0.95);
         color: #1d3558;
-        font-size: 0.86rem;
+        font-size: 0.84rem;
         font-weight: 700;
-        padding: 8px 13px;
+        padding: 9px 12px;
         box-shadow: 0 8px 16px rgba(2, 7, 18, 0.18);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .occasion-links a::after {
+        content: "→";
+        color: rgba(29, 53, 88, 0.5);
+        font-weight: 700;
       }
       .occasion-links a:hover {
         border-color: rgba(247, 194, 74, 0.72);
@@ -1586,9 +1597,9 @@
           <figure class="wall-cool wall-cool-alt gallery-item gallery-item--noir">
             <div class="wall-frame">
               <img
-                src="/examples/example-birthday-noir.webp"
-                alt="Diamond-style StarMapCo print proof on neutral wall texture"
-                class="art-diamond"
+                src="/examples/example-birthday-noir-full.webp"
+                alt="Noir-style StarMapCo print proof on neutral wall texture"
+                class="art-noir"
                 loading="lazy"
                 decoding="async"
                 width="900"

@@ -248,7 +248,7 @@ export default function HomeStaticSections({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">FAQ</p>
             <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Quick answers</h2>
-            <p className="mt-3 text-sm text-neutral-700 sm:text-base">
+            <p className="mt-3 text-sm text-neutral-800 sm:text-base">
               Fast clarity on accuracy, delivery, and what buyers actually receive.
             </p>
           </div>
@@ -283,9 +283,9 @@ export default function HomeStaticSections({
                 a: "Email support@starmapco.com and we will help resolve the issue.",
               },
             ].map((item) => (
-              <div key={item.q} className="rounded-2xl border border-amber-200/60 bg-white/70 p-4">
+              <div key={item.q} className="rounded-2xl border border-amber-200/70 bg-white/82 p-4 shadow-[0_10px_24px_rgba(14,22,40,0.08)]">
                 <h3 className="text-base font-semibold text-midnight">{item.q}</h3>
-                <p className="mt-2 text-sm text-neutral-700">{item.a}</p>
+                <p className="mt-2 text-sm text-neutral-800">{item.a}</p>
               </div>
             ))}
           </div>

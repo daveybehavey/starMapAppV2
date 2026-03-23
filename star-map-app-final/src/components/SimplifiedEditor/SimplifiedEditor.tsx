@@ -103,6 +103,18 @@ const SHARED_DRAFT_STORAGE_KEY = "star-map-draft";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const DEFAULT_EXACT_TIME = DEFAULT_TIME;
 
+function getDownloadLocationHint() {
+  if (typeof navigator === "undefined") return "Download started. Check your browser download history.";
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return "Download started. On iPhone/iPad, open Files app -> Browse -> Downloads.";
+  }
+  if (/Android/i.test(ua)) {
+    return "Download started. On Android, open Files/My Files -> Downloads.";
+  }
+  return "Download started. Check your Downloads folder if it does not open automatically.";
+}
+
 export function SimplifiedEditor() {
   const [mode, setMode] = useState<EditorMode>("sample");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -110,6 +122,7 @@ export function SimplifiedEditor() {
   const [exporting, setExporting] = useState(false);
   const [hdExporting, setHdExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [downloadHint, setDownloadHint] = useState<string | null>(null);
   const [titleTouched, setTitleTouched] = useState(false);
   const [dateTouched, setDateTouched] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
@@ -437,7 +450,8 @@ export function SimplifiedEditor() {
             width,
             height,
             watermark,
-            quality: mode === "hd" ? "export" : "preview",
+            // Keep preview downloads visually aligned with paid HD output.
+            quality: "export",
             premium,
           }),
           timeoutPromise,
@@ -468,9 +482,16 @@ export function SimplifiedEditor() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      setDownloadHint(getDownloadLocationHint());
     },
     [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]
   );
+
+  useEffect(() => {
+    if (!downloadHint) return;
+    const timeout = window.setTimeout(() => setDownloadHint(null), 12000);
+    return () => window.clearTimeout(timeout);
+  }, [downloadHint]);
 
   // Handle free preview download
   const handleFreePreview = useCallback(async () => {
@@ -1026,6 +1047,17 @@ export function SimplifiedEditor() {
             {paid ? "Download high-resolution star map" : "Purchase to unlock high-resolution download"}
           </span>
         </div>
+        {downloadHint && (
+          <div className="rounded-lg border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-100">
+            <p>{downloadHint}</p>
+            <a
+              href="/my-downloads"
+              className="mt-1 inline-flex font-semibold text-emerald-50 underline underline-offset-2 hover:text-white"
+            >
+              Open my downloads
+            </a>
+          </div>
+        )}
 
         {/* Status hint for screen readers */}
         <div aria-live="polite" className="sr-only">

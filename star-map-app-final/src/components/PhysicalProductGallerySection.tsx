@@ -69,18 +69,18 @@ export default function PhysicalProductGallerySection({
       artWrapStyle: undefined as CSSProperties | undefined,
     },
     {
-      src: "/examples/example-birthday-noir.webp",
+      src: "/examples/example-birthday-noir-full.webp",
       fallbackSrc: "/examples/example-anniversary-heirloom.webp",
-      alt: "Noir-style diamond StarMapCo example map",
+      alt: "Noir-style StarMapCo example map",
       eyebrow: "Style · Noir",
       title: "Darker geometric variant",
-      detail: "Noir + diamond layout proves a high-contrast modern style for buyers who want a bolder look.",
+      detail: "Noir palette proves a high-contrast modern style for buyers who want a bolder look.",
       stageClass: "gallery-wall-stage gallery-wall-stage--neutral-alt",
       stageScrimClass:
         "bg-[radial-gradient(circle_at_74%_72%,rgba(255,255,255,0.22),rgba(255,255,255,0)_58%)]",
       artWrapClass:
         "absolute inset-[11%] z-10 overflow-hidden border border-black/15 bg-[#0a1230] shadow-[0_14px_22px_rgba(0,0,0,0.28)]",
-      imageClass: "object-cover",
+      imageClass: "object-contain scale-[1.02]",
       eyebrowClass: "text-slate-700",
       artWrapStyle: undefined as CSSProperties | undefined,
     },

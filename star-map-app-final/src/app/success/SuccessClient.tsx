@@ -875,6 +875,19 @@ export default function SuccessClient() {
                       My downloads
                     </button>
                   )}
+                  {hasDigitalEntitlement && currentPlan === "pack3" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pauseRedirect();
+                        track("success_recovery_action", { action: "open_editor_create_next_map" });
+                        router.replace("/editor?mode=quick&source=success-pack3-create-next");
+                      }}
+                      className="rounded-full border border-amber-200/60 bg-amber-300/15 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
+                    >
+                      Create next map
+                    </button>
+                  )}
                   {!hasDigitalEntitlement && (
                     <button
                       type="button"

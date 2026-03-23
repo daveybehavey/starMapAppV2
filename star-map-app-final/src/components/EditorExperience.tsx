@@ -105,6 +105,18 @@ function isLikelyLowMemoryDevice() {
   return mobileUA || lowMemoryHint;
 }
 
+function getDownloadLocationHint() {
+  if (typeof navigator === "undefined") return "Download started. Check your browser's download history if you don't see the file.";
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return "Download started. On iPhone/iPad, open Files app -> Browse -> Downloads to find it.";
+  }
+  if (/Android/i.test(ua)) {
+    return "Download started. On Android, open Files/My Files -> Downloads (or your browser download history).";
+  }
+  return "Download started. Check your Downloads folder (or browser download history) if it doesn't appear immediately.";
+}
+
 function normalizePromoCode(raw: string | null | undefined) {
   if (!raw) return null;
   const normalized = raw.trim().toUpperCase();
@@ -323,6 +335,7 @@ export function EditorExperience({
   const consumePromiseRef = useRef<Promise<boolean> | null>(null);
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
+  const [downloadHint, setDownloadHint] = useState<string | null>(null);
   const prefillAppliedRef = useRef(false);
   const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
@@ -901,7 +914,8 @@ export function EditorExperience({
         width,
         height,
         watermark,
-        quality: mode === "hd" ? "export" : "preview",
+        // Keep free preview exports visually aligned with paid HD output (only resolution/watermark differ).
+        quality: "export",
         premium,
       });
 
@@ -921,8 +935,15 @@ export function EditorExperience({
     link.download = filename;
     link.href = url;
     link.click();
+    setDownloadHint(getDownloadLocationHint());
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }, []);
+
+  useEffect(() => {
+    if (!downloadHint) return;
+    const timeout = window.setTimeout(() => setDownloadHint(null), 12000);
+    return () => window.clearTimeout(timeout);
+  }, [downloadHint]);
 
   useEffect(() => {
     if (!restored || !autoExportPending || !paid) return;
@@ -1490,7 +1511,7 @@ export function EditorExperience({
       width,
       height,
       watermark: true,
-      quality: "preview",
+      quality: "export",
       premium: paid,
     });
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
@@ -2646,6 +2667,23 @@ export function EditorExperience({
                                 ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
                                 : "HD export credits available."}
                           </p>
+                        )}
+                        {currentPlan !== "subscription" && (
+                          <p className="mt-1 text-[11px] text-neutral-300/95">
+                            Pack reminder: each HD click exports the <span className="font-semibold text-white">current map only</span>.
+                            For multiple files, create or edit the next map before each download.
+                          </p>
+                        )}
+                        {downloadHint && (
+                          <div className="mt-2 rounded-lg border border-emerald-300/35 bg-emerald-500/10 px-3 py-2">
+                            <p className="text-[11px] text-emerald-100">{downloadHint}</p>
+                            <a
+                              href="/my-downloads"
+                              className="mt-1 inline-flex text-[11px] font-semibold text-emerald-50 underline underline-offset-2 hover:text-white"
+                            >
+                              Open my downloads
+                            </a>
+                          </div>
                         )}
                         {printCheckoutEnabled && (
                           <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">

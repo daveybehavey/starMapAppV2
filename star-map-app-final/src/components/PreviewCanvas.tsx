@@ -5,6 +5,7 @@ import {
   aspectRatioToNumber,
   buildRecipeFromState,
   renderStarMap,
+  renderStarMapTextLayer,
   clamp,
   type MapRecipe,
 } from "@/lib/renderSky";
@@ -32,6 +33,8 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+const SNAP_THRESHOLD = 0.012;
+
 export default function PreviewCanvas({
   onRendered,
   fullscreen = false,
@@ -39,6 +42,7 @@ export default function PreviewCanvas({
   externalRecipe,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const dragRafRef = useRef<number | null>(null);
@@ -83,6 +87,10 @@ export default function PreviewCanvas({
   const [dragPreviewPosition, setDragPreviewPosition] = useState<{ id: string; x: number; y: number } | null>(
     null
   );
+  const [snapGuides, setSnapGuides] = useState<{ vertical: boolean; horizontal: boolean }>({
+    vertical: false,
+    horizontal: false,
+  });
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const directEditInputRef = useRef<HTMLInputElement>(null);
@@ -100,6 +108,11 @@ export default function PreviewCanvas({
     );
   }, [dragPreviewPosition, textBoxes]);
 
+  const textLayerBoxes = useMemo(
+    () => (externalRecipe ? externalRecipe.textBoxes : effectiveTextBoxes),
+    [effectiveTextBoxes, externalRecipe],
+  );
+
   useEffect(() => {
     dragPreviewRef.current = dragPreviewPosition;
   }, [dragPreviewPosition]);
@@ -109,15 +122,15 @@ export default function PreviewCanvas({
     [activeBox, textBoxes]
   );
 
-  // Memoize the recipe to avoid recalculating when only render-related props change
-  // When externalRecipe is provided (read-only mode), use it directly instead of store state
-  const recipe = useMemo(
+  // Build a text-free base recipe so dragging/editing text does not force full sky redraws.
+  // When externalRecipe is provided (read-only mode), use it directly.
+  const baseRecipe = useMemo(
     () =>
       externalRecipe ??
       buildRecipeFromState({
         dateTime: debouncedDateTime,
         location: debouncedLocation,
-        textBoxes: effectiveTextBoxes,
+        textBoxes: [],
         selectedStyle,
         renderOptions,
         aspectRatio,
@@ -127,7 +140,6 @@ export default function PreviewCanvas({
       externalRecipe,
       debouncedDateTime,
       debouncedLocation,
-      effectiveTextBoxes,
       selectedStyle,
       renderOptions,
       aspectRatio,
@@ -147,24 +159,24 @@ export default function PreviewCanvas({
   }, [dimensions.height, dimensions.width, effectiveAspectRatio]);
   const skyWorkerInput = useMemo(
     () => ({
-      dateTime: recipe.datetimeISO,
+      dateTime: baseRecipe.datetimeISO,
       location: {
-        latitude: recipe.location.latitude,
-        longitude: recipe.location.longitude,
-        timezone: recipe.location.timezone,
+        latitude: baseRecipe.location.latitude,
+        longitude: baseRecipe.location.longitude,
+        timezone: baseRecipe.location.timezone,
       },
       width: Math.max(0, Math.round(dimensions.width)),
       height: Math.max(0, skyHeight),
-      showConstellations: recipe.renderOptions?.constellationLines !== "off",
+      showConstellations: baseRecipe.renderOptions?.constellationLines !== "off",
       enabled: true,
     }),
     [
       dimensions.width,
-      recipe.datetimeISO,
-      recipe.location.latitude,
-      recipe.location.longitude,
-      recipe.location.timezone,
-      recipe.renderOptions?.constellationLines,
+      baseRecipe.datetimeISO,
+      baseRecipe.location.latitude,
+      baseRecipe.location.longitude,
+      baseRecipe.location.timezone,
+      baseRecipe.renderOptions?.constellationLines,
       skyHeight,
     ],
   );
@@ -187,7 +199,7 @@ export default function PreviewCanvas({
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = baseCanvasRef.current;
     if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
     if (skySupported && skyPending && !workerSky) return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -196,25 +208,21 @@ export default function PreviewCanvas({
       const { width, height } = dimensions;
       const deviceRatio = window.devicePixelRatio || 1;
       const fidelityBoost = previewFidelity === "high" ? 2 : 1;
-      // Drag updates happen frequently, so reduce resolution while dragging for smoother mobile interaction.
-      const pixelRatio = isDragging ? 1 : Math.min(deviceRatio * fidelityBoost, 3);
+      const pixelRatio = Math.min(deviceRatio * fidelityBoost, 3);
       renderStarMap({
-        recipe,
+        recipe: baseRecipe,
         canvas,
         width,
         height,
         watermark: !paid,
-        quality: "preview",
-        premium: isDragging ? false : paid,
+        // Keep editor preview visually aligned with purchased exports (no preview-only grain/sparkle).
+        quality: "export",
+        premium: paid,
         pixelRatio,
-        textBounds: textBoundsRef.current,
         skyOverride: workerSky,
         skipSkyCompute: shouldSkipMainThreadSkyCompute,
+        includeText: false,
       });
-      if (activeBox) {
-        const rect = textBoundsRef.current.get(activeBox);
-        if (rect) setBoxRect(rect);
-      }
       setIsLoading(false);
       onRendered?.();
     });
@@ -224,17 +232,37 @@ export default function PreviewCanvas({
     };
   }, [
     dimensions,
-    activeBox,
-    recipe,
+    baseRecipe,
     paid,
     previewFidelity,
-    isDragging,
     onRendered,
     skyPending,
     shouldSkipMainThreadSkyCompute,
     skySupported,
     workerSky,
   ]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
+    const { width, height } = dimensions;
+    const deviceRatio = window.devicePixelRatio || 1;
+    const fidelityBoost = previewFidelity === "high" ? 2 : 1;
+    // Drag text at lower DPR to keep interactions smooth on lower-end devices.
+    const pixelRatio = isDragging ? 1 : Math.min(deviceRatio * fidelityBoost, 3);
+    renderStarMapTextLayer({
+      canvas,
+      width,
+      height,
+      textBoxes: textLayerBoxes,
+      pixelRatio,
+      textBounds: textBoundsRef.current,
+    });
+    if (activeBox) {
+      const rect = textBoundsRef.current.get(activeBox);
+      if (rect) setBoxRect(rect);
+    }
+  }, [dimensions, textLayerBoxes, activeBox, previewFidelity, isDragging]);
 
   useEffect(() => {
     if (readOnly) return;
@@ -260,6 +288,7 @@ export default function PreviewCanvas({
         dragBoundsRef.current = bounds;
         dragActiveRef.current = false;
         setIsDragging(false);
+        setSnapGuides({ vertical: false, horizontal: false });
         setActiveBox(hit.id);
         const rect = textBoundsRef.current.get(hit.id);
         if (rect) setBoxRect(rect);
@@ -270,6 +299,7 @@ export default function PreviewCanvas({
         setDragPreviewPosition(null);
         dragActiveRef.current = false;
         setIsDragging(false);
+        setSnapGuides({ vertical: false, horizontal: false });
       }
     };
 
@@ -299,7 +329,16 @@ export default function PreviewCanvas({
         const centerX = pending.x - activeDrag.offsetX;
         const centerY = pending.y - activeDrag.offsetY;
         const rect = textBoundsRef.current.get(activeDrag.id);
-        const { x: newX, y: newY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect);
+        const { x: clampedX, y: clampedY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect);
+        const snapVertical = Math.abs(clampedX - 0.5) <= SNAP_THRESHOLD;
+        const snapHorizontal = Math.abs(clampedY - 0.5) <= SNAP_THRESHOLD;
+        const newX = snapVertical ? 0.5 : clampedX;
+        const newY = snapHorizontal ? 0.5 : clampedY;
+        setSnapGuides((current) =>
+          current.vertical === snapVertical && current.horizontal === snapHorizontal
+            ? current
+            : { vertical: snapVertical, horizontal: snapHorizontal }
+        );
         setDragPreviewPosition((current) => {
           if (
             current &&
@@ -337,6 +376,7 @@ export default function PreviewCanvas({
       setDragPreviewPosition(null);
       dragActiveRef.current = false;
       setIsDragging(false);
+      setSnapGuides({ vertical: false, horizontal: false });
     };
 
     canvas.addEventListener("pointerdown", handlePointerDown, { passive: false });
@@ -396,6 +436,7 @@ export default function PreviewCanvas({
         setDragPreviewPosition(null);
         dragActiveRef.current = false;
         setIsDragging(false);
+        setSnapGuides({ vertical: false, horizontal: false });
         return;
       }
 
@@ -446,6 +487,7 @@ export default function PreviewCanvas({
         setDragPreviewPosition(null);
         dragActiveRef.current = false;
         setIsDragging(false);
+        setSnapGuides({ vertical: false, horizontal: false });
       }
     };
     window.addEventListener("pointerdown", handleOutside);
@@ -465,10 +507,16 @@ export default function PreviewCanvas({
       style={{ aspectRatio: `${aspectRatioToNumber(effectiveAspectRatio)} / 1` }}
     >
       <canvas
+        ref={baseCanvasRef}
+        className={`pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500 ${
+          isLoading ? "opacity-0" : "canvas-twinkle opacity-100"
+        }`}
+      />
+      <canvas
         ref={canvasRef}
         className={`absolute inset-0 h-full w-full transition-opacity duration-500 ${
-          readOnly ? "" : "touch-none"
-        } ${isLoading ? "opacity-0" : "canvas-twinkle opacity-100"}`}
+          readOnly ? "pointer-events-none" : "touch-none"
+        } ${isLoading ? "opacity-0" : "opacity-100"}`}
         style={{ touchAction: readOnly ? "auto" : "none" }}
       />
       {isLoading && (
@@ -488,6 +536,12 @@ export default function PreviewCanvas({
             effectiveShape === "circle" ? "rounded-full" : "rounded-2xl"
           }`}
         />
+      )}
+      {isDragging && snapGuides.vertical && (
+        <div className="pointer-events-none absolute inset-y-[6%] left-1/2 z-[2] w-px -translate-x-1/2 bg-amber-300/65" />
+      )}
+      {isDragging && snapGuides.horizontal && (
+        <div className="pointer-events-none absolute inset-x-[6%] top-1/2 z-[2] h-px -translate-y-1/2 bg-amber-300/65" />
       )}
       {activeBox && boxRect && (
         <div

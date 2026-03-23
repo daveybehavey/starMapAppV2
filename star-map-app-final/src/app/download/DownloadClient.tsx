@@ -110,6 +110,41 @@ function getPreviewSource() {
   }
 }
 
+function getDeviceDownloadLocationHint() {
+  if (typeof navigator === "undefined") return "Check your browser download history if it doesn't open.";
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return "On iPhone/iPad, open Files app -> Browse -> Downloads.";
+  }
+  if (/Android/i.test(ua)) {
+    return "On Android, open Files/My Files -> Downloads.";
+  }
+  return "Check your Downloads folder if it doesn't open.";
+}
+
+function formatDownloadStartedMessage({
+  plan,
+  remaining,
+}: {
+  plan?: CheckoutPlan | null;
+  remaining: number | null;
+}) {
+  const locationHint = getDeviceDownloadLocationHint();
+  if (plan === "subscription") {
+    return `Download started. Unlimited HD exports active. ${locationHint}`;
+  }
+  if (remaining === 0) {
+    return `Download started. That was your last HD export credit. ${locationHint}`;
+  }
+  if (typeof remaining === "number") {
+    if (plan === "pack3") {
+      return `Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining. Create/edit another map, then download again for your next file. ${locationHint}`;
+    }
+    return `Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining. ${locationHint}`;
+  }
+  return `Download started. ${locationHint}`;
+}
+
 function getPreviewPixelRatio(width: number, height: number) {
   if (typeof window === "undefined") return 1;
   const deviceRatio = Math.min(PREVIEW_MAX_DPR, window.devicePixelRatio || 1);
@@ -610,19 +645,7 @@ export default function DownloadClient() {
         setStatus("ready");
         const remaining =
           typeof consumed.creditsRemaining === "number" ? consumed.creditsRemaining : null;
-        if (consumed.plan === "subscription") {
-          setMessage("Download started. Unlimited HD exports active.");
-        } else if (remaining === 0) {
-          setMessage("Download started. That was your last HD export credit.");
-        } else if (typeof remaining === "number") {
-          setMessage(
-            consumed.plan === "pack3"
-              ? `Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining. Create/edit another map, then download again for your next file.`
-              : `Download started. ${remaining} HD export credit${remaining === 1 ? "" : "s"} remaining.`,
-          );
-        } else {
-          setMessage("Download started. Check your Downloads folder for a file that starts with starmap-.");
-        }
+        setMessage(formatDownloadStartedMessage({ plan: consumed.plan ?? currentPlan, remaining }));
         track("export_download", { type: "hd", source });
         trackFunnelStep("download_completed", {
           source: previewSource,
