@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-21
+Updated: 2026-03-23
 
 ## Phase 0: Foundation (Done)
 
@@ -102,6 +102,15 @@ Updated: 2026-03-21
     - `success_recovery_action`
     - `my_downloads_sessions_loaded`
     - `my_downloads_open_download_clicked`
+  - `My downloads` now includes:
+    - per-session `Copy secure link` action for cross-device recovery
+    - pack3 `Create next map` CTA while credits remain
+    - device-specific download-location tips (iPhone/Android/Desktop)
+  - Added smoke coverage for `/my-downloads` recovery sign-in UI in `tests/ui-smoke.spec.ts`.
+- Editor preview parity and drag responsiveness hardening:
+  - Preview canvas now uses a budget-capped pixel ratio to keep the render sharper without overloading lower-end devices.
+  - Drag interactions now use a lower pixel budget + reduced state churn for smoother text movement.
+  - Twinkle animation is now disabled on the interactive editor canvas (kept for read-only preview) to avoid visual shimmer while editing.
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
