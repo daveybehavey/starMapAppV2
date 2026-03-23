@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EditorFontShell from "@/components/EditorFontShell";
 import { track } from "@/lib/analytics";
 
@@ -45,6 +45,14 @@ function planLabel(item: AccountSessionItem) {
   return "Single HD";
 }
 
+function detectDeviceKind() {
+  if (typeof navigator === "undefined") return "desktop";
+  const userAgent = navigator.userAgent || "";
+  if (/iphone|ipad|ipod/i.test(userAgent)) return "ios";
+  if (/android/i.test(userAgent)) return "android";
+  return "desktop";
+}
+
 export default function MyDownloadsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,7 +63,17 @@ export default function MyDownloadsClient() {
   const [magicStatus, setMagicStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [magicMessage, setMagicMessage] = useState<string | null>(null);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
+  const [copyLinkError, setCopyLinkError] = useState<string | null>(null);
   const claimHandledRef = useRef(false);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deviceKind = useMemo(() => detectDeviceKind(), []);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+    };
+  }, []);
 
   const loadSessions = useCallback(async () => {
     setView("checking");
@@ -146,11 +164,13 @@ export default function MyDownloadsClient() {
         if (res.status === 400) {
           setMagicStatus("error");
           setMagicMessage("Use a valid email address.");
+          track("account_magic_link_requested", { source: "my_downloads", outcome: "invalid_email" });
           return;
         }
         if (res.status === 429) {
           setMagicStatus("error");
           setMagicMessage("Too many attempts. Please wait before trying again.");
+          track("account_magic_link_requested", { source: "my_downloads", outcome: "rate_limited" });
           return;
         }
         const payload = (await res.json().catch(() => null)) as { error?: string; supportEmail?: string } | null;
@@ -158,6 +178,7 @@ export default function MyDownloadsClient() {
           const contact = payload.supportEmail || supportEmail;
           setMagicStatus("error");
           setMagicMessage(`Sign-in links are unavailable right now. Email ${contact} for manual recovery.`);
+          track("account_magic_link_requested", { source: "my_downloads", outcome: "not_configured" });
           return;
         }
         throw new Error("request_failed");
@@ -171,6 +192,29 @@ export default function MyDownloadsClient() {
       track("account_magic_link_requested", { source: "my_downloads", outcome: "error" });
     }
   }, [email]);
+
+  const handleCopySessionLink = useCallback(
+    async (item: AccountSessionItem) => {
+      if (!item.downloadUrl) return;
+      try {
+        await navigator.clipboard.writeText(item.downloadUrl);
+        setCopiedSessionId(item.sessionId);
+        setCopyLinkError(null);
+        if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+        copyResetTimerRef.current = setTimeout(() => {
+          setCopiedSessionId((current) => (current === item.sessionId ? null : current));
+        }, 2000);
+        track("my_downloads_copy_link_clicked", {
+          order_type: item.orderType,
+          plan: item.plan ?? undefined,
+          print_variant: item.printVariant ?? undefined,
+        });
+      } catch {
+        setCopyLinkError("Could not copy link right now. You can still open it directly.");
+      }
+    },
+    [],
+  );
 
   const handleLogout = useCallback(async () => {
     if (logoutLoading) return;
@@ -271,6 +315,13 @@ export default function MyDownloadsClient() {
                     Tip: a 3-credit pack means one HD export per map. If you want different files, create/edit the next
                     map in the editor before opening the next download.
                   </p>
+                  <p className="text-xs text-amber-100/80">
+                    {deviceKind === "ios"
+                      ? "iPhone tip: files save to Files app → Browse → Downloads."
+                      : deviceKind === "android"
+                        ? "Android tip: check Files/My Files → Downloads."
+                        : "Desktop tip: check your browser Downloads history if the file doesn't open immediately."}
+                  </p>
                   {sessions.map((item) => (
                     <article key={item.sessionId} className="rounded-xl border border-white/12 bg-white/8 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -281,19 +332,28 @@ export default function MyDownloadsClient() {
                           </p>
                         </div>
                         {item.downloadUrl ? (
-                          <a
-                            href={item.downloadUrl}
-                            onClick={() => {
-                              track("my_downloads_open_download_clicked", {
-                                order_type: item.orderType,
-                                plan: item.plan ?? undefined,
-                                print_variant: item.printVariant ?? undefined,
-                              });
-                            }}
-                            className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
-                          >
-                            Open download
-                          </a>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <a
+                              href={item.downloadUrl}
+                              onClick={() => {
+                                track("my_downloads_open_download_clicked", {
+                                  order_type: item.orderType,
+                                  plan: item.plan ?? undefined,
+                                  print_variant: item.printVariant ?? undefined,
+                                });
+                              }}
+                              className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                            >
+                              Open download
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => void handleCopySessionLink(item)}
+                              className="rounded-full border border-white/25 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100/90 transition hover:border-white/45 hover:bg-white/15"
+                            >
+                              {copiedSessionId === item.sessionId ? "Link copied" : "Copy secure link"}
+                            </button>
+                          </div>
                         ) : (
                           <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-neutral-300">
                             Download unavailable
@@ -305,12 +365,28 @@ export default function MyDownloadsClient() {
                           ? "Unlimited HD active."
                           : item.plan === "pack3" && typeof item.creditsRemaining === "number"
                             ? `${item.creditsRemaining} HD credit${item.creditsRemaining === 1 ? "" : "s"} remaining. Each export uses one credit for the current map.`
-                          : typeof item.creditsRemaining === "number"
-                            ? `${item.creditsRemaining} HD credit${item.creditsRemaining === 1 ? "" : "s"} remaining.`
-                            : "Availability depends on this order state."}
+                            : typeof item.creditsRemaining === "number"
+                              ? `${item.creditsRemaining} HD credit${item.creditsRemaining === 1 ? "" : "s"} remaining.`
+                              : "Availability depends on this order state."}
                       </p>
+                      {item.plan === "pack3" && (item.creditsRemaining ?? 0) > 0 && (
+                        <div className="mt-3">
+                          <Link
+                            href="/editor?mode=quick&source=my-downloads-pack3-create-next"
+                            onClick={() => {
+                              track("my_downloads_create_next_map_clicked", {
+                                credits_remaining: item.creditsRemaining ?? undefined,
+                              });
+                            }}
+                            className="inline-flex rounded-full border border-amber-200/60 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
+                          >
+                            Create next map
+                          </Link>
+                        </div>
+                      )}
                     </article>
                   ))}
+                  {copyLinkError && <p className="text-xs text-rose-200">{copyLinkError}</p>}
                 </div>
               )}
               <div className="mt-4 flex flex-wrap gap-2">

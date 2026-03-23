@@ -274,6 +274,14 @@ test("homepage delivery section links to format comparison and shipping details"
   await expect(shippingLink).toHaveAttribute("href", "/shipping");
 });
 
+test("my downloads page renders recovery sign-in flow", async ({ page }) => {
+  await page.goto("/my-downloads", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: /My Downloads/i })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("heading", { name: /Email Sign-In Link/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Send sign-in link/i })).toBeVisible();
+  await expect(page.getByText(/Enter the email from checkout/i)).toBeVisible();
+});
+
 test("occasion preset preserves manual location context", async ({ page }) => {
   await gotoEditor(page, { force: "desktop" });
   await ensureOccasionPresetsOpen(page);
