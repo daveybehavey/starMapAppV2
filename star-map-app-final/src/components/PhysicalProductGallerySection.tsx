@@ -69,17 +69,17 @@ export default function PhysicalProductGallerySection({
       artWrapStyle: undefined as CSSProperties | undefined,
     },
     {
-      src: "/examples/example-birthday-noir-full.webp",
+      src: "/examples/example-graduation-aurora.webp",
       fallbackSrc: "/examples/example-anniversary-heirloom.webp",
-      alt: "Noir-style StarMapCo example map",
-      eyebrow: "Style · Noir",
-      title: "Darker geometric variant",
-      detail: "Noir palette proves a high-contrast modern style for buyers who want a bolder look.",
+      alt: "Aurora-style StarMapCo example map",
+      eyebrow: "Style · Aurora",
+      title: "Celestial glow variant",
+      detail: "Aurora palette adds a brighter celestial look for buyers who want a stronger visual pop.",
       stageClass: "gallery-wall-stage gallery-wall-stage--neutral-alt",
       stageScrimClass:
         "bg-[radial-gradient(circle_at_74%_72%,rgba(255,255,255,0.22),rgba(255,255,255,0)_58%)]",
       artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/15 bg-[#0a1230] shadow-[0_14px_22px_rgba(0,0,0,0.28)]",
+        "absolute inset-[11%] z-10 overflow-hidden border border-black/10 bg-[#0f1b3d] shadow-[0_14px_22px_rgba(0,0,0,0.24)]",
       imageClass: "object-contain scale-[1.02]",
       eyebrowClass: "text-slate-700",
       artWrapStyle: undefined as CSSProperties | undefined,

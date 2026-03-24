@@ -572,7 +572,7 @@
         position: relative;
         overflow: visible;
         border: 0;
-        border-radius: 2px;
+        border-radius: 0;
         background: transparent;
         box-shadow: none;
         margin: 0;
@@ -587,13 +587,13 @@
         inset: 0;
         background-size: cover;
         background-position: center;
-        border-radius: 1px;
+        border-radius: 0;
       }
       #physical-proof-gallery .gallery figure::after {
         content: "";
         position: absolute;
         inset: 0;
-        border-radius: 1px;
+        border-radius: 0;
       }
       #physical-proof-gallery .gallery figure.wall-warm::before {
         background-image:
@@ -635,7 +635,7 @@
         position: relative;
         z-index: 1;
         margin: 0;
-        border-radius: 1px;
+        border-radius: 0;
         border: 0;
         background: transparent;
         box-shadow: 0 18px 30px rgba(0, 0, 0, 0.28);
@@ -659,7 +659,7 @@
         aspect-ratio: 1 / 1;
         object-fit: contain;
         padding: 0;
-        border-radius: 1px;
+        border-radius: 0;
         background: transparent;
         transform: none;
         filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.26));
@@ -674,6 +674,9 @@
         transform: scale(1.08);
       }
       #physical-proof-gallery .gallery img.art-noir {
+        transform: scale(1.02);
+      }
+      #physical-proof-gallery .gallery img.art-aurora {
         transform: scale(1.02);
       }
       #physical-proof-gallery .gallery figcaption {
@@ -1550,7 +1553,7 @@
 
       <section class="section content-visibility-auto" id="physical-proof-gallery">
         <h2>See the physical gift options side by side</h2>
-        <p>Compare both delivery routes first (framed vs unframed), then pick the style direction (heart or noir diamond) before checkout.</p>
+        <p>Compare both delivery routes first (framed vs unframed), then pick the style direction that fits the gift moment before checkout.</p>
         <div class="gallery">
           <figure class="wall-warm gallery-item gallery-item--framed">
             <div class="wall-frame">
@@ -1594,19 +1597,19 @@
             </div>
             <figcaption><span class="proof-chip">Unframed · Classic</span>Lower-cost physical route</figcaption>
           </figure>
-          <figure class="wall-cool wall-cool-alt gallery-item gallery-item--noir">
+          <figure class="wall-cool wall-cool-alt gallery-item gallery-item--feature">
             <div class="wall-frame">
               <img
-                src="/examples/example-birthday-noir-full.webp"
-                alt="Noir-style StarMapCo print proof on neutral wall texture"
-                class="art-noir"
+                src="/examples/example-graduation-aurora.webp"
+                alt="Aurora-style StarMapCo print proof on neutral wall texture"
+                class="art-aurora"
                 loading="lazy"
                 decoding="async"
                 width="900"
                 height="900"
               />
             </div>
-            <figcaption><span class="proof-chip">Style · Noir</span>Bold geometric layout option</figcaption>
+            <figcaption><span class="proof-chip">Style · Aurora</span>Celestial glow layout option</figcaption>
           </figure>
         </div>
         <div class="links">
