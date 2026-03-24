@@ -426,7 +426,7 @@ Recent status:
   - homepage print proof cards now use real wall-photo textures instead of flat synthetic wall gradients
   - proof image selection now prefers latest Printful preview PNGs (transparent cutout) before JPG mockups
   - static homepage variants (`public/index.html`, `public/landing.html`) were synced to the same wall-stage treatment
-  - reduced boxed card chrome in the static physical gallery and strengthened visible style/shape variety (classic framed, heart, unframed classic, aurora)
+  - reduced boxed card chrome in the static physical gallery and strengthened visible proof variation (classic framed, heart, unframed classic, alternate framed)
 - Expanded consistency automation coverage:
   - `qa:content-consistency` now also validates lower-intent/authority pages:
     - all current blog article routes
@@ -471,14 +471,14 @@ Recent status:
   - replaced interactive shipping-country selector in that block with a clear baseline estimate message (final shipping still shown before payment)
 - Physical gallery visual refinement (app routes):
   - reduced boxed card chrome in `PhysicalProductGallerySection`
-  - expanded visible style variation in gallery cards (heart + diamond layouts) for faster visual comparison
+  - expanded visible proof variation in gallery cards (heart + alternate framed contexts) for faster visual comparison
 - Static homepage visual/readability refinement:
   - replaced flat JPEG proof cards with transparent cutout variants where available for more realistic wall-stage composition
   - reduced boxed chrome in the static physical gallery by moving captions off the dark card strip
   - improved text contrast in the static signup and occasion sections for easier scanning
 - Static physical gallery cleanup:
   - removed rounded box chrome from wall-stage cards for a cleaner print-preview presentation
-  - removed remaining "diamond" wording from static copy and switched the fourth style card to aurora (full-map view)
+  - removed remaining "diamond" wording from static copy and switched the fourth card to a real Printful framed proof image
 - Account-lite backend foundation:
   - paid sessions are now indexed in KV by normalized customer email hash for future cross-device history/recovery
   - added admin-only session snapshot endpoint:
