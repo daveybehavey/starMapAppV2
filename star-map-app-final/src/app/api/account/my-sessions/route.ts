@@ -23,6 +23,7 @@ type SessionListItem = {
   orderType: "digital" | "print";
   printVariant: "poster_framed" | "poster_unframed" | null;
   plan: "single" | "pack3" | "subscription" | null;
+  hasMapId: boolean;
   downloadUrl: string | null;
   creditsRemaining: number | null;
   subscriptionActive: boolean;
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
         current.plan === "single" || current.plan === "pack3" || current.plan === "subscription"
           ? current.plan
           : null,
+      hasMapId: Boolean(current.mapId && String(current.mapId).trim()),
       downloadUrl,
       creditsRemaining: typeof current.creditsRemaining === "number" ? current.creditsRemaining : null,
       subscriptionActive: Boolean(current.subscriptionActive),

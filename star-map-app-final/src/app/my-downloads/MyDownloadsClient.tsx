@@ -13,6 +13,7 @@ type AccountSessionItem = {
   orderType: "digital" | "print";
   printVariant: "poster_framed" | "poster_unframed" | null;
   plan: "single" | "pack3" | "subscription" | null;
+  hasMapId: boolean;
   downloadUrl: string | null;
   creditsRemaining: number | null;
   subscriptionActive: boolean;
@@ -369,6 +370,24 @@ export default function MyDownloadsClient() {
                               ? `${item.creditsRemaining} HD credit${item.creditsRemaining === 1 ? "" : "s"} remaining.`
                               : "Availability depends on this order state."}
                       </p>
+                      {item.orderType === "digital" && !item.hasMapId && (
+                        <div className="mt-2 rounded-lg border border-amber-200/40 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/90">
+                          This order has no saved map yet. Create your map first, then return here to download.
+                          <div className="mt-2">
+                            <Link
+                              href="/editor?mode=quick&source=my-downloads-create-map-first"
+                              onClick={() => {
+                                track("my_downloads_create_map_first_clicked", {
+                                  plan: item.plan ?? undefined,
+                                });
+                              }}
+                              className="inline-flex rounded-full border border-amber-200/60 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
+                            >
+                              Create map first
+                            </Link>
+                          </div>
+                        </div>
+                      )}
                       {item.plan === "pack3" && (item.creditsRemaining ?? 0) > 0 && (
                         <div className="mt-3">
                           <Link
