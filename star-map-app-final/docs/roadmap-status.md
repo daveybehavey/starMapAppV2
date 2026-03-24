@@ -478,7 +478,7 @@ Recent status:
   - improved text contrast in the static signup and occasion sections for easier scanning
 - Static physical gallery cleanup:
   - removed rounded box chrome from wall-stage cards for a cleaner print-preview presentation
-  - removed remaining "diamond" wording from static copy and switched the fourth card to a real Printful framed proof image
+  - removed remaining "diamond" wording from static copy and switched the fourth card to a real Printful cutout proof image (no opaque white backdrop)
 - Account-lite backend foundation:
   - paid sessions are now indexed in KV by normalized customer email hash for future cross-device history/recovery
   - added admin-only session snapshot endpoint:
