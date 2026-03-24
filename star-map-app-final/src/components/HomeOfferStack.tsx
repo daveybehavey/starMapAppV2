@@ -114,7 +114,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
                 <ResilientImage
                   src={proofImages.framed}
-                  fallbackSrc="/printproof/framed-catalog.jpg"
+                  fallbackSrc="/printproof/gallery/wedding-framed-cutout.webp"
                   alt="Framed StarMapCo print preview"
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
@@ -159,7 +159,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
                 <ResilientImage
                   src={proofImages.unframed}
-                  fallbackSrc="/printproof/unframed-catalog.jpg"
+                  fallbackSrc="/printproof/gallery/graduation-unframed-cutout.webp"
                   alt="Unframed StarMapCo poster preview"
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
