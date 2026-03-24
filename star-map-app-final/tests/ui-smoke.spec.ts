@@ -254,7 +254,7 @@ test("homepage delivery cards show framed and unframed proof visuals", async ({ 
   const framedSrc = (await framedCardImage.getAttribute("src")) ?? "";
   const unframedSrc = (await unframedCardImage.getAttribute("src")) ?? "";
   expect(framedSrc).toMatch(
-    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/framed-catalog\.jpg|printproof%2Fframed-catalog\.jpg)/,
+    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/framed-catalog\.jpg|printproof%2Fframed-catalog\.jpg|printproof\/gallery\/wedding-framed-cutout\.webp|printproof%2Fgallery%2Fwedding-framed-cutout\.webp)/,
   );
   expect(unframedSrc).toMatch(
     /(printproof\/unframed-mockup\.jpg|printproof%2Funframed-mockup\.jpg|printproof\/unframed-latest\.png|printproof%2Funframed-latest\.png|printproof\/unframed-catalog\.jpg|printproof%2Funframed-catalog\.jpg|examples\/example-wedding-aurora-heart\.webp|examples%2Fexample-wedding-aurora-heart\.webp)/,

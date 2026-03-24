@@ -477,6 +477,7 @@ Recent status:
   - reduced boxed chrome in the static physical gallery by moving captions off the dark card strip
   - improved text contrast in the static signup and occasion sections for easier scanning
   - updated delivery option card visuals to use transparent `*-latest.png` proof images (instead of white-background mockup JPGs)
+  - switched the framed delivery card sample to a contrasting heart-style Printful cutout proof so the first-view delivery row shows stronger style variety
 - Static physical gallery cleanup:
   - removed rounded box chrome from wall-stage cards for a cleaner print-preview presentation
   - removed remaining "diamond" wording from static copy and switched the fourth card to a real Printful cutout proof image (no opaque white backdrop)

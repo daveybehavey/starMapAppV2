@@ -113,8 +113,8 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.35),rgba(0,0,0,0.06)_75%)]" />
               <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
                 <ResilientImage
-                  src={proofImages.framed}
-                  fallbackSrc="/printproof/gallery/wedding-framed-cutout.webp"
+                  src="/printproof/gallery/wedding-framed-cutout.webp"
+                  fallbackSrc={proofImages.framed}
                   alt="Framed StarMapCo print preview"
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
