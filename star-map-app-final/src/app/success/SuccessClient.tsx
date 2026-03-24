@@ -827,7 +827,7 @@ export default function SuccessClient() {
                     </p>
                     {currentPlan === "pack3" && (
                       <p className="mt-1 text-[11px] text-amber-100/70">
-                        3-credit pack reminder: each HD export is for one map at a time. To get all 3 files, edit/create
+                        3-credit pack reminder: each HD export is for one map at a time. To use all 3 credits, edit/create
                         your next map between downloads.
                       </p>
                     )}

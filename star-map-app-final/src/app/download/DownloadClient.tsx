@@ -1354,7 +1354,7 @@ export default function DownloadClient() {
       : status === "not-paid"
         ? "We could not verify your access yet. Reopen your secure success link and return to this page."
         : currentPlan === "pack3"
-          ? "Your 3-credit pack is active. Each HD download exports the current map and uses 1 credit. Edit or create another map between downloads to get all 3 files."
+        ? "Your 3-credit pack is active. Each HD download exports the current map and uses 1 credit. Edit or create another map between downloads to use all 3 credits."
           : "Your access is unlocked. Download the HD print file now, or jump back into the editor to tweak details.";
 
   return (
@@ -1405,7 +1405,7 @@ export default function DownloadClient() {
                 {message && <p className="text-xs text-amber-100/80">{message}</p>}
                 {status === "ready" && currentPlan === "pack3" && (
                   <div className="max-w-2xl rounded-xl border border-amber-200/35 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-100/90">
-                    Pack tip: each click downloads the <strong>current map only</strong>. For all 3 files, make your
+                    Pack tip: each click downloads the <strong>current map only</strong>. To use all 3 credits, make your
                     next map in the editor and return to download again.
                   </div>
                 )}
