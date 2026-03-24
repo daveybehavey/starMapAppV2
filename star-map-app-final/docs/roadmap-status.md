@@ -481,6 +481,7 @@ Recent status:
 - Static physical gallery cleanup:
   - removed rounded box chrome from wall-stage cards for a cleaner print-preview presentation
   - removed remaining "diamond" wording from static copy and switched the fourth card to a real Printful cutout proof image (no opaque white backdrop)
+  - replaced the problematic fourth cutout proof (which carried a baked white shelf/reflection artifact) with a full-map noir style sample to keep the gallery clean and visually distinct
 - Account-lite backend foundation:
   - paid sessions are now indexed in KV by normalized customer email hash for future cross-device history/recovery
   - added admin-only session snapshot endpoint:
