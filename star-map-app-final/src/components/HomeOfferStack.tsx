@@ -70,9 +70,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/15 bg-white/10">
               <ResilientImage
-                src="/custom-star-map-anniversary.webp"
-                fallbackSrc="/custom-star-map-anniversary.png"
-                alt="Digital StarMapCo preview"
+                src="/examples/example-graduation-aurora.webp"
+                fallbackSrc="/examples/example-graduation-aurora.png"
+                alt="Digital StarMapCo Aurora preview"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
