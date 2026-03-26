@@ -5,12 +5,15 @@ import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
+import { getBusinessProfile } from "@/lib/businessProfile";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
+  formatPrintDeliveryEstimate,
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
 } from "@/lib/printfulShipping";
+import { getPrintCheckoutCtaState, PRINT_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
 
 type PriceLabels = {
   single: string;
@@ -90,6 +93,7 @@ export function PaywallModal({
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
   const [printUpsellHint, setPrintUpsellHint] = useState<string | null>(null);
+  const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
   const viewedListsRef = useRef<Set<string>>(new Set());
@@ -101,11 +105,27 @@ export function PaywallModal({
     () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
     [printShippingCountry],
   );
+  const framedDeliveryLabel = useMemo(
+    () => formatPrintDeliveryEstimate("poster_framed", printShippingCountry),
+    [printShippingCountry],
+  );
   const unframedShippingLabel = useMemo(
     () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
     [printShippingCountry],
   );
+  const unframedDeliveryLabel = useMemo(
+    () => formatPrintDeliveryEstimate("poster_unframed", printShippingCountry),
+    [printShippingCountry],
+  );
   const canPrintCheckout = Boolean(printShippingCountry);
+  const printCheckoutCtaState = useMemo(
+    () =>
+      getPrintCheckoutCtaState({
+        checkoutInFlight,
+        hasShippingCountry: canPrintCheckout,
+      }),
+    [canPrintCheckout, checkoutInFlight],
+  );
 
   useEffect(() => {
     if (!hasPrintOptions) {
@@ -266,7 +286,7 @@ export function PaywallModal({
                 Your current map is attached automatically. Shipping is shown in Stripe checkout and the order is
                 created for manual review. {shippingDisclosure}
               </p>
-              {printShippingCountries.length > 0 && (
+              {printShippingCountryOptions.length > 0 && (
                 <div className="mt-3">
                   <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
                   <select
@@ -287,12 +307,13 @@ export function PaywallModal({
                     ))}
                   </select>
                   {!canPrintCheckout && (
-                    <p className="mt-1 text-[10px] text-amber-100/80">Select a shipping country to continue.</p>
+                    <p className="mt-1 text-[10px] text-amber-100/80">{printCheckoutCtaState.disabledReason}</p>
                   )}
                   {printShippingCountry && (
                     <p className="mt-1 text-[10px] text-amber-100/80">
                       Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
-                      {framedShippingLabel} · unframed {unframedShippingLabel}
+                      {framedShippingLabel} · unframed {unframedShippingLabel}. Delivery: framed {framedDeliveryLabel} ·
+                      unframed {unframedDeliveryLabel}
                     </p>
                   )}
                 </div>
@@ -314,7 +335,7 @@ export function PaywallModal({
                   className="w-full rounded-full border border-amber-200/70 bg-amber-400/30 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/40 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {checkoutInFlight
-                    ? "Opening secure checkout..."
+                    ? PRINT_CHECKOUT_REDIRECT_LABEL
                     : `Framed + HD file (recommended) • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`}
                 </button>
                 <button
@@ -332,7 +353,7 @@ export function PaywallModal({
                   }`}
                 >
                   {checkoutInFlight
-                    ? "Opening secure checkout..."
+                    ? PRINT_CHECKOUT_REDIRECT_LABEL
                     : `Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}`}
                 </button>
                 <button
@@ -350,10 +371,11 @@ export function PaywallModal({
                   }`}
                 >
                   {checkoutInFlight
-                    ? "Opening secure checkout..."
+                    ? PRINT_CHECKOUT_REDIRECT_LABEL
                     : `Unframed poster • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
                 </button>
               </div>
+              <p className="mt-2 text-[10px] text-amber-100/80">{printCheckoutCtaState.helperText}</p>
             </div>
           )}
 
@@ -481,7 +503,7 @@ export function PaywallModal({
         </div>
 
         <p className="mt-3 text-[11px] text-neutral-600">
-          Secure checkout with card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be canceled anytime. Need help? Email support@starmapco.com.
+          Secure checkout with card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be canceled anytime. Need help? Email {supportEmail}.
         </p>
         <p className="mt-2 text-xs font-semibold text-neutral-700">
           Have a promo code? It can be applied at checkout.

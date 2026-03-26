@@ -129,6 +129,17 @@ export default function StarMapGiftPage() {
           >
             Start with framed print preview
           </Link>
+          <p className="mt-2 text-xs text-neutral-700">
+            Want a neutral start?{" "}
+            <Link
+              href="/editor?mode=quick&source=star-map-gift-cta-preview"
+              prefetch={false}
+              className="font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-800"
+            >
+              Preview first, decide later
+            </Link>
+            .
+          </p>
         </div>
       </section>
 
@@ -147,7 +158,7 @@ export default function StarMapGiftPage() {
         leftPoints={[
           "Secure Stripe checkout",
           "Immediate HD unlock with no watermark",
-          "The same approved design can move into framed or unframed print checkout",
+          "One-time checkout supports framed print, unframed print, or HD digital delivery",
         ]}
         rightTitle="Support and policy"
         rightPoints={[

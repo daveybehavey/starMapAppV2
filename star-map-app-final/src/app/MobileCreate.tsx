@@ -18,10 +18,12 @@ import Image from "next/image";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
+  formatPrintDeliveryEstimate,
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
 } from "@/lib/printfulShipping";
+import { getPrintCheckoutCtaState, PRINT_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
@@ -48,6 +50,7 @@ interface MobileCreateProps {
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
   printCheckoutInFlight?: boolean;
+  printCheckoutError?: string | null;
   onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
 }
 
@@ -67,6 +70,7 @@ export function MobileCreate({
   printShippingCountries = [],
   onPrintShippingCountryChange,
   printCheckoutInFlight = false,
+  printCheckoutError = null,
   onStartPrintCheckout,
 }: MobileCreateProps) {
   // Use shared editor logic hook
@@ -114,7 +118,13 @@ export function MobileCreate({
   const shippingDisclosure = getPrintShippingDisclosure();
   const printShippingCountryOptions = getPrintShippingCountryOptions(printShippingCountries);
   const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
+  const framedDeliveryLabel = formatPrintDeliveryEstimate("poster_framed", printShippingCountry);
   const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
+  const unframedDeliveryLabel = formatPrintDeliveryEstimate("poster_unframed", printShippingCountry);
+  const printCheckoutCtaState = getPrintCheckoutCtaState({
+    checkoutInFlight: printCheckoutInFlight,
+    hasShippingCountry: Boolean(printShippingCountry),
+  });
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -1192,7 +1202,9 @@ export function MobileCreate({
                   <p>
                     {isRevealing
                       ? "Locking in your sky details..."
-                      : "Add date + location to reveal your sky. Presets optional."}
+                      : canReveal
+                        ? "Generate your preview to unlock HD and print options."
+                        : revealBlockedMessage}
                   </p>
                   {canReveal ? (
                     isRevealing ? (
@@ -1250,15 +1262,9 @@ export function MobileCreate({
                       </button>
                     )
                   ) : (
-                    <button
-                      type="button"
-                      onClick={handleReveal}
-                      disabled
-                      aria-label="Generate preview"
-                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
-                    >
-                      Generate preview
-                    </button>
+                    <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-[11px] font-semibold text-neutral-200">
+                      {revealBlockedMessage}
+                    </div>
                   )}
                   <p className="text-[10px] text-neutral-300">
                     {isRevealing ? "This usually takes about a second." : "Free preview, HD optional."}
@@ -1313,7 +1319,7 @@ export function MobileCreate({
                   <span className="font-semibold text-amber-100">Best gift:</span> framed print.{" "}
                   <span className="font-semibold text-amber-100">Lower total:</span> unframed poster.
                 </div>
-                {printShippingCountries.length > 0 && (
+                {printShippingCountryOptions.length > 0 && (
                   <div className="mt-2">
                     <label className="text-[10px] font-semibold text-amber-100/80">Shipping country</label>
                     <select
@@ -1336,7 +1342,8 @@ export function MobileCreate({
                     {printShippingCountry && (
                       <p className="mt-1 text-[10px] text-amber-100/80">
                         Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
-                        {framedShippingLabel} · unframed {unframedShippingLabel}
+                        {framedShippingLabel} · unframed {unframedShippingLabel}. Delivery: framed{" "}
+                        {framedDeliveryLabel} · unframed {unframedDeliveryLabel}
                       </p>
                     )}
                   </div>
@@ -1346,10 +1353,10 @@ export function MobileCreate({
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
                     disabled={!printShippingCountry || printCheckoutInFlight}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:bg-amber-300/36"
                   >
                     {printCheckoutInFlight ? (
-                      "Opening secure checkout..."
+                      PRINT_CHECKOUT_REDIRECT_LABEL
                     ) : (
                       <span className="text-center leading-tight">
                         <span className="block text-[11px] font-semibold">🖼️ Framed + HD (recommended)</span>
@@ -1363,10 +1370,10 @@ export function MobileCreate({
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
                     disabled={!printShippingCountry || printCheckoutInFlight}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:bg-amber-300/20"
                   >
                     {printCheckoutInFlight ? (
-                      "Opening secure checkout..."
+                      PRINT_CHECKOUT_REDIRECT_LABEL
                     ) : (
                       <span className="text-center leading-tight">
                         <span className="block text-[11px] font-semibold">🖼️ Framed print</span>
@@ -1380,10 +1387,10 @@ export function MobileCreate({
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
                     disabled={!printShippingCountry || printCheckoutInFlight}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:bg-amber-100/20"
                   >
                     {printCheckoutInFlight ? (
-                      "Opening secure checkout..."
+                      PRINT_CHECKOUT_REDIRECT_LABEL
                     ) : (
                       <span className="text-center leading-tight">
                         <span className="block text-[11px] font-semibold">🖼️ Unframed print</span>
@@ -1394,11 +1401,8 @@ export function MobileCreate({
                     )}
                   </button>
                 </div>
-                {!printShippingCountry && (
-                  <p className="mt-2 text-[10px] font-semibold text-amber-100/85">
-                    Choose your shipping country to unlock print checkout buttons.
-                  </p>
-                )}
+                <p className="mt-2 text-[10px] font-semibold text-amber-100/85">{printCheckoutCtaState.helperText}</p>
+                {printCheckoutError ? <p className="mt-2 text-[10px] font-semibold text-rose-200">{printCheckoutError}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
                   <a
                     href="/star-map-gift-formats"

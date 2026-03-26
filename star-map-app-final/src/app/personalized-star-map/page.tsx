@@ -128,6 +128,16 @@ export default function PersonalizedStarMapPage() {
           >
             Start with framed print preview
           </Link>
+          <p className="mt-2 text-xs text-neutral-700">
+            Want a neutral start?{" "}
+            <Link
+              href="/editor?mode=quick&source=personalized-star-map-cta-preview"
+              className="font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-800"
+            >
+              Preview first, decide later
+            </Link>
+            .
+          </p>
         </div>
       </section>
       <AccuracyAuthorityCard source="personalized-accuracy-card" />

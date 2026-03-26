@@ -8,14 +8,14 @@ import {
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { formatPrice } from "@/lib/pricing";
-import { getPrintPricingTiers } from "@/lib/pricing";
+import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 
 export default function HomeHero() {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const pricingTiers = getPricingTiers();
   const printTiers = getPrintPricingTiers();
-  const digitalSingle = formatPrice(900, "USD");
+  const digitalSingle = formatPrice(pricingTiers.single.amountCents, pricingTiers.single.currency);
   const framedPrice = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,
     printTiers.poster_framed.currency,

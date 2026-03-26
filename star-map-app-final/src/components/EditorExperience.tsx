@@ -36,13 +36,16 @@ import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
+  formatPrintDeliveryEstimate,
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
+import { getPrintCheckoutCtaState, PRINT_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
+import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -108,13 +111,14 @@ function isLikelyLowMemoryDevice() {
 function getDownloadLocationHint() {
   if (typeof navigator === "undefined") return "Download started. Check your browser's download history if you don't see the file.";
   const ua = navigator.userAgent || "";
+  const inAppHint = getInAppBrowserDownloadHint(ua);
   if (/iPhone|iPad|iPod/i.test(ua)) {
-    return "Download started. On iPhone/iPad, open Files app -> Browse -> Downloads to find it.";
+    return `Download started. On iPhone/iPad, open Files app -> Browse -> Downloads to find it.${inAppHint ? ` ${inAppHint}` : ""}`;
   }
   if (/Android/i.test(ua)) {
-    return "Download started. On Android, open Files/My Files -> Downloads (or your browser download history).";
+    return `Download started. On Android, open Files/My Files -> Downloads (or your browser download history).${inAppHint ? ` ${inAppHint}` : ""}`;
   }
-  return "Download started. Check your Downloads folder (or browser download history) if it doesn't appear immediately.";
+  return `Download started. Check your Downloads folder (or browser download history) if it doesn't appear immediately.${inAppHint ? ` ${inAppHint}` : ""}`;
 }
 
 function normalizePromoCode(raw: string | null | undefined) {
@@ -441,9 +445,25 @@ export function EditorExperience({
     () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
     [printShippingCountry],
   );
+  const framedDeliveryLabel = useMemo(
+    () => formatPrintDeliveryEstimate("poster_framed", printShippingCountry),
+    [printShippingCountry],
+  );
   const unframedShippingLabel = useMemo(
     () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
     [printShippingCountry],
+  );
+  const unframedDeliveryLabel = useMemo(
+    () => formatPrintDeliveryEstimate("poster_unframed", printShippingCountry),
+    [printShippingCountry],
+  );
+  const printCheckoutCtaState = useMemo(
+    () =>
+      getPrintCheckoutCtaState({
+        checkoutInFlight,
+        hasShippingCountry: Boolean(printShippingCountry),
+      }),
+    [checkoutInFlight, printShippingCountry],
   );
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
@@ -1274,14 +1294,6 @@ export function EditorExperience({
           body: JSON.stringify(checkoutPayload),
         };
 
-        // Record checkout start right before the checkout API handoff so
-        // checkout_started -> checkout_request_received reflects real handoff quality.
-        trackFunnelStep("checkout_started", {
-          source: previewSource,
-          plan: orderType === "print" ? printVariant : plan,
-          experiment: PAYWALL_COPY_EXPERIMENT,
-          variant: paywallVariant,
-        });
         trackBeginCheckout({
           source: previewSource,
           plan,
@@ -2737,7 +2749,8 @@ export function EditorExperience({
                               {printShippingCountry && (
                                 <p className="mt-1 text-[10px] text-amber-100/80">
                                   Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
-                                  {framedShippingLabel} · unframed {unframedShippingLabel}
+                                  {framedShippingLabel} · unframed {unframedShippingLabel}. Delivery: framed{" "}
+                                  {framedDeliveryLabel} · unframed {unframedDeliveryLabel}
                                 </p>
                               )}
                             </div>
@@ -2755,7 +2768,7 @@ export function EditorExperience({
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/35 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/45 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {checkoutInFlight ? (
-                                  "Opening secure checkout..."
+                                  PRINT_CHECKOUT_REDIRECT_LABEL
                                 ) : (
                                   <span className="text-center leading-tight">
                                     <span className="block text-[11px] font-semibold">Framed + HD (recommended)</span>
@@ -2778,7 +2791,7 @@ export function EditorExperience({
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {checkoutInFlight ? (
-                                  "Opening secure checkout..."
+                                  PRINT_CHECKOUT_REDIRECT_LABEL
                                 ) : (
                                   <span className="text-center leading-tight">
                                     <span className="block text-[11px] font-semibold">Framed print</span>
@@ -2801,7 +2814,7 @@ export function EditorExperience({
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {checkoutInFlight ? (
-                                  "Opening secure checkout..."
+                                  PRINT_CHECKOUT_REDIRECT_LABEL
                                 ) : (
                                   <span className="text-center leading-tight">
                                     <span className="block text-[11px] font-semibold">Unframed print</span>
@@ -2812,11 +2825,7 @@ export function EditorExperience({
                                 )}
                               </button>
                             </div>
-                            {!printShippingCountry && (
-                              <p className="mt-2 text-[11px] font-semibold text-amber-100/80">
-                                Choose a shipping country to unlock print checkout.
-                              </p>
-                            )}
+                            <p className="mt-2 text-[11px] font-semibold text-amber-100/80">{printCheckoutCtaState.helperText}</p>
                             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                               <a
                                 href="/star-map-gift-formats"
@@ -2864,6 +2873,7 @@ export function EditorExperience({
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
               printCheckoutInFlight={checkoutInFlight}
+              printCheckoutError={checkoutError}
               onPrintShippingCountryChange={(country) => {
                 setPrintShippingCountryValue(country, "mobile-preview");
               }}

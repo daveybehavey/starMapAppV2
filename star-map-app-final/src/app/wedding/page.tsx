@@ -132,6 +132,16 @@ export default function WeddingPage() {
           >
             Start with framed print preview
           </Link>
+          <p className="mt-2 text-xs text-neutral-700">
+            Want a neutral start?{" "}
+            <Link
+              href="/editor?mode=quick&source=wedding-cta-preview"
+              className="font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-800"
+            >
+              Preview first, decide later
+            </Link>
+            .
+          </p>
         </div>
       </section>
       <AccuracyAuthorityCard source="wedding-accuracy-card" />
@@ -193,7 +203,7 @@ export default function WeddingPage() {
         leftPoints={[
           "Secure Stripe checkout",
           "Instant HD download after payment",
-          "No watermark on paid exports",
+          "One-time checkout supports framed print, unframed print, or HD digital delivery",
         ]}
         rightTitle="Print and support"
         rightPoints={[
