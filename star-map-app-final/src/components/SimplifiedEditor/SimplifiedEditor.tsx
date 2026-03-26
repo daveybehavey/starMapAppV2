@@ -30,7 +30,8 @@ import {
   isValidIsoDateInput,
   toISODate,
 } from "@/lib/dateInput";
-import { trackCheckoutClientDiagnostic, trackFunnelStep } from "@/lib/analytics";
+import { track, trackBeginCheckout, trackCheckoutClientDiagnostic } from "@/lib/analytics";
+import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -106,13 +107,14 @@ const DEFAULT_EXACT_TIME = DEFAULT_TIME;
 function getDownloadLocationHint() {
   if (typeof navigator === "undefined") return "Download started. Check your browser download history.";
   const ua = navigator.userAgent || "";
+  const inAppHint = getInAppBrowserDownloadHint(ua);
   if (/iPhone|iPad|iPod/i.test(ua)) {
-    return "Download started. On iPhone/iPad, open Files app -> Browse -> Downloads.";
+    return `Download started. On iPhone/iPad, open Files app -> Browse -> Downloads.${inAppHint ? ` ${inAppHint}` : ""}`;
   }
   if (/Android/i.test(ua)) {
-    return "Download started. On Android, open Files/My Files -> Downloads.";
+    return `Download started. On Android, open Files/My Files -> Downloads.${inAppHint ? ` ${inAppHint}` : ""}`;
   }
-  return "Download started. Check your Downloads folder if it does not open automatically.";
+  return `Download started. Check your Downloads folder if it does not open automatically.${inAppHint ? ` ${inAppHint}` : ""}`;
 }
 
 export function SimplifiedEditor() {
@@ -530,10 +532,11 @@ export function SimplifiedEditor() {
     }
 
     // User hasn't paid - save recipe and redirect to checkout
-    hdExportInFlightRef.current = true;
-    setHdExporting(true);
-    let checkoutApiResponseReceived = false;
-    try {
+  hdExportInFlightRef.current = true;
+  setHdExporting(true);
+  let checkoutApiResponseReceived = false;
+  let checkoutTimeoutId: number | null = null;
+  try {
       // Save the recipe first
       const recipe = buildRecipeFromState({
         dateTime,
@@ -576,13 +579,15 @@ export function SimplifiedEditor() {
       // Create checkout session
       const checkoutPayload: { mapId?: string; plan: string } = { plan: "single" };
       if (mapId) checkoutPayload.mapId = mapId;
-      trackFunnelStep("checkout_started", {
+
+      trackBeginCheckout({
         source: "simplified_editor",
         plan: "single",
+        orderType: "digital",
       });
 
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 30000);
+      checkoutTimeoutId = window.setTimeout(() => controller.abort(), 30000);
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -590,7 +595,10 @@ export function SimplifiedEditor() {
         signal: controller.signal,
       });
       checkoutApiResponseReceived = true;
-      window.clearTimeout(timeout);
+      if (checkoutTimeoutId) {
+        window.clearTimeout(checkoutTimeoutId);
+        checkoutTimeoutId = null;
+      }
 
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
@@ -604,6 +612,16 @@ export function SimplifiedEditor() {
         try {
           const nextUrl = new URL(data.url);
           if (nextUrl.protocol.startsWith("http")) {
+            track("checkout_redirected", {
+              source: "simplified_editor",
+              plan: "single",
+              orderType: "digital",
+              promoApplied: false,
+              referralOfferApplied: false,
+              promotionSource: "none",
+              referralApplied: false,
+              variant: "simplified_editor",
+            });
             window.location.href = nextUrl.toString();
             return;
           }
@@ -614,7 +632,12 @@ export function SimplifiedEditor() {
       throw new Error("No checkout URL");
     } catch (err) {
       console.error("Checkout error:", err);
-      const reason = err instanceof Error ? err.message : "checkout_failed";
+      const reason =
+        err instanceof DOMException && err.name === "AbortError"
+          ? "checkout_timeout"
+          : err instanceof Error
+            ? err.message
+            : "checkout_failed";
       if (!checkoutApiResponseReceived) {
         trackCheckoutClientDiagnostic({
           reason,
@@ -623,7 +646,9 @@ export function SimplifiedEditor() {
           orderType: "digital",
         });
       }
-      if (reason === "map_required") {
+      if (reason === "checkout_timeout") {
+        setExportError("Checkout timed out. Please retry.");
+      } else if (reason === "map_required") {
         setExportError("Generate a preview before checkout.");
       } else if (reason === "map_not_found") {
         setExportError("We couldn't find your saved map. Refresh and try again.");
@@ -635,6 +660,10 @@ export function SimplifiedEditor() {
       // Reset state on error
       hdExportInFlightRef.current = false;
       setHdExporting(false);
+    } finally {
+      if (checkoutTimeoutId) {
+        window.clearTimeout(checkoutTimeoutId);
+      }
     }
   }, [aspectRatio, dateTime, exportImage, location, paid, renderOptions, selectedStyle, shape, textBoxes]);
 
@@ -680,10 +709,23 @@ export function SimplifiedEditor() {
       : "+ Add exact time (optional)";
   const titleTrimmed = title.trim();
   const titleIsValid = titleTrimmed.length > 0 && titleTrimmed.length <= 100;
+  const hasDateSelected = Boolean(dateInputValue);
   const dateIsValid = !dateError && (!dateInputValue || dateInputValue <= maxDateValue);
-  const canExport = mode !== "sample" && locationIsValid && titleIsValid && dateIsValid;
+  const isCustomizing = mode !== "sample";
+  const canExport = isCustomizing && hasDateSelected && locationIsValid && titleIsValid && dateIsValid;
   const showTitleError = mode === "customizing" && titleTouched && !titleIsValid;
   const showDateError = mode === "customizing" && dateTouched && Boolean(dateError);
+  const readinessChecks = [
+    { label: "Start customizing", done: isCustomizing },
+    { label: "Choose a date", done: hasDateSelected && dateIsValid },
+    { label: "Set a location", done: locationIsValid },
+    { label: "Add a title", done: titleIsValid },
+  ];
+  const remainingReadinessCount = readinessChecks.filter((item) => !item.done).length;
+  const readinessSummary =
+    remainingReadinessCount === 0
+      ? "Ready: preview + HD checkout are unlocked."
+      : `${remainingReadinessCount} step${remainingReadinessCount === 1 ? "" : "s"} left before export.`;
 
   // Dynamic recipe that applies user's style/shape/renderOptions choices to the sample preview
   const dynamicRecipe: MapRecipe = useMemo(() => {
@@ -1002,6 +1044,28 @@ export function SimplifiedEditor() {
         )}
 
         {/* Action Buttons */}
+        <div className="rounded-lg border border-white/12 bg-white/[0.04] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">Export checklist</p>
+          <div className="mt-2 grid gap-1 text-xs text-white/80 sm:grid-cols-2">
+            {readinessChecks.map((item) => (
+              <p key={item.label} className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className={`inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] ${
+                    item.done
+                      ? "border-emerald-300/70 bg-emerald-300/15 text-emerald-100"
+                      : "border-white/25 bg-white/5 text-white/55"
+                  }`}
+                >
+                  {item.done ? "✓" : "•"}
+                </span>
+                <span>{item.label}</span>
+              </p>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-amber-100/80">{readinessSummary}</p>
+        </div>
+
         <div className="flex flex-col gap-3" role="group" aria-label="Download options">
           <button
             type="button"
@@ -1017,7 +1081,7 @@ export function SimplifiedEditor() {
                 Exporting...
               </>
             ) : (
-              <>⬇️ Free preview</>
+              <>⬇️ Download free preview</>
             )}
           </button>
           <span id={`${formId}-preview-hint`} className="sr-only">
@@ -1040,13 +1104,16 @@ export function SimplifiedEditor() {
             ) : paid ? (
               <>⬇️ HD download</>
             ) : (
-              <>🔒 Unlock HD</>
+              <>🔒 Continue to secure checkout</>
             )}
           </button>
           <span id={`${formId}-hd-hint`} className="sr-only">
             {paid ? "Download high-resolution star map" : "Purchase to unlock high-resolution download"}
           </span>
         </div>
+        <p className="text-[11px] text-white/55">
+          Secure checkout supports cards plus Apple Pay, Google Pay, and Link on supported devices.
+        </p>
         {downloadHint && (
           <div className="rounded-lg border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-100">
             <p>{downloadHint}</p>

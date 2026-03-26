@@ -16,6 +16,8 @@ const OPTIONAL = [
   "NEXT_PUBLIC_POSTHOG_KEY",
   "NEXT_PUBLIC_POSTHOG_HOST",
   "NEXT_PUBLIC_GA_ID",
+  "NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_ENABLED",
+  "NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID",
   "PROMOTION_COUPON_CODE",
   "PROMOTION_EMAIL_FROM",
   "ACCOUNT_RECOVERY_EMAIL_FROM",
@@ -213,6 +215,15 @@ if (process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD && !process.env.STRIPE_SH
 const dynamicShippingEnabled = parseBooleanEnv("PRINT_DYNAMIC_SHIPPING");
 if (dynamicShippingEnabled === true && process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim()) {
   warnings.push("PRINT_DYNAMIC_SHIPPING=true ignores STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD at runtime");
+}
+
+const googleCustomerReviewsEnabled = parseBooleanEnv("NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_ENABLED");
+const googleCustomerReviewsMerchantId = process.env.NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID?.trim();
+if (googleCustomerReviewsMerchantId && !/^\d+$/.test(googleCustomerReviewsMerchantId)) {
+  errors.push("NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID must be numeric");
+}
+if (googleCustomerReviewsEnabled === true && !googleCustomerReviewsMerchantId) {
+  errors.push("NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_ENABLED=true requires NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID");
 }
 
 const geoPricingEnabled = parseBooleanEnv("GEO_DIGITAL_SINGLE_PRICING_ENABLED");

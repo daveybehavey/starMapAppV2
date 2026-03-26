@@ -1,4 +1,5 @@
 import type { FunnelStep } from "./funnelSteps";
+import { isServerCanonicalFunnelStep } from "./funnelSteps";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 
 export type EventProps = Record<string, string | number | boolean | undefined | null>;
@@ -337,7 +338,7 @@ export function trackFunnelStep(step: FunnelStep, props?: FunnelEventProps) {
   if (canTrackAnalytics()) {
     track("funnel_step", payload);
   }
-  if (canTrackFunnelCounters()) {
+  if (canTrackFunnelCounters() && !isServerCanonicalFunnelStep(step)) {
     postFunnelCounter({
       step,
       source: typeof payload.source === "string" ? payload.source : undefined,

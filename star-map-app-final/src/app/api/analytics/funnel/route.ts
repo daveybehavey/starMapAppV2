@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { getFunnelDashboard, recordFunnelStep } from "@/lib/funnel";
-import { isFunnelStep } from "@/lib/funnelSteps";
+import { isFunnelStep, isServerCanonicalFunnelStep } from "@/lib/funnelSteps";
 
 export const runtime = "nodejs";
 
@@ -14,7 +14,6 @@ type FunnelRequestBody = {
 };
 
 const dashboardToken = process.env.FUNNEL_DASHBOARD_TOKEN?.trim() || "";
-
 function hasDashboardAccess(req: NextRequest) {
   if (!dashboardToken) return true;
   const token =
@@ -40,6 +39,12 @@ export async function POST(req: NextRequest) {
   const step = typeof body.step === "string" ? body.step.trim() : "";
   if (!isFunnelStep(step)) {
     return NextResponse.json({ ok: false, error: "Invalid step" }, { status: 400 });
+  }
+
+  // These milestones are now recorded server-side only to keep funnel math trustworthy.
+  // Returning 202 avoids breaking older cached clients that may still try to post them.
+  if (isServerCanonicalFunnelStep(step)) {
+    return NextResponse.json({ ok: true, ignored: true, reason: "server_canonical_step" }, { status: 202 });
   }
 
   await recordFunnelStep({

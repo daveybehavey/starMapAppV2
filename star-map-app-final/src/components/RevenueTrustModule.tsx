@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getBusinessProfile } from "@/lib/businessProfile";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
@@ -14,6 +15,7 @@ export default function RevenueTrustModule({
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
   );
+  const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
   const printTiers = getPrintPricingTiers();
   const digitalAddOn = getPrintDigitalAddOnPrice();
@@ -61,7 +63,7 @@ export default function RevenueTrustModule({
         </div>
         <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">Clear policy + support</p>
-          <p className="mt-1 text-xs text-neutral-700">Returns policy is public and support is available at support@starmapco.com.</p>
+          <p className="mt-1 text-xs text-neutral-700">Returns policy is public and support is available at {supportEmail}.</p>
         </div>
       </div>
 
@@ -98,7 +100,7 @@ export default function RevenueTrustModule({
           {printCheckoutEnabled && <li>If ordering physical print, choose unframed vs framed before payment.</li>}
           {printCheckoutEnabled && <li>If you want the stronger gift presentation, choose framed; if you already have a frame plan, keep the lower total with unframed.</li>}
           {printCheckoutEnabled && <li>Review your shipping address carefully before paying for a physical order.</li>}
-          {printCheckoutEnabled && <li>If a print arrives damaged, contact support@starmapco.com for replacement support.</li>}
+          {printCheckoutEnabled && <li>If a print arrives damaged, contact {supportEmail} for replacement support.</li>}
           <li>Use the print guide if you need framing confidence.</li>
         </ul>
       </div>

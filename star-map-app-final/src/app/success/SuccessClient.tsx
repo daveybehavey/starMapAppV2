@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
-  trackFunnelStep,
   trackPurchaseCompleted,
   trackSelectItem,
   trackViewItemList,
@@ -29,6 +28,7 @@ import {
 import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
+import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -65,6 +65,20 @@ const referralRewardCredits = (() => {
 })();
 const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
+const googleCustomerReviewsEnabled = /^(1|true|yes)$/i.test(
+  (process.env.NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_ENABLED || "").trim(),
+);
+const googleCustomerReviewsMerchantId = (() => {
+  const raw = (process.env.NEXT_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID || "").trim();
+  if (!/^\d+$/.test(raw)) return null;
+  return raw;
+})();
+
+type GoogleCustomerReviewsPayload = {
+  customerEmail: string | null;
+  deliveryCountry: string | null;
+  estimatedDeliveryDate: string | null;
+};
 
 function readStoredMapId() {
   if (typeof window === "undefined") return null;
@@ -93,6 +107,15 @@ export default function SuccessClient() {
   const [accessLinkCopied, setAccessLinkCopied] = useState(false);
   const [accessEmailStatus, setAccessEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [accessEmailMessage, setAccessEmailMessage] = useState<string | null>(null);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryStatus, setRecoveryStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [sessionIdForGcr, setSessionIdForGcr] = useState<string | null>(null);
+  const [googleCustomerReviewsPayload, setGoogleCustomerReviewsPayload] = useState<GoogleCustomerReviewsPayload>({
+    customerEmail: null,
+    deliveryCountry: null,
+    estimatedDeliveryDate: null,
+  });
   const [portalLoading, setPortalLoading] = useState(false);
   const [digitalAddOnLoading, setDigitalAddOnLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
@@ -104,10 +127,15 @@ export default function SuccessClient() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
+  const inAppBrowserHint = useMemo(() => {
+    if (typeof navigator === "undefined") return null;
+    return getInAppBrowserDownloadHint(navigator.userAgent || "");
+  }, []);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
   const printUpsellTrackedRef = useRef(false);
   const accessPanelTrackedRef = useRef(false);
+  const customerReviewsRenderedRef = useRef(false);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
   const printPriceLabels = {
     framedName: getPrintPricingTiers().poster_framed.label,
@@ -209,6 +237,55 @@ export default function SuccessClient() {
     window.open(accessLink, "_blank", "noopener,noreferrer");
   }, [accessLink, pauseRedirect]);
 
+  const handleSendRecoveryEmail = useCallback(async () => {
+    const email = recoveryEmail.trim().toLowerCase();
+    if (!email) {
+      setRecoveryStatus("error");
+      setRecoveryMessage("Enter the checkout email used for your purchase.");
+      return;
+    }
+    pauseRedirect();
+    setRecoveryStatus("sending");
+    setRecoveryMessage(null);
+    try {
+      const res = await fetch("/api/account/recover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string; supportEmail?: string } | null;
+        if (res.status === 429) {
+          setRecoveryStatus("error");
+          setRecoveryMessage("Too many attempts. Please wait before trying again.");
+          track("account_recovery_requested", { source: "success", outcome: "rate_limited" });
+          return;
+        }
+        if (payload?.error === "recovery_email_not_configured") {
+          const contact = payload.supportEmail || supportEmail;
+          setRecoveryStatus("error");
+          setRecoveryMessage(`Recovery email is unavailable right now. Contact ${contact}.`);
+          track("account_recovery_requested", { source: "success", outcome: "not_configured" });
+          return;
+        }
+        if (payload?.error === "invalid_email") {
+          setRecoveryStatus("error");
+          setRecoveryMessage("Use a valid email address.");
+          track("account_recovery_requested", { source: "success", outcome: "invalid_email" });
+          return;
+        }
+        throw new Error(payload?.error ?? "request_failed");
+      }
+      setRecoveryStatus("sent");
+      setRecoveryMessage("If that email matches a paid order, we sent fresh recovery links.");
+      track("account_recovery_requested", { source: "success", outcome: "accepted" });
+    } catch {
+      setRecoveryStatus("error");
+      setRecoveryMessage(`Couldn't send recovery links yet. Please retry or contact ${supportEmail}.`);
+      track("account_recovery_requested", { source: "success", outcome: "error" });
+    }
+  }, [pauseRedirect, recoveryEmail]);
+
   const handleManageBilling = useCallback(async () => {
     if (portalLoading) return;
     pauseRedirect();
@@ -237,9 +314,10 @@ export default function SuccessClient() {
     let checkoutApiResponseReceived = false;
     try {
       track("success_recovery_action", { action: "add_digital_download_clicked" });
-      trackFunnelStep("checkout_started", {
+      trackBeginCheckout({
         source: "success",
         plan: "single",
+        orderType: "digital",
       });
       const checkoutMapId = resolvedMapId ?? readStoredMapId();
       if (!checkoutMapId) {
@@ -266,11 +344,6 @@ export default function SuccessClient() {
         source: "success",
         orderType,
         printVariant,
-      });
-      trackBeginCheckout({
-        source: "success",
-        plan: "single",
-        orderType: "digital",
       });
       window.location.assign(data.url);
     } catch (error) {
@@ -485,6 +558,7 @@ export default function SuccessClient() {
     let active = true;
     redirectTimerRef.current = null;
     const sessionId = searchParams.get("session_id");
+    setSessionIdForGcr(sessionId ?? null);
     const mapIdParam = searchParams.get("map_id")?.trim() || null;
     if (!sessionId) {
       setStatus("error");
@@ -527,6 +601,9 @@ export default function SuccessClient() {
             orderType?: CheckoutOrderType;
             printVariant?: PrintVariant | null;
             includesDigitalAddOn?: boolean;
+            customerEmail?: string | null;
+            printShippingCountry?: string | null;
+            printEstimatedDeliveryDate?: string | null;
           } | null;
           if (data?.paid) {
             const verifiedPlan =
@@ -567,6 +644,23 @@ export default function SuccessClient() {
             setCurrentPlan(verifiedPlan);
             setOrderType(verifiedOrderType);
             setPrintVariant(verifiedPrintVariant);
+            setGoogleCustomerReviewsPayload({
+              customerEmail:
+                typeof data.customerEmail === "string" && data.customerEmail.trim()
+                  ? data.customerEmail.trim().toLowerCase()
+                  : null,
+              deliveryCountry:
+                typeof data.printShippingCountry === "string" && /^[A-Za-z]{2}$/.test(data.printShippingCountry.trim())
+                  ? data.printShippingCountry.trim().toUpperCase()
+                  : null,
+              estimatedDeliveryDate:
+                typeof data.printEstimatedDeliveryDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.printEstimatedDeliveryDate.trim())
+                  ? data.printEstimatedDeliveryDate.trim()
+                  : null,
+            });
+            if (typeof data.customerEmail === "string" && data.customerEmail.trim()) {
+              setRecoveryEmail(data.customerEmail.trim().toLowerCase());
+            }
             const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
             setResolvedMapId(resolvedMapId);
             if (hasDigitalEntitlement) {
@@ -604,7 +698,7 @@ export default function SuccessClient() {
       if (!active) return;
       setStatus("error");
       setMessage(
-        "Payment verification is taking longer than expected. Please try again or contact support@starmapco.com.",
+        `Payment verification is taking longer than expected. Please try again or contact ${supportEmail}.`,
       );
     };
 
@@ -655,6 +749,84 @@ export default function SuccessClient() {
     });
   }, [currentPlan, hasDigitalEntitlement, orderType, resolvedMapId, status]);
 
+  useEffect(() => {
+    if (customerReviewsRenderedRef.current) return;
+    if (status !== "success" || !isPrintOrder) return;
+    if (!googleCustomerReviewsEnabled || !googleCustomerReviewsMerchantId) return;
+    const customerEmail = googleCustomerReviewsPayload.customerEmail?.trim().toLowerCase() || "";
+    const deliveryCountry = googleCustomerReviewsPayload.deliveryCountry?.trim().toUpperCase() || "";
+    const estimatedDeliveryDate = googleCustomerReviewsPayload.estimatedDeliveryDate?.trim() || "";
+    const orderId = sessionIdForGcr?.trim() || "";
+    if (!customerEmail || !deliveryCountry || !estimatedDeliveryDate || !orderId) return;
+    if (typeof window === "undefined") return;
+
+    type GoogleApiWindow = Window & {
+      gapi?: {
+        load?: (name: string, callback: () => void) => void;
+        surveyoptin?: {
+          render: (options: {
+            merchant_id: string;
+            order_id: string;
+            email: string;
+            delivery_country: string;
+            estimated_delivery_date: string;
+          }) => void;
+        };
+      };
+      renderOptIn?: () => void;
+    };
+
+    const win = window as GoogleApiWindow;
+    const renderOptIn = () => {
+      const surveyOptIn = win.gapi?.surveyoptin;
+      if (!surveyOptIn?.render) return;
+      surveyOptIn.render({
+        merchant_id: googleCustomerReviewsMerchantId,
+        order_id: orderId,
+        email: customerEmail,
+        delivery_country: deliveryCountry,
+        estimated_delivery_date: estimatedDeliveryDate,
+      });
+      customerReviewsRenderedRef.current = true;
+      track("google_customer_reviews_optin_rendered", {
+        order_type: "print",
+      });
+    };
+
+    if (win.gapi?.surveyoptin?.render) {
+      renderOptIn();
+      return;
+    }
+
+    win.renderOptIn = () => {
+      if (win.gapi?.load) {
+        win.gapi.load("surveyoptin", renderOptIn);
+        return;
+      }
+      renderOptIn();
+    };
+
+    const scriptId = "google-customer-reviews-platform";
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://apis.google.com/js/platform.js?onload=renderOptIn";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    } else {
+      win.renderOptIn?.();
+    }
+  }, [
+    googleCustomerReviewsPayload.customerEmail,
+    googleCustomerReviewsPayload.deliveryCountry,
+    googleCustomerReviewsPayload.estimatedDeliveryDate,
+    hasDigitalEntitlement,
+    isPrintOrder,
+    sessionIdForGcr,
+    status,
+  ]);
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
       {/* Celebration stars animation */}
@@ -696,7 +868,7 @@ export default function SuccessClient() {
         <p className="relative mt-2 text-sm text-amber-100/90">
           {status === "error"
             ? message ??
-              "Payment verification is taking longer than expected. Please refresh or contact support@starmapco.com."
+              `Payment verification is taking longer than expected. Please refresh or contact ${supportEmail}.`
             : status === "success"
               ? isPrintOrder
                 ? hasDigitalEntitlement
@@ -821,9 +993,17 @@ export default function SuccessClient() {
                     <p className="mt-1 text-[11px] text-amber-100/70">
                       Mobile tip: on iPhone, downloaded files are in <strong>Files → Downloads</strong> (not Photos).
                     </p>
+                    {inAppBrowserHint && <p className="mt-1 text-[11px] text-amber-100/70">{inAppBrowserHint}</p>}
                     <p className="mt-1 text-[11px] text-amber-100/70">
                       If your download page says map not found, open the editor once to create/load the map, then return to
                       download.
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-100/70">
+                      Need help right now? Email{" "}
+                      <a className="underline decoration-amber-200/70 underline-offset-2 hover:text-white" href={`mailto:${supportEmail}`}>
+                        {supportEmail}
+                      </a>
+                      .
                     </p>
                     {currentPlan === "pack3" && (
                       <p className="mt-1 text-[11px] text-amber-100/70">
@@ -1138,21 +1318,76 @@ export default function SuccessClient() {
           </>
         )}
         {status === "error" && (
-          <div className="relative mt-4 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setVerificationRunId((prev) => prev + 1)}
-              className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
-            >
-              Retry verification
-            </button>
-            <button
-              type="button"
-              onClick={() => router.replace("/")}
-              className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
-            >
-              Back to home
-            </button>
+          <div className="relative mt-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setVerificationRunId((prev) => prev + 1)}
+                className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
+              >
+                Retry verification
+              </button>
+              <button
+                type="button"
+                onClick={() => router.replace("/")}
+                className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
+              >
+                Back to home
+              </button>
+              <button
+                type="button"
+                onClick={() => router.replace("/my-downloads")}
+                className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
+              >
+                Open My Downloads
+              </button>
+              <a
+                href={`mailto:${supportEmail}`}
+                className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
+              >
+                Email support
+              </a>
+            </div>
+            <div className="mx-auto max-w-xl rounded-2xl border border-white/20 bg-white/8 p-4 text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100">Email Recovery Links</p>
+              <p className="mt-1 text-[11px] text-amber-100/80">
+                Enter your checkout email and we&apos;ll send fresh secure links for recent paid orders.
+              </p>
+              <form
+                className="mt-2 flex flex-col gap-2 sm:flex-row"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSendRecoveryEmail();
+                }}
+              >
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(event) => {
+                    setRecoveryEmail(event.target.value);
+                    if (recoveryStatus !== "idle") {
+                      setRecoveryStatus("idle");
+                      setRecoveryMessage(null);
+                    }
+                  }}
+                  placeholder="you@email.com"
+                  autoComplete="email"
+                  className="min-w-0 flex-1 rounded-full border border-white/20 bg-white px-3 py-2 text-xs text-midnight placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
+                />
+                <button
+                  type="submit"
+                  disabled={recoveryStatus === "sending"}
+                  className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {recoveryStatus === "sending" ? "Sending..." : "Send links"}
+                </button>
+              </form>
+              {recoveryMessage && (
+                <p className={`mt-2 text-xs ${recoveryStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+                  {recoveryMessage}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>

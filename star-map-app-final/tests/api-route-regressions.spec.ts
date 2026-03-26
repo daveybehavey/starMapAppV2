@@ -76,8 +76,12 @@ test.describe("API route regressions", () => {
         source: "playwright_api_test",
       },
     });
-    expect(expiredResponse.status()).toBe(200);
-    expect((await expiredResponse.json()) as { ok?: boolean }).toEqual({ ok: true });
+    expect(expiredResponse.status()).toBe(202);
+    expect((await expiredResponse.json()) as { ok?: boolean; ignored?: boolean; reason?: string }).toEqual({
+      ok: true,
+      ignored: true,
+      reason: "server_canonical_step",
+    });
 
     const invalidResponse = await requestUntilReady(request, "/api/analytics/funnel", {
       method: "POST",

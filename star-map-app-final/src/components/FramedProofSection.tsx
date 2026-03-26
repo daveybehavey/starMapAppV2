@@ -43,7 +43,7 @@ export default function FramedProofSection({
             <div className="proof-wall-stage proof-wall-stage--gallery">
               <ResilientImage
                 src={framedProofImage}
-                fallbackSrc="/printproof/framed-mockup.jpg"
+                fallbackSrc="/printproof/home/delivery-framed-heart.webp"
                 alt="Framed StarMapCo star map mockup"
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
@@ -59,7 +59,7 @@ export default function FramedProofSection({
             <div className="proof-wall-stage proof-wall-stage--tabletop">
               <ResilientImage
                 src={unframedProofImage}
-                fallbackSrc="/printproof/unframed-mockup.jpg"
+                fallbackSrc="/printproof/home/delivery-unframed-classic.webp"
                 alt="Unframed StarMapCo poster mockup"
                 fill
                 sizes="(max-width: 1024px) 100vw, 25vw"

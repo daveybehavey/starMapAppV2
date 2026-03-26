@@ -91,6 +91,29 @@ export function formatPrintShippingEstimate(
   return `${formatPrice(estimate.amountCents, estimate.currency)} shipping`;
 }
 
+export function formatPrintDeliveryEstimate(
+  variant: "poster_unframed" | "poster_framed",
+  country: string | null | undefined,
+  fallback = "delivery shown in checkout",
+) {
+  const estimate = getPrintShippingEstimate(variant, country);
+  if (!estimate) return fallback;
+  const minDays = estimate.minDeliveryDays;
+  const maxDays = estimate.maxDeliveryDays;
+  if (typeof minDays === "number" && typeof maxDays === "number") {
+    if (minDays <= 0 || maxDays <= 0) return fallback;
+    if (minDays === maxDays) return `${minDays} business day${minDays === 1 ? "" : "s"}`;
+    return `${minDays}-${maxDays} business days`;
+  }
+  if (typeof maxDays === "number" && maxDays > 0) {
+    return `up to ${maxDays} business days`;
+  }
+  if (typeof minDays === "number" && minDays > 0) {
+    return `${minDays}+ business days`;
+  }
+  return fallback;
+}
+
 export function readStoredPrintShippingCountry() {
   if (typeof window === "undefined") return null;
   try {

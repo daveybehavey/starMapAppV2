@@ -401,11 +401,19 @@ export function renderStarMap({
     return;
   }
 
-  canvas.width = width * pixelRatio;
-  canvas.height = targetHeight * pixelRatio;
+  const targetCanvasWidth = Math.max(1, Math.round(width * pixelRatio));
+  const targetCanvasHeight = Math.max(1, Math.round(targetHeight * pixelRatio));
+  if (canvas.width !== targetCanvasWidth) {
+    canvas.width = targetCanvasWidth;
+  }
+  if (canvas.height !== targetCanvasHeight) {
+    canvas.height = targetCanvasHeight;
+  }
   if (canvas.style) {
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${targetHeight}px`;
+    const cssWidth = `${width}px`;
+    const cssHeight = `${targetHeight}px`;
+    if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth;
+    if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight;
   }
 
   const baseWidth = BASE_CANVAS_WIDTH;
@@ -510,11 +518,19 @@ export function renderStarMapTextLayer({
     return;
   }
 
-  canvas.width = Math.max(1, Math.round(width * pixelRatio));
-  canvas.height = Math.max(1, Math.round(height * pixelRatio));
+  const targetCanvasWidth = Math.max(1, Math.round(width * pixelRatio));
+  const targetCanvasHeight = Math.max(1, Math.round(height * pixelRatio));
+  if (canvas.width !== targetCanvasWidth) {
+    canvas.width = targetCanvasWidth;
+  }
+  if (canvas.height !== targetCanvasHeight) {
+    canvas.height = targetCanvasHeight;
+  }
   if (canvas.style) {
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    const cssWidth = `${width}px`;
+    const cssHeight = `${height}px`;
+    if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth;
+    if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight;
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);

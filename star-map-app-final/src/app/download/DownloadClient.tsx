@@ -25,6 +25,7 @@ import {
 } from "@/lib/pricing";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
+  formatPrintDeliveryEstimate,
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
@@ -40,6 +41,7 @@ import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
 import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
+import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -113,13 +115,14 @@ function getPreviewSource() {
 function getDeviceDownloadLocationHint() {
   if (typeof navigator === "undefined") return "Check your browser download history if it doesn't open.";
   const ua = navigator.userAgent || "";
+  const inAppHint = getInAppBrowserDownloadHint(ua);
   if (/iPhone|iPad|iPod/i.test(ua)) {
-    return "On iPhone/iPad, open Files app -> Browse -> Downloads.";
+    return `On iPhone/iPad, open Files app -> Browse -> Downloads.${inAppHint ? ` ${inAppHint}` : ""}`;
   }
   if (/Android/i.test(ua)) {
-    return "On Android, open Files/My Files -> Downloads.";
+    return `On Android, open Files/My Files -> Downloads.${inAppHint ? ` ${inAppHint}` : ""}`;
   }
-  return "Check your Downloads folder if it doesn't open.";
+  return `Check your Downloads folder if it doesn't open.${inAppHint ? ` ${inAppHint}` : ""}`;
 }
 
 function formatDownloadStartedMessage({
@@ -340,8 +343,16 @@ export default function DownloadClient() {
     () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
     [printShippingCountry],
   );
+  const framedDeliveryLabel = useMemo(
+    () => formatPrintDeliveryEstimate("poster_framed", printShippingCountry),
+    [printShippingCountry],
+  );
   const unframedShippingLabel = useMemo(
     () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
+    [printShippingCountry],
+  );
+  const unframedDeliveryLabel = useMemo(
+    () => formatPrintDeliveryEstimate("poster_unframed", printShippingCountry),
     [printShippingCountry],
   );
   const shippingCountryLabel = useMemo(
@@ -355,6 +366,10 @@ export default function DownloadClient() {
   const isAndroidDevice = useMemo(() => {
     if (typeof navigator === "undefined") return false;
     return /Android/i.test(navigator.userAgent || "");
+  }, []);
+  const inAppBrowserHint = useMemo(() => {
+    if (typeof navigator === "undefined") return null;
+    return getInAppBrowserDownloadHint(navigator.userAgent || "");
   }, []);
 
   useEffect(() => {
@@ -1035,9 +1050,12 @@ export default function DownloadClient() {
           }
           throw new Error("asset_upload_failed");
         }
-        trackFunnelStep("checkout_started", {
+        trackBeginCheckout({
           source: "download",
-          plan: variant,
+          plan: "single",
+          orderType: "print",
+          printVariant: variant,
+          includeDigitalAddOn: false,
         });
         checkoutStartedTracked = true;
         const res = await fetch("/api/checkout", {
@@ -1076,13 +1094,6 @@ export default function DownloadClient() {
           source: "download",
           variant,
           hasMapId: Boolean(mapId),
-        });
-        trackBeginCheckout({
-          source: "download",
-          plan: "single",
-          orderType: "print",
-          printVariant: variant,
-          includeDigitalAddOn: false,
         });
         window.location.assign(data.url);
       } catch (error) {
@@ -1352,7 +1363,7 @@ export default function DownloadClient() {
     status === "no-draft"
       ? "Your HD export credits are active, but this browser has no saved map yet. Open the editor to create or reload your map, then return here to export."
       : status === "not-paid"
-        ? "We could not verify your access yet. Reopen your secure success link and return to this page."
+        ? "We could not verify your access yet. Reopen your secure success link, or use My Downloads to recover access by email."
         : currentPlan === "pack3"
         ? "Your 3-credit pack is active. Each HD download exports the current map and uses 1 credit. Edit or create another map between downloads to use all 3 credits."
           : "Your access is unlocked. Download the HD print file now, or jump back into the editor to tweak details.";
@@ -1442,6 +1453,15 @@ export default function DownloadClient() {
                   Keep editing
                 </Link>
                 <Link
+                  href="/my-downloads"
+                  onClick={() => {
+                    track("download_recovery_action", { action: "open_my_downloads", source: "hero" });
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40 focus:ring-offset-2"
+                >
+                  Open My Downloads
+                </Link>
+                <Link
                   href="/"
                   onClick={() => {
                     track("download_recovery_action", { action: "back_home", source: "hero" });
@@ -1477,6 +1497,7 @@ export default function DownloadClient() {
                   If you don't see it right away, use your browser's download history.
                 </p>
               )}
+              {inAppBrowserHint && <p className="text-xs text-amber-100/80">{inAppBrowserHint}</p>}
               <p className="text-xs text-amber-100/80">
                 You can always re-download from this page while export credits remain, and use your private access link as a
                 backup for another device.
@@ -1491,6 +1512,13 @@ export default function DownloadClient() {
                 <li>Use your private access link or My Downloads to reopen access.</li>
                 <li>If you have a 3-credit pack, create/edit the next map before each download.</li>
               </ol>
+              <p className="text-xs text-amber-100/75">
+                Still blocked? Email{" "}
+                <a className="underline decoration-amber-200/70 underline-offset-2 hover:text-white" href={`mailto:${supportEmail}`}>
+                  {supportEmail}
+                </a>
+                .
+              </p>
             </div>
             <div className="w-full max-w-[380px] rounded-xl border border-white/12 bg-white/8 p-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100">
@@ -1757,7 +1785,8 @@ export default function DownloadClient() {
                     </select>
                     <p className="mt-2 text-[11px] text-neutral-300">
                       Estimated shipping to {shippingCountryLabel}: framed {framedShippingLabel} · unframed{" "}
-                      {unframedShippingLabel}
+                      {unframedShippingLabel}. Delivery: framed {framedDeliveryLabel} · unframed{" "}
+                      {unframedDeliveryLabel}
                     </p>
                   </div>
                 ) : null}
@@ -2009,6 +2038,12 @@ export default function DownloadClient() {
                   {accessEmailMessage}
                 </p>
               )}
+              <p className="mt-2 text-[11px] text-amber-100/70">
+                Need manual help?{" "}
+                <a className="underline decoration-amber-200/70 underline-offset-2 hover:text-white" href={`mailto:${supportEmail}`}>
+                  {supportEmail}
+                </a>
+              </p>
             </div>
             {currentPlan === "subscription" && (
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">

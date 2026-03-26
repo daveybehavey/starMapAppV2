@@ -40,7 +40,7 @@ function resolveLocalPublicPath(pathValue: string) {
 }
 
 export function getFramedProofImage() {
-  const fallback = "/printproof/framed-mockup.jpg";
+  const fallback = "/printproof/home/delivery-framed-heart.webp";
   const manifest = readManifest();
   const candidate =
     // Prefer the order preview image first (often transparent PNG), then fall back.
@@ -51,7 +51,7 @@ export function getFramedProofImage() {
 }
 
 export function getUnframedProofImage() {
-  const fallback = "/printproof/unframed-mockup.jpg";
+  const fallback = "/printproof/home/delivery-unframed-classic.webp";
   const manifest = readManifest();
   const candidate =
     // Prefer the order preview image first (often transparent PNG), then fall back.

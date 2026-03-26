@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getBusinessProfile } from "@/lib/businessProfile";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type PurchaseTrustPanelProps = {
@@ -32,6 +33,7 @@ export default function PurchaseTrustPanel({
   const printAutoConfirm = /^(1|true|yes)$/i.test(
     (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
   );
+  const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
 
   return (
@@ -67,7 +69,7 @@ export default function PurchaseTrustPanel({
                 ? "Production begins after payment once the order is submitted for fulfillment."
                 : "Physical orders are reviewed before production while manual approval is enabled."}
             </li>
-            <li>If a print arrives damaged, contact support@starmapco.com and we will help resolve it.</li>
+            <li>If a print arrives damaged, contact {supportEmail} and we will help resolve it.</li>
           </ul>
         </div>
       )}

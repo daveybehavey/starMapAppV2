@@ -23,6 +23,7 @@ import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funn
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
+import { getPrintShippingEstimate } from "@/lib/printfulShipping";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
 import { getOrCreateClaimToken, hasRecoverableAccess } from "@/lib/accountAccessLinks";
 import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/accountAccessAlerts";
@@ -83,6 +84,8 @@ type SessionRecord = {
   customerEmail?: string | null;
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant;
+  printShippingCountry?: string;
+  printEstimatedDeliveryDate?: string;
   includesDigitalAddOn?: boolean;
   printAssetId?: string;
   referralCode?: string;
@@ -136,6 +139,32 @@ function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim().toLowerCase();
   return trimmed || null;
+}
+
+function normalizeCountry(raw: unknown) {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function formatIsoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function estimateDeliveryDate(
+  variant: PrintVariant | undefined,
+  shippingCountry: string | null,
+  paidAtMs: number,
+) {
+  if (!variant || !shippingCountry) return null;
+  const estimate = getPrintShippingEstimate(variant, shippingCountry);
+  if (!estimate) return null;
+  const days = estimate.maxDeliveryDays ?? estimate.minDeliveryDays;
+  if (!Number.isFinite(days) || Number(days) <= 0) return null;
+  const date = new Date(paidAtMs);
+  date.setUTCDate(date.getUTCDate() + Math.max(1, Math.round(Number(days))));
+  return formatIsoDate(date);
 }
 
 function getMapId(session: Stripe.Checkout.Session) {
@@ -244,6 +273,12 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
   const customerId = typeof session.customer === "string" ? session.customer : null;
   const customerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
+  const printShippingCountry = normalizeCountry(session.metadata?.print_shipping_country);
+  const printEstimatedDeliveryDate = estimateDeliveryDate(
+    printVariant,
+    printShippingCountry,
+    typeof session.created === "number" ? session.created * 1000 : Date.now(),
+  );
   const hasDigitalEntitlementCandidate =
     orderType === "print"
       ? hasDigitalAddOn && (plan === "subscription" || credits > 0)
@@ -275,6 +310,8 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     customerEmail: customerEmail ?? undefined,
     orderType,
     printVariant,
+    printShippingCountry: printShippingCountry ?? undefined,
+    printEstimatedDeliveryDate: printEstimatedDeliveryDate ?? undefined,
     includesDigitalAddOn: hasDigitalAddOn,
     printAssetId,
     referralCode: normalizeReferralCode(session.metadata?.referral_code) ?? undefined,

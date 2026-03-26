@@ -34,9 +34,9 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 const SNAP_THRESHOLD = 0.012;
-const STANDARD_PREVIEW_PIXEL_BUDGET = 4_400_000;
-const HIGH_PREVIEW_PIXEL_BUDGET = 7_200_000;
-const DRAG_PREVIEW_PIXEL_BUDGET = 2_200_000;
+const STANDARD_PREVIEW_PIXEL_BUDGET = 6_200_000;
+const HIGH_PREVIEW_PIXEL_BUDGET = 9_500_000;
+const DRAG_PREVIEW_PIXEL_BUDGET = 1_600_000;
 
 function clampPixelRatioToBudget(
   width: number,
@@ -61,16 +61,14 @@ function resolvePreviewPixelRatio({
   isDragging: boolean;
 }) {
   const deviceRatio = window.devicePixelRatio || 1;
-  const fidelityFloor = previewFidelity === "high" ? 2 : 1.5;
-  const fidelityCap = previewFidelity === "high" ? 3 : 2.25;
+  const fidelityFloor = previewFidelity === "high" ? 2 : 1.75;
+  const fidelityCap = previewFidelity === "high" ? 3 : 2.5;
   const pixelBudget = isDragging
     ? DRAG_PREVIEW_PIXEL_BUDGET
     : previewFidelity === "high"
       ? HIGH_PREVIEW_PIXEL_BUDGET
       : STANDARD_PREVIEW_PIXEL_BUDGET;
-  const targetRatio = isDragging
-    ? Math.min(deviceRatio, 1.1)
-    : Math.min(Math.max(deviceRatio, fidelityFloor), fidelityCap);
+  const targetRatio = isDragging ? 1 : Math.min(Math.max(deviceRatio, fidelityFloor), fidelityCap);
   return clampPixelRatioToBudget(width, height, targetRatio, pixelBudget);
 }
 
@@ -302,7 +300,7 @@ export default function PreviewCanvas({
       pixelRatio,
       textBounds: textBoundsRef.current,
     });
-    if (activeBox) {
+    if (activeBox && !isDragging) {
       const rect = textBoundsRef.current.get(activeBox);
       if (rect) {
         setBoxRect((current) => {
@@ -407,21 +405,6 @@ export default function PreviewCanvas({
           }
           return { id: activeDrag.id, x: newX, y: newY };
         });
-        const nextRect = textBoundsRef.current.get(activeDrag.id);
-        if (nextRect) {
-          setBoxRect((current) => {
-            if (
-              current &&
-              Math.abs(current.x - nextRect.x) < 0.4 &&
-              Math.abs(current.y - nextRect.y) < 0.4 &&
-              Math.abs(current.width - nextRect.width) < 0.4 &&
-              Math.abs(current.height - nextRect.height) < 0.4
-            ) {
-              return current;
-            }
-            return nextRect;
-          });
-        }
       });
     };
 
@@ -613,7 +596,7 @@ export default function PreviewCanvas({
       {isDragging && snapGuides.horizontal && (
         <div className="pointer-events-none absolute inset-x-[6%] top-1/2 z-[2] h-px -translate-y-1/2 bg-amber-300/65" />
       )}
-      {activeBox && boxRect && (
+      {activeBox && boxRect && !isDragging && (
         <div
           className="pointer-events-none absolute rounded-md border border-amber-300/70 bg-amber-200/10 shadow-[0_0_0_1px_rgba(251,191,36,0.4)]"
           style={{

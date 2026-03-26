@@ -21,66 +21,58 @@ export default function PhysicalProductGallerySection({
 
   const galleryCards = [
     {
-      src: framedProofImage,
-      fallbackSrc: "/printproof/gallery/wedding-framed.jpg",
-      alt: "Framed StarMapCo print shown hanging in a styled room",
+      src: "/printproof/home/gallery-framed-classic.webp",
+      fallbackSrc: framedProofImage,
+      alt: "Framed StarMapCo print shown in a warm room-style context",
       eyebrow: "Framed · Classic",
       title: "Ready-to-hang framed print",
       detail: "Premium framing route for buyers who want the gift to arrive finished and presentation-ready.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--warm",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_18%_12%,rgba(255,255,255,0.26),rgba(255,255,255,0)_62%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/12 bg-white shadow-[0_14px_22px_rgba(0,0,0,0.2)]",
-      imageClass: "object-contain scale-[1.08]",
-      eyebrowClass: "text-amber-800",
-      artWrapStyle: undefined as CSSProperties | undefined,
-    },
-    {
-      src: primaryUnframedImage,
-      fallbackSrc: "/printproof/gallery/wedding-unframed.jpg",
-      alt: "Unframed StarMapCo poster shown in a styled setting",
-      eyebrow: "Unframed · Classic",
-      title: "Lower-cost unframed print",
-      detail: "Unframed route keeps physical delivery while leaving frame choice open for the buyer.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_82%_20%,rgba(255,255,255,0.24),rgba(255,255,255,0)_58%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/10 bg-white shadow-[0_14px_22px_rgba(0,0,0,0.2)]",
-      imageClass: "object-contain scale-[1.07]",
-      eyebrowClass: "text-slate-700",
-      artWrapStyle: undefined as CSSProperties | undefined,
-    },
-    {
-      src: "/examples/example-wedding-aurora-heart.webp",
-      fallbackSrc: "/examples/example-anniversary-heirloom.webp",
-      alt: "Heart-style StarMapCo example map",
-      eyebrow: "Style · Heart",
-      title: "Romantic heart layout",
-      detail: "Heart-shaped layout gives a softer style direction without changing the delivery route.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--warm-alt",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_22%_76%,rgba(255,255,255,0.2),rgba(255,255,255,0)_56%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/10 bg-white shadow-[0_14px_22px_rgba(0,0,0,0.2)]",
+      stageClass: "gallery-wall-stage",
+      stageScrimClass: "",
+      artWrapClass: "absolute inset-0 z-10 overflow-hidden",
       imageClass: "object-cover",
       eyebrowClass: "text-amber-800",
       artWrapStyle: undefined as CSSProperties | undefined,
     },
     {
-      src: "/examples/example-birthday-noir-full.webp",
-      fallbackSrc: "/examples/example-birthday-noir.webp",
+      src: "/printproof/home/gallery-framed-heart.webp",
+      fallbackSrc: "/printproof/gallery/wedding-framed-cutout.webp",
+      alt: "Heart-style framed StarMapCo print in-room",
+      eyebrow: "Style · Heart",
+      title: "Romantic heart layout",
+      detail: "Heart-shaped layout gives a softer style direction without changing the delivery route.",
+      stageClass: "gallery-wall-stage",
+      stageScrimClass: "",
+      artWrapClass: "absolute inset-0 z-10 overflow-hidden",
+      imageClass: "object-cover",
+      eyebrowClass: "text-amber-800",
+      artWrapStyle: undefined as CSSProperties | undefined,
+    },
+    {
+      src: "/printproof/home/gallery-unframed-classic.webp",
+      fallbackSrc: primaryUnframedImage,
+      alt: "Unframed StarMapCo poster shown in a warm room-style context",
+      eyebrow: "Unframed · Classic",
+      title: "Lower-cost unframed print",
+      detail: "Unframed route keeps physical delivery while leaving frame choice open for the buyer.",
+      stageClass: "gallery-wall-stage",
+      stageScrimClass: "",
+      artWrapClass: "absolute inset-0 z-10 overflow-hidden",
+      imageClass: "object-cover",
+      eyebrowClass: "text-slate-700",
+      artWrapStyle: undefined as CSSProperties | undefined,
+    },
+    {
+      src: "/printproof/home/gallery-style-noir.webp",
+      fallbackSrc: "/examples/example-birthday-noir-full.webp",
       alt: "Noir-style StarMapCo map shown in-room",
       eyebrow: "Style · Noir",
       title: "Darker full-map variant",
       detail: "Noir palette gives a stronger contrast option while keeping the full square map visible.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--neutral-alt",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_74%_72%,rgba(255,255,255,0.22),rgba(255,255,255,0)_58%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/12 bg-[#0d1737] shadow-[0_14px_22px_rgba(0,0,0,0.24)]",
-      imageClass: "object-contain scale-[1.03]",
+      stageClass: "gallery-wall-stage",
+      stageScrimClass: "",
+      artWrapClass: "absolute inset-0 z-10 overflow-hidden",
+      imageClass: "object-cover",
       eyebrowClass: "text-slate-700",
       artWrapStyle: undefined as CSSProperties | undefined,
     },
@@ -104,7 +96,7 @@ export default function PhysicalProductGallerySection({
               <div
                 className={`relative aspect-[4/5] overflow-hidden border border-black/10 bg-[#081227]/10 shadow-[0_12px_20px_rgba(0,0,0,0.18)] transition duration-200 group-hover:-translate-y-[1px] group-hover:shadow-[0_18px_28px_rgba(0,0,0,0.22)] ${card.stageClass}`}
               >
-                <div className={`pointer-events-none absolute inset-0 z-[5] ${card.stageScrimClass}`} />
+                {card.stageScrimClass ? <div className={`pointer-events-none absolute inset-0 z-[5] ${card.stageScrimClass}`} /> : null}
                 <div className={card.artWrapClass} style={card.artWrapStyle}>
                   <ResilientImage
                     src={card.src}

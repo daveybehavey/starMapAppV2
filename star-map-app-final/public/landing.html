@@ -588,55 +588,9 @@
       #physical-proof-gallery .gallery figure:hover {
         transform: translateY(-2px);
       }
-      #physical-proof-gallery .gallery figure::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background-size: cover;
-        background-position: center;
-        border-radius: 0;
-      }
+      #physical-proof-gallery .gallery figure::before,
       #physical-proof-gallery .gallery figure::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: 0;
-      }
-      #physical-proof-gallery .gallery figure.wall-warm::before {
-        background-image:
-          linear-gradient(180deg, rgba(250, 244, 233, 0.58), rgba(215, 198, 171, 0.7)),
-          url("/textures/beige-wall-soft.webp");
-        background-blend-mode: multiply;
-      }
-      #physical-proof-gallery .gallery figure.wall-warm::after {
-        background:
-          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.28), rgba(0, 0, 0, 0.08) 78%),
-          linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.11));
-      }
-      #physical-proof-gallery .gallery figure.wall-cool::before {
-        background-image:
-          linear-gradient(180deg, rgba(248, 243, 236, 0.48), rgba(220, 210, 193, 0.74)),
-          url("/textures/plaster-wall-neutral.webp");
-        background-blend-mode: multiply;
-      }
-      #physical-proof-gallery .gallery figure.wall-warm-alt::before {
-        background-image:
-          linear-gradient(180deg, rgba(248, 241, 228, 0.5), rgba(208, 191, 165, 0.74)),
-          url("/textures/beige-wall-soft.webp");
-        background-position: 22% center;
-        background-blend-mode: multiply;
-      }
-      #physical-proof-gallery .gallery figure.wall-cool-alt::before {
-        background-image:
-          linear-gradient(180deg, rgba(245, 241, 236, 0.46), rgba(213, 204, 192, 0.75)),
-          url("/textures/plaster-wall-neutral.webp");
-        background-position: 70% center;
-        background-blend-mode: multiply;
-      }
-      #physical-proof-gallery .gallery figure.wall-cool::after {
-        background:
-          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.32), rgba(0, 0, 0, 0.1) 80%),
-          linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.11));
+        content: none;
       }
       #physical-proof-gallery .gallery .wall-frame {
         position: relative;
@@ -645,8 +599,8 @@
         border-radius: 0;
         border: 0;
         background: transparent;
-        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.28);
-        min-height: 292px;
+        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.24);
+        aspect-ratio: 1 / 1;
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -662,29 +616,30 @@
         padding: 0;
       }
       #physical-proof-gallery .gallery .wall-frame img {
-        width: min(100%, 320px);
+        width: 100%;
+        height: auto;
         aspect-ratio: 1 / 1;
-        object-fit: contain;
+        object-fit: cover;
         padding: 0;
         border-radius: 0;
         background: transparent;
         transform: none;
-        filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.26));
+        filter: none;
       }
       #physical-proof-gallery .gallery img.art-framed-classic {
-        transform: scale(1.12);
+        transform: none;
       }
       #physical-proof-gallery .gallery img.art-framed-heart {
-        transform: scale(1.04) rotate(-0.6deg);
+        transform: none;
       }
       #physical-proof-gallery .gallery img.art-unframed-classic {
-        transform: scale(1.08);
+        transform: none;
       }
       #physical-proof-gallery .gallery img.art-noir {
-        transform: scale(1.02);
+        transform: none;
       }
       #physical-proof-gallery .gallery img.art-unframed-alt {
-        transform: scale(1.08);
+        transform: none;
       }
       #physical-proof-gallery .gallery figcaption {
         position: relative;
@@ -1414,8 +1369,8 @@
             <figure class="delivery-card-visual digital">
               <span class="delivery-visual-badge">Instant file</span>
               <img
-                src="/examples/example-graduation-aurora.webp"
-                alt="Digital Aurora-style star map preview example"
+                src="/examples/example-anniversary-heirloom.webp"
+                alt="Digital heirloom-style star map preview example"
                 loading="lazy"
                 decoding="async"
                 width="1224"
@@ -1441,8 +1396,8 @@
             <figure class="delivery-card-visual unframed">
               <span class="delivery-visual-badge">Poster only</span>
               <img
-                src="/printproof/unframed-latest.png"
-                alt="Unframed star map poster example"
+                src="/printproof/home/delivery-unframed-classic.webp"
+                alt="Unframed StarMapCo poster preview in a wall context"
                 loading="lazy"
                 decoding="async"
                 width="1200"
@@ -1468,8 +1423,8 @@
             <figure class="delivery-card-visual framed">
               <span class="delivery-visual-badge">Gift-ready</span>
               <img
-                src="/printproof/gallery/wedding-framed-cutout.webp"
-                alt="Framed star map print example"
+                src="/printproof/home/delivery-framed-heart.webp"
+                alt="Framed StarMapCo print preview in a wall context"
                 loading="lazy"
                 decoding="async"
                 width="1200"
@@ -1524,7 +1479,7 @@
         <div class="product-proof">
           <figure class="product-proof-visual">
             <img
-              src="/printproof/framed-latest.png"
+              src="/printproof/home/gallery-framed-classic.webp"
               alt="Framed StarMapCo print mockup"
               loading="lazy"
               decoding="async"
@@ -1565,8 +1520,8 @@
           <figure class="wall-warm gallery-item gallery-item--framed">
             <div class="wall-frame">
               <img
-                src="/printproof/framed-latest.png"
-                alt="Framed star map proof on warm wall texture"
+                src="/printproof/home/gallery-framed-classic.webp"
+                alt="Framed StarMapCo classic print shown in a warm room-style context"
                 class="art-framed-classic"
                 loading="lazy"
                 decoding="async"
@@ -1579,8 +1534,8 @@
           <figure class="wall-cool gallery-item gallery-item--heart">
             <div class="wall-frame">
               <img
-                src="/printproof/gallery/wedding-framed-cutout.webp"
-                alt="Framed heart-style StarMapCo print proof on neutral wall texture"
+                src="/printproof/home/gallery-framed-heart.webp"
+                alt="Framed heart-style StarMapCo print shown in a neutral room-style context"
                 class="art-framed-heart"
                 loading="lazy"
                 decoding="async"
@@ -1593,8 +1548,8 @@
           <figure class="wall-warm-alt gallery-item gallery-item--unframed">
             <div class="wall-frame">
               <img
-                src="/printproof/unframed-latest.png"
-                alt="Unframed classic StarMapCo print proof on warm wall texture"
+                src="/printproof/home/gallery-unframed-classic.webp"
+                alt="Unframed StarMapCo print shown on a warm textured wall"
                 class="art-unframed-classic"
                 loading="lazy"
                 decoding="async"
@@ -1607,8 +1562,8 @@
           <figure class="wall-cool wall-cool-alt gallery-item gallery-item--feature">
             <div class="wall-frame">
               <img
-                src="/examples/example-birthday-noir-full.webp"
-                alt="Noir-style StarMapCo map proof on neutral wall texture"
+                src="/printproof/home/gallery-style-noir.webp"
+                alt="Noir-style StarMapCo map shown on a neutral textured wall"
                 class="art-noir"
                 loading="lazy"
                 decoding="async"

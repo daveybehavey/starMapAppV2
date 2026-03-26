@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-23
+Updated: 2026-03-25
 
 ## Phase 0: Foundation (Done)
 
@@ -35,6 +35,11 @@ Updated: 2026-03-23
   - Payment verification funnel step is now idempotent (webhook retries no longer inflate counts).
   - Added session-level dedupe for `payment_verified` across webhook and verify fallback paths.
   - Reduced success-page verification flakiness by honoring `Retry-After` on `/api/stripe/verify` 429 responses and relaxing verify endpoint rate-limit for legitimate polling.
+  - Checkout handoff telemetry now fires consistently before the `/api/checkout` request in simplified editor, success add-on, and download print-upgrade flows (`checkout_started` + `begin_checkout` alignment).
+  - Simplified editor checkout now tracks redirect handoff (`checkout_redirected`) and emits explicit timeout diagnostics (`checkout_timeout`) when the checkout API request aborts.
+  - Checkout funnel counters now treat server checkout entry as canonical (`checkout_started` recorded in `/api/checkout` GET/POST), reducing client-only drift in `checkout_started -> checkout_request_received`.
+  - `/api/analytics/funnel` now ignores client posts for server-canonical milestones (`checkout_*`, `payment_verified`) with `202`, preventing legacy cached clients from inflating checkout-stage counts.
+  - Client funnel posting now skips those same server-canonical milestones, reducing noisy network calls while keeping consented analytics events intact.
 - Static homepage instrumentation:
   - Added anonymous funnel tracking for landing views and top CTA clicks in `public/index.html`.
   - Added static cookie consent banner to persist analytics consent before editor transition.
@@ -71,6 +76,7 @@ Updated: 2026-03-23
 - Print checkout pricing clarity hardening:
   - Print CTAs in editor, mobile, and paywall now show estimated shipping cost for the currently selected country.
   - Added inline shipping estimate hint (`framed` vs `unframed`) beside country selection to reduce checkout surprises.
+  - Added per-country delivery ETA copy beside shipping estimates across homepage, editor, mobile create, paywall, and download print-upgrade surfaces.
   - Added in-flight button state text (`Opening secure checkout...`) on print CTAs to reduce dead-click ambiguity.
   - Homepage offer stack now includes a shipping-country selector with live framed/unframed shipping estimates and carries selected country into print-intent editor links.
   - Added `PRINT_DYNAMIC_SHIPPING=true` runtime switch so checkout can use country-level shipping from Printful estimates even when a fixed Stripe shipping rate is configured.
@@ -80,8 +86,15 @@ Updated: 2026-03-23
   - Simplified homepage hero and offer copy for better readability on first visit.
   - Added static-home gallery image fallback handling and smoother card hover polish for more stable premium presentation.
   - Shifted proof/mockup surfaces to calmer flat wall textures to reduce visual noise while keeping in-room context.
+  - Added generated wall-composite proof assets under `public/printproof/home/*` and rewired homepage delivery/gallery cards to remove plain-white proof surfaces and eliminate artifact-prone cutout combinations.
+  - Home proof composite generator now supports per-asset art cropping so border artifacts (notably noir-edge striping) can be removed at asset-build time.
+  - Homepage instant-digital card now uses a second style family example (heirloom) for better first-view style variety.
+  - Added `npm run assets:homeproof` for regenerating those homepage proof composites.
+  - Success and download print upsell cards now use the same `public/printproof/home/*` wall-composite proofs as homepage delivery cards for visual consistency.
 - Post-purchase download recovery hardening:
   - Added explicit mobile download-location guidance on `/download` with iPhone/Android-specific copy.
+  - Added in-app browser guidance (Gmail/Instagram/Facebook) on `/download` and `/success` so buyers know to switch to Safari/Chrome before downloading.
+  - Extended the same in-app browser download guidance to `/editor` and `/my-downloads` export/recovery hints for cross-surface consistency.
   - Added iPhone "Files > Downloads" reminder on `/success` before redirect.
   - Download page hero state now explains "create map first" vs "access not verified" to reduce false "missing files" confusion.
   - Success and download access-link panels now show the generated link inline and include an `Open link` action in addition to copy/email actions.
@@ -90,11 +103,15 @@ Updated: 2026-03-23
   - Added support courtesy replacement command `npm run support:courtesy-replacement` to issue one-time free replacement checkout access when an order was refunded or recovery is needed.
   - Added `My downloads` to app + static footer quick links so returning buyers can recover access faster without contacting support.
   - Success page access panel now includes a direct `My downloads` action alongside `Go to download now`.
+  - Added Google Customer Reviews opt-in integration on print success confirmations (env-gated) with order/session context from verified checkout data.
   - Added support sender setup runbook for `support@starmapco.com` outbound sending via Gmail + SMTP (`docs/support-email-send-as-setup.md`).
   - HD export credits are now consumed only after file generation succeeds (prevents failed renders from burning credits).
   - Download filenames now include human-readable map/date slugs (`starmap-...png`) for easier file lookup on mobile.
   - Pack copy clarified from "3 files" to "3 export credits" across checkout/paywall surfaces.
   - Added explicit "how to use 3-credit pack" guidance on `/success`, `/download`, and `/my-downloads` (one credit per current-map export; create/edit between exports for different files).
+  - Added explicit support escalation links and recovery shortcuts across `/success`, `/download`, and `/my-downloads` (direct `mailto`, `Open My Downloads`, and clearer "access not verified" copy).
+  - Normalized support-contact copy across key checkout/trust surfaces (`HomeOfferStack`, `HomeStaticSections`, `PurchaseTrustPanel`, `RevenueTrustModule`, `PaywallModal`) to use env-backed business profile email.
+  - Success-page verification error state now includes an inline `Email Recovery Links` form (`/api/account/recover`) so customers can self-serve recovery even when `session_id` verification fails on-device.
   - Added recovery instrumentation events to monitor support-friction points:
     - `download_state_seen`
     - `download_recovery_action`
@@ -108,9 +125,15 @@ Updated: 2026-03-23
     - device-specific download-location tips (iPhone/Android/Desktop)
   - Added smoke coverage for `/my-downloads` recovery sign-in UI in `tests/ui-smoke.spec.ts`.
 - Editor preview parity and drag responsiveness hardening:
+  - Simplified editor now shows an explicit export checklist (`start customizing`, `date`, `location`, `title`) so users can see why download buttons are disabled.
+  - Simplified editor CTAs now use clearer action copy (`Download free preview`, `Continue to secure checkout`) to reduce purchase-step ambiguity.
+  - Simplified editor now shows payment-method trust copy beside checkout CTAs (cards + Apple Pay + Google Pay + Link on supported devices).
   - Preview canvas now uses a budget-capped pixel ratio to keep the render sharper without overloading lower-end devices.
   - Drag interactions now use a lower pixel budget + reduced state churn for smoother text movement.
+  - Canvas render paths now avoid redundant width/height resets when dimensions are unchanged, reducing drag-time jank from repeated canvas reallocation.
   - Twinkle animation is now disabled on the interactive editor canvas (kept for read-only preview) to avoid visual shimmer while editing.
+  - Standard preview fidelity budget increased while drag-mode fidelity is clamped to 1x, improving idle sharpness without reintroducing drag jitter.
+  - Active text-highlight overlay updates are now deferred until drag release to reduce pointer-move churn.
 - Global print-market expansion (configured):
   - Production `PRINT_ALLOWED_COUNTRIES` now covers the full Printful-supported country set from `data/printful-shipping.json`.
   - Checkout country selector, API validation, and Merchant feed shipping lines now align to the same country list.
@@ -217,6 +240,12 @@ Recent status:
   - Playwright now runs against an isolated Next dist directory (`.next-playwright`) to avoid lock conflicts with local `next dev`.
   - Preview wait helper now tolerates aria-label fallback states while the editor transitions.
   - Homepage gallery smoke check now pre-seeds consent, targets exact showcase images, and validates static asset responses directly.
+  - Added smoke coverage for post-purchase recovery surfaces:
+    - `/download` email recovery links card render
+    - `/success` paid-state cross-device recovery actions (`Copy link`, `Email me link`, `Open link`, `My downloads`)
+  - Typecheck stability hardening:
+    - `tsconfig.json` now excludes `.next/dev/**/*` so `npx next typegen` no longer causes `qa:changed` failures from transient dev-validator imports.
+    - `tsconfig.json` now limits generated type includes to `.next/types/**/*` (excluding `.next-playwright/**` generated artifacts) to prevent intermittent parse failures from stale Playwright build output.
 - `qa:live-smoke` passes against `https://starmapco.com`.
 - `qa:sitemap-health` passes against live sitemap.
 - `qa:live-conversion` passes against live (digital end-to-end flow through Stripe -> success -> download).
@@ -224,6 +253,9 @@ Recent status:
 - `qa:ga4-smoke` passes (`page_view` + `funnel_step` events visible in dataLayer with consent update flow).
 - Added print operations monitor script: `npm run qa:print-ops`.
 - Added funnel reconciliation script: `npm run qa:funnel-reconcile`.
+- Added event-level funnel continuity check script: `npm run qa:funnel-health`.
+- `qa:funnel-health` now includes a recent-window checkpoint (last 3 days) and legacy-inflation notes so historical noise does not hide current checkout integrity.
+- Added combined weekly funnel operator command: `npm run qa:funnel-weekly -- --days 14` (continuity + Stripe reconcile in one report).
 - `qa:release-gate --live` now includes funnel reconciliation when Stripe credentials are present.
 - Added static homepage drift guard scripts:
   - `npm run sync:static-home`
@@ -551,15 +583,14 @@ Recent status:
 
 1. Replace testimonial placeholders with real approved customer quotes/photos on the 3 money pages.
 2. Run and document a full print matrix in live mode (framed success, unframed success, forced failure, admin retry).
-3. Add operator email alerting for new paid print sessions and failed fulfillment attempts.
-4. Add event-level dashboard check (GA4/PostHog) for `landing -> preview -> checkout -> paid` and weekly reconcile.
-5. Improve success/download upsell cards with real framed/unframed product photography from fulfilled samples.
-6. Add low-friction post-purchase add-on flow (`digital -> print` and `print -> digital`) with explicit margin guard.
-7. Ship a refined reveal animation pass (faster perceived load + deterministic loading copy).
-8. Launch first social referral campaign (tracked links + source performance review cadence).
-9. Create one authority asset page (`How accurate are star maps?`) and link it from money pages.
-10. Add per-country shipping ETA language to key print CTA surfaces (homepage, paywall, download upsell).
-11. Start weekly loop-marketing scorecard and review cadence from `docs/loop-marketing-playbook.md`.
+3. Run weekly event-level funnel continuity (`npm run qa:funnel-health -- --days 14`) plus Stripe reconcile.
+4. Improve success/download upsell cards with real framed/unframed product photography from fulfilled samples.
+5. Add low-friction post-purchase add-on flow (`digital -> print` and `print -> digital`) with explicit margin guard.
+6. Ship a refined reveal animation pass (faster perceived load + deterministic loading copy).
+7. Launch first social referral campaign (tracked links + source performance review cadence).
+8. Validate Google Customer Reviews opt-in rendering + completion on at least 5 live print checkouts.
+9. Convert promo capture into lifecycle email with hygiene/suppression handling.
+10. Start weekly loop-marketing scorecard and review cadence from `docs/loop-marketing-playbook.md`.
 
 ## Extended Backlog (Next 20)
 
@@ -596,6 +627,7 @@ Recent status:
 
 1. Run conversion-first operator cadence daily:
    - `npm run qa:commerce-digest -- --days 14`
+   - `npm run qa:funnel-health -- --days 14`
    - `npm run qa:live-smoke`
    - `npm run qa:merchant-feed:live`
    - `npm run qa:stripe-payment-methods -- --json`
@@ -623,7 +655,7 @@ Recent status:
 2. Referral v2 completion:
    - refund/dispute reward reversal handling
    - richer referral dashboard metrics (qualified, skipped, reversed)
-3. Add Google Customer Reviews integration on order confirmation surfaces.
+3. Validate Google Customer Reviews opt-in render rate + response collection after launch.
 4. Convert promo capture into a true lifecycle channel:
    - list hygiene
    - suppression handling

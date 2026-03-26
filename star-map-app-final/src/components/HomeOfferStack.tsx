@@ -1,6 +1,8 @@
 import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getBusinessProfile } from "@/lib/businessProfile";
 import ResilientImage from "@/components/ResilientImage";
 import {
+  formatPrintDeliveryEstimate,
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
 } from "@/lib/printfulShipping";
@@ -25,11 +27,14 @@ type HomeOfferStackProps = {
 
 export default function HomeOfferStack({ priceLabels, printLabels, proofImages }: HomeOfferStackProps) {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
+  const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
   const printShippingCountry = "US";
   const printShippingCountries = getPrintAllowedCountries();
   const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
   const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
+  const framedDeliveryLabel = formatPrintDeliveryEstimate("poster_framed", printShippingCountry);
+  const unframedDeliveryLabel = formatPrintDeliveryEstimate("poster_unframed", printShippingCountry);
   const shippingCountryLabel = getPrintShippingCountryLabel(printShippingCountry);
   const shippingCoverageLabel = (() => {
     const count = printShippingCountries.length;
@@ -70,9 +75,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/15 bg-white/10">
               <ResilientImage
-                src="/examples/example-graduation-aurora.webp"
-                fallbackSrc="/examples/example-graduation-aurora.png"
-                alt="Digital StarMapCo Aurora preview"
+                src="/examples/example-anniversary-heirloom.webp"
+                fallbackSrc="/examples/example-anniversary-heirloom.png"
+                alt="Digital StarMapCo heirloom preview"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
@@ -113,12 +118,12 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.35),rgba(0,0,0,0.06)_75%)]" />
               <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
                 <ResilientImage
-                  src="/printproof/gallery/wedding-framed-cutout.webp"
+                  src="/printproof/home/delivery-framed-heart.webp"
                   fallbackSrc={proofImages.framed}
                   alt="Framed StarMapCo print preview"
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-contain p-2"
+                  className="object-cover"
                 />
               </div>
               <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
@@ -140,6 +145,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <li>Most buyers pair this with the HD add-on</li>
               <li>Best-looking premium option for special occasions</li>
               <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
+              <li>Estimated delivery: {framedDeliveryLabel}</li>
               <li>{printLabels.framed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-amber-300/35 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
@@ -158,12 +164,12 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.32),rgba(0,0,0,0.08)_78%)]" />
               <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
                 <ResilientImage
-                  src={proofImages.unframed}
-                  fallbackSrc="/printproof/gallery/graduation-unframed-cutout.webp"
+                  src="/printproof/home/delivery-unframed-classic.webp"
+                  fallbackSrc={proofImages.unframed}
                   alt="Unframed StarMapCo poster preview"
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-contain p-2"
+                  className="object-cover"
                 />
               </div>
               <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
@@ -179,6 +185,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <li>Museum-quality poster stock</li>
               <li>Lower-cost physical option</li>
               <li>Estimated shipping to {shippingCountryLabel}: {unframedShippingLabel}</li>
+              <li>Estimated delivery: {unframedDeliveryLabel}</li>
               <li>{printLabels.unframed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-neutral-200">
@@ -218,6 +225,8 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             </p>
             <p className="text-[11px] text-neutral-300">
               Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel} (shown for {shippingCountryLabel}).
+              {" "}
+              Delivery estimates: framed {framedDeliveryLabel} · unframed {unframedDeliveryLabel}.
               Final shipping is shown before payment for all supported countries.
             </p>
           </div>
@@ -225,7 +234,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
             <li>✓ Production starts after manual order review.</li>
             <li>✓ {shippingDisclosure}</li>
-            <li>✓ Damage support: support@starmapco.com.</li>
+            <li>✓ Damage support: {supportEmail}.</li>
             <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
             <li>✓ {printBadgeLabel}</li>
           </ul>

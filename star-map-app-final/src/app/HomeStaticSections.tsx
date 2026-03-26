@@ -5,6 +5,7 @@ import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySe
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
 import ResilientImage from "@/components/ResilientImage";
+import { getBusinessProfile } from "@/lib/businessProfile";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
@@ -42,6 +43,7 @@ export default function HomeStaticSections({
     digitalAddOn: formatPrice(printDigitalAddOn.amountCents, printDigitalAddOn.currency),
   };
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
+  const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
   const proofImages = {
     framed: getFramedProofImage(),
@@ -74,7 +76,7 @@ export default function HomeStaticSections({
             shippingDisclosure,
             "Physical orders stay in manual review before production starts",
             `Optional HD digital add-on is available on print orders for ${printLabels.digitalAddOn}`,
-            "If a print arrives damaged, support@starmapco.com handles it",
+            `If a print arrives damaged, ${supportEmail} handles it`,
           ]}
           guideLabel="See the print and frame guide"
         />
@@ -280,7 +282,7 @@ export default function HomeStaticSections({
               },
               {
                 q: "What if a print arrives damaged?",
-                a: "Email support@starmapco.com and we will help resolve the issue.",
+                a: `Email ${supportEmail} and we will help resolve the issue.`,
               },
             ].map((item) => (
               <div key={item.q} className="rounded-2xl border border-amber-200/70 bg-white/82 p-4 shadow-[0_10px_24px_rgba(14,22,40,0.08)]">

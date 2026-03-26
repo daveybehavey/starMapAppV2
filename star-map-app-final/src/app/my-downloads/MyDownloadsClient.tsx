@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EditorFontShell from "@/components/EditorFontShell";
 import { track } from "@/lib/analytics";
+import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 
 type AccountSessionItem = {
   sessionId: string;
@@ -69,6 +70,10 @@ export default function MyDownloadsClient() {
   const claimHandledRef = useRef(false);
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deviceKind = useMemo(() => detectDeviceKind(), []);
+  const inAppBrowserHint = useMemo(() => {
+    if (typeof navigator === "undefined") return null;
+    return getInAppBrowserDownloadHint(navigator.userAgent || "");
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -239,6 +244,12 @@ export default function MyDownloadsClient() {
               Restore access from any device. Open a secure sign-in link from your order email, then launch your
               HD download links directly.
             </p>
+            <p className="mt-2 text-xs text-amber-100/75">
+              Manual support:{" "}
+              <a className="underline decoration-amber-200/70 underline-offset-2 hover:text-white" href={`mailto:${supportEmail}`}>
+                {supportEmail}
+              </a>
+            </p>
             {view === "claiming" && (
               <p className="mt-3 text-xs text-amber-100/80">Verifying your secure sign-in link…</p>
             )}
@@ -290,6 +301,13 @@ export default function MyDownloadsClient() {
               <p className="mt-3 text-xs text-neutral-300">
                 Mobile tip: on iPhone, downloaded files are in <strong>Files → Browse → Downloads</strong> (not Photos).
               </p>
+              <p className="mt-2 text-xs text-amber-100/75">
+                If links do not arrive, email{" "}
+                <a className="underline decoration-amber-200/70 underline-offset-2 hover:text-white" href={`mailto:${supportEmail}`}>
+                  {supportEmail}
+                </a>
+                .
+              </p>
             </section>
           )}
 
@@ -307,9 +325,18 @@ export default function MyDownloadsClient() {
                 </button>
               </div>
               {sessions.length === 0 ? (
-                <p className="mt-3 text-sm text-neutral-200">
-                  No active downloadable sessions found for this email. If you recently paid, wait a minute and refresh.
-                </p>
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm text-neutral-200">
+                    No active downloadable sessions found for this email. If you recently paid, wait a minute and refresh.
+                  </p>
+                  <p className="text-xs text-amber-100/75">
+                    If this keeps happening, contact{" "}
+                    <a className="underline decoration-amber-200/70 underline-offset-2 hover:text-white" href={`mailto:${supportEmail}`}>
+                      {supportEmail}
+                    </a>
+                    .
+                  </p>
+                </div>
               ) : (
                 <div className="mt-4 grid gap-3">
                   <p className="text-xs text-amber-100/80">
@@ -323,6 +350,7 @@ export default function MyDownloadsClient() {
                         ? "Android tip: check Files/My Files → Downloads."
                         : "Desktop tip: check your browser Downloads history if the file doesn't open immediately."}
                   </p>
+                  {inAppBrowserHint ? <p className="text-xs text-amber-100/80">{inAppBrowserHint}</p> : null}
                   {sessions.map((item) => (
                     <article key={item.sessionId} className="rounded-xl border border-white/12 bg-white/8 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">

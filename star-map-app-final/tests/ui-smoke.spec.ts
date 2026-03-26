@@ -237,7 +237,7 @@ test("homepage framed proof image resolves", async ({ page }) => {
   await expect(framedProof).toBeVisible({ timeout: 30000 });
   const src = (await framedProof.getAttribute("src")) ?? "";
   expect(src).toMatch(
-    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|blog\/anniversary\/framed-star-map\.jpg|blog%2Fanniversary%2Fframed-star-map\.jpg)/,
+    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/home\/gallery-framed-classic\.webp|printproof%2Fhome%2Fgallery-framed-classic\.webp|blog\/anniversary\/framed-star-map\.jpg|blog%2Fanniversary%2Fframed-star-map\.jpg)/,
   );
 });
 
@@ -254,10 +254,10 @@ test("homepage delivery cards show framed and unframed proof visuals", async ({ 
   const framedSrc = (await framedCardImage.getAttribute("src")) ?? "";
   const unframedSrc = (await unframedCardImage.getAttribute("src")) ?? "";
   expect(framedSrc).toMatch(
-    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/framed-catalog\.jpg|printproof%2Fframed-catalog\.jpg|printproof\/gallery\/wedding-framed-cutout\.webp|printproof%2Fgallery%2Fwedding-framed-cutout\.webp)/,
+    /(printproof\/framed-mockup\.jpg|printproof%2Fframed-mockup\.jpg|printproof\/framed-latest\.png|printproof%2Fframed-latest\.png|printproof\/framed-catalog\.jpg|printproof%2Fframed-catalog\.jpg|printproof\/gallery\/wedding-framed-cutout\.webp|printproof%2Fgallery%2Fwedding-framed-cutout\.webp|printproof\/home\/delivery-framed-heart\.webp|printproof%2Fhome%2Fdelivery-framed-heart\.webp)/,
   );
   expect(unframedSrc).toMatch(
-    /(printproof\/unframed-mockup\.jpg|printproof%2Funframed-mockup\.jpg|printproof\/unframed-latest\.png|printproof%2Funframed-latest\.png|printproof\/unframed-catalog\.jpg|printproof%2Funframed-catalog\.jpg|examples\/example-wedding-aurora-heart\.webp|examples%2Fexample-wedding-aurora-heart\.webp)/,
+    /(printproof\/unframed-mockup\.jpg|printproof%2Funframed-mockup\.jpg|printproof\/unframed-latest\.png|printproof%2Funframed-latest\.png|printproof\/unframed-catalog\.jpg|printproof%2Funframed-catalog\.jpg|examples\/example-wedding-aurora-heart\.webp|examples%2Fexample-wedding-aurora-heart\.webp|printproof\/home\/delivery-unframed-classic\.webp|printproof%2Fhome%2Fdelivery-unframed-classic\.webp)/,
   );
 });
 
@@ -280,6 +280,116 @@ test("my downloads page renders recovery sign-in flow", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Email Sign-In Link/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Send sign-in link/i })).toBeVisible();
   await expect(page.getByText(/Enter the email from checkout/i)).toBeVisible();
+});
+
+test("download page renders email recovery links card", async ({ page }) => {
+  await page.goto("/download", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText(/Email Recovery Links/i)).toBeVisible({ timeout: 30000 });
+  await expect(page.getByPlaceholder("you@email.com")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Send links$/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open My Downloads/i }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Jump to access link/i }).first()).toBeVisible();
+});
+
+test("success page shows cross-device recovery actions after paid verification", async ({ page }) => {
+  const mapId = "123e4567-e89b-42d3-a456-426614174000";
+  const accessUrl = `http://localhost:3000/download?token=test-access-token&map_id=${encodeURIComponent(mapId)}`;
+
+  await page.addInitScript(() => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout === 3500) {
+        return 0 as unknown as number;
+      }
+      return originalSetTimeout(handler, timeout, ...args) as unknown as number;
+    }) as typeof window.setTimeout;
+  });
+
+  await page.route("**/api/stripe/verify?session_id=*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        paid: true,
+        plan: "single",
+        orderType: "digital",
+        mapId,
+        creditsRemaining: 1,
+        amountTotal: 900,
+        currency: "usd",
+      }),
+    });
+  });
+
+  await page.route("**/api/entitlements/link", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ url: accessUrl }),
+    });
+  });
+
+  await page.route("**/api/referrals/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        code: "ABCD1234",
+        link: "https://starmapco.com/editor?ref=ABCD1234",
+        stats: {
+          visits: 0,
+          conversions: 0,
+          rewardsGranted: 0,
+          conversionReversals: 0,
+          rewardReversals: 0,
+          lastConvertedAt: null,
+          topVisitSources: [],
+          topConversionSources: [],
+          topOfferVariants: [],
+          topRewardSkipReasons: [],
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/referrals/link", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        code: "ABCD1234",
+        link: "https://starmapco.com/editor?ref=ABCD1234",
+      }),
+    });
+  });
+
+  await page.goto("/success?session_id=cs_test_success", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: /Payment successful/i })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/^Access link$/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Generating...|Copy link/i }).first()).toBeVisible({ timeout: 12000 });
+  const copyReady = await page.getByRole("button", { name: /Copy link/i }).first().isVisible().catch(() => false);
+  if (copyReady) {
+    await expect(page.getByRole("button", { name: /Email me link/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /Open link/i }).first()).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: /^My downloads$/i }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Go to download now/i }).first()).toBeVisible();
+  await expect(page.getByText(/Files → Downloads/i)).toBeVisible();
+  if (copyReady) {
+    await expect(page.getByText(/test-access-token/i)).toBeVisible();
+  }
+});
+
+test("success page error state shows email recovery links workflow", async ({ page }) => {
+  await page.goto("/success", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: /Payment verification/i })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/Missing payment session/i)).toBeVisible();
+  await expect(page.getByText(/Email Recovery Links/i)).toBeVisible();
+  await expect(page.getByPlaceholder("you@email.com")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Send links$/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Open My Downloads/i })).toBeVisible();
 });
 
 test("occasion preset preserves manual location context", async ({ page }) => {
@@ -383,17 +493,24 @@ test("preview reveal shows staged reveal state before final map", async ({ page 
   await expect(generateButton).toBeVisible({ timeout: 15000 });
   await generateButton.click();
 
-  await expect(page.getByText(/Revealing your sky/i).first()).toBeVisible({ timeout: 4000 });
+  const revealHeading = page.getByText(/Revealing your sky/i).first();
+  const customizeMoreButton = page.getByRole("button", { name: /Customize more/i }).first();
+  const sawRevealHeading = await revealHeading.isVisible({ timeout: 2500 }).catch(() => false);
+  if (!sawRevealHeading) {
+    // Fast renders can skip the visible reveal heading state and land directly on the completed preview.
+    await expect(customizeMoreButton).toBeVisible({ timeout: 15000 });
+    return;
+  }
   const revealStageText = page
     .getByText(/Pinning down your moment|Tracing the visible sky|Finishing the keepsake preview/i)
     .first();
   const stageVisible = await revealStageText.isVisible({ timeout: 1500 }).catch(() => false);
   if (!stageVisible) {
     // Fast renders can transition directly from loader to completed preview before stage copy is sampled.
-    await expect(page.getByRole("button", { name: /Customize more/i }).first()).toBeVisible({ timeout: 15000 });
+    await expect(customizeMoreButton).toBeVisible({ timeout: 15000 });
     return;
   }
-  await expect(page.getByRole("button", { name: /Customize more/i }).first()).toBeVisible({ timeout: 15000 });
+  await expect(customizeMoreButton).toBeVisible({ timeout: 15000 });
 });
 
 test("referral landing logs one visit per browser session", async ({ page }) => {

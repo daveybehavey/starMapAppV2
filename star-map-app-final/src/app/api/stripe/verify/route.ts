@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit"
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
+import { getPrintShippingEstimate } from "@/lib/printfulShipping";
 
 export const runtime = "nodejs";
 
@@ -30,8 +31,11 @@ type SessionRecord = {
   subscriptionId?: string | null;
   subscriptionActive?: boolean;
   customerId?: string | null;
+  customerEmail?: string | null;
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant;
+  printShippingCountry?: string;
+  printEstimatedDeliveryDate?: string;
   includesDigitalAddOn?: boolean;
 };
 
@@ -39,6 +43,38 @@ const sessionKey = (id: string) => `stripe:session:${id}`;
 const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
+
+function normalizeEmail(raw: unknown) {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim().toLowerCase();
+  return value || null;
+}
+
+function normalizeCountry(raw: unknown) {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(value)) return null;
+  return value;
+}
+
+function formatIsoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function estimateDeliveryDate(
+  variant: PrintVariant | undefined,
+  shippingCountry: string | null,
+  paidAtMs: number,
+) {
+  if (!variant || !shippingCountry) return null;
+  const estimate = getPrintShippingEstimate(variant, shippingCountry);
+  if (!estimate) return null;
+  const days = estimate.maxDeliveryDays ?? estimate.minDeliveryDays;
+  if (!Number.isFinite(days) || Number(days) <= 0) return null;
+  const date = new Date(paidAtMs);
+  date.setUTCDate(date.getUTCDate() + Math.max(1, Math.round(Number(days))));
+  return formatIsoDate(date);
+}
 
 function getMapId(session: Stripe.Checkout.Session) {
   return (
@@ -125,6 +161,9 @@ export async function GET(req: NextRequest) {
         subscriptionActive: record.subscriptionActive ?? null,
         orderType: record.orderType ?? "digital",
         printVariant: record.printVariant ?? null,
+        customerEmail: record.customerEmail ?? null,
+        printShippingCountry: record.printShippingCountry ?? null,
+        printEstimatedDeliveryDate: record.printEstimatedDeliveryDate ?? null,
         includesDigitalAddOn: Boolean(record.includesDigitalAddOn),
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -165,6 +204,13 @@ export async function GET(req: NextRequest) {
     const hasDigitalAddOn = includesDigitalAddOn(session);
     const plan = getPlan(session, orderType, hasDigitalAddOn);
     let credits = getCredits(session, plan);
+    const customerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
+    const printShippingCountry = normalizeCountry(session.metadata?.print_shipping_country);
+    const printEstimatedDeliveryDate = estimateDeliveryDate(
+      printVariant,
+      printShippingCountry,
+      typeof session.created === "number" ? session.created * 1000 : Date.now(),
+    );
     const existingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
     if (existingSessionId && existingSessionId !== sessionId && plan !== "subscription") {
       const existing = await kv.get<SessionRecord>(sessionKey(existingSessionId));
@@ -201,8 +247,11 @@ export async function GET(req: NextRequest) {
       subscriptionId: subscriptionId ?? undefined,
       subscriptionActive: plan === "subscription" ? true : undefined,
       customerId: customerId ?? undefined,
+      customerEmail: customerEmail ?? undefined,
       orderType,
       printVariant,
+      printShippingCountry: printShippingCountry ?? undefined,
+      printEstimatedDeliveryDate: printEstimatedDeliveryDate ?? undefined,
       includesDigitalAddOn: hasDigitalAddOn,
     });
     if (!alreadyPaid) {
@@ -241,6 +290,9 @@ export async function GET(req: NextRequest) {
         subscriptionActive: plan === "subscription",
         orderType,
         printVariant: printVariant ?? null,
+        customerEmail: customerEmail ?? null,
+        printShippingCountry: printShippingCountry ?? null,
+        printEstimatedDeliveryDate: printEstimatedDeliveryDate ?? null,
         includesDigitalAddOn: hasDigitalAddOn,
       },
       { headers: { "Cache-Control": "no-store" } },
