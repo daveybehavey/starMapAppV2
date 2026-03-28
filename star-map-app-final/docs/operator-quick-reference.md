@@ -241,6 +241,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - weekly executive snapshot endpoint (admin token):
     - `GET /api/ops/loop-scorecard?days=14`
     - includes referral share, proof opportunities (paid print sessions), promo lifecycle, and top client checkout blocker
+  - promo follow-up queue dispatch:
+    - dry run: `npm run ops:promotion-followup -- --dry-run`
+    - send due follow-ups: `npm run ops:promotion-followup -- --limit 100`
+    - API equivalent: `POST /api/promotions/followup-dispatch` (admin token)
 
 ## 6) Release gate commands (minimum safe set)
 

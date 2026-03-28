@@ -10,6 +10,8 @@ export type PromotionEmailState = {
   subscribedAt: number;
   couponSentAt?: number;
   followupSentAt?: number;
+  followupDueAt?: number;
+  followupLastError?: string;
   unsubscribedAt?: number;
   unsubscribeReason?: string;
   updatedAt: number;

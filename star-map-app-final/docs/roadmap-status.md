@@ -385,6 +385,11 @@ Recent status:
 - Added admin loop snapshot endpoint:
   - `GET /api/ops/loop-scorecard?days=14` (admin token required)
   - returns referral/proof/promo loop metrics plus top client checkout blocker in one payload
+- Promotion lifecycle operations are now queue-based:
+  - promo subscribe now schedules follow-up delivery via `followupDueAt` instead of firing immediately
+  - added admin dispatcher endpoint `POST /api/promotions/followup-dispatch` for due follow-up sends
+  - added operator command `npm run ops:promotion-followup -- --dry-run|--limit 100`
+  - subscriber admin payload now surfaces `followupDueAt` and `followupLastError` for lifecycle visibility
 - Expanded referral offer experiment observability:
   - `qa:commerce-digest` now reports paid `referral_offer_variant` counts from Stripe session metadata
   - `qa:loop-scorecard` now surfaces the top paid referral offer variant

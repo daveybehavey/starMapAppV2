@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
-import { PROMOTION_COUPON_CODE, runPromotionAutomation, runPromotionFollowup } from "@/lib/promotions";
+import { PROMOTION_COUPON_CODE, getPromotionFollowupDelaySeconds, runPromotionAutomation } from "@/lib/promotions";
 import {
   emailStateKey,
   isValidPromotionEmail,
@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
   }
 
   const now = Date.now();
+  const followupDelayMs = getPromotionFollowupDelaySeconds() * 1000;
   const key = emailStateKey(email);
   const existingState = await kv.get<PromotionEmailState>(key);
   const [legacySubscribed, legacyCouponSent, legacyFollowupSent] = await Promise.all([
@@ -118,6 +119,8 @@ export async function POST(req: NextRequest) {
     subscribedAt: existingState?.unsubscribedAt ? now : existingState?.subscribedAt ?? now,
     couponSentAt: existingState?.couponSentAt,
     followupSentAt: existingState?.followupSentAt,
+    followupDueAt: existingState?.followupDueAt,
+    followupLastError: existingState?.followupLastError,
     unsubscribedAt: undefined,
     unsubscribeReason: undefined,
     updatedAt: now,
@@ -142,23 +145,17 @@ export async function POST(req: NextRequest) {
   }
 
   const followupAlreadySent = Boolean(nextState.followupSentAt) || legacyFollowupSent;
-  const shouldAttemptFollowup = !followupAlreadySent && (automationResult.delivered || alreadySent);
-  if (shouldAttemptFollowup) {
-    try {
-      const followupResult = await runPromotionFollowup(email, PROMOTION_COUPON_CODE);
-      if (!followupResult.delivered && followupResult.provider !== "none") {
-        console.error("promotion followup failed", {
-          provider: followupResult.provider,
-          error: followupResult.error ?? "unknown",
-          email,
-        });
-      }
-      if (followupResult.delivered) {
-        nextState.followupSentAt = Date.now();
-      }
-    } catch (error) {
-      console.error("promotion followup scheduling failed", error);
+  const canQueueFollowup = !followupAlreadySent && (Boolean(nextState.couponSentAt) || legacyCouponSent);
+  if (canQueueFollowup) {
+    const baseTimestamp = nextState.couponSentAt ?? now;
+    const dueAt = baseTimestamp + followupDelayMs;
+    if (!nextState.followupDueAt || nextState.followupDueAt > dueAt) {
+      nextState.followupDueAt = dueAt;
     }
+    nextState.followupLastError = undefined;
+  } else if (followupAlreadySent) {
+    nextState.followupDueAt = undefined;
+    nextState.followupLastError = undefined;
   }
 
   await kv.set(key, nextState);

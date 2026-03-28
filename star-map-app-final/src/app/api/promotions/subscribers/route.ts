@@ -58,6 +58,8 @@ export async function GET(req: NextRequest) {
       unsubscribedAt: row.state?.unsubscribedAt ?? null,
       couponSentAt: row.state?.couponSentAt ?? null,
       followupSentAt: row.state?.followupSentAt ?? null,
+      followupDueAt: row.state?.followupDueAt ?? null,
+      followupLastError: row.state?.followupLastError ?? null,
       updatedAt: row.state?.updatedAt ?? null,
       lastSource: row.state?.lastSource ?? null,
     }))

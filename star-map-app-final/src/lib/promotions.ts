@@ -307,12 +307,11 @@ export async function runPromotionFollowup(
 ): Promise<PromotionAutomationResult> {
   try {
     const copy = getPromotionFollowupCopy(email, couponCode);
-    const sendAt = Math.floor(Date.now() / 1000) + promotionFollowupDelaySeconds;
 
     const resendResult = await sendWithResend(email, copy);
     if (resendResult.provider !== "none") return resendResult;
 
-    const sendgridResult = await sendWithSendgrid(email, copy, sendAt);
+    const sendgridResult = await sendWithSendgrid(email, copy);
     if (sendgridResult.provider !== "none") return sendgridResult;
 
     const webhookResult = await notifyPromotionWebhook(email, couponCode, "print_tips");
@@ -323,4 +322,8 @@ export async function runPromotionFollowup(
     console.error("promotion followup failed", error);
     return { delivered: false, provider: "none", error: "automation_failed" };
   }
+}
+
+export function getPromotionFollowupDelaySeconds() {
+  return promotionFollowupDelaySeconds;
 }
