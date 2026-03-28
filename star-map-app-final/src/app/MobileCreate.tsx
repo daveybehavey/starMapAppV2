@@ -23,7 +23,11 @@ import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
 } from "@/lib/printfulShipping";
-import { getPrintCheckoutCtaState, PRINT_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
+import {
+  DIGITAL_CHECKOUT_CTA_LABEL,
+  getPrintCheckoutCtaState,
+  PRINT_CHECKOUT_REDIRECT_LABEL,
+} from "@/lib/checkoutUi";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
@@ -1298,7 +1302,7 @@ export function MobileCreate({
               aria-label="HD export"
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
             >
-              {paid ? "HD download" : "Unlock HD"}
+              {paid ? "HD download" : DIGITAL_CHECKOUT_CTA_LABEL}
             </button>
           </div>
           {hdCreditLabel && (

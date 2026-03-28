@@ -32,6 +32,7 @@ import {
 } from "@/lib/dateInput";
 import { track, trackBeginCheckout, trackCheckoutClientDiagnostic } from "@/lib/analytics";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
+import { DIGITAL_CHECKOUT_CTA_LABEL, DIGITAL_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -726,6 +727,17 @@ export function SimplifiedEditor() {
     remainingReadinessCount === 0
       ? "Ready: preview + HD checkout are unlocked."
       : `${remainingReadinessCount} step${remainingReadinessCount === 1 ? "" : "s"} left before export.`;
+  const checkoutBlockedReason = !isCustomizing
+    ? "Tap Make it yours to start customizing."
+    : !hasDateSelected
+      ? "Choose a date to unlock export."
+      : !dateIsValid
+        ? "Choose a valid past date to unlock export."
+        : !locationIsValid
+          ? "Set a location to unlock export."
+          : !titleIsValid
+            ? "Add a title to unlock export."
+            : null;
 
   // Dynamic recipe that applies user's style/shape/renderOptions choices to the sample preview
   const dynamicRecipe: MapRecipe = useMemo(() => {
@@ -1099,18 +1111,21 @@ export function SimplifiedEditor() {
             {hdExporting ? (
               <>
                 <span className="inline-block animate-spin mr-2" aria-hidden="true">⏳</span>
-                Processing...
+                {paid ? "Processing..." : DIGITAL_CHECKOUT_REDIRECT_LABEL}
               </>
             ) : paid ? (
               <>⬇️ HD download</>
             ) : (
-              <>🔒 Continue to secure checkout</>
+              <>🔒 {DIGITAL_CHECKOUT_CTA_LABEL}</>
             )}
           </button>
           <span id={`${formId}-hd-hint`} className="sr-only">
             {paid ? "Download high-resolution star map" : "Purchase to unlock high-resolution download"}
           </span>
         </div>
+        {!canExport && checkoutBlockedReason && (
+          <p className="text-[11px] text-amber-100/80">{checkoutBlockedReason}</p>
+        )}
         <p className="text-[11px] text-white/55">
           Secure checkout supports cards plus Apple Pay, Google Pay, and Link on supported devices.
         </p>
@@ -1128,6 +1143,7 @@ export function SimplifiedEditor() {
 
         {/* Status hint for screen readers */}
         <div aria-live="polite" className="sr-only">
+          {!canExport && checkoutBlockedReason}
           {!locationIsValid && mode === "customizing" && "Enter a location to enable downloads"}
           {showTitleError && "Enter a title to enable downloads"}
           {showDateError && "Choose a valid date to enable downloads"}

@@ -390,6 +390,11 @@ Recent status:
   - added admin dispatcher endpoint `POST /api/promotions/followup-dispatch` for due follow-up sends
   - added operator command `npm run ops:promotion-followup -- --dry-run|--limit 100`
   - subscriber admin payload now surfaces `followupDueAt` and `followupLastError` for lifecycle visibility
+- Editor/paywall checkout-friction copy pass shipped:
+  - normalized unpaid HD CTA language to `Continue to secure checkout` across desktop editor, mobile editor, and simplified editor
+  - paywall digital plans now show `Opening secure checkout...` while checkout handoff is in flight
+  - simplified editor now shows a concrete blocker hint when export actions are disabled (instead of only generic disabled state)
+  - fixed HD CTA in-flight reset on unpaid paywall-open path so the button no longer stays stuck disabled after opening paywall
 - Expanded referral offer experiment observability:
   - `qa:commerce-digest` now reports paid `referral_offer_variant` counts from Stripe session metadata
   - `qa:loop-scorecard` now surfaces the top paid referral offer variant

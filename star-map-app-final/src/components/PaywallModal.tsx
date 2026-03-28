@@ -13,7 +13,11 @@ import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
 } from "@/lib/printfulShipping";
-import { getPrintCheckoutCtaState, PRINT_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
+import {
+  DIGITAL_CHECKOUT_REDIRECT_LABEL,
+  getPrintCheckoutCtaState,
+  PRINT_CHECKOUT_REDIRECT_LABEL,
+} from "@/lib/checkoutUi";
 
 type PriceLabels = {
   single: string;
@@ -400,7 +404,7 @@ export function PaywallModal({
               disabled={checkoutInFlight}
               className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
+              {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.singleCta}
             </button>
             <p className="mt-2 text-[11px] text-neutral-600">Most buyers who only need this map start here.</p>
           </div>
@@ -421,7 +425,7 @@ export function PaywallModal({
               disabled={checkoutInFlight}
               className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              {copy.packCta}
+              {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.packCta}
             </button>
             <p className="mt-2 text-[11px] text-neutral-600">Each HD export uses one credit from this pack.</p>
           </div>
@@ -448,7 +452,7 @@ export function PaywallModal({
               disabled={checkoutInFlight}
               className="mt-3 w-full rounded-full bg-[#0b1433] px-4 py-2 text-sm font-semibold text-amber-100 shadow-md transition hover:-translate-y-[1px] hover:bg-[#0b1a40] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              {checkoutInFlight ? "Starting checkout..." : copy.subscriptionCta}
+              {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.subscriptionCta}
             </button>
           </div>
 

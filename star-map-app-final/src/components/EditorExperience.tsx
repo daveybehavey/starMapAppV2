@@ -43,7 +43,12 @@ import {
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
-import { getPrintCheckoutCtaState, PRINT_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
+import {
+  DIGITAL_CHECKOUT_CTA_LABEL,
+  DIGITAL_CHECKOUT_REDIRECT_LABEL,
+  getPrintCheckoutCtaState,
+  PRINT_CHECKOUT_REDIRECT_LABEL,
+} from "@/lib/checkoutUi";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 
@@ -1041,6 +1046,8 @@ export function EditorExperience({
               // ignore storage errors (e.g. private browsing)
             }
           }
+          hdExportInFlightRef.current = false;
+          setHdExportInFlight(false);
           return;
         }
       }
@@ -2617,9 +2624,19 @@ export function EditorExperience({
                             aria-label="HD export"
                             disabled={hdExportInFlight}
                             className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                            title="Unlock to export HD without watermark; preview stays free."
+                            title={
+                              paid
+                                ? "Download your HD file without watermark."
+                                : "Continue to secure checkout for HD without watermark; free preview stays available."
+                            }
                           >
-                            {hdExportInFlight ? "Preparing..." : paid ? "HD download" : "Unlock HD"}
+                            {hdExportInFlight
+                              ? paid
+                                ? "Preparing HD download..."
+                                : DIGITAL_CHECKOUT_REDIRECT_LABEL
+                              : paid
+                                ? "HD download"
+                                : DIGITAL_CHECKOUT_CTA_LABEL}
                           </button>
                           {printCheckoutEnabled && (
                             <button

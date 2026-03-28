@@ -1,4 +1,6 @@
 export const PRINT_CHECKOUT_REDIRECT_LABEL = "Redirecting to secure checkout...";
+export const DIGITAL_CHECKOUT_CTA_LABEL = "Continue to secure checkout";
+export const DIGITAL_CHECKOUT_REDIRECT_LABEL = "Opening secure checkout...";
 
 type PrintCheckoutCtaStateInput = {
   checkoutInFlight: boolean;
