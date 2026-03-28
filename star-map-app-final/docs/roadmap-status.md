@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-25
+Updated: 2026-03-28
 
 ## Phase 0: Foundation (Done)
 
@@ -101,6 +101,10 @@ Updated: 2026-03-25
   - Added support lookup command `npm run support:order-lookup` to resolve receipt/session/email into verified recovery status and correct customer response templates.
   - Support lookup templates are now name-agnostic by default and support optional `--name` personalization to avoid hard-coded customer-name mistakes.
   - Added support courtesy replacement command `npm run support:courtesy-replacement` to issue one-time free replacement checkout access when an order was refunded or recovery is needed.
+  - Support tooling now includes operator-safe rails:
+    - `support:courtesy-replacement` defaults to dry-run, requires `--reason`, and only mutates Stripe when `--confirm` is passed.
+    - Courtesy replacement is now blocked for non-refunded source orders unless an explicit `--force` override is used.
+  - `support:order-lookup` now returns explicit next-action triage and copy-ready follow-up commands (including courtesy command scaffolding for refunded cases).
   - Added `My downloads` to app + static footer quick links so returning buyers can recover access faster without contacting support.
   - Success page access panel now includes a direct `My downloads` action alongside `Go to download now`.
   - Added Google Customer Reviews opt-in integration on print success confirmations (env-gated) with order/session context from verified checkout data.
@@ -178,6 +182,10 @@ Updated: 2026-03-25
   - tracking-tagged share links per platform (`utm_*` + `ref_src`)
   - copy-ready post text button
   - top social traffic and top referral-sales source summaries in referral stats
+- Referral v2 visibility polish:
+  - `/success` now mirrors `/download` referral diagnostics with offer-variant mix, skip-reason counts, and reversal summaries.
+  - referral surfaces now include explicit anti-abuse/reversal policy messaging for support and customer clarity.
+  - funnel operator page now normalizes offer-variant/skip-reason labels into human-readable text.
 - Current production wrangler mode is `LIVE_READY`; local `.env.local` remains `CHECKOUT_ONLY` for safer testing.
 - Print operator alerting now covers both:
   - approval-needed draft orders
@@ -256,6 +264,7 @@ Recent status:
 - Added event-level funnel continuity check script: `npm run qa:funnel-health`.
 - `qa:funnel-health` now includes a recent-window checkpoint (last 3 days) and legacy-inflation notes so historical noise does not hide current checkout integrity.
 - Added combined weekly funnel operator command: `npm run qa:funnel-weekly -- --days 14` (continuity + Stripe reconcile in one report).
+- `qa:funnel-weekly` now emits threshold-based `operatorActions` (severity + trigger + next action) so weekly notes include deterministic follow-up steps.
 - `qa:release-gate --live` now includes funnel reconciliation when Stripe credentials are present.
 - Added static homepage drift guard scripts:
   - `npm run sync:static-home`
@@ -282,6 +291,7 @@ Recent status:
   - dedicated physical-product gallery block added to homepage/gift surfaces
   - checkout defaults now fall back to framed print instead of unframed when no variant is specified
   - testimonial placement scaffolding expanded to anniversary and night-sky gift pages without publishing fake quotes
+  - removed remaining cutout fallback leakage in physical proof gallery (framed heart card now falls back to non-cutout mockup).
 - CTA and copy consistency pass shipped across top-intent + lower-intent pages:
   - normalized framed CTA wording to `Preview framed print` and `Start with framed print preview`
   - aligned preview-first wording across homepage, gift pages, and blog CTAs
