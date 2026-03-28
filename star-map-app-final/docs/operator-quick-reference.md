@@ -55,15 +55,22 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - exact checkout session ID
     - whether it was refunded
     - the only valid success-link format (`/success?session_id=...`)
-    - a ready-to-send customer reply template
+    - a ready-to-send customer reply template (active access / refunded / payment incomplete)
+    - explicit next action + copy-ready follow-up command for courtesy replacement when needed
     - optional personalized greeting when you pass `--name`
     - reminder that download filenames now start with `starmap-` (easier mobile lookup)
   - Rule: if order is refunded, do not send a download restore link (access is intentionally revoked).
   - If you need to issue a free replacement access:
-    - `npm run support:courtesy-replacement -- --receipt 1384-7338`
-    - `npm run support:courtesy-replacement -- --session cs_live_...`
-    - `npm run support:courtesy-replacement -- --email customer@example.com`
-    - This creates a one-time 100% Stripe courtesy checkout and prints a ready-to-send customer email template.
+    - Dry-run first (safe default):
+      - `npm run support:courtesy-replacement -- --receipt 1384-7338 --reason refunded_lost_files`
+    - Then confirm only when approved:
+      - `npm run support:courtesy-replacement -- --receipt 1384-7338 --reason refunded_lost_files --confirm`
+    - You can also use `--session cs_live_...` or `--email customer@example.com`.
+    - Safety guards:
+      - script now requires `--reason`
+      - script is dry-run unless `--confirm`
+      - script blocks non-refunded source orders unless `--force` is explicitly set
+    - Output still includes a ready-to-send customer template + short Checkout URL.
   - HD export credits are now consumed only after file generation succeeds (failed generation should not burn credits).
   - Stripe receipt wording: ensure the Pack product label in Stripe dashboard says `3 HD export credits` (not `3 files`) to reduce support confusion.
 - **Account-lite foundation lookup (admin-only)**:

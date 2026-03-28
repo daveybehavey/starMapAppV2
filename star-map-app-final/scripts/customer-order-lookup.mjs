@@ -66,6 +66,12 @@ Examples:
 `);
 }
 
+function shellQuote(value) {
+  if (typeof value !== "string") return "''";
+  const escaped = value.replace(/'/g, `'\\''`);
+  return `'${escaped}'`;
+}
+
 function maskEmail(email) {
   if (!email || typeof email !== "string") return null;
   const [local, domain] = email.split("@");
@@ -164,9 +170,11 @@ function buildSummary(session, charge, input, siteUrl) {
   const orderType = session?.metadata?.order_type ?? "digital";
   const refunded = Boolean(charge?.refunded);
   const amountRefunded = charge?.amount_refunded ?? 0;
+  const paymentStatus = session?.payment_status ?? null;
+  const paid = paymentStatus === "paid" || paymentStatus === "no_payment_required";
   const recommendation = refunded
-    ? "REFUNDED_DO_NOT_SEND_DOWNLOAD_LINK"
-    : session?.payment_status === "paid"
+    ? "REFUNDED_CREATE_COURTESY_CHECKOUT"
+    : paid
       ? "SEND_SUCCESS_LINK"
       : "PAYMENT_NOT_COMPLETE";
   const customerName = normalizeCustomerName(input.customerName);
@@ -187,6 +195,13 @@ function buildSummary(session, charge, input, siteUrl) {
     : mapId
       ? `${siteUrl}/download?map_id=${encodeURIComponent(mapId)}`
       : null;
+  const canCreateCourtesy = Boolean(sessionId);
+  const courtesyCommand = canCreateCourtesy
+    ? `npm run support:courtesy-replacement -- --session ${sessionId} --reason ${shellQuote("lost_files_recovery")} --confirm`
+    : null;
+  const lookupBySessionCommand = sessionId
+    ? `npm run support:order-lookup -- --session ${sessionId}`
+    : null;
 
   return {
     input,
@@ -198,8 +213,9 @@ function buildSummary(session, charge, input, siteUrl) {
       receiptNumber: charge?.receipt_number ?? null,
       createdAt: session?.created ? new Date(session.created * 1000).toISOString() : null,
       amount: formatAmount(session?.amount_total ?? charge?.amount ?? null, session?.currency ?? charge?.currency ?? "usd"),
-      paymentStatus: session?.payment_status ?? null,
+      paymentStatus,
       checkoutStatus: session?.status ?? null,
+      paid,
       refunded,
       amountRefunded: formatAmount(amountRefunded, charge?.currency ?? session?.currency ?? "usd"),
       refundId: charge?.refunds?.data?.[0]?.id ?? null,
@@ -215,15 +231,33 @@ function buildSummary(session, charge, input, siteUrl) {
     links: {
       success: sessionId ? `${siteUrl}/success?session_id=${encodeURIComponent(sessionId)}` : null,
       download: mapId ? `${siteUrl}/download?map_id=${encodeURIComponent(mapId)}` : null,
+      myDownloads: `${siteUrl}/my-downloads`,
     },
     recommendation,
+    triage: {
+      nextAction:
+        recommendation === "REFUNDED_CREATE_COURTESY_CHECKOUT"
+          ? "Issue one-time courtesy replacement checkout (safe path)."
+          : recommendation === "SEND_SUCCESS_LINK"
+            ? "Send success access link and my-downloads fallback."
+            : "Ask customer to complete/redo checkout before restoring files.",
+      canCreateCourtesy,
+      commands: {
+        lookupBySession: lookupBySessionCommand,
+        courtesyReplacement: recommendation === "REFUNDED_CREATE_COURTESY_CHECKOUT" ? courtesyCommand : null,
+      },
+    },
     templates: {
       activeAccess: activeAccessLink && !refunded
-          ? `${greeting}\n\nThanks for your message — I restored your access.\n\nPlease open this secure link:\n${activeAccessLink}\n\n${deliverableLine}${creationHint}\nThen tap “Download HD file” from your download page.\nOn iPhone, downloads are in Files app → Browse → Downloads (not Photos), and the file name starts with starmap-.\n\nBest,\nStarMapCo Support`
+          ? `${greeting}\n\nThanks for your message — I restored your access.\n\nPlease open this secure link:\n${activeAccessLink}\n\n${deliverableLine}${creationHint}\nThen tap “Download HD file” from your download page.\nIf that link expires, open ${siteUrl}/my-downloads and request a new sign-in link.\nOn iPhone, downloads are in Files app → Browse → Downloads (not Photos), and the file name starts with starmap-.\n\nBest,\nStarMapCo Support`
           : null,
       refunded:
         refunded
-          ? `${greeting}\n\nThanks for reaching out. I checked your order and it has already been refunded, which removes download access.\n\nIf you still want the files, reply and I’ll immediately issue a replacement access link or new courtesy checkout.\n\nBest,\nStarMapCo Support`
+          ? `${greeting}\n\nThanks for reaching out. I checked your order and it has already been refunded, which removes download access.\n\nI can issue a one-time courtesy replacement checkout to restore your files immediately.\n\nBest,\nStarMapCo Support`
+          : null,
+      paymentPending:
+        !refunded && !paid
+          ? `${greeting}\n\nThanks for reaching out. I checked the order and payment is not marked complete yet, so files are not unlocked.\n\nPlease complete checkout again using the latest link from the editor. Once paid, files appear on the success/download page immediately.\n\nBest,\nStarMapCo Support`
           : null,
     },
   };
@@ -234,6 +268,10 @@ async function main() {
   loadEnvFile(path.join(process.cwd(), ".env"));
 
   const args = parseArgs(process.argv.slice(2));
+  if (args.h === "true" || args.help === "true") {
+    usage();
+    process.exit(0);
+  }
   const sessionId = typeof args.session === "string" ? args.session.trim() : "";
   const receiptNumber = typeof args.receipt === "string" ? args.receipt.trim() : "";
   const email = typeof args.email === "string" ? args.email.trim() : "";
@@ -306,6 +344,7 @@ async function main() {
   console.log(`Amount: ${summary.order.amount ?? "unknown"}`);
   console.log(`Payment status: ${summary.order.paymentStatus ?? "unknown"}`);
   console.log(`Checkout status: ${summary.order.checkoutStatus ?? "unknown"}`);
+  console.log(`Paid: ${summary.order.paid ? "yes" : "no"}`);
   console.log(`Refunded: ${summary.order.refunded ? "yes" : "no"}`);
   if (summary.order.refunded) {
     console.log(`Refund amount: ${summary.order.amountRefunded ?? "unknown"}`);
@@ -314,7 +353,15 @@ async function main() {
   console.log(`Plan: ${summary.order.plan ?? "unknown"}  Credits: ${summary.order.credits ?? "unknown"}`);
   console.log(`Map ID: ${summary.order.mapId ?? "unknown"}`);
   console.log(`Success link: ${summary.links.success ?? "n/a"}`);
+  console.log(`My Downloads: ${summary.links.myDownloads}`);
   console.log(`Recommendation: ${summary.recommendation}`);
+  console.log(`Next action: ${summary.triage.nextAction}`);
+  if (summary.triage.commands.lookupBySession) {
+    console.log(`Verify command: ${summary.triage.commands.lookupBySession}`);
+  }
+  if (summary.triage.commands.courtesyReplacement) {
+    console.log(`Courtesy command: ${summary.triage.commands.courtesyReplacement}`);
+  }
 
   if (summary.templates.activeAccess) {
     console.log("\nSuggested customer reply (active access):");
@@ -325,6 +372,11 @@ async function main() {
     console.log("\nSuggested customer reply (refunded):");
     console.log("------------------------------------");
     console.log(summary.templates.refunded);
+  }
+  if (summary.templates.paymentPending) {
+    console.log("\nSuggested customer reply (payment not complete):");
+    console.log("------------------------------------------------");
+    console.log(summary.templates.paymentPending);
   }
 }
 

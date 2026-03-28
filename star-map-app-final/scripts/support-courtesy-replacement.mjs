@@ -56,11 +56,14 @@ Options:
   --email <email>    Use most recent checkout session for this email
   --plan <plan>      single or pack3 (default: pack3)
   --days <n>         Search window for receipt/email lookups (default: 120)
-  --reason <text>    Operator note stored in metadata
+  --reason <text>    Required operator reason stored in metadata
+  --confirm          Actually create coupon/promo/checkout (default is dry-run)
+  --force            Override refund-only safety guard (manager approval only)
   --json             Print JSON only
 
 Examples:
-  npm run support:courtesy-replacement -- --receipt 1384-7338
+  npm run support:courtesy-replacement -- --receipt 1384-7338 --reason refunded_lost_files
+  npm run support:courtesy-replacement -- --receipt 1384-7338 --reason refunded_lost_files --confirm
   npm run support:courtesy-replacement -- --session cs_live_...
 `);
 }
@@ -86,6 +89,17 @@ function makeCourtesyCode() {
   return `COURTESY${ts}${rand}`.slice(0, 20);
 }
 
+function shellQuote(value) {
+  if (typeof value !== "string") return "''";
+  const escaped = value.replace(/'/g, `'\\''`);
+  return `'${escaped}'`;
+}
+
+function isSessionPaid(session) {
+  const status = String(session?.payment_status || "");
+  return status === "paid" || status === "no_payment_required";
+}
+
 async function findChargeByReceipt(stripe, receiptNumber, days) {
   const since = Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
   let startingAfter;
@@ -102,6 +116,20 @@ async function findChargeByReceipt(stripe, receiptNumber, days) {
     startingAfter = page.data[page.data.length - 1]?.id;
     if (!startingAfter) return null;
   }
+}
+
+async function loadChargeForSession(stripe, session) {
+  if (!session || typeof session.payment_intent !== "string") return null;
+  const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent, {
+    expand: ["latest_charge"],
+  });
+  if (paymentIntent.latest_charge && typeof paymentIntent.latest_charge === "object") {
+    return stripe.charges.retrieve(paymentIntent.latest_charge.id, { expand: ["refunds"] });
+  }
+  if (typeof paymentIntent.latest_charge === "string") {
+    return stripe.charges.retrieve(paymentIntent.latest_charge, { expand: ["refunds"] });
+  }
+  return null;
 }
 
 async function findLatestSessionByEmail(stripe, email, days) {
@@ -137,7 +165,8 @@ async function findLatestSessionByEmail(stripe, email, days) {
 async function resolveSourceSession(stripe, args, days) {
   if (args.session) {
     const session = await stripe.checkout.sessions.retrieve(args.session.trim());
-    return { sourceType: "session", sourceValue: args.session.trim(), session };
+    const charge = await loadChargeForSession(stripe, session);
+    return { sourceType: "session", sourceValue: args.session.trim(), session, charge };
   }
 
   if (args.receipt) {
@@ -153,14 +182,15 @@ async function resolveSourceSession(stripe, args, days) {
     });
     const session = sessions.data[0] ?? null;
     if (!session) throw new Error(`No checkout session found for receipt ${receipt}.`);
-    return { sourceType: "receipt", sourceValue: receipt, session };
+    return { sourceType: "receipt", sourceValue: receipt, session, charge };
   }
 
   if (args.email) {
     const email = args.email.trim();
     const session = await findLatestSessionByEmail(stripe, email, days);
     if (!session) throw new Error(`No checkout session found for ${email} in last ${days} days.`);
-    return { sourceType: "email", sourceValue: email, session };
+    const charge = await loadChargeForSession(stripe, session);
+    return { sourceType: "email", sourceValue: email, session, charge };
   }
 
   throw new Error("Missing source lookup. Use --session, --receipt, or --email.");
@@ -171,6 +201,10 @@ async function main() {
   loadEnvFile(path.join(process.cwd(), ".env"));
 
   const args = parseArgs(process.argv.slice(2));
+  if (args.h === "true" || args.help === "true") {
+    usage();
+    process.exit(0);
+  }
   if (!args.session && !args.receipt && !args.email) {
     usage();
     process.exit(1);
@@ -184,6 +218,8 @@ async function main() {
   const plan = parsePlan(typeof args.plan === "string" ? args.plan.trim().toLowerCase() : undefined);
   const days = parseDays(typeof args.days === "string" ? args.days.trim() : undefined);
   const reason = typeof args.reason === "string" ? args.reason.trim() : "";
+  const confirm = args.confirm === "true";
+  const force = args.force === "true";
   const outputJson = args.json === "true";
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com").replace(/\/+$/, "");
   const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" });
@@ -197,9 +233,17 @@ async function main() {
   if (!priceId) {
     throw new Error(`Missing Stripe price ID for plan=${plan}`);
   }
+  if (!reason) {
+    throw new Error("Missing --reason. Provide a short operator reason for audit trail.");
+  }
 
   const resolved = await resolveSourceSession(stripe, args, days);
   const sourceSession = resolved.session;
+  const sourceCharge = resolved.charge ?? null;
+  const sourcePaid = isSessionPaid(sourceSession);
+  const sourceRefunded = Boolean(sourceCharge?.refunded);
+  const sourcePaymentStatus = sourceSession?.payment_status ?? null;
+  const sourceOrderType = sourceSession?.metadata?.order_type || sourceSession?.metadata?.orderType || "digital";
 
   const customerEmail = sourceSession.customer_details?.email || sourceSession.customer_email || "";
   const mapId =
@@ -207,7 +251,65 @@ async function main() {
       ? sourceSession.metadata.map_id.trim()
       : "";
 
+  const rerunCommand =
+    `npm run support:courtesy-replacement -- --${resolved.sourceType} ${shellQuote(resolved.sourceValue)}` +
+    ` --plan ${plan} --reason ${shellQuote(reason)} --confirm${force ? " --force" : ""}`;
+
+  if (!force && !sourceRefunded) {
+    throw new Error(
+      `Safety block: source order is not refunded (payment_status=${sourcePaymentStatus || "unknown"}, refunded=no). ` +
+      `Use support:order-lookup and send active access link first. If escalation is approved, rerun with --force.`,
+    );
+  }
+
+  if (!confirm) {
+    const dryRunSummary = {
+      dryRun: true,
+      source: {
+        type: resolved.sourceType,
+        value: resolved.sourceValue,
+        sessionId: sourceSession.id,
+        customerEmail: customerEmail || null,
+        mapId: mapId || null,
+        paymentStatus: sourcePaymentStatus,
+        paid: sourcePaid,
+        refunded: sourceRefunded,
+        orderType: sourceOrderType,
+      },
+      courtesyPlan: {
+        plan,
+        credits: planCredits(plan),
+      },
+      reason,
+      nextStep: "Re-run with --confirm to create coupon + promo + one-time checkout session.",
+      rerunCommand,
+    };
+    if (outputJson) {
+      console.log(JSON.stringify(dryRunSummary, null, 2));
+      return;
+    }
+    console.log("Courtesy replacement dry run");
+    console.log("============================");
+    console.log(`Source: ${resolved.sourceType}=${resolved.sourceValue}`);
+    console.log(`Source session: ${sourceSession.id}`);
+    console.log(`Customer: ${customerEmail || "unknown"}`);
+    console.log(`Payment status: ${sourcePaymentStatus || "unknown"}`);
+    console.log(`Refunded: ${sourceRefunded ? "yes" : "no"}`);
+    console.log(`Order type: ${sourceOrderType}`);
+    console.log(`Plan/credits: ${plan} / ${planCredits(plan)}`);
+    console.log(`Reason: ${reason}`);
+    console.log("");
+    console.log(dryRunSummary.nextStep);
+    console.log(`Command: ${rerunCommand}`);
+    return;
+  }
+
   const courtesyCode = makeCourtesyCode();
+  const supportOperator =
+    process.env.SUPPORT_OPERATOR?.trim() ||
+    process.env.USER?.trim() ||
+    process.env.LOGNAME?.trim() ||
+    "unknown_operator";
   const coupon = await stripe.coupons.create({
     percent_off: 100,
     duration: "once",
@@ -216,7 +318,10 @@ async function main() {
     metadata: {
       source_type: resolved.sourceType,
       source_value: resolved.sourceValue,
-      ...(reason ? { reason } : {}),
+      reason,
+      support_operator: supportOperator,
+      source_payment_status: sourcePaymentStatus || "unknown",
+      source_refunded: sourceRefunded ? "true" : "false",
     },
   });
 
@@ -244,7 +349,10 @@ async function main() {
       source_lookup_type: resolved.sourceType,
       source_lookup_value: resolved.sourceValue,
       ...(mapId ? { map_id: mapId } : {}),
-      ...(reason ? { support_reason: reason } : {}),
+      support_reason: reason,
+      support_operator: supportOperator,
+      source_payment_status: sourcePaymentStatus || "unknown",
+      source_refunded: sourceRefunded ? "true" : "false",
     },
     payment_intent_data: {
       metadata: {
@@ -254,6 +362,10 @@ async function main() {
         source: "support_courtesy_replacement",
         source_session_id: sourceSession.id,
         ...(mapId ? { map_id: mapId } : {}),
+        support_reason: reason,
+        support_operator: supportOperator,
+        source_payment_status: sourcePaymentStatus || "unknown",
+        source_refunded: sourceRefunded ? "true" : "false",
       },
     },
   });
@@ -266,6 +378,10 @@ async function main() {
       sessionId: sourceSession.id,
       customerEmail: customerEmail || null,
       mapId: mapId || null,
+      paymentStatus: sourcePaymentStatus,
+      paid: sourcePaid,
+      refunded: sourceRefunded,
+      orderType: sourceOrderType,
     },
     courtesy: {
       plan,
@@ -276,6 +392,7 @@ async function main() {
       checkoutSessionId: courtesySession.id,
       checkoutUrl: courtesySession.url,
       checkoutShortUrl: shortCheckoutUrl,
+      supportOperator,
     },
     customerMessage:
       `Hi there,\n\n` +
@@ -296,7 +413,11 @@ async function main() {
   console.log(`Source: ${resolved.sourceType}=${resolved.sourceValue}`);
   console.log(`Source session: ${sourceSession.id}`);
   console.log(`Customer: ${customerEmail || "unknown"}`);
+  console.log(`Payment status: ${sourcePaymentStatus || "unknown"}`);
+  console.log(`Refunded: ${sourceRefunded ? "yes" : "no"}`);
   console.log(`Plan/credits: ${plan} / ${credits}`);
+  console.log(`Reason: ${reason}`);
+  console.log(`Operator: ${supportOperator}`);
   console.log(`Promo code: ${promotionCode.code} (${promotionCode.id})`);
   console.log(`Checkout session: ${courtesySession.id}`);
   console.log(`Checkout URL: ${shortCheckoutUrl}`);
