@@ -71,6 +71,109 @@ async function runJsonScript(scriptPath, args) {
   return parsed;
 }
 
+function asFiniteNumber(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function buildOperatorActions(report) {
+  const actions = [];
+  const reconcileDelta = asFiniteNumber(report.reconcile.delta) ?? 0;
+  const reconcileDeltaPct = asFiniteNumber(report.reconcile.deltaPct) ?? 0;
+  const metrics = report.funnelHealth.metrics ?? {};
+  const recentWindow = report.funnelHealth.recentWindow ?? null;
+  const recentCounts = recentWindow?.counts ?? null;
+  const recentWindowDays = Math.max(0, Number(recentWindow?.windowDays || 0));
+  const warningsCount = Array.isArray(report.funnelHealth.warnings) ? report.funnelHealth.warnings.length : 0;
+
+  if (reconcileDelta !== 0) {
+    actions.push({
+      severity: Math.abs(reconcileDelta) >= 3 || reconcileDeltaPct >= 5 ? "critical" : "warning",
+      area: "stripe_reconcile",
+      trigger: `Stripe/Funnel delta is ${reconcileDelta} (${reconcileDeltaPct}% variance).`,
+      action:
+        reconcileDelta > 0
+          ? "Run `npm run qa:funnel-reconcile -- --days 14 --repair` and verify webhook delivery/backfill."
+          : "Investigate duplicate `payment_verified` recording paths before next deploy.",
+    });
+  }
+
+  if (warningsCount > 0) {
+    actions.push({
+      severity: "warning",
+      area: "funnel_health",
+      trigger: `${warningsCount} funnel-health warning(s) detected.`,
+      action: "Create follow-up tickets for each warning and track them in the next weekly digest.",
+    });
+  }
+
+  const checkoutRequestCoverage = asFiniteNumber(metrics.checkoutRequestCoverage);
+  if (checkoutRequestCoverage !== null && checkoutRequestCoverage < 90) {
+    actions.push({
+      severity: "critical",
+      area: "checkout_handoff",
+      trigger: `checkout_started -> checkout_request_received is ${checkoutRequestCoverage}%.`,
+      action:
+        "Investigate checkout handoff regressions in editor/paywall CTA paths and verify server checkout entry logging.",
+    });
+  }
+
+  const checkoutSessionCoverage = asFiniteNumber(metrics.checkoutSessionCoverage);
+  if (checkoutSessionCoverage !== null && checkoutSessionCoverage < 90) {
+    actions.push({
+      severity: "critical",
+      area: "checkout_session_create",
+      trigger: `checkout_request_received -> checkout_session_created is ${checkoutSessionCoverage}%.`,
+      action: "Audit `/api/checkout` failure reasons and fix the top blocker before traffic campaigns.",
+    });
+  }
+
+  const checkoutRedirectCoverage = asFiniteNumber(metrics.checkoutRedirectCoverage);
+  if (checkoutRedirectCoverage !== null && checkoutRedirectCoverage < 90) {
+    actions.push({
+      severity: "warning",
+      area: "checkout_redirect",
+      trigger: `checkout_session_created -> checkout_redirected is ${checkoutRedirectCoverage}%.`,
+      action: "Review client timeout/redirect failures and confirm checkout URL handoff completes on mobile and desktop.",
+    });
+  }
+
+  const downloadCompletionRateFromPaid = asFiniteNumber(metrics.downloadCompletionRateFromPaid);
+  if (downloadCompletionRateFromPaid !== null && downloadCompletionRateFromPaid < 70) {
+    actions.push({
+      severity: "warning",
+      area: "post_purchase_recovery",
+      trigger: `payment_verified -> download_completed is ${downloadCompletionRateFromPaid}%.`,
+      action:
+        "Check success/download recovery panels and access-link email flow for entitlement or UX friction regressions.",
+    });
+  }
+
+  if (recentWindowDays > 0 && recentCounts) {
+    const recentCheckoutStarted = asFiniteNumber(recentCounts.checkout_started) ?? 0;
+    const recentPaymentVerified = asFiniteNumber(recentCounts.payment_verified) ?? 0;
+    if (recentCheckoutStarted >= 5 && recentPaymentVerified === 0) {
+      actions.push({
+        severity: "critical",
+        area: "recent_conversion_drop",
+        trigger: `Recent ${recentWindowDays}d has ${recentCheckoutStarted} checkout starts and 0 payments.`,
+        action: "Pause traffic pushes and run live conversion QA immediately (`npm run qa:live-conversion`).",
+      });
+    }
+  }
+
+  if (actions.length === 0) {
+    actions.push({
+      severity: "ok",
+      area: "weekly_status",
+      trigger: "No threshold breaches detected.",
+      action: "Continue standard cadence and monitor next weekly report.",
+    });
+  }
+
+  return actions;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const common = ["--days", String(args.days), "--site", args.site, "--json"];
@@ -107,8 +210,10 @@ async function main() {
       delta: reconcile.delta ?? 0,
       deltaPct: reconcile.deltaPct ?? 0,
     },
+    operatorActions: [],
     strictFailures,
   };
+  report.operatorActions = buildOperatorActions(report);
 
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
@@ -138,6 +243,15 @@ async function main() {
       console.log("Funnel notes");
       for (const note of report.funnelHealth.notes) {
         console.log(`- ${note}`);
+      }
+    }
+    if (Array.isArray(report.operatorActions) && report.operatorActions.length > 0) {
+      console.log("");
+      console.log("Operator actions");
+      for (const entry of report.operatorActions) {
+        const severity = String(entry.severity || "info").toUpperCase();
+        console.log(`- [${severity}] ${entry.area}: ${entry.trigger}`);
+        console.log(`  -> ${entry.action}`);
       }
     }
   }

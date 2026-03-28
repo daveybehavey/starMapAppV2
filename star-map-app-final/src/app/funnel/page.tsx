@@ -3,6 +3,7 @@ import { getFunnelDashboard } from "@/lib/funnel";
 import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
 import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
 import { getReferralDashboard } from "@/lib/referralDashboard";
+import { formatReferralOfferVariantLabel, formatReferralSkipReasonLabel } from "@/lib/referralUi";
 import { FunnelCsvDownloader } from "@/components/funnel/FunnelCsvDownloader";
 
 export const dynamic = "force-dynamic";
@@ -221,13 +222,17 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Top referral skip reasons</p>
             <p className="text-sm text-neutral-300">
               {referralDashboard.topSkipReasons.length > 0
-                ? referralDashboard.topSkipReasons.map((entry) => `${entry.value} (${entry.count})`).join(" • ")
+                ? referralDashboard.topSkipReasons
+                    .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
+                    .join(" • ")
                 : "No skip reasons recorded in this window."}
             </p>
             <p className="mt-2 text-xs text-neutral-400">
               Offer variants:{" "}
               {referralDashboard.topOfferVariants.length > 0
-                ? referralDashboard.topOfferVariants.map((entry) => `${entry.value} (${entry.count})`).join(" • ")
+                ? referralDashboard.topOfferVariants
+                    .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
+                    .join(" • ")
                 : "none"}
             </p>
           </div>

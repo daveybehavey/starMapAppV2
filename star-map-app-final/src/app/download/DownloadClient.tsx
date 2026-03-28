@@ -37,6 +37,11 @@ import {
   getReferralFriendOfferLabel,
   getReferralShareMessage,
 } from "@/lib/referralShare";
+import {
+  formatReferralOfferVariantLabel,
+  formatReferralSkipReasonLabel,
+  REFERRAL_POLICY_NOTE,
+} from "@/lib/referralUi";
 import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
@@ -1880,7 +1885,7 @@ export default function DownloadClient() {
                   <p className="mt-1 text-[11px] text-amber-100/70">
                     Offer mix:{" "}
                     {referralSummary.topOfferVariants
-                      .map((entry) => `${entry.value.replace(/_/g, " ")} (${entry.count})`)
+                      .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
                       .join(" • ")}
                   </p>
                 ) : null}
@@ -1888,10 +1893,11 @@ export default function DownloadClient() {
                   <p className="mt-1 text-[11px] text-amber-100/70">
                     Top skip reasons:{" "}
                     {referralSummary.topRewardSkipReasons
-                      .map((entry) => `${entry.value.replace(/_/g, " ")} (${entry.count})`)
+                      .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
                       .join(" • ")}
                   </p>
                 ) : null}
+                <p className="mt-1 text-[11px] text-amber-100/70">{REFERRAL_POLICY_NOTE}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"

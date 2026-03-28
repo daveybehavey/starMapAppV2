@@ -25,6 +25,11 @@ import {
   getReferralFriendOfferLabel,
   getReferralShareMessage,
 } from "@/lib/referralShare";
+import {
+  formatReferralOfferVariantLabel,
+  formatReferralSkipReasonLabel,
+  REFERRAL_POLICY_NOTE,
+} from "@/lib/referralUi";
 import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
@@ -36,6 +41,10 @@ type ReferralSourceSummary = {
   source: string;
   visits: number;
 };
+type ReferralCountSummary = {
+  value: string;
+  count: number;
+};
 type ReferralSummary = {
   visits: number;
   conversions: number;
@@ -43,6 +52,10 @@ type ReferralSummary = {
   lastConvertedAt: number | null;
   topVisitSources: ReferralSourceSummary[];
   topConversionSources: ReferralSourceSummary[];
+  topRewardSkipReasons: ReferralCountSummary[];
+  topOfferVariants: ReferralCountSummary[];
+  rewardReversals: number;
+  conversionReversals: number;
 };
 
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
@@ -52,6 +65,10 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   lastConvertedAt: null,
   topVisitSources: [],
   topConversionSources: [],
+  topRewardSkipReasons: [],
+  topOfferVariants: [],
+  rewardReversals: 0,
+  conversionReversals: 0,
 };
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
@@ -407,6 +424,10 @@ export default function SuccessClient() {
             lastConvertedAt?: number | null;
             topVisitSources?: Array<{ source?: unknown; visits?: unknown }>;
             topConversionSources?: Array<{ source?: unknown; conversions?: unknown }>;
+            topRewardSkipReasons?: Array<{ value?: unknown; count?: unknown }>;
+            topOfferVariants?: Array<{ value?: unknown; count?: unknown }>;
+            rewardReversals?: number;
+            conversionReversals?: number;
           }
         | null;
       if (!res.ok || !data?.ok) {
@@ -445,6 +466,38 @@ export default function SuccessClient() {
               .filter((entry) => entry.source && entry.visits > 0)
               .slice(0, 3)
           : [],
+        topRewardSkipReasons: Array.isArray(data.topRewardSkipReasons)
+          ? data.topRewardSkipReasons
+              .map((entry) => ({
+                value: typeof entry?.value === "string" ? entry.value.trim().toLowerCase() : "",
+                count:
+                  typeof entry?.count === "number" && Number.isFinite(entry.count)
+                    ? Math.max(0, Math.floor(entry.count))
+                    : 0,
+              }))
+              .filter((entry) => entry.value && entry.count > 0)
+              .slice(0, 3)
+          : [],
+        topOfferVariants: Array.isArray(data.topOfferVariants)
+          ? data.topOfferVariants
+              .map((entry) => ({
+                value: typeof entry?.value === "string" ? entry.value.trim().toLowerCase() : "",
+                count:
+                  typeof entry?.count === "number" && Number.isFinite(entry.count)
+                    ? Math.max(0, Math.floor(entry.count))
+                    : 0,
+              }))
+              .filter((entry) => entry.value && entry.count > 0)
+              .slice(0, 3)
+          : [],
+        rewardReversals:
+          typeof data.rewardReversals === "number" && Number.isFinite(data.rewardReversals)
+            ? Math.max(0, Math.floor(data.rewardReversals))
+            : 0,
+        conversionReversals:
+          typeof data.conversionReversals === "number" && Number.isFinite(data.conversionReversals)
+            ? Math.max(0, Math.floor(data.conversionReversals))
+            : 0,
       });
       setReferralStatus("ready");
     } catch {
@@ -1215,6 +1268,11 @@ export default function SuccessClient() {
                         <p className="font-semibold text-white">{referralSummary.rewardsGranted}</p>
                       </div>
                     </div>
+                    {(referralSummary.conversionReversals > 0 || referralSummary.rewardReversals > 0) && (
+                      <p className="mt-1 text-[11px] text-amber-100/70">
+                        Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
+                      </p>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -1292,6 +1350,23 @@ export default function SuccessClient() {
                           .join(" • ")}
                       </p>
                     ) : null}
+                    {referralSummary.topOfferVariants.length > 0 ? (
+                      <p className="mt-1 text-[11px] text-amber-100/70">
+                        Offer mix:{" "}
+                        {referralSummary.topOfferVariants
+                          .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
+                          .join(" • ")}
+                      </p>
+                    ) : null}
+                    {referralSummary.topRewardSkipReasons.length > 0 ? (
+                      <p className="mt-1 text-[11px] text-amber-100/70">
+                        Top skip reasons:{" "}
+                        {referralSummary.topRewardSkipReasons
+                          .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
+                          .join(" • ")}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 text-[11px] text-amber-100/70">{REFERRAL_POLICY_NOTE}</p>
                     {referralLink ? (
                       <p className="mt-1 text-[11px] text-amber-100/70">
                         Suggested social caption: {referralShareMessage}
