@@ -238,6 +238,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - referral stats: `GET /api/referrals/status` (authenticated session)
   - promo subscribers: `GET /api/promotions/subscribers` (admin token)
   - proof publishing source-of-truth: permissioned submissions only
+  - weekly executive snapshot endpoint (admin token):
+    - `GET /api/ops/loop-scorecard?days=14`
+    - includes referral share, proof opportunities (paid print sessions), promo lifecycle, and top client checkout blocker
 
 ## 6) Release gate commands (minimum safe set)
 

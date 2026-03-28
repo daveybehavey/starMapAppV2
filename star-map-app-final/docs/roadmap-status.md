@@ -382,6 +382,9 @@ Recent status:
 - Added weekly loop scorecard command:
   - `npm run qa:loop-scorecard -- --days 14`
   - summarizes referral-share, proof-request opportunity, promo-lifecycle, and funnel proxy metrics in one report
+- Added admin loop snapshot endpoint:
+  - `GET /api/ops/loop-scorecard?days=14` (admin token required)
+  - returns referral/proof/promo loop metrics plus top client checkout blocker in one payload
 - Expanded referral offer experiment observability:
   - `qa:commerce-digest` now reports paid `referral_offer_variant` counts from Stripe session metadata
   - `qa:loop-scorecard` now surfaces the top paid referral offer variant
@@ -629,7 +632,7 @@ Recent status:
    - evaluate `react-konva` for richer interaction without replacing the final render pipeline
    - reserve `Fabric.js` for a deliberate “mini design editor” scope, not as a casual dependency swap
 32. Build a lightweight proof-submission queue screen for faster UGC throughput.
-33. Add loop-level dashboard endpoint (referral/proof/promo) for weekly executive snapshot.
+33. Add loop-level dashboard endpoint (referral/proof/promo) for weekly executive snapshot. (Completed: 2026-03-28)
 
 ## Execution Board (Now / Next / Later)
 
