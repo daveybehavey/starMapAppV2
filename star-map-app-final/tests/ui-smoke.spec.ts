@@ -45,6 +45,19 @@ async function ensureProPresetsOpen(page: Page) {
   }
 }
 
+async function expectDigitalPaywallVisible(page: Page) {
+  const paywallHeading = page.getByRole("heading", { name: /Buy this map in HD(?: or print)?/i }).first();
+  await expect(paywallHeading).toBeVisible({ timeout: 12_000 });
+  const paywallCard = paywallHeading.locator("xpath=ancestor::div[contains(@class,'max-w-md')][1]");
+  await expect(
+    paywallCard
+      .getByRole("button", {
+        name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
+      })
+      .first(),
+  ).toBeVisible({ timeout: 8_000 });
+}
+
 test("homepage date field auto-formats 8-digit iOS-style input", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -588,13 +601,7 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
   await expect(hdExportButton).toBeVisible({ timeout: 8000 });
   await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
   await hdExportButton.click();
-  await expect(
-      page
-        .getByRole("button", {
-        name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
-        })
-        .first(),
-  ).toBeVisible({ timeout: 8000 });
+  await expectDigitalPaywallVisible(page);
   await expect(page.getByRole("button", { name: /Printed gift/i })).toHaveCount(0);
 });
 
@@ -616,13 +623,7 @@ test("print checkout buttons submit print payload when visible", async ({ page }
     await expect(hdExportButton).toBeVisible({ timeout: 8000 });
     await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
     await hdExportButton.click();
-    await expect(
-      page
-        .getByRole("button", {
-          name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
-        })
-        .first(),
-    ).toBeVisible({ timeout: 8000 });
+    await expectDigitalPaywallVisible(page);
     return;
   }
 
