@@ -36,7 +36,7 @@ export default function PhysicalProductGallerySection({
     },
     {
       src: "/printproof/home/gallery-framed-heart.webp",
-      fallbackSrc: "/printproof/gallery/wedding-framed-cutout.webp",
+      fallbackSrc: "/printproof/gallery/wedding-framed.jpg",
       alt: "Heart-style framed StarMapCo print in-room",
       eyebrow: "Style · Heart",
       title: "Romantic heart layout",
