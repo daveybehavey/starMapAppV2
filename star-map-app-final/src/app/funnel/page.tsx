@@ -3,7 +3,13 @@ import { getFunnelDashboard } from "@/lib/funnel";
 import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
 import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
 import { getReferralDashboard } from "@/lib/referralDashboard";
-import { formatReferralOfferVariantLabel, formatReferralSkipReasonLabel } from "@/lib/referralUi";
+import {
+  formatReferralOfferVariantLabel,
+  formatReferralSkipReasonLabel,
+  REFERRAL_OFFER_MIX_EMPTY_NOTE,
+  REFERRAL_POLICY_NOTE,
+  REFERRAL_SKIP_REASONS_EMPTY_NOTE,
+} from "@/lib/referralUi";
 import { FunnelCsvDownloader } from "@/components/funnel/FunnelCsvDownloader";
 
 export const dynamic = "force-dynamic";
@@ -225,7 +231,7 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 ? referralDashboard.topSkipReasons
                     .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
                     .join(" • ")
-                : "No skip reasons recorded in this window."}
+                : REFERRAL_SKIP_REASONS_EMPTY_NOTE}
             </p>
             <p className="mt-2 text-xs text-neutral-400">
               Offer variants:{" "}
@@ -233,7 +239,10 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 ? referralDashboard.topOfferVariants
                     .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
                     .join(" • ")
-                : "none"}
+                : REFERRAL_OFFER_MIX_EMPTY_NOTE}
+            </p>
+            <p className="mt-2 text-xs text-neutral-400">
+              {REFERRAL_POLICY_NOTE}
             </p>
           </div>
         </div>

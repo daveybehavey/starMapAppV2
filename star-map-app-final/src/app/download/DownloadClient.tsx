@@ -40,7 +40,9 @@ import {
 import {
   formatReferralOfferVariantLabel,
   formatReferralSkipReasonLabel,
+  REFERRAL_OFFER_MIX_EMPTY_NOTE,
   REFERRAL_POLICY_NOTE,
+  REFERRAL_SKIP_REASONS_EMPTY_NOTE,
 } from "@/lib/referralUi";
 import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
@@ -57,9 +59,13 @@ const LEGACY_CHECKOUT_MAP_KEY = "checkout-map-id";
 type Status = "checking" | "ready" | "downloading" | "error" | "no-draft" | "not-paid";
 type PreviewStatus = "idle" | "rendering" | "ready" | "error";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
-type ReferralSourceSummary = {
+type ReferralVisitSourceSummary = {
   source: string;
   visits: number;
+};
+type ReferralConversionSourceSummary = {
+  source: string;
+  conversions: number;
 };
 type ReferralCountSummary = {
   value: string;
@@ -70,8 +76,8 @@ type ReferralSummary = {
   conversions: number;
   rewardsGranted: number;
   lastConvertedAt: number | null;
-  topVisitSources: ReferralSourceSummary[];
-  topConversionSources: ReferralSourceSummary[];
+  topVisitSources: ReferralVisitSourceSummary[];
+  topConversionSources: ReferralConversionSourceSummary[];
   topRewardSkipReasons: ReferralCountSummary[];
   topOfferVariants: ReferralCountSummary[];
   rewardReversals: number;
@@ -1185,12 +1191,12 @@ export default function DownloadClient() {
           ? data.topConversionSources
               .map((entry) => ({
                 source: typeof entry?.source === "string" ? entry.source.trim().toLowerCase() : "",
-                visits:
+                conversions:
                   typeof entry?.conversions === "number" && Number.isFinite(entry.conversions)
                     ? Math.max(0, Math.floor(entry.conversions))
                     : 0,
               }))
-              .filter((entry) => entry.source && entry.visits > 0)
+              .filter((entry) => entry.source && entry.conversions > 0)
               .slice(0, 3)
           : [],
         topRewardSkipReasons: Array.isArray(data.topRewardSkipReasons)
@@ -1855,11 +1861,9 @@ export default function DownloadClient() {
                     <p className="mt-1 text-sm font-semibold text-white">{referralSummary.rewardsGranted}</p>
                   </div>
                 </div>
-                {(referralSummary.conversionReversals > 0 || referralSummary.rewardReversals > 0) && (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
-                  </p>
-                )}
+                <p className="mt-1 text-[11px] text-amber-100/70">
+                  Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
+                </p>
                 {referralSummary.lastConvertedAt ? (
                   <p className="mt-2 text-[11px] text-amber-100/70">
                     Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
@@ -1877,26 +1881,26 @@ export default function DownloadClient() {
                   <p className="mt-1 text-[11px] text-amber-100/70">
                     Top referral sales:{" "}
                     {referralSummary.topConversionSources
-                      .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
+                      .map((entry) => `${entry.source.toUpperCase()} (${entry.conversions})`)
                       .join(" • ")}
                   </p>
                 ) : null}
-                {referralSummary.topOfferVariants.length > 0 ? (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Offer mix:{" "}
-                    {referralSummary.topOfferVariants
-                      .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
-                      .join(" • ")}
-                  </p>
-                ) : null}
-                {referralSummary.topRewardSkipReasons.length > 0 ? (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Top skip reasons:{" "}
-                    {referralSummary.topRewardSkipReasons
-                      .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
-                      .join(" • ")}
-                  </p>
-                ) : null}
+                <p className="mt-1 text-[11px] text-amber-100/70">
+                  Offer mix:{" "}
+                  {referralSummary.topOfferVariants.length > 0
+                    ? referralSummary.topOfferVariants
+                        .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
+                        .join(" • ")
+                    : REFERRAL_OFFER_MIX_EMPTY_NOTE}
+                </p>
+                <p className="mt-1 text-[11px] text-amber-100/70">
+                  Top skip reasons:{" "}
+                  {referralSummary.topRewardSkipReasons.length > 0
+                    ? referralSummary.topRewardSkipReasons
+                        .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
+                        .join(" • ")
+                    : REFERRAL_SKIP_REASONS_EMPTY_NOTE}
+                </p>
                 <p className="mt-1 text-[11px] text-amber-100/70">{REFERRAL_POLICY_NOTE}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button

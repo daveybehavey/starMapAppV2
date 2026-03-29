@@ -1,6 +1,8 @@
 export function formatReferralOfferVariantLabel(value: string) {
   const normalized = value.trim().toLowerCase();
   if (!normalized) return "Unspecified";
+  if (normalized === "referral_auto_primary") return "Auto referral offer (primary)";
+  if (normalized === "referral_auto_alt") return "Auto referral offer (alternate)";
   if (normalized === "referral_auto_promo") return "Auto referral discount";
   if (normalized === "manual_promo_override") return "Manual promo override";
   if (normalized === "referral_no_discount") return "No friend discount";
@@ -25,3 +27,6 @@ export function formatReferralSkipReasonLabel(value: string) {
 
 export const REFERRAL_POLICY_NOTE =
   "Anti-abuse protections apply: self-referrals are blocked, reward caps can pause grants, and refunded or disputed orders reverse related rewards.";
+
+export const REFERRAL_OFFER_MIX_EMPTY_NOTE = "No qualified referral sales in this window yet.";
+export const REFERRAL_SKIP_REASONS_EMPTY_NOTE = "No reward skips in this window.";

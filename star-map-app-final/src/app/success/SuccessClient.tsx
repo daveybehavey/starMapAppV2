@@ -28,7 +28,9 @@ import {
 import {
   formatReferralOfferVariantLabel,
   formatReferralSkipReasonLabel,
+  REFERRAL_OFFER_MIX_EMPTY_NOTE,
   REFERRAL_POLICY_NOTE,
+  REFERRAL_SKIP_REASONS_EMPTY_NOTE,
 } from "@/lib/referralUi";
 import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
@@ -37,9 +39,13 @@ import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
-type ReferralSourceSummary = {
+type ReferralVisitSourceSummary = {
   source: string;
   visits: number;
+};
+type ReferralConversionSourceSummary = {
+  source: string;
+  conversions: number;
 };
 type ReferralCountSummary = {
   value: string;
@@ -50,8 +56,8 @@ type ReferralSummary = {
   conversions: number;
   rewardsGranted: number;
   lastConvertedAt: number | null;
-  topVisitSources: ReferralSourceSummary[];
-  topConversionSources: ReferralSourceSummary[];
+  topVisitSources: ReferralVisitSourceSummary[];
+  topConversionSources: ReferralConversionSourceSummary[];
   topRewardSkipReasons: ReferralCountSummary[];
   topOfferVariants: ReferralCountSummary[];
   rewardReversals: number;
@@ -458,12 +464,12 @@ export default function SuccessClient() {
           ? data.topConversionSources
               .map((entry) => ({
                 source: typeof entry?.source === "string" ? entry.source.trim().toLowerCase() : "",
-                visits:
+                conversions:
                   typeof entry?.conversions === "number" && Number.isFinite(entry.conversions)
                     ? Math.max(0, Math.floor(entry.conversions))
                     : 0,
               }))
-              .filter((entry) => entry.source && entry.visits > 0)
+              .filter((entry) => entry.source && entry.conversions > 0)
               .slice(0, 3)
           : [],
         topRewardSkipReasons: Array.isArray(data.topRewardSkipReasons)
@@ -1244,7 +1250,7 @@ export default function SuccessClient() {
                   <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                        Referral bonus
+                        Share and earn bonus HD credits
                       </p>
                       <p className="text-[11px] text-amber-100/70">
                         {referralSummary.rewardsGranted} bonus credit{referralSummary.rewardsGranted === 1 ? "" : "s"}
@@ -1268,11 +1274,9 @@ export default function SuccessClient() {
                         <p className="font-semibold text-white">{referralSummary.rewardsGranted}</p>
                       </div>
                     </div>
-                    {(referralSummary.conversionReversals > 0 || referralSummary.rewardReversals > 0) && (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
-                      </p>
-                    )}
+                    <p className="mt-1 text-[11px] text-amber-100/70">
+                      Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -1280,7 +1284,7 @@ export default function SuccessClient() {
                         disabled={referralLoading}
                         className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {referralLoading ? "Generating..." : referralLink ? "Refresh link" : "Create link"}
+                        {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
                       </button>
                       {referralLink && (
                         <>
@@ -1310,25 +1314,32 @@ export default function SuccessClient() {
                             onClick={() => handleShareReferralLink("x")}
                             className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
                           >
-                            Share X
+                            Share on X
                           </button>
                           <button
                             type="button"
                             onClick={() => handleShareReferralLink("facebook")}
                             className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
                           >
-                            Share Facebook
+                            Share on Facebook
                           </button>
                           <button
                             type="button"
                             onClick={() => handleShareReferralLink("pinterest")}
                             className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
                           >
-                            Share Pinterest
+                            Share on Pinterest
                           </button>
                         </>
                       )}
                     </div>
+                    {referralLink ? (
+                      <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p>
+                    ) : (
+                      <p className="mt-2 text-[11px] text-amber-100/70">
+                        Create your referral link once and use it everywhere.
+                      </p>
+                    )}
                     {referralSummary.lastConvertedAt ? (
                       <p className="mt-2 text-[11px] text-amber-100/70">
                         Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
@@ -1346,26 +1357,26 @@ export default function SuccessClient() {
                       <p className="mt-1 text-[11px] text-amber-100/70">
                         Top referral sales:{" "}
                         {referralSummary.topConversionSources
-                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
+                          .map((entry) => `${entry.source.toUpperCase()} (${entry.conversions})`)
                           .join(" • ")}
                       </p>
                     ) : null}
-                    {referralSummary.topOfferVariants.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Offer mix:{" "}
-                        {referralSummary.topOfferVariants
-                          .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {referralSummary.topRewardSkipReasons.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Top skip reasons:{" "}
-                        {referralSummary.topRewardSkipReasons
-                          .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
+                    <p className="mt-1 text-[11px] text-amber-100/70">
+                      Offer mix:{" "}
+                      {referralSummary.topOfferVariants.length > 0
+                        ? referralSummary.topOfferVariants
+                            .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
+                            .join(" • ")
+                        : REFERRAL_OFFER_MIX_EMPTY_NOTE}
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-100/70">
+                      Top skip reasons:{" "}
+                      {referralSummary.topRewardSkipReasons.length > 0
+                        ? referralSummary.topRewardSkipReasons
+                            .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
+                            .join(" • ")
+                        : REFERRAL_SKIP_REASONS_EMPTY_NOTE}
+                    </p>
                     <p className="mt-1 text-[11px] text-amber-100/70">{REFERRAL_POLICY_NOTE}</p>
                     {referralLink ? (
                       <p className="mt-1 text-[11px] text-amber-100/70">
