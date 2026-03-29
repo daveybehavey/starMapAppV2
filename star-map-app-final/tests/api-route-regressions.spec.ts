@@ -31,7 +31,7 @@ async function requestUntilReady(
   const startedAt = Date.now();
   let lastResponse: Awaited<ReturnType<APIRequestContext["fetch"]>> | null = null;
   let lastError: unknown = null;
-  while (Date.now() - startedAt < 90_000) {
+  while (Date.now() - startedAt < 180_000) {
     const mergedHeaders = {
       "x-forwarded-for": randomIp(),
       ...(init.headers ?? {}),

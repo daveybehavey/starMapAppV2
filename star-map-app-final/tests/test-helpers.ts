@@ -9,6 +9,11 @@ const overlaySelectors = [
 
 export const primeLocalStorage = async (page: Page) => {
   await page.addInitScript(() => {
+    const primedFlag = "__pw_local_storage_primed__";
+    if (sessionStorage.getItem(primedFlag) === "1") {
+      return;
+    }
+    sessionStorage.setItem(primedFlag, "1");
     localStorage.clear();
     localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
     localStorage.setItem("cookiesAccepted", "true");
@@ -57,12 +62,28 @@ export const mockGeocode = async (page: Page) => {
 
 export const waitForEditor = async (page: Page, isDesktop?: boolean) => {
   const editor = page.locator("#editor");
-  await editor.waitFor({ state: "attached", timeout: 60000 });
-  await expect(editor).toBeVisible({ timeout: 60000 });
-  if (typeof isDesktop === "boolean") {
-    await expect(editor).toHaveAttribute("data-is-desktop", String(isDesktop));
+  const hasLegacyEditorShell = await editor
+    .waitFor({ state: "attached", timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (hasLegacyEditorShell) {
+    await expect(editor).toBeVisible({ timeout: 60000 });
+    if (typeof isDesktop === "boolean") {
+      await expect(editor).toHaveAttribute("data-is-desktop", String(isDesktop));
+    }
+    await expect(editor).not.toContainText(/Loading editor/i);
+    return;
   }
-  await expect(editor).not.toContainText(/Loading editor/i);
+
+  // Newer simplified editor shell no longer mounts #editor immediately.
+  await expect(
+    page
+      .getByRole("button", {
+        name: /Try a sample moment|Browse occasion presets|Start empty|Generate preview/i,
+      })
+      .first(),
+  ).toBeVisible({ timeout: 60000 });
 };
 
 export const gotoEditor = async (
@@ -114,10 +135,13 @@ export const applySampleMoment = async (page: Page) => {
   if (await sampleButton.isVisible({ timeout: 6000 }).catch(() => false)) {
     await sampleButton.scrollIntoViewIfNeeded();
     try {
-      await sampleButton.click({ timeout: 5000, noWaitAfter: true });
+      await sampleButton.click({ timeout: 4000, noWaitAfter: true });
     } catch {
       // Fallback for animated/transitioning layouts in CI where Playwright actionability can be too strict.
-      await sampleButton.click({ force: true, noWaitAfter: true });
+      const stillVisible = await sampleButton.isVisible({ timeout: 1000 }).catch(() => false);
+      if (stillVisible) {
+        await sampleButton.click({ force: true, timeout: 4000, noWaitAfter: true }).catch(() => undefined);
+      }
     }
     await waitForPreview(page);
     return;

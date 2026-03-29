@@ -1,8 +1,35 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+import { primeLocalStorage } from "./test-helpers";
+
+async function enterCustomizationMode(page: Page) {
+  const dateInput = page.locator("input[type='date']");
+  if (await dateInput.isEnabled().catch(() => false)) return;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (await dateInput.isEnabled().catch(() => false)) break;
+    const makeItYoursButton = page
+      .getByRole("button", { name: /start customizing your star map|make it yours/i })
+      .first();
+    const canClick = await makeItYoursButton.isVisible({ timeout: 1500 }).catch(() => false);
+    if (!canClick) {
+      await page.waitForTimeout(250);
+      continue;
+    }
+    try {
+      await makeItYoursButton.click({ timeout: 3000 });
+    } catch {
+      await makeItYoursButton.click({ force: true, timeout: 3000 }).catch(() => undefined);
+    }
+    await page.waitForTimeout(350);
+  }
+  await expect(dateInput).toBeEnabled({ timeout: 20000 });
+}
 
 test.describe("SimplifiedEditor draft autosave", () => {
   test("restores draft on reload", async ({ page }) => {
     test.setTimeout(60_000);
+    await primeLocalStorage(page);
+
     await page.route("**/api/geocode**", async (route) => {
       await route.fulfill({
         status: 200,
@@ -14,11 +41,7 @@ test.describe("SimplifiedEditor draft autosave", () => {
     });
 
     await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
-    await expect(
-      page.getByRole("button", { name: /start customizing your star map|make it yours/i }),
-    ).toBeVisible({ timeout: 15000 });
-
-    await page.getByRole("button", { name: /start customizing your star map|make it yours/i }).click();
+    await enterCustomizationMode(page);
     await expect(page.getByRole("heading", { name: /your moment/i })).toBeVisible({ timeout: 15000 });
 
     const dateInput = page.locator("input[type='date']");
@@ -35,10 +58,27 @@ test.describe("SimplifiedEditor draft autosave", () => {
     await page.waitForTimeout(900);
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: /your moment/i })).toBeVisible({ timeout: 15000 });
-
     const restoredDateInput = page.locator("input[type='date']");
-    await expect(restoredDateInput).toBeEnabled();
+    const dateReady = await restoredDateInput.isEnabled().catch(() => false);
+    if (!dateReady) {
+      const unlockedWithoutClick = await restoredDateInput
+        .waitFor({ state: "visible", timeout: 10000 })
+        .then(async () => restoredDateInput.isEnabled().catch(() => false))
+        .catch(() => false);
+      if (!unlockedWithoutClick) {
+        const makeItYoursButton = page
+          .getByRole("button", { name: /start customizing your star map|make it yours/i })
+          .first();
+        if (await makeItYoursButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await enterCustomizationMode(page);
+        }
+      }
+    }
+    await expect(page.getByRole("heading", { name: /your moment|customize your moment/i })).toBeVisible({
+      timeout: 15000,
+    });
+
+    await expect(restoredDateInput).toBeEnabled({ timeout: 20000 });
     await expect(restoredDateInput).toHaveValue("2024-06-15");
 
     const restoredTitleInput = page.locator("input[placeholder='Our Night Sky']");

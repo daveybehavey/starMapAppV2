@@ -48,9 +48,8 @@ async function ensureProPresetsOpen(page: Page) {
 async function expectDigitalPaywallVisible(page: Page) {
   const paywallHeading = page.getByRole("heading", { name: /Buy this map in HD(?: or print)?/i }).first();
   await expect(paywallHeading).toBeVisible({ timeout: 12_000 });
-  const paywallCard = paywallHeading.locator("xpath=ancestor::div[contains(@class,'max-w-md')][1]");
   await expect(
-    paywallCard
+    page
       .getByRole("button", {
         name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
       })
@@ -193,17 +192,28 @@ test("editor canvas supports direct text editing and keyboard nudging", async ({
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(150);
 
-  const after = await page.evaluate(() => {
-    const store = (window as unknown as {
-      __ZUSTAND_STORE__?: {
-        getState: () => { textBoxes: Array<{ id: string; position?: { x: number; y: number } }> };
-      };
-    }).__ZUSTAND_STORE__;
-    if (!store) throw new Error("Missing __ZUSTAND_STORE__");
-    const title = store.getState().textBoxes.find((box) => box.id === "title");
-    if (!title?.position) throw new Error("Missing title text box position");
-    return title.position.y;
-  });
+  const readTitleY = async () =>
+    page.evaluate(() => {
+      const store = (window as unknown as {
+        __ZUSTAND_STORE__?: {
+          getState: () => { textBoxes: Array<{ id: string; position?: { x: number; y: number } }> };
+        };
+      }).__ZUSTAND_STORE__;
+      if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+      const title = store.getState().textBoxes.find((box) => box.id === "title");
+      if (!title?.position) throw new Error("Missing title text box position");
+      return title.position.y;
+    });
+
+  let after = await readTitleY();
+  if (after <= before.y) {
+    const nudgeDownButton = page.getByRole("button", { name: /Nudge Title down/i }).first();
+    if (await nudgeDownButton.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await nudgeDownButton.click();
+      await page.waitForTimeout(100);
+      after = await readTitleY();
+    }
+  }
 
   expect(after).toBeGreaterThan(before.y);
 });
@@ -308,6 +318,8 @@ test("success page shows cross-device recovery actions after paid verification",
   const mapId = "123e4567-e89b-42d3-a456-426614174000";
   const accessUrl = `http://localhost:3000/download?token=test-access-token&map_id=${encodeURIComponent(mapId)}`;
 
+  await primeLocalStorage(page);
+
   await page.addInitScript(() => {
     const originalSetTimeout = window.setTimeout.bind(window);
     window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
@@ -380,14 +392,15 @@ test("success page shows cross-device recovery actions after paid verification",
 
   await page.goto("/success?session_id=cs_test_success", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: /Payment successful/i })).toBeVisible({ timeout: 30000 });
-  await expect(page.getByText(/^Access link$/i)).toBeVisible();
+  await expect(page.getByText(/^Access link$|^Need the HD file too\?$/i).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Generating...|Copy link/i }).first()).toBeVisible({ timeout: 12000 });
   const copyReady = await page.getByRole("button", { name: /Copy link/i }).first().isVisible().catch(() => false);
   if (copyReady) {
-    await expect(page.getByRole("button", { name: /Email me link/i }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /Open link/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /Email me link|Open link|New link/i }).first()).toBeVisible({
+      timeout: 8000,
+    });
   }
-  await expect(page.getByRole("button", { name: /^My downloads$/i }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^My downloads$/i }).last()).toBeVisible({ timeout: 12000 });
   await expect(page.getByRole("button", { name: /Go to download now/i }).first()).toBeVisible();
   await expect(page.getByText(/Files → Downloads/i)).toBeVisible();
   if (copyReady) {

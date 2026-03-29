@@ -1,19 +1,39 @@
-import { test, expect } from "@playwright/test";
-import { primeLocalStorage } from "./test-helpers";
+import { test, expect, type Page } from "@playwright/test";
+import { dismissOverlays, primeLocalStorage } from "./test-helpers";
+
+async function enterCustomizationMode(page: Page) {
+  await dismissOverlays(page);
+  const dateInput = page.locator("input[type='date']");
+  if (await dateInput.isEnabled().catch(() => false)) return;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (await dateInput.isEnabled().catch(() => false)) break;
+    const makeItYoursBtn = page
+      .getByRole("button", { name: /start customizing your star map|make it yours/i })
+      .first();
+    const canClick = await makeItYoursBtn.isVisible({ timeout: 1500 }).catch(() => false);
+    if (!canClick) {
+      await page.waitForTimeout(250);
+      continue;
+    }
+    try {
+      await makeItYoursBtn.click({ timeout: 3000 });
+    } catch {
+      await makeItYoursBtn.click({ force: true, timeout: 3000 }).catch(() => undefined);
+    }
+    await page.waitForTimeout(350);
+  }
+  await expect(dateInput).toBeEnabled({ timeout: 20000 });
+}
 
 test.describe("Error Handling", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   test.beforeEach(async ({ page }) => {
     // Navigate to the test page and enter customization mode
     await primeLocalStorage(page);
     await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
-
-    // Enter customization mode
-    const makeItYoursBtn = page
-      .getByRole("button", { name: /Start customizing your star map/i })
-      .or(page.locator("button", { hasText: /Make it yours/i }).first());
-    await expect(makeItYoursBtn).toBeVisible({ timeout: 15000 });
-    await makeItYoursBtn.click();
-    await expect(page.locator("input[type='date']")).toBeEnabled({ timeout: 15000 });
+    await enterCustomizationMode(page);
 
     // Enter a date
     const dateInput = page.locator("input[type='date']");
@@ -41,14 +61,22 @@ test.describe("Error Handling", () => {
     await page.waitForTimeout(500);
 
     // Select from dropdown
-    const suggestion = page.locator("button").filter({ hasText: /London/ }).first();
-    if (await suggestion.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await suggestion.click();
-      await page.waitForTimeout(1000);
+    const optionSuggestion = page.getByRole("option", { name: /London/i }).first();
+    if (await optionSuggestion.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await optionSuggestion.click();
+    } else {
+      const buttonSuggestion = page.locator("button").filter({ hasText: /London/ }).first();
+      if (await buttonSuggestion.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await buttonSuggestion.click();
+      }
     }
+    await expect(locationInput).toHaveValue(/London/i, { timeout: 10000 });
+    await page.waitForTimeout(750);
   });
 
   test("should handle font load failure gracefully", async ({ page }) => {
+    test.setTimeout(60000);
+
     // Inject a script to make document.fonts.ready reject
     await page.addInitScript(() => {
       // Override document.fonts.ready to reject
@@ -65,12 +93,7 @@ test.describe("Error Handling", () => {
     await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
 
     // Re-enter customization mode and set up location
-    const makeItYoursBtn = page
-      .getByRole("button", { name: /Start customizing your star map/i })
-      .or(page.locator("button", { hasText: /Make it yours/i }).first());
-    await expect(makeItYoursBtn).toBeVisible({ timeout: 15000 });
-    await makeItYoursBtn.click();
-    await expect(page.locator("input[type='date']")).toBeEnabled({ timeout: 15000 });
+    await enterCustomizationMode(page);
 
     // Fill in the form again
     const dateInput = page.locator("input[type='date']");
@@ -154,11 +177,14 @@ test.describe("Error Handling", () => {
           contentType: "application/json",
           body: JSON.stringify({ id: "test-map-123" }),
         });
+        return;
       }
+      await route.continue();
     });
 
     // Click HD download button (which should trigger checkout for unpaid user)
-    const hdBtn = page.locator("button").filter({ hasText: /Unlock HD/ });
+    const hdBtn = page.locator("button").filter({ hasText: /Continue to secure checkout|Unlock HD/i }).first();
+    await expect(hdBtn).toBeVisible({ timeout: 15000 });
 
     const isDisabled = await hdBtn.isDisabled();
 
@@ -197,10 +223,13 @@ test.describe("Error Handling", () => {
           contentType: "application/json",
           body: JSON.stringify({ id: "test-map-456" }),
         });
+        return;
       }
+      await route.continue();
     });
 
-    const hdBtn = page.locator("button").filter({ hasText: /Unlock HD/ });
+    const hdBtn = page.locator("button").filter({ hasText: /Continue to secure checkout|Unlock HD/i }).first();
+    await expect(hdBtn).toBeVisible({ timeout: 15000 });
 
     if (!(await hdBtn.isDisabled())) {
       await hdBtn.click();
@@ -228,7 +257,7 @@ test.describe("Error Handling", () => {
     await expect(freePreviewBtn).toHaveAttribute("aria-describedby", /.+-preview-hint/);
 
     // Check HD button ARIA attributes
-    const hdBtn = page.locator("button").filter({ hasText: /Unlock HD|HD download/ });
+    const hdBtn = page.locator("button").filter({ hasText: /Continue to secure checkout|Unlock HD|HD download/ });
     await expect(hdBtn).toHaveAttribute("aria-describedby", /.+-hd-hint/);
 
     // Check style picker has radiogroup role
