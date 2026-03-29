@@ -64,7 +64,7 @@ export default function WeddingPage() {
       <PreviewStartForm
         source="wedding"
         title="Start your wedding preview"
-        description="Enter the wedding date and place, then go straight into the framed path, the unframed path, or a neutral preview-first start."
+        description="Enter the wedding date and place, then preview framed print, preview unframed print, or preview first and decide later."
         intentOptions={[
           {
             label: "Preview framed print",

@@ -64,7 +64,7 @@ export default function StarMapGiftPage() {
       <PreviewStartForm
         source="star-map-gift"
         title="Start your gift preview"
-        description="Enter the moment first, then choose framed print, unframed print, or a neutral preview-first start."
+        description="Enter the moment first, then preview framed print, preview unframed print, or preview first and decide later."
         intentOptions={[
           {
             label: "Preview framed print",

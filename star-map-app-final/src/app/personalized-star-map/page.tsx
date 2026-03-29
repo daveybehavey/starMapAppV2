@@ -64,7 +64,7 @@ export default function PersonalizedStarMapPage() {
       <PreviewStartForm
         source="personalized-star-map"
         title="Start your personalized preview"
-        description="Enter the date and location, then choose the framed path, unframed path, or a neutral preview-first start."
+        description="Enter the date and location, then preview framed print, preview unframed print, or preview first and decide later."
         intentOptions={[
           {
             label: "Preview framed print",

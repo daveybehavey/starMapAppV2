@@ -32,7 +32,12 @@ import {
 } from "@/lib/dateInput";
 import { track, trackBeginCheckout, trackCheckoutClientDiagnostic } from "@/lib/analytics";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
-import { DIGITAL_CHECKOUT_CTA_LABEL, DIGITAL_CHECKOUT_REDIRECT_LABEL } from "@/lib/checkoutUi";
+import {
+  DIGITAL_CHECKOUT_CTA_LABEL,
+  DIGITAL_CHECKOUT_HELPER_TEXT,
+  DIGITAL_CHECKOUT_REDIRECT_LABEL,
+  DIGITAL_CHECKOUT_TRUST_LINE,
+} from "@/lib/checkoutUi";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -725,19 +730,22 @@ export function SimplifiedEditor() {
   const remainingReadinessCount = readinessChecks.filter((item) => !item.done).length;
   const readinessSummary =
     remainingReadinessCount === 0
-      ? "Ready: preview + HD checkout are unlocked."
+      ? "Ready: free preview + secure checkout are unlocked."
       : `${remainingReadinessCount} step${remainingReadinessCount === 1 ? "" : "s"} left before export.`;
   const checkoutBlockedReason = !isCustomizing
     ? "Tap Make it yours to start customizing."
     : !hasDateSelected
-      ? "Choose a date to unlock export."
+      ? "Choose a date to unlock free preview + secure checkout."
       : !dateIsValid
-        ? "Choose a valid past date to unlock export."
+        ? "Choose a valid past date to unlock free preview + secure checkout."
         : !locationIsValid
-          ? "Set a location to unlock export."
+          ? "Set a location to unlock free preview + secure checkout."
           : !titleIsValid
-            ? "Add a title to unlock export."
+            ? "Add a title to unlock free preview + secure checkout."
             : null;
+  const digitalCheckoutHelperText = paid
+    ? "HD download is unlocked for this map. Free preview stays available."
+    : DIGITAL_CHECKOUT_HELPER_TEXT;
 
   // Dynamic recipe that applies user's style/shape/renderOptions choices to the sample preview
   const dynamicRecipe: MapRecipe = useMemo(() => {
@@ -1126,9 +1134,8 @@ export function SimplifiedEditor() {
         {!canExport && checkoutBlockedReason && (
           <p className="text-[11px] text-amber-100/80">{checkoutBlockedReason}</p>
         )}
-        <p className="text-[11px] text-white/55">
-          Secure checkout supports cards plus Apple Pay, Google Pay, and Link on supported devices.
-        </p>
+        <p className="text-[11px] text-white/65">{digitalCheckoutHelperText}</p>
+        <p className="text-[11px] text-white/55">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
         {downloadHint && (
           <div className="rounded-lg border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-100">
             <p>{downloadHint}</p>

@@ -45,7 +45,9 @@ import {
 } from "@/lib/printfulShipping";
 import {
   DIGITAL_CHECKOUT_CTA_LABEL,
+  DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
+  DIGITAL_CHECKOUT_TRUST_LINE,
   getPrintCheckoutCtaState,
   PRINT_CHECKOUT_REDIRECT_LABEL,
 } from "@/lib/checkoutUi";
@@ -496,6 +498,9 @@ export function EditorExperience({
       : !hasLocation
         ? "Add your place to unlock preview."
         : "Presets optional.";
+  const digitalCheckoutHelperText = paid
+    ? "HD download is unlocked for this map. Free preview stays available."
+    : DIGITAL_CHECKOUT_HELPER_TEXT;
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(
@@ -2697,6 +2702,8 @@ export function EditorExperience({
                                 : "HD export credits available."}
                           </p>
                         )}
+                        <p className="mt-1 text-[11px] text-neutral-300/95">{digitalCheckoutHelperText}</p>
+                        <p className="mt-1 text-[11px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
                         {currentPlan !== "subscription" && (
                           <p className="mt-1 text-[11px] text-neutral-300/95">
                             Pack reminder: each HD click exports the <span className="font-semibold text-white">current map only</span>.

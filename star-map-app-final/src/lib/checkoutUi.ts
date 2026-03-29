@@ -1,6 +1,10 @@
 export const PRINT_CHECKOUT_REDIRECT_LABEL = "Redirecting to secure checkout...";
 export const DIGITAL_CHECKOUT_CTA_LABEL = "Continue to secure checkout";
 export const DIGITAL_CHECKOUT_REDIRECT_LABEL = "Opening secure checkout...";
+export const DIGITAL_CHECKOUT_HELPER_TEXT =
+  "Free preview stays available. Continue to secure checkout to unlock HD without watermark.";
+export const DIGITAL_CHECKOUT_TRUST_LINE =
+  "Secure checkout supports cards plus Apple Pay, Google Pay, and Link on supported devices.";
 
 type PrintCheckoutCtaStateInput = {
   checkoutInFlight: boolean;

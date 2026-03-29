@@ -25,6 +25,8 @@ import {
 } from "@/lib/printfulShipping";
 import {
   DIGITAL_CHECKOUT_CTA_LABEL,
+  DIGITAL_CHECKOUT_HELPER_TEXT,
+  DIGITAL_CHECKOUT_TRUST_LINE,
   getPrintCheckoutCtaState,
   PRINT_CHECKOUT_REDIRECT_LABEL,
 } from "@/lib/checkoutUi";
@@ -179,6 +181,9 @@ export function MobileCreate({
       : typeof creditsRemaining === "number"
         ? `${creditsRemaining} HD left`
         : null;
+  const digitalCheckoutHelperText = paid
+    ? "HD download is unlocked for this map. Free preview stays available."
+    : DIGITAL_CHECKOUT_HELPER_TEXT;
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -1312,47 +1317,49 @@ export function MobileCreate({
               </span>
             </div>
           )}
-            {printCheckoutEnabled && printPriceLabels && onStartPrintCheckout && (
-              <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
-                <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
-                <p className="mt-1 text-[10px] text-amber-100/80">
-                  Secure checkout collects shipping details, shows shipping before payment, and creates your print
-                  order right after payment. {shippingDisclosure}
-                </p>
-                <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
-                  <span className="font-semibold text-amber-100">Best gift:</span> framed print.{" "}
-                  <span className="font-semibold text-amber-100">Lower total:</span> unframed poster.
+          <p className="mt-2 text-[10px] text-neutral-300">{digitalCheckoutHelperText}</p>
+          <p className="mt-1 text-[10px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
+          {printCheckoutEnabled && printPriceLabels && onStartPrintCheckout && (
+            <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
+              <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
+              <p className="mt-1 text-[10px] text-amber-100/80">
+                Secure checkout collects shipping details, shows shipping before payment, and creates your print
+                order right after payment. {shippingDisclosure}
+              </p>
+              <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
+                <span className="font-semibold text-amber-100">Best gift:</span> framed print.{" "}
+                <span className="font-semibold text-amber-100">Lower total:</span> unframed poster.
+              </div>
+              {printShippingCountryOptions.length > 0 && (
+                <div className="mt-2">
+                  <label className="text-[10px] font-semibold text-amber-100/80">Shipping country</label>
+                  <select
+                    value={printShippingCountry ?? ""}
+                    onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                    className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
+                    style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                  >
+                    {printShippingCountryOptions.map((country) => (
+                      <option
+                        key={country.code}
+                        value={country.code}
+                        className="text-midnight"
+                        style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                      >
+                        {country.label}
+                      </option>
+                    ))}
+                  </select>
+                  {printShippingCountry && (
+                    <p className="mt-1 text-[10px] text-amber-100/80">
+                      Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
+                      {framedShippingLabel} · unframed {unframedShippingLabel}. Delivery: framed{" "}
+                      {framedDeliveryLabel} · unframed {unframedDeliveryLabel}
+                    </p>
+                  )}
                 </div>
-                {printShippingCountryOptions.length > 0 && (
-                  <div className="mt-2">
-                    <label className="text-[10px] font-semibold text-amber-100/80">Shipping country</label>
-                    <select
-                      value={printShippingCountry ?? ""}
-                      onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
-                      className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
-                      style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
-                    >
-                      {printShippingCountryOptions.map((country) => (
-                        <option
-                          key={country.code}
-                          value={country.code}
-                          className="text-midnight"
-                          style={{ color: "#111827", backgroundColor: "#ffffff" }}
-                        >
-                          {country.label}
-                        </option>
-                      ))}
-                    </select>
-                    {printShippingCountry && (
-                      <p className="mt-1 text-[10px] text-amber-100/80">
-                        Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
-                        {framedShippingLabel} · unframed {unframedShippingLabel}. Delivery: framed{" "}
-                        {framedDeliveryLabel} · unframed {unframedDeliveryLabel}
-                      </p>
-                    )}
-                  </div>
-                )}
-                <div className="mt-2 flex flex-col gap-2">
+              )}
+              <div className="mt-2 flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
