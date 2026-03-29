@@ -104,7 +104,13 @@ function main() {
     ["Typegen", "npx", ["next", "typegen"]],
     ["Typecheck", "npx", ["tsc", "--noEmit"]],
     ["Build", "npm", ["run", "build"]],
-    ["Go/No-Go", "npm", ["run", "qa:go-no-go"]],
+    [
+      "Go/No-Go",
+      "npm",
+      args.live
+        ? ["run", "qa:go-no-go"]
+        : ["run", "qa:go-no-go", "--", "--allow-checkout-only"],
+    ],
   ];
 
   if (args.smoke) {

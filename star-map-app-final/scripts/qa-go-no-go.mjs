@@ -4,6 +4,35 @@ import { readWranglerVars } from "./wrangler-vars.mjs";
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
+function parseArgs(argv) {
+  const args = {
+    allowCheckoutOnly: false,
+  };
+
+  for (const token of argv) {
+    if (token === "--allow-checkout-only") {
+      args.allowCheckoutOnly = true;
+      continue;
+    }
+    if (token === "-h" || token === "--help") {
+      console.log(`Usage: node scripts/qa-go-no-go.mjs [--allow-checkout-only]
+
+Validates print launch configuration.
+
+Options:
+  --allow-checkout-only  Allow CHECKOUT_ONLY mode for local/non-live validation.
+                         This never means live-ready fulfillment.
+`);
+      process.exit(0);
+    }
+    throw new Error(`Unknown arg: ${token}`);
+  }
+
+  return args;
+}
+
+const args = parseArgs(process.argv.slice(2));
+
 const wranglerVars = await readWranglerVars(process.cwd());
 for (const [key, value] of Object.entries(wranglerVars)) {
   if (process.env[key] === undefined) {
@@ -237,6 +266,13 @@ if (issues.length) {
 }
 
 if (mode === "CHECKOUT_ONLY") {
+  if (args.allowCheckoutOnly) {
+    console.log(
+      "\nGO (non-live override): checkout is enabled and fulfillment submission is disabled by design for this run.",
+    );
+    console.log("Live reminder: CHECKOUT_ONLY is still NO-GO for live customers.");
+    process.exit(0);
+  }
   console.log(
     "\nNO-GO for live customers: checkout is enabled but fulfillment submission is disabled.",
   );
