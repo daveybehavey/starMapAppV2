@@ -104,7 +104,10 @@ Updated: 2026-03-28
   - Support tooling now includes operator-safe rails:
     - `support:courtesy-replacement` defaults to dry-run, requires `--reason`, and only mutates Stripe when `--confirm` is passed.
     - Courtesy replacement is now blocked for non-refunded source orders unless an explicit `--force` override is used.
+    - Courtesy replacement is now blocked for duplicate issuance on the same source session unless an explicit `--allow-duplicate` override is used.
   - `support:order-lookup` now returns explicit next-action triage and copy-ready follow-up commands (including courtesy command scaffolding for refunded cases).
+  - `support:order-lookup --email` now prefers the most recent paid session instead of the most recent attempt, reducing false payment-incomplete triage when customers retried checkout.
+  - `support:order-lookup` now prints separate courtesy dry-run and confirm commands for safer operator flow.
   - Added `My downloads` to app + static footer quick links so returning buyers can recover access faster without contacting support.
   - Success page access panel now includes a direct `My downloads` action alongside `Go to download now`.
   - Added Google Customer Reviews opt-in integration on print success confirmations (env-gated) with order/session context from verified checkout data.

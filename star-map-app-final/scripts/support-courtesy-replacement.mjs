@@ -59,6 +59,7 @@ Options:
   --reason <text>    Required operator reason stored in metadata
   --confirm          Actually create coupon/promo/checkout (default is dry-run)
   --force            Override refund-only safety guard (manager approval only)
+  --allow-duplicate  Allow issuing another courtesy replacement for same source session
   --json             Print JSON only
 
 Examples:
@@ -98,6 +99,43 @@ function shellQuote(value) {
 function isSessionPaid(session) {
   const status = String(session?.payment_status || "");
   return status === "paid" || status === "no_payment_required";
+}
+
+async function findExistingCourtesySessionForSource(stripe, sourceSessionId, days = 365) {
+  const since = Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
+  let startingAfter;
+  let scannedPages = 0;
+  const maxPages = 30;
+  let latest = null;
+  let truncated = false;
+
+  for (;;) {
+    const page = await stripe.checkout.sessions.list({
+      limit: 100,
+      created: { gte: since },
+      starting_after: startingAfter,
+    });
+    scannedPages += 1;
+
+    for (const session of page.data) {
+      const metadata = session.metadata || {};
+      if (metadata.source !== "support_courtesy_replacement") continue;
+      if (metadata.source_session_id !== sourceSessionId) continue;
+      if (!latest || session.created > latest.created) {
+        latest = session;
+      }
+    }
+
+    if (!page.has_more) break;
+    if (scannedPages >= maxPages) {
+      truncated = true;
+      break;
+    }
+    startingAfter = page.data[page.data.length - 1]?.id;
+    if (!startingAfter) break;
+  }
+
+  return { session: latest, truncated };
 }
 
 async function findChargeByReceipt(stripe, receiptNumber, days) {
@@ -220,6 +258,7 @@ async function main() {
   const reason = typeof args.reason === "string" ? args.reason.trim() : "";
   const confirm = args.confirm === "true";
   const force = args.force === "true";
+  const allowDuplicate = args["allow-duplicate"] === "true";
   const outputJson = args.json === "true";
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com").replace(/\/+$/, "");
   const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" });
@@ -244,6 +283,7 @@ async function main() {
   const sourceRefunded = Boolean(sourceCharge?.refunded);
   const sourcePaymentStatus = sourceSession?.payment_status ?? null;
   const sourceOrderType = sourceSession?.metadata?.order_type || sourceSession?.metadata?.orderType || "digital";
+  const existingCourtesy = await findExistingCourtesySessionForSource(stripe, sourceSession.id);
 
   const customerEmail = sourceSession.customer_details?.email || sourceSession.customer_email || "";
   const mapId =
@@ -251,9 +291,11 @@ async function main() {
       ? sourceSession.metadata.map_id.trim()
       : "";
 
-  const rerunCommand =
+  const rerunCommandBase =
     `npm run support:courtesy-replacement -- --${resolved.sourceType} ${shellQuote(resolved.sourceValue)}` +
-    ` --plan ${plan} --reason ${shellQuote(reason)} --confirm${force ? " --force" : ""}`;
+    ` --plan ${plan} --reason ${shellQuote(reason)}`;
+  const rerunCommand =
+    `${rerunCommandBase} --confirm${force ? " --force" : ""}${allowDuplicate ? " --allow-duplicate" : ""}`;
 
   if (!force && !sourceRefunded) {
     throw new Error(
@@ -280,6 +322,13 @@ async function main() {
         plan,
         credits: planCredits(plan),
       },
+      duplicateGuard: {
+        existingCourtesySessionId: existingCourtesy.session?.id ?? null,
+        existingCourtesyCreatedAt: existingCourtesy.session?.created
+          ? new Date(existingCourtesy.session.created * 1000).toISOString()
+          : null,
+        scanTruncated: existingCourtesy.truncated,
+      },
       reason,
       nextStep: "Re-run with --confirm to create coupon + promo + one-time checkout session.",
       rerunCommand,
@@ -298,10 +347,29 @@ async function main() {
     console.log(`Order type: ${sourceOrderType}`);
     console.log(`Plan/credits: ${plan} / ${planCredits(plan)}`);
     console.log(`Reason: ${reason}`);
+    if (existingCourtesy.session) {
+      console.log(
+        `Existing courtesy session found: ${existingCourtesy.session.id} (${new Date(
+          existingCourtesy.session.created * 1000,
+        ).toISOString()})`,
+      );
+    } else {
+      console.log("Existing courtesy session found: none");
+    }
+    if (existingCourtesy.truncated) {
+      console.log("Warning: courtesy-session scan hit page limit; manual Stripe search is recommended before confirming.");
+    }
     console.log("");
     console.log(dryRunSummary.nextStep);
     console.log(`Command: ${rerunCommand}`);
     return;
+  }
+
+  if (existingCourtesy.session && !allowDuplicate) {
+    throw new Error(
+      `Safety block: courtesy replacement already exists for source session (${existingCourtesy.session.id}). ` +
+      `Review that session before issuing another. If manager-approved, rerun with --allow-duplicate.`,
+    );
   }
 
   const courtesyCode = makeCourtesyCode();

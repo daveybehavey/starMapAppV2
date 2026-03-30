@@ -58,6 +58,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - a ready-to-send customer reply template (active access / refunded / payment incomplete)
     - explicit next action + copy-ready follow-up command for courtesy replacement when needed
     - optional personalized greeting when you pass `--name`
+    - for `--email` lookups, it now prefers the most recent paid session (faster lost-files recovery when a newer unpaid attempt exists)
     - reminder that download filenames now start with `starmap-` (easier mobile lookup)
   - Rule: if order is refunded, do not send a download restore link (access is intentionally revoked).
   - If you need to issue a free replacement access:
@@ -70,6 +71,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
       - script now requires `--reason`
       - script is dry-run unless `--confirm`
       - script blocks non-refunded source orders unless `--force` is explicitly set
+      - script now blocks duplicate courtesy issuance for the same source session unless `--allow-duplicate` is explicitly set
     - Output still includes a ready-to-send customer template + short Checkout URL.
   - HD export credits are now consumed only after file generation succeeds (failed generation should not burn credits).
   - Stripe receipt wording: ensure the Pack product label in Stripe dashboard says `3 HD export credits` (not `3 files`) to reduce support confusion.

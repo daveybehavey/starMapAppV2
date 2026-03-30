@@ -97,6 +97,11 @@ function normalizeCustomerName(rawName) {
   return firstToken.charAt(0).toUpperCase() + firstToken.slice(1);
 }
 
+function isSessionPaid(session) {
+  const paymentStatus = String(session?.payment_status || "");
+  return paymentStatus === "paid" || paymentStatus === "no_payment_required";
+}
+
 async function findChargeByReceipt(stripe, receiptNumber, days) {
   const since = Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
   let startingAfter = undefined;
@@ -123,7 +128,8 @@ async function findLatestSessionByEmail(stripe, email, days) {
   if (!normalized) return null;
   const since = Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
   let startingAfter = undefined;
-  let best = null;
+  let latestAny = null;
+  let latestPaid = null;
 
   for (;;) {
     const page = await stripe.checkout.sessions.list({
@@ -135,8 +141,11 @@ async function findLatestSessionByEmail(stripe, email, days) {
     for (const session of page.data) {
       const sessionEmail = (session.customer_details?.email || session.customer_email || "").trim().toLowerCase();
       if (!sessionEmail || sessionEmail !== normalized) continue;
-      if (!best || session.created > best.created) {
-        best = session;
+      if (!latestAny || session.created > latestAny.created) {
+        latestAny = session;
+      }
+      if (isSessionPaid(session) && (!latestPaid || session.created > latestPaid.created)) {
+        latestPaid = session;
       }
     }
 
@@ -145,7 +154,7 @@ async function findLatestSessionByEmail(stripe, email, days) {
     if (!startingAfter) break;
   }
 
-  return best;
+  return latestPaid ?? latestAny;
 }
 
 async function loadChargeForSession(stripe, session) {
@@ -196,8 +205,8 @@ function buildSummary(session, charge, input, siteUrl) {
       ? `${siteUrl}/download?map_id=${encodeURIComponent(mapId)}`
       : null;
   const canCreateCourtesy = Boolean(sessionId);
-  const courtesyCommand = canCreateCourtesy
-    ? `npm run support:courtesy-replacement -- --session ${sessionId} --reason ${shellQuote("lost_files_recovery")} --confirm`
+  const courtesyCommandBase = canCreateCourtesy
+    ? `npm run support:courtesy-replacement -- --session ${sessionId} --reason ${shellQuote("lost_files_recovery")}`
     : null;
   const lookupBySessionCommand = sessionId
     ? `npm run support:order-lookup -- --session ${sessionId}`
@@ -237,14 +246,19 @@ function buildSummary(session, charge, input, siteUrl) {
     triage: {
       nextAction:
         recommendation === "REFUNDED_CREATE_COURTESY_CHECKOUT"
-          ? "Issue one-time courtesy replacement checkout (safe path)."
+          ? "Run courtesy replacement dry-run first, then confirm after review."
           : recommendation === "SEND_SUCCESS_LINK"
             ? "Send success access link and my-downloads fallback."
             : "Ask customer to complete/redo checkout before restoring files.",
       canCreateCourtesy,
       commands: {
         lookupBySession: lookupBySessionCommand,
-        courtesyReplacement: recommendation === "REFUNDED_CREATE_COURTESY_CHECKOUT" ? courtesyCommand : null,
+        courtesyReplacementDryRun:
+          recommendation === "REFUNDED_CREATE_COURTESY_CHECKOUT" ? courtesyCommandBase : null,
+        courtesyReplacementConfirm:
+          recommendation === "REFUNDED_CREATE_COURTESY_CHECKOUT" && courtesyCommandBase
+            ? `${courtesyCommandBase} --confirm`
+            : null,
       },
     },
     templates: {
@@ -359,8 +373,11 @@ async function main() {
   if (summary.triage.commands.lookupBySession) {
     console.log(`Verify command: ${summary.triage.commands.lookupBySession}`);
   }
-  if (summary.triage.commands.courtesyReplacement) {
-    console.log(`Courtesy command: ${summary.triage.commands.courtesyReplacement}`);
+  if (summary.triage.commands.courtesyReplacementDryRun) {
+    console.log(`Courtesy dry-run: ${summary.triage.commands.courtesyReplacementDryRun}`);
+  }
+  if (summary.triage.commands.courtesyReplacementConfirm) {
+    console.log(`Courtesy confirm: ${summary.triage.commands.courtesyReplacementConfirm}`);
   }
 
   if (summary.templates.activeAccess) {
