@@ -80,6 +80,10 @@ Updated: 2026-03-30
   - Added in-flight button state text (`Opening secure checkout...`) on print CTAs to reduce dead-click ambiguity.
   - Homepage offer stack now includes a shipping-country selector with live framed/unframed shipping estimates and carries selected country into print-intent editor links.
   - Added `PRINT_DYNAMIC_SHIPPING=true` runtime switch so checkout can use country-level shipping from Printful estimates even when a fixed Stripe shipping rate is configured.
+  - Shared preview-entry CTAs now degrade cleanly when print checkout is disabled:
+    - print-intent quick-start options are suppressed in `PreviewStartForm`
+    - framed secondary action in `StickyCtaBar` only appears when print checkout is enabled
+    - messaging now explicitly switches to digital-only availability when print is off
 - Homepage visual polish hardening:
   - Reduced aggressive hover/glow intensity on showcase cards for a cleaner premium look.
   - Tightened delivery-option card hierarchy and spacing for easier scanning.
