@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-03-28
+Updated: 2026-03-30
 
 ## Phase 0: Foundation (Done)
 
@@ -652,6 +652,7 @@ Recent status:
 ### Now (0-2 weeks)
 
 1. Run conversion-first operator cadence daily:
+   - `npm run qa:fast-loop -- --windows 1,3`
    - `npm run qa:commerce-digest -- --days 14`
    - `npm run qa:funnel-health -- --days 14`
    - `npm run qa:live-smoke`

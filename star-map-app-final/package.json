@@ -55,6 +55,7 @@
     "qa:funnel-health": "node scripts/funnel-health.mjs",
     "qa:funnel-reconcile": "node scripts/funnel-reconcile.mjs",
     "qa:funnel-weekly": "node scripts/funnel-weekly.mjs",
+    "qa:fast-loop": "node scripts/fast-loop.mjs",
     "qa:commerce-digest": "node scripts/commerce-digest.mjs",
     "ops:promotion-followup": "node scripts/promotion-followup-dispatch.mjs",
     "qa:billing": "npm run qa:smoke:commerce && npm run qa:funnel-reconcile -- --days 14 && npm run qa:print-ops -- --hours 168 --limit 40",

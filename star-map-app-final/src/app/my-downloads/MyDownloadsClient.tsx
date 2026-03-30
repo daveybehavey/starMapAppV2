@@ -351,6 +351,25 @@ export default function MyDownloadsClient() {
                         : "Desktop tip: check your browser Downloads history if the file doesn't open immediately."}
                   </p>
                   {inAppBrowserHint ? <p className="text-xs text-amber-100/80">{inAppBrowserHint}</p> : null}
+                  <div className="rounded-xl border border-amber-200/25 bg-amber-300/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
+                      Earn Bonus Credits
+                    </p>
+                    <p className="mt-1 text-xs text-amber-100/80">
+                      Share your referral link to earn extra HD credits when friends complete a paid checkout.
+                    </p>
+                    <Link
+                      href="/download?source=my-downloads-referral"
+                      onClick={() => {
+                        track("my_downloads_open_referral_tools_clicked", {
+                          session_count: sessions.length,
+                        });
+                      }}
+                      className="mt-2 inline-flex rounded-full border border-amber-200/70 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
+                    >
+                      Open referral tools
+                    </Link>
+                  </div>
                   {sessions.map((item) => (
                     <article key={item.sessionId} className="rounded-xl border border-white/12 bg-white/8 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
