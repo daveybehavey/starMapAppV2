@@ -380,6 +380,7 @@ Recent status:
 - Tightened referral anti-abuse controls:
   - added optional `REFERRAL_MAX_REWARDS_PER_REFERRER_24H` cap for rapid repeat rewards
   - webhook reward logic now checks 24-hour cap before 30-day cap
+  - webhook now blocks duplicate referrer rewards from the same referred customer fingerprint within a rolling 30-day window (`repeat_customer_30d` skip reason)
 - Added post-purchase proof capture scaffolding on `/success` and `/download`:
   - asks buyers to email a real photo + short note
   - explicitly states nothing is published without permission

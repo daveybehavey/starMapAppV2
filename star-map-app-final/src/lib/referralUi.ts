@@ -16,6 +16,7 @@ export function formatReferralSkipReasonLabel(value: string) {
   if (normalized === "self_referral") return "Self-referral blocked";
   if (normalized === "reward_cap_24h_reached") return "24h reward cap reached";
   if (normalized === "reward_cap_30d_reached") return "30d reward cap reached";
+  if (normalized === "repeat_customer_30d") return "Repeat-customer reward blocked (30d)";
   if (normalized === "ineligible_order") return "Ineligible order";
   if (normalized === "subscription_referrer") return "Referrer on subscription plan";
   if (normalized === "referrer_inactive") return "Referrer inactive";

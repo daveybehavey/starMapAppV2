@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
@@ -57,6 +58,7 @@ const referralMaxRewardsPerReferrer24h = (() => {
 })();
 const REFERRAL_REWARD_CAP_WINDOW_24H_MS = 24 * 60 * 60 * 1000;
 const REFERRAL_REWARD_CAP_WINDOW_30D_MS = 30 * 24 * 60 * 60 * 1000;
+const REFERRAL_REPEAT_CUSTOMER_WINDOW_30D_SECONDS = 30 * 24 * 60 * 60;
 const stripe =
   stripeSecret &&
   new Stripe(stripeSecret, {
@@ -216,6 +218,20 @@ async function countRecentReferralRewards(code: string, windowMs: number, now = 
     if (event.createdAt < windowStart) return count;
     return count + 1;
   }, 0);
+}
+
+function referralRewardCustomerKey(code: string, customerFingerprint: string) {
+  return `referral:rewarded-customer:${code}:${customerFingerprint}`;
+}
+
+function buildReferralRewardCustomerFingerprint(session: Stripe.Checkout.Session): string | null {
+  const customerId = typeof session.customer === "string" ? session.customer.trim() : "";
+  if (customerId) {
+    return createHash("sha256").update(`customer:${customerId}`).digest("hex");
+  }
+  const customerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
+  if (!customerEmail) return null;
+  return createHash("sha256").update(`email:${customerEmail}`).digest("hex");
 }
 
 function getRecoveryUrl(session: Stripe.Checkout.Session): string | null {
@@ -457,6 +473,10 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   const referralCampaign = getReferralAttributionValue(session, "campaign");
   const referralContent = getReferralAttributionValue(session, "content");
   const referralOfferVariant = getReferralOfferVariant(session);
+  const rewardCustomerFingerprint = buildReferralRewardCustomerFingerprint(session);
+  const rewardCustomerKey = rewardCustomerFingerprint
+    ? referralRewardCustomerKey(referralCode, rewardCustomerFingerprint)
+    : null;
   const rewardEligible = (orderType === "digital" || hasDigitalAddOn) && amountTotal > 0;
   const stateBase: ReferralConversionState = {
     rewarded: true,
@@ -543,7 +563,13 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   let rewardSkipReason: string | undefined;
   if (rewardEligible) {
     if (referrer.plan !== "subscription") {
-      if (referralMaxRewardsPerReferrer24h > 0) {
+      if (rewardCustomerKey) {
+        const previousRewardSessionId = await kv.get<string>(rewardCustomerKey);
+        if (previousRewardSessionId && previousRewardSessionId !== session.id) {
+          rewardSkipReason = "repeat_customer_30d";
+        }
+      }
+      if (!rewardSkipReason && referralMaxRewardsPerReferrer24h > 0) {
         const recentRewardCount24h = await countRecentReferralRewards(
           referralCode,
           REFERRAL_REWARD_CAP_WINDOW_24H_MS,
@@ -572,6 +598,11 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
           creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
         });
         rewardGranted = referralRewardCredits;
+        if (rewardCustomerKey) {
+          await kv.set(rewardCustomerKey, session.id, {
+            ex: REFERRAL_REPEAT_CUSTOMER_WINDOW_30D_SECONDS,
+          });
+        }
       }
     } else {
       rewardSkipReason = "subscription_referrer";
