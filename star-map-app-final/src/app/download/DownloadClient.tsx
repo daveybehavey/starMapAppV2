@@ -291,6 +291,8 @@ export default function DownloadClient() {
   const printUpsellTrackedRef = useRef(false);
   const mapIdFromUrl = searchParams.get("map_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
+  const sourceParam = searchParams.get("source")?.trim() || null;
+  const openedFromMyDownloadsReferral = sourceParam === "my-downloads-referral";
   const upsellIntent =
     searchParams.get("upsell") === "poster_framed" || searchParams.get("upsell") === "poster_unframed"
       ? searchParams.get("upsell")
@@ -332,6 +334,8 @@ export default function DownloadClient() {
   const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
+  const referralPanelTrackedRef = useRef(false);
+  const referralFocusAppliedRef = useRef(false);
   const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
@@ -1346,6 +1350,30 @@ export default function DownloadClient() {
     void createReferralLink("auto");
   }, [createReferralLink, paid, referralLink, referralLoading, referralStatus]);
 
+  useEffect(() => {
+    if (referralPanelTrackedRef.current) return;
+    if (!paid) return;
+    if (referralStatus === "idle" || referralStatus === "loading") return;
+    referralPanelTrackedRef.current = true;
+    track("referral_panel_seen", {
+      source: "download",
+      has_link: Boolean(referralLink),
+      visits: referralSummary.visits,
+      conversions: referralSummary.conversions,
+      rewards: referralSummary.rewardsGranted,
+    });
+  }, [paid, referralLink, referralStatus, referralSummary.conversions, referralSummary.rewardsGranted, referralSummary.visits]);
+
+  useEffect(() => {
+    if (!paid || !openedFromMyDownloadsReferral || referralFocusAppliedRef.current) return;
+    referralFocusAppliedRef.current = true;
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById("referral-card");
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    track("referral_tools_opened", { source: "my_downloads" });
+  }, [openedFromMyDownloadsReferral, paid]);
+
   const statusLabel = (() => {
     switch (status) {
       case "checking":
@@ -1836,9 +1864,9 @@ export default function DownloadClient() {
               </div>
             ) : null}
             {paid ? (
-              <div className="mt-4 rounded-2xl border border-white/12 bg-white/6 p-4">
+              <div id="referral-card" className="mt-4 rounded-2xl border border-white/12 bg-white/6 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-white">Share and earn bonus HD credits</h4>
+                  <h4 className="text-sm font-semibold text-white">Share once, earn bonus HD credits</h4>
                   <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                     Referral
                   </span>
@@ -1903,14 +1931,6 @@ export default function DownloadClient() {
                 </p>
                 <p className="mt-1 text-[11px] text-amber-100/70">{REFERRAL_POLICY_NOTE}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateReferralLink()}
-                    disabled={referralLoading}
-                    className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
-                  </button>
                   {referralLink ? (
                     <>
                       <button
@@ -1922,17 +1942,17 @@ export default function DownloadClient() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void handleCopyReferralPost()}
-                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-                      >
-                        {referralPostCopied ? "Post text copied" : "Copy post text"}
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => void handleShareReferralLink("native")}
                         className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
                       >
                         Share link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyReferralPost()}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        {referralPostCopied ? "Post text copied" : "Copy post text"}
                       </button>
                       <button
                         type="button"
@@ -1955,8 +1975,25 @@ export default function DownloadClient() {
                       >
                         Share on Pinterest
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateReferralLink()}
+                        disabled={referralLoading}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {referralLoading ? "Refreshing..." : "Refresh referral link"}
+                      </button>
                     </>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateReferralLink()}
+                      disabled={referralLoading}
+                      className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {referralLoading ? "Generating..." : "Create referral link"}
+                    </button>
+                  )}
                 </div>
                 {referralLink ? (
                   <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p>

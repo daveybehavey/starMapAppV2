@@ -359,7 +359,7 @@ export default function MyDownloadsClient() {
                       Share your referral link to earn extra HD credits when friends complete a paid checkout.
                     </p>
                     <Link
-                      href="/download?source=my-downloads-referral"
+                      href="/download?source=my-downloads-referral#referral-card"
                       onClick={() => {
                         track("my_downloads_open_referral_tools_clicked", {
                           session_count: sessions.length,

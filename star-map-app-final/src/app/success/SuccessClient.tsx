@@ -158,6 +158,7 @@ export default function SuccessClient() {
   const autoRedirectRef = useRef(true);
   const printUpsellTrackedRef = useRef(false);
   const accessPanelTrackedRef = useRef(false);
+  const referralPanelTrackedRef = useRef(false);
   const customerReviewsRenderedRef = useRef(false);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
   const printPriceLabels = {
@@ -784,6 +785,28 @@ export default function SuccessClient() {
   }, [createReferralLink, hasDigitalEntitlement, referralLink, referralLoading, referralStatus, status]);
 
   useEffect(() => {
+    if (referralPanelTrackedRef.current) return;
+    if (status !== "success" || !hasDigitalEntitlement) return;
+    if (referralStatus === "idle" || referralStatus === "loading") return;
+    referralPanelTrackedRef.current = true;
+    track("referral_panel_seen", {
+      source: "success",
+      has_link: Boolean(referralLink),
+      visits: referralSummary.visits,
+      conversions: referralSummary.conversions,
+      rewards: referralSummary.rewardsGranted,
+    });
+  }, [
+    hasDigitalEntitlement,
+    referralLink,
+    referralStatus,
+    referralSummary.conversions,
+    referralSummary.rewardsGranted,
+    referralSummary.visits,
+    status,
+  ]);
+
+  useEffect(() => {
     if (printUpsellTrackedRef.current) return;
     if (status !== "success" || !hasDigitalEntitlement || isPrintOrder || !printCheckoutEnabled) return;
     printUpsellTrackedRef.current = true;
@@ -1250,7 +1273,7 @@ export default function SuccessClient() {
                   <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                        Share and earn bonus HD credits
+                        Share once, earn bonus HD credits
                       </p>
                       <p className="text-[11px] text-amber-100/70">
                         {referralSummary.rewardsGranted} bonus credit{referralSummary.rewardsGranted === 1 ? "" : "s"}
@@ -1278,15 +1301,7 @@ export default function SuccessClient() {
                       Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleCreateReferralLink()}
-                        disabled={referralLoading}
-                        className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
-                      </button>
-                      {referralLink && (
+                      {referralLink ? (
                         <>
                           <button
                             type="button"
@@ -1297,17 +1312,17 @@ export default function SuccessClient() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => void handleCopyReferralPost()}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            {referralPostCopied ? "Post text copied" : "Copy post text"}
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => void handleShareReferralLink("native")}
                             className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
                           >
                             Share link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyReferralPost()}
+                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                          >
+                            {referralPostCopied ? "Post text copied" : "Copy post text"}
                           </button>
                           <button
                             type="button"
@@ -1330,7 +1345,24 @@ export default function SuccessClient() {
                           >
                             Share on Pinterest
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleCreateReferralLink()}
+                            disabled={referralLoading}
+                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {referralLoading ? "Refreshing..." : "Refresh referral link"}
+                          </button>
                         </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleCreateReferralLink()}
+                          disabled={referralLoading}
+                          className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {referralLoading ? "Generating..." : "Create referral link"}
+                        </button>
                       )}
                     </div>
                     {referralLink ? (
