@@ -28,7 +28,7 @@ export default function StickyCtaBar({
   );
   const baseHref = "/editor?mode=quick";
   const resolvedSource = source?.trim() || "sticky-cta";
-  const href = source ? `${baseHref}&source=${encodeURIComponent(source)}` : baseHref;
+  const href = `${baseHref}&source=${encodeURIComponent(resolvedSource)}`;
 
   return (
     <div className={`sticky top-3 z-20 mt-6 ${className}`}>
@@ -48,7 +48,7 @@ export default function StickyCtaBar({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {secondaryHref ? (
+          {secondaryHref && printCheckoutEnabled ? (
             <a
               href={secondaryHref}
               onClick={() => {

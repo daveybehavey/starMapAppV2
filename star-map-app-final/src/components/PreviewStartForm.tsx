@@ -47,7 +47,14 @@ export default function PreviewStartForm({
   source,
   intentOptions,
 }: PreviewStartFormProps) {
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
   const resolvedSource = source?.trim() || "preview-start-form";
+  const resolvedIntentOptions = intentOptions?.filter((intent) => {
+    if (printCheckoutEnabled) return true;
+    return !intent.checkout && !intent.printVariant;
+  });
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     const formData = new FormData(event.currentTarget);
     const hasDate = String(formData.get("date") ?? "").trim().length > 0;
@@ -106,10 +113,10 @@ export default function PreviewStartForm({
           </div>
         </div>
         <p className="mt-2 text-xs text-neutral-600">{MOBILE_DATE_HELPER_TEXT}</p>
-        {intentOptions?.length ? (
+        {resolvedIntentOptions?.length ? (
           <div className="mt-4 space-y-3">
             <div className="grid gap-2 sm:grid-cols-3">
-              {intentOptions.map((intent) => {
+              {resolvedIntentOptions.map((intent) => {
                 const actionSource = intent.sourceSuffix
                   ? `${resolvedSource}-${intent.sourceSuffix}`
                   : resolvedSource;
@@ -138,8 +145,9 @@ export default function PreviewStartForm({
               })}
             </div>
             <p className="text-xs text-neutral-600">
-              These quick-start buttons keep your date and location, then open the editor with the matching checkout
-              path already selected.
+              {printCheckoutEnabled
+                ? "These quick-start buttons keep your date and location, then open the editor with the matching checkout path already selected."
+                : "These quick-start buttons keep your date and location, then open the editor with your preview settings prefilled."}
             </p>
           </div>
         ) : (
@@ -155,8 +163,9 @@ export default function PreviewStartForm({
         )}
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
         <p className="mt-1 text-xs font-semibold text-amber-700">
-          Physical checkout is available: unframed print, framed print, or print + HD file. Shipping is shown at
-          checkout.
+          {printCheckoutEnabled
+            ? "Physical checkout is available: unframed print, framed print, or print + HD file. Shipping is shown at checkout."
+            : "HD digital checkout is available now. Physical print checkout is in staged rollout by country."}
         </p>
       </form>
     </section>
