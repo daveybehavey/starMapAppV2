@@ -16,6 +16,7 @@ const KEY_STEPS = [
   "download_started",
   "download_completed",
 ];
+const MIN_DOWNLOAD_COMPLETION_SAMPLE = 5;
 
 function parseArgs(argv) {
   const args = {
@@ -176,8 +177,21 @@ function analyzeCounts(counts, recentWindow) {
   if (counts.checkout_started >= 5 && counts.payment_verified === 0) {
     warnings.push("Checkout starts exist but no payment_verified events were recorded.");
   }
-  if (counts.payment_verified > 0 && counts.download_completed < counts.payment_verified * 0.7) {
-    warnings.push("Low download_completed coverage from payment_verified (<70%).");
+  if (
+    counts.payment_verified >= MIN_DOWNLOAD_COMPLETION_SAMPLE &&
+    counts.download_completed < counts.payment_verified * 0.7
+  ) {
+    warnings.push(
+      `Low download_completed coverage from payment_verified (<70%) with sample >=${MIN_DOWNLOAD_COMPLETION_SAMPLE}.`,
+    );
+  } else if (
+    counts.payment_verified > 0 &&
+    counts.payment_verified < MIN_DOWNLOAD_COMPLETION_SAMPLE &&
+    counts.download_completed < counts.payment_verified * 0.7
+  ) {
+    notes.push(
+      `Download completion is below 70%, but payment_verified sample is low (${counts.payment_verified}/${MIN_DOWNLOAD_COMPLETION_SAMPLE} min).`,
+    );
   }
 
   return { metrics, warnings, notes };

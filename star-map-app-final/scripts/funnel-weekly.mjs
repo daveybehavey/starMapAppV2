@@ -8,6 +8,7 @@ dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
 const execFileAsync = promisify(execFile);
+const MIN_DOWNLOAD_COMPLETION_SAMPLE = 5;
 
 function parseArgs(argv) {
   const args = {
@@ -139,13 +140,30 @@ function buildOperatorActions(report) {
   }
 
   const downloadCompletionRateFromPaid = asFiniteNumber(metrics.downloadCompletionRateFromPaid);
-  if (downloadCompletionRateFromPaid !== null && downloadCompletionRateFromPaid < 70) {
+  const paymentVerifiedCount = asFiniteNumber(report.funnelHealth.counts?.payment_verified) ?? 0;
+  if (
+    downloadCompletionRateFromPaid !== null &&
+    downloadCompletionRateFromPaid < 70 &&
+    paymentVerifiedCount >= MIN_DOWNLOAD_COMPLETION_SAMPLE
+  ) {
     actions.push({
       severity: "warning",
       area: "post_purchase_recovery",
-      trigger: `payment_verified -> download_completed is ${downloadCompletionRateFromPaid}%.`,
+      trigger: `payment_verified -> download_completed is ${downloadCompletionRateFromPaid}% (n=${paymentVerifiedCount}).`,
       action:
         "Check success/download recovery panels and access-link email flow for entitlement or UX friction regressions.",
+    });
+  } else if (
+    downloadCompletionRateFromPaid !== null &&
+    downloadCompletionRateFromPaid < 70 &&
+    paymentVerifiedCount > 0 &&
+    paymentVerifiedCount < MIN_DOWNLOAD_COMPLETION_SAMPLE
+  ) {
+    actions.push({
+      severity: "info",
+      area: "post_purchase_recovery_sample",
+      trigger: `payment_verified -> download_completed is ${downloadCompletionRateFromPaid}% with low sample (n=${paymentVerifiedCount}).`,
+      action: `Monitor until sample reaches at least ${MIN_DOWNLOAD_COMPLETION_SAMPLE} paid sessions before treating as regression.`,
     });
   }
 
