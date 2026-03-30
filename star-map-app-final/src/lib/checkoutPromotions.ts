@@ -1,4 +1,4 @@
-import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
+import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 
 export type PromotionSource = "none" | "manual" | "referral_auto";
 
@@ -8,6 +8,7 @@ export function selectCheckoutPromotion(input: {
   referralPromotionCodeId?: string;
   orderType: CheckoutOrderType;
   plan: CheckoutPlan;
+  printVariant?: PrintVariant;
 }): { promotionCodeId?: string; source: PromotionSource } {
   const manualPromotionCodeId = input.manualPromotionCodeId?.trim();
   const canApplyManualPromotion =
@@ -18,11 +19,14 @@ export function selectCheckoutPromotion(input: {
 
   const referralPromotionCodeId = input.referralPromotionCodeId?.trim();
   const hasReferralCode = Boolean(input.referralCode?.trim());
+  const printVariant = input.printVariant ?? "poster_framed";
   const canApplyReferralPromotion =
     hasReferralCode &&
     Boolean(referralPromotionCodeId) &&
-    input.orderType === "digital" &&
-    input.plan !== "subscription";
+    (
+      (input.orderType === "digital" && input.plan !== "subscription") ||
+      (input.orderType === "print" && printVariant === "poster_framed")
+    );
 
   if (canApplyReferralPromotion) {
     return { promotionCodeId: referralPromotionCodeId, source: "referral_auto" };

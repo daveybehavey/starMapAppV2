@@ -410,6 +410,7 @@ Recent status:
   - optional `STRIPE_REFERRAL_PROMO_CODE_ID_ALT` can be enabled alongside `STRIPE_REFERRAL_PROMO_CODE_ID`
   - optional `REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT` (0-100) deterministically splits referral auto-offers by referral code hash
   - checkout metadata now records `referral_offer_variant` as `referral_auto_primary` / `referral_auto_alt` for paid attribution analysis
+  - optional `STRIPE_REFERRAL_PROMO_CODE_ID_PRINT_FRAMED` enables framed-only referral friend offers, with checkout metadata labeled as `referral_auto_print_framed`
 - Added a stricter server-side checkout funnel milestone:
   - `checkout_session_created` now records successful Stripe session creation separately from generic checkout intent
   - this makes it easier to diagnose whether drop-off is happening before Stripe session creation or after handoff

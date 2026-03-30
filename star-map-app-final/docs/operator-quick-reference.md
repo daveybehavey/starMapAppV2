@@ -105,6 +105,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - Delivery metadata is stored on the session record (`accessEmailSentAt`, provider/error fields).
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
+  - `STRIPE_REFERRAL_PROMO_CODE_ID_PRINT_FRAMED` = optional framed-print friend-offer promo (applies only on framed print checkout with referral code)
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion
   - `REFERRAL_MAX_REWARDS_PER_REFERRER_24H` = fast-repeat anti-abuse cap per referrer in a rolling 24-hour window (`0` disables)
   - `REFERRAL_MAX_REWARDS_PER_REFERRER_30D` = anti-abuse cap for how many rewards a single referrer can earn in a rolling 30-day window (`0` disables)

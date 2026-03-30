@@ -3,6 +3,7 @@ export function formatReferralOfferVariantLabel(value: string) {
   if (!normalized) return "Unspecified";
   if (normalized === "referral_auto_primary") return "Auto referral offer (primary)";
   if (normalized === "referral_auto_alt") return "Auto referral offer (alternate)";
+  if (normalized === "referral_auto_print_framed") return "Auto referral offer (framed print)";
   if (normalized === "referral_auto_promo") return "Auto referral discount";
   if (normalized === "manual_promo_override") return "Manual promo override";
   if (normalized === "referral_no_discount") return "No friend discount";

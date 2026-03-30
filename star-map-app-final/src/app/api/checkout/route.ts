@@ -45,6 +45,8 @@ const configuredPromoCode = process.env.PROMOTION_COUPON_CODE?.trim().toUpperCas
 const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim() ?? "";
 const configuredReferralPromotionCodeId = process.env.STRIPE_REFERRAL_PROMO_CODE_ID?.trim() ?? "";
 const configuredReferralPromotionCodeIdAlt = process.env.STRIPE_REFERRAL_PROMO_CODE_ID_ALT?.trim() ?? "";
+const configuredReferralPromotionCodeIdPrintFramed =
+  process.env.STRIPE_REFERRAL_PROMO_CODE_ID_PRINT_FRAMED?.trim() ?? "";
 const referralAutoOfferAltSplitPercent = parsePercentage(process.env.REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT);
 const stripePaymentMethodConfigurationId =
   process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID?.trim() ?? "";
@@ -222,7 +224,7 @@ async function assertDigitalCheckoutMap(mapId: string | undefined) {
   }
 }
 
-type ReferralAutoOfferVariant = "primary" | "alt";
+type ReferralAutoOfferVariant = "primary" | "alt" | "print_framed";
 
 function hashToBucket(value: string) {
   let hash = 0;
@@ -232,10 +234,25 @@ function hashToBucket(value: string) {
   return hash % 100;
 }
 
-function resolveReferralAutoOffer(referralCode?: string): {
+function resolveReferralAutoOffer(input: {
+  referralCode?: string;
+  orderType: CheckoutOrderType;
+  printVariant: PrintVariant;
+}): {
   promotionCodeId?: string;
   variant?: ReferralAutoOfferVariant;
 } {
+  if (input.orderType === "print") {
+    if (input.printVariant === "poster_framed" && configuredReferralPromotionCodeIdPrintFramed) {
+      return {
+        promotionCodeId: configuredReferralPromotionCodeIdPrintFramed,
+        variant: "print_framed",
+      };
+    }
+    return {};
+  }
+
+  const referralCode = input.referralCode;
   const primary = configuredReferralPromotionCodeId;
   const alt = configuredReferralPromotionCodeIdAlt;
   if (!primary && !alt) return {};
@@ -257,6 +274,7 @@ function resolveReferralOfferVariant(input: {
 }): string | undefined {
   if (!input.referralCode?.trim()) return undefined;
   if (input.promotionSource === "referral_auto") {
+    if (input.referralAutoOfferVariant === "print_framed") return "referral_auto_print_framed";
     if (input.referralAutoOfferVariant === "alt") return "referral_auto_alt";
     if (input.referralAutoOfferVariant === "primary") return "referral_auto_primary";
     return "referral_auto_promo";
@@ -889,7 +907,11 @@ export async function GET(req: NextRequest) {
   const fallbackReferralCode = readReferralCodeFromCookie(req);
   const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
-  const referralAutoOffer = resolveReferralAutoOffer(referral.code);
+  const referralAutoOffer = resolveReferralAutoOffer({
+    referralCode: referral.code,
+    orderType,
+    printVariant,
+  });
   const promotion = orderType === "digital" && plan === "subscription"
     ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
     : canUseManualPromotionCode(orderType, plan)
@@ -901,6 +923,7 @@ export async function GET(req: NextRequest) {
     referralPromotionCodeId: referralAutoOffer.promotionCodeId,
     orderType,
     plan,
+    printVariant,
   });
   if (orderType === "print" && !printCheckoutEnabled) {
     return NextResponse.json(
@@ -1062,7 +1085,11 @@ export async function POST(req: NextRequest) {
     const fallbackReferralCode = readReferralCodeFromCookie(req);
     const referralAttribution = readReferralAttributionFromCookie(req);
     const referral = await resolveReferral(referralCode ?? fallbackReferralCode, currentSessionId);
-    const referralAutoOffer = resolveReferralAutoOffer(referral.code);
+    const referralAutoOffer = resolveReferralAutoOffer({
+      referralCode: referral.code,
+      orderType,
+      printVariant,
+    });
     if (orderType === "print" && !printCheckoutEnabled) {
       return NextResponse.json(
         { error: "Print checkout is not enabled yet.", code: "print_checkout_disabled" },
@@ -1101,6 +1128,7 @@ export async function POST(req: NextRequest) {
       referralPromotionCodeId: referralAutoOffer.promotionCodeId,
       orderType,
       plan,
+      printVariant,
     });
 
     await recordFunnelStep({

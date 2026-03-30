@@ -13,6 +13,8 @@ Updated: 2026-03-19
 - Friend offer: auto-applied promo variant split between:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` (primary)
   - `STRIPE_REFERRAL_PROMO_CODE_ID_ALT` (experiment)
+- Optional framed-print friend offer:
+  - `STRIPE_REFERRAL_PROMO_CODE_ID_PRINT_FRAMED` (applies only to framed print referral checkout)
 - Variant split: `REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT`.
 
 ## Guardrails
@@ -29,6 +31,7 @@ Updated: 2026-03-19
 - Track and report by `referral_offer_variant`:
   - `referral_auto_primary`
   - `referral_auto_alt`
+  - `referral_auto_print_framed`
   - fallback/manual variants
 - Weekly checks:
   - `npm run qa:commerce-digest`
