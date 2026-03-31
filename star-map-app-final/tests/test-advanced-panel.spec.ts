@@ -1,23 +1,34 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { primeLocalStorage } from './test-helpers';
 
-const enterCustomizationMode = async (page) => {
+const enterCustomizationMode = async (page: Page) => {
   const makeItYoursButton = page.getByRole('button', {
     name: /start customizing your star map|make it yours/i,
-  });
+  }).first();
   await expect(makeItYoursButton).toBeVisible({ timeout: 15000 });
-  await makeItYoursButton.click();
-  await expect(page.locator('input[type="date"]')).toBeEnabled({ timeout: 15000 });
+
+  const dateInput = page.locator('input[type="date"]');
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await makeItYoursButton.click({ force: true });
+    if (await dateInput.isEnabled().catch(() => false)) break;
+    await page.waitForTimeout(400);
+  }
+
+  await expect(dateInput).toBeEnabled({ timeout: 20000 });
 };
 
-const openAdvancedPanel = async (page) => {
+const openAdvancedPanel = async (page: Page) => {
   await enterCustomizationMode(page);
-  const customizeMoreButton = page.getByRole('button', { name: /customize more|less options/i });
+  const customizeMoreButton = page.getByRole('button', { name: /customize more|less options/i }).first();
   await customizeMoreButton.click();
   await expect(page.getByText('Sky Details')).toBeVisible({ timeout: 15000 });
 };
 
 test.describe('SimplifiedEditor Advanced Panel', () => {
+  test.describe.configure({ timeout: 60000 });
+
   test.beforeEach(async ({ page }) => {
+    await primeLocalStorage(page);
     await page.goto('/simple-test', { waitUntil: 'domcontentloaded' });
   });
 

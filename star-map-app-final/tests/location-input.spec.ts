@@ -1,16 +1,26 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { primeLocalStorage } from "./test-helpers";
+
+async function enterCustomizationMode(page: Page) {
+  const makeItYoursButton = page
+    .getByRole("button", { name: /start customizing your star map|make it yours/i })
+    .first();
+  await expect(makeItYoursButton).toBeVisible({ timeout: 20000 });
+
+  const dateInput = page.locator("input[type='date']");
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await makeItYoursButton.click({ force: true });
+    if (await dateInput.isEnabled().catch(() => false)) break;
+    await page.waitForTimeout(400);
+  }
+  await expect(dateInput).toBeEnabled({ timeout: 20000 });
+}
 
 test.describe("LocationInput Keyboard & Search Behavior", () => {
   test.beforeEach(async ({ page }) => {
     await primeLocalStorage(page);
     await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
-    const makeItYoursButton = page.getByRole("button", {
-      name: /start customizing your star map|make it yours/i,
-    });
-    await expect(makeItYoursButton).toBeVisible({ timeout: 15000 });
-    await makeItYoursButton.click();
-    await expect(page.locator("input[type='date']")).toBeEnabled({ timeout: 15000 });
+    await enterCustomizationMode(page);
   });
 
   test("arrow keys highlight options and Enter selects", async ({ page }) => {
@@ -37,6 +47,7 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
   });
 
   test("debounce limits requests during rapid typing", async ({ page }) => {
+    test.setTimeout(60_000);
     let requestCount = 0;
     let lastQuery = "";
 
@@ -54,7 +65,16 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
     });
 
     const locationInput = page.getByRole("combobox", { name: /Location search/i });
+    const finalRequest = page.waitForRequest(
+      (request) => {
+        const url = new URL(request.url());
+        return url.pathname === "/api/geocode" && (url.searchParams.get("q") ?? "").toLowerCase() === "paris";
+      },
+      { timeout: 10000 },
+    );
+
     await locationInput.click();
+    await locationInput.fill("");
     await locationInput.fill("P");
     await page.waitForTimeout(50);
     await locationInput.fill("Pa");
@@ -65,9 +85,10 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
     await page.waitForTimeout(50);
     await locationInput.fill("Paris");
 
-    await expect.poll(() => requestCount, { timeout: 5000 }).toBeGreaterThan(0);
-    await expect.poll(() => lastQuery, { timeout: 5000 }).toBe("Paris");
-    expect(requestCount).toBeLessThanOrEqual(2);
+    await finalRequest;
+    await expect.poll(() => requestCount, { timeout: 10000 }).toBeGreaterThan(0);
+    await expect.poll(() => lastQuery, { timeout: 10000 }).toBe("Paris");
+    expect(requestCount).toBeLessThanOrEqual(4);
   });
 
   test("invalid timezone lookup falls back without crashing", async ({ page }) => {

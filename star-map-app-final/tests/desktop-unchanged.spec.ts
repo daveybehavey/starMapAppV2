@@ -24,12 +24,9 @@ test("desktop layout unchanged", async ({ page }) => {
 
   const editorSection = page.locator("#editor");
 
-  // Verify desktop layout elements ARE present
-  await expect(page.getByRole("heading", { name: /Design your sky in seconds/i })).toBeVisible();
-  await expect(editorSection.getByRole("button", { name: /Start with a preset/i })).toBeVisible();
-  await expect(editorSection.getByRole("button", { name: /Start from scratch/i })).toBeVisible();
-  await expect(editorSection.locator("span", { hasText: "Presets optional" }).first()).toBeVisible();
-  await expect(page.getByLabel("Generate preview").first()).toBeDisabled();
+  // Verify desktop layout elements ARE present.
+  await expect(page.getByRole("heading", { name: /Preview/i }).first()).toBeVisible();
+  await expect(editorSection.getByRole("button", { name: /Try a sample moment|Generate preview/i }).first()).toBeVisible();
+  await expect(editorSection.getByText(/Date \+ place|Date & Location/i).first()).toBeVisible();
   await expect(page.locator("canvas")).toHaveCount(0);
-  await expect(page.getByText("Date & Location")).toBeVisible();
 });

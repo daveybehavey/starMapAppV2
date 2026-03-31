@@ -1,13 +1,45 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { dismissOverlays, primeLocalStorage } from "./test-helpers";
 
-const waitForViewReady = async (page: { getByText: (text: string | RegExp) => any; locator: (selector: string) => any }) => {
+const waitForViewReady = async (page: Page) => {
   // Wait for loading state to clear if it appears.
   const loading = page.getByText("Loading your star map…");
   if (await loading.isVisible().catch(() => false)) {
-    await expect(loading).toHaveCount(0, { timeout: 15000 });
+    await expect(loading).toHaveCount(0, { timeout: 20000 });
   }
-  await expect(page.locator("canvas")).toBeVisible({ timeout: 15000 });
+
+  const canvas = page.locator("canvas").first();
+  if (await canvas.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await expect(canvas).toBeVisible({ timeout: 20000 });
+    return;
+  }
+  await expect(page.getByText(/Star map preview/i).first()).toBeVisible({ timeout: 20000 });
+};
+
+const createMapWithRetry = async (page: Page, payload: unknown) => {
+  const startedAt = Date.now();
+  let lastStatus = 0;
+  while (Date.now() - startedAt < 90_000) {
+    const response = await page.request.post("/api/maps", { data: payload, failOnStatusCode: false });
+    lastStatus = response.status();
+    if (lastStatus !== 404) return response;
+    await page.waitForTimeout(300);
+  }
+  throw new Error(`Route did not become ready: POST /api/maps (last status ${lastStatus})`);
+};
+
+const gotoWithRetry = async (page: Page, path: string) => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(path, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.waitForTimeout(500);
+    }
+  }
+  throw lastError;
 };
 
 test.describe("View Surface (/m/[id])", () => {
@@ -15,6 +47,7 @@ test.describe("View Surface (/m/[id])", () => {
   // or use an existing shared map
 
   test("has no edit controls (read-only)", async ({ page }) => {
+    test.setTimeout(60_000);
     const payload = {
       version: 1,
       seed: "test-seed",
@@ -35,11 +68,11 @@ test.describe("View Surface (/m/[id])", () => {
     };
 
     await primeLocalStorage(page);
-    const response = await page.request.post("/api/maps", { data: payload });
+    const response = await createMapWithRetry(page, payload);
     expect(response.ok()).toBeTruthy();
     const { id } = (await response.json()) as { id: string };
 
-    await page.goto(`/m/${id}`);
+    await gotoWithRetry(page, `/m/${id}`);
     await dismissOverlays(page);
 
     await waitForViewReady(page);

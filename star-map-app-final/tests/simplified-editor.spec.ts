@@ -13,7 +13,7 @@ test.describe("SimplifiedEditor", () => {
   test("should display sample preview and enable customization", async ({
     page,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
     // Navigate to the simplified editor test page
     await page.goto("/simple-test", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: /start customizing your star map|make it yours/i })).toBeVisible({
@@ -27,19 +27,25 @@ test.describe("SimplifiedEditor", () => {
     });
 
     // Check "Make it yours" button is visible
-    const makeItYoursBtn = page.getByRole("button", { name: /start customizing your star map|make it yours/i });
+    const makeItYoursBtn = page
+      .getByRole("button", { name: /start customizing your star map|make it yours/i })
+      .first();
     await expect(makeItYoursBtn).toBeVisible();
 
     // Check action buttons are disabled initially
     const freePreviewBtn = page.locator("button:has-text('Free preview')");
-    const hdBtn = page.locator("button").filter({ hasText: /Unlock HD|HD download/ });
+    const hdBtn = page.locator("button").filter({ hasText: /Continue to secure checkout|Unlock HD|HD download/ });
     await expect(freePreviewBtn).toBeDisabled();
     await expect(hdBtn).toBeDisabled();
 
     // Click "Make it yours"
     const dateInput = page.locator("input[type='date']");
     if (await dateInput.isDisabled().catch(() => false)) {
-      await makeItYoursBtn.click();
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        await makeItYoursBtn.click({ force: true });
+        if (await dateInput.isEnabled().catch(() => false)) break;
+        await page.waitForTimeout(400);
+      }
     }
     await expect(dateInput).toBeEnabled({ timeout: 15000 });
 

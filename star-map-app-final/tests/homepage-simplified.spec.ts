@@ -80,7 +80,7 @@ test.describe("Homepage with SimplifiedEditor", () => {
     await expect(page.locator("#delivery-options")).toBeVisible();
 
     await expect(singleLink).toHaveText(/single hd/i);
-    await expect(packLink).toHaveText(/3-pack/i);
+    await expect(packLink).toHaveText(/3-pack|3 hd credits/i);
     await expect(subscriptionLink).toHaveText(/unlimited/i);
 
     console.log("✓ Homepage delivery and plan links are visible and correctly targeted");
