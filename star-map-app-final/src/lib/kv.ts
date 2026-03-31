@@ -75,7 +75,13 @@ export const kv = {
     const cfKv = await getCloudflareKv();
     if (cfKv) {
       try {
-        return await cfKv.get<T>(key, "json");
+        const cfValue = await cfKv.get<T>(key, "json");
+        if (cfValue !== null) {
+          return cfValue;
+        }
+        if (process.env.NODE_ENV === "production") {
+          return null;
+        }
       } catch {
         // Fall through to local fallback storage in dev/test or transient KV outages.
       }
@@ -95,6 +101,10 @@ export const kv = {
       const ttl = ttlFromOptions(options);
       try {
         await cfKv.put(key, JSON.stringify(value), ttl ? { expirationTtl: ttl } : undefined);
+        if (process.env.NODE_ENV !== "production") {
+          memoryStore.set(key, value);
+          await writeFallbackValue(key, value);
+        }
         return "OK";
       } catch {
         // Fall through to local fallback storage in dev/test or transient KV outages.

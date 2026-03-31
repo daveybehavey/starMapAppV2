@@ -33,7 +33,6 @@ async function requestUntilReady(
   let lastError: unknown = null;
   while (Date.now() - startedAt < 180_000) {
     const mergedHeaders = {
-      "x-forwarded-for": randomIp(),
       ...(init.headers ?? {}),
     };
     try {
