@@ -45,6 +45,7 @@ import {
 } from "@/lib/printfulShipping";
 import {
   DIGITAL_CHECKOUT_CTA_LABEL,
+  DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT,
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
   DIGITAL_CHECKOUT_TRUST_LINE,
@@ -498,9 +499,11 @@ export function EditorExperience({
       : !hasLocation
         ? "Add your place to unlock preview."
         : "Presets optional.";
-  const digitalCheckoutHelperText = paid
-    ? "HD download is unlocked for this map. Free preview stays available."
-    : DIGITAL_CHECKOUT_HELPER_TEXT;
+  const digitalCheckoutHelperText = checkoutInFlight
+    ? DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT
+    : paid
+      ? "HD download is unlocked for this map. Free preview stays available."
+      : DIGITAL_CHECKOUT_HELPER_TEXT;
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(

@@ -14,6 +14,7 @@ import {
   getPrintShippingCountryOptions,
 } from "@/lib/printfulShipping";
 import {
+  DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
   getPrintCheckoutCtaState,
   PRINT_CHECKOUT_REDIRECT_LABEL,
@@ -434,7 +435,11 @@ export function PaywallModal({
             >
               {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.singleCta}
             </button>
-            <p className="mt-2 text-[11px] text-neutral-600">Most buyers who only need this map start here.</p>
+            <p className="mt-2 text-[11px] text-neutral-600">
+              {checkoutInFlight
+                ? DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT
+                : "Most buyers who only need this map start here."}
+            </p>
             <button
               type="button"
               onClick={handleToggleMoreDigitalOptions}
