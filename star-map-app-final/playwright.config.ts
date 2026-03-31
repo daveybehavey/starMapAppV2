@@ -1,9 +1,13 @@
 import { defineConfig } from "@playwright/test";
 
 const useProdServer = process.env.PW_USE_PROD === "true";
+const withoutColorEnv = "env -u NO_COLOR -u FORCE_COLOR";
 const webServerCommand = useProdServer
-  ? "npm run build && npm run start -- -H 127.0.0.1 -p 3004"
-  : "npm run dev -- -H 127.0.0.1 -p 3004";
+  ? `${withoutColorEnv} npm run build && ${withoutColorEnv} npm run start -- -H 127.0.0.1 -p 3004`
+  : `${withoutColorEnv} npm run dev -- -H 127.0.0.1 -p 3004`;
+const webServerEnv: NodeJS.ProcessEnv = { ...process.env };
+delete webServerEnv.FORCE_COLOR;
+delete webServerEnv.NO_COLOR;
 
 export default defineConfig({
   testDir: "./tests",
@@ -21,7 +25,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
     env: {
-      ...process.env,
+      ...webServerEnv,
       // Keep Stripe routes enabled without requiring real credentials.
       STRIPE_SECRET_KEY: "sk_test_playwright_dummy",
       STRIPE_WEBHOOK_SECRET: "whsec_playwright_dummy",
