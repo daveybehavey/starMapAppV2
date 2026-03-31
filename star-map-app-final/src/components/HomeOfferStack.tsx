@@ -133,7 +133,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
               <span className="rounded-full border border-amber-200/70 bg-amber-200/30 px-2 py-0.5 text-[10px] font-bold text-amber-100">
-                MOST POPULAR
+                GIFT READY
               </span>
             </div>
             <p className="mt-1 inline-flex w-fit rounded-full border border-amber-300/40 bg-amber-300/16 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">

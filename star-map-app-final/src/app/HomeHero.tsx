@@ -116,7 +116,7 @@ export default function HomeHero() {
               onClick={() => handleOfferLadderClick("framed")}
               className="rounded-xl border border-amber-300/50 bg-amber-300/16 px-3 py-3 text-left transition hover:-translate-y-[1px] hover:bg-amber-300/24"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100">Most popular</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100">Gift-ready pick</p>
               <p className="mt-1 text-sm font-semibold text-white">Framed gift</p>
               <p className="mt-1 text-sm font-semibold text-amber-100">{framedPrice}</p>
               <p className="mt-2 text-xs leading-relaxed text-amber-100/85">Best for weddings, anniversaries, and premium presentation right out of the box.</p>
