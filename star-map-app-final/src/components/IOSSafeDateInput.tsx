@@ -27,9 +27,13 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
       ? valueProp
       : (typeof defaultValue === "string" ? defaultValue : "");
 
-  const [useTextFallback] = useState(() => detectIOSDateInputFallback());
+  const [useTextFallback, setUseTextFallback] = useState(false);
   const [textValue, setTextValue] = useState(initialTextValue);
   const [isInvalid, setIsInvalid] = useState(false);
+
+  useEffect(() => {
+    setUseTextFallback(detectIOSDateInputFallback());
+  }, []);
 
   useEffect(() => {
     if (useTextFallback && typeof valueProp === "string") {
@@ -79,11 +83,13 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
   };
 
   if (useTextFallback) {
+    const valueProps =
+      typeof valueProp === "string" ? { value: textValue } : { defaultValue: textValue };
     return (
       <input
         {...inputProps}
         type="text"
-        value={textValue}
+        {...valueProps}
         inputMode="numeric"
         autoCapitalize="off"
         autoCorrect="off"
