@@ -525,6 +525,9 @@ Recent status:
   - digital checkout is now map-first (`map_id` required) to align purchase expectations with "buy this map" behavior
   - checkout API now returns explicit `map_required` / `map_not_found` blockers for clearer recovery paths
   - paywall copy now leads with a single-map purchase mental model and frames packs/unlimited as repeat-use options
+- Funnel reconciliation window alignment hardening:
+  - Stripe comparison windows in `scripts/funnel-reconcile.mjs` and `/api/analytics/funnel/reconcile` now use the same UTC day-bucket boundary semantics as `/api/analytics/funnel`
+  - this removes false Stripe-vs-funnel deltas caused by rolling `N*24h` query windows
 - Referral copy consistency hardening:
   - success-page referral reward text now uses configured `NEXT_PUBLIC_REFERRAL_REWARD_CREDITS` instead of hard-coded `1` credit wording
 - Static homepage readability polish:
@@ -567,6 +570,9 @@ Recent status:
   - added automatic first-payment access email:
     - webhook now auto-sends a secure `/download?token=...` link when digital entitlement becomes paid
     - includes delivery metadata on the session record for operator debugging
+- Added operating execution system doc:
+  - `docs/execution-plan-30-60-90.md`
+  - defines prioritized work blocks, thresholds, and weekly cadence for reliability/conversion/growth execution
 
 ### Most recent verified ops snapshot
 

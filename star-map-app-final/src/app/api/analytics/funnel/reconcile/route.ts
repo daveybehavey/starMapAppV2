@@ -47,6 +47,23 @@ function toBoolean(raw: unknown, fallback = false) {
   return fallback;
 }
 
+function resolveUtcBucketWindowStartSeconds(days: number) {
+  // Match the funnel dashboard window semantics:
+  // include "today + previous (days-1) UTC dates", not a rolling N*24h window.
+  const resolvedDays = Math.min(60, Math.max(1, Math.floor(days)));
+  const now = new Date();
+  const startMs = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - (resolvedDays - 1),
+    0,
+    0,
+    0,
+    0,
+  );
+  return Math.floor(startMs / 1000);
+}
+
 function isPaidCheckoutSession(session: Stripe.Checkout.Session) {
   return session.payment_status === "paid" || session.payment_status === "no_payment_required";
 }
@@ -91,7 +108,7 @@ export async function POST(req: NextRequest) {
   const days = toPositiveInt(body.days, 30, 60);
   const limit = toPositiveInt(body.limit, 100, 500);
   const dryRun = toBoolean(body.dryRun, false);
-  const createdGte = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
+  const createdGte = resolveUtcBucketWindowStartSeconds(days);
 
   const eligibleSessions: Stripe.Checkout.Session[] = [];
   let scanned = 0;

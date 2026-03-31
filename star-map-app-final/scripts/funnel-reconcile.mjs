@@ -64,6 +64,22 @@ function isPaidCheckoutSession(session) {
   return paymentStatus === "paid" || paymentStatus === "no_payment_required";
 }
 
+function resolveUtcBucketWindowStartSeconds(days) {
+  // Keep script math aligned with /api/analytics/funnel dashboard window semantics.
+  const resolvedDays = Math.min(60, Math.max(1, Math.floor(days)));
+  const now = new Date();
+  const startMs = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - (resolvedDays - 1),
+    0,
+    0,
+    0,
+    0,
+  );
+  return Math.floor(startMs / 1000);
+}
+
 function belongsToStarMap(session) {
   const metadata = session.metadata || {};
   return Boolean(
@@ -102,7 +118,7 @@ async function getStripePaidSessions(days) {
   const stripeSecret = process.env.STRIPE_SECRET_KEY?.trim() || "";
   if (!stripeSecret) throw new Error("Missing STRIPE_SECRET_KEY");
   const stripe = new Stripe(stripeSecret);
-  const createdGte = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
+  const createdGte = resolveUtcBucketWindowStartSeconds(days);
   const sessions = [];
   let startingAfter = undefined;
 
