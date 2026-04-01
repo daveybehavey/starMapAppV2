@@ -151,7 +151,7 @@ export default function HomeStaticSections({
               },
               {
                 imageSrc: proofImages.unframed,
-                occasion: "Unframed poster",
+                occasion: "Unframed print",
                 renderMode: "Mockup",
                 caption: "Lower-cost physical option with the same star map artwork",
                 badge: "POSTER",

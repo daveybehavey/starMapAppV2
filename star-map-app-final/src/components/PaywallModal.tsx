@@ -310,7 +310,7 @@ export function PaywallModal({
           {activeIntent === "print" && hasPrintOptions && printPriceLabels && onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Printed + framed checkout</p>
+                <p className="text-sm font-semibold">Framed + unframed checkout</p>
                 <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                   Physical delivery
                 </span>
@@ -405,7 +405,7 @@ export function PaywallModal({
                 >
                   {checkoutInFlight
                     ? PRINT_CHECKOUT_REDIRECT_LABEL
-                    : `Unframed poster • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
+                    : `Unframed print • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
                 </button>
               </div>
               <p className="mt-2 text-[10px] text-amber-100/80">{printCheckoutCtaState.helperText}</p>

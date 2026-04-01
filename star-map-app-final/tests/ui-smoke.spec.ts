@@ -103,7 +103,10 @@ test("editor date field accepts numeric-only iOS input", async ({ browser }) => 
     define(navigator, "maxTouchPoints", 5);
   });
 
-  await page.goto("/editor?mode=quick", { waitUntil: "domcontentloaded" });
+  await gotoEditor(page, {
+    force: "desktop",
+    query: { mode: "quick" },
+  });
   const labeledDateInput = page.getByLabel(/Date|When was it\?/i).first();
   let dateInput = labeledDateInput;
   const hasLabeledDateInput = await labeledDateInput.isVisible({ timeout: 3_000 }).catch(() => false);

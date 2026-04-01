@@ -1280,7 +1280,7 @@ export function MobileCreate({
                   </p>
                   {printCheckoutEnabled && (
                     <p className="text-[10px] text-amber-100/90">
-                      Printed and framed options unlock after preview.
+                      Framed and unframed print options unlock after preview.
                     </p>
                   )}
                 </div>
@@ -1321,14 +1321,14 @@ export function MobileCreate({
           <p className="mt-1 text-[10px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
           {printCheckoutEnabled && printPriceLabels && onStartPrintCheckout && (
             <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
-              <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
+              <p className="text-[11px] font-semibold text-amber-100">Buy a framed or unframed print gift</p>
               <p className="mt-1 text-[10px] text-amber-100/80">
                 Secure checkout collects shipping details, shows shipping before payment, and creates your print
                 order right after payment. {shippingDisclosure}
               </p>
               <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
                 <span className="font-semibold text-amber-100">Best gift:</span> framed print.{" "}
-                <span className="font-semibold text-amber-100">Lower total:</span> unframed poster.
+                <span className="font-semibold text-amber-100">Lower total:</span> unframed print.
               </div>
               {printShippingCountryOptions.length > 0 && (
                 <div className="mt-2">

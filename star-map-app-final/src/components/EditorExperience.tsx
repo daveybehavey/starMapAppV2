@@ -2563,7 +2563,7 @@ export function EditorExperience({
                               )}
                               {canReveal && printCheckoutEnabled && (
                                 <p className="text-[11px] text-amber-100/90">
-                                  Printed and framed options unlock after preview.
+                                  Framed and unframed print options unlock after preview.
                                 </p>
                               )}
                             </div>
@@ -2748,7 +2748,7 @@ export function EditorExperience({
                               </div>
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Lower total</p>
-                                <p className="mt-1">Unframed poster if you already have a frame plan.</p>
+                                <p className="mt-1">Unframed print if you already have a frame plan.</p>
                               </div>
                             </div>
                             <div className="mt-3">

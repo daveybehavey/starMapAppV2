@@ -42,7 +42,9 @@ export function getPrintShippingDisclosure() {
 }
 
 export function getPrintAvailabilityBadgeLabel() {
-  return isUsOnlyPrintCheckout() ? "Printed + framed shipping in the U.S." : "Printed + framed available";
+  return isUsOnlyPrintCheckout()
+    ? "Framed + unframed print shipping in the U.S."
+    : "Framed + unframed print available";
 }
 
 export function formatPrintPriceWithShipping(amountCents: number, currency: string) {

@@ -213,7 +213,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </div>
           <div className="space-y-1 text-sm text-neutral-200">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Best lower-cost physical</p>
-            <p className="font-semibold text-white">Unframed poster</p>
+            <p className="font-semibold text-white">Unframed print</p>
             <p className="text-xs leading-relaxed">Keeps physical checkout available without forcing buyers into the premium frame cost.</p>
           </div>
         </div>
