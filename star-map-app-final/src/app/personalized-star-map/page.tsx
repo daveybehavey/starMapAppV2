@@ -103,7 +103,7 @@ export default function PersonalizedStarMapPage() {
         <h2 className="text-xl font-semibold text-midnight">Make it truly personal</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
           Add a title, names, and a short dedication line. Choose a style that matches the person or place you are
-          celebrating, then approve the same design as a framed print, unframed poster, or HD file.
+          celebrating, then approve the same design as a framed print, unframed print, or HD digital delivery.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate night sky based on real astronomical data</li>
@@ -126,7 +126,7 @@ export default function PersonalizedStarMapPage() {
             href="/editor?mode=quick&source=personalized-star-map-cta-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed print preview
+            Preview framed print
           </Link>
           <p className="mt-2 text-xs text-neutral-700">
             Want a neutral start?{" "}

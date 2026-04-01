@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections from "./HomeStaticSections";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
+import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a custom star map or constellation map of any date and location. Start with a free live preview, then choose framed print, unframed poster, or HD digital delivery at StarMapCo.";
+  "Create a custom star map or constellation map of any date and location. Start with a free live preview, then choose framed print, unframed print, or HD digital delivery at StarMapCo.";
 
 export const metadata: Metadata = {
   title: "Custom Star Map & Constellation Map | StarMapCo",
@@ -66,7 +66,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     (printTiers.poster_unframed.currency || "USD").toUpperCase(),
   );
   const shippingDisclosure = getPrintShippingDisclosure();
-  const isUsOnlyPrint = isUsOnlyPrintCheckout();
   const packSavingsPercent =
     tiers.single.amountCents > 0
       ? Math.max(
@@ -97,7 +96,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         "@type": "Product",
         name: "Custom Star Map",
         description:
-          "Personalized star map generator for special dates and locations with a free live preview, framed print, unframed poster, and HD digital delivery.",
+          "Personalized star map generator for special dates and locations with a free live preview, framed print, unframed print, and HD digital delivery.",
         brand: { "@type": "Brand", name: "StarMapCo" },
         image: [`${siteUrl}/custom-star-map-anniversary.webp`],
         category: "Personalized gifts",
@@ -111,9 +110,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             "@type": "PropertyValue",
             name: "Delivery",
             value: printCheckoutEnabled
-              ? isUsOnlyPrint
-                ? "Instant digital + optional physical print checkout"
-                : "Instant digital + optional physical print checkout"
+              ? "Instant digital + optional physical print checkout"
               : "Instant digital",
           },
         ],

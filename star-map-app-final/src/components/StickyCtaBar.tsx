@@ -42,7 +42,7 @@ export default function StickyCtaBar({
             </span>
             {printCheckoutEnabled && (
               <span className="rounded-full border border-amber-300/70 bg-amber-200/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-midnight">
-                Printed + framed checkout
+                Framed + unframed checkout
               </span>
             )}
           </div>

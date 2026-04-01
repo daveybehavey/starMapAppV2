@@ -114,7 +114,7 @@ export default function HomeStaticSections({
         <div className="rounded-3xl border border-white/12 bg-white/5 px-5 py-4 text-center text-neutral-200 shadow-sm shadow-black/20 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
           <p className="mt-2 text-sm sm:text-base">
-            Preview first, then choose gift-ready framed print, unframed poster, or HD digital delivery from the same design.
+            Preview first, then choose gift-ready framed print, unframed print, or HD digital delivery from the same design.
           </p>
           <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
         </div>

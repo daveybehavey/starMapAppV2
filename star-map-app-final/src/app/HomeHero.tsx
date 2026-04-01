@@ -127,7 +127,7 @@ export default function HomeHero() {
               className="rounded-xl border border-white/15 bg-white/6 px-3 py-3 text-left transition hover:-translate-y-[1px] hover:bg-white/10"
             >
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">Lower total</p>
-              <p className="mt-1 text-sm font-semibold text-white">Unframed poster</p>
+              <p className="mt-1 text-sm font-semibold text-white">Unframed print</p>
               <p className="mt-1 text-sm font-semibold text-amber-200">{unframedPrice}</p>
               <p className="mt-2 text-xs leading-relaxed text-neutral-300">Best if you want the physical print but already know how you want to frame it.</p>
             </a>
