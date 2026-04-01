@@ -54,8 +54,13 @@ function toRate(numerator, denominator) {
 }
 
 function buildScorecard(digest) {
-  const paidSessions = Number(digest?.stripe?.paidSessions || 0);
-  const printPaidSessions = Number(digest?.stripe?.printPaidSessions || 0);
+  const paidSessionsAll = Number(digest?.stripe?.paidSessions || 0);
+  const paidSessionsRevenue = Number(digest?.stripe?.revenuePaidSessions || paidSessionsAll);
+  const paidSessions = Number(digest?.stripe?.revenuePaidSessionsExcludingQa || paidSessionsRevenue);
+  const printPaidSessionsAll = Number(digest?.stripe?.printPaidSessions || 0);
+  const printPaidSessionsRevenue = Number(digest?.stripe?.printRevenuePaidSessions || printPaidSessionsAll);
+  const noChargePaidSessions = Number(digest?.stripe?.noChargePaidSessions || 0);
+  const qaTaggedPaidSessions = Number(digest?.stripe?.qaTaggedPaidSessions || 0);
   const referralPaidSessions = Array.isArray(digest?.stripe?.referralPaidSources)
     ? digest.stripe.referralPaidSources.reduce((sum, row) => sum + Number(row?.count || 0), 0)
     : 0;
@@ -89,6 +94,10 @@ function buildScorecard(digest) {
       referralShare: {
         paidReferralSessions: referralPaidSessions,
         paidSessions,
+        paidSessionsAll,
+        paidSessionsRevenue,
+        noChargePaidSessions,
+        qaTaggedPaidSessions,
         referralShareOfPaidPct: Number(percent(referralPaidSessions, paidSessions).toFixed(2)),
         topOfferVariant:
           topReferralOfferVariant && Number(topReferralOfferVariant.count || 0) > 0
@@ -99,7 +108,9 @@ function buildScorecard(digest) {
             : null,
       },
       proofTrust: {
-        proofRequestOpportunities: printPaidSessions,
+        proofRequestOpportunities: printPaidSessionsRevenue,
+        printPaidSessionsAll,
+        printPaidSessionsRevenue,
         note: "Automated published-proof counts are not instrumented yet; use manual publishing queue totals weekly.",
       },
       promoLifecycle: {
@@ -108,6 +119,8 @@ function buildScorecard(digest) {
         totalSubscribers,
         checkoutStarted,
         paidSessions,
+        paidSessionsAll,
+        paidSessionsRevenue,
         paidPerActiveSubscriberPct: Number(percent(paidSessions, activeSubscribers).toFixed(2)),
       },
     },
@@ -140,7 +153,23 @@ function printHumanScorecard(scorecard) {
 
   console.log("Loop 1 · Referral share");
   console.log(`Paid referral sessions: ${scorecard.loops.referralShare.paidReferralSessions}`);
-  console.log(`Referral share of paid sessions: ${scorecard.loops.referralShare.referralShareOfPaidPct.toFixed(2)}%`);
+  console.log(
+    `Paid sessions (revenue-positive, ex QA): ${scorecard.loops.referralShare.paidSessions}` +
+      ` | revenue-paid all: ${scorecard.loops.referralShare.paidSessionsRevenue}` +
+      ` | paid all: ${scorecard.loops.referralShare.paidSessionsAll}`,
+  );
+  if (
+    scorecard.loops.referralShare.noChargePaidSessions > 0 ||
+    scorecard.loops.referralShare.qaTaggedPaidSessions > 0
+  ) {
+    console.log(
+      `No-charge paid: ${scorecard.loops.referralShare.noChargePaidSessions} | ` +
+        `QA-tagged paid: ${scorecard.loops.referralShare.qaTaggedPaidSessions}`,
+    );
+  }
+  console.log(
+    `Referral share of paid sessions (revenue-positive, ex QA): ${scorecard.loops.referralShare.referralShareOfPaidPct.toFixed(2)}%`,
+  );
   if (scorecard.loops.referralShare.topOfferVariant) {
     console.log(
       `Top paid offer variant: ${scorecard.loops.referralShare.topOfferVariant.variant} (${scorecard.loops.referralShare.topOfferVariant.count})`,
@@ -149,14 +178,27 @@ function printHumanScorecard(scorecard) {
   console.log("");
 
   console.log("Loop 2 · Proof trust");
-  console.log(`Proof request opportunities (paid print sessions): ${scorecard.loops.proofTrust.proofRequestOpportunities}`);
+  console.log(
+    `Proof request opportunities (revenue-positive print sessions): ${scorecard.loops.proofTrust.proofRequestOpportunities}`,
+  );
+  console.log(
+    `Print paid sessions (all): ${scorecard.loops.proofTrust.printPaidSessionsAll} | ` +
+      `revenue-paid: ${scorecard.loops.proofTrust.printPaidSessionsRevenue}`,
+  );
   console.log(scorecard.loops.proofTrust.note);
   console.log("");
 
   console.log("Loop 3 · Promo lifecycle");
   console.log(`Active subscribers: ${scorecard.loops.promoLifecycle.activeSubscribers}`);
   console.log(`Unsubscribed: ${scorecard.loops.promoLifecycle.unsubscribedSubscribers}`);
-  console.log(`Subscriber -> paid proxy: ${scorecard.loops.promoLifecycle.paidPerActiveSubscriberPct.toFixed(2)}%`);
+  console.log(
+    `Paid sessions (revenue-positive, ex QA): ${scorecard.loops.promoLifecycle.paidSessions}` +
+      ` | revenue-paid all: ${scorecard.loops.promoLifecycle.paidSessionsRevenue}` +
+      ` | paid all: ${scorecard.loops.promoLifecycle.paidSessionsAll}`,
+  );
+  console.log(
+    `Subscriber -> paid proxy (revenue-positive, ex QA): ${scorecard.loops.promoLifecycle.paidPerActiveSubscriberPct.toFixed(2)}%`,
+  );
   console.log("");
 
   console.log("Funnel snapshot");

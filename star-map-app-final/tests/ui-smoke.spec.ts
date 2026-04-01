@@ -1,8 +1,18 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Browser, type Page } from "@playwright/test";
 import { applySampleMoment, gotoEditor, primeLocalStorage } from "./test-helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 test.setTimeout(60_000);
+
+const IOS_USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)";
+
+async function newIOSLikeContext(browser: Browser) {
+  return browser.newContext({
+    userAgent: IOS_USER_AGENT,
+    viewport: { width: 1440, height: 900 },
+    hasTouch: true,
+  });
+}
 
 async function ensureOccasionPresetsOpen(page: Page) {
   const weddingPreset = page.getByRole("button", { name: /Wedding/i }).first();
@@ -58,25 +68,14 @@ async function expectDigitalPaywallVisible(page: Page) {
 }
 
 test("homepage date field auto-formats 8-digit iOS-style input", async ({ browser }) => {
-  const context = await browser.newContext();
+  const context = await newIOSLikeContext(browser);
   const page = await context.newPage();
   await primeLocalStorage(page);
-  await page.addInitScript(() => {
-    const define = (obj: object, key: string, value: unknown) => {
-      try {
-        Object.defineProperty(obj, key, { configurable: true, get: () => value });
-      } catch {
-        // ignore readonly overrides in some environments
-      }
-    };
-    define(navigator, "userAgent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
-    define(navigator, "platform", "iPhone");
-    define(navigator, "maxTouchPoints", 5);
-  });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  const dateInput = page.locator("#hero-date, #quick-date, input[name='date']").first();
+  const dateInput = page.locator("#hero-date");
   await expect(dateInput).toBeVisible();
+  await expect(dateInput).toHaveAttribute("type", "text", { timeout: 30_000 });
   await dateInput.fill("");
   await dateInput.type("20020504");
   await expect(dateInput).toHaveValue("2002-05-04");
@@ -87,21 +86,10 @@ test("homepage date field auto-formats 8-digit iOS-style input", async ({ browse
 });
 
 test("editor date field accepts numeric-only iOS input", async ({ browser }) => {
-  const context = await browser.newContext();
+  test.slow();
+  const context = await newIOSLikeContext(browser);
   const page = await context.newPage();
   await primeLocalStorage(page);
-  await page.addInitScript(() => {
-    const define = (obj: object, key: string, value: unknown) => {
-      try {
-        Object.defineProperty(obj, key, { configurable: true, get: () => value });
-      } catch {
-        // ignore readonly overrides in some environments
-      }
-    };
-    define(navigator, "userAgent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
-    define(navigator, "platform", "iPhone");
-    define(navigator, "maxTouchPoints", 5);
-  });
 
   await gotoEditor(page, {
     force: "desktop",
@@ -111,9 +99,10 @@ test("editor date field accepts numeric-only iOS input", async ({ browser }) => 
   let dateInput = labeledDateInput;
   const hasLabeledDateInput = await labeledDateInput.isVisible({ timeout: 3_000 }).catch(() => false);
   if (!hasLabeledDateInput) {
-    dateInput = page.locator("#star-date, input[id$='-date'], input[name='date']").first();
+    dateInput = page.locator("#star-date:visible, input[id$='-date']:visible, input[name='date']:visible").first();
   }
   await expect(dateInput).toBeVisible({ timeout: 30_000 });
+  await expect(dateInput).toHaveAttribute("type", "text", { timeout: 30_000 });
   await dateInput.fill("");
   await dateInput.type("06012024");
   await expect(dateInput).toHaveValue("2024-06-01");

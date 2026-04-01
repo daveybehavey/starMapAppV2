@@ -64,6 +64,18 @@ function isPaidCheckoutSession(session) {
   return paymentStatus === "paid" || paymentStatus === "no_payment_required";
 }
 
+function isRevenuePositivePaidSession(session) {
+  return isPaidCheckoutSession(session) && Number(session.amount_total || 0) > 0;
+}
+
+function isQaTaggedSession(session) {
+  const metadata = session.metadata || {};
+  const qaRun = String(metadata.qa_run || "").trim().toLowerCase();
+  const qaSource = String(metadata.qa_source || "").trim().toLowerCase();
+  const clientReferenceId = String(session.client_reference_id || "").trim().toLowerCase();
+  return qaRun === "true" || qaSource.startsWith("qa") || clientReferenceId.includes("qa");
+}
+
 function resolveUtcBucketWindowStartSeconds(days) {
   // Keep script math aligned with /api/analytics/funnel dashboard window semantics.
   const resolvedDays = Math.min(60, Math.max(1, Math.floor(days)));
@@ -135,13 +147,25 @@ async function getStripePaidSessions(days) {
   }
 
   const paid = sessions.filter((session) => isPaidCheckoutSession(session) && belongsToStarMap(session));
+  const paidRevenue = paid.filter((session) => isRevenuePositivePaidSession(session));
+  const paidRevenueExcludingQa = paidRevenue.filter((session) => !isQaTaggedSession(session));
+  const noChargePaid = paid.filter((session) => !isRevenuePositivePaidSession(session));
+  const qaTaggedPaid = paid.filter((session) => isQaTaggedSession(session));
   const digital = paid.filter((session) => classifyOrder(session) === "digital").length;
   const print = paid.filter((session) => classifyOrder(session) === "print").length;
+  const digitalRevenue = paidRevenue.filter((session) => classifyOrder(session) === "digital").length;
+  const printRevenue = paidRevenue.filter((session) => classifyOrder(session) === "print").length;
   return {
     scanned: sessions.length,
     paid: paid.length,
+    paidRevenue: paidRevenue.length,
+    paidRevenueExcludingQa: paidRevenueExcludingQa.length,
+    noChargePaid: noChargePaid.length,
+    qaTaggedPaid: qaTaggedPaid.length,
     digital,
     print,
+    digitalRevenue,
+    printRevenue,
   };
 }
 
@@ -214,8 +238,14 @@ async function main() {
       : null,
     funnelPaymentVerified,
     stripePaidSessions: stripeData.paid,
+    stripeRevenuePaidSessions: stripeData.paidRevenue,
+    stripeRevenuePaidSessionsExcludingQa: stripeData.paidRevenueExcludingQa,
+    stripeNoChargePaidSessions: stripeData.noChargePaid,
+    stripeQaTaggedPaidSessions: stripeData.qaTaggedPaid,
     stripePaidDigital: stripeData.digital,
     stripePaidPrint: stripeData.print,
+    stripeRevenuePaidDigital: stripeData.digitalRevenue,
+    stripeRevenuePaidPrint: stripeData.printRevenue,
     stripeSessionsScanned: stripeData.scanned,
     delta,
     deltaPct,
@@ -245,6 +275,14 @@ async function main() {
   }
   console.log(`Funnel payment_verified: ${report.funnelPaymentVerified}`);
   console.log(`Stripe paid sessions: ${report.stripePaidSessions} (digital=${report.stripePaidDigital}, print=${report.stripePaidPrint})`);
+  console.log(
+    `Stripe revenue-paid sessions: ${report.stripeRevenuePaidSessions} ` +
+      `(digital=${report.stripeRevenuePaidDigital}, print=${report.stripeRevenuePaidPrint})`,
+  );
+  console.log(
+    `Stripe revenue-paid (excluding QA): ${report.stripeRevenuePaidSessionsExcludingQa} ` +
+      `| no-charge paid: ${report.stripeNoChargePaidSessions} | QA-tagged paid: ${report.stripeQaTaggedPaidSessions}`,
+  );
   console.log(`Stripe sessions scanned: ${report.stripeSessionsScanned}`);
   console.log(`Delta (Stripe - Funnel): ${report.delta} (${report.deltaPct}% absolute variance)`);
 }

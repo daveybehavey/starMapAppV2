@@ -86,6 +86,18 @@ function isPaidCheckoutSession(session) {
   return paymentStatus === "paid" || paymentStatus === "no_payment_required";
 }
 
+function isRevenuePositivePaidSession(session) {
+  return isPaidCheckoutSession(session) && Number(session.amount_total || 0) > 0;
+}
+
+function isQaTaggedSession(session) {
+  const metadata = session.metadata || {};
+  const qaRun = String(metadata.qa_run || "").trim().toLowerCase();
+  const qaSource = String(metadata.qa_source || "").trim().toLowerCase();
+  const clientReferenceId = String(session.client_reference_id || "").trim().toLowerCase();
+  return qaRun === "true" || qaSource.startsWith("qa") || clientReferenceId.includes("qa");
+}
+
 function classifyOrder(session) {
   const metadata = session.metadata || {};
   const rawOrderType = String(metadata.order_type || metadata.orderType || "").toLowerCase();
@@ -330,9 +342,17 @@ async function buildReport(args) {
   ]);
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session));
+  const revenuePaidSessions = paidSessions.filter((session) => isRevenuePositivePaidSession(session));
+  const noChargePaidSessions = paidSessions.filter((session) => !isRevenuePositivePaidSession(session));
+  const qaTaggedPaidSessions = paidSessions.filter((session) => isQaTaggedSession(session));
+  const revenuePaidSessionsNonQa = revenuePaidSessions.filter((session) => !isQaTaggedSession(session));
+
   const digitalPaid = paidSessions.filter((session) => classifyOrder(session) === "digital");
   const printPaid = paidSessions.filter((session) => classifyOrder(session) === "print");
+  const digitalRevenuePaid = revenuePaidSessions.filter((session) => classifyOrder(session) === "digital");
+  const printRevenuePaid = revenuePaidSessions.filter((session) => classifyOrder(session) === "print");
   const paymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, paidSessions);
+  const revenuePaymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, revenuePaidSessions);
 
   const digitalPlanCounts = new Map();
   const printVariantCounts = new Map();
@@ -341,6 +361,9 @@ async function buildReport(args) {
   const paidPaymentMethodCounts = new Map();
   const digitalPaymentMethodCounts = new Map();
   const printPaymentMethodCounts = new Map();
+  const paidRevenuePaymentMethodCounts = new Map();
+  const digitalRevenuePaymentMethodCounts = new Map();
+  const printRevenuePaymentMethodCounts = new Map();
 
   let digitalRevenueCents = 0;
   let printRevenueCents = 0;
@@ -359,6 +382,14 @@ async function buildReport(args) {
     if (referralOfferVariant) incrementBucket(referralOfferVariantCounts, referralOfferVariant);
   }
 
+  for (const session of digitalRevenuePaid) {
+    const paymentMethod = revenuePaymentMethodMix.bySessionId.get(session.id);
+    if (paymentMethod) {
+      incrementBucket(paidRevenuePaymentMethodCounts, paymentMethod);
+      incrementBucket(digitalRevenuePaymentMethodCounts, paymentMethod);
+    }
+  }
+
   for (const session of printPaid) {
     incrementBucket(printVariantCounts, getPrintVariant(session));
     const paymentMethod = paymentMethodMix.bySessionId.get(session.id);
@@ -371,6 +402,14 @@ async function buildReport(args) {
     if (referralSource) incrementBucket(referralSourceCounts, referralSource);
     const referralOfferVariant = getReferralOfferVariant(session);
     if (referralOfferVariant) incrementBucket(referralOfferVariantCounts, referralOfferVariant);
+  }
+
+  for (const session of printRevenuePaid) {
+    const paymentMethod = revenuePaymentMethodMix.bySessionId.get(session.id);
+    if (paymentMethod) {
+      incrementBucket(paidRevenuePaymentMethodCounts, paymentMethod);
+      incrementBucket(printRevenuePaymentMethodCounts, paymentMethod);
+    }
   }
 
   const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
@@ -435,17 +474,30 @@ async function buildReport(args) {
     stripe: {
       sessionsScanned: sessions.length,
       paidSessions: paidSessions.length,
+      revenuePaidSessions: revenuePaidSessions.length,
+      revenuePaidSessionsExcludingQa: revenuePaidSessionsNonQa.length,
+      noChargePaidSessions: noChargePaidSessions.length,
+      qaTaggedPaidSessions: qaTaggedPaidSessions.length,
       digitalPaidSessions: digitalPaid.length,
       printPaidSessions: printPaid.length,
+      digitalRevenuePaidSessions: digitalRevenuePaid.length,
+      printRevenuePaidSessions: printRevenuePaid.length,
       digitalRevenueCents,
       printRevenueCents,
       totalRevenueCents: digitalRevenueCents + printRevenueCents,
+      positiveRevenueAovCents:
+        revenuePaidSessions.length > 0
+          ? Math.round((digitalRevenueCents + printRevenueCents) / revenuePaidSessions.length)
+          : 0,
       currency: "usd",
       digitalPlanCounts: topBuckets(digitalPlanCounts, "plan"),
       printVariantCounts: topBuckets(printVariantCounts, "variant"),
       paidPaymentMethods: topBuckets(paidPaymentMethodCounts, "method"),
       digitalPaymentMethods: topBuckets(digitalPaymentMethodCounts, "method"),
       printPaymentMethods: topBuckets(printPaymentMethodCounts, "method"),
+      paidRevenuePaymentMethods: topBuckets(paidRevenuePaymentMethodCounts, "method"),
+      digitalRevenuePaymentMethods: topBuckets(digitalRevenuePaymentMethodCounts, "method"),
+      printRevenuePaymentMethods: topBuckets(printRevenuePaymentMethodCounts, "method"),
       referralPaidSources: topBuckets(referralSourceCounts, "source"),
       referralOfferVariants: topBuckets(referralOfferVariantCounts, "variant"),
     },
@@ -460,14 +512,30 @@ function printHumanReport(report) {
   console.log("");
 
   console.log("Revenue");
-  console.log(`Paid sessions: ${report.stripe.paidSessions}`);
+  console.log(`Paid sessions (all): ${report.stripe.paidSessions}`);
+  console.log(
+    `Revenue-paid sessions: ${report.stripe.revenuePaidSessions} ` +
+      `(excluding QA-tagged: ${report.stripe.revenuePaidSessionsExcludingQa})`,
+  );
+  if (report.stripe.noChargePaidSessions > 0 || report.stripe.qaTaggedPaidSessions > 0) {
+    console.log(
+      `No-charge paid sessions: ${report.stripe.noChargePaidSessions} ` +
+        `| QA-tagged paid sessions: ${report.stripe.qaTaggedPaidSessions}`,
+    );
+  }
   console.log(
     `Revenue: ${formatMoney(report.stripe.totalRevenueCents, report.stripe.currency)} ` +
       `(digital ${formatMoney(report.stripe.digitalRevenueCents, report.stripe.currency)}, ` +
       `print ${formatMoney(report.stripe.printRevenueCents, report.stripe.currency)})`,
   );
   console.log(
-    `Mix: digital=${report.stripe.digitalPaidSessions} print=${report.stripe.printPaidSessions} scanned=${report.stripe.sessionsScanned}`,
+    `Positive-revenue AOV: ${formatMoney(report.stripe.positiveRevenueAovCents, report.stripe.currency)}`,
+  );
+  console.log(
+    `Mix (all paid): digital=${report.stripe.digitalPaidSessions} print=${report.stripe.printPaidSessions} scanned=${report.stripe.sessionsScanned}`,
+  );
+  console.log(
+    `Mix (revenue-paid): digital=${report.stripe.digitalRevenuePaidSessions} print=${report.stripe.printRevenuePaidSessions}`,
   );
 
   console.log("");
@@ -503,6 +571,22 @@ function printHumanReport(report) {
       console.log(`Digital mix: ${report.stripe.digitalPaymentMethods.map((item) => `${item.method}:${item.count}`).join(", ") || "none"}`);
       console.log(`Print mix: ${report.stripe.printPaymentMethods.map((item) => `${item.method}:${item.count}`).join(", ") || "none"}`);
     }
+  }
+
+  console.log("");
+  console.log("Revenue-paid payment methods");
+  if (!report.stripe.paidRevenuePaymentMethods.length) {
+    console.log("none");
+  } else {
+    for (const item of report.stripe.paidRevenuePaymentMethods) {
+      console.log(`${item.method}: ${item.count}`);
+    }
+    console.log(
+      `Digital revenue mix: ${report.stripe.digitalRevenuePaymentMethods.map((item) => `${item.method}:${item.count}`).join(", ") || "none"}`,
+    );
+    console.log(
+      `Print revenue mix: ${report.stripe.printRevenuePaymentMethods.map((item) => `${item.method}:${item.count}`).join(", ") || "none"}`,
+    );
   }
 
   console.log("");
@@ -548,6 +632,8 @@ function printHumanReport(report) {
     const checkoutRequestReceived = Number(report.funnel.checkout_request_received || 0);
     const sessionCreated = Number(report.funnel.checkout_session_created || 0);
     const paid = Number(report.funnel.payment_verified || 0);
+    const revenuePaid = Number(report.stripe.revenuePaidSessions || 0);
+    const revenuePaidExcludingQa = Number(report.stripe.revenuePaidSessionsExcludingQa || 0);
     if (checkoutStarted > 0) {
       console.log(
         `intent -> api request: ${((checkoutRequestReceived / checkoutStarted) * 100).toFixed(2)}% (${checkoutRequestReceived}/${checkoutStarted})`,
@@ -579,8 +665,16 @@ function printHumanReport(report) {
       console.log(
         `session created -> paid: ${((paid / sessionCreated) * 100).toFixed(2)}% (${paid}/${sessionCreated})`,
       );
+      console.log(
+        `session created -> revenue-paid: ${((revenuePaid / sessionCreated) * 100).toFixed(2)}% (${revenuePaid}/${sessionCreated})`,
+      );
+      console.log(
+        `session created -> revenue-paid (ex QA): ${((revenuePaidExcludingQa / sessionCreated) * 100).toFixed(2)}% (${revenuePaidExcludingQa}/${sessionCreated})`,
+      );
     } else {
       console.log("session created -> paid: n/a");
+      console.log("session created -> revenue-paid: n/a");
+      console.log("session created -> revenue-paid (ex QA): n/a");
     }
   }
 

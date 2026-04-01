@@ -12,7 +12,9 @@ export type LoopScorecard = {
     referralShare: {
       paidReferralSessions: number;
       paidSessions: number;
-      paidSessionsSource: "stripe" | "funnel";
+      paidSessionsAll: number;
+      paidSessionsRevenue: number;
+      paidSessionsSource: "stripe_revenue_excluding_qa" | "funnel";
       referralShareOfPaidPct: number;
       topOfferVariant: { variant: string; count: number } | null;
     };
@@ -27,6 +29,8 @@ export type LoopScorecard = {
       totalSubscribers: number;
       checkoutStarted: number;
       paidSessions: number;
+      paidSessionsAll: number;
+      paidSessionsRevenue: number;
       paidPerActiveSubscriberPct: number;
     };
   };
@@ -80,6 +84,18 @@ function isPaidCheckoutSession(session: Stripe.Checkout.Session) {
   return session.payment_status === "paid" || session.payment_status === "no_payment_required";
 }
 
+function isRevenuePositivePaidSession(session: Stripe.Checkout.Session) {
+  return isPaidCheckoutSession(session) && Number(session.amount_total || 0) > 0;
+}
+
+function isQaTaggedSession(session: Stripe.Checkout.Session) {
+  const metadata = session.metadata || {};
+  const qaRun = String(metadata.qa_run || "").trim().toLowerCase();
+  const qaSource = String(metadata.qa_source || "").trim().toLowerCase();
+  const clientReferenceId = String(session.client_reference_id || "").trim().toLowerCase();
+  return qaRun === "true" || qaSource.startsWith("qa") || clientReferenceId.includes("qa");
+}
+
 function belongsToStarMap(session: Stripe.Checkout.Session) {
   const metadata = session.metadata || {};
   return Boolean(
@@ -104,8 +120,11 @@ async function getStripePaidMix(days: number) {
   if (!stripe) {
     return {
       available: false as const,
-      paidSessions: 0,
-      printPaidSessions: 0,
+      paidSessionsAll: 0,
+      paidSessionsRevenue: 0,
+      paidSessionsRevenueExcludingQa: 0,
+      printPaidSessionsAll: 0,
+      printPaidSessionsRevenueExcludingQa: 0,
     };
   }
   const createdGte = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
@@ -125,12 +144,20 @@ async function getStripePaidMix(days: number) {
   }
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session) && belongsToStarMap(session));
+  const paidRevenueSessions = paidSessions.filter((session) => isRevenuePositivePaidSession(session));
+  const paidRevenueSessionsExcludingQa = paidRevenueSessions.filter((session) => !isQaTaggedSession(session));
   const printPaidSessions = paidSessions.filter((session) => classifyOrder(session) === "print");
+  const printPaidRevenueSessionsExcludingQa = paidRevenueSessionsExcludingQa.filter(
+    (session) => classifyOrder(session) === "print",
+  );
 
   return {
     available: true as const,
-    paidSessions: paidSessions.length,
-    printPaidSessions: printPaidSessions.length,
+    paidSessionsAll: paidSessions.length,
+    paidSessionsRevenue: paidRevenueSessions.length,
+    paidSessionsRevenueExcludingQa: paidRevenueSessionsExcludingQa.length,
+    printPaidSessionsAll: printPaidSessions.length,
+    printPaidSessionsRevenueExcludingQa: printPaidRevenueSessionsExcludingQa.length,
   };
 }
 
@@ -154,8 +181,10 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
   const previewStarted = getLastNDaysCount(funnelDashboard.rows, "preview_started");
   const checkoutStarted = getLastNDaysCount(funnelDashboard.rows, "checkout_started");
   const paymentVerified = getLastNDaysCount(funnelDashboard.rows, "payment_verified");
-  const paidSessions = stripeMix.available ? stripeMix.paidSessions : paymentVerified;
-  const paidSessionsSource = stripeMix.available ? "stripe" : "funnel";
+  const paidSessions = stripeMix.available ? stripeMix.paidSessionsRevenueExcludingQa : paymentVerified;
+  const paidSessionsAll = stripeMix.available ? stripeMix.paidSessionsAll : paymentVerified;
+  const paidSessionsRevenue = stripeMix.available ? stripeMix.paidSessionsRevenue : paymentVerified;
+  const paidSessionsSource = stripeMix.available ? "stripe_revenue_excluding_qa" : "funnel";
 
   const referralPaidSessions = Number(referralDashboard.lastNDays.conversions || 0);
   const topOfferVariant = referralDashboard.topOfferVariants[0];
@@ -169,6 +198,8 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
       referralShare: {
         paidReferralSessions: referralPaidSessions,
         paidSessions,
+        paidSessionsAll,
+        paidSessionsRevenue,
         paidSessionsSource,
         referralShareOfPaidPct: Number(percent(referralPaidSessions, paidSessions).toFixed(2)),
         topOfferVariant:
@@ -180,10 +211,10 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
             : null,
       },
       proofTrust: {
-        proofRequestOpportunities: stripeMix.available ? stripeMix.printPaidSessions : 0,
+        proofRequestOpportunities: stripeMix.available ? stripeMix.printPaidSessionsRevenueExcludingQa : 0,
         proofRequestSource: stripeMix.available ? "stripe_print_paid_sessions" : "unavailable",
         note: stripeMix.available
-          ? "Proof opportunity count uses paid print sessions in Stripe for this window."
+          ? "Proof opportunity count uses revenue-positive, non-QA print sessions in Stripe for this window."
           : "Stripe secret is unavailable; proof opportunity count could not be computed.",
       },
       promoLifecycle: {
@@ -192,6 +223,8 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
         totalSubscribers: promotionSubscribers.total,
         checkoutStarted,
         paidSessions,
+        paidSessionsAll,
+        paidSessionsRevenue,
         paidPerActiveSubscriberPct: Number(percent(paidSessions, promotionSubscribers.active).toFixed(2)),
       },
     },

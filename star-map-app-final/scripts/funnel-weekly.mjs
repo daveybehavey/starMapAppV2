@@ -81,6 +81,8 @@ function buildOperatorActions(report) {
   const actions = [];
   const reconcileDelta = asFiniteNumber(report.reconcile.delta) ?? 0;
   const reconcileDeltaPct = asFiniteNumber(report.reconcile.deltaPct) ?? 0;
+  const stripeRevenuePaidSessionsExcludingQa =
+    asFiniteNumber(report.reconcile.stripeRevenuePaidSessionsExcludingQa) ?? 0;
   const metrics = report.funnelHealth.metrics ?? {};
   const recentWindow = report.funnelHealth.recentWindow ?? null;
   const recentCounts = recentWindow?.counts ?? null;
@@ -178,6 +180,17 @@ function buildOperatorActions(report) {
         action: "Pause traffic pushes and run live conversion QA immediately (`npm run qa:live-conversion`).",
       });
     }
+    if (recentCheckoutStarted >= 5 && stripeRevenuePaidSessionsExcludingQa === 0) {
+      actions.push({
+        severity: "critical",
+        area: "recent_revenue_drop",
+        trigger:
+          `Recent ${recentWindowDays}d has ${recentCheckoutStarted} checkout starts and ` +
+          "0 revenue-positive payments (excluding QA-tagged sessions).",
+        action:
+          "Pause paid traffic scaling, verify live checkout on mobile/desktop, and inspect offer/pricing friction before relaunch.",
+      });
+    }
   }
 
   if (actions.length === 0) {
@@ -223,8 +236,14 @@ async function main() {
     reconcile: {
       funnelPaymentVerified: reconcile.funnelPaymentVerified ?? 0,
       stripePaidSessions: reconcile.stripePaidSessions ?? 0,
+      stripeRevenuePaidSessions: reconcile.stripeRevenuePaidSessions ?? 0,
+      stripeRevenuePaidSessionsExcludingQa: reconcile.stripeRevenuePaidSessionsExcludingQa ?? 0,
+      stripeNoChargePaidSessions: reconcile.stripeNoChargePaidSessions ?? 0,
+      stripeQaTaggedPaidSessions: reconcile.stripeQaTaggedPaidSessions ?? 0,
       stripePaidDigital: reconcile.stripePaidDigital ?? 0,
       stripePaidPrint: reconcile.stripePaidPrint ?? 0,
+      stripeRevenuePaidDigital: reconcile.stripeRevenuePaidDigital ?? 0,
+      stripeRevenuePaidPrint: reconcile.stripeRevenuePaidPrint ?? 0,
       delta: reconcile.delta ?? 0,
       deltaPct: reconcile.deltaPct ?? 0,
     },
@@ -244,7 +263,15 @@ async function main() {
       `Reconcile: funnel=${report.reconcile.funnelPaymentVerified} stripe=${report.reconcile.stripePaidSessions} delta=${report.reconcile.delta} (${report.reconcile.deltaPct}%)`,
     );
     console.log(
-      `Paid mix: digital=${report.reconcile.stripePaidDigital} print=${report.reconcile.stripePaidPrint}`,
+      `Paid mix (all): digital=${report.reconcile.stripePaidDigital} print=${report.reconcile.stripePaidPrint}`,
+    );
+    console.log(
+      `Paid mix (revenue): digital=${report.reconcile.stripeRevenuePaidDigital} print=${report.reconcile.stripeRevenuePaidPrint}`,
+    );
+    console.log(
+      `Revenue-paid (excluding QA): ${report.reconcile.stripeRevenuePaidSessionsExcludingQa} ` +
+        `| no-charge paid: ${report.reconcile.stripeNoChargePaidSessions} ` +
+        `| QA-tagged paid: ${report.reconcile.stripeQaTaggedPaidSessions}`,
     );
     if (report.funnelHealth.warnings.length > 0) {
       console.log("");

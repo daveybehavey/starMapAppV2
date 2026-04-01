@@ -137,8 +137,14 @@ function buildWindowSummary(days, digest, health) {
     },
     commerce: {
       paidSessions: asFiniteNumber(digest?.stripe?.paidSessions),
+      revenuePaidSessions: asFiniteNumber(digest?.stripe?.revenuePaidSessions),
+      revenuePaidSessionsExcludingQa: asFiniteNumber(digest?.stripe?.revenuePaidSessionsExcludingQa),
+      noChargePaidSessions: asFiniteNumber(digest?.stripe?.noChargePaidSessions),
+      qaTaggedPaidSessions: asFiniteNumber(digest?.stripe?.qaTaggedPaidSessions),
       printPaidSessions: asFiniteNumber(digest?.stripe?.printPaidSessions),
+      printRevenuePaidSessions: asFiniteNumber(digest?.stripe?.printRevenuePaidSessions),
       digitalPaidSessions: asFiniteNumber(digest?.stripe?.digitalPaidSessions),
+      digitalRevenuePaidSessions: asFiniteNumber(digest?.stripe?.digitalRevenuePaidSessions),
       referralPaidSessions: getReferralPaidSessions(digest),
     },
     rates: {
@@ -166,11 +172,13 @@ function buildActions(windows) {
   const day3 = getWindowByDays(windows, 3) ?? windows[windows.length - 1] ?? null;
 
   if (day1) {
-    if (day1.funnel.checkoutStarted >= 3 && day1.funnel.paymentVerified === 0) {
+    if (day1.funnel.checkoutStarted >= 3 && day1.commerce.revenuePaidSessionsExcludingQa === 0) {
       actions.push({
         severity: "critical",
-        area: "conversion_today",
-        trigger: `1d window has ${day1.funnel.checkoutStarted} checkout starts and 0 payments.`,
+        area: "revenue_conversion_today",
+        trigger:
+          `1d window has ${day1.funnel.checkoutStarted} checkout starts and 0 revenue-positive payments ` +
+          `(excluding QA-tagged sessions).`,
         action: "Run `npm run qa:live-conversion` and verify checkout/payment on mobile + desktop immediately.",
       });
     }
@@ -212,11 +220,11 @@ function buildActions(windows) {
       });
     }
 
-    if (day3.commerce.paidSessions >= 3 && day3.commerce.referralPaidSessions === 0) {
+    if (day3.commerce.revenuePaidSessionsExcludingQa >= 3 && day3.commerce.referralPaidSessions === 0) {
       actions.push({
         severity: "info",
         area: "referral_activation",
-        trigger: "3d paid sessions exist but referral-attributed paid sessions are 0.",
+        trigger: "3d revenue-positive paid sessions (excluding QA) exist but referral-attributed paid sessions are 0.",
         action: "Push referral CTA placement and run a same-day share test from success/download/my-downloads surfaces.",
       });
     }
@@ -246,8 +254,16 @@ function printWindowSummary(window) {
     `  coverage: request=${window.rates.checkoutRequestCoverage ?? "n/a"}% session=${window.rates.checkoutSessionCoverage ?? "n/a"}% redirect=${window.rates.checkoutRedirectCoverage ?? "n/a"}%`,
   );
   console.log(
-    `  paid mix: total=${window.commerce.paidSessions} digital=${window.commerce.digitalPaidSessions} print=${window.commerce.printPaidSessions} referral=${window.commerce.referralPaidSessions}`,
+    `  paid mix (all): total=${window.commerce.paidSessions} digital=${window.commerce.digitalPaidSessions} print=${window.commerce.printPaidSessions} referral=${window.commerce.referralPaidSessions}`,
   );
+  console.log(
+    `  paid mix (revenue): total=${window.commerce.revenuePaidSessions} ex_qa=${window.commerce.revenuePaidSessionsExcludingQa} digital=${window.commerce.digitalRevenuePaidSessions} print=${window.commerce.printRevenuePaidSessions}`,
+  );
+  if (window.commerce.noChargePaidSessions > 0 || window.commerce.qaTaggedPaidSessions > 0) {
+    console.log(
+      `  no-charge/qa: no_charge=${window.commerce.noChargePaidSessions} qa_tagged=${window.commerce.qaTaggedPaidSessions}`,
+    );
+  }
   if (window.topCheckoutBlocker) {
     console.log(`  top blocker: ${window.topCheckoutBlocker.reason} (${window.topCheckoutBlocker.count})`);
   }

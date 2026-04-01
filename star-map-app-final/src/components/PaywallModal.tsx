@@ -271,7 +271,7 @@ export function PaywallModal({
           <li>• 6000px high resolution (poster quality)</li>
           <li>• No watermark</li>
           <li>• Secure checkout with card, Apple Pay, Google Pay, and Link on supported devices</li>
-          <li>{activeIntent === "print" ? "• Print order draft is created right after payment" : "• Instant digital download"}</li>
+          <li>{activeIntent === "print" ? "• Print fulfillment begins after payment" : "• Instant digital download"}</li>
         </ul>
         {activeIntent === "digital" && (
           <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
@@ -310,14 +310,14 @@ export function PaywallModal({
           {activeIntent === "print" && hasPrintOptions && printPriceLabels && onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Framed + unframed checkout</p>
+                <p className="text-sm font-semibold">Choose your print format</p>
                 <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                   Physical delivery
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                Your current map is attached automatically. Shipping is shown in Stripe checkout and the order is
-                created for manual review. {shippingDisclosure}
+                Your current map is attached automatically. Shipping is shown in Stripe checkout, then fulfillment
+                processing begins after payment. {shippingDisclosure}
               </p>
               {printShippingCountryOptions.length > 0 && (
                 <div className="mt-3">

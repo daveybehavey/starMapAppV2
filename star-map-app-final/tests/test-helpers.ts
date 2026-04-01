@@ -23,9 +23,10 @@ export const primeLocalStorage = async (page: Page) => {
 
 export const dismissOverlays = async (page: Page) => {
   await page.waitForTimeout(250);
+  if (page.isClosed()) return;
   for (const selector of overlaySelectors) {
     const buttons = page.locator(selector);
-    const count = await buttons.count();
+    const count = await buttons.count().catch(() => 0);
     for (let i = 0; i < count; i += 1) {
       try {
         await buttons.nth(i).click({ timeout: 1000 });

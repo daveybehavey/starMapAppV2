@@ -393,7 +393,7 @@ async function run() {
 
     const singleCta = page.getByRole("button", { name: SINGLE_CTA }).first();
     await singleCta.click();
-    await page.waitForURL(/checkout\.stripe\.com/, { timeout: 40_000 });
+    await page.waitForURL(/checkout\.stripe\.com/, { timeout: 40_000, waitUntil: "domcontentloaded" });
     report.steps.push("Redirected to Stripe Checkout");
     await captureScreenshot("/tmp/qa-live-03-stripe.png", "stripe");
 
@@ -440,7 +440,7 @@ async function run() {
           report.steps.push("Opened pre-discounted checkout session");
           report.stripe.discountedCheckoutSessionId = discountedSession.id;
           await page.goto(discountedSession.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-          await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
+          await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000, waitUntil: "domcontentloaded" });
           const discountedEmailInput = page.locator("input[type='email'], input[name='email']").first();
           if (await discountedEmailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
             await discountedEmailInput.fill(qaEmail);
@@ -460,7 +460,7 @@ async function run() {
             report.steps.push("Promo field failed; switched to discounted fallback checkout session");
             report.stripe.fallbackCheckoutSessionId = fallbackSession.id;
             await page.goto(fallbackSession.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-            await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
+            await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000, waitUntil: "domcontentloaded" });
             const fallbackEmailInput = page.locator("input[type='email'], input[name='email']").first();
             if (await fallbackEmailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
               await fallbackEmailInput.fill(qaEmail);
