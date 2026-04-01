@@ -104,7 +104,12 @@ test("editor date field accepts numeric-only iOS input", async ({ browser }) => 
   });
 
   await page.goto("/editor?mode=quick", { waitUntil: "domcontentloaded" });
-  const dateInput = page.getByLabel("Date").first();
+  const labeledDateInput = page.getByLabel(/Date|When was it\?/i).first();
+  let dateInput = labeledDateInput;
+  const hasLabeledDateInput = await labeledDateInput.isVisible({ timeout: 3_000 }).catch(() => false);
+  if (!hasLabeledDateInput) {
+    dateInput = page.locator("#star-date, input[id$='-date'], input[name='date']").first();
+  }
   await expect(dateInput).toBeVisible({ timeout: 30_000 });
   await dateInput.fill("");
   await dateInput.type("06012024");
