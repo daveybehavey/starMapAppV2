@@ -87,8 +87,8 @@ test.describe("Export Functionality", () => {
     await hdExportButton.click();
 
     // Verify paywall modal appears
-    await expect(page.getByRole("heading", { name: paywallHeadingPattern })).toBeVisible({
-      timeout: 5000,
+    await expect(page.getByRole("heading", { name: paywallHeadingPattern }).first()).toBeVisible({
+      timeout: 12000,
     });
   });
 

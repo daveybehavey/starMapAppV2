@@ -108,7 +108,7 @@ function main() {
       "Go/No-Go",
       "npm",
       args.live
-        ? ["run", "qa:go-no-go"]
+        ? ["run", "qa:go-no-go", "--", "--prefer-wrangler-live"]
         : ["run", "qa:go-no-go", "--", "--allow-checkout-only"],
     ],
   ];

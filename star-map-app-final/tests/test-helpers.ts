@@ -41,6 +41,22 @@ export const mockGeocode = async (page: Page) => {
   await page.route("**/api/geocode**", async (route) => {
     const requestUrl = new URL(route.request().url());
     const query = requestUrl.searchParams.get("q")?.toLowerCase() ?? "";
+    if (query.includes("toronto")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: 2,
+            name: "Toronto, Canada",
+            latitude: 43.6532,
+            longitude: -79.3832,
+            timezone: "America/Toronto",
+          },
+        ]),
+      });
+      return;
+    }
     if (query.includes("paris")) {
       await route.fulfill({
         status: 200,

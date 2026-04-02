@@ -1,5 +1,5 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
-import { applySampleMoment, gotoEditor, primeLocalStorage } from "./test-helpers";
+import { applySampleMoment, gotoEditor, mockGeocode, primeLocalStorage, waitForPreview } from "./test-helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 test.setTimeout(60_000);
@@ -65,6 +65,45 @@ async function expectDigitalPaywallVisible(page: Page) {
       })
       .first(),
   ).toBeVisible({ timeout: 8_000 });
+}
+
+async function preparePrintIntentPreview(page: Page) {
+  await commitTypedLocation(page, "Paris, France");
+
+  const dateInput = page.getByLabel("Date").first();
+  if (await dateInput.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await dateInput.fill("2024-06-01");
+  }
+
+  const generateButton = page.getByRole("button", { name: /Generate preview/i }).first();
+  await expect(generateButton).toBeVisible({ timeout: 15_000 });
+  await expect(generateButton).toBeEnabled({ timeout: 15_000 });
+  await generateButton.click();
+  await waitForPreview(page);
+}
+
+async function commitTypedLocation(page: Page, value: string) {
+  const locationInput = page.getByPlaceholder("Search city, landmark, or address");
+  await expect(locationInput).toBeVisible({ timeout: 15_000 });
+  await locationInput.fill(value);
+  await expect(locationInput).toHaveValue(value);
+  await locationInput.press("Enter");
+
+  const cityToken = value.split(",")[0]?.trim();
+  if (cityToken) {
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const state = (window as unknown as { __ZUSTAND_STORE__?: { getState?: () => { location?: { name?: string } } } })
+              .__ZUSTAND_STORE__?.getState?.();
+            return state?.location?.name ?? "";
+          }),
+        { timeout: 15_000 },
+      )
+      .toContain(cityToken);
+  }
+  return locationInput;
 }
 
 test("homepage date field auto-formats 8-digit iOS-style input", async ({ browser }) => {
@@ -416,13 +455,10 @@ test("success page error state shows email recovery links workflow", async ({ pa
 });
 
 test("occasion preset preserves manual location context", async ({ page }) => {
+  await mockGeocode(page);
   await gotoEditor(page, { force: "desktop" });
   await ensureOccasionPresetsOpen(page);
-  const locationInput = page.getByPlaceholder("Search city, landmark, or address");
-  await expect(locationInput).toBeVisible();
-
-  await locationInput.fill("Toronto, Canada");
-  await expect(locationInput).toHaveValue("Toronto, Canada");
+  const locationInput = await commitTypedLocation(page, "Toronto, Canada");
   await page.getByLabel("Date").fill("2024-06-01");
   const initialLocation = await locationInput.inputValue();
   const cityToken = initialLocation.split(",")[0]?.trim();
@@ -506,14 +542,15 @@ test("customize more reveals advanced editor controls", async ({ page }) => {
 });
 
 test("preview reveal shows staged reveal state before final map", async ({ page }) => {
+  await mockGeocode(page);
   await gotoEditor(page, { force: "desktop" });
 
-  await expect(page.getByPlaceholder("Search city, landmark, or address")).toBeVisible();
-  await page.getByPlaceholder("Search city, landmark, or address").fill("Paris, France");
+  await commitTypedLocation(page, "Paris, France");
   await page.getByLabel("Date").fill("2024-06-01");
 
   const generateButton = page.getByRole("button", { name: /Generate preview/i }).first();
   await expect(generateButton).toBeVisible({ timeout: 15000 });
+  await expect(generateButton).toBeEnabled({ timeout: 15000 });
   await generateButton.click();
 
   const revealHeading = page.getByText(/Revealing your sky/i).first();
@@ -575,6 +612,7 @@ test("homepage referral query logs one visit per browser session", async ({ page
 });
 
 test("print-intent landing handles print intent consistently", async ({ page }) => {
+  await mockGeocode(page);
   await gotoEditor(page, {
     force: "desktop",
     query: {
@@ -585,7 +623,7 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
     },
   });
 
-  await applySampleMoment(page);
+  await preparePrintIntentPreview(page);
 
   const printPrimaryCta = page.getByRole("button", { name: /Print & frame/i });
   const printCtaVisible = await printPrimaryCta.isVisible({ timeout: 2500 }).catch(() => false);
@@ -596,8 +634,16 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
       await printPrimaryCta.click();
     }
     await expect(printedGiftTab).toBeVisible({ timeout: 8000 });
-    await expect(page.getByRole("button", { name: /Framed print \(recommended\)/i })).toBeVisible({ timeout: 8000 });
-    await expect(page.getByText(/Shipping address is collected in Stripe checkout/i)).toBeVisible({ timeout: 8000 });
+    await expect(
+      page
+        .getByRole("button", {
+          name: /Framed \+ HD file \(recommended\)|Framed print \(recommended\)/i,
+        })
+        .first(),
+    ).toBeVisible({ timeout: 8000 });
+    await expect(
+      page.getByText(/Shipping (address is collected|is shown) in Stripe checkout/i).first(),
+    ).toBeVisible({ timeout: 8000 });
     const shippingSelect = page.getByLabel(/Shipping country/i).first();
     if (await shippingSelect.isVisible({ timeout: 1500 }).catch(() => false)) {
       await expect(shippingSelect.locator("option").first()).not.toHaveText(/^[A-Z]{2}$/);
@@ -616,6 +662,7 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
 });
 
 test("print checkout buttons submit print payload when visible", async ({ page }) => {
+  await mockGeocode(page);
   await gotoEditor(page, {
     force: "desktop",
     query: {
@@ -625,7 +672,7 @@ test("print checkout buttons submit print payload when visible", async ({ page }
       shipping_country: "CA",
     },
   });
-  await applySampleMoment(page);
+  await preparePrintIntentPreview(page);
 
   const printPrimaryCta = page.getByRole("button", { name: /Print & frame/i });
   if (!(await printPrimaryCta.isVisible({ timeout: 2500 }).catch(() => false))) {
@@ -661,7 +708,10 @@ test("print checkout buttons submit print payload when visible", async ({ page }
     });
   });
 
-  await printPrimaryCta.click();
+  const printedGiftTab = page.getByRole("button", { name: /Printed gift/i });
+  if (!(await printedGiftTab.isVisible({ timeout: 1500 }).catch(() => false))) {
+    await printPrimaryCta.click();
+  }
   const framedWithHd = page.getByRole("button", { name: /Framed \+ HD file \(recommended\)/i });
   await expect(framedWithHd).toBeVisible({ timeout: 8000 });
   await framedWithHd.click();

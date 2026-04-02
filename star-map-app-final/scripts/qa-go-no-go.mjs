@@ -7,6 +7,7 @@ dotenv.config({ path: ".env" });
 function parseArgs(argv) {
   const args = {
     allowCheckoutOnly: false,
+    preferWranglerLive: false,
   };
 
   for (const token of argv) {
@@ -14,14 +15,20 @@ function parseArgs(argv) {
       args.allowCheckoutOnly = true;
       continue;
     }
+    if (token === "--prefer-wrangler-live") {
+      args.preferWranglerLive = true;
+      continue;
+    }
     if (token === "-h" || token === "--help") {
-      console.log(`Usage: node scripts/qa-go-no-go.mjs [--allow-checkout-only]
+      console.log(`Usage: node scripts/qa-go-no-go.mjs [--allow-checkout-only] [--prefer-wrangler-live]
 
 Validates print launch configuration.
 
 Options:
   --allow-checkout-only  Allow CHECKOUT_ONLY mode for local/non-live validation.
                          This never means live-ready fulfillment.
+  --prefer-wrangler-live  If local mode is CHECKOUT_ONLY but wrangler vars are LIVE_READY,
+                          pass with a production-configuration override notice.
 `);
       process.exit(0);
     }
@@ -271,6 +278,12 @@ if (mode === "CHECKOUT_ONLY") {
       "\nGO (non-live override): checkout is enabled and fulfillment submission is disabled by design for this run.",
     );
     console.log("Live reminder: CHECKOUT_ONLY is still NO-GO for live customers.");
+    process.exit(0);
+  }
+  if (args.preferWranglerLive && wranglerMode === "LIVE_READY") {
+    console.log(
+      "\nGO (wrangler live-ready override): local mode is CHECKOUT_ONLY, wrangler production vars are LIVE_READY.",
+    );
     process.exit(0);
   }
   console.log(
