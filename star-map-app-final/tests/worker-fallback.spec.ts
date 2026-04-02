@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { applySampleMoment, gotoEditor } from "./test-helpers";
+import { applySampleMoment, getPreviewArea, gotoEditor } from "./test-helpers";
 
 test.describe("Worker fallback", () => {
   test.describe.configure({ timeout: 60000 });
@@ -13,7 +13,7 @@ test.describe("Worker fallback", () => {
     await gotoEditor(page, { force: "desktop" });
     await applySampleMoment(page);
 
-    const preview = page.getByLabel(/Star map preview/i).first();
+    const preview = getPreviewArea(page);
     await expect(preview).toBeVisible({ timeout: 20000 });
     await expect(page.locator("canvas").first()).toBeVisible({ timeout: 20000 });
     await expect(page.getByText("Rendering stars...")).toHaveCount(0);
@@ -42,7 +42,7 @@ test.describe("Worker fallback", () => {
     await gotoEditor(page, { force: "desktop" });
     await applySampleMoment(page);
 
-    const preview = page.getByLabel(/Star map preview/i).first();
+    const preview = getPreviewArea(page);
     await expect(preview).toBeVisible({ timeout: 20000 });
     await expect(page.locator("canvas").first()).toBeVisible({ timeout: 20000 });
     await expect(page.getByText("Rendering stars...")).toHaveCount(0);

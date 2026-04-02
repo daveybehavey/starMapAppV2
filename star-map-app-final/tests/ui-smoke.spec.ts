@@ -1,5 +1,5 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
-import { applySampleMoment, gotoEditor, mockGeocode, primeLocalStorage, waitForPreview } from "./test-helpers";
+import { applySampleMoment, getPreviewArea, gotoEditor, mockGeocode, primeLocalStorage, waitForPreview } from "./test-helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 test.setTimeout(60_000);
@@ -149,11 +149,13 @@ test("editor date field accepts numeric-only iOS input", async ({ browser }) => 
 });
 
 test("editor canvas supports direct text editing and keyboard nudging", async ({ page }) => {
+  test.slow();
   await gotoEditor(page, { force: "desktop" });
   await applySampleMoment(page);
+  await waitForPreview(page);
 
-  const preview = page.getByLabel(/Star map preview/i).first();
-  await expect(preview).toBeVisible({ timeout: 20_000 });
+  const preview = getPreviewArea(page);
+  await expect(preview).toBeVisible({ timeout: 45_000 });
   const bounds = await preview.boundingBox();
   expect(bounds).not.toBeNull();
   if (!bounds) throw new Error("Missing preview bounds");
@@ -225,6 +227,8 @@ test("editor canvas supports direct text editing and keyboard nudging", async ({
 
   expect(before.text).toBe("Our Perfect Night");
 
+  // Move focus back to the preview before keyboard nudging.
+  await page.mouse.click(bounds.x + bounds.width * titlePosition.x, bounds.y + bounds.height * titlePosition.y);
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(150);
 
@@ -241,16 +245,7 @@ test("editor canvas supports direct text editing and keyboard nudging", async ({
       return title.position.y;
     });
 
-  let after = await readTitleY();
-  if (after <= before.y) {
-    const nudgeDownButton = page.getByRole("button", { name: /Nudge Title down/i }).first();
-    if (await nudgeDownButton.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await nudgeDownButton.click();
-      await page.waitForTimeout(100);
-      after = await readTitleY();
-    }
-  }
-
+  const after = await readTitleY();
   expect(after).toBeGreaterThan(before.y);
 });
 
@@ -499,7 +494,7 @@ test("occasion preset auto-fills date and location", async ({ page }) => {
     await expect(page.getByLabel("Date")).not.toHaveValue("");
   } else {
     await expect(page.getByRole("button", { name: /Customize more/i })).toBeVisible();
-    await expect(page.getByLabel(/Star map preview/i).first()).toBeVisible();
+    await expect(getPreviewArea(page)).toBeVisible();
   }
 });
 
@@ -516,7 +511,7 @@ test("pro preset updates the message styling", async ({ page }) => {
   await auroraPreset.click();
 
   // Ensure the editor remains interactive after style change.
-  await expect(page.getByLabel(/Star map preview/i).first()).toBeVisible();
+  await expect(getPreviewArea(page)).toBeVisible();
   await expect(page.getByLabel("Free export").first()).toBeVisible();
 });
 

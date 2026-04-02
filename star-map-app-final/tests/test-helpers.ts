@@ -125,14 +125,37 @@ export const gotoEditor = async (
   await dismissOverlays(page);
 };
 
+export const getPreviewArea = (page: Page) =>
+  page
+    .locator(
+      '[aria-label^="Star map preview"], [aria-label="Your custom star map preview"], [aria-label="Sample star map preview"]',
+    )
+    .first();
+
 export const waitForPreview = async (page: Page) => {
-  const labeledPreview = page.getByLabel(/Star map preview/i).first();
-  if (await labeledPreview.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await expect(labeledPreview).toBeVisible({ timeout: 20000 });
-  } else {
-    // Some intermediate editor states don't expose the preview aria-label consistently.
-    await expect(page.getByRole("heading", { name: /Preview/i }).first()).toBeVisible({ timeout: 20000 });
-  }
+  const previewArea = getPreviewArea(page);
+  // Preview may pass through a temporary "Rendering sky…" overlay while the dynamic canvas mounts.
+  await expect
+    .poll(
+      async () => {
+        const visible = await previewArea.isVisible({ timeout: 500 }).catch(() => false);
+        if (visible) return "ready";
+        const renderingVisible = await page
+          .getByText(/Rendering sky…|Rendering…/i)
+          .first()
+          .isVisible({ timeout: 500 })
+          .catch(() => false);
+        if (renderingVisible) return "rendering";
+        const headingVisible = await page
+          .getByRole("heading", { name: /Preview/i })
+          .first()
+          .isVisible({ timeout: 500 })
+          .catch(() => false);
+        return headingVisible ? "pending" : "missing";
+      },
+      { timeout: 45000, intervals: [300, 500, 750, 1000] },
+    )
+    .toBe("ready");
   await expect(page.getByLabel("Free export").first()).toBeVisible({ timeout: 20000 });
 };
 

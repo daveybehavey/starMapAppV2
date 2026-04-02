@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
-import { applySampleMoment, gotoEditor, waitForPreview } from "./test-helpers";
+import { applySampleMoment, getPreviewArea, gotoEditor, waitForPreview } from "./test-helpers";
 
 const setupWithSampleMoment = async (page: Parameters<typeof gotoEditor>[0]) => {
   await gotoEditor(page, { path: "/editor", force: "desktop" });
@@ -16,7 +16,7 @@ test.describe("Premium Rendering Features", () => {
     await setupWithSampleMoment(page);
 
     // Find the star map preview area
-    const previewArea = page.getByLabel(/Star map preview/i).first();
+    const previewArea = getPreviewArea(page);
 
     // Take a screenshot of the preview area for visual verification
     const screenshot = await previewArea.screenshot().catch(async () => {
