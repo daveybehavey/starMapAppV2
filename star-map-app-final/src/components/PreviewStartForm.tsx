@@ -55,6 +55,10 @@ export default function PreviewStartForm({
     if (printCheckoutEnabled) return true;
     return !intent.checkout && !intent.printVariant;
   });
+  const primaryIntent = resolvedIntentOptions?.find((intent) => intent.tone === "recommended") ?? resolvedIntentOptions?.[0];
+  const secondaryIntentOptions = primaryIntent
+    ? resolvedIntentOptions?.filter((intent) => intent !== primaryIntent) ?? []
+    : [];
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     const formData = new FormData(event.currentTarget);
     const hasDate = String(formData.get("date") ?? "").trim().length > 0;
@@ -113,41 +117,71 @@ export default function PreviewStartForm({
           </div>
         </div>
         <p className="mt-2 text-xs text-neutral-600">{MOBILE_DATE_HELPER_TEXT}</p>
-        {resolvedIntentOptions?.length ? (
+        {primaryIntent ? (
           <div className="mt-4 space-y-3">
-            <div className="grid gap-2 sm:grid-cols-3">
-              {resolvedIntentOptions.map((intent) => {
-                const actionSource = intent.sourceSuffix
-                  ? `${resolvedSource}-${intent.sourceSuffix}`
-                  : resolvedSource;
-                const toneClass =
-                  intent.tone === "recommended"
-                    ? "border-amber-300/70 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 text-midnight shadow-lg shadow-amber-200"
-                    : intent.tone === "neutral"
-                      ? "border-black/10 bg-white text-midnight shadow-sm"
-                      : "border-amber-300/70 bg-amber-300/15 text-midnight shadow-sm";
+            {(() => {
+              const actionSource = primaryIntent.sourceSuffix
+                ? `${resolvedSource}-${primaryIntent.sourceSuffix}`
+                : resolvedSource;
 
-                return (
-                  <button
-                    key={`${intent.plan}-${intent.label}`}
-                    type="submit"
-                    formAction={buildEditorAction(actionSource, intent.checkout, intent.printVariant)}
-                    data-source={actionSource}
-                    data-plan={intent.plan}
-                    data-checkout={intent.checkout}
-                    data-print-variant={intent.printVariant}
-                    className={`rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50 ${toneClass}`}
-                  >
-                    <span className="block text-sm font-semibold">{intent.label}</span>
-                    {intent.detail ? <span className="mt-1 block text-xs opacity-90">{intent.detail}</span> : null}
-                  </button>
-                );
-              })}
-            </div>
+              return (
+                <button
+                  type="submit"
+                  formAction={buildEditorAction(actionSource, primaryIntent.checkout, primaryIntent.printVariant)}
+                  data-source={actionSource}
+                  data-plan={primaryIntent.plan}
+                  data-checkout={primaryIntent.checkout}
+                  data-print-variant={primaryIntent.printVariant}
+                  className="w-full rounded-2xl border border-amber-300/70 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-4 text-left text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+                >
+                  <span className="mb-2 inline-flex rounded-full border border-black/10 bg-white/35 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-midnight/80">
+                    Recommended start
+                  </span>
+                  <span className="block text-base font-semibold">{primaryIntent.label}</span>
+                  {primaryIntent.detail ? (
+                    <span className="mt-1 block text-sm text-midnight/80">{primaryIntent.detail}</span>
+                  ) : null}
+                </button>
+              );
+            })()}
+            {secondaryIntentOptions.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-600">
+                  Other start options
+                </p>
+                <div className={`grid gap-2 ${secondaryIntentOptions.length === 1 ? "" : "sm:grid-cols-2"}`}>
+                  {secondaryIntentOptions.map((intent) => {
+                    const actionSource = intent.sourceSuffix
+                      ? `${resolvedSource}-${intent.sourceSuffix}`
+                      : resolvedSource;
+                    const toneClass =
+                      intent.tone === "neutral"
+                        ? "border-black/10 bg-white text-midnight shadow-sm"
+                        : "border-amber-300/70 bg-amber-300/15 text-midnight shadow-sm";
+
+                    return (
+                      <button
+                        key={`${intent.plan}-${intent.label}`}
+                        type="submit"
+                        formAction={buildEditorAction(actionSource, intent.checkout, intent.printVariant)}
+                        data-source={actionSource}
+                        data-plan={intent.plan}
+                        data-checkout={intent.checkout}
+                        data-print-variant={intent.printVariant}
+                        className={`rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50 ${toneClass}`}
+                      >
+                        <span className="block text-sm font-semibold">{intent.label}</span>
+                        {intent.detail ? <span className="mt-1 block text-xs opacity-90">{intent.detail}</span> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             <p className="text-xs text-neutral-600">
               {printCheckoutEnabled
-                ? "These quick-start buttons keep your date and location, then open the editor with the matching checkout path already selected."
-                : "These quick-start buttons keep your date and location, then open the editor with your preview settings prefilled."}
+                ? "Start with the recommended route if you already know the format. You can still switch between framed, unframed, and digital after preview."
+                : "Your date and location carry into the editor so you can preview first, then decide how to finish the order."}
             </p>
           </div>
         ) : (
