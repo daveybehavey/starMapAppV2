@@ -127,6 +127,7 @@ By the end of the week, you should have:
 ### Strategy
 
 - [Social Media Playbook](./social-media-playbook.md)
+- [14-Day Traffic Sprint](./traffic-sprint-14-day.md)
 
 Use for:
 
@@ -135,6 +136,7 @@ Use for:
 - first 10 videos
 - calendar
 - captions
+- day-by-day traffic execution checklist
 
 ### Pinterest
 
@@ -150,12 +152,14 @@ Use for:
 ### Posting Tracker
 
 - [Social Content Tracker](./social-content-tracker.csv)
+- [Traffic Sprint Tracker](./traffic-sprint-tracker.csv)
 
 Use for:
 
 - tracking each post
 - measuring watch time, clicks, preview starts, purchases
 - deciding what to remake
+- unified winner/loser calls across platforms
 
 ### Pinterest Tracker
 
