@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
@@ -131,6 +130,7 @@ export default function StarMapGiftPage() {
       <FramedProofSection sourcePrefix="gift-proof" />
 
       <PurchaseTrustPanel
+        tone="dark"
         heading="Confidence before checkout"
         intro="Build and share your preview for free. Pay only when the wording, frame choice, and delivery route feel right."
         leftTitle="What happens after payment"
@@ -162,52 +162,6 @@ export default function StarMapGiftPage() {
         intro="These framed and unframed mockups come from current StarMapCo artwork and current proof renders, so the physical finish is clear before checkout."
         sourcePrefix="gift-physical-proof"
       />
-
-      <section className="content-visibility-auto mt-6 rounded-2xl border border-white/12 bg-white/6 px-5 py-4 text-white/90 shadow-sm shadow-black/20">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300">Related gift ideas</p>
-            <p className="mt-1 text-xs text-neutral-300">More gift-focused entry points if you want to compare angles.</p>
-          </div>
-          <Link
-            href="/star-map-gift-formats"
-            prefetch={false}
-            className="text-xs font-semibold text-amber-200 underline hover:text-amber-100"
-          >
-            Compare gift formats
-          </Link>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-100">
-          <Link
-            href="/night-sky-map-gift"
-            prefetch={false}
-            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
-          >
-            Night sky map gift
-          </Link>
-          <Link
-            href="/star-map-gift-ideas"
-            prefetch={false}
-            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
-          >
-            Star map gift ideas
-          </Link>
-          <Link
-            href="/star-map-gift-formats"
-            prefetch={false}
-            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
-          >
-            Gift formats and roadmap
-          </Link>
-          <Link
-            href="/personalized-star-map"
-            prefetch={false}
-            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
-          >
-            Personalized star map
-          </Link>
-        </div>
-      </section>
 
       <OccasionLinks />
 

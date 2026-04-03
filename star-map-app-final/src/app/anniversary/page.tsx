@@ -136,6 +136,7 @@ export default function AnniversaryPage() {
       />
 
       <PurchaseTrustPanel
+        tone="dark"
         heading="Before you buy"
         intro="Preview for free first. Upgrade only once the wording, date, and layout feel right."
         leftTitle="Checkout and files"

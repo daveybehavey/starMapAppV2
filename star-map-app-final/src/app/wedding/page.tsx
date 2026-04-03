@@ -131,6 +131,7 @@ export default function WeddingPage() {
       <FramedProofSection sourcePrefix="wedding-proof" />
 
       <PurchaseTrustPanel
+        tone="dark"
         heading="Before you buy"
         intro="Preview for free first. Most wedding buyers take the framed route once the layout and wording feel final, while unframed and HD stay available from the same design."
         leftTitle="Checkout and files"

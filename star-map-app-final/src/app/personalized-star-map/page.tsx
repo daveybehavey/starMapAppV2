@@ -130,6 +130,7 @@ export default function PersonalizedStarMapPage() {
       <FramedProofSection sourcePrefix="personalized-proof" />
 
       <PurchaseTrustPanel
+        tone="dark"
         heading="Buy with confidence"
         intro="Preview first, then pay only when the design feels right. Most buyers start with framed print, while unframed and HD stay available from the same approved design."
         leftTitle="Checkout and delivery"
