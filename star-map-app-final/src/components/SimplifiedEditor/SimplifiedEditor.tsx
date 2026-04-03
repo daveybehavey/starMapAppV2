@@ -1102,7 +1102,10 @@ export function SimplifiedEditor() {
           >
             {exporting ? (
               <>
-                <span className="inline-block animate-spin mr-2" aria-hidden="true">⏳</span>
+                <span
+                  className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                  aria-hidden="true"
+                />
                 Exporting...
               </>
             ) : (
@@ -1123,7 +1126,10 @@ export function SimplifiedEditor() {
           >
             {hdExporting ? (
               <>
-                <span className="inline-block animate-spin mr-2" aria-hidden="true">⏳</span>
+                <span
+                  className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#0b1433]/25 border-t-[#0b1433]"
+                  aria-hidden="true"
+                />
                 {paid ? "Processing..." : DIGITAL_CHECKOUT_REDIRECT_LABEL}
               </>
             ) : paid ? (
