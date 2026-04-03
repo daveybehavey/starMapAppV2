@@ -103,7 +103,7 @@ export default function AnalyticsConsentManager() {
       {consent === "unset" ? (
         <aside className="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie consent">
           <p className="cookie-text text-sm">
-            Optional analytics help improve StarMapCo. Accept or decline.
+            Optional analytics.
             <Link href="/privacy" prefetch={false} className="ml-1 underline">
               Privacy
             </Link>

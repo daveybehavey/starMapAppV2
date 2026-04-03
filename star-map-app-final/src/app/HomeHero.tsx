@@ -74,14 +74,17 @@ export default function HomeHero() {
             {printTiers.poster_framed.label.toLowerCase()}, the lower-total {printTiers.poster_unframed.label.toLowerCase()},
             or HD digital delivery from the same design.
           </p>
-          <p className="mx-auto max-w-2xl text-sm text-amber-100/85 sm:text-base">
+          <p className="mx-auto max-w-2xl text-sm text-amber-100/85 sm:hidden">
+            Framed stays premium. HD stays fastest when same-day delivery matters.
+          </p>
+          <p className="mx-auto hidden max-w-2xl text-sm text-amber-100/85 sm:block sm:text-base">
             Framed stays premium. Unframed keeps the physical total lower. HD stays fastest when same-day delivery matters.
           </p>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Free live preview</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">No account required</span>
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">Choose delivery after preview</span>
-            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100">
+            <span className="hidden rounded-full border border-white/15 bg-white/10 px-3 py-1 sm:inline-flex">Choose delivery after preview</span>
+            <span className="hidden rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1 text-amber-100 sm:inline-flex">
               {printBadgeLabel}
             </span>
           </div>
@@ -95,12 +98,17 @@ export default function HomeHero() {
             <a
               href="/editor?mode=quick&source=home-hero-framed&checkout=print&print_variant=poster_framed"
               onClick={handleFramedPreviewClick}
-              className="inline-flex items-center px-2 py-2 text-xs font-semibold text-amber-200 underline decoration-amber-300/60 underline-offset-4 transition hover:text-amber-100"
+              className="hidden items-center px-2 py-2 text-xs font-semibold text-amber-200 underline decoration-amber-300/60 underline-offset-4 transition hover:text-amber-100 sm:inline-flex"
             >
               Gift-ready? Preview framed print
             </a>
           </div>
-          <div className="mx-auto grid w-full max-w-3xl gap-2 pt-3 sm:grid-cols-3">
+        </div>
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
+          <div className="order-1">
+            <HeroEditorDeferred />
+          </div>
+          <div className="order-2 mx-auto grid w-full max-w-3xl gap-2 pt-1 sm:grid-cols-3 sm:pt-3">
             <a
               href="/editor?mode=quick&source=home-hero-offer-digital"
               onClick={() => handleOfferLadderClick("digital")}
@@ -133,8 +141,6 @@ export default function HomeHero() {
             </a>
           </div>
         </div>
-
-        <HeroEditorDeferred />
 
         <div className="brand-dark-card mx-auto mt-4 w-full max-w-4xl rounded-2xl px-4 py-4 text-left sm:px-5">
           <div className="grid gap-2 text-xs text-neutral-100 sm:grid-cols-2 lg:grid-cols-4">

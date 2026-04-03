@@ -558,24 +558,39 @@ details > summary:hover {
 
 @media (max-width: 640px) {
   .cookie-banner {
-    bottom: 0.6rem;
-    left: 0.6rem;
-    right: 0.6rem;
-    max-width: none;
+    bottom: max(0.45rem, env(safe-area-inset-bottom));
+    left: auto;
+    right: 0.5rem;
+    transform: none;
+    width: min(calc(100vw - 1rem), 14rem);
+    padding: 0.42rem 0.55rem;
     flex-direction: row;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.3rem;
+  }
+
+  .cookie-text {
+    max-width: 5.35rem;
+    font-size: 0.62rem;
+    line-height: 1.2;
   }
 
   .cookie-actions {
     width: auto;
     justify-content: flex-end;
     flex-wrap: nowrap;
+    gap: 0.25rem;
   }
 
   .cookie-btn {
     flex: 0 0 auto;
     text-align: center;
+    font-size: 0.66rem;
+  }
+
+  .cookie-btn-primary,
+  .cookie-btn-secondary {
+    padding: 0.38rem 0.48rem;
   }
 }
 
