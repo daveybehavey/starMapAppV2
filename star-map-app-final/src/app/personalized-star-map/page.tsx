@@ -1,5 +1,3 @@
-import Image from "next/image";
-import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -9,12 +7,10 @@ import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
-import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
-import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -133,37 +129,6 @@ export default function PersonalizedStarMapPage() {
       />
       <FramedProofSection sourcePrefix="personalized-proof" />
 
-      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-midnight">Recent personalized map examples</h2>
-          <p className="text-sm text-neutral-800 sm:text-base">
-            These are freshly rendered StarMapCo outputs from the current engine. Start from one of these looks, then adjust fonts, lines, and text.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {featuredRenderExamples.map((item) => (
-            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-              <div className="relative aspect-square">
-                <Image
-                  src={item.src}
-                  alt={item.shortLabel}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.shortLabel}</div>
-            </div>
-          ))}
-        </div>
-        <div className="text-sm">
-          <Link href="/star-map-gallery" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
-            View full gallery
-          </Link>
-        </div>
-      </section>
-
       <PurchaseTrustPanel
         heading="Buy with confidence"
         intro="Preview first, then pay only when the design feels right. Most buyers start with framed print, while unframed and HD stay available from the same approved design."
@@ -186,10 +151,6 @@ export default function PersonalizedStarMapPage() {
       <WhatYouReceiveModule
         heading="What you receive with your personalized map"
         intro="Your paid export package is designed to go straight from checkout to print planning."
-      />
-      <RevenueTrustModule
-        heading="Personalized order confidence"
-        intro="This is built for gifting quality, not just a quick screenshot. Use this section to confirm the format, shipping, and final review details before checkout."
       />
       <TestimonialHighlights
         heading="Verified personalized map feedback"

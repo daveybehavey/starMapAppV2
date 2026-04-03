@@ -7,7 +7,6 @@ import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
-import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
@@ -157,10 +156,6 @@ export default function AnniversaryPage() {
       <WhatYouReceiveModule
         heading="What your anniversary order includes"
         intro="This is the handoff from preview to the final keepsake."
-      />
-      <RevenueTrustModule
-        heading="Anniversary gift confidence"
-        intro="Most couples decide faster once the wording, frame plan, and whether they want the finished framed route are already clear."
       />
       <TestimonialHighlights
         heading="Verified anniversary buyer feedback"

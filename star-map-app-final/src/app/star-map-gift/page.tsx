@@ -9,7 +9,6 @@ import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
-import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
@@ -154,10 +153,6 @@ export default function StarMapGiftPage() {
       <WhatYouReceiveModule
         heading="What your gift purchase includes"
         intro="Gift buyers usually want clarity on deliverables and timing. This is the exact package you unlock."
-      />
-      <RevenueTrustModule
-        heading="Gift-buyer confidence pack"
-        intro="If this is a gift, use this section to remove last-minute uncertainty around quality, shipping, and final review before purchase."
       />
       <TestimonialHighlights
         heading="Verified gift-buyer feedback"
