@@ -2651,9 +2651,9 @@ export function EditorExperience({
                                 });
                               }}
                               className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-300/25 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/35 focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                              title="Buy a printed star map with framing options."
+                              title="Choose framed or unframed print checkout."
                             >
-                              Print & frame
+                              Print options
                             </button>
                           )}
                           {hdCreditLabel && (
