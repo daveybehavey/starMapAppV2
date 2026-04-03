@@ -1398,11 +1398,11 @@ export function EditorExperience({
             : reason === "promotion_lookup_failed"
               ? "We couldn't verify your promo code right now. Please try again in a moment."
               : reason === "print_asset_failed"
-                ? "We couldn't prepare your print file. Please try again."
+                ? "We couldn't prepare your print file yet. Your preview is still here, so try again."
               : reason === "print_asset_too_large"
                 ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
-                : reason === "print_render_failed"
-                  ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
+              : reason === "print_render_failed"
+                ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
                 : reason === "missing_shipping_country"
                   ? "Select your shipping country to continue with print checkout."
                 : reason === "print_shipping_country_invalid"
@@ -1416,10 +1416,10 @@ export function EditorExperience({
                 : reason === "map_required"
                   ? "Generate your map preview before checkout."
                 : reason === "map_not_found"
-                  ? "We couldn't find that map. Refresh preview and try checkout again."
+                  ? "We couldn't find that saved map. Refresh the preview, then try checkout again."
                 : reason.startsWith("save_failed_") || reason === "map_save_failed"
-                  ? "We couldn't save this map yet. Please retry in a moment."
-              : "Checkout is unavailable right now. Please try again shortly.";
+                  ? "We couldn't save this map yet. Your preview is still here, so retry in a moment."
+              : "Checkout is unavailable right now. Nothing was charged, and your preview is still here. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {
           source: previewSource,
