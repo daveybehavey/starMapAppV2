@@ -46,6 +46,7 @@ interface MobileCreateProps {
   onCustomizeMore?: () => void;
   creditsRemaining?: number | null;
   currentPlan?: CheckoutPlan | null;
+  singlePriceLabel?: string;
   printCheckoutEnabled?: boolean;
   printPriceLabels?: {
     unframed: string;
@@ -113,6 +114,7 @@ export function MobileCreate({
   onCustomizeMore,
   creditsRemaining = null,
   currentPlan = null,
+  singlePriceLabel,
   printCheckoutEnabled = false,
   printPriceLabels,
   printShippingCountry,
@@ -1399,6 +1401,21 @@ export function MobileCreate({
             <div className="mt-2 flex justify-end">
               <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
                 {hdCreditLabel}
+              </span>
+            </div>
+          )}
+          {!paid && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {singlePriceLabel ? (
+                <span className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-300/12 px-2.5 py-1 text-[10px] font-semibold text-amber-100">
+                  {singlePriceLabel} one-time
+                </span>
+              ) : null}
+              <span className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-semibold text-white/75">
+                No subscription
+              </span>
+              <span className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-semibold text-white/75">
+                HD file after payment
               </span>
             </div>
           )}

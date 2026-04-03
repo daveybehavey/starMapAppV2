@@ -32,6 +32,7 @@ import {
 } from "@/lib/dateInput";
 import { track, trackBeginCheckout, trackCheckoutClientDiagnostic } from "@/lib/analytics";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
+import { formatPrice, getPricingTiers } from "@/lib/pricing";
 import {
   DIGITAL_CHECKOUT_CTA_LABEL,
   DIGITAL_CHECKOUT_HELPER_TEXT,
@@ -746,6 +747,10 @@ export function SimplifiedEditor() {
   const digitalCheckoutHelperText = paid
     ? "HD download is unlocked for this map. Free preview stays available."
     : DIGITAL_CHECKOUT_HELPER_TEXT;
+  const singlePriceLabel = useMemo(() => {
+    const tiers = getPricingTiers();
+    return formatPrice(tiers.single.amountCents, tiers.single.currency);
+  }, []);
 
   // Dynamic recipe that applies user's style/shape/renderOptions choices to the sample preview
   const dynamicRecipe: MapRecipe = useMemo(() => {
@@ -1133,6 +1138,19 @@ export function SimplifiedEditor() {
         </div>
         {!canExport && checkoutBlockedReason && (
           <p className="text-[11px] text-amber-100/80">{checkoutBlockedReason}</p>
+        )}
+        {!paid && (
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-300/12 px-2.5 py-1 text-[10px] font-semibold text-amber-100">
+              {singlePriceLabel} one-time
+            </span>
+            <span className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-semibold text-white/75">
+              No subscription
+            </span>
+            <span className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-semibold text-white/75">
+              HD file after payment
+            </span>
+          </div>
         )}
         <p className="text-[11px] text-white/65">{digitalCheckoutHelperText}</p>
         <p className="text-[11px] text-white/55">{DIGITAL_CHECKOUT_TRUST_LINE}</p>

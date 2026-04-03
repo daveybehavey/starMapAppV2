@@ -2696,6 +2696,19 @@ export function EditorExperience({
                                 : "HD export credits available."}
                           </p>
                         )}
+                        {!paid && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-300/12 px-2.5 py-1 text-[10px] font-semibold text-amber-100">
+                              {priceLabels.single} one-time
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-semibold text-white/75">
+                              No subscription
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-semibold text-white/75">
+                              HD file after payment
+                            </span>
+                          </div>
+                        )}
                         <p className="mt-1 text-[11px] text-neutral-300/95">{digitalCheckoutHelperText}</p>
                         <p className="mt-1 text-[11px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
                         {currentPlan !== "subscription" && (
@@ -2896,6 +2909,7 @@ export function EditorExperience({
               onCustomizeMore={handleCustomizeMore}
               creditsRemaining={creditsRemaining}
               currentPlan={currentPlan}
+              singlePriceLabel={priceLabels.single}
               printCheckoutEnabled={printCheckoutEnabled}
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
               printShippingCountry={printShippingCountry}
