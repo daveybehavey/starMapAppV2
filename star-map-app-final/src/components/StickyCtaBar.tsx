@@ -77,7 +77,7 @@ export default function StickyCtaBar({
           <p className="text-sm font-semibold">{title}</p>
           <p className="text-xs text-neutral-600">
             {printCheckoutEnabled
-              ? "Free preview first. Switch between framed, unframed, and HD delivery after the design feels right."
+              ? "Preview first, then choose framed, unframed, or HD delivery."
               : description}
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function StickyCtaBar({
                 track("sticky_secondary_click", { source: resolvedSource, plan: secondaryPlan });
                 trackFunnelStep("hero_plan_click", { source: resolvedSource, plan: secondaryPlan });
               }}
-              className="inline-flex items-center justify-center rounded-full border border-amber-300/70 bg-white px-4 py-2 text-sm font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-50"
+              className="inline-flex items-center justify-center px-1 py-2 text-xs font-semibold text-midnight/80 underline underline-offset-2 transition hover:text-midnight"
             >
               {secondaryButtonLabel}
             </a>

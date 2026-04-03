@@ -180,8 +180,8 @@ export default function PreviewStartForm({
             ) : null}
             <p className="text-xs text-neutral-600">
               {printCheckoutEnabled
-                ? "Start with the recommended route if you already know the format. You can still switch between framed, unframed, and digital after preview."
-                : "Your date and location carry into the editor so you can preview first, then decide how to finish the order."}
+                ? "Start with the recommended route if you already know the format. You can still switch after preview."
+                : "Your date and location carry into the editor so you can preview first, then choose how to finish the order."}
             </p>
           </div>
         ) : (
@@ -195,11 +195,10 @@ export default function PreviewStartForm({
             {buttonLabel}
           </button>
         )}
-        <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
-        <p className="mt-1 text-xs font-semibold text-amber-700">
+        <p className="mt-2 text-xs text-neutral-600">
           {printCheckoutEnabled
-            ? "Physical checkout is available: unframed print, framed print, or print + HD file. Shipping is shown at checkout."
-            : "HD digital checkout is available now. Physical print checkout is in staged rollout by country."}
+            ? "Free preview. Switch between digital, framed, and unframed delivery after preview."
+            : "Free preview. No account required."}
         </p>
       </form>
     </section>
