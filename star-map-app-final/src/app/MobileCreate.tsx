@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { type TextBox, type RenderOptions } from "@/lib/store";
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
@@ -58,6 +58,49 @@ interface MobileCreateProps {
   printCheckoutInFlight?: boolean;
   printCheckoutError?: string | null;
   onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
+}
+
+type MobileDrawerSectionId =
+  | "dateLocation"
+  | "message"
+  | "textStyling"
+  | "style"
+  | "shape"
+  | "frame"
+  | "advanced";
+
+function MobileDrawerSection({
+  title,
+  summary,
+  collapsed,
+  onToggle,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  collapsed: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-white/[0.03]"
+      >
+        <div className="min-w-0">
+          <h3 className="text-xs font-semibold text-white">{title}</h3>
+          {summary ? <p className="mt-1 text-[10px] text-neutral-400">{summary}</p> : null}
+        </div>
+        <span className="shrink-0 rounded-full border border-white/12 bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/85">
+          {collapsed ? "Show" : "Hide"}
+        </span>
+      </button>
+      {!collapsed ? <div className="border-t border-white/8 px-3 pb-3 pt-3">{children}</div> : null}
+    </section>
+  );
 }
 
 export function MobileCreate({
@@ -145,6 +188,15 @@ export function MobileCreate({
     subtitle: true,
     dedication: true,
   }));
+  const [collapsedDrawerSections, setCollapsedDrawerSections] = useState<Record<MobileDrawerSectionId, boolean>>({
+    dateLocation: false,
+    message: false,
+    textStyling: true,
+    style: true,
+    shape: true,
+    frame: true,
+    advanced: true,
+  });
   const presetRailRef = useRef<HTMLDivElement>(null);
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
@@ -184,6 +236,14 @@ export function MobileCreate({
   const digitalCheckoutHelperText = paid
     ? "HD download is unlocked for this map. Free preview stays available."
     : DIGITAL_CHECKOUT_HELPER_TEXT;
+  const selectedStyleLabel = styles.find((style) => style.id === selectedStyle)?.name ?? "Selected style";
+  const selectedShapeLabel = shapes.find((shapeOption) => shapeOption.id === shape)?.label ?? "Current shape";
+  const selectedVisualModeLabel = visualModes.find((mode) => mode.id === renderOptions.visualMode)?.label ?? "Standard";
+  const selectedConstellationLabel =
+    constellationPresets.find((preset) => preset.id === renderOptions.constellationLines)?.label ?? "Off";
+  const aspectRatioLabel =
+    aspectRatio === "square" ? "Square" : aspectRatio === "4:5" ? "Poster" : "Wide";
+  const textLineSummary = `${textBoxes.length} line${textBoxes.length === 1 ? "" : "s"}`;
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -198,6 +258,13 @@ export function MobileCreate({
       return next;
     });
   }, [textBoxes]);
+
+  const toggleDrawerSection = useCallback((section: MobileDrawerSectionId) => {
+    setCollapsedDrawerSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  }, []);
 
   // Wrap hook's applyPreset to scroll to mobile preview
   const applyPreset = useCallback(
@@ -737,20 +804,25 @@ export function MobileCreate({
         <EditorDrawer defaultOpen={true}>
           <div className="space-y-3">
             {/* Date & Location */}
-            <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <h3 className="text-xs font-semibold text-white mb-2">Date & Location</h3>
+            <MobileDrawerSection
+              title="Date & Location"
+              summary="Required for accuracy"
+              collapsed={collapsedDrawerSections.dateLocation}
+              onToggle={() => toggleDrawerSection("dateLocation")}
+            >
               <div className="space-y-2">
                 <LocationSearch onLocationChange={handleLocationChange} />
                 <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
               </div>
-            </section>
+            </MobileDrawerSection>
 
             {/* Your Message */}
-            <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-amber-300">✎</span>
-                <h3 className="text-xs font-semibold text-white">Your Message</h3>
-              </div>
+            <MobileDrawerSection
+              title="Your Message"
+              summary={textLineSummary}
+              collapsed={collapsedDrawerSections.message}
+              onToggle={() => toggleDrawerSection("message")}
+            >
               <div className="space-y-3">
                 {textBoxes.map((box) => (
                   <div key={box.id} className="space-y-2">
@@ -765,11 +837,15 @@ export function MobileCreate({
                   </div>
                 ))}
               </div>
-            </section>
+            </MobileDrawerSection>
 
             {/* Text Styling */}
-            <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <h3 className="text-xs font-semibold text-white mb-2">Text Styling</h3>
+            <MobileDrawerSection
+              title="Text Styling"
+              summary="Font, size, color, alignment"
+              collapsed={collapsedDrawerSections.textStyling}
+              onToggle={() => toggleDrawerSection("textStyling")}
+            >
               <div className="space-y-3">
                 {textBoxes.map((box) => {
                   const isCollapsed = collapsedTextBoxes[box.id] ?? false;
@@ -908,11 +984,15 @@ export function MobileCreate({
                   + Add Text Line
                 </button>
               </div>
-            </section>
+            </MobileDrawerSection>
 
             {/* Style */}
-            <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <h3 className="text-xs font-semibold text-white mb-2">Style</h3>
+            <MobileDrawerSection
+              title="Style"
+              summary={selectedStyleLabel}
+              collapsed={collapsedDrawerSections.style}
+              onToggle={() => toggleDrawerSection("style")}
+            >
               <div className="grid grid-cols-2 gap-2">
                 {styles.map((style) => {
                   const styleClasses = {
@@ -949,11 +1029,15 @@ export function MobileCreate({
                   );
                 })}
               </div>
-            </section>
+            </MobileDrawerSection>
 
             {/* Shape */}
-            <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <h3 className="text-xs font-semibold text-white mb-2">Shape</h3>
+            <MobileDrawerSection
+              title="Shape"
+              summary={selectedShapeLabel}
+              collapsed={collapsedDrawerSections.shape}
+              onToggle={() => toggleDrawerSection("shape")}
+            >
               <div className="grid grid-cols-4 gap-2">
                 {shapes.map((shapeOption) => (
                   <button
@@ -984,11 +1068,15 @@ export function MobileCreate({
                   />
                 </div>
               )}
-            </section>
+            </MobileDrawerSection>
 
             {/* Frame */}
-            <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <h3 className="text-xs font-semibold text-white mb-2">Frame</h3>
+            <MobileDrawerSection
+              title="Frame"
+              summary={`${aspectRatioLabel}${renderOptions.frameEnabled ? " + border" : ""}`}
+              collapsed={collapsedDrawerSections.frame}
+              onToggle={() => toggleDrawerSection("frame")}
+            >
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { id: "square" as const, label: "Square" },
@@ -1017,14 +1105,18 @@ export function MobileCreate({
                     ? "border-amber-300 bg-amber-100 !text-midnight"
                     : "border-white/15 bg-white/10 text-white"
                 }`}
-              >
-                {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
-              </button>
-            </section>
+                >
+                  {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
+                </button>
+            </MobileDrawerSection>
 
             {/* Advanced */}
-            <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <h3 className="text-xs font-semibold text-white mb-2">Advanced</h3>
+            <MobileDrawerSection
+              title="Advanced"
+              summary={`${selectedVisualModeLabel} • ${selectedConstellationLabel}`}
+              collapsed={collapsedDrawerSections.advanced}
+              onToggle={() => toggleDrawerSection("advanced")}
+            >
               <div className="space-y-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-neutral-300">Constellation Lines</label>
@@ -1188,7 +1280,7 @@ export function MobileCreate({
                   </div>
                 </div>
               </div>
-            </section>
+            </MobileDrawerSection>
           </div>
         </EditorDrawer>
       )}
