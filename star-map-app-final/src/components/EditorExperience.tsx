@@ -2599,7 +2599,7 @@ export function EditorExperience({
                                 onClick={handleEditScroll}
                                 className="focus:ring-gold absolute top-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                               >
-                                ← Edit
+                                Edit map
                               </button>
                             )}
                           </>

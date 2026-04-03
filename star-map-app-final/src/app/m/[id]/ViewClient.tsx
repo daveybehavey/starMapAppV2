@@ -233,7 +233,7 @@ export function ViewClient({ id, searchParams }: Props) {
                 onClick={handleShare}
                 className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:shadow"
               >
-                📤 Share this map
+                Share this map
               </button>
               {shareFeedback && (
                 <span className="text-xs text-amber-300">{shareFeedback}</span>
