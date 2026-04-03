@@ -1297,9 +1297,6 @@ export default function SuccessClient() {
                         <p className="font-semibold text-white">{referralSummary.rewardsGranted}</p>
                       </div>
                     </div>
-                    <p className="mt-1 text-[11px] text-amber-100/70">
-                      Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
-                    </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {referralLink ? (
                         <>
@@ -1317,42 +1314,6 @@ export default function SuccessClient() {
                           >
                             Share link
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleCopyReferralPost()}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            {referralPostCopied ? "Post text copied" : "Copy post text"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("x")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share on X
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("facebook")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share on Facebook
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("pinterest")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share on Pinterest
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleCreateReferralLink()}
-                            disabled={referralLoading}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {referralLoading ? "Refreshing..." : "Refresh referral link"}
-                          </button>
                         </>
                       ) : (
                         <button
@@ -1366,55 +1327,97 @@ export default function SuccessClient() {
                       )}
                     </div>
                     {referralLink ? (
-                      <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p>
+                      <details className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100/85">
+                          Referral details and extra share options
+                        </summary>
+                        <div className="mt-3 space-y-2 text-[11px] text-amber-100/70">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyReferralPost()}
+                              className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                            >
+                              {referralPostCopied ? "Post text copied" : "Copy post text"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShareReferralLink("x")}
+                              className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                            >
+                              Share on X
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShareReferralLink("facebook")}
+                              className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                            >
+                              Share on Facebook
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShareReferralLink("pinterest")}
+                              className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+                            >
+                              Share on Pinterest
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleCreateReferralLink()}
+                              disabled={referralLoading}
+                              className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {referralLoading ? "Refreshing..." : "Refresh referral link"}
+                            </button>
+                          </div>
+                          <p className="break-all text-amber-100/80">{referralLink}</p>
+                          <p>Suggested social caption: {referralShareMessage}</p>
+                          <p>
+                            Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
+                          </p>
+                          {referralSummary.lastConvertedAt ? (
+                            <p>Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}</p>
+                          ) : null}
+                          {referralSummary.topVisitSources.length > 0 ? (
+                            <p>
+                              Top social traffic:{" "}
+                              {referralSummary.topVisitSources
+                                .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
+                                .join(" • ")}
+                            </p>
+                          ) : null}
+                          {referralSummary.topConversionSources.length > 0 ? (
+                            <p>
+                              Top referral sales:{" "}
+                              {referralSummary.topConversionSources
+                                .map((entry) => `${entry.source.toUpperCase()} (${entry.conversions})`)
+                                .join(" • ")}
+                            </p>
+                          ) : null}
+                          <p>
+                            Offer mix:{" "}
+                            {referralSummary.topOfferVariants.length > 0
+                              ? referralSummary.topOfferVariants
+                                  .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
+                                  .join(" • ")
+                              : REFERRAL_OFFER_MIX_EMPTY_NOTE}
+                          </p>
+                          <p>
+                            Top skip reasons:{" "}
+                            {referralSummary.topRewardSkipReasons.length > 0
+                              ? referralSummary.topRewardSkipReasons
+                                  .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
+                                  .join(" • ")
+                              : REFERRAL_SKIP_REASONS_EMPTY_NOTE}
+                          </p>
+                          <p>{REFERRAL_POLICY_NOTE}</p>
+                        </div>
+                      </details>
                     ) : (
                       <p className="mt-2 text-[11px] text-amber-100/70">
                         Create your referral link once and use it everywhere.
                       </p>
                     )}
-                    {referralSummary.lastConvertedAt ? (
-                      <p className="mt-2 text-[11px] text-amber-100/70">
-                        Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
-                      </p>
-                    ) : null}
-                    {referralSummary.topVisitSources.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Top social traffic:{" "}
-                        {referralSummary.topVisitSources
-                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {referralSummary.topConversionSources.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Top referral sales:{" "}
-                        {referralSummary.topConversionSources
-                          .map((entry) => `${entry.source.toUpperCase()} (${entry.conversions})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-[11px] text-amber-100/70">
-                      Offer mix:{" "}
-                      {referralSummary.topOfferVariants.length > 0
-                        ? referralSummary.topOfferVariants
-                            .map((entry) => `${formatReferralOfferVariantLabel(entry.value)} (${entry.count})`)
-                            .join(" • ")
-                        : REFERRAL_OFFER_MIX_EMPTY_NOTE}
-                    </p>
-                    <p className="mt-1 text-[11px] text-amber-100/70">
-                      Top skip reasons:{" "}
-                      {referralSummary.topRewardSkipReasons.length > 0
-                        ? referralSummary.topRewardSkipReasons
-                            .map((entry) => `${formatReferralSkipReasonLabel(entry.value)} (${entry.count})`)
-                            .join(" • ")
-                        : REFERRAL_SKIP_REASONS_EMPTY_NOTE}
-                    </p>
-                    <p className="mt-1 text-[11px] text-amber-100/70">{REFERRAL_POLICY_NOTE}</p>
-                    {referralLink ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Suggested social caption: {referralShareMessage}
-                      </p>
-                    ) : null}
                     {referralStatus === "loading" && (
                       <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
                     )}
