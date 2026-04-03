@@ -2156,7 +2156,30 @@
           }
           if (consentValue !== "true" && consentValue !== "false") {
             runSoon(function () {
-              cookieBanner.classList.add("show");
+              const isMobileViewport = window.innerWidth <= 640;
+              if (!isMobileViewport) {
+                cookieBanner.classList.add("show");
+                return;
+              }
+
+              let revealed = false;
+              let revealTimer = null;
+              const revealBanner = function () {
+                if (revealed) return;
+                revealed = true;
+                cookieBanner.classList.add("show");
+                if (revealTimer) {
+                  window.clearTimeout(revealTimer);
+                }
+                window.removeEventListener("scroll", handleScroll);
+              };
+              const handleScroll = function () {
+                if (window.scrollY >= 240) {
+                  revealBanner();
+                }
+              };
+              revealTimer = window.setTimeout(revealBanner, 6000);
+              window.addEventListener("scroll", handleScroll, { passive: true });
             });
           }
           cookieBanner.addEventListener("click", function (event) {

@@ -65,6 +65,7 @@ function disableGa(gaId: string) {
 
 export default function AnalyticsConsentManager() {
   const [consent, setConsent] = useState<ConsentState>("unset");
+  const [bannerVisible, setBannerVisible] = useState(false);
   const gaId = useMemo(() => process.env.NEXT_PUBLIC_GA_ID?.trim() || "", []);
   const pathname = usePathname();
 
@@ -88,6 +89,50 @@ export default function AnalyticsConsentManager() {
     });
   }, [consent, gaId, pathname]);
 
+  useEffect(() => {
+    if (consent !== "unset") {
+      setBannerVisible(false);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+
+    const isMobileViewport = window.innerWidth <= 640;
+    if (!isMobileViewport) {
+      setBannerVisible(true);
+      return;
+    }
+
+    let revealed = false;
+    let revealTimer: number | null = null;
+
+    const reveal = () => {
+      if (revealed) return;
+      revealed = true;
+      setBannerVisible(true);
+      if (revealTimer) {
+        window.clearTimeout(revealTimer);
+      }
+      window.removeEventListener("scroll", handleScroll);
+    };
+
+    const handleScroll = () => {
+      if (window.scrollY >= 240) {
+        reveal();
+      }
+    };
+
+    revealTimer = window.setTimeout(reveal, 6000);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      if (revealTimer) {
+        window.clearTimeout(revealTimer);
+      }
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [consent]);
+
   const updateConsent = (next: Exclude<ConsentState, "unset">) => {
     setConsent(next);
     try {
@@ -100,7 +145,7 @@ export default function AnalyticsConsentManager() {
   return (
     <>
       <PosthogProvider enabled={consent === "granted"} />
-      {consent === "unset" ? (
+      {consent === "unset" && bannerVisible ? (
         <aside className="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie consent">
           <p className="cookie-text text-sm">
             Optional analytics.
