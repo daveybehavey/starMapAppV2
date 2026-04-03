@@ -132,6 +132,28 @@ export function PaywallModal({
       }),
     [canPrintCheckout, checkoutInFlight],
   );
+  const summaryCards =
+    activeIntent === "print"
+      ? [
+          {
+            label: "Printed gift",
+            body: "Your saved design carries into checkout with framed and unframed routes.",
+          },
+          {
+            label: "Shipping",
+            body: "Choose a country first so checkout shows the right print route and delivery window.",
+          },
+        ]
+      : [
+          {
+            label: "HD file",
+            body: "Print-ready export up to 6000px with no watermark.",
+          },
+          {
+            label: "Secure checkout",
+            body: "Stripe supports cards plus Apple Pay, Google Pay, and Link on supported devices.",
+          },
+        ];
 
   useEffect(() => {
     if (!hasPrintOptions) {
@@ -259,35 +281,33 @@ export function PaywallModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25">
-        <h3 className="text-lg font-semibold text-midnight">{copy.title}</h3>
-        <p className="mt-2 text-xs text-neutral-700">
-          {activeIntent === "print" && hasPrintOptions
-            ? "Choose your print route. Framed + HD is the strongest gift path; unframed keeps the total lower."
-            : copy.subtitle}
-        </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <div className="rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">File quality</p>
-            <p className="mt-1 text-[11px] text-neutral-700">HD export up to 6000px with no watermark.</p>
-          </div>
-          <div className="rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">Checkout</p>
-            <p className="mt-1 text-[11px] text-neutral-700">
-              Secure Stripe checkout with card, Apple Pay, Google Pay, and Link on supported devices.
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 px-0 py-0 sm:items-center sm:px-4 sm:py-8">
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[1.75rem] border border-amber-200 bg-[rgba(247,241,227,0.98)] px-4 pb-5 pt-4 shadow-2xl shadow-black/25 sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl sm:p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-midnight">{copy.title}</h3>
+            <p className="mt-1 text-xs text-neutral-700">
+              {activeIntent === "print" && hasPrintOptions
+                ? "Choose your print route. Framed + HD is the strongest gift path; unframed keeps the total lower."
+                : copy.subtitle}
             </p>
           </div>
-          <div className="rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">
-              {activeIntent === "print" ? "Print route" : "Delivery"}
-            </p>
-            <p className="mt-1 text-[11px] text-neutral-700">
-              {activeIntent === "print"
-                ? "Your saved map carries into print checkout, then fulfillment begins after payment."
-                : "Instant HD download right after successful payment."}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close paywall"
+            className="shrink-0 rounded-full border border-amber-200 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:bg-white"
+          >
+            Not now
+          </button>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {summaryCards.map((card) => (
+            <div key={card.label} className="rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">{card.label}</p>
+              <p className="mt-1 text-[11px] text-neutral-700">{card.body}</p>
+            </div>
+          ))}
         </div>
         {activeIntent === "digital" && (
           <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
@@ -332,8 +352,8 @@ export function PaywallModal({
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                Your current map is attached automatically. Shipping is shown in Stripe checkout, then fulfillment
-                processing begins after payment. {shippingDisclosure}
+                Your current map is attached automatically. Choose a shipping country first, then pick framed or
+                unframed checkout. {shippingDisclosure}
               </p>
               {printShippingCountryOptions.length > 0 && (
                 <div className="mt-3">
@@ -358,7 +378,6 @@ export function PaywallModal({
                   {!canPrintCheckout && (
                     <div className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2">
                       <p className="text-[11px] font-semibold text-amber-50">{printCheckoutCtaState.disabledReason}</p>
-                      <p className="mt-1 text-[10px] text-amber-100/80">{printCheckoutCtaState.helperText}</p>
                     </div>
                   )}
                   {printShippingCountry && (
@@ -385,11 +404,26 @@ export function PaywallModal({
                     )}
                   disabled={checkoutInFlight || !canPrintCheckout}
                   title={printCheckoutCtaState.disabledReason ?? undefined}
-                  className="w-full rounded-full border border-amber-200/70 bg-amber-400/30 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/40 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="w-full rounded-2xl border border-amber-200/70 bg-amber-400/30 px-4 py-3 text-left text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/40 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {checkoutInFlight
                     ? PRINT_CHECKOUT_REDIRECT_LABEL
-                    : `Framed + HD file (recommended) • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`}
+                    : (
+                        <span className="flex items-start justify-between gap-3">
+                          <span>
+                            <span className="block text-sm font-semibold">Framed + HD file</span>
+                            <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
+                              Recommended when the print is the gift.
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-right text-[11px] font-semibold">
+                            <span className="block">{printPriceLabels.framed}</span>
+                            <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
+                              + {framedShippingLabel} + {printPriceLabels.digitalAddOn}
+                            </span>
+                          </span>
+                        </span>
+                      )}
                 </button>
                 <button
                   type="button"
@@ -400,7 +434,7 @@ export function PaywallModal({
                     )}
                   disabled={checkoutInFlight || !canPrintCheckout}
                   title={printCheckoutCtaState.disabledReason ?? undefined}
-                  className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
+                  className={`w-full rounded-2xl border px-4 py-3 text-left text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
                     preferredVariant === "poster_framed"
                       ? "border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35"
                       : "border-white/20 bg-white/10 text-amber-50 hover:border-white/35 hover:bg-white/15"
@@ -408,7 +442,22 @@ export function PaywallModal({
                 >
                   {checkoutInFlight
                     ? PRINT_CHECKOUT_REDIRECT_LABEL
-                    : `Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}`}
+                    : (
+                        <span className="flex items-start justify-between gap-3">
+                          <span>
+                            <span className="block text-sm font-semibold">Framed print</span>
+                            <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
+                              Physical print only.
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-right text-[11px] font-semibold">
+                            <span className="block">{printPriceLabels.framed}</span>
+                            <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
+                              + {framedShippingLabel}
+                            </span>
+                          </span>
+                        </span>
+                      )}
                 </button>
                 <button
                   type="button"
@@ -419,7 +468,7 @@ export function PaywallModal({
                     )}
                   disabled={checkoutInFlight || !canPrintCheckout}
                   title={printCheckoutCtaState.disabledReason ?? undefined}
-                  className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
+                  className={`w-full rounded-2xl border px-4 py-3 text-left text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
                     preferredVariant === "poster_unframed"
                       ? "border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35"
                       : "border-white/20 bg-white/10 text-amber-50 hover:border-white/35 hover:bg-white/15"
@@ -427,10 +476,27 @@ export function PaywallModal({
                 >
                   {checkoutInFlight
                     ? PRINT_CHECKOUT_REDIRECT_LABEL
-                    : `Unframed print • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
+                    : (
+                        <span className="flex items-start justify-between gap-3">
+                          <span>
+                            <span className="block text-sm font-semibold">Unframed print</span>
+                            <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
+                              Lower-total print path.
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-right text-[11px] font-semibold">
+                            <span className="block">{printPriceLabels.unframed}</span>
+                            <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
+                              + {unframedShippingLabel}
+                            </span>
+                          </span>
+                        </span>
+                      )}
                 </button>
               </div>
-              <p className="mt-2 text-[10px] text-amber-100/80">{printCheckoutCtaState.helperText}</p>
+              {checkoutInFlight && (
+                <p className="mt-2 text-[10px] text-amber-100/80">{printCheckoutCtaState.helperText}</p>
+              )}
             </div>
           )}
 
@@ -443,7 +509,7 @@ export function PaywallModal({
                     One-time
                   </span>
                 </div>
-                <p className="text-xs text-neutral-600">1 print-ready download for this map • no subscription</p>
+                <p className="text-xs text-neutral-600">1 print-ready HD file for this saved map.</p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 <span>{priceLabels.single}</span>
@@ -467,7 +533,7 @@ export function PaywallModal({
               onClick={handleToggleMoreDigitalOptions}
               className="mt-2 text-[11px] font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
             >
-              {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need multiple exports? Show pack + unlimited plans"}
+              {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need more than one export? Show pack + unlimited plans"}
             </button>
           </div>
 
@@ -545,24 +611,16 @@ export function PaywallModal({
           )}
         </div>
 
-        <div className="mt-3 space-y-1 text-[11px] text-neutral-600">
-          <p>Promo codes apply at checkout. Subscription can be canceled anytime.</p>
-          <p>Questions before paying? Email {supportEmail}.</p>
+        <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-600">
+          <p>Promo codes apply at checkout.</p>
+          {showMoreDigitalOptions && <p>Unlimited can be canceled anytime.</p>}
+          <p>Questions? Email {supportEmail}.</p>
         </div>
         {showReferralHint && (
           <p className="mt-1 text-[11px] text-neutral-600">
             If your referral code is eligible, the friend offer is applied automatically at checkout.
           </p>
         )}
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
-          >
-            Not now
-          </button>
-        </div>
         {checkoutError && <p className="mt-2 text-sm font-semibold text-rose-700">{checkoutError}</p>}
       </div>
     </div>
