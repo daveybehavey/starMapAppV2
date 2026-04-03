@@ -13,11 +13,16 @@ const occasionLinks = [
 
 export default function OccasionLinks() {
   return (
-    <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-      <h2 className="text-lg font-semibold text-midnight">Popular occasions</h2>
-      <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-        Start with the most searched gift occasions, or browse all occasion pages.
-      </p>
+    <section className="content-visibility-auto mt-6 rounded-2xl border border-black/5 bg-white/80 px-5 py-4 shadow-sm shadow-black/10">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-midnight">Popular occasions</h2>
+          <p className="mt-1 text-xs text-neutral-600">Browse other high-intent gift moments without leaving the main flow.</p>
+        </div>
+        <Link href="/star-map-for" prefetch={false} className="text-xs font-semibold text-amber-700 underline hover:text-amber-800">
+          See all occasions
+        </Link>
+      </div>
       <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
         {occasionLinks.map((occasion) => (
           <Link
@@ -30,11 +35,7 @@ export default function OccasionLinks() {
           </Link>
         ))}
       </div>
-      <div className="pt-3 text-sm">
-        <Link href="/star-map-for" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
-          See all occasions
-        </Link>
-        <span className="mx-2 text-neutral-400">·</span>
+      <div className="pt-3 text-xs">
         <Link href="/star-map-gallery" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
           View gallery
         </Link>
