@@ -5,9 +5,7 @@ import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySe
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import ResilientImage from "@/components/ResilientImage";
 import { getBusinessProfile } from "@/lib/businessProfile";
-import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import {
@@ -115,79 +113,6 @@ export default function HomeStaticSections({
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
       <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
-        <div className="space-y-6 lg:space-y-8">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">What your map could look like</p>
-            <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">See the render and the framed finish before you start</h2>
-            <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              A mix of current-engine renders and real product mockups, so buyers can judge both the on-screen design and the physical gift before checkout.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 xl:grid-cols-4 lg:gap-6 stagger-children visible">
-            {[
-              {
-                imageSrc: proofImages.framed,
-                occasion: "Framed print",
-                renderMode: "Mockup",
-                caption: "Generated from the same artwork buyers preview before checkout",
-                badge: "FRAMED",
-              },
-              {
-                imageSrc: proofImages.unframed,
-                occasion: "Unframed print",
-                renderMode: "Mockup",
-                caption: "Lower-cost physical option with the same star map artwork",
-                badge: "POSTER",
-              },
-              ...featuredRenderExamples.map((item) => {
-                const [occasion, renderMode] = item.title.split(" · ");
-                return {
-                  imageSrc: item.src,
-                  occasion,
-                  renderMode,
-                  caption: item.caption,
-                  badge: item.badge,
-                };
-              }),
-            ].map((item, idx) => (
-              <div
-                key={`${item.imageSrc}-${idx}`}
-                className="card-hover-glow group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30"
-              >
-                <div className="relative aspect-square overflow-hidden">
-                  <ResilientImage
-                    src={item.imageSrc}
-                    fallbackSrc="/custom-star-map-anniversary.webp"
-                    alt={`${item.occasion} · ${item.renderMode}`}
-                    width={900}
-                    height={900}
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="h-full w-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-105"
-                  />
-                </div>
-                <div className="border-t border-white/10 px-4 py-3 text-white">
-                  <div className="flex items-center justify-between text-sm font-semibold leading-tight">
-                    <span>
-                      {item.occasion} · {item.renderMode}
-                    </span>
-                    <span className="badge-glow rounded-full border border-amber-300/40 bg-amber-400/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-200">
-                      {item.badge}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-neutral-300">{item.caption}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-neutral-200 sm:text-base lg:text-[13px] lg:leading-snug">
-            Compare the physical product mockups with current-engine render examples before you ever reach checkout. The goal is simple: no guessing about what the gift will look like.
-          </p>
-        </div>
-      </section>
-
-      <div className="section-divider my-12 sm:my-14 lg:my-16" />
-
-      <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
         <div className="space-y-8">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">How it works</p>
@@ -201,23 +126,25 @@ export default function HomeStaticSections({
 
             {[
               {
-                icon: "📅",
+                step: "01",
                 title: "Choose your moment",
                 desc: "Select a preset or set the exact date, time, and location.",
               },
               {
-                icon: "✨",
+                step: "02",
                 title: "Preview instantly",
                 desc: "Watch the stars render in real time as you personalize.",
               },
               {
-                icon: "🖼️",
+                step: "03",
                 title: "Export & print",
                 desc: "Download a high-res file ready for framing or gifting.",
               },
             ].map((step) => (
               <div key={step.title} className="glass-panel rounded-2xl border border-white/10 p-6 text-white shadow-lg">
-                <div className="mb-4 text-3xl">{step.icon}</div>
+                <div className="mb-4 inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
+                  Step {step.step}
+                </div>
                 <h3 className="text-lg font-semibold">{step.title}</h3>
                 <p className="mt-2 text-sm text-neutral-200">{step.desc}</p>
               </div>

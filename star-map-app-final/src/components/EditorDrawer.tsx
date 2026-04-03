@@ -25,7 +25,7 @@ export function EditorDrawer({ children, defaultOpen = false }: EditorDrawerProp
       {/* Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40"
+          className="fixed inset-0 z-40 bg-[#020611]/65 backdrop-blur-[2px]"
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
         />
@@ -35,7 +35,9 @@ export function EditorDrawer({ children, defaultOpen = false }: EditorDrawerProp
       <div
         className={`
           fixed bottom-0 left-0 right-0 z-50
-          bg-[#0b0f24] rounded-t-2xl shadow-2xl
+          rounded-t-[24px] border border-white/10 border-b-0
+          bg-[linear-gradient(180deg,rgba(11,15,36,0.98),rgba(7,11,26,0.98))]
+          shadow-[0_-18px_42px_rgba(0,0,0,0.42)]
           transform transition-transform duration-300
           ${isOpen ? 'translate-y-0' : 'translate-y-[calc(100%-60px)]'}
         `}
@@ -46,21 +48,26 @@ export function EditorDrawer({ children, defaultOpen = false }: EditorDrawerProp
         {/* Handle bar */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full p-4 flex flex-col items-center justify-center gap-2"
+          className="w-full border-b border-white/8 px-4 py-3 flex flex-col items-center justify-center gap-2"
           aria-expanded={isOpen}
           aria-controls="editor-drawer-content"
           aria-label={isOpen ? 'Collapse date and details panel' : 'Expand date and details panel'}
         >
-          <div className="w-12 h-1 bg-white/30 rounded-full" aria-hidden="true" />
-          <span className="text-white text-xs font-medium">
-            {isOpen ? 'Hide details' : 'Date & Details'}
-          </span>
+          <div className="h-1 w-12 rounded-full bg-white/30" aria-hidden="true" />
+          <div className="text-center">
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+              Editing controls
+            </span>
+            <span className="block text-xs font-medium text-white">
+              {isOpen ? "Hide details" : "Open details"}
+            </span>
+          </div>
         </button>
 
         {/* Content */}
         <div
           id="editor-drawer-content"
-          className="max-h-[70vh] overflow-y-auto px-4 pb-6"
+          className="max-h-[72vh] overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-3"
         >
           {children}
         </div>

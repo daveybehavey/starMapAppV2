@@ -90,7 +90,7 @@ export default function FontSelector({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="h-8 w-24 flex-shrink-0 truncate rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-left text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 sm:w-28 md:w-32"
+        className="flex h-9 w-24 flex-shrink-0 items-center truncate rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-left text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 sm:w-28 md:w-32"
         style={{ fontFamily: FONT_STACKS[value] }}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -101,7 +101,7 @@ export default function FontSelector({
       {/* Dropdown (open state) */}
       {isOpen && (
         <div
-          className="absolute left-0 top-full z-50 mt-1 max-h-60 w-56 overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg sm:w-60"
+          className="absolute left-0 top-full z-50 mt-1 max-h-60 w-56 overflow-y-auto rounded-xl border border-white/20 bg-[#11182d]/98 p-1 shadow-xl shadow-black/35 backdrop-blur sm:w-60"
           role="listbox"
         >
           {fontOptions.map((option) => {
@@ -113,22 +113,28 @@ export default function FontSelector({
                 key={option.id}
                 type="button"
                 onClick={() => handleOptionClick(option)}
-                className={`block w-full px-4 py-2 text-left text-sm transition ${
+                className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
                   isSelected
-                    ? "bg-amber-100"
+                    ? "bg-amber-300/18 text-white"
                     : isLocked
-                    ? "cursor-not-allowed bg-gray-50"
-                    : "bg-white hover:bg-gray-100"
+                    ? "cursor-not-allowed text-white/45"
+                    : "text-white/85 hover:bg-white/8 hover:text-white"
                 }`}
                 style={{
                   fontFamily: FONT_STACKS[option.id],
-                  color: isSelected ? '#111827' : isLocked ? '#9ca3af' : '#111827'
                 }}
                 role="option"
                 aria-selected={isSelected}
                 disabled={isLocked}
               >
-                {isLocked ? `🔒 ${option.label}` : option.label}
+                <span className="flex items-center justify-between gap-2">
+                  <span>{option.label}</span>
+                  {isLocked ? (
+                    <span className="rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/55">
+                      Premium
+                    </span>
+                  ) : null}
+                </span>
               </button>
             );
           })}
