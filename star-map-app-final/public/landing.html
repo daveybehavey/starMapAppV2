@@ -1381,7 +1381,17 @@
                 placeholder="YYYY-MM-DD"
                 title="Use YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY format"
               />
-              <input name="location" type="text" placeholder="City or address" aria-label="Location" autocomplete="address-level2" />
+              <input
+                name="location"
+                type="text"
+                placeholder="City or address"
+                aria-label="Location"
+                autocomplete="address-level2"
+                list="hero-location-suggestions"
+              />
+              <datalist id="hero-location-suggestions"></datalist>
+              <input type="hidden" name="latitude" value="" />
+              <input type="hidden" name="longitude" value="" />
             </div>
             <button type="submit">Preview your map</button>
           </form>
@@ -2201,6 +2211,14 @@
         if (!form) return;
         const dateInput = form.querySelector('input[name="date"]');
         if (!(dateInput instanceof HTMLInputElement)) return;
+        const locationInput = form.querySelector('input[name="location"]');
+        const latitudeInput = form.querySelector('input[name="latitude"]');
+        const longitudeInput = form.querySelector('input[name="longitude"]');
+        const locationSuggestions = document.getElementById("hero-location-suggestions");
+        if (!(locationInput instanceof HTMLInputElement)) return;
+        if (!(latitudeInput instanceof HTMLInputElement)) return;
+        if (!(longitudeInput instanceof HTMLInputElement)) return;
+        if (!(locationSuggestions instanceof HTMLDataListElement)) return;
         const normalizeIsoDateInput = function (value) {
           const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
           if (digits.length === 8) {
@@ -2232,7 +2250,82 @@
           );
         };
 
-        form.addEventListener("submit", function (event) {
+        let geocodeResults = [];
+        let geocodeTimer = null;
+        let geocodeController = null;
+
+        const renderLocationSuggestions = function (results) {
+          locationSuggestions.innerHTML = results
+            .map(function (result) {
+              return '<option value="' + String(result.name).replace(/"/g, "&quot;") + '"></option>';
+            })
+            .join("");
+        };
+
+        const clearResolvedLocation = function () {
+          latitudeInput.value = "";
+          longitudeInput.value = "";
+        };
+
+        const applyResolvedLocation = function (result) {
+          if (!result) return;
+          locationInput.value = result.name;
+          latitudeInput.value = String(result.latitude);
+          longitudeInput.value = String(result.longitude);
+        };
+
+        const matchSelectedLocation = function () {
+          const trimmed = String(locationInput.value || "").trim().toLowerCase();
+          if (!trimmed) return null;
+          return geocodeResults.find(function (result) {
+            return String(result.name || "").trim().toLowerCase() === trimmed;
+          }) || null;
+        };
+
+        const fetchLocationSuggestions = async function (query) {
+          const trimmed = String(query || "").trim();
+          if (trimmed.length < 3) {
+            geocodeResults = [];
+            renderLocationSuggestions([]);
+            return [];
+          }
+          if (geocodeController) {
+            geocodeController.abort();
+          }
+          geocodeController = new AbortController();
+          const res = await fetch("/api/geocode?q=" + encodeURIComponent(trimmed), {
+            signal: geocodeController.signal
+          });
+          if (!res.ok) {
+            throw new Error("Location lookup failed");
+          }
+          const results = await res.json();
+          geocodeResults = Array.isArray(results) ? results : [];
+          renderLocationSuggestions(geocodeResults);
+          return geocodeResults;
+        };
+
+        locationInput.addEventListener("input", function () {
+          clearResolvedLocation();
+          if (geocodeTimer) {
+            window.clearTimeout(geocodeTimer);
+          }
+          geocodeTimer = window.setTimeout(function () {
+            void fetchLocationSuggestions(locationInput.value).catch(function () {
+              geocodeResults = [];
+              renderLocationSuggestions([]);
+            });
+          }, 220);
+        });
+
+        locationInput.addEventListener("change", function () {
+          const exactMatch = matchSelectedLocation();
+          if (exactMatch) {
+            applyResolvedLocation(exactMatch);
+          }
+        });
+
+        form.addEventListener("submit", async function (event) {
           const normalized = normalizeIsoDateInput(String(dateInput.value || "").trim());
           if (dateInput.value !== normalized) {
             dateInput.value = normalized;
@@ -2246,8 +2339,36 @@
             return;
           }
           dateInput.setCustomValidity("");
+
+          event.preventDefault();
+
+          if (!latitudeInput.value || !longitudeInput.value) {
+            const exactMatch = matchSelectedLocation();
+            if (exactMatch) {
+              applyResolvedLocation(exactMatch);
+            } else {
+              try {
+                const resolved = await fetchLocationSuggestions(locationInput.value);
+                if (resolved[0]) {
+                  applyResolvedLocation(resolved[0]);
+                }
+              } catch (_) {
+                // Keep the typed location and let the editor resolve it later.
+              }
+            }
+          }
+
           trackStep("hero_plan_click", "home_static_form", "preview_form");
           trackStep("preview_started", "home_static_form", undefined);
+
+          const target = new URL(form.getAttribute("action") || "/editor", window.location.origin);
+          const formData = new FormData(form);
+          formData.forEach(function (value, key) {
+            const trimmed = String(value || "").trim();
+            if (!trimmed) return;
+            target.searchParams.set(key, trimmed);
+          });
+          window.location.assign(target.toString());
         });
 
         dateInput.addEventListener("input", function () {

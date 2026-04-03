@@ -3,7 +3,9 @@
 import { type FormEvent, useCallback } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
+import LocationAutocompleteField from "@/components/LocationAutocompleteField";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
+import { inferTimezoneFromCoordinates, resolveGeocodeSuggestion } from "@/lib/locationSearch";
 import type { PrintVariant } from "@/lib/pricing";
 
 type PreviewStartIntent = {
@@ -59,10 +61,16 @@ export default function PreviewStartForm({
   const secondaryIntentOptions = primaryIntent
     ? resolvedIntentOptions?.filter((intent) => intent !== primaryIntent) ?? []
     : [];
-  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    const formData = new FormData(event.currentTarget);
+  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const hasDate = String(formData.get("date") ?? "").trim().length > 0;
-    const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
+    let locationName = String(formData.get("location") ?? "").trim();
+    let latitude = String(formData.get("latitude") ?? "").trim();
+    let longitude = String(formData.get("longitude") ?? "").trim();
+    let timezone = String(formData.get("timezone") ?? "").trim();
+    const hasLocation = locationName.length > 0;
     const nativeSubmitEvent = event.nativeEvent as SubmitEvent | undefined;
     const submitter = nativeSubmitEvent?.submitter instanceof HTMLButtonElement ? nativeSubmitEvent.submitter : null;
     const selectedSource = submitter?.dataset.source?.trim() || resolvedSource;
@@ -82,6 +90,41 @@ export default function PreviewStartForm({
       source: selectedSource,
       plan: selectedPlan,
     });
+
+    if (locationName && (!latitude || !longitude)) {
+      try {
+        const resolved = await resolveGeocodeSuggestion(locationName);
+        if (resolved) {
+          locationName = resolved.name;
+          latitude = String(resolved.latitude);
+          longitude = String(resolved.longitude);
+          timezone = inferTimezoneFromCoordinates(resolved.latitude, resolved.longitude, timezone || "UTC");
+        }
+      } catch {
+        // Keep the typed location and let the editor fallback resolve it later.
+      }
+    }
+
+    const actionUrl = new URL(submitter?.formAction || form.action, window.location.origin);
+    for (const [key, rawValue] of formData.entries()) {
+      const value = String(rawValue).trim();
+      if (!value || key === "latitude" || key === "longitude" || key === "timezone") continue;
+      if (key === "location") {
+        actionUrl.searchParams.set(key, locationName || value);
+        continue;
+      }
+      actionUrl.searchParams.set(key, value);
+    }
+
+    if (latitude && longitude) {
+      actionUrl.searchParams.set("latitude", latitude);
+      actionUrl.searchParams.set("longitude", longitude);
+      if (timezone) {
+        actionUrl.searchParams.set("timezone", timezone);
+      }
+    }
+
+    window.location.assign(actionUrl.toString());
   }, [resolvedSource]);
 
   return (
@@ -106,13 +149,10 @@ export default function PreviewStartForm({
             <label className="sr-only" htmlFor="preview-location">
               Location
             </label>
-            <input
+            <LocationAutocompleteField
               id="preview-location"
-              name="location"
-              type="text"
               placeholder="City or address"
-              autoComplete="address-level2"
-              className="ios-form-control min-w-0 w-full rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 placeholder:text-neutral-400 shadow-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-200"
+              className="ios-form-control min-w-0 w-full rounded-xl border border-amber-200/80 bg-white px-3 py-3 pr-10 text-sm text-neutral-800 placeholder:text-neutral-400 shadow-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-200"
             />
           </div>
         </div>

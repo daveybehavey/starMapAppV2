@@ -54,6 +54,7 @@ import {
 } from "@/lib/checkoutUi";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
+import { inferTimezoneFromCoordinates, resolveGeocodeSuggestion } from "@/lib/locationSearch";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -694,10 +695,23 @@ export function EditorExperience({
     const sourceParam = searchParams.get("source");
     const dateParam = searchParams.get("date");
     const locationParam = searchParams.get("location");
+    const latitudeParam = searchParams.get("latitude") ?? searchParams.get("lat");
+    const longitudeParam = searchParams.get("longitude") ?? searchParams.get("lon");
+    const timezoneParam = searchParams.get("timezone")?.trim() || "";
     const checkoutParam = searchParams.get("checkout");
     const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
     const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
-    if (!dateParam && !locationParam && !sourceParam && !checkoutParam && !printVariantParam && !shippingCountryParam) return;
+    if (
+      !dateParam &&
+      !locationParam &&
+      !latitudeParam &&
+      !longitudeParam &&
+      !timezoneParam &&
+      !sourceParam &&
+      !checkoutParam &&
+      !printVariantParam &&
+      !shippingCountryParam
+    ) return;
 
     let hasValidDate = false;
     if (dateParam) {
@@ -709,9 +723,44 @@ export function EditorExperience({
     }
 
     let hasLocation = false;
-    if (locationParam && locationParam.trim()) {
-      setLocation({ name: locationParam.trim() });
+    const trimmedLocation = locationParam?.trim() || "";
+    const parsedLatitude = latitudeParam ? Number.parseFloat(latitudeParam) : Number.NaN;
+    const parsedLongitude = longitudeParam ? Number.parseFloat(longitudeParam) : Number.NaN;
+    const hasResolvedCoordinates =
+      Number.isFinite(parsedLatitude) &&
+      Number.isFinite(parsedLongitude) &&
+      parsedLatitude >= -90 &&
+      parsedLatitude <= 90 &&
+      parsedLongitude >= -180 &&
+      parsedLongitude <= 180;
+
+    if (trimmedLocation && hasResolvedCoordinates) {
+      setLocation({
+        name: trimmedLocation,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
+        timezone: timezoneParam || inferTimezoneFromCoordinates(parsedLatitude, parsedLongitude, "UTC"),
+      });
       hasLocation = true;
+    } else if (trimmedLocation) {
+      setLocation({ name: trimmedLocation });
+      void (async () => {
+        try {
+          const resolved = await resolveGeocodeSuggestion(trimmedLocation);
+          if (!resolved) return;
+          setLocation({
+            name: resolved.name,
+            latitude: resolved.latitude,
+            longitude: resolved.longitude,
+            timezone: inferTimezoneFromCoordinates(resolved.latitude, resolved.longitude, "UTC"),
+          });
+          if (hasValidDate) {
+            setRevealed(true);
+          }
+        } catch {
+          // Leave the typed location in place if geocoding fails.
+        }
+      })();
     }
 
     if (hasValidDate && hasLocation) {

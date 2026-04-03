@@ -3,13 +3,21 @@
 import { type FormEvent, useCallback } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
+import LocationAutocompleteField from "@/components/LocationAutocompleteField";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
+import { inferTimezoneFromCoordinates, resolveGeocodeSuggestion } from "@/lib/locationSearch";
 
 export default function HeroEditorDeferred() {
-  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
     const formData = new FormData(event.currentTarget);
     const hasDate = String(formData.get("date") ?? "").trim().length > 0;
-    const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
+    let locationName = String(formData.get("location") ?? "").trim();
+    let latitude = String(formData.get("latitude") ?? "").trim();
+    let longitude = String(formData.get("longitude") ?? "").trim();
+    let timezone = String(formData.get("timezone") ?? "").trim();
+    const hasLocation = locationName.length > 0;
 
     track("hero_preview_submit", {
       source: "home-hero",
@@ -20,6 +28,40 @@ export default function HeroEditorDeferred() {
       source: "home-hero",
       plan: "preview",
     });
+
+    if (locationName && (!latitude || !longitude)) {
+      try {
+        const resolved = await resolveGeocodeSuggestion(locationName);
+        if (resolved) {
+          locationName = resolved.name;
+          latitude = String(resolved.latitude);
+          longitude = String(resolved.longitude);
+          timezone = inferTimezoneFromCoordinates(resolved.latitude, resolved.longitude, timezone || "UTC");
+        }
+      } catch {
+        // Keep the typed location and let the editor fallback resolve it later.
+      }
+    }
+
+    const target = new URL(form.action || "/editor", window.location.origin);
+    for (const [key, rawValue] of formData.entries()) {
+      const value = String(rawValue).trim();
+      if (!value || key === "latitude" || key === "longitude" || key === "timezone") continue;
+      if (key === "location") {
+        target.searchParams.set(key, locationName || value);
+        continue;
+      }
+      target.searchParams.set(key, value);
+    }
+    if (latitude && longitude) {
+      target.searchParams.set("latitude", latitude);
+      target.searchParams.set("longitude", longitude);
+      if (timezone) {
+        target.searchParams.set("timezone", timezone);
+      }
+    }
+
+    window.location.assign(target.toString());
   }, []);
 
   return (
@@ -56,13 +98,10 @@ export default function HeroEditorDeferred() {
             <label className="sr-only" htmlFor="hero-location">
               Where was it?
             </label>
-            <input
+            <LocationAutocompleteField
               id="hero-location"
-              name="location"
-              type="text"
               placeholder="City or address"
-              autoComplete="address-level2"
-              className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40"
+              className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 pr-10 text-base text-white placeholder:text-white/40"
             />
           </div>
         </div>
