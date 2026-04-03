@@ -232,7 +232,7 @@ export default function StarMapGiftFormatsPage() {
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Will you add more products?</h3>
-            <p>Yes. New products are added in pilots after quality and margin checks pass.</p>
+            <p>Maybe. For now, live checkout stays focused on digital, framed, and unframed formats.</p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Can I buy digital and print together?</h3>
@@ -240,7 +240,7 @@ export default function StarMapGiftFormatsPage() {
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Where can I request a new product format?</h3>
-            <p>Email support@starmapco.com with your request and country so we can prioritize pilot demand.</p>
+            <p>Email support@starmapco.com with your request and country so we can track demand.</p>
           </div>
         </div>
       </section>
@@ -253,7 +253,7 @@ export default function StarMapGiftFormatsPage() {
           },
           {
             question: "Will you add more products?",
-            answer: "Yes. New products are added in pilots after quality and margin checks pass.",
+            answer: "Maybe. For now, live checkout stays focused on digital, framed, and unframed formats.",
           },
           {
             question: "Can I buy digital and print together?",
@@ -261,7 +261,7 @@ export default function StarMapGiftFormatsPage() {
           },
           {
             question: "Where can I request a new product format?",
-            answer: "Email support@starmapco.com with your request and country so we can prioritize pilot demand.",
+            answer: "Email support@starmapco.com with your request and country so we can track demand.",
           },
         ]}
       />
