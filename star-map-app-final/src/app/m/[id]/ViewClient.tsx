@@ -130,7 +130,7 @@ export function ViewClient({ id, searchParams }: Props) {
               href="/"
               className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-base font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
             >
-              ✨ Create your own star map
+              Create your own star map
             </Link>
           </div>
         </main>
@@ -202,7 +202,7 @@ export function ViewClient({ id, searchParams }: Props) {
             href={`/?from=${id}`}
             className="inline-flex flex-col items-center justify-center gap-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:shadow-xl"
           >
-            <span>✨ Create your own star map</span>
+            <span>Create your own star map</span>
             <span className="text-xs text-midnight/70 font-normal">Free preview · HD from {pricingLabel}</span>
           </Link>
         </div>
@@ -219,7 +219,7 @@ export function ViewClient({ id, searchParams }: Props) {
             <div className="rounded-lg border border-amber-200/30 bg-amber-50/10 p-3 text-xs text-white">
               <details>
                 <summary className="cursor-pointer font-semibold">
-                  ⭐ Matches professional planetarium accuracy
+                  Planetarium-grade accuracy
                 </summary>
                 <p className="mt-2 text-neutral-200">
                   Built from timezone-aware date conversion, observer coordinates, astronomy-engine calculations, and bundled star catalog data.

@@ -112,7 +112,7 @@ export const PillButton = forwardRef<HTMLButtonElement, PillButtonProps>(
         `.trim().replace(/\s+/g, " ")}
         {...props}
       >
-        {isLocked && <span className="text-[10px]">🔒</span>}
+        {isLocked && <span className="text-[9px] uppercase tracking-[0.12em]">HD</span>}
         {children}
       </button>
     );

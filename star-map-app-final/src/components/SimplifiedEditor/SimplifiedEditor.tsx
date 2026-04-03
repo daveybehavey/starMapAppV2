@@ -790,7 +790,7 @@ export function SimplifiedEditor() {
               className="animate-pulse-subtle relative z-10 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 px-8 py-4 text-base font-bold text-[#0b1433] shadow-[0_0_30px_rgba(251,191,36,0.5)] transition-all hover:-translate-y-1 hover:scale-105 hover:shadow-[0_0_40px_rgba(251,191,36,0.7)] max-[374px]:px-6 max-[374px]:py-3.5 max-[374px]:text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#070b1b]"
               aria-label="Start customizing your star map"
             >
-              ✨ Make it yours
+              Make it yours
             </button>
           </div>
         )}
@@ -1101,7 +1101,7 @@ export function SimplifiedEditor() {
                 Exporting...
               </>
             ) : (
-              <>⬇️ Download free preview</>
+              <>Download free preview</>
             )}
           </button>
           <span id={`${formId}-preview-hint`} className="sr-only">
@@ -1122,9 +1122,9 @@ export function SimplifiedEditor() {
                 {paid ? "Processing..." : DIGITAL_CHECKOUT_REDIRECT_LABEL}
               </>
             ) : paid ? (
-              <>⬇️ HD download</>
+              <>HD download</>
             ) : (
-              <>🔒 {DIGITAL_CHECKOUT_CTA_LABEL}</>
+              <>{DIGITAL_CHECKOUT_CTA_LABEL}</>
             )}
           </button>
           <span id={`${formId}-hd-hint`} className="sr-only">

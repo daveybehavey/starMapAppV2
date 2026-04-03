@@ -93,8 +93,8 @@ function ButtonGroup<T extends string>({
                 : "border-white/15 bg-white/[0.08] text-white/85 hover:border-white/30 hover:bg-white/[0.12]"
             }`}
           >
-            {isLocked ? "🔒 " : ""}
             {opt.label}
+            {isLocked ? " (HD)" : ""}
           </button>
         );
       })}
