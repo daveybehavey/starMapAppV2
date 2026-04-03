@@ -44,16 +44,34 @@ export default function HowToPrintStarMapPage() {
 
       <PreviewStartForm
         title="Start your preview"
-        description="Jump into the editor with your date and location, then come back to this guide for printing tips."
+        description="Start with your date and location, then decide whether you want StarMapCo to ship the print or you want to print locally."
         buttonLabel="Preview your map"
         source="how-to-print-star-map"
       />
       <StickyCtaBar source="sticky-how-to-print-star-map" />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-xl font-semibold text-midnight">Choose the right print path first</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-amber-300/55 bg-amber-50/70 p-4">
+            <h3 className="text-sm font-semibold text-midnight">Want StarMapCo to ship it?</h3>
+            <p className="mt-2 text-sm text-neutral-700">
+              Choose framed print if you want the strongest gift-ready finish, or unframed print if you already have a frame plan.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-black/10 bg-white p-4">
+            <h3 className="text-sm font-semibold text-midnight">Want to print it locally?</h3>
+            <p className="mt-2 text-sm text-neutral-700">
+              Use the HD digital file if you need instant access or want full control over the local print shop, paper, and frame.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Recommended print sizes</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          Choose a size that fits your space. These are the most popular sizes for star map prints:
+          If you are printing the HD file yourself, choose a size that fits your space. These are the most common poster sizes:
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>8x10 or 11x14 for desks, shelves, and small frames</li>
@@ -78,7 +96,7 @@ export default function HowToPrintStarMapPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Resolution and quality</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          StarMapCo exports high‑resolution files designed for printing. For best results, avoid upscaling and print at the
+          StarMapCo exports high-resolution files designed for printing. For best results, avoid upscaling and print at the
           size that matches your file.
         </p>
       </section>
@@ -97,12 +115,18 @@ export default function HowToPrintStarMapPage() {
           Start with an instant preview, then choose framed print, unframed print, or HD digital delivery once the
           design is final.
         </p>
-        <div className="pt-2">
+        <div className="flex flex-wrap gap-3 pt-2">
           <Link
-            href="/editor?mode=quick&source=how-to-print-star-map-cta"
+            href="/editor?mode=quick&source=how-to-print-star-map-framed&checkout=print&print_variant=poster_framed"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start free preview
+            Start framed preview
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=how-to-print-star-map-digital"
+            className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-50"
+          >
+            Start digital preview
           </Link>
         </div>
       </section>
