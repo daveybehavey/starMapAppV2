@@ -1553,7 +1553,7 @@ export function MobileCreate({
                   aria-label="Share star map"
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
                 >
-                  🔗 Share
+                  Share image
                 </button>
                 {showEditor && (
                   <button
@@ -1562,7 +1562,7 @@ export function MobileCreate({
                     aria-label="Save and remix star map"
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
                   >
-                    💾 Save & Remix
+                    Save & remix later
                   </button>
                 )}
               </div>

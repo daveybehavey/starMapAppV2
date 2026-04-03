@@ -2666,7 +2666,7 @@ export function EditorExperience({
                             onClick={handleShareImage}
                             className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                           >
-                            🔗 Share
+                            Share image
                           </button>
                           {showEditor && (
                             <button
@@ -2674,7 +2674,7 @@ export function EditorExperience({
                               onClick={handleShare}
                               className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                             >
-                              💾 Save & Remix
+                              Save & remix later
                             </button>
                           )}
                           {!showEditor && (
