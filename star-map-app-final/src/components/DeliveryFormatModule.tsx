@@ -96,21 +96,6 @@ export default function DeliveryFormatModule({
           </article>
         ) : null}
       </div>
-
-      <div className="rounded-2xl border border-black/5 bg-white p-4">
-        <p className="text-sm font-semibold text-midnight">Buying note</p>
-        <p className="mt-1 text-xs text-neutral-700 sm:text-sm">
-          Start with the preview. You can decide on digital, unframed, or framed delivery after you see the final
-          design, and physical orders show shipping before payment.
-        </p>
-        <Link
-          href="/star-map-gift-formats"
-          prefetch={false}
-          className="mt-2 inline-flex text-xs font-semibold text-amber-700 underline hover:text-amber-800"
-        >
-          Explore full gift formats and pilot queue
-        </Link>
-      </div>
     </section>
   );
 }
