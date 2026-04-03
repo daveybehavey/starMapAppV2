@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { getBusinessProfile } from "@/lib/businessProfile";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type PurchaseTrustPanelProps = {
   heading: string;
@@ -27,15 +25,6 @@ export default function PurchaseTrustPanel({
   returnsLabel = "Returns and refunds",
   contactLabel = "Contact support",
 }: PurchaseTrustPanelProps) {
-  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
-  );
-  const printAutoConfirm = /^(1|true|yes)$/i.test(
-    (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
-  );
-  const supportEmail = getBusinessProfile().email;
-  const shippingDisclosure = getPrintShippingDisclosure();
-
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <h2 className="text-lg font-semibold text-midnight">{heading}</h2>
@@ -58,21 +47,6 @@ export default function PurchaseTrustPanel({
           </ul>
         </div>
       </div>
-      {printCheckoutEnabled && (
-        <div className="rounded-2xl border border-black/5 bg-white p-4">
-          <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
-          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-            <li>{shippingDisclosure}</li>
-            <li>Most buyers start with the framed print path; unframed and HD stay available if a different route fits better.</li>
-            <li>
-              {printAutoConfirm
-                ? "Production begins after payment once the order is submitted for fulfillment."
-                : "Physical orders are reviewed before production while manual approval is enabled."}
-            </li>
-            <li>If a print arrives damaged, contact {supportEmail} and we will help resolve it.</li>
-          </ul>
-        </div>
-      )}
       <div className="flex flex-wrap gap-3 text-sm">
         <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
           {guideLabel}
