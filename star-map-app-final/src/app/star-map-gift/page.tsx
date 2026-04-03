@@ -3,7 +3,6 @@ import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
-import GiftFormatRoadmapModule from "@/components/GiftFormatRoadmapModule";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
@@ -129,7 +128,6 @@ export default function StarMapGiftPage() {
         intro="Most gift buyers decide between the ready-to-display framed route and the lower-total unframed route. HD digital stays available when you need same-day delivery or local printing."
         sourcePrefix="gift-format"
       />
-      <GiftFormatRoadmapModule sourcePrefix="gift-format-roadmap" />
       <FramedProofSection sourcePrefix="gift-proof" />
 
       <PurchaseTrustPanel
