@@ -60,7 +60,7 @@ const PAYWALL_COPY: Record<
 > = {
   control: {
     title: "Buy this map in HD or print",
-    subtitle: "You already built this map. Start with one-time HD, or choose a printed gift checkout.",
+    subtitle: "This exact preview is already saved. Start with one-time HD, or switch to print checkout for a physical gift.",
     singleCta: "Buy this map in HD",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
@@ -68,7 +68,7 @@ const PAYWALL_COPY: Record<
   },
   value_anchor: {
     title: "Buy this map in HD",
-    subtitle: "Most first-time buyers only need one HD export. Use packs or unlimited if you plan to create more maps.",
+    subtitle: "This exact preview is already saved. Most first-time buyers start with one-time HD and only pay for this map.",
     singleCta: "Buy this map in HD",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
@@ -460,7 +460,7 @@ export function PaywallModal({
             <p className="mt-2 text-[11px] text-neutral-600">
               {checkoutInFlight
                 ? DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT
-                : "Most buyers who only need this map start here."}
+                : "Pay once for this saved design. The HD file unlocks right after payment."}
             </p>
             <button
               type="button"
@@ -526,9 +526,6 @@ export function PaywallModal({
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">Prefer a physical print?</p>
-                <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                  New
-                </span>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
                 Switch to the print tab for framed or unframed checkout from this same saved design.
