@@ -52,7 +52,7 @@ export default function AnniversaryPage() {
           Mark your milestone with an anniversary star map gift showing the night sky from the date and place that shaped
           your story. A keepsake that grows more meaningful each year.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+        <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>

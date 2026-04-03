@@ -51,7 +51,7 @@ export default function PersonalizedStarMapPage() {
         <p className="text-sm text-white/90 sm:text-base">
           Personalize a star map with names, a date, and a location to capture the exact night sky from a meaningful moment.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+        <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
