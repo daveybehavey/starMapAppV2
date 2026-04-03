@@ -339,36 +339,33 @@ export default function MyDownloadsClient() {
                 </div>
               ) : (
                 <div className="mt-4 grid gap-3">
-                  <p className="text-xs text-amber-100/80">
-                    Tip: a 3-credit pack means one HD export per map. If you want different files, create/edit the next
-                    map in the editor before opening the next download.
-                  </p>
-                  <p className="text-xs text-amber-100/80">
-                    {deviceKind === "ios"
-                      ? "iPhone tip: files save to Files app → Browse → Downloads."
-                      : deviceKind === "android"
-                        ? "Android tip: check Files/My Files → Downloads."
-                        : "Desktop tip: check your browser Downloads history if the file doesn't open immediately."}
-                  </p>
-                  {inAppBrowserHint ? <p className="text-xs text-amber-100/80">{inAppBrowserHint}</p> : null}
                   <div className="rounded-xl border border-amber-200/25 bg-amber-300/10 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                      Earn Bonus Credits
-                    </p>
-                    <p className="mt-1 text-xs text-amber-100/80">
-                      Share your referral link to earn extra HD credits when friends complete a paid checkout.
-                    </p>
-                    <Link
-                      href="/download?source=my-downloads-referral#referral-card"
-                      onClick={() => {
-                        track("my_downloads_open_referral_tools_clicked", {
-                          session_count: sessions.length,
-                        });
-                      }}
-                      className="mt-2 inline-flex rounded-full border border-amber-200/70 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
-                    >
-                      Open referral tools
-                    </Link>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-1 text-xs text-amber-100/80">
+                        <p>
+                          Pack tip: a 3-credit pack means one HD export per map. Create or edit the next map before opening the next download.
+                        </p>
+                        <p>
+                          {deviceKind === "ios"
+                            ? "iPhone tip: files save to Files app → Browse → Downloads."
+                            : deviceKind === "android"
+                              ? "Android tip: check Files/My Files → Downloads."
+                              : "Desktop tip: check your browser Downloads history if the file doesn't open immediately."}
+                        </p>
+                        {inAppBrowserHint ? <p>{inAppBrowserHint}</p> : null}
+                      </div>
+                      <Link
+                        href="/download?source=my-downloads-referral#referral-card"
+                        onClick={() => {
+                          track("my_downloads_open_referral_tools_clicked", {
+                            session_count: sessions.length,
+                          });
+                        }}
+                        className="inline-flex rounded-full border border-amber-200/70 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
+                      >
+                        Open referral tools
+                      </Link>
+                    </div>
                   </div>
                   {sessions.map((item) => (
                     <article key={item.sessionId} className="rounded-xl border border-white/12 bg-white/8 p-4">
