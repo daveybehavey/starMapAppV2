@@ -19,11 +19,10 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
       <div className="space-y-3 text-midnight">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">Lower-cost first order</p>
         <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold leading-tight text-midnight sm:text-4xl">
-          Want a lighter way to start?
+          Prefer a lower-cost first purchase?
         </h2>
         <p className="text-[15px] leading-7 text-slate-800 sm:text-base">
-          Framed and unframed prints are the main gift routes. If you want the lowest-cost first purchase, join the
-          insiders list for a one-time 50% off code on {promotionTargetLabel}.
+          Join the insiders list for a one-time 50% off code on {promotionTargetLabel}.
         </p>
       </div>
 
@@ -76,7 +75,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
         </p>
 
         <p className="mt-4 text-xs text-slate-700">
-          No spam—just occasional updates about new looks, sales, and restocks. You can unsubscribe at any time.
+          Occasional offers only. Unsubscribe anytime.
           <span className="ml-2">
             <a href="/privacy" className="underline text-amber-700 hover:text-amber-900">
               Privacy Policy

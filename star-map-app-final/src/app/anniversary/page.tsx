@@ -1,4 +1,3 @@
-import Link from "next/link";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -7,6 +6,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
@@ -113,26 +113,16 @@ export default function AnniversaryPage() {
         </ul>
       </section>
 
-      <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Make yours in minutes</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>Enter the anniversary location (city or venue)</li>
-          <li>Select the anniversary date (add time if you want to be exact)</li>
-          <li>Choose a style and add your dedication line</li>
-          <li>Reveal the sky, then choose framed print, unframed print, or HD digital delivery at checkout</li>
-        </ol>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Share a preview for free. Once the wording feels right, take the framed route, the unframed route, or instant HD delivery from the same approved design.
-        </p>
-        <div className="pt-2">
-          <Link
-            href="/editor?mode=quick&source=anniversary-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start with framed print preview
-          </Link>
-        </div>
-      </section>
+      <QuickStartStepsSection
+        heading="How the anniversary flow works"
+        intro="Anniversary buyers usually need a cleaner sequence: confirm the milestone first, personalize the wording second, then choose the delivery route."
+        steps={[
+          "Enter the anniversary date and place, then open the live preview.",
+          "Adjust the dedication, names, and visual style until the design feels final.",
+          "Choose framed print, unframed print, or HD digital delivery from the same approved map.",
+        ]}
+        note="Framed stays the premium route for gifting. Unframed keeps the physical total lower. HD stays fastest if you need the file immediately."
+      />
       <AccuracyAuthorityCard source="anniversary-accuracy-card" />
 
       <DeliveryFormatModule
@@ -145,22 +135,6 @@ export default function AnniversaryPage() {
         intro="The preview lets you refine the typography and layout first. Framed is the premium route when you want the finished piece to arrive ready to display."
         sourcePrefix="anniversary-proof"
       />
-
-      <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">What you get</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          The preview and HD export use the same rendering engine—what you see is what you download. Toggle constellations,
-          glow, labels, and choose fonts to match your style. The same approved design can stay digital, go unframed, or arrive framed without rebuilding the map.
-        </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
-          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
-            Wedding star maps
-          </Link>
-          <Link href="/birthday" className="text-amber-700 underline hover:text-amber-800">
-            Birthday star maps
-          </Link>
-        </div>
-      </section>
 
       <PurchaseTrustPanel
         heading="Before you buy"

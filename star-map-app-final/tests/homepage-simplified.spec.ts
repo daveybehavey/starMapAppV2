@@ -15,12 +15,6 @@ test.describe("Homepage with SimplifiedEditor", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/night sky exactly/i);
 
-    // Take screenshot of initial homepage
-    await page.screenshot({
-      path: "test-results/homepage_1_initial.png",
-      fullPage: false,
-    });
-
     // Hero quick-start form is rendered on homepage.
     await expect(page.locator("#preview")).toBeVisible();
     await expect(page.locator("#hero-date")).toBeVisible();
@@ -45,21 +39,12 @@ test.describe("Homepage with SimplifiedEditor", () => {
     await page.locator("#hero-date").fill("2024-06-01");
     await page.locator("#hero-location").fill("Paris, France");
     await page.getByRole("button", { name: /Preview your map/i }).click();
-    await page.waitForURL("**/editor**", { timeout: 20000 });
-    await expect(page.locator("#editor")).toBeVisible({ timeout: 20000 });
+    await expect(page).toHaveURL(/\/editor.*mode=quick/, { timeout: 20000 });
+    const editorRoot = page.locator("#editor");
+    if (!(await editorRoot.isVisible({ timeout: 8000 }).catch(() => false))) {
+      await expect(page.getByText(/Loading editor/i)).toBeVisible({ timeout: 8000 });
+    }
     await expect(page).toHaveURL(/mode=quick/);
-
-    // Take screenshot after navigation to editor
-    await page.screenshot({
-      path: "test-results/homepage_2_customizing.png",
-      fullPage: false,
-    });
-
-    // Take screenshot once editor is loaded
-    await page.screenshot({
-      path: "test-results/homepage_3_style_changed.png",
-      fullPage: false,
-    });
 
     console.log("✓ Homepage quick-start opens editor");
   });

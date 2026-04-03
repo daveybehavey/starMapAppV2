@@ -8,6 +8,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
@@ -113,33 +114,16 @@ export default function PersonalizedStarMapPage() {
         </ul>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Create a personalized star map</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>Enter the date, time, and location</li>
-          <li>Add names, a title, and a short message</li>
-          <li>Preview the design instantly</li>
-          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
-        </ol>
-        <div className="pt-2">
-          <Link
-            href="/editor?mode=quick&source=personalized-star-map-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Preview framed print
-          </Link>
-          <p className="mt-2 text-xs text-neutral-700">
-            Want a neutral start?{" "}
-            <Link
-              href="/editor?mode=quick&source=personalized-star-map-cta-preview"
-              className="font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-800"
-            >
-              Preview first, decide later
-            </Link>
-            .
-          </p>
-        </div>
-      </section>
+      <QuickStartStepsSection
+        heading="How the personalized flow works"
+        intro="Keep the first decision simple: build the map first, then choose how you want it delivered."
+        steps={[
+          "Enter the date and location, then open the live preview.",
+          "Refine the wording, fonts, and layout until the design feels final.",
+          "Choose framed print, unframed print, or HD digital delivery from the same approved map.",
+        ]}
+        note="Framed stays the premium gift route. Unframed keeps the physical total lower. HD stays fastest when you need the file right away."
+      />
       <AccuracyAuthorityCard source="personalized-accuracy-card" />
 
       <DeliveryFormatModule

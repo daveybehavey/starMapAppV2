@@ -4,16 +4,14 @@ import HomeOfferStack from "@/components/HomeOfferStack";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import ResilientImage from "@/components/ResilientImage";
 import { getBusinessProfile } from "@/lib/businessProfile";
-import RevenueTrustModule from "@/components/RevenueTrustModule";
-import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
 import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import {
   formatPrintPriceWithShipping,
-  getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 
@@ -42,7 +40,6 @@ export default function HomeStaticSections({
     framed: formatPrintPriceWithShipping(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
     digitalAddOn: formatPrice(printDigitalAddOn.amountCents, printDigitalAddOn.currency),
   };
-  const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
   const proofImages = {
@@ -102,23 +99,9 @@ export default function HomeStaticSections({
             },
           ]}
         />
-        <RevenueTrustModule
-          heading="Remove the last-minute hesitation"
-          intro="Most buyers only need three things before checkout: confidence in the file, clarity on print delivery, and reassurance that support exists if anything goes wrong."
-        />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
-
-      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
-        <div className="rounded-3xl border border-white/12 bg-white/5 px-5 py-4 text-center text-neutral-200 shadow-sm shadow-black/20 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
-          <p className="mt-2 text-sm sm:text-base">
-            Preview first, then choose gift-ready framed print, unframed print, or HD digital delivery from the same design.
-          </p>
-          <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
-        </div>
-      </section>
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
         <FramedProofSection sourcePrefix="home-proof" />

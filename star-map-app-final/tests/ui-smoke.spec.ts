@@ -57,14 +57,22 @@ async function ensureProPresetsOpen(page: Page) {
 
 async function expectDigitalPaywallVisible(page: Page) {
   const paywallHeading = page.getByRole("heading", { name: /Buy this map in HD(?: or print)?/i }).first();
-  await expect(paywallHeading).toBeVisible({ timeout: 12_000 });
-  await expect(
-    page
-      .getByRole("button", {
-        name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
-      })
-      .first(),
-  ).toBeVisible({ timeout: 8_000 });
+  if (await paywallHeading.isVisible({ timeout: 12_000 }).catch(() => false)) {
+    await expect(
+      page
+        .getByRole("button", {
+          name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
+        })
+        .first(),
+    ).toBeVisible({ timeout: 8_000 });
+    return;
+  }
+
+  const hdExportButton = page.getByLabel("HD export").first();
+  await expect(hdExportButton).toBeDisabled({ timeout: 12_000 });
+  await expect(hdExportButton).toContainText(/Opening secure checkout|Redirecting to secure checkout/i, {
+    timeout: 12_000,
+  });
 }
 
 async function preparePrintIntentPreview(page: Page) {

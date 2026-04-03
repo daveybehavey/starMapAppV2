@@ -8,6 +8,7 @@ import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
@@ -113,35 +114,16 @@ export default function StarMapGiftPage() {
         </ul>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Create a gift in minutes</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>Choose the date and location that matter most</li>
-          <li>Add names, a title, and a dedication line</li>
-          <li>Preview the map instantly</li>
-          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
-        </ol>
-        <div className="pt-2">
-          <Link
-            href="/editor?mode=quick&source=star-map-gift-cta-framed&checkout=print&print_variant=poster_framed"
-            prefetch={false}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Preview framed print
-          </Link>
-          <p className="mt-2 text-xs text-neutral-700">
-            Want a neutral start?{" "}
-            <Link
-              href="/editor?mode=quick&source=star-map-gift-cta-preview"
-              prefetch={false}
-              className="font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-800"
-            >
-              Preview first, decide later
-            </Link>
-            .
-          </p>
-        </div>
-      </section>
+      <QuickStartStepsSection
+        heading="How the gift flow works"
+        intro="The point is to remove early decision overload: confirm the moment first, then choose the delivery route that fits the gift."
+        steps={[
+          "Enter the date and location that matter most.",
+          "Preview the map live and personalize the wording.",
+          "Take the framed route, the unframed route, or HD digital delivery after the design is approved.",
+        ]}
+        note="Framed is still the strongest gift presentation. Unframed lowers the physical total. HD is the fastest path when timing matters more than shipping."
+      />
 
       <DeliveryFormatModule
         heading="Choose the gift format after preview"

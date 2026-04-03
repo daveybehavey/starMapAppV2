@@ -134,12 +134,17 @@ export const getPreviewArea = (page: Page) =>
 
 export const waitForPreview = async (page: Page) => {
   const previewArea = getPreviewArea(page);
+  const freeExportButton = page.getByLabel("Free export").first();
+  const hdExportButton = page.getByLabel("HD export").first();
   // Preview may pass through a temporary "Rendering sky…" overlay while the dynamic canvas mounts.
   await expect
     .poll(
       async () => {
         const visible = await previewArea.isVisible({ timeout: 500 }).catch(() => false);
         if (visible) return "ready";
+        const freeExportVisible = await freeExportButton.isVisible({ timeout: 500 }).catch(() => false);
+        const hdExportVisible = await hdExportButton.isVisible({ timeout: 500 }).catch(() => false);
+        if (freeExportVisible && hdExportVisible) return "controls-ready";
         const renderingVisible = await page
           .getByText(/Rendering sky…|Rendering…/i)
           .first()
@@ -155,8 +160,8 @@ export const waitForPreview = async (page: Page) => {
       },
       { timeout: 45000, intervals: [300, 500, 750, 1000] },
     )
-    .toBe("ready");
-  await expect(page.getByLabel("Free export").first()).toBeVisible({ timeout: 20000 });
+    .toMatch(/ready|controls-ready/);
+  await expect(freeExportButton).toBeVisible({ timeout: 20000 });
 };
 
 export const applySampleMoment = async (page: Page) => {

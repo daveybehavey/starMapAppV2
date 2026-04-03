@@ -2727,15 +2727,14 @@ export function EditorExperience({
                         {printCheckoutEnabled && (
                           <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-amber-100">Buy a physical gift from this exact preview</p>
+                              <p className="text-xs font-semibold text-amber-100">Choose your print route from this exact preview</p>
                               <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                                 Framed + HD recommended
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Shipping is shown before payment, and your print order draft is
-                              created right after payment for manual review. Apple Pay, Google Pay, and Link show when
-                              available. {shippingDisclosure}
+                              Secure Stripe checkout uses this saved design automatically. Shipping is shown before
+                              payment, then the print order draft is created after payment for manual review. {shippingDisclosure}
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
@@ -2773,6 +2772,12 @@ export function EditorExperience({
                                   </option>
                                 ))}
                               </select>
+                              {!printShippingCountry && (
+                                <div className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2">
+                                  <p className="text-[11px] font-semibold text-amber-50">{printCheckoutCtaState.disabledReason}</p>
+                                  <p className="mt-1 text-[10px] text-amber-100/80">{printCheckoutCtaState.helperText}</p>
+                                </div>
+                              )}
                               {printShippingCountry && (
                                 <p className="mt-1 text-[10px] text-amber-100/80">
                                   Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
@@ -2792,6 +2797,7 @@ export function EditorExperience({
                                   })
                                 }
                                 disabled={checkoutInFlight || !printShippingCountry}
+                                title={printCheckoutCtaState.disabledReason ?? undefined}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/35 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/45 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {checkoutInFlight ? (
@@ -2815,6 +2821,7 @@ export function EditorExperience({
                                   })
                                 }
                                 disabled={checkoutInFlight || !printShippingCountry}
+                                title={printCheckoutCtaState.disabledReason ?? undefined}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {checkoutInFlight ? (
@@ -2838,6 +2845,7 @@ export function EditorExperience({
                                   })
                                 }
                                 disabled={checkoutInFlight || !printShippingCountry}
+                                title={printCheckoutCtaState.disabledReason ?? undefined}
                                 className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {checkoutInFlight ? (
@@ -2852,7 +2860,9 @@ export function EditorExperience({
                                 )}
                               </button>
                             </div>
-                            <p className="mt-2 text-[11px] font-semibold text-amber-100/80">{printCheckoutCtaState.helperText}</p>
+                            {(printShippingCountry || checkoutInFlight) && (
+                              <p className="mt-2 text-[11px] font-semibold text-amber-100/80">{printCheckoutCtaState.helperText}</p>
+                            )}
                             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                               <a
                                 href="/star-map-gift-formats"

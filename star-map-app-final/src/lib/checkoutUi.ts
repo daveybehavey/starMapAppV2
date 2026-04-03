@@ -23,13 +23,17 @@ export function getPrintCheckoutCtaState({
   hasShippingCountry,
 }: PrintCheckoutCtaStateInput): PrintCheckoutCtaState {
   const disabledReason = checkoutInFlight
-    ? "Redirecting to secure Stripe checkout in this tab..."
+    ? "Secure checkout is opening in this tab..."
     : hasShippingCountry
       ? null
-      : "Select a shipping country to unlock print checkout.";
+      : "Choose a shipping country above to unlock print checkout.";
 
   return {
     disabledReason,
-    helperText: disabledReason ?? "You'll stay in this tab and be redirected to secure Stripe checkout.",
+    helperText: checkoutInFlight
+      ? "Keep this tab open while Stripe loads. If nothing appears after a few seconds, try again."
+      : hasShippingCountry
+        ? "You'll stay in this tab and be redirected to secure Stripe checkout."
+        : "Shipping country controls the available print route and shipping price. Select it first, then choose framed or unframed checkout.",
   };
 }

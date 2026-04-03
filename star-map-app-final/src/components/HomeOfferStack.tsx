@@ -36,11 +36,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
   const framedDeliveryLabel = formatPrintDeliveryEstimate("poster_framed", printShippingCountry);
   const unframedDeliveryLabel = formatPrintDeliveryEstimate("poster_unframed", printShippingCountry);
   const shippingCountryLabel = getPrintShippingCountryLabel(printShippingCountry);
-  const shippingCoverageLabel = (() => {
-    const count = printShippingCountries.length;
-    if (count <= 0) return "Shipping estimates shown before payment";
-    return `Shipping estimates for ${count} countries`;
-  })();
 
   return (
     <section
@@ -55,20 +50,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a lower-cost
             unframed poster.
           </p>
-          <div className="grid gap-2 pt-2 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
-              <p className="font-semibold text-amber-200">Fastest route</p>
-              <p className="mt-1">HD file unlocks right after payment.</p>
-            </div>
-            <div className="rounded-xl border border-amber-300/30 bg-amber-300/14 px-3 py-2 text-xs text-amber-100">
-              <p className="font-semibold">Highest gift impact</p>
-              <p className="mt-1">Framed print stays the premium presentation.</p>
-            </div>
-            <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
-              <p className="font-semibold text-amber-200">Global planning</p>
-              <p className="mt-1">{shippingCoverageLabel}.</p>
-            </div>
-          </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -200,43 +181,18 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </article>
         </div>
 
-        <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/15 p-4 md:grid-cols-3">
-          <div className="space-y-1 text-sm text-neutral-200">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Fastest path</p>
-            <p className="font-semibold text-white">Digital HD</p>
-            <p className="text-xs leading-relaxed">Immediate delivery, no shipping, and still usable for local framing later.</p>
-          </div>
-          <div className="space-y-1 text-sm text-neutral-200">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Best gift route</p>
-            <p className="font-semibold text-white">Framed print</p>
-            <p className="text-xs leading-relaxed">Most polished presentation. This is the route to push when the goal is emotional impact.</p>
-          </div>
-          <div className="space-y-1 text-sm text-neutral-200">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Best lower-cost physical</p>
-            <p className="font-semibold text-white">Unframed print</p>
-            <p className="text-xs leading-relaxed">Keeps physical checkout available without forcing buyers into the premium frame cost.</p>
-          </div>
-        </div>
-
         <div className="brand-dark-card rounded-2xl p-4">
-          <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-white/5 p-3 sm:grid-cols-[minmax(0,190px),1fr] sm:items-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">
-              Shipping estimate baseline
-            </p>
-            <p className="text-[11px] text-neutral-300">
-              Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel} (shown for {shippingCountryLabel}).
-              {" "}
-              Delivery estimates: framed {framedDeliveryLabel} · unframed {unframedDeliveryLabel}.
-              Final shipping is shown before payment for all supported countries.
-            </p>
-          </div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
+          <p className="mt-2 text-[11px] text-neutral-300">
+            Shipping estimate baseline for {shippingCountryLabel}: framed {framedShippingLabel}, unframed {unframedShippingLabel}.
+            Delivery estimates run about {framedDeliveryLabel} framed and {unframedDeliveryLabel} unframed. Final shipping is still shown before payment for every supported country.
+          </p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
             <li>✓ Production starts after manual order review.</li>
             <li>✓ {shippingDisclosure}</li>
             <li>✓ Damage support: {supportEmail}.</li>
             <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
-            <li>✓ {printBadgeLabel}</li>
+            <li>✓ {printBadgeLabel} across {printShippingCountries.length} supported countries.</li>
           </ul>
         </div>
 
@@ -266,11 +222,8 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital HD plans</p>
-            <span className="text-[11px] text-neutral-300">Most buyers only need one finished file.</span>
+            <span className="text-[11px] text-neutral-300">Start one-time unless you know you need repeat exports.</span>
           </div>
-          <p className="mt-2 text-xs text-neutral-300">
-            Start with the one-time HD checkout unless you know you need multiple exports or ongoing use.
-          </p>
           <div className="grid gap-2 sm:grid-cols-3">
             <a
               href="/editor?mode=quick&source=home-plan-single"

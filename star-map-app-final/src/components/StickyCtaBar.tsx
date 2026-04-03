@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 
 type StickyCtaBarProps = {
@@ -11,6 +12,8 @@ type StickyCtaBarProps = {
   secondaryHref?: string;
   secondaryPlan?: string;
   className?: string;
+  revealAfterScroll?: boolean;
+  revealOffset?: number;
 };
 
 export default function StickyCtaBar({
@@ -22,6 +25,8 @@ export default function StickyCtaBar({
   secondaryHref,
   secondaryPlan = "print_intent",
   className = "",
+  revealAfterScroll = true,
+  revealOffset = 420,
 }: StickyCtaBarProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
@@ -29,23 +34,52 @@ export default function StickyCtaBar({
   const baseHref = "/editor?mode=quick";
   const resolvedSource = source?.trim() || "sticky-cta";
   const href = `${baseHref}&source=${encodeURIComponent(resolvedSource)}`;
+  const [isVisible, setIsVisible] = useState(!revealAfterScroll);
+
+  useEffect(() => {
+    if (!revealAfterScroll) {
+      setIsVisible(true);
+      return;
+    }
+
+    let frameId = 0;
+    const updateVisibility = () => {
+      frameId = 0;
+      setIsVisible(window.scrollY > revealOffset);
+    };
+    const onScroll = () => {
+      if (frameId !== 0) return;
+      frameId = window.requestAnimationFrame(updateVisibility);
+    };
+
+    updateVisibility();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [revealAfterScroll, revealOffset]);
 
   return (
-    <div className={`sticky top-3 z-20 mt-6 ${className}`}>
+    <div
+      className={`sticky top-3 z-20 overflow-hidden transition-[max-height,opacity,margin,transform] duration-300 ${
+        isVisible
+          ? "mt-6 max-h-48 translate-y-0 opacity-100"
+          : "mt-2 max-h-0 -translate-y-2 opacity-0 pointer-events-none"
+      } ${className}`}
+      aria-hidden={isVisible ? undefined : true}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200/70 bg-[rgba(247,241,227,0.96)] px-4 py-3 text-midnight shadow-lg shadow-black/10 backdrop-blur">
         <div>
           <p className="text-sm font-semibold">{title}</p>
-          <p className="text-xs text-neutral-600">{description}</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <span className="rounded-full border border-amber-200/70 bg-white/70 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-midnight">
-              HD export in seconds
-            </span>
-            {printCheckoutEnabled && (
-              <span className="rounded-full border border-amber-300/70 bg-amber-200/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-midnight">
-                Framed + unframed checkout
-              </span>
-            )}
-          </div>
+          <p className="text-xs text-neutral-600">
+            {printCheckoutEnabled
+              ? "Free preview first. Switch between framed, unframed, and HD delivery after the design feels right."
+              : description}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {secondaryHref && printCheckoutEnabled ? (

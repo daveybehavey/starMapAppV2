@@ -95,9 +95,9 @@ export default function HomeHero() {
             <a
               href="/editor?mode=quick&source=home-hero-framed&checkout=print&print_variant=poster_framed"
               onClick={handleFramedPreviewClick}
-              className="rounded-full border border-amber-300/60 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
+              className="inline-flex items-center px-2 py-2 text-xs font-semibold text-amber-200 underline decoration-amber-300/60 underline-offset-4 transition hover:text-amber-100"
             >
-              Preview framed print
+              Gift-ready? Preview framed print
             </a>
           </div>
           <div className="mx-auto grid w-full max-w-3xl gap-2 pt-3 sm:grid-cols-3">
