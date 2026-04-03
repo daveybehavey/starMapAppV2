@@ -171,20 +171,12 @@ export default function HomeStaticSections({
                 a: "They are calculated from real date, time, timezone, and location inputs using astronomy-engine plus bundled star catalog data.",
               },
               {
-                q: "Can I customize the text and styles?",
-                a: "Yes—add titles and dedications, plus multiple styles and constellation options.",
-              },
-              {
                 q: "What does premium unlock include?",
                 a: `After the free preview, you can take the framed route from ${printLabels.framed}, the unframed route from ${printLabels.unframed}, or unlock HD digital from ${priceLabels.single}. Digital packs and subscription stay optional for repeat exports.`,
               },
               {
                 q: "Are the maps print-ready?",
                 a: "Yes—high-resolution files designed for poster printing.",
-              },
-              {
-                q: "Can I order a framed or unframed version directly?",
-                a: `Yes—checkout supports unframed prints from ${printLabels.unframed} and framed prints from ${printLabels.framed}.`,
               },
               {
                 q: "When do I see shipping cost and delivery timing?",
@@ -222,14 +214,21 @@ export default function HomeStaticSections({
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 sm:pb-12 lg:px-8">
-        <div className="rounded-3xl border border-amber-200/60 bg-white/80 p-6 text-midnight shadow-md sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600">Explore more</p>
-          <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Popular star map destinations</h2>
-          <p className="mt-3 text-sm text-neutral-700 sm:text-base">
-            Jump straight to high-intent pages for gifts, posters, and instant star map generators.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+      <section className="content-visibility-auto mx-auto w-full max-w-5xl px-4 pb-10 sm:px-6 sm:pb-12 lg:px-8">
+        <div className="rounded-2xl border border-white/12 bg-white/6 px-4 py-4 text-white/90 shadow-sm shadow-black/20 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300">Explore more</p>
+              <p className="mt-1 text-xs text-neutral-300">More entry points for gifts, posters, cities, and generators.</p>
+            </div>
+            <Link
+              href="/star-map-gift-formats"
+              className="text-xs font-semibold text-amber-200 underline hover:text-amber-100"
+            >
+              Compare gift formats
+            </Link>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-100">
             {[
               { href: "/star-map-generator", label: "Star map generator" },
               { href: "/star-map-for", label: "Star map by occasion" },
@@ -243,7 +242,7 @@ export default function HomeStaticSections({
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+                className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
               >
                 {link.label}
               </a>
