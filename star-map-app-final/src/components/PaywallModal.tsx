@@ -225,6 +225,15 @@ export function PaywallModal({
     });
   };
 
+  const handleSwitchToPrintIntent = () => {
+    setActiveIntent("print");
+    setPrintUpsellHint("Choose your shipping country, then pick framed or unframed checkout.");
+    track("paywall_intent_switched", {
+      intent: "print",
+      source: "digital_upsell",
+    });
+  };
+
   const handlePrintCheckoutClick = (
     options: { variant: PrintVariant; includeDigitalAddOn: boolean },
     listId: "paywall_print_options" | "paywall_print_upsell",
@@ -247,15 +256,6 @@ export function PaywallModal({
       },
     });
     onStartPrintCheckout?.(options);
-  };
-
-  const handlePrintUpsellClick = (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => {
-    if (!canPrintCheckout) {
-      setActiveIntent("print");
-      setPrintUpsellHint("Select your shipping country first so we can show the correct print checkout.");
-      return;
-    }
-    handlePrintCheckoutClick(options, "paywall_print_upsell");
   };
 
   return (
@@ -531,43 +531,19 @@ export function PaywallModal({
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                Ships to your address. Add digital access now or later.
+                Switch to the print tab for framed or unframed checkout from this same saved design.
               </p>
-              {!canPrintCheckout && (
-                <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
-                  Choose your shipping country on the print tab first so checkout uses the correct route and shipping price.
-                </p>
-              )}
-              <div className="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => handlePrintUpsellClick({ variant: "poster_framed", includeDigitalAddOn: true })}
-                  disabled={checkoutInFlight}
-                  className="w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {canPrintCheckout
-                    ? `Framed + HD file • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`
-                    : "See framed + HD print route"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePrintUpsellClick({ variant: "poster_framed", includeDigitalAddOn: false })}
-                  disabled={checkoutInFlight}
-                  className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {canPrintCheckout ? `Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}` : "See framed print route"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePrintUpsellClick({ variant: "poster_unframed", includeDigitalAddOn: false })}
-                  disabled={checkoutInFlight}
-                  className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {canPrintCheckout
-                    ? `Unframed print • ${printPriceLabels.unframed} + ${unframedShippingLabel}`
-                    : "See unframed print route"}
-                </button>
-              </div>
+              <p className="mt-2 text-[11px] text-amber-100/80">
+                Framed from {printPriceLabels.framed} + shipping. Unframed from {printPriceLabels.unframed} + shipping.
+              </p>
+              <button
+                type="button"
+                onClick={handleSwitchToPrintIntent}
+                disabled={checkoutInFlight}
+                className="mt-3 w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                See printed gift options
+              </button>
             </div>
           )}
         </div>

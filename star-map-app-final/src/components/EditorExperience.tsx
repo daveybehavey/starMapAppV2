@@ -1737,15 +1737,6 @@ export function EditorExperience({
                                 "border-yellow-300/40 bg-gradient-to-br from-yellow-100/15 to-amber-100/15 text-yellow-100 hover:border-yellow-300/60 hover:bg-yellow-100/20",
                             };
 
-                            const occasionEmojis = {
-                              wedding: "💍",
-                              anniversary: "❤️",
-                              birthday: "🎉",
-                              birth: "👶",
-                              memorial: "🕊️",
-                              graduation: "🎓",
-                            };
-
                             return (
                               <button
                                 key={preset.id}
@@ -1755,7 +1746,7 @@ export function EditorExperience({
                                   occasionStyles[preset.id as keyof typeof occasionStyles]
                                 } ${selectedOccasion === preset.id ? "btn-selection-pulse btn-selected-glow ring-2 ring-amber-300/70" : ""}`}
                               >
-                                {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
+                                {preset.label}
                               </button>
                             );
                           })}
@@ -1807,7 +1798,8 @@ export function EditorExperience({
                                     : mode.label
                                 }
                               >
-                                {mode.premium && "🔒"} {mode.label}
+                                {mode.label}
+                                {mode.premium && !paid ? " (HD)" : ""}
                               </button>
                             ))}
                           </div>
@@ -1915,7 +1907,6 @@ export function EditorExperience({
                           <div className="space-y-2">
                             <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm">
                               <div className="mb-2 flex items-center gap-2">
-                                <span className="text-amber-300">✎</span>
                                 <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
                                   Your Message
                                 </h3>
@@ -2098,7 +2089,7 @@ export function EditorExperience({
                                                             value={opt.id}
                                                             style={{ color: "#111827" }}
                                                           >
-                                                            {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                                            {opt.premium ? `${opt.label} (HD)` : opt.label}
                                                           </option>
                                                         ))}
                                                       </select>

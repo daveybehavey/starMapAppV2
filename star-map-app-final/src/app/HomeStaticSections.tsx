@@ -112,49 +112,6 @@ export default function HomeStaticSections({
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
-        <div className="space-y-8">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">How it works</p>
-            <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">From date to finished star map</h2>
-            <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              Pick a meaningful moment, see the night sky instantly, personalize, and export a print-ready map in minutes.
-            </p>
-          </div>
-          <div className="relative grid gap-6 md:grid-cols-3 md:gap-8 stagger-children visible">
-            <div className="connecting-line hidden md:block" />
-
-            {[
-              {
-                step: "01",
-                title: "Choose your moment",
-                desc: "Select a preset or set the exact date, time, and location.",
-              },
-              {
-                step: "02",
-                title: "Preview instantly",
-                desc: "Watch the stars render in real time as you personalize.",
-              },
-              {
-                step: "03",
-                title: "Export & print",
-                desc: "Download a high-res file ready for framing or gifting.",
-              },
-            ].map((step) => (
-              <div key={step.title} className="glass-panel rounded-2xl border border-white/10 p-6 text-white shadow-lg">
-                <div className="mb-4 inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
-                  Step {step.step}
-                </div>
-                <h3 className="text-lg font-semibold">{step.title}</h3>
-                <p className="mt-2 text-sm text-neutral-200">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider my-12 sm:my-14 lg:my-16" />
-
       <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
         <div className="space-y-6 text-midnight">
           <div>
@@ -219,7 +176,7 @@ export default function HomeStaticSections({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300">Explore more</p>
-              <p className="mt-1 text-xs text-neutral-300">More entry points for gifts, posters, cities, and generators.</p>
+              <p className="mt-1 text-xs text-neutral-300">Secondary entry points for gifts, posters, and city pages.</p>
             </div>
             <Link
               href="/star-map-gift-formats"
@@ -233,11 +190,8 @@ export default function HomeStaticSections({
               { href: "/star-map-generator", label: "Star map generator" },
               { href: "/star-map-for", label: "Star map by occasion" },
               { href: "/star-map-in", label: "Star map by city" },
-              { href: "/constellation-map", label: "Constellation map" },
-              { href: "/custom-night-sky-map", label: "Custom night sky map" },
               { href: "/star-map-poster", label: "Star map poster" },
               { href: "/star-map-gift", label: "Star map gift" },
-              { href: "/night-sky-map-gift", label: "Night sky map gift" },
             ].map((link) => (
               <a
                 key={link.href}

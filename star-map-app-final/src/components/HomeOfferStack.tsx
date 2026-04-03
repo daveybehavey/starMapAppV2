@@ -196,29 +196,6 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </ul>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Need the full comparison?</p>
-            <p className="mt-1 text-xs text-neutral-300">
-              Compare live digital, framed, and unframed routes before you enter checkout.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a
-              href="/star-map-gift-formats"
-              className="inline-flex items-center justify-center rounded-full border border-amber-300/50 bg-amber-300/15 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/22"
-            >
-              Compare all gift formats
-            </a>
-            <a
-              href="/shipping"
-              className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/6 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/10"
-            >
-              See shipping details
-            </a>
-          </div>
-        </div>
-
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -266,9 +243,23 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <p className="mt-1 text-[11px] text-neutral-300">Only for ongoing use.</p>
             </a>
           </div>
-          <p className="mt-3 text-xs text-neutral-300">
-            Print orders can still add the HD file for {printLabels.digitalAddOn}.
-          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-300">
+            <p>Print orders can still add the HD file for {printLabels.digitalAddOn}.</p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="/star-map-gift-formats"
+                className="font-semibold text-amber-200 underline hover:text-amber-100"
+              >
+                Compare all formats
+              </a>
+              <a
+                href="/shipping"
+                className="font-semibold text-amber-200 underline hover:text-amber-100"
+              >
+                Shipping details
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </section>

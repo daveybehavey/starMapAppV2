@@ -610,15 +610,6 @@ export function MobileCreate({
                     graduation: "border-yellow-300/40 bg-gradient-to-br from-yellow-100/15 to-amber-100/15 text-yellow-100 hover:border-yellow-300/60 hover:bg-yellow-100/20",
                   };
 
-                  const occasionEmojis = {
-                    wedding: "💍",
-                    anniversary: "❤️",
-                    birthday: "🎉",
-                    birth: "👶",
-                    memorial: "🕊️",
-                    graduation: "🎓",
-                  };
-
                   return (
                     <button
                       key={preset.id}
@@ -628,7 +619,7 @@ export function MobileCreate({
                         occasionStyles[preset.id as keyof typeof occasionStyles]
                       } ${selectedOccasion === preset.id ? "ring-2 ring-amber-300/70 btn-selection-pulse btn-selected-glow" : ""}`}
                     >
-                      {occasionEmojis[preset.id as keyof typeof occasionEmojis]} {preset.label}
+                      {preset.label}
                     </button>
                   );
                 })}
@@ -728,7 +719,8 @@ export function MobileCreate({
                     : "border-white/20 bg-white/10 text-white"
                 }`}
               >
-                {mode.premium && !paid && "🔒"} {mode.label}
+                {mode.label}
+                {mode.premium && !paid ? " (HD)" : ""}
               </button>
             ))}
           </div>
@@ -757,7 +749,6 @@ export function MobileCreate({
         <div className="space-y-3">
           <section className="rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="mb-2 flex items-center gap-2">
-              <span className="text-amber-300">✎</span>
               <h3 className="text-xs font-semibold text-white">Your Message</h3>
             </div>
             <div className="space-y-3">
@@ -900,7 +891,7 @@ export function MobileCreate({
                               >
                                 {fontOptions.map((opt) => (
                                   <option key={opt.id} value={opt.id}>
-                                    {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                    {opt.premium ? `${opt.label} (HD)` : opt.label}
                                   </option>
                                 ))}
                               </select>
@@ -1246,7 +1237,8 @@ export function MobileCreate({
                             : "border-white/15 bg-white/10 text-white"
                         }`}
                       >
-                        {!paid && preset.id !== "off" ? "🔒 " : ""}{preset.label}
+                        {preset.label}
+                        {!paid && preset.id !== "off" ? " (HD)" : ""}
                       </button>
                     ))}
                   </div>
@@ -1274,7 +1266,8 @@ export function MobileCreate({
                             : "border-white/15 bg-white/10 text-white"
                         }`}
                       >
-                        {!paid && preset.id !== "off" ? "🔒 " : ""}{preset.label}
+                        {preset.label}
+                        {!paid && preset.id !== "off" ? " (HD)" : ""}
                       </button>
                     ))}
                   </div>
