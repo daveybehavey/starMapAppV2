@@ -271,13 +271,13 @@ test("location warnings and validation errors render", async ({ page }) => {
   await expect(page.getByText(/Timezone:/i)).toBeVisible();
 });
 
-test("homepage finished example images load correctly", async ({ page }) => {
+test("homepage offer images load correctly", async ({ page }) => {
   await primeLocalStorage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const expectedExamples = [
-    { name: /^Wedding · Aurora Night$/i, file: "/examples/example-wedding-aurora-heart.webp" },
-    { name: /^Anniversary · Heirloom$/i, file: "/examples/example-anniversary-heirloom.webp" },
-    { name: /^Birthday · Noir Minimal$/i, file: "/examples/example-birthday-noir.webp" },
+    { name: /Digital StarMapCo heirloom preview/i, file: "/examples/example-anniversary-heirloom.webp" },
+    { name: /Framed StarMapCo print preview/i, file: "/printproof/home/delivery-framed-heart.webp" },
+    { name: /Unframed StarMapCo poster preview/i, file: "/printproof/home/delivery-unframed-classic.webp" },
   ];
   for (const { name, file } of expectedExamples) {
     const image = page.getByRole("img", { name }).first();
@@ -327,8 +327,8 @@ test("homepage delivery section links to format comparison and shipping details"
   await primeLocalStorage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const compareLink = page.getByRole("link", { name: /Compare all gift formats/i }).first();
-  const shippingLink = page.getByRole("link", { name: /See shipping details/i }).first();
+  const compareLink = page.getByRole("link", { name: /Compare all formats|Compare gift formats/i }).first();
+  const shippingLink = page.getByRole("link", { name: /Shipping details|Shipping policy/i }).first();
 
   await expect(compareLink).toBeVisible({ timeout: 30000 });
   await expect(shippingLink).toBeVisible({ timeout: 30000 });
@@ -628,8 +628,8 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
 
   await preparePrintIntentPreview(page);
 
-  const printPrimaryCta = page.getByRole("button", { name: /Print & frame/i });
-  const printCtaVisible = await printPrimaryCta.isVisible({ timeout: 2500 }).catch(() => false);
+  const printPrimaryCta = page.getByRole("button", { name: /Print options|Print & frame/i });
+  const printCtaVisible = await printPrimaryCta.isVisible({ timeout: 8000 }).catch(() => false);
 
   if (printCtaVisible) {
     const printedGiftTab = page.getByRole("button", { name: /Printed gift/i });
@@ -640,18 +640,17 @@ test("print-intent landing handles print intent consistently", async ({ page }) 
     await expect(
       page
         .getByRole("button", {
-          name: /Framed \+ HD file \(recommended\)|Framed print \(recommended\)/i,
+          name: /Framed \+ HD file|Framed print/i,
         })
         .first(),
     ).toBeVisible({ timeout: 8000 });
-    await expect(
-      page.getByText(/Shipping (address is collected|is shown) in Stripe checkout/i).first(),
-    ).toBeVisible({ timeout: 8000 });
     const shippingSelect = page.getByLabel(/Shipping country/i).first();
-    if (await shippingSelect.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await expect(shippingSelect.locator("option").first()).not.toHaveText(/^[A-Z]{2}$/);
-      await expect(shippingSelect).toHaveValue("CA");
-    }
+    await expect(shippingSelect).toBeVisible({ timeout: 8000 });
+    await expect(shippingSelect.locator("option").first()).not.toHaveText(/^[A-Z]{2}$/);
+    await expect(shippingSelect).toHaveValue("CA");
+    await expect(page.getByText(/Estimated shipping to|Choose a shipping country first/i).first()).toBeVisible({
+      timeout: 8000,
+    });
     return;
   }
 
@@ -677,8 +676,8 @@ test("print checkout buttons submit print payload when visible", async ({ page }
   });
   await preparePrintIntentPreview(page);
 
-  const printPrimaryCta = page.getByRole("button", { name: /Print & frame/i });
-  if (!(await printPrimaryCta.isVisible({ timeout: 2500 }).catch(() => false))) {
+  const printPrimaryCta = page.getByRole("button", { name: /Print options|Print & frame/i });
+  if (!(await printPrimaryCta.isVisible({ timeout: 8000 }).catch(() => false))) {
     const hdExportButton = page.getByLabel("HD export");
     await expect(hdExportButton).toBeVisible({ timeout: 8000 });
     await expect(hdExportButton).toBeEnabled({ timeout: 12000 });
@@ -715,7 +714,7 @@ test("print checkout buttons submit print payload when visible", async ({ page }
   if (!(await printedGiftTab.isVisible({ timeout: 1500 }).catch(() => false))) {
     await printPrimaryCta.click();
   }
-  const framedWithHd = page.getByRole("button", { name: /Framed \+ HD file \(recommended\)/i });
+  const framedWithHd = page.getByRole("button", { name: /Framed \+ HD file/i });
   await expect(framedWithHd).toBeVisible({ timeout: 8000 });
   await framedWithHd.click();
 

@@ -21,6 +21,7 @@
 # next.js
 /.next/
 /.next-playwright/
+/.next-playwright-*/
 /.next-export-examples/
 /.next.bak-*/
 /.next.bak.*/
