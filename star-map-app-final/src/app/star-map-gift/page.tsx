@@ -165,22 +165,47 @@ export default function StarMapGiftPage() {
         sourcePrefix="gift-physical-proof"
       />
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Related gift ideas</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Explore these popular variations when searching for the perfect gift.
-        </p>
-        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
-          <Link href="/night-sky-map-gift" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+      <section className="content-visibility-auto mt-6 rounded-2xl border border-white/12 bg-white/6 px-5 py-4 text-white/90 shadow-sm shadow-black/20">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300">Related gift ideas</p>
+            <p className="mt-1 text-xs text-neutral-300">More gift-focused entry points if you want to compare angles.</p>
+          </div>
+          <Link
+            href="/star-map-gift-formats"
+            prefetch={false}
+            className="text-xs font-semibold text-amber-200 underline hover:text-amber-100"
+          >
+            Compare gift formats
+          </Link>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-100">
+          <Link
+            href="/night-sky-map-gift"
+            prefetch={false}
+            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
+          >
             Night sky map gift
           </Link>
-          <Link href="/star-map-gift-ideas" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+          <Link
+            href="/star-map-gift-ideas"
+            prefetch={false}
+            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
+          >
             Star map gift ideas
           </Link>
-          <Link href="/star-map-gift-formats" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+          <Link
+            href="/star-map-gift-formats"
+            prefetch={false}
+            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
+          >
             Gift formats and roadmap
           </Link>
-          <Link href="/personalized-star-map" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+          <Link
+            href="/personalized-star-map"
+            prefetch={false}
+            className="rounded-full border border-white/12 bg-white/8 px-3 py-1.5 transition hover:border-amber-300/50 hover:bg-white/12"
+          >
             Personalized star map
           </Link>
         </div>
