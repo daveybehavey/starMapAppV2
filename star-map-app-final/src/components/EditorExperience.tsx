@@ -2711,7 +2711,7 @@ export function EditorExperience({
                         )}
                         <p className="mt-1 text-[11px] text-neutral-300/95">{digitalCheckoutHelperText}</p>
                         <p className="mt-1 text-[11px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
-                        {currentPlan !== "subscription" && (
+                        {typeof creditsRemaining === "number" && currentPlan !== "subscription" && (
                           <p className="mt-1 text-[11px] text-neutral-300/95">
                             Pack reminder: each HD click exports the <span className="font-semibold text-white">current map only</span>.
                             For multiple files, create or edit the next map before each download.
