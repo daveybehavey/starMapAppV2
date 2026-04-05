@@ -60,7 +60,7 @@ const PAYWALL_COPY: Record<
 > = {
   control: {
     title: "Buy this map in HD or print",
-    subtitle: "This exact preview is already saved. Start with one-time HD, or switch to print checkout for a physical gift.",
+    subtitle: "This exact preview is already saved. Start with one-time HD, or switch to the printed gift route when you want a physical keepsake.",
     singleCta: "Buy this map in HD",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
@@ -132,28 +132,10 @@ export function PaywallModal({
       }),
     [canPrintCheckout, checkoutInFlight],
   );
-  const summaryCards =
+  const reassurancePills =
     activeIntent === "print"
-      ? [
-          {
-            label: "Printed gift",
-            body: "Your saved design carries into checkout with framed and unframed routes.",
-          },
-          {
-            label: "Shipping",
-            body: "Choose a country first so checkout shows the right print route and delivery window.",
-          },
-        ]
-      : [
-          {
-            label: "HD file",
-            body: "Print-ready export up to 6000px with no watermark.",
-          },
-          {
-            label: "Secure checkout",
-            body: "Stripe supports cards plus Apple Pay, Google Pay, and Link on supported devices.",
-          },
-        ];
+      ? ["Saved preview", "Shipping shown before payment", "Framed or unframed here"]
+      : ["Saved preview", "One-time HD available", "Secure Stripe checkout"];
 
   useEffect(() => {
     if (!hasPrintOptions) {
@@ -301,19 +283,16 @@ export function PaywallModal({
             Not now
           </button>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {summaryCards.map((card) => (
-            <div key={card.label} className="rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">{card.label}</p>
-              <p className="mt-1 text-[11px] text-neutral-700">{card.body}</p>
-            </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {reassurancePills.map((pill) => (
+            <span
+              key={pill}
+              className="inline-flex items-center rounded-full border border-amber-200/80 bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-amber-900"
+            >
+              {pill}
+            </span>
           ))}
         </div>
-        {activeIntent === "digital" && (
-          <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
-            Just need this one map? The one-time HD option is enough. Packs and unlimited only make sense for repeat exports.
-          </p>
-        )}
 
         {hasPrintOptions && (
           <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-amber-200/70 bg-white/70 p-1">
@@ -502,15 +481,15 @@ export function PaywallModal({
 
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-midnight">One HD export</p>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-                    One-time
-                  </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-midnight">One-time HD for this map</p>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                      One-time
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-600">1 print-ready HD file for this saved map. No subscription required.</p>
                 </div>
-                <p className="text-xs text-neutral-600">1 print-ready HD file for this saved map.</p>
-              </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 <span>{priceLabels.single}</span>
               </div>
@@ -591,10 +570,10 @@ export function PaywallModal({
           {activeIntent !== "print" && onStartPrintCheckout && printPriceLabels && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Prefer a physical print?</p>
+                <p className="text-sm font-semibold">Prefer a printed gift?</p>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                Switch to the print tab for framed or unframed checkout from this same saved design.
+                Open the print tab for framed or unframed checkout from this same saved design.
               </p>
               <p className="mt-2 text-[11px] text-amber-100/80">
                 Framed from {printPriceLabels.framed} + shipping. Unframed from {printPriceLabels.unframed} + shipping.
@@ -605,7 +584,7 @@ export function PaywallModal({
                 disabled={checkoutInFlight}
                 className="mt-3 w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                See printed gift options
+                Open printed gift options
               </button>
             </div>
           )}

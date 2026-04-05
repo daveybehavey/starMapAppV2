@@ -2962,19 +2962,16 @@ export function EditorExperience({
               printCheckoutEnabled={printCheckoutEnabled}
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
               printShippingCountry={printShippingCountry}
-              printShippingCountries={printShippingCountries}
-              printCheckoutInFlight={checkoutInFlight}
-              printCheckoutError={checkoutError}
-              onPrintShippingCountryChange={(country) => {
-                setPrintShippingCountryValue(country, "mobile-preview");
-              }}
-              onStartPrintCheckout={
+              onOpenPrintOptions={
                 printCheckoutEnabled
-                  ? (options) => {
-                      startPrintCheckout({
-                        source: "mobile_preview",
-                        variant: options.variant,
-                        includeDigitalAddOn: options.includeDigitalAddOn,
+                  ? () => {
+                      setPaywallIntent("print");
+                      setPaywallOpen(true);
+                      setCheckoutError(null);
+                      track("print_option_clicked", {
+                        source: "mobile_preview_print_cta",
+                        variant: preferredPrintVariant,
+                        includeDigitalAddOn: false,
                       });
                     }
                   : undefined

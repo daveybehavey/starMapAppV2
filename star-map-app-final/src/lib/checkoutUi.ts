@@ -4,9 +4,9 @@ export const DIGITAL_CHECKOUT_REDIRECT_LABEL = "Opening secure checkout...";
 export const DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT =
   "Secure checkout is opening in this tab. If nothing appears, wait a few seconds, then try again.";
 export const DIGITAL_CHECKOUT_HELPER_TEXT =
-  "Free preview stays available. Continue to secure checkout for this exact map to unlock the HD file without watermark.";
+  "Preview stays free until this exact map feels right. Continue to secure checkout to unlock the HD file without watermark.";
 export const DIGITAL_CHECKOUT_TRUST_LINE =
-  "Secure Stripe checkout supports cards plus Apple Pay, Google Pay, and Link on supported devices.";
+  "One-time secure Stripe checkout supports cards plus Apple Pay, Google Pay, and Link on supported devices.";
 
 type PrintCheckoutCtaStateInput = {
   checkoutInFlight: boolean;
