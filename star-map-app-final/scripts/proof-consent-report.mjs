@@ -5,7 +5,9 @@ import path from "node:path";
 import process from "node:process";
 
 const PROOF_CONSENT_PREFIX = "proof:consent:map:";
+const PROOF_CONSENT_SESSION_PREFIX = "proof:consent:session:";
 const STAR_MAP_KV_BINDING = "STAR_MAP_KV";
+const VALID_REVIEW_STATUSES = new Set(["new", "contacted", "approved", "published", "rejected"]);
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -52,11 +54,18 @@ function usage() {
   node scripts/proof-consent-report.mjs --all
   node scripts/proof-consent-report.mjs --json
   node scripts/proof-consent-report.mjs --limit 100
+  node scripts/proof-consent-report.mjs --status contacted
+  node scripts/proof-consent-report.mjs --set-status approved --map <mapId>
+  node scripts/proof-consent-report.mjs --set-status published --session <checkout_session_id>
 
 Options:
-  --all         Include records where permission was removed
-  --json        Output raw JSON
-  --limit <n>   Max records to fetch (default: 50, max: 500)
+  --all                 Include records where permission was removed
+  --json                Output raw JSON
+  --limit <n>           Max records to fetch (default: 50, max: 500)
+  --status <value>      Filter report by review status
+  --set-status <value>  Update a record to new|contacted|approved|published|rejected
+  --map <id>            Map id for status updates
+  --session <id>        Checkout session id for status updates
 `);
 }
 
@@ -169,7 +178,7 @@ async function listProofConsentKeys({ accountId, namespaceId, limit, headers }) 
   const keys = [];
 
   while (keys.length < limit) {
-    const remaining = Math.min(1000, limit - keys.length);
+    const remaining = Math.max(10, Math.min(1000, limit - keys.length));
     const url = new URL(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/keys`);
     url.searchParams.set("prefix", PROOF_CONSENT_PREFIX);
     url.searchParams.set("limit", String(remaining));
@@ -196,6 +205,21 @@ async function getProofConsentRecord({ accountId, namespaceId, key, headers }) {
   return response.json();
 }
 
+async function putProofConsentRecord({ accountId, namespaceId, key, headers, record }) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${encodeURIComponent(key)}`;
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(record),
+  });
+  if (!response.ok) {
+    throw new Error(`Cloudflare KV write failed for ${key}: ${response.status} ${response.statusText}`);
+  }
+}
+
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -210,7 +234,8 @@ function printTable(records) {
   }
 
   const rows = records.map((record) => ({
-    updated: formatDate(record.updatedAt),
+    updated: formatDate(record.reviewUpdatedAt || record.updatedAt),
+    status: record.reviewStatus || "new",
     source: record.source || "-",
     order: record.orderType || "-",
     plan: record.plan || "-",
@@ -250,6 +275,8 @@ async function main() {
   const limit = Math.max(1, Math.min(500, Number.parseInt(String(args.limit || "50"), 10) || 50));
   const includeRemoved = args.all === "true";
   const json = args.json === "true";
+  const statusFilter = typeof args.status === "string" ? args.status.trim().toLowerCase() : "";
+  const setStatus = typeof args["set-status"] === "string" ? args["set-status"].trim().toLowerCase() : "";
   const headers = getCloudflareAuthHeaders();
   const { accountId, namespaceId } = readWranglerConfig(rootDir);
 
@@ -260,6 +287,59 @@ async function main() {
     throw new Error("Missing STAR_MAP_KV namespace id. Set STAR_MAP_KV_NAMESPACE_ID or configure wrangler.toml.");
   }
 
+  if (statusFilter && !VALID_REVIEW_STATUSES.has(statusFilter)) {
+    throw new Error(`Invalid --status value: ${statusFilter}`);
+  }
+
+  if (setStatus) {
+    if (!VALID_REVIEW_STATUSES.has(setStatus)) {
+      throw new Error(`Invalid --set-status value: ${setStatus}`);
+    }
+
+    const mapId = typeof args.map === "string" ? args.map.trim() : "";
+    const sessionId = typeof args.session === "string" ? args.session.trim() : "";
+    if (!mapId && !sessionId) {
+      throw new Error("Status updates require --map <mapId> or --session <checkout_session_id>.");
+    }
+
+    const lookupKey = mapId
+      ? `${PROOF_CONSENT_PREFIX}${mapId}`
+      : `${PROOF_CONSENT_SESSION_PREFIX}${sessionId}`;
+    const record = await getProofConsentRecord({ accountId, namespaceId, key: lookupKey, headers });
+    if (!record) {
+      throw new Error("Proof-consent record not found.");
+    }
+
+    const updated = {
+      ...record,
+      reviewStatus: setStatus,
+      reviewUpdatedAt: new Date().toISOString(),
+    };
+
+    await putProofConsentRecord({
+      accountId,
+      namespaceId,
+      key: `${PROOF_CONSENT_PREFIX}${updated.mapId}`,
+      headers,
+      record: updated,
+    });
+    await putProofConsentRecord({
+      accountId,
+      namespaceId,
+      key: `${PROOF_CONSENT_SESSION_PREFIX}${updated.sessionId}`,
+      headers,
+      record: updated,
+    });
+
+    if (json) {
+      console.log(JSON.stringify(updated, null, 2));
+      return;
+    }
+
+    console.log(`Updated proof-review status to '${setStatus}' for map ${updated.mapId}.`);
+    return;
+  }
+
   const keys = await listProofConsentKeys({ accountId, namespaceId, limit, headers });
   const records = [];
 
@@ -267,6 +347,7 @@ async function main() {
     const record = await getProofConsentRecord({ accountId, namespaceId, key, headers });
     if (!record) continue;
     if (!includeRemoved && !record.websiteUsageAllowed) continue;
+    if (statusFilter && (record.reviewStatus || "new") !== statusFilter) continue;
     records.push(record);
   }
 

@@ -25,6 +25,8 @@ type ProofConsentRecord = {
   plan?: CheckoutPlan | null;
   printVariant?: PrintVariant | null;
   websiteUsageAllowed: boolean;
+  reviewStatus?: "new" | "contacted" | "approved" | "published" | "rejected";
+  reviewUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -156,6 +158,8 @@ export async function POST(req: NextRequest) {
     plan,
     printVariant,
     websiteUsageAllowed: true,
+    reviewStatus: existing?.reviewStatus ?? "new",
+    reviewUpdatedAt: existing?.reviewUpdatedAt ?? now,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -191,6 +195,8 @@ export async function DELETE(req: NextRequest) {
     plan: existing?.plan ?? resolved.session.plan ?? null,
     printVariant: existing?.printVariant ?? resolved.session.printVariant ?? null,
     websiteUsageAllowed: false,
+    reviewStatus: existing?.reviewStatus ?? "new",
+    reviewUpdatedAt: existing?.reviewUpdatedAt ?? now,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };

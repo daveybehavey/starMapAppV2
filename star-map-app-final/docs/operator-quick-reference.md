@@ -207,6 +207,11 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - `npm run ops:proof-consents`
     - `npm run ops:proof-consents -- --all`
     - `npm run ops:proof-consents -- --json`
+    - `npm run ops:proof-consents -- --status new`
+  - update operator workflow status:
+    - `npm run ops:proof-consents -- --set-status contacted --map <mapId>`
+    - `npm run ops:proof-consents -- --set-status approved --session <sessionId>`
+    - statuses: `new`, `contacted`, `approved`, `published`, `rejected`
   - success-page proof requests now include the Stripe session reference in the email draft for easier support follow-up
   - review-consent KV keys:
     - `proof:consent:map:<mapId>`

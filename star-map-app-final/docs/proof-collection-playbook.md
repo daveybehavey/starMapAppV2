@@ -25,6 +25,14 @@ Collect real, permissioned customer proof without publishing fake testimonials o
    - `anniversary`
    - `nightSkyGift`
 
+## Recommended operator statuses
+
+- `new`: buyer allowed review, no follow-up yet
+- `contacted`: asked for quote/photo or clarified permission
+- `approved`: usable proof confirmed internally
+- `published`: quote/photo now live on-site
+- `rejected`: not usable, withdrawn, or insufficient permission
+
 ## Recommended post-purchase proof asks
 
 Ask for:
