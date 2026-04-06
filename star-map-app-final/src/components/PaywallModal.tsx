@@ -16,6 +16,7 @@ import {
 import {
   DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
+  getDigitalCheckoutPrimaryLabel,
   getPrintCheckoutCtaState,
   PRINT_CHECKOUT_REDIRECT_LABEL,
 } from "@/lib/checkoutUi";
@@ -52,7 +53,6 @@ const PAYWALL_COPY: Record<
   {
     title: string;
     subtitle: string;
-    singleCta: string;
     packCta: string;
     subscriptionCta: string;
     badgeLabel: string;
@@ -61,7 +61,6 @@ const PAYWALL_COPY: Record<
   control: {
     title: "Buy this map in HD or print",
     subtitle: "This exact preview is already saved. Start with one-time HD, or switch to the printed gift route when you want a physical keepsake.",
-    singleCta: "Buy this map in HD",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
     badgeLabel: "Repeat use",
@@ -69,7 +68,6 @@ const PAYWALL_COPY: Record<
   value_anchor: {
     title: "Buy this map in HD",
     subtitle: "This exact preview is already saved. Most first-time buyers start with one-time HD and only pay for this map.",
-    singleCta: "Buy this map in HD",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
     badgeLabel: "Repeat use",
@@ -509,12 +507,12 @@ export function PaywallModal({
                   disabled={checkoutInFlight}
                   className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                 >
-                  {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.singleCta}
+                  {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : getDigitalCheckoutPrimaryLabel(priceLabels.single)}
                 </button>
                 <p className="mt-2 text-[11px] text-neutral-600">
                   {checkoutInFlight
                     ? DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT
-                    : "Pay once for this saved design. The HD file unlocks right after payment."}
+                    : "Pay once for this saved design. Preview stays free, and the HD file unlocks right after payment."}
                 </p>
                 <button
                   type="button"
