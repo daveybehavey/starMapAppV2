@@ -478,6 +478,11 @@ export function PaywallModal({
               {checkoutInFlight && (
                 <p className="mt-2 text-[10px] text-amber-100/80">{printCheckoutCtaState.helperText}</p>
               )}
+              {activeIntent === "print" && checkoutError && (
+                <p className="mt-2 rounded-lg border border-rose-200/25 bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-100" role="alert">
+                  {checkoutError}
+                </p>
+              )}
             </div>
           )}
 
@@ -518,6 +523,11 @@ export function PaywallModal({
                 >
                   {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need more than one export? Show pack + unlimited plans"}
                 </button>
+                {activeIntent !== "print" && checkoutError && (
+                  <p className="mt-2 rounded-lg border border-rose-200/60 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700" role="alert">
+                    {checkoutError}
+                  </p>
+                )}
               </div>
 
               {showMoreDigitalOptions && (
@@ -606,7 +616,6 @@ export function PaywallModal({
             If your referral code is eligible, the friend offer is applied automatically at checkout.
           </p>
         )}
-        {checkoutError && <p className="mt-2 text-sm font-semibold text-rose-700">{checkoutError}</p>}
       </div>
     </div>
   );

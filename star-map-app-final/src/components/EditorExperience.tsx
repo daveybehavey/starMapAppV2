@@ -49,6 +49,7 @@ import {
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
   DIGITAL_CHECKOUT_TRUST_LINE,
+  getCheckoutLaunchErrorMessage,
   getPrintCheckoutCtaState,
   PRINT_CHECKOUT_REDIRECT_LABEL,
 } from "@/lib/checkoutUi";
@@ -1439,36 +1440,7 @@ export function EditorExperience({
             includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
           });
         }
-        const checkoutErrorMessage =
-          reason === "invalid_promotion_code"
-            ? "That promo code is invalid or expired. Try another code."
-            : reason === "promotion_not_applicable"
-              ? "That promo code does not apply to this order."
-            : reason === "promotion_lookup_failed"
-              ? "We couldn't verify your promo code right now. Please try again in a moment."
-              : reason === "print_asset_failed"
-                ? "We couldn't prepare your print file yet. Your preview is still here, so try again."
-              : reason === "print_asset_too_large"
-                ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
-              : reason === "print_render_failed"
-                ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
-                : reason === "missing_shipping_country"
-                  ? "Select your shipping country to continue with print checkout."
-                : reason === "print_shipping_country_invalid"
-                  ? "Shipping isn’t available for that country yet. Please select another."
-                  : reason === "print_promotion_margin_blocked"
-                    ? "That promo code would make this print order unavailable for the selected route or country."
-                  : reason === "print_margin_guard_blocked"
-                    ? "That print option is temporarily unavailable for the selected country. Try another format or country."
-                : reason === "print_checkout_disabled"
-                  ? "Print checkout is not live yet."
-                : reason === "map_required"
-                  ? "Generate your map preview before checkout."
-                : reason === "map_not_found"
-                  ? "We couldn't find that saved map. Refresh the preview, then try checkout again."
-                : reason.startsWith("save_failed_") || reason === "map_save_failed"
-                  ? "We couldn't save this map yet. Your preview is still here, so retry in a moment."
-              : "Checkout is unavailable right now. Nothing was charged, and your preview is still here. Please try again shortly.";
+        const checkoutErrorMessage = getCheckoutLaunchErrorMessage({ reason, orderType });
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {
           source: previewSource,

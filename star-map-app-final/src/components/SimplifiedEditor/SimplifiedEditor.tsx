@@ -38,6 +38,7 @@ import {
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
   DIGITAL_CHECKOUT_TRUST_LINE,
+  getCheckoutLaunchErrorMessage,
 } from "@/lib/checkoutUi";
 
 // Lazy load the canvas for better initial load
@@ -653,17 +654,7 @@ export function SimplifiedEditor() {
           orderType: "digital",
         });
       }
-      if (reason === "checkout_timeout") {
-        setExportError("Checkout timed out. Please retry.");
-      } else if (reason === "map_required") {
-        setExportError("Generate a preview before checkout.");
-      } else if (reason === "map_not_found") {
-        setExportError("We couldn't find your saved map. Refresh and try again.");
-      } else if (reason.startsWith("save_failed_") || reason === "map_save_failed") {
-        setExportError("We couldn't save your map yet. Please retry.");
-      } else {
-        setExportError("Unable to start checkout. Please try again.");
-      }
+      setExportError(getCheckoutLaunchErrorMessage({ reason, orderType: "digital" }));
       // Reset state on error
       hdExportInFlightRef.current = false;
       setHdExporting(false);
