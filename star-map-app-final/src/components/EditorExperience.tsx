@@ -2787,7 +2787,7 @@ export function EditorExperience({
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
                               Secure Stripe checkout uses this saved design automatically. Shipping is shown before
-                              payment, then the print order draft is created after payment for manual review. {shippingDisclosure}
+                              payment, then your print order gets a manual quality check before production starts. {shippingDisclosure}
                             </p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">

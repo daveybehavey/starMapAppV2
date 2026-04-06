@@ -26,17 +26,22 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Star Map | StarMapCo",
   description:
-    "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "See the exact night sky from a date and place that matter, personalize the wording, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
     title: "Personalized Star Map | StarMapCo",
     description:
-      "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "See the exact night sky from a date and place that matter, personalize the wording, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: [ogImage] },
+  twitter: {
+    card: "summary_large_image",
+    description:
+      "See the exact night sky from a date and place that matter, personalize the wording, then choose framed print, unframed print, or HD digital delivery.",
+    images: [ogImage],
+  },
 };
 
 export default function PersonalizedStarMapPage() {
@@ -49,7 +54,7 @@ export default function PersonalizedStarMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Star Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Personalize a star map with names, a date, and a location to capture the exact night sky from a meaningful moment.
+          See the exact night sky from the date and place that matter, then personalize the wording and layout before you choose print or HD delivery.
         </p>
         <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -60,8 +65,8 @@ export default function PersonalizedStarMapPage() {
 
       <PreviewStartForm
         source="personalized-star-map"
-        title="Start your personalized preview"
-        description="Enter the date and location, then preview framed print, preview unframed print, or preview first and decide later."
+        title="See your personalized preview"
+        description="Enter the date and place first. We calculate the sky, open the live preview, and you can choose framed print, unframed print, or HD later."
         intentOptions={[
           {
             label: "Preview framed print",
@@ -144,7 +149,7 @@ export default function PersonalizedStarMapPage() {
           "Export up to 6000x6000 resolution",
           "Built for poster-quality prints and framing",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          "Physical orders get a manual quality check before production starts",
           "Email support at support@starmapco.com",
         ]}
         guideLabel="Print size and frame guide"

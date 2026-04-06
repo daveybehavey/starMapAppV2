@@ -241,6 +241,17 @@ export default function PreviewStartForm({
             : "Free preview. No account required."}
         </p>
       </form>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="inline-flex items-center rounded-full border border-amber-200/80 bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-amber-900">
+          Preview before payment
+        </span>
+        <span className="inline-flex items-center rounded-full border border-amber-200/80 bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-amber-900">
+          Calculated from date + place
+        </span>
+        <span className="inline-flex items-center rounded-full border border-amber-200/80 bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-amber-900">
+          Secure checkout + support
+        </span>
+      </div>
     </section>
   );
 }

@@ -26,17 +26,22 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Gift | StarMapCo",
   description:
-    "Give a personalized star map gift that recreates the exact night sky from a special date. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Give the exact night sky from the moment that changed everything. Preview it free first, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/star-map-gift` },
   openGraph: {
     title: "Star Map Gift | StarMapCo",
     description:
-      "Give a personalized star map gift that recreates the exact night sky from a special date. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Give the exact night sky from the moment that changed everything. Preview it free first, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/star-map-gift`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: [ogImage] },
+  twitter: {
+    card: "summary_large_image",
+    description:
+      "Give the exact night sky from the moment that changed everything. Preview it free first, then choose framed print, unframed print, or HD digital delivery.",
+    images: [ogImage],
+  },
 };
 
 export default function StarMapGiftPage() {
@@ -49,8 +54,7 @@ export default function StarMapGiftPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          A personalized star map gift captures the exact sky from a meaningful moment. Start with a free preview, then
-          choose the ready-to-display framed route, the lower-total unframed route, or HD digital delivery.
+          Give the exact night sky from the moment that changed everything. Preview it free first, then choose the ready-to-display framed route, the lower-total unframed route, or HD digital delivery.
         </p>
         <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -61,8 +65,8 @@ export default function StarMapGiftPage() {
 
       <PreviewStartForm
         source="star-map-gift"
-        title="Start your gift preview"
-        description="Enter the moment first, then preview framed print, preview unframed print, or preview first and decide later."
+        title="See the gift preview"
+        description="Enter the date and place first. We build the sky, open the live preview, and you can choose the gift route after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",

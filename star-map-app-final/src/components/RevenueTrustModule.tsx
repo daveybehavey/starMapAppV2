@@ -85,7 +85,7 @@ export default function RevenueTrustModule({
           <div className="brand-light-card rounded-2xl px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">After payment</p>
             <p className="mt-1 text-sm text-neutral-700">
-              Physical orders are created for review first, then manually approved before production begins.
+              Physical orders get a manual quality check before production begins.
             </p>
           </div>
         </div>

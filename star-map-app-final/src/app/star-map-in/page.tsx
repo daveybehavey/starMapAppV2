@@ -142,7 +142,7 @@ export default function StarMapByCityPage() {
         rightPoints={[
           "Unframed and framed print paths are available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          "Physical orders get a manual quality check before production starts",
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

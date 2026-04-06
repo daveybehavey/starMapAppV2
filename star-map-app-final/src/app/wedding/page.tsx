@@ -145,7 +145,7 @@ export default function WeddingPage() {
           "High-resolution file up to 6000x6000",
           "Designed for frame-ready printing",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          "Physical orders get a manual quality check before production starts",
           "Help available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

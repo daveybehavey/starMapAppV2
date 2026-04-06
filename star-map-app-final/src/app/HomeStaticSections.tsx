@@ -69,7 +69,7 @@ export default function HomeStaticSections({
           rightPoints={[
             "Most gift buyers start with framed print; unframed stays available if you already have a frame plan",
             shippingDisclosure,
-            "Physical orders stay in manual review before production starts",
+            "Physical orders get a manual quality check before production starts",
             `Optional HD digital add-on is available on print orders for ${printLabels.digitalAddOn}`,
             `If a print arrives damaged, ${supportEmail} handles it`,
           ]}
