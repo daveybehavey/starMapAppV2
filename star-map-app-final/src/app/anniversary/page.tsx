@@ -96,6 +96,30 @@ export default function AnniversaryPage() {
         secondaryHref="/editor?mode=quick&source=sticky-anniversary-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
+      <FramedProofSection
+        heading="See how the anniversary gift looks framed"
+        intro="The preview lets you refine the typography and layout first. Framed is the premium route when you want the finished piece to arrive ready to display."
+        sourcePrefix="anniversary-proof"
+      />
+      <PurchaseTrustPanel
+        tone="dark"
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only once the wording, date, and layout feel right."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Framed and unframed print paths are available after preview",
+          shippingDisclosure,
+          "Physical orders get a manual quality check before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why this gift matters</h2>
@@ -128,31 +152,6 @@ export default function AnniversaryPage() {
         heading="Choose how you want to keep the anniversary map"
         intro="Most anniversary buyers decide between the finished framed route and the lower-total unframed route. HD digital stays available when you want instant delivery or local printing."
         sourcePrefix="anniversary-format"
-      />
-      <FramedProofSection
-        heading="See how the anniversary gift looks framed"
-        intro="The preview lets you refine the typography and layout first. Framed is the premium route when you want the finished piece to arrive ready to display."
-        sourcePrefix="anniversary-proof"
-      />
-
-      <PurchaseTrustPanel
-        tone="dark"
-        heading="Before you buy"
-        intro="Preview for free first. Upgrade only once the wording, date, and layout feel right."
-        leftTitle="Checkout and files"
-        leftPoints={[
-          "Secure Stripe checkout",
-          "Instant HD download after payment",
-          "No watermark on paid exports",
-        ]}
-        rightTitle="Print and support"
-        rightPoints={[
-          "Framed and unframed print paths are available after preview",
-          shippingDisclosure,
-          "Physical orders get a manual quality check before production starts",
-          "Support is available at support@starmapco.com",
-        ]}
-        guideLabel="Print and frame guide"
       />
       <WhatYouReceiveModule
         heading="What your anniversary order includes"

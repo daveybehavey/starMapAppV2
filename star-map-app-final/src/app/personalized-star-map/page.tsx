@@ -100,6 +100,27 @@ export default function PersonalizedStarMapPage() {
         secondaryHref="/editor?mode=quick&source=sticky-personalized-star-map-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
+      <FramedProofSection sourcePrefix="personalized-proof" />
+      <PurchaseTrustPanel
+        tone="dark"
+        heading="Buy with confidence"
+        intro="Preview first, then pay only when the design feels right. Most buyers start with framed print, while unframed and HD stay available from the same approved design."
+        leftTitle="Checkout and delivery"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "One-time checkout for framed print, unframed print, or HD digital delivery",
+          "Instant HD file unlock after successful payment",
+        ]}
+        rightTitle="Print quality and support"
+        rightPoints={[
+          "Export up to 6000x6000 resolution",
+          "Built for poster-quality prints and framing",
+          shippingDisclosure,
+          "Physical orders get a manual quality check before production starts",
+          "Email support at support@starmapco.com",
+        ]}
+        guideLabel="Print size and frame guide"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Make it truly personal</h2>
@@ -131,28 +152,6 @@ export default function PersonalizedStarMapPage() {
         heading="Pick the right format after you preview"
         intro="Most buyers decide fastest between ready-to-display framed print and the lower-total unframed route. HD digital stays available when instant delivery matters more than shipping."
         sourcePrefix="personalized-format"
-      />
-      <FramedProofSection sourcePrefix="personalized-proof" />
-
-      <PurchaseTrustPanel
-        tone="dark"
-        heading="Buy with confidence"
-        intro="Preview first, then pay only when the design feels right. Most buyers start with framed print, while unframed and HD stay available from the same approved design."
-        leftTitle="Checkout and delivery"
-        leftPoints={[
-          "Secure Stripe checkout",
-          "One-time checkout for framed print, unframed print, or HD digital delivery",
-          "Instant HD file unlock after successful payment",
-        ]}
-        rightTitle="Print quality and support"
-        rightPoints={[
-          "Export up to 6000x6000 resolution",
-          "Built for poster-quality prints and framing",
-          shippingDisclosure,
-          "Physical orders get a manual quality check before production starts",
-          "Email support at support@starmapco.com",
-        ]}
-        guideLabel="Print size and frame guide"
       />
       <WhatYouReceiveModule
         heading="What you receive with your personalized map"

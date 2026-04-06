@@ -59,15 +59,15 @@ const PAYWALL_COPY: Record<
   }
 > = {
   control: {
-    title: "Buy this map in HD or print",
-    subtitle: "This exact preview is already saved. Start with one-time HD, or switch to the printed gift route when you want a physical keepsake.",
+    title: "Get this exact map in HD or print",
+    subtitle: "This exact preview is already saved. Most buyers start with the one-time HD download for this map, then switch to print only if they want a shipped keepsake.",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
     badgeLabel: "Repeat use",
   },
   value_anchor: {
-    title: "Buy this map in HD",
-    subtitle: "This exact preview is already saved. Most first-time buyers start with one-time HD and only pay for this map.",
+    title: "Get this exact map in HD",
+    subtitle: "This exact preview is already saved. The fastest route is the one-time HD download for this map. Print stays available from the other tab if you need a physical gift.",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
     badgeLabel: "Repeat use",
@@ -138,8 +138,8 @@ export function PaywallModal({
   );
   const reassurancePills =
     activeIntent === "print"
-      ? ["Saved preview", "Shipping shown before payment", "Framed or unframed here"]
-      : ["Saved preview", "One-time HD available", "Secure Stripe checkout"];
+      ? ["Saved preview", "Shipping shown before payment", "Quality check before production"]
+      : ["Saved preview", `${priceLabels.single} one-time`, "No subscription"];
 
   useEffect(() => {
     if (!hasPrintOptions) {
@@ -305,7 +305,7 @@ export function PaywallModal({
                   : "text-neutral-700 hover:bg-white/80"
               }`}
             >
-              Digital HD
+              Fast digital
             </button>
             <button
               type="button"
@@ -519,7 +519,7 @@ export function PaywallModal({
                   onClick={handleToggleMoreDigitalOptions}
                   className="mt-2 text-[11px] font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
                 >
-                  {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need more than one export? Show pack + unlimited plans"}
+                  {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need more than one map? Show pack + unlimited plans"}
                 </button>
                 {activeIntent !== "print" && checkoutError && (
                   <p className="mt-2 rounded-lg border border-rose-200/60 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700" role="alert">
@@ -533,7 +533,7 @@ export function PaywallModal({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-midnight">3-credit pack</p>
-                      <p className="text-xs text-neutral-600">Use when you plan to make more maps, revisions, or gifts</p>
+                      <p className="text-xs text-neutral-600">Use when you plan to make more maps, variants, or gifts later</p>
                     </div>
                     <div className="text-right text-sm font-semibold text-amber-800">
                       {priceLabels.pack3}

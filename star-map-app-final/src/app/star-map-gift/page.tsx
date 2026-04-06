@@ -100,6 +100,26 @@ export default function StarMapGiftPage() {
         secondaryHref="/editor?mode=quick&source=sticky-star-map-gift-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
+      <FramedProofSection sourcePrefix="gift-proof" />
+      <PurchaseTrustPanel
+        tone="dark"
+        heading="Confidence before checkout"
+        intro="Build and share your preview for free. Pay only when the wording, frame choice, and delivery route feel right."
+        leftTitle="What happens after payment"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Immediate HD unlock with no watermark",
+          "One-time checkout supports framed print, unframed print, or HD digital delivery",
+        ]}
+        rightTitle="Support and policy"
+        rightPoints={[
+          "Clear returns and refund policy",
+          shippingDisclosure,
+          "Manual review stays in place before physical production begins",
+          "Direct support at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why a star map gift feels different</h2>
@@ -130,27 +150,6 @@ export default function StarMapGiftPage() {
         heading="Choose the gift format after preview"
         intro="Most gift buyers decide between the ready-to-display framed route and the lower-total unframed route. HD digital stays available when you need same-day delivery or local printing."
         sourcePrefix="gift-format"
-      />
-      <FramedProofSection sourcePrefix="gift-proof" />
-
-      <PurchaseTrustPanel
-        tone="dark"
-        heading="Confidence before checkout"
-        intro="Build and share your preview for free. Pay only when the wording, frame choice, and delivery route feel right."
-        leftTitle="What happens after payment"
-        leftPoints={[
-          "Secure Stripe checkout",
-          "Immediate HD unlock with no watermark",
-          "One-time checkout supports framed print, unframed print, or HD digital delivery",
-        ]}
-        rightTitle="Support and policy"
-        rightPoints={[
-          "Clear returns and refund policy",
-          shippingDisclosure,
-          "Manual review stays in place before physical production begins",
-          "Direct support at support@starmapco.com",
-        ]}
-        guideLabel="Print and frame guide"
       />
       <WhatYouReceiveModule
         heading="What your gift purchase includes"

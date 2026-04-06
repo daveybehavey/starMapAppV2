@@ -95,6 +95,27 @@ export default function WeddingPage() {
         secondaryHref="/editor?mode=quick&source=sticky-wedding-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
+      <FramedProofSection sourcePrefix="wedding-proof" />
+      <PurchaseTrustPanel
+        tone="dark"
+        heading="Before you buy"
+        intro="Preview for free first. Most wedding buyers take the framed route once the layout and wording feel final, while unframed and HD stay available from the same design."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "One-time checkout supports framed print, unframed print, or HD digital delivery",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "High-resolution file up to 6000x6000",
+          "Designed for frame-ready printing",
+          shippingDisclosure,
+          "Physical orders get a manual quality check before production starts",
+          "Help available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why couples love this gift</h2>
@@ -127,28 +148,6 @@ export default function WeddingPage() {
         heading="Choose how you want to keep or gift it"
         intro="Wedding buyers usually decide between the ready-to-display framed option and the lower-total unframed route. HD digital stays available when you need instant delivery or local printing."
         sourcePrefix="wedding-format"
-      />
-      <FramedProofSection sourcePrefix="wedding-proof" />
-
-      <PurchaseTrustPanel
-        tone="dark"
-        heading="Before you buy"
-        intro="Preview for free first. Most wedding buyers take the framed route once the layout and wording feel final, while unframed and HD stay available from the same design."
-        leftTitle="Checkout and files"
-        leftPoints={[
-          "Secure Stripe checkout",
-          "Instant HD download after payment",
-          "One-time checkout supports framed print, unframed print, or HD digital delivery",
-        ]}
-        rightTitle="Print and support"
-        rightPoints={[
-          "High-resolution file up to 6000x6000",
-          "Designed for frame-ready printing",
-          shippingDisclosure,
-          "Physical orders get a manual quality check before production starts",
-          "Help available at support@starmapco.com",
-        ]}
-        guideLabel="Print and frame guide"
       />
       <WhatYouReceiveModule
         heading="What your wedding order includes"
