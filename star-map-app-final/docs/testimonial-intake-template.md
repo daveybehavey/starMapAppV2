@@ -26,6 +26,8 @@ Permission:
 Source:
 Photo approved:
 Photo path:
+Photo alt text:
+Photo note:
 ```
 
 ## Example
@@ -38,6 +40,8 @@ Permission: Approved by email on 2026-03-12
 Source: Post-purchase email reply
 Photo approved: Yes
 Photo path: public/testimonials/sarah-k-anniversary.jpg
+Photo alt text: Framed StarMapCo anniversary print displayed on a living-room shelf
+Photo note: Buyer photo, used with permission
 ```
 
 ## Publish rule
@@ -46,5 +50,6 @@ After a testimonial is approved:
 
 1. Add the quote to `src/data/testimonials.ts`
 2. Add the buyer photo only if written approval includes image usage
-3. Keep context concrete: occasion + product format
-4. Avoid editing the buyer's meaning for polish
+3. If a photo is approved, set `imageSrc`, `imageAlt`, and optional `imageNote`
+4. Keep context concrete: occasion + product format
+5. Avoid editing the buyer's meaning for polish
