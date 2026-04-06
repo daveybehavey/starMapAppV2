@@ -2019,7 +2019,12 @@ export default function DownloadClient() {
                 {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
               </div>
             ) : null}
-            <PostPurchaseProofRequest source="download" orderType="digital" plan={currentPlan} />
+            <PostPurchaseProofRequest
+              source="download"
+              orderType="digital"
+              plan={currentPlan}
+              mapId={mapIdFromUrl}
+            />
             <div id="access-link-panel" className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>

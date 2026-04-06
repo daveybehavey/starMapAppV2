@@ -29,6 +29,7 @@ Collect real, permissioned customer proof without publishing fake testimonials o
 
 Ask for:
 
+- direct opt-in if the buyer is comfortable letting StarMapCo review the exact map for website examples
 - one short sentence about the occasion
 - whether they chose digital, unframed, or framed
 - one photo of the finished piece if they are willing
@@ -54,3 +55,4 @@ Ask for:
 - no AI-generated customer quotes
 - no unapproved customer images
 - no star ratings unless backed by a real source
+- no automatic publishing just because a buyer allowed review of the map

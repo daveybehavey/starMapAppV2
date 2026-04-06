@@ -1433,6 +1433,7 @@ export default function SuccessClient() {
                   sessionId={searchParams.get("session_id")}
                   plan={currentPlan}
                   printVariant={printVariant}
+                  mapId={resolvedMapId}
                 />
               </div>
             )}

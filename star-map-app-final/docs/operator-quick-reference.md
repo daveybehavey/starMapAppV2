@@ -202,7 +202,11 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `/success`
   - `/download`
   - both now include a non-public-facing proof request card that asks buyers to email a photo + short note with permission before anything is published
+  - both also support a direct opt-in for StarMapCo to review the purchased map for possible website examples
   - success-page proof requests now include the Stripe session reference in the email draft for easier support follow-up
+  - review-consent KV keys:
+    - `proof:consent:map:<mapId>`
+    - `proof:consent:session:<sessionId>`
 - **Promo signup hardening**:
   - promo emails now include a signed unsubscribe link
   - `/unsubscribe` updates promo signup state server-side
