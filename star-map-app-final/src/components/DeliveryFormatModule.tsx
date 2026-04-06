@@ -33,7 +33,7 @@ export default function DeliveryFormatModule({
       <div className={`grid gap-3 ${printCheckoutEnabled ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
         <article className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
           <p className="text-sm font-semibold text-midnight">HD digital delivery</p>
-          <p className="mt-1 text-xs text-neutral-700">Best for same-day gifting, local printing, or testing different frame shops.</p>
+          <p className="mt-1 text-xs text-neutral-700">Best for same-day gifting, instant keepsakes, or printing locally on your own schedule.</p>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
             <li>Unlocks immediately after payment</li>
             <li>Up to 6000×6000 PNG, no watermark</li>
@@ -50,7 +50,7 @@ export default function DeliveryFormatModule({
         {printCheckoutEnabled ? (
           <article className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 shadow-sm">
             <p className="text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</p>
-            <p className="mt-1 text-xs text-neutral-700">Best if you already know the exact frame or want the lower-cost physical option.</p>
+            <p className="mt-1 text-xs text-neutral-700">Best if you already have a frame plan or want the lower-total physical route.</p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Museum-quality poster stock</li>
               <li>{shippingDisclosure}</li>
@@ -60,7 +60,7 @@ export default function DeliveryFormatModule({
               href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-print-unframed`)}&checkout=print&print_variant=poster_unframed`}
               className="mt-4 inline-flex rounded-full border border-amber-300/70 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-900 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
             >
-              Preview then buy unframed
+              Preview unframed print route
             </Link>
           </article>
         ) : null}
@@ -84,7 +84,7 @@ export default function DeliveryFormatModule({
                 href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-print-framed`)}&checkout=print&print_variant=poster_framed`}
                 className="inline-flex rounded-full bg-midnight px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-midnight/90"
               >
-                Preview then buy framed
+                Preview gift-ready framed route
               </Link>
               <Link
                 href="/how-to-print-star-map"

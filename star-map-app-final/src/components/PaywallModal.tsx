@@ -270,7 +270,7 @@ export function PaywallModal({
             <h3 className="text-lg font-semibold text-midnight">{copy.title}</h3>
             <p className="mt-1 text-xs text-neutral-700">
               {activeIntent === "print" && hasPrintOptions
-                ? "Choose your print route. Framed + HD is the strongest gift path; unframed keeps the total lower."
+                ? "Pick the final delivery route. Framed arrives ready to gift; unframed is best if you already have a frame plan."
                 : copy.subtitle}
             </p>
           </div>
@@ -325,7 +325,7 @@ export function PaywallModal({
           {activeIntent === "print" && hasPrintOptions && printPriceLabels && onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Choose your print format</p>
+                <p className="text-sm font-semibold">Pick the final print route</p>
                 <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                   Physical delivery
                 </span>
@@ -390,9 +390,9 @@ export function PaywallModal({
                     : (
                         <span className="flex items-start justify-between gap-3">
                           <span>
-                            <span className="block text-sm font-semibold">Framed + HD file</span>
+                            <span className="block text-sm font-semibold">Gift-ready framed print + HD backup</span>
                             <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
-                              Recommended when the print is the gift.
+                              Best when the finished piece is the gift and you still want the file.
                             </span>
                           </span>
                           <span className="shrink-0 text-right text-[11px] font-semibold">
@@ -424,9 +424,9 @@ export function PaywallModal({
                     : (
                         <span className="flex items-start justify-between gap-3">
                           <span>
-                            <span className="block text-sm font-semibold">Framed print</span>
+                            <span className="block text-sm font-semibold">Gift-ready framed print</span>
                             <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
-                              Physical print only.
+                              Arrives ready to display.
                             </span>
                           </span>
                           <span className="shrink-0 text-right text-[11px] font-semibold">
@@ -458,9 +458,9 @@ export function PaywallModal({
                     : (
                         <span className="flex items-start justify-between gap-3">
                           <span>
-                            <span className="block text-sm font-semibold">Unframed print</span>
+                            <span className="block text-sm font-semibold">Unframed print only</span>
                             <span className="mt-1 block text-[10px] font-medium text-amber-100/80">
-                              Lower-total print path.
+                              Best if you already have a frame plan.
                             </span>
                           </span>
                           <span className="shrink-0 text-right text-[11px] font-semibold">
@@ -570,10 +570,10 @@ export function PaywallModal({
           {activeIntent !== "print" && onStartPrintCheckout && printPriceLabels && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Prefer a printed gift?</p>
+                <p className="text-sm font-semibold">Need the finished gift to arrive ready to display?</p>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                Open the print tab for framed or unframed checkout from this same saved design.
+                The same saved design can go to a gift-ready framed print or a lower-total unframed print.
               </p>
               <p className="mt-2 text-[11px] text-amber-100/80">
                 Framed from {printPriceLabels.framed} + shipping. Unframed from {printPriceLabels.unframed} + shipping.
@@ -584,7 +584,7 @@ export function PaywallModal({
                 disabled={checkoutInFlight}
                 className="mt-3 w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Open printed gift options
+                See printed gift options
               </button>
             </div>
           )}

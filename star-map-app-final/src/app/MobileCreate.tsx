@@ -1407,10 +1407,9 @@ export function MobileCreate({
           <p className="mt-1 text-[10px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
           {printCheckoutEnabled && printPriceLabels && onOpenPrintOptions && (
             <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
-              <p className="text-[11px] font-semibold text-amber-100">Prefer a printed gift?</p>
+              <p className="text-[11px] font-semibold text-amber-100">Need the finished gift to arrive ready to display?</p>
               <p className="mt-1 text-[10px] text-amber-100/80">
-                Open print checkout from this same saved design. Framed is the premium gift route, while unframed keeps
-                the total lower.
+                The same saved design can go to a gift-ready framed print or a lower-total unframed print.
               </p>
               <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
                 <span className="font-semibold text-amber-100">Framed:</span> {printPriceLabels.framed} + shipping.{" "}
@@ -1422,7 +1421,7 @@ export function MobileCreate({
                 onClick={onOpenPrintOptions}
                 className="mt-2 inline-flex w-full items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
               >
-                Open printed gift options
+                See printed gift options
               </button>
               <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
                   <a
