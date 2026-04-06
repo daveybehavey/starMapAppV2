@@ -2677,32 +2677,33 @@ export function EditorExperience({
                               Printed gift options
                             </button>
                           )}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           {hdCreditLabel && (
-                            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
+                            <span className="inline-flex items-center rounded-full border border-white/15 bg-white/6 px-2.5 py-1 text-[10px] font-semibold text-white/75">
                               {hdCreditLabel}
                             </span>
                           )}
                           <button
                             type="button"
                             onClick={handleShareImage}
-                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:-translate-y-[1px] hover:border-white/25 hover:bg-white/10 hover:text-white focus:ring-2 focus:ring-offset-2 focus:outline-none"
                           >
                             Share image
                           </button>
-                          {showEditor && (
+                          {showEditor ? (
                             <button
                               type="button"
                               onClick={handleShare}
-                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:-translate-y-[1px] hover:border-white/25 hover:bg-white/10 hover:text-white focus:ring-2 focus:ring-offset-2 focus:outline-none"
                             >
                               Save & remix later
                             </button>
-                          )}
-                          {!showEditor && (
+                          ) : (
                             <button
                               type="button"
                               onClick={handleCustomizeMore}
-                              className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/45 bg-amber-300/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/18 focus:ring-2 focus:ring-offset-2 focus:outline-none"
                             >
                               Customize more
                             </button>
