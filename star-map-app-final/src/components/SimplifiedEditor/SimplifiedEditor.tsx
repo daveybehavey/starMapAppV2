@@ -34,10 +34,10 @@ import { track, trackBeginCheckout, trackCheckoutClientDiagnostic } from "@/lib/
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 import {
-  DIGITAL_CHECKOUT_CTA_LABEL,
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
   DIGITAL_CHECKOUT_TRUST_LINE,
+  getDigitalCheckoutPrimaryLabel,
   getCheckoutLaunchErrorMessage,
 } from "@/lib/checkoutUi";
 
@@ -1126,7 +1126,7 @@ export function SimplifiedEditor() {
             ) : paid ? (
               <>HD download</>
             ) : (
-              <>{DIGITAL_CHECKOUT_CTA_LABEL}</>
+              <>{getDigitalCheckoutPrimaryLabel(singlePriceLabel)}</>
             )}
           </button>
           <span id={`${formId}-hd-hint`} className="sr-only">

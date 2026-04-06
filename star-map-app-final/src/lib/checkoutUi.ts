@@ -1,5 +1,5 @@
 export const PRINT_CHECKOUT_REDIRECT_LABEL = "Redirecting to secure checkout...";
-export const DIGITAL_CHECKOUT_CTA_LABEL = "Continue to secure checkout";
+export const DIGITAL_CHECKOUT_CTA_LABEL = "Buy HD download";
 export const DIGITAL_CHECKOUT_REDIRECT_LABEL = "Opening secure checkout...";
 export const DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT =
   "Secure checkout is opening in this tab. Nothing is charged unless Stripe loads and you complete payment. If nothing appears after a few seconds, try again.";
@@ -36,6 +36,10 @@ export function getPrintCheckoutCtaState({
         ? "You'll stay in this tab and be redirected to secure Stripe checkout."
         : "Shipping country controls the available print route and shipping price. Select it first, then choose framed or unframed checkout.",
   };
+}
+
+export function getDigitalCheckoutPrimaryLabel(priceLabel?: string | null) {
+  return priceLabel ? `Buy HD for ${priceLabel}` : DIGITAL_CHECKOUT_CTA_LABEL;
 }
 
 type CheckoutLaunchErrorInput = {

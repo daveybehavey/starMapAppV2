@@ -22,9 +22,9 @@ import {
   getPrintShippingCountryLabel,
 } from "@/lib/printfulShipping";
 import {
-  DIGITAL_CHECKOUT_CTA_LABEL,
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_TRUST_LINE,
+  getDigitalCheckoutPrimaryLabel,
 } from "@/lib/checkoutUi";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
@@ -1378,7 +1378,7 @@ export function MobileCreate({
               aria-label="HD export"
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
             >
-              {paid ? "HD download" : DIGITAL_CHECKOUT_CTA_LABEL}
+              {paid ? "HD download" : getDigitalCheckoutPrimaryLabel(singlePriceLabel)}
             </button>
           </div>
           {hdCreditLabel && (

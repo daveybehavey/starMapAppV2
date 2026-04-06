@@ -44,11 +44,11 @@ import {
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
 import {
-  DIGITAL_CHECKOUT_CTA_LABEL,
   DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT,
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
   DIGITAL_CHECKOUT_TRUST_LINE,
+  getDigitalCheckoutPrimaryLabel,
   getCheckoutLaunchErrorMessage,
   getPrintCheckoutCtaState,
   PRINT_CHECKOUT_REDIRECT_LABEL,
@@ -2647,7 +2647,7 @@ export function EditorExperience({
                             title={
                               paid
                                 ? "Download your HD file without watermark."
-                                : "Continue to secure checkout for HD without watermark; free preview stays available."
+                                : `Buy this map in HD${priceLabels.single ? ` for ${priceLabels.single}` : ""}. Free preview stays available until payment is completed.`
                             }
                           >
                             {hdExportInFlight
@@ -2656,7 +2656,7 @@ export function EditorExperience({
                                 : DIGITAL_CHECKOUT_REDIRECT_LABEL
                               : paid
                                 ? "HD download"
-                                : DIGITAL_CHECKOUT_CTA_LABEL}
+                                : getDigitalCheckoutPrimaryLabel(priceLabels.single)}
                           </button>
                           {printCheckoutEnabled && (
                             <button
