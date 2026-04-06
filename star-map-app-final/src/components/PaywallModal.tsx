@@ -103,6 +103,11 @@ export function PaywallModal({
   const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
   const showDigitalPlans = !hasPrintOptions || activeIntent !== "print";
+  const headerTitle = activeIntent === "print" && hasPrintOptions ? "Choose your printed gift route" : copy.title;
+  const headerSubtitle =
+    activeIntent === "print" && hasPrintOptions
+      ? "Pick the final delivery route. Framed arrives ready to gift; unframed is best if you already have a frame plan."
+      : copy.subtitle;
   const viewedListsRef = useRef<Set<string>>(new Set());
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
@@ -268,12 +273,8 @@ export function PaywallModal({
       <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[1.75rem] border border-amber-200 bg-[rgba(247,241,227,0.98)] px-4 pb-5 pt-4 shadow-2xl shadow-black/25 sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-midnight">{copy.title}</h3>
-            <p className="mt-1 text-xs text-neutral-700">
-              {activeIntent === "print" && hasPrintOptions
-                ? "Pick the final delivery route. Framed arrives ready to gift; unframed is best if you already have a frame plan."
-                : copy.subtitle}
-            </p>
+            <h3 className="text-lg font-semibold text-midnight">{headerTitle}</h3>
+            <p className="mt-1 text-xs text-neutral-700">{headerSubtitle}</p>
           </div>
           <button
             type="button"
