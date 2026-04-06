@@ -79,6 +79,11 @@ export default function PostPurchaseProofRequest({
   const [reviewConsentSaving, setReviewConsentSaving] = useState(false);
   const [reviewConsentEnabled, setReviewConsentEnabled] = useState(false);
   const [reviewConsentError, setReviewConsentError] = useState<string | null>(null);
+  const [buyerContext, setBuyerContext] = useState("");
+  const [buyerNote, setBuyerNote] = useState("");
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const business = getBusinessProfile();
   const supportEmail = business.email;
   const emailDraft = useMemo(
@@ -121,8 +126,12 @@ export default function PostPurchaseProofRequest({
           setReviewConsentLoaded(true);
           return;
         }
-        const data = (await res.json().catch(() => null)) as { optedIn?: boolean } | null;
+        const data = (await res.json().catch(() => null)) as
+          | { optedIn?: boolean; buyerContext?: string | null; buyerNote?: string | null }
+          | null;
         setReviewConsentEnabled(Boolean(data?.optedIn));
+        setBuyerContext(data?.buyerContext ?? "");
+        setBuyerNote(data?.buyerNote ?? "");
         setReviewConsentLoaded(true);
       } catch {
         if (!active) return;
@@ -173,6 +182,46 @@ export default function PostPurchaseProofRequest({
     }
   }
 
+  async function handleFeedbackSave() {
+    setFeedbackSaving(true);
+    setFeedbackSaved(false);
+    setFeedbackError(null);
+    try {
+      const res = await fetch("/api/proof/consent", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mapId: mapId ?? undefined,
+          buyerContext,
+          buyerNote,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { ok?: boolean; buyerContext?: string | null; buyerNote?: string | null }
+        | null;
+      if (!res.ok || !data?.ok) {
+        setFeedbackError("Couldn't save that note right now.");
+        track("proof_feedback_save_failed", { source, orderType });
+        return;
+      }
+      setBuyerContext(data.buyerContext ?? "");
+      setBuyerNote(data.buyerNote ?? "");
+      setFeedbackSaved(true);
+      track("proof_feedback_saved", {
+        source,
+        orderType,
+        hasContext: Boolean(data.buyerContext),
+        hasNote: Boolean(data.buyerNote),
+      });
+      window.setTimeout(() => setFeedbackSaved(false), 1800);
+    } catch {
+      setFeedbackError("Couldn't save that note right now.");
+      track("proof_feedback_save_failed", { source, orderType });
+    } finally {
+      setFeedbackSaving(false);
+    }
+  }
+
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
       <div className="space-y-4">
@@ -218,6 +267,49 @@ export default function PostPurchaseProofRequest({
             {reviewConsentError ? <p className="mt-2 text-[11px] text-rose-200">{reviewConsentError}</p> : null}
           </div>
         ) : null}
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">Optional buyer note</p>
+          <h4 className="mt-1 text-sm font-semibold text-white">Leave a short note we can review later</h4>
+          <p className="mt-1 text-xs text-neutral-200">
+            This stays internal until you separately approve anything for publication. It gives StarMapCo a real quote candidate tied to this paid map.
+          </p>
+          <div className="mt-3 grid gap-3">
+            <label className="space-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100/80">Occasion or context</span>
+              <input
+                type="text"
+                maxLength={80}
+                value={buyerContext}
+                onChange={(event) => setBuyerContext(event.target.value)}
+                placeholder="Anniversary gift, framed print"
+                className="w-full rounded-2xl border border-white/15 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-neutral-400 focus:border-amber-300/60 focus:outline-none"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100/80">Short note</span>
+              <textarea
+                rows={4}
+                maxLength={320}
+                value={buyerNote}
+                onChange={(event) => setBuyerNote(event.target.value)}
+                placeholder="Why this date mattered, how you used the map, or how the gift landed."
+                className="w-full rounded-2xl border border-white/15 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-neutral-400 focus:border-amber-300/60 focus:outline-none"
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleFeedbackSave()}
+              disabled={feedbackSaving || !reviewConsentLoaded}
+              className="inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-400/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {feedbackSaving ? "Saving..." : feedbackSaved ? "Note saved" : "Save note"}
+            </button>
+            <p className="text-[11px] text-neutral-300">Keep it short. This can be edited later from the same paid session.</p>
+          </div>
+          {feedbackError ? <p className="mt-2 text-[11px] text-rose-200">{feedbackError}</p> : null}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">Help us collect real proof</p>

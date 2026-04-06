@@ -240,6 +240,8 @@ function printTable(records) {
     order: record.orderType || "-",
     plan: record.plan || "-",
     variant: record.printVariant || "-",
+    context: record.buyerContext || "-",
+    note: record.buyerNote ? `${record.buyerNote.slice(0, 48)}${record.buyerNote.length > 48 ? "..." : ""}` : "-",
     mapId: record.mapId || "-",
     sessionId: record.sessionId || "-",
     consent: record.websiteUsageAllowed ? "allowed" : "removed",

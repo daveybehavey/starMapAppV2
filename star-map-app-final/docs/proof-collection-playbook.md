@@ -43,6 +43,14 @@ Ask for:
 - one photo of the finished piece if they are willing
 - explicit permission to publish quote and image
 
+## In-app note capture
+
+Paid buyers can now save a short internal note from `/success` or `/download`.
+
+- use it as a raw quote candidate, not publish-ready copy
+- treat it as internal until publication permission is explicit
+- use the proof-consent report to review note text before follow-up
+
 ## Placement rules
 
 - put proof near the highest-friction purchase decision, not buried in the footer

@@ -25,6 +25,9 @@ type ProofConsentRecord = {
   plan?: CheckoutPlan | null;
   printVariant?: PrintVariant | null;
   websiteUsageAllowed: boolean;
+  buyerContext?: string | null;
+  buyerNote?: string | null;
+  feedbackUpdatedAt?: string | null;
   reviewStatus?: "new" | "contacted" | "approved" | "published" | "rejected";
   reviewUpdatedAt?: string;
   createdAt: string;
@@ -43,6 +46,8 @@ type AuthorizedMap = AuthorizedSession & {
 const sessionKey = (id: string) => `stripe:session:${id}`;
 const proofConsentMapKey = (mapId: string) => `proof:consent:map:${mapId}`;
 const proofConsentSessionKey = (sessionId: string) => `proof:consent:session:${sessionId}`;
+const MAX_BUYER_CONTEXT_LENGTH = 80;
+const MAX_BUYER_NOTE_LENGTH = 320;
 
 function normalizeMapId(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -64,6 +69,21 @@ function normalizePlan(raw: unknown): CheckoutPlan | null {
 
 function normalizePrintVariant(raw: unknown): PrintVariant | null {
   return raw === "poster_framed" || raw === "poster_unframed" ? raw : null;
+}
+
+function normalizeOptionalText(raw: unknown, maxLength: number) {
+  if (raw == null) return { ok: true as const, value: null };
+  if (typeof raw !== "string") {
+    return { ok: false as const, error: NextResponse.json({ ok: false, error: "invalid_text" }, { status: 400 }) };
+  }
+
+  const value = raw.replace(/\u0000/g, "").trim();
+  if (!value) return { ok: true as const, value: null };
+  if (value.length > maxLength) {
+    return { ok: false as const, error: NextResponse.json({ ok: false, error: "text_too_long" }, { status: 400 }) };
+  }
+
+  return { ok: true as const, value };
 }
 
 async function getAuthorizedSession(req: NextRequest): Promise<AuthorizedSession | RouteError> {
@@ -119,6 +139,9 @@ export async function GET(req: NextRequest) {
     ok: true,
     available: true,
     optedIn: Boolean(record?.websiteUsageAllowed),
+    buyerContext: record?.buyerContext ?? null,
+    buyerNote: record?.buyerNote ?? null,
+    feedbackUpdatedAt: record?.feedbackUpdatedAt ?? null,
     updatedAt: record?.updatedAt ?? null,
   });
 }
@@ -158,6 +181,9 @@ export async function POST(req: NextRequest) {
     plan,
     printVariant,
     websiteUsageAllowed: true,
+    buyerContext: existing?.buyerContext ?? null,
+    buyerNote: existing?.buyerNote ?? null,
+    feedbackUpdatedAt: existing?.feedbackUpdatedAt ?? null,
     reviewStatus: existing?.reviewStatus ?? "new",
     reviewUpdatedAt: existing?.reviewUpdatedAt ?? now,
     createdAt: existing?.createdAt ?? now,
@@ -195,6 +221,9 @@ export async function DELETE(req: NextRequest) {
     plan: existing?.plan ?? resolved.session.plan ?? null,
     printVariant: existing?.printVariant ?? resolved.session.printVariant ?? null,
     websiteUsageAllowed: false,
+    buyerContext: existing?.buyerContext ?? null,
+    buyerNote: existing?.buyerNote ?? null,
+    feedbackUpdatedAt: existing?.feedbackUpdatedAt ?? null,
     reviewStatus: existing?.reviewStatus ?? "new",
     reviewUpdatedAt: existing?.reviewUpdatedAt ?? now,
     createdAt: existing?.createdAt ?? now,
@@ -207,6 +236,60 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     optedIn: false,
+    updatedAt: record.updatedAt,
+  });
+}
+
+export async function PATCH(req: NextRequest) {
+  const ip = getClientIp(req);
+  const rateLimit = await checkRateLimit(`proof:consent:patch:${ip}`, 10, 60 * 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
+  }
+
+  const body = (await req.json().catch(() => null)) as
+    | {
+        mapId?: unknown;
+        buyerContext?: unknown;
+        buyerNote?: unknown;
+      }
+    | null;
+
+  const resolved = await resolveAuthorizedMap(req, body?.mapId);
+  if ("error" in resolved) return resolved.error;
+
+  const normalizedContext = normalizeOptionalText(body?.buyerContext, MAX_BUYER_CONTEXT_LENGTH);
+  if (!normalizedContext.ok) return normalizedContext.error;
+  const normalizedNote = normalizeOptionalText(body?.buyerNote, MAX_BUYER_NOTE_LENGTH);
+  if (!normalizedNote.ok) return normalizedNote.error;
+
+  const existing = await kv.get<ProofConsentRecord>(proofConsentMapKey(resolved.mapId));
+  const now = new Date().toISOString();
+  const record: ProofConsentRecord = {
+    sessionId: resolved.sessionId,
+    mapId: resolved.mapId,
+    source: existing?.source ?? "success",
+    orderType: existing?.orderType ?? resolved.session.orderType ?? "digital",
+    plan: existing?.plan ?? resolved.session.plan ?? null,
+    printVariant: existing?.printVariant ?? resolved.session.printVariant ?? null,
+    websiteUsageAllowed: existing?.websiteUsageAllowed ?? false,
+    buyerContext: normalizedContext.value,
+    buyerNote: normalizedNote.value,
+    feedbackUpdatedAt: now,
+    reviewStatus: existing?.reviewStatus ?? "new",
+    reviewUpdatedAt: existing?.reviewUpdatedAt ?? now,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  };
+
+  await kv.set(proofConsentMapKey(resolved.mapId), record, { ex: 60 * 60 * 24 * 400 });
+  await kv.set(proofConsentSessionKey(resolved.sessionId), record, { ex: 60 * 60 * 24 * 400 });
+
+  return NextResponse.json({
+    ok: true,
+    buyerContext: record.buyerContext,
+    buyerNote: record.buyerNote,
+    feedbackUpdatedAt: record.feedbackUpdatedAt,
     updatedAt: record.updatedAt,
   });
 }
