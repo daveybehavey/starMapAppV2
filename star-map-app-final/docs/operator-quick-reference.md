@@ -203,6 +203,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `/download`
   - both now include a non-public-facing proof request card that asks buyers to email a photo + short note with permission before anything is published
   - both also support a direct opt-in for StarMapCo to review the purchased map for possible website examples
+  - list current review opt-ins:
+    - `npm run ops:proof-consents`
+    - `npm run ops:proof-consents -- --all`
+    - `npm run ops:proof-consents -- --json`
   - success-page proof requests now include the Stripe session reference in the email draft for easier support follow-up
   - review-consent KV keys:
     - `proof:consent:map:<mapId>`
