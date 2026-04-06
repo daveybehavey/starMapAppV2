@@ -4,7 +4,7 @@ export const DIGITAL_CHECKOUT_REDIRECT_LABEL = "Opening secure checkout...";
 export const DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT =
   "Secure checkout is opening in this tab. Nothing is charged unless Stripe loads and you complete payment. If nothing appears after a few seconds, try again.";
 export const DIGITAL_CHECKOUT_HELPER_TEXT =
-  "Preview stays free until this exact map feels right. Continue to secure checkout to unlock the HD file without watermark.";
+  "Preview stays free until this exact map feels right. Buy HD when you're ready to remove the watermark.";
 export const DIGITAL_CHECKOUT_TRUST_LINE =
   "One-time secure Stripe checkout supports cards plus Apple Pay, Google Pay, and Link on supported devices.";
 

@@ -2647,7 +2647,7 @@ export function EditorExperience({
                             title={
                               paid
                                 ? "Download your HD file without watermark."
-                                : `Buy this map in HD${priceLabels.single ? ` for ${priceLabels.single}` : ""}. Free preview stays available until payment is completed.`
+                                : `Buy HD${priceLabels.single ? ` for ${priceLabels.single}` : ""}. Free preview stays available until payment is completed.`
                             }
                           >
                             {hdExportInFlight
