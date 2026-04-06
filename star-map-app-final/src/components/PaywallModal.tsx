@@ -102,6 +102,7 @@ export function PaywallModal({
   const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
   const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
+  const showDigitalPlans = !hasPrintOptions || activeIntent !== "print";
   const viewedListsRef = useRef<Set<string>>(new Set());
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
@@ -158,7 +159,7 @@ export function PaywallModal({
   }, [printShippingCountry]);
 
   useEffect(() => {
-    if (!viewedListsRef.current.has("paywall_digital_primary")) {
+    if (showDigitalPlans && !viewedListsRef.current.has("paywall_digital_primary")) {
       trackViewItemList({
         itemListId: "paywall_digital_primary",
         itemListName: "Paywall digital primary option",
@@ -167,7 +168,7 @@ export function PaywallModal({
       viewedListsRef.current.add("paywall_digital_primary");
     }
 
-    if (showMoreDigitalOptions && !viewedListsRef.current.has("paywall_digital_secondary")) {
+    if (showDigitalPlans && showMoreDigitalOptions && !viewedListsRef.current.has("paywall_digital_secondary")) {
       trackViewItemList({
         itemListId: "paywall_digital_secondary",
         itemListName: "Paywall digital secondary options",
@@ -201,7 +202,7 @@ export function PaywallModal({
             ],
     });
     viewedListsRef.current.add(listId);
-  }, [activeIntent, hasPrintOptions, printPriceLabels, showMoreDigitalOptions]);
+  }, [activeIntent, hasPrintOptions, printPriceLabels, showDigitalPlans, showMoreDigitalOptions]);
 
   const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
     const listId = plan === "single" ? "paywall_digital_primary" : "paywall_digital_secondary";
@@ -479,92 +480,96 @@ export function PaywallModal({
             </div>
           )}
 
-          <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-midnight">One-time HD for this map</p>
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-                      One-time
-                    </span>
+          {showDigitalPlans && (
+            <>
+              <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-midnight">One-time HD for this map</p>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                          One-time
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-600">1 print-ready HD file for this saved map. No subscription required.</p>
+                    </div>
+                  <div className="text-right text-sm font-semibold text-amber-800">
+                    <span>{priceLabels.single}</span>
                   </div>
-                  <p className="text-xs text-neutral-600">1 print-ready HD file for this saved map. No subscription required.</p>
                 </div>
-              <div className="text-right text-sm font-semibold text-amber-800">
-                <span>{priceLabels.single}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDigitalCheckoutClick("single")}
+                  disabled={checkoutInFlight}
+                  className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                >
+                  {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.singleCta}
+                </button>
+                <p className="mt-2 text-[11px] text-neutral-600">
+                  {checkoutInFlight
+                    ? DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT
+                    : "Pay once for this saved design. The HD file unlocks right after payment."}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleToggleMoreDigitalOptions}
+                  className="mt-2 text-[11px] font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                >
+                  {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need more than one export? Show pack + unlimited plans"}
+                </button>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleDigitalCheckoutClick("single")}
-              disabled={checkoutInFlight}
-              className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-            >
-              {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.singleCta}
-            </button>
-            <p className="mt-2 text-[11px] text-neutral-600">
-              {checkoutInFlight
-                ? DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT
-                : "Pay once for this saved design. The HD file unlocks right after payment."}
-            </p>
-            <button
-              type="button"
-              onClick={handleToggleMoreDigitalOptions}
-              className="mt-2 text-[11px] font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
-            >
-              {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need more than one export? Show pack + unlimited plans"}
-            </button>
-          </div>
 
-          {showMoreDigitalOptions && (
-            <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-midnight">3-credit pack</p>
-                  <p className="text-xs text-neutral-600">Use when you plan to make more maps, revisions, or gifts</p>
-                </div>
-                <div className="text-right text-sm font-semibold text-amber-800">
-                  {priceLabels.pack3}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleDigitalCheckoutClick("pack3")}
-                disabled={checkoutInFlight}
-                className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-              >
-                {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.packCta}
-              </button>
-              <p className="mt-2 text-[11px] text-neutral-600">Each HD export uses one credit from this pack.</p>
-            </div>
-          )}
-
-          {showMoreDigitalOptions && (
-            <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-midnight">Unlimited monthly</p>
-                    <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-midnight">
-                      {copy.badgeLabel}
-                    </span>
+              {showMoreDigitalOptions && (
+                <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-midnight">3-credit pack</p>
+                      <p className="text-xs text-neutral-600">Use when you plan to make more maps, revisions, or gifts</p>
+                    </div>
+                    <div className="text-right text-sm font-semibold text-amber-800">
+                      {priceLabels.pack3}
+                    </div>
                   </div>
-                  <p className="text-xs text-neutral-700">Unlimited HD exports for ongoing use • cancel anytime</p>
+                  <button
+                    type="button"
+                    onClick={() => handleDigitalCheckoutClick("pack3")}
+                    disabled={checkoutInFlight}
+                    className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                  >
+                    {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.packCta}
+                  </button>
+                  <p className="mt-2 text-[11px] text-neutral-600">Each HD export uses one credit from this pack.</p>
                 </div>
-                <div className="text-right text-sm font-semibold text-amber-900">
-                  {priceLabels.subscription}
-                  <span className="text-xs text-amber-900/70">/mo</span>
+              )}
+
+              {showMoreDigitalOptions && (
+                <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-midnight">Unlimited monthly</p>
+                        <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-midnight">
+                          {copy.badgeLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-700">Unlimited HD exports for ongoing use • cancel anytime</p>
+                    </div>
+                    <div className="text-right text-sm font-semibold text-amber-900">
+                      {priceLabels.subscription}
+                      <span className="text-xs text-amber-900/70">/mo</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDigitalCheckoutClick("subscription")}
+                    disabled={checkoutInFlight}
+                    className="mt-3 w-full rounded-full bg-[#0b1433] px-4 py-2 text-sm font-semibold text-amber-100 shadow-md transition hover:-translate-y-[1px] hover:bg-[#0b1a40] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                  >
+                    {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.subscriptionCta}
+                  </button>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleDigitalCheckoutClick("subscription")}
-                disabled={checkoutInFlight}
-                className="mt-3 w-full rounded-full bg-[#0b1433] px-4 py-2 text-sm font-semibold text-amber-100 shadow-md transition hover:-translate-y-[1px] hover:bg-[#0b1a40] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-              >
-                {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.subscriptionCta}
-              </button>
-            </div>
+              )}
+            </>
           )}
 
           {activeIntent !== "print" && onStartPrintCheckout && printPriceLabels && (
