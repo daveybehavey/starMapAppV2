@@ -10,8 +10,10 @@ dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const DEFAULT_SITE = "https://starmapco.com";
-const PAYWALL_HEADING = /Buy this map in HD or print|Buy this map in HD|Unlock HD exports in seconds|Download your print-ready star map/i;
-const SINGLE_CTA = /Continue with single|Get 1 HD map|Get 1 HD file|Buy single|Buy this map in HD/i;
+const PAYWALL_HEADING =
+  /Get this exact map in HD or print|Get this exact map in HD|Buy this map in HD or print|Buy this map in HD|Unlock HD exports in seconds|Download your print-ready star map/i;
+const SINGLE_CTA =
+  /Buy HD for|Continue with single|Get 1 HD map|Get 1 HD file|Buy single|Buy this map in HD/i;
 
 function parseArgs(argv) {
   const args = {
