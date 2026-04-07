@@ -1440,35 +1440,34 @@ export function MobileCreate({
               </div>
             )}
 
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={onShareImage}
-                  aria-label="Share star map"
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
-                >
-                  Share image
-                </button>
-                {showEditor && (
-                  <button
-                    type="button"
-                    onClick={onShare}
-                    aria-label="Save and remix star map"
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
-                  >
-                    Save & remix later
-                  </button>
-                )}
-              </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={handleCustomizeMore}
-                aria-expanded={showEditor}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95"
+                onClick={onShareImage}
+                aria-label="Share star map"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:-translate-y-[1px] hover:border-white/25 hover:bg-white/10 hover:text-white active:scale-95"
               >
-                {showEditor ? "Less options" : "Customize more"}
+                Share image
               </button>
+              {showEditor ? (
+                <button
+                  type="button"
+                  onClick={onShare}
+                  aria-label="Save and remix star map"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/6 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:-translate-y-[1px] hover:border-white/25 hover:bg-white/10 hover:text-white active:scale-95"
+                >
+                  Save & remix later
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCustomizeMore}
+                  aria-expanded={showEditor}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/45 bg-amber-300/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/18 active:scale-95"
+                >
+                  Customize more
+                </button>
+              )}
             </div>
           </>
         )}
