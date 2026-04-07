@@ -70,9 +70,8 @@ export default function HomeHero() {
             </span>
           </h1>
           <p className="mx-auto max-w-2xl text-base text-neutral-200 sm:text-lg">
-            Enter the date and place, preview it free, then choose gift-ready{" "}
-            {printTiers.poster_framed.label.toLowerCase()}, the lower-total {printTiers.poster_unframed.label.toLowerCase()},
-            or HD digital delivery from the same design.
+            Enter the date and place to preview the exact sky free in seconds,
+            then choose HD download or a printed gift from the same design.
           </p>
           <p className="mx-auto max-w-2xl text-sm text-amber-100/85 sm:hidden">
             Framed stays premium. HD stays fastest when same-day delivery matters.
