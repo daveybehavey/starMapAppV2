@@ -27,12 +27,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Night Sky Map Gift | StarMapCo",
   description:
-    "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Preview a night sky map gift from any meaningful date and place, then choose HD delivery or a printed keepsake.",
   alternates: { canonical: `${siteUrl}/night-sky-map-gift` },
   openGraph: {
     title: "Night Sky Map Gift | StarMapCo",
     description:
-      "Give a night sky map gift for anniversaries, birthdays, weddings, or memorials. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Preview a night sky map gift from any meaningful date and place, then choose HD delivery or a printed keepsake.",
     url: `${siteUrl}/night-sky-map-gift`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -50,8 +50,7 @@ export default function NightSkyMapGiftPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Night Sky Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          A night sky map gift captures the exact stars from a meaningful date and place. Start with a free preview, then
-          choose the framed gift route, the lower-total unframed route, or HD digital delivery.
+          Preview a night sky map gift from any meaningful date and place, then choose HD delivery or a printed keepsake.
         </p>
         <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -63,7 +62,7 @@ export default function NightSkyMapGiftPage() {
       <PreviewStartForm
         source="night-sky-map-gift"
         title="Start the night-sky gift preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        description="Enter the date and place to open the live preview. Choose the final delivery route after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",

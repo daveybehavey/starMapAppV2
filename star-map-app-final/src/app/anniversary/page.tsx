@@ -26,12 +26,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Anniversary Star Map | StarMapCo",
   description:
-    "Celebrate your years together with a personalized anniversary star map. Start with a free preview, then choose framed print, unframed print, or HD digital delivery from the same design.",
+    "Preview the exact night sky from the anniversary date and place that shaped your story, then choose HD delivery or a printed keepsake.",
   alternates: { canonical: `${siteUrl}/anniversary` },
   openGraph: {
     title: "Personalized Anniversary Star Map | StarMapCo",
     description:
-      "Commemorate your anniversary with the exact night sky from your milestone. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Preview the exact night sky from the anniversary date and place that shaped your story, then choose HD delivery or a printed keepsake.",
     url: `${siteUrl}/anniversary`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -49,8 +49,7 @@ export default function AnniversaryPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Anniversary Star Map</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
-          Mark your milestone with an anniversary star map gift showing the night sky from the date and place that shaped
-          your story. A keepsake that grows more meaningful each year.
+          Preview the exact night sky from the anniversary date and place that shaped your story, then choose HD delivery or a printed keepsake.
         </p>
         <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -62,7 +61,7 @@ export default function AnniversaryPage() {
       <PreviewStartForm
         source="anniversary"
         title="Start your anniversary preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        description="Enter the date and place to open the live preview. Choose the final delivery route after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",

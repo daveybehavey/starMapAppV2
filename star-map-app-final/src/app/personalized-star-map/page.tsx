@@ -26,12 +26,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Star Map | StarMapCo",
   description:
-    "See the exact night sky from a date and place that matter, personalize the wording, then choose framed print, unframed print, or HD digital delivery.",
+    "Preview the exact night sky from any meaningful date and place, personalize the wording, then choose HD download or a printed keepsake.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
     title: "Personalized Star Map | StarMapCo",
     description:
-      "See the exact night sky from a date and place that matter, personalize the wording, then choose framed print, unframed print, or HD digital delivery.",
+      "Preview the exact night sky from any meaningful date and place, personalize the wording, then choose HD download or a printed keepsake.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -54,7 +54,7 @@ export default function PersonalizedStarMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Star Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          See the exact night sky from the date and place that matter, then personalize the wording and layout before you choose print or HD delivery.
+          Preview the exact night sky from any meaningful date and place, then personalize the wording before you choose HD download or a printed keepsake.
         </p>
         <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -66,7 +66,7 @@ export default function PersonalizedStarMapPage() {
       <PreviewStartForm
         source="personalized-star-map"
         title="See your personalized preview"
-        description="Enter the date and place first. We calculate the sky, open the live preview, and you can choose framed print, unframed print, or HD later."
+        description="Enter the date and place to open the live preview. Choose HD or print after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",

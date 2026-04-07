@@ -26,11 +26,11 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map | StarMapCo",
   description:
-    "Create a personalized wedding star map from your ceremony date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Preview the exact night sky from your wedding day and place, then choose HD delivery or a printed keepsake.",
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map | StarMapCo",
-    description: "Capture the exact night sky from your wedding day and place. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    description: "Preview the exact night sky from your wedding day and place, then choose HD delivery or a printed keepsake.",
     url: `${siteUrl}/wedding`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -48,8 +48,7 @@ export default function WeddingPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Wedding Star Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Capture the exact night sky from your wedding day and place. Start with a free preview, then choose framed print,
-          unframed print, or HD digital delivery from the same approved design.
+          Preview the exact night sky from your wedding day and place, then choose HD delivery or a printed keepsake.
         </p>
         <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -61,7 +60,7 @@ export default function WeddingPage() {
       <PreviewStartForm
         source="wedding"
         title="Start your wedding preview"
-        description="Enter the wedding date and place, then preview framed print, preview unframed print, or preview first and decide later."
+        description="Enter the wedding date and place to open the live preview. Choose the final delivery route after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",
