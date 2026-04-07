@@ -212,6 +212,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - `npm run ops:proof-consents -- --set-status contacted --map <mapId>`
     - `npm run ops:proof-consents -- --set-status approved --session <sessionId>`
     - statuses: `new`, `contacted`, `approved`, `published`, `rejected`
+  - generate a publish-ready testimonial intake stub from a consented record:
+    - `npm run ops:proof-consents -- --template --map <mapId>`
+    - `npm run ops:proof-consents -- --template --session <sessionId>`
   - saved buyer notes now appear in the proof-consent report under `context` and `note`
   - success-page proof requests now include the Stripe session reference in the email draft for easier support follow-up
   - review-consent KV keys:

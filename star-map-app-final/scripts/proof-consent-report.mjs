@@ -57,6 +57,8 @@ function usage() {
   node scripts/proof-consent-report.mjs --status contacted
   node scripts/proof-consent-report.mjs --set-status approved --map <mapId>
   node scripts/proof-consent-report.mjs --set-status published --session <checkout_session_id>
+  node scripts/proof-consent-report.mjs --template --map <mapId>
+  node scripts/proof-consent-report.mjs --template --session <checkout_session_id>
 
 Options:
   --all                 Include records where permission was removed
@@ -64,6 +66,7 @@ Options:
   --limit <n>           Max records to fetch (default: 50, max: 500)
   --status <value>      Filter report by review status
   --set-status <value>  Update a record to new|contacted|approved|published|rejected
+  --template            Print a testimonial intake template for one record
   --map <id>            Map id for status updates
   --session <id>        Checkout session id for status updates
 `);
@@ -227,6 +230,54 @@ function formatDate(value) {
   return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
+function formatTemplateDate(value) {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().slice(0, 10);
+}
+
+function describeRecordContext(record) {
+  if (record.buyerContext?.trim()) return record.buyerContext.trim();
+
+  const parts = [];
+  if (record.orderType === "print") {
+    if (record.printVariant === "poster_framed") parts.push("Framed print");
+    if (record.printVariant === "poster_unframed") parts.push("Unframed print");
+  } else if (record.orderType === "digital") {
+    parts.push("HD digital");
+  }
+
+  if (record.source === "success") parts.push("post-purchase");
+  if (record.source === "download") parts.push("download follow-up");
+
+  return parts.join(", ") || "Customer submission";
+}
+
+function buildIntakeTemplate(record) {
+  return [
+    "Quote:",
+    "Author:",
+    `Context: ${describeRecordContext(record)}`,
+    `Permission: Website review consent saved on ${formatTemplateDate(record.updatedAt || record.createdAt)}`,
+    `Source: ${record.source || "post-purchase consent"}`,
+    "Photo approved:",
+    "Photo path:",
+    "Photo alt text:",
+    "Photo note:",
+    "",
+    "Internal reference:",
+    `- Map ID: ${record.mapId || "-"}`,
+    `- Session ID: ${record.sessionId || "-"}`,
+    `- Review status: ${record.reviewStatus || "new"}`,
+    `- Order type: ${record.orderType || "-"}`,
+    `- Plan: ${record.plan || "-"}`,
+    `- Print variant: ${record.printVariant || "-"}`,
+    `- Buyer context: ${record.buyerContext || "-"}`,
+    `- Buyer note: ${record.buyerNote || "-"}`,
+  ].join("\n");
+}
+
 function printTable(records) {
   if (!records.length) {
     console.log("No proof-review consent records found.");
@@ -279,6 +330,7 @@ async function main() {
   const json = args.json === "true";
   const statusFilter = typeof args.status === "string" ? args.status.trim().toLowerCase() : "";
   const setStatus = typeof args["set-status"] === "string" ? args["set-status"].trim().toLowerCase() : "";
+  const printTemplate = args.template === "true";
   const headers = getCloudflareAuthHeaders();
   const { accountId, namespaceId } = readWranglerConfig(rootDir);
 
@@ -339,6 +391,25 @@ async function main() {
     }
 
     console.log(`Updated proof-review status to '${setStatus}' for map ${updated.mapId}.`);
+    return;
+  }
+
+  if (printTemplate) {
+    const mapId = typeof args.map === "string" ? args.map.trim() : "";
+    const sessionId = typeof args.session === "string" ? args.session.trim() : "";
+    if (!mapId && !sessionId) {
+      throw new Error("Template output requires --map <mapId> or --session <checkout_session_id>.");
+    }
+
+    const lookupKey = mapId
+      ? `${PROOF_CONSENT_PREFIX}${mapId}`
+      : `${PROOF_CONSENT_SESSION_PREFIX}${sessionId}`;
+    const record = await getProofConsentRecord({ accountId, namespaceId, key: lookupKey, headers });
+    if (!record) {
+      throw new Error("Proof-consent record not found.");
+    }
+
+    console.log(buildIntakeTemplate(record));
     return;
   }
 
