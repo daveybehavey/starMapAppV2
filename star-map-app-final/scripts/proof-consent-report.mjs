@@ -59,6 +59,8 @@ function usage() {
   node scripts/proof-consent-report.mjs --set-status published --session <checkout_session_id>
   node scripts/proof-consent-report.mjs --template --map <mapId>
   node scripts/proof-consent-report.mjs --template --session <checkout_session_id>
+  node scripts/proof-consent-report.mjs --snippet --map <mapId>
+  node scripts/proof-consent-report.mjs --snippet --session <checkout_session_id>
 
 Options:
   --all                 Include records where permission was removed
@@ -67,6 +69,7 @@ Options:
   --status <value>      Filter report by review status
   --set-status <value>  Update a record to new|contacted|approved|published|rejected
   --template            Print a testimonial intake template for one record
+  --snippet             Print a ready-to-paste testimonial object snippet
   --map <id>            Map id for status updates
   --session <id>        Checkout session id for status updates
 `);
@@ -278,6 +281,28 @@ function buildIntakeTemplate(record) {
   ].join("\n");
 }
 
+function buildTestimonialSnippet(record) {
+  const lines = [
+    "{",
+    '  quote: "",',
+    '  author: "",',
+    `  context: ${JSON.stringify(describeRecordContext(record))},`,
+  ];
+
+  if (record.mapId) {
+    lines.push(`  exampleHref: ${JSON.stringify(`/m/${record.mapId}`)},`);
+    lines.push('  exampleLabel: "View approved example",');
+  }
+
+  lines.push("  // Optional buyer photo fields when image permission is explicit:");
+  lines.push('  // imageSrc: "/testimonials/your-file.jpg",');
+  lines.push('  // imageAlt: "Describe the approved customer photo",');
+  lines.push('  // imageNote: "Buyer photo, used with permission",');
+  lines.push("}");
+
+  return lines.join("\n");
+}
+
 function printTable(records) {
   if (!records.length) {
     console.log("No proof-review consent records found.");
@@ -331,6 +356,7 @@ async function main() {
   const statusFilter = typeof args.status === "string" ? args.status.trim().toLowerCase() : "";
   const setStatus = typeof args["set-status"] === "string" ? args["set-status"].trim().toLowerCase() : "";
   const printTemplate = args.template === "true";
+  const printSnippet = args.snippet === "true";
   const headers = getCloudflareAuthHeaders();
   const { accountId, namespaceId } = readWranglerConfig(rootDir);
 
@@ -410,6 +436,25 @@ async function main() {
     }
 
     console.log(buildIntakeTemplate(record));
+    return;
+  }
+
+  if (printSnippet) {
+    const mapId = typeof args.map === "string" ? args.map.trim() : "";
+    const sessionId = typeof args.session === "string" ? args.session.trim() : "";
+    if (!mapId && !sessionId) {
+      throw new Error("Snippet output requires --map <mapId> or --session <checkout_session_id>.");
+    }
+
+    const lookupKey = mapId
+      ? `${PROOF_CONSENT_PREFIX}${mapId}`
+      : `${PROOF_CONSENT_SESSION_PREFIX}${sessionId}`;
+    const record = await getProofConsentRecord({ accountId, namespaceId, key: lookupKey, headers });
+    if (!record) {
+      throw new Error("Proof-consent record not found.");
+    }
+
+    console.log(buildTestimonialSnippet(record));
     return;
   }
 

@@ -2,6 +2,8 @@ export type VerifiedTestimonial = {
   quote: string;
   author: string;
   context: string;
+  exampleHref?: string;
+  exampleLabel?: string;
   imageSrc?: string;
   imageAlt?: string;
   imageNote?: string;

@@ -28,6 +28,7 @@ Photo approved:
 Photo path:
 Photo alt text:
 Photo note:
+Approved example link:
 ```
 
 ## Example
@@ -42,6 +43,7 @@ Photo approved: Yes
 Photo path: public/testimonials/sarah-k-anniversary.jpg
 Photo alt text: Framed StarMapCo anniversary print displayed on a living-room shelf
 Photo note: Buyer photo, used with permission
+Approved example link: /m/12345678-abcd-1234-abcd-1234567890ab
 ```
 
 ## Publish rule
@@ -51,5 +53,6 @@ After a testimonial is approved:
 1. Add the quote to `src/data/testimonials.ts`
 2. Add the buyer photo only if written approval includes image usage
 3. If a photo is approved, set `imageSrc`, `imageAlt`, and optional `imageNote`
-4. Keep context concrete: occasion + product format
-5. Avoid editing the buyer's meaning for polish
+4. If website-review consent covers the exact saved map, you can optionally add `exampleHref` (usually `/m/<mapId>`) and optional `exampleLabel`
+5. Keep context concrete: occasion + product format
+6. Avoid editing the buyer's meaning for polish

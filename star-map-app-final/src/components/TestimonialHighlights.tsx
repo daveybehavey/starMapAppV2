@@ -1,5 +1,6 @@
 import type { VerifiedTestimonial } from "@/data/testimonials";
 import Image from "next/image";
+import Link from "next/link";
 
 type TestimonialHighlightsProps = {
   heading?: string;
@@ -39,6 +40,16 @@ export default function TestimonialHighlights({
             ) : null}
             <div className="p-4">
               <blockquote className="text-sm text-neutral-800">"{item.quote}"</blockquote>
+              {item.exampleHref ? (
+                <div className="mt-3">
+                  <Link
+                    href={item.exampleHref}
+                    className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100"
+                  >
+                    {item.exampleLabel || "View approved example"}
+                  </Link>
+                </div>
+              ) : null}
               {item.imageNote ? <p className="mt-3 text-[11px] uppercase tracking-[0.16em] text-amber-700">{item.imageNote}</p> : null}
             </div>
             <figcaption className="px-4 pb-4 text-xs font-semibold text-midnight">
