@@ -1407,37 +1407,22 @@ export function MobileCreate({
           <p className="mt-1 text-[10px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
           {printCheckoutEnabled && printPriceLabels && onOpenPrintOptions && (
             <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
-              <p className="text-[11px] font-semibold text-amber-100">Need the finished gift to arrive ready to display?</p>
+              <p className="text-[11px] font-semibold text-amber-100">Want this saved design shipped as a gift?</p>
               <p className="mt-1 text-[10px] text-amber-100/80">
-                The same saved design can go to a gift-ready framed print or a lower-total unframed print.
+                Framed stays the ready-to-display route. Unframed keeps the physical total lower.
               </p>
-              <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
-                <span className="font-semibold text-amber-100">Framed:</span> {printPriceLabels.framed} + shipping.{" "}
-                <span className="font-semibold text-amber-100">Unframed:</span> {printPriceLabels.unframed} + shipping.
-              </div>
-              <p className="mt-2 text-[10px] text-amber-100/80">{printShippingSummary}</p>
+              <p className="mt-2 text-[10px] text-amber-100/80">
+                Framed from {printPriceLabels.framed} + shipping. Unframed from {printPriceLabels.unframed} + shipping.
+              </p>
+              <p className="mt-1 text-[10px] text-amber-100/70">{printShippingSummary}</p>
               <button
                 type="button"
                 onClick={onOpenPrintOptions}
                 className="mt-2 inline-flex w-full items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
               >
-                See printed gift options
+                Compare print options
               </button>
-              <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
-                  <a
-                    href="/star-map-gift-formats"
-                    className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2"
-                  >
-                    Compare formats
-                  </a>
-                  <a
-                    href="/shipping"
-                    className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2"
-                  >
-                    Shipping details
-                  </a>
-                </div>
-              </div>
+            </div>
             )}
 
             <div className="mt-2 flex flex-wrap items-center gap-2">

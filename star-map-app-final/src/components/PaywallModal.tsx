@@ -584,10 +584,10 @@ export function PaywallModal({
           {activeIntent !== "print" && onStartPrintCheckout && printPriceLabels && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Need the finished gift to arrive ready to display?</p>
+                <p className="text-sm font-semibold">Want it shipped as a gift instead?</p>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                The same saved design can go to a gift-ready framed print or a lower-total unframed print.
+                Framed stays the ready-to-display route. Unframed keeps the physical total lower.
               </p>
               <p className="mt-2 text-[11px] text-amber-100/80">
                 Framed from {printPriceLabels.framed} + shipping. Unframed from {printPriceLabels.unframed} + shipping.
@@ -598,7 +598,7 @@ export function PaywallModal({
                 disabled={checkoutInFlight}
                 className="mt-3 w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                See printed gift options
+                Compare print options
               </button>
             </div>
           )}
