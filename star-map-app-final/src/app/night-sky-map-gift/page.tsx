@@ -1,4 +1,4 @@
-import Link from "next/link";
+import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
@@ -6,9 +6,13 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -37,6 +41,8 @@ export const metadata: Metadata = {
 };
 
 export default function NightSkyMapGiftPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -47,6 +53,11 @@ export default function NightSkyMapGiftPage() {
           A night sky map gift captures the exact stars from a meaningful date and place. Start with a free preview, then
           choose the framed gift route, the lower-total unframed route, or HD digital delivery.
         </p>
+        <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+        </div>
       </header>
 
       <PreviewStartForm
@@ -86,6 +97,26 @@ export default function NightSkyMapGiftPage() {
         secondaryHref="/editor?mode=quick&source=sticky-night-sky-map-gift-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
+      <FramedProofSection sourcePrefix="night-sky-gift-proof" />
+      <PurchaseTrustPanel
+        tone="dark"
+        heading="Before you buy"
+        intro="Preview for free first. Gift buyers usually take the framed route once the wording and layout feel right, while unframed and HD stay available from the same approved design."
+        leftTitle="Checkout and delivery"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "One-time checkout for framed print, unframed print, or HD digital delivery",
+          "Instant HD file unlock after successful payment",
+        ]}
+        rightTitle="Print quality and support"
+        rightPoints={[
+          "Astronomy-based sky generation from your exact date and place",
+          shippingDisclosure,
+          "Physical orders get a manual quality check before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why night sky maps make unforgettable gifts</h2>
@@ -101,34 +132,26 @@ export default function NightSkyMapGiftPage() {
         </ul>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Create a gift in minutes</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>Choose the date and location that matter most</li>
-          <li>Pick a style and add names or a dedication</li>
-          <li>Preview the map instantly</li>
-          <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
-        </ol>
-        <div className="pt-2">
-          <Link
-            href="/editor?mode=quick&source=night-sky-map-gift-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start with framed print preview
-          </Link>
-        </div>
-      </section>
+      <QuickStartStepsSection
+        heading="How the night-sky gift flow works"
+        intro="The cleanest path is to confirm the moment first, then choose how polished or fast the final delivery should be."
+        steps={[
+          "Enter the date and place that matter, then open the live preview.",
+          "Adjust the wording, names, and styling until the design feels final.",
+          "Choose framed print, unframed print, or HD digital delivery from the same approved design.",
+        ]}
+        note="Framed stays the premium gift route. Unframed keeps the physical total lower. HD is the fastest route when timing matters more than shipping."
+      />
+      <AccuracyAuthorityCard source="night-sky-gift-accuracy-card" />
 
       <DeliveryFormatModule
         heading="Choose the format after you preview the night sky"
         intro="Night sky gift buyers usually decide between the presentation-ready framed route and the lower-total unframed route. HD digital stays available for same-day delivery."
         sourcePrefix="night-sky-gift-format"
       />
-
-      <FramedProofSection
-        heading="Framed proof matters for gift buyers"
-        intro="The preview proves the design. This framed photo proves the physical result. Use both before you decide how the gift should be delivered."
-        sourcePrefix="night-sky-gift-proof"
+      <WhatYouReceiveModule
+        heading="What your night-sky gift order includes"
+        intro="This is the exact handoff from preview to the finished keepsake."
       />
       <PhysicalProductGallerySection
         heading="Compare the framed and unframed physical finish"
@@ -141,24 +164,6 @@ export default function NightSkyMapGiftPage() {
         testimonials={testimonialsByPage.nightSkyGift}
       />
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">More gift inspiration</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Looking for more ideas? Explore star map gift guides and examples.
-        </p>
-        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
-          <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
-            Star map gift
-          </Link>
-          <Link href="/star-map-gift-ideas" className="text-amber-700 underline hover:text-amber-800">
-            Star map gift ideas
-          </Link>
-          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
-            Star map gallery
-          </Link>
-        </div>
-      </section>
-
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -168,7 +173,7 @@ export default function NightSkyMapGiftPage() {
             <h3 className="font-semibold text-midnight">How fast do I receive a night sky map gift?</h3>
             <p>
               You can preview your night sky map instantly. HD digital delivery is fastest for same-day gifting, while framed
-              and unframed print routes show shipping before payment.
+              and unframed print routes show shipping before payment. {shippingDisclosure}
             </p>
           </div>
           <div>
