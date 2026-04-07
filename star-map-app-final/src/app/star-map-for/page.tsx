@@ -31,12 +31,12 @@ const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasion
 export const metadata: Metadata = {
   title: "Star Map for Occasions | StarMapCo",
   description:
-    "Find a star map for proposals, engagements, graduations, memorials, and more. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the best starting page.",
   alternates: { canonical: `${siteUrl}/star-map-for` },
   openGraph: {
     title: "Star Map for Occasions | StarMapCo",
     description:
-      "Find a star map for proposals, engagements, graduations, memorials, and more. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the best starting page.",
     url: `${siteUrl}/star-map-for`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Find a star map for proposals, engagements, graduations, memorials, and more. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the best starting page.",
     images: [ogImage],
   },
 };
@@ -59,7 +59,7 @@ export default function StarMapForOccasionsPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map for Every Occasion</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          From proposals to graduations, create a custom star map that captures the exact night sky from your date and location.
+          Browse the strongest occasion pages first, then jump into the preview flow that best matches the moment.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -107,7 +107,7 @@ export default function StarMapForOccasionsPage() {
       <PreviewStartForm
         source="star-map-for"
         title="Start your occasion preview"
-        description="Enter the date and location, then choose the framed path, the unframed path, or a neutral preview-first route."
+        description="Use the occasion links above if you already know the moment. Otherwise enter the date and location to start a neutral preview."
         intentOptions={[
           {
             label: "Preview framed print",

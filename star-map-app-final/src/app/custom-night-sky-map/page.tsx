@@ -20,12 +20,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Custom Night Sky Map | StarMapCo",
   description:
-    "Create a custom night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Preview a custom night sky map from any meaningful date and place, compare digital and print routes, and explore related gift ideas.",
   alternates: { canonical: `${siteUrl}/custom-night-sky-map` },
   openGraph: {
     title: "Custom Night Sky Map | StarMapCo",
     description:
-      "Create a custom night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Preview a custom night sky map from any meaningful date and place, compare digital and print routes, and explore related gift ideas.",
     url: `${siteUrl}/custom-night-sky-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -41,15 +41,32 @@ export default function CustomNightSkyMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Night Sky Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Design a custom night sky map that reflects the exact stars above you on a meaningful date. Start with a free
-          preview, then choose framed print, unframed print, or HD digital delivery from the same design.
+          Preview a custom night sky map from any meaningful date and place, then compare digital and print routes from the same design.
         </p>
       </header>
+
+      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-5 shadow-xl shadow-black/10">
+        <h2 className="text-base font-semibold text-midnight">Best fit pages</h2>
+        <p className="mt-2 text-sm text-neutral-700">
+          Use this page for broad night-sky-map intent. If you already know your goal, start with the direct page below.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100">
+            Personalized star map
+          </Link>
+          <Link href="/night-sky-map-gift" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Night sky map gift
+          </Link>
+          <Link href="/star-map-gallery" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Star map gallery
+          </Link>
+        </div>
+      </section>
 
       <PreviewStartForm
         source="custom-night-sky-map"
         title="Start your custom night-sky preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        description="Enter the date and place to open the preview. Choose the final delivery route after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",

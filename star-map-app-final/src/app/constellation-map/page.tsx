@@ -18,12 +18,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Custom Constellation Map | StarMapCo",
   description:
-    "Create a custom constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Preview a constellation-focused star map from any date and place, personalize the layout, and compare digital or print delivery.",
   alternates: { canonical: `${siteUrl}/constellation-map` },
   openGraph: {
     title: "Custom Constellation Map | StarMapCo",
     description:
-      "Create a custom constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Preview a constellation-focused star map from any date and place, personalize the layout, and compare digital or print delivery.",
     url: `${siteUrl}/constellation-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -39,15 +39,32 @@ export default function ConstellationMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Constellation Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Capture the exact constellation layout from any date and place. Start with a free preview, then choose framed
-          print, unframed print, or HD digital delivery from the same design.
+          Preview a constellation-focused star map from any date and place, then compare digital and print delivery from the same design.
         </p>
       </header>
+
+      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-5 shadow-xl shadow-black/10">
+        <h2 className="text-base font-semibold text-midnight">Best fit pages</h2>
+        <p className="mt-2 text-sm text-neutral-700">
+          Use this page if constellation-focused language matters most. If you want the main buying paths, start with the direct pages below.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100">
+            Personalized star map
+          </Link>
+          <Link href="/star-map-generator" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Star map generator
+          </Link>
+          <Link href="/star-map-gallery" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Star map gallery
+          </Link>
+        </div>
+      </section>
 
       <PreviewStartForm
         source="constellation-map"
         title="Start your constellation preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        description="Enter the date and place to open the preview. Choose the final delivery route after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",

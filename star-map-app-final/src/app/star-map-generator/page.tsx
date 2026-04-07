@@ -21,12 +21,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Generator | StarMapCo",
   description:
-    "Use a star map generator to create a custom star map or night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Use the StarMapCo generator to preview the exact sky from any date and place, test styles, and move into digital or print checkout when ready.",
   alternates: { canonical: `${siteUrl}/star-map-generator` },
   openGraph: {
     title: "Star Map Generator | StarMapCo",
     description:
-      "Use a star map generator to create a custom star map or night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Use the StarMapCo generator to preview the exact sky from any date and place, test styles, and move into digital or print checkout when ready.",
     url: `${siteUrl}/star-map-generator`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -44,15 +44,32 @@ export default function StarMapGeneratorPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Generator</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Build a custom star map with our star map generator. Enter the date, time, and location to preview the exact
-          night sky, then choose framed print, unframed print, or HD digital delivery.
+          Use the generator to preview the exact sky, test styles, and move into digital or print checkout when the design feels right.
         </p>
       </header>
+
+      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-5 shadow-xl shadow-black/10">
+        <h2 className="text-base font-semibold text-midnight">Best fit pages</h2>
+        <p className="mt-2 text-sm text-neutral-700">
+          Use the generator when you want the tool first. If you already know the buying intent, start with the direct page below.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100">
+            Personalized star map
+          </Link>
+          <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Star map gift
+          </Link>
+          <Link href="/star-map-gallery" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Star map gallery
+          </Link>
+        </div>
+      </section>
 
       <PreviewStartForm
         source="star-map-generator"
         title="Start your generator preview"
-        description="Enter the date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        description="Enter the date and location to open the preview. Choose the final delivery route after the design feels right."
         intentOptions={[
           {
             label: "Preview framed print",

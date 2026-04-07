@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Give the exact night sky from the moment that changed everything. Preview it free first, then choose framed print, unframed print, or HD digital delivery.",
+      "Give the exact night sky from the moment that changed everything. Preview it free, then choose HD delivery or a printed gift.",
     images: [ogImage],
   },
 };

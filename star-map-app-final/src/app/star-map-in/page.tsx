@@ -20,12 +20,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map by City | StarMapCo",
   description:
-    "Explore custom star maps by city. Start with a free preview, then choose framed print, unframed print, or HD digital delivery for your location.",
+    "Browse city-specific star map pages, compare local examples, and jump to the best location page or start a preview.",
   alternates: { canonical: `${siteUrl}/star-map-in` },
   openGraph: {
     title: "Star Map by City | StarMapCo",
     description:
-      "Explore custom star maps by city. Start with a free preview, then choose framed print, unframed print, or HD digital delivery for your location.",
+      "Browse city-specific star map pages, compare local examples, and jump to the best location page or start a preview.",
     url: `${siteUrl}/star-map-in`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Explore custom star maps by city. Start with a free preview, then choose framed print, unframed print, or HD digital delivery for your location.",
+      "Browse city-specific star map pages, compare local examples, and jump to the best location page or start a preview.",
     images: [ogImage],
   },
 };
@@ -49,7 +49,7 @@ export default function StarMapByCityPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map by City</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Pick your city to create a custom star map of the exact night sky from a meaningful date and location.
+          Use this hub to find the best city-specific page first, or start a preview if you already know the location you want.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -94,7 +94,7 @@ export default function StarMapByCityPage() {
       <PreviewStartForm
         source="star-map-in-hub"
         title="Start a location-based preview"
-        description="Enter your date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
+        description="Use the location links above if you want a city-specific page first. Otherwise enter your date and location to open the preview."
         intentOptions={[
           {
             label: "Preview framed print",

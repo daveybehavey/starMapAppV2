@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "See the exact night sky from a date and place that matter, personalize the wording, then choose framed print, unframed print, or HD digital delivery.",
+      "Preview the exact night sky from any meaningful date and place, personalize the wording, then choose HD download or a printed keepsake.",
     images: [ogImage],
   },
 };
