@@ -6,12 +6,23 @@ export const LEGACY_SENT_KEY = "promotions:coupon-sent";
 export const LEGACY_FOLLOWUP_KEY = "promotions:print-tips-sent";
 export const EMAIL_STATE_PREFIX = "promotions:email:";
 
+export const PROMOTION_FOLLOWUP_STEPS = ["objection", "urgency"] as const;
+
+export type PromotionFollowupStep = (typeof PROMOTION_FOLLOWUP_STEPS)[number];
+
+export type PromotionFollowupHistoryEntry = {
+  step: PromotionFollowupStep;
+  sentAt: number;
+};
+
 export type PromotionEmailState = {
   subscribedAt: number;
   couponSentAt?: number;
   followupSentAt?: number;
   followupDueAt?: number;
   followupLastError?: string;
+  followupNextStep?: PromotionFollowupStep;
+  followupHistory?: PromotionFollowupHistoryEntry[];
   unsubscribedAt?: number;
   unsubscribeReason?: string;
   updatedAt: number;

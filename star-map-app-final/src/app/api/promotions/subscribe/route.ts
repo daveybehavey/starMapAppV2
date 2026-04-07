@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
-import { PROMOTION_COUPON_CODE, getPromotionFollowupDelaySeconds, runPromotionAutomation } from "@/lib/promotions";
+import { PROMOTION_COUPON_CODE, getPromotionLifecycleDelaySeconds, runPromotionAutomation } from "@/lib/promotions";
 import {
   emailStateKey,
   isValidPromotionEmail,
@@ -103,7 +103,6 @@ export async function POST(req: NextRequest) {
   }
 
   const now = Date.now();
-  const followupDelayMs = getPromotionFollowupDelaySeconds() * 1000;
   const key = emailStateKey(email);
   const existingState = await kv.get<PromotionEmailState>(key);
   const [legacySubscribed, legacyCouponSent, legacyFollowupSent] = await Promise.all([
@@ -121,6 +120,8 @@ export async function POST(req: NextRequest) {
     followupSentAt: existingState?.followupSentAt,
     followupDueAt: existingState?.followupDueAt,
     followupLastError: existingState?.followupLastError,
+    followupNextStep: existingState?.followupNextStep,
+    followupHistory: existingState?.followupHistory,
     unsubscribedAt: undefined,
     unsubscribeReason: undefined,
     updatedAt: now,
@@ -144,16 +145,23 @@ export async function POST(req: NextRequest) {
     nextState.couponSentAt = now;
   }
 
-  const followupAlreadySent = Boolean(nextState.followupSentAt) || legacyFollowupSent;
-  const canQueueFollowup = !followupAlreadySent && (Boolean(nextState.couponSentAt) || legacyCouponSent);
+  const followupAlreadySent =
+    Boolean(nextState.followupSentAt) ||
+    legacyFollowupSent ||
+    Boolean(nextState.followupHistory?.length);
+  const canQueueFollowup =
+    !followupAlreadySent &&
+    !nextState.followupNextStep &&
+    (Boolean(nextState.couponSentAt) || legacyCouponSent);
   if (canQueueFollowup) {
     const baseTimestamp = nextState.couponSentAt ?? now;
-    const dueAt = baseTimestamp + followupDelayMs;
+    const dueAt = baseTimestamp + getPromotionLifecycleDelaySeconds("objection") * 1000;
     if (!nextState.followupDueAt || nextState.followupDueAt > dueAt) {
       nextState.followupDueAt = dueAt;
     }
+    nextState.followupNextStep = "objection";
     nextState.followupLastError = undefined;
-  } else if (followupAlreadySent) {
+  } else if (followupAlreadySent && !nextState.followupNextStep) {
     nextState.followupDueAt = undefined;
     nextState.followupLastError = undefined;
   }

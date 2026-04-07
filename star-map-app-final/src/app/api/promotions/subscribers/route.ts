@@ -60,6 +60,8 @@ export async function GET(req: NextRequest) {
       followupSentAt: row.state?.followupSentAt ?? null,
       followupDueAt: row.state?.followupDueAt ?? null,
       followupLastError: row.state?.followupLastError ?? null,
+      followupNextStep: row.state?.followupNextStep ?? null,
+      followupHistory: row.state?.followupHistory ?? [],
       updatedAt: row.state?.updatedAt ?? null,
       lastSource: row.state?.lastSource ?? null,
     }))

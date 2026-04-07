@@ -1,4 +1,5 @@
 import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
+import type { PromotionFollowupStep } from "@/lib/promotionSubscriptions";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
 
 type PromotionAutomationProvider = "resend" | "sendgrid" | "webhook" | "none";
@@ -21,13 +22,32 @@ type PromotionAutomationResult = {
 
 const promotionSubject =
   process.env.PROMOTION_EMAIL_SUBJECT ?? `Your ${promotionPercentLabel} off ${promotionOfferName} from StarMapCo`;
-const promotionFollowupSubject =
-  process.env.PROMOTION_FOLLOWUP_SUBJECT ??
-  `Print tips for your star map (and your ${promotionPercentLabel} off ${promotionOfferName})`;
 const promotionFollowupDelayHours = Number.parseInt(
   process.env.PROMOTION_FOLLOWUP_DELAY_HOURS ?? "24",
   10,
 );
+const promotionObjectionSubject =
+  process.env.PROMOTION_OBJECTION_SUBJECT ??
+  `What you actually get with your StarMapCo map`;
+const promotionUrgencySubject =
+  process.env.PROMOTION_URGENCY_SUBJECT ??
+  `Still thinking it over? Your ${promotionPercentLabel} off ${promotionOfferName} is ready`;
+const promotionObjectionDelayHours = Number.parseInt(
+  process.env.PROMOTION_FOLLOWUP_OBJECTION_DELAY_HOURS ?? String(promotionFollowupDelayHours),
+  10,
+);
+const promotionUrgencyDelayHours = Number.parseInt(
+  process.env.PROMOTION_FOLLOWUP_URGENCY_DELAY_HOURS ?? "72",
+  10,
+);
+const promotionObjectionDelaySeconds =
+  Number.isFinite(promotionObjectionDelayHours) && promotionObjectionDelayHours > 0
+    ? promotionObjectionDelayHours * 3600
+    : 24 * 3600;
+const promotionUrgencyDelaySeconds =
+  Number.isFinite(promotionUrgencyDelayHours) && promotionUrgencyDelayHours > 0
+    ? promotionUrgencyDelayHours * 3600
+    : 72 * 3600;
 const promotionFollowupDelaySeconds =
   Number.isFinite(promotionFollowupDelayHours) && promotionFollowupDelayHours > 0
     ? promotionFollowupDelayHours * 3600
@@ -101,21 +121,22 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
   return { subject, text, html };
 }
 
-function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy {
+function getPromotionObjectionCopy(email: string, couponCode: string): EmailCopy {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
   const checkoutUrl = `${siteUrl}/`;
-  const printGuideUrl = `${siteUrl}/how-to-print-star-map`;
+  const giftUrl = `${siteUrl}/star-map-gift`;
   const galleryUrl = `${siteUrl}/star-map-gallery`;
-  const subject = promotionFollowupSubject;
+  const subject = promotionObjectionSubject;
   const unsubscribeUrl = getPromotionUnsubscribeUrl(email) ?? null;
   const text = [
-    "Quick print tips for your star map:",
+    "A few quick answers before you buy:",
     "",
-    "1) Matte or fine‑art paper keeps the stars crisp.",
-    "2) Popular sizes: 11x14, 16x20, and 24x36.",
-    "3) A simple black or wood frame keeps it timeless.",
+    "1) You can preview the exact map before paying.",
+    "2) HD removes the watermark and keeps the same design you already made.",
+    "3) Framed and unframed gift routes stay available from the same saved map.",
     "",
-    `Full guide: ${printGuideUrl}`,
+    `Gift page: ${giftUrl}`,
+    `Gallery: ${galleryUrl}`,
     "",
     `Your ${promotionPercentLabel} off code for ${promotionTargetLabel} still works: ${couponCode}`,
     `Start or finish your map here: ${checkoutUrl}`,
@@ -130,13 +151,13 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
-      <p style="font-size: 18px; font-weight: 700; margin: 0 0 10px;">Quick print tips for your star map</p>
+      <p style="font-size: 18px; font-weight: 700; margin: 0 0 10px;">A few quick answers before you buy</p>
       <ol style="padding-left: 18px; margin: 0 0 16px;">
-        <li>Matte or fine‑art paper keeps the stars crisp.</li>
-        <li>Popular sizes: 11x14, 16x20, and 24x36.</li>
-        <li>A simple black or wood frame keeps it timeless.</li>
+        <li>You can preview the exact map before paying.</li>
+        <li>HD removes the watermark and keeps the same design you already made.</li>
+        <li>Framed and unframed gift routes stay available from the same saved map.</li>
       </ol>
-      <p><a href="${printGuideUrl}" style="color: #b07d1b; font-weight: 700; text-decoration: none;">Read the full print guide</a></p>
+      <p><a href="${giftUrl}" style="color: #b07d1b; font-weight: 700; text-decoration: none;">See gift options</a></p>
       <p style="margin-top: 18px;">Your ${promotionPercentLabel} off ${promotionOfferName} still works:</p>
       <p style="font-size: 24px; font-weight: 700; margin: 0 0 14px; letter-spacing: 1px; color: #b07d1b;">${couponCode}</p>
       <p><a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Continue your map</a></p>
@@ -144,6 +165,55 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
         Need inspiration? Browse the <a href="${galleryUrl}" style="color: #b07d1b; text-decoration: none;">star map gallery</a>.
       </p>
       <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
+      ${unsubscribeUrl ? `<p style="font-size: 12px; color: #6b7280;">No longer want updates? <a href="${unsubscribeUrl}" style="color: #6b7280;">Unsubscribe</a>.</p>` : ""}
+      <p style="margin-top: 18px;">— StarMapCo</p>
+    </div>
+  `;
+
+  return { subject, text, html };
+}
+
+function getPromotionUrgencyCopy(email: string, couponCode: string): EmailCopy {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
+  const checkoutUrl = `${siteUrl}/`;
+  const anniversaryUrl = `${siteUrl}/anniversary`;
+  const weddingUrl = `${siteUrl}/wedding`;
+  const giftUrl = `${siteUrl}/star-map-gift`;
+  const subject = promotionUrgencySubject;
+  const unsubscribeUrl = getPromotionUnsubscribeUrl(email) ?? null;
+  const text = [
+    "Still thinking it over?",
+    "",
+    "If you already have a meaningful date, you are only a few clicks away from the finished map.",
+    "",
+    `Your ${promotionPercentLabel} off code for ${promotionTargetLabel}: ${couponCode}`,
+    `Finish your map: ${checkoutUrl}`,
+    "",
+    `Anniversary ideas: ${anniversaryUrl}`,
+    `Wedding ideas: ${weddingUrl}`,
+    `Gift ideas: ${giftUrl}`,
+    "",
+    "Need help choosing digital or print? Reply to this email and we can help.",
+    unsubscribeUrl ? `Unsubscribe: ${unsubscribeUrl}` : undefined,
+    "",
+    "— StarMapCo",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const html = `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
+      <p style="font-size: 18px; font-weight: 700; margin: 0 0 10px;">Still thinking it over?</p>
+      <p>If you already have a meaningful date, you are only a few clicks away from the finished map.</p>
+      <p style="margin-top: 18px;">Your ${promotionPercentLabel} off ${promotionOfferName} is still ready:</p>
+      <p style="font-size: 24px; font-weight: 700; margin: 0 0 14px; letter-spacing: 1px; color: #b07d1b;">${couponCode}</p>
+      <p><a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Finish your map</a></p>
+      <p style="font-size: 13px; color: #3f485b; margin-top: 14px;">
+        Need a faster starting point? Browse <a href="${anniversaryUrl}" style="color: #b07d1b; text-decoration: none;">anniversary</a>,
+        <a href="${weddingUrl}" style="color: #b07d1b; text-decoration: none;">wedding</a>, or
+        <a href="${giftUrl}" style="color: #b07d1b; text-decoration: none;">gift</a> examples.
+      </p>
+      <p style="font-size: 13px; color: #3f485b;">Need help choosing digital or print? Reply and we can help.</p>
       ${unsubscribeUrl ? `<p style="font-size: 12px; color: #6b7280;">No longer want updates? <a href="${unsubscribeUrl}" style="color: #6b7280;">Unsubscribe</a>.</p>` : ""}
       <p style="margin-top: 18px;">— StarMapCo</p>
     </div>
@@ -251,7 +321,7 @@ async function sendWithSendgrid(
 async function notifyPromotionWebhook(
   email: string,
   couponCode: string,
-  sequence: "welcome" | "print_tips",
+  sequence: "welcome" | "print_tips" | "urgency",
 ): Promise<PromotionAutomationResult> {
   const webhookUrl = process.env.PROMOTION_AUTOMATION_WEBHOOK_URL;
   if (!webhookUrl) {
@@ -304,9 +374,10 @@ export async function runPromotionAutomation(
 export async function runPromotionFollowup(
   email: string,
   couponCode: string,
+  step: PromotionFollowupStep = "objection",
 ): Promise<PromotionAutomationResult> {
   try {
-    const copy = getPromotionFollowupCopy(email, couponCode);
+    const copy = step === "urgency" ? getPromotionUrgencyCopy(email, couponCode) : getPromotionObjectionCopy(email, couponCode);
 
     const resendResult = await sendWithResend(email, copy);
     if (resendResult.provider !== "none") return resendResult;
@@ -314,7 +385,7 @@ export async function runPromotionFollowup(
     const sendgridResult = await sendWithSendgrid(email, copy);
     if (sendgridResult.provider !== "none") return sendgridResult;
 
-    const webhookResult = await notifyPromotionWebhook(email, couponCode, "print_tips");
+    const webhookResult = await notifyPromotionWebhook(email, couponCode, step === "urgency" ? "urgency" : "print_tips");
     if (webhookResult.provider !== "none") return webhookResult;
 
     return { delivered: false, provider: "none", error: "No automation provider configured." };
@@ -326,4 +397,8 @@ export async function runPromotionFollowup(
 
 export function getPromotionFollowupDelaySeconds() {
   return promotionFollowupDelaySeconds;
+}
+
+export function getPromotionLifecycleDelaySeconds(step: PromotionFollowupStep) {
+  return step === "urgency" ? promotionUrgencyDelaySeconds : promotionObjectionDelaySeconds;
 }

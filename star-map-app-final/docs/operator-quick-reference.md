@@ -268,6 +268,13 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - dry run: `npm run ops:promotion-followup -- --dry-run`
     - send due follow-ups: `npm run ops:promotion-followup -- --limit 100`
     - API equivalent: `POST /api/promotions/followup-dispatch` (admin token)
+    - sequence now runs in 3 steps:
+      - welcome email sends immediately on signup
+      - `objection` follow-up queues first
+      - `urgency` follow-up queues after `objection`
+    - subscriber admin payload now exposes:
+      - `followupNextStep`
+      - `followupHistory`
 
 ## 6) Release gate commands (minimum safe set)
 

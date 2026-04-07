@@ -100,7 +100,7 @@ async function main() {
     console.log("");
     console.log("Recent results");
     for (const row of data.results.slice(0, 10)) {
-      console.log(`- ${row.email}: ${row.status}${row.error ? ` (${row.error})` : ""}`);
+      console.log(`- ${row.email}: ${row.step} -> ${row.status}${row.error ? ` (${row.error})` : ""}`);
     }
   }
 }

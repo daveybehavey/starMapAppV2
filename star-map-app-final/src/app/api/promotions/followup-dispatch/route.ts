@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { kv } from "@/lib/kv";
 import {
-  getPromotionFollowupDelaySeconds,
+  getPromotionLifecycleDelaySeconds,
   PROMOTION_COUPON_CODE,
   runPromotionFollowup,
 } from "@/lib/promotions";
 import {
   EMAIL_STATE_PREFIX,
   keyNameToPromotionEmail,
+  type PromotionFollowupHistoryEntry,
+  type PromotionFollowupStep,
   type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
 
@@ -57,9 +59,9 @@ export async function POST(req: NextRequest) {
   const dryRun = toBoolean(body.dryRun, false);
   const now = Date.now();
   const listed = await kv.list({ prefix: EMAIL_STATE_PREFIX, limit });
-  const followupDelayMs = getPromotionFollowupDelaySeconds() * 1000;
   const dispatchResults: Array<{
     email: string;
+    step: PromotionFollowupStep;
     dueAt: number;
     status: "due" | "sent" | "failed";
     provider?: string;
@@ -75,37 +77,48 @@ export async function POST(req: NextRequest) {
     if (!email) continue;
     const state = await kv.get<PromotionEmailState>(key);
     if (!state) continue;
-    if (state.unsubscribedAt || !state.couponSentAt || state.followupSentAt) continue;
+    if (state.unsubscribedAt || !state.couponSentAt) continue;
+    const step = state.followupNextStep;
+    if (!step) continue;
 
     const dueAtCandidate =
       typeof state.followupDueAt === "number" && Number.isFinite(state.followupDueAt)
         ? state.followupDueAt
-        : state.couponSentAt + followupDelayMs;
+        : state.couponSentAt + getPromotionLifecycleDelaySeconds(step) * 1000;
     if (dueAtCandidate > now) continue;
 
     dueCount += 1;
     if (dryRun) {
       dispatchResults.push({
         email,
+        step,
         dueAt: dueAtCandidate,
         status: "due",
       });
       continue;
     }
 
-    const sendResult = await runPromotionFollowup(email, PROMOTION_COUPON_CODE);
+    const sendResult = await runPromotionFollowup(email, PROMOTION_COUPON_CODE, step);
     if (sendResult.delivered) {
       sentCount += 1;
+      const sentAt = Date.now();
+      const history: PromotionFollowupHistoryEntry[] = [...(state.followupHistory ?? []), { step, sentAt }];
       const nextState: PromotionEmailState = {
         ...state,
-        followupSentAt: Date.now(),
-        followupDueAt: undefined,
+        followupSentAt: sentAt,
+        followupHistory: history,
+        followupNextStep: step === "objection" ? "urgency" : undefined,
+        followupDueAt:
+          step === "objection"
+            ? state.couponSentAt + getPromotionLifecycleDelaySeconds("urgency") * 1000
+            : undefined,
         followupLastError: undefined,
-        updatedAt: Date.now(),
+        updatedAt: sentAt,
       };
       await kv.set(key, nextState);
       dispatchResults.push({
         email,
+        step,
         dueAt: dueAtCandidate,
         status: "sent",
         provider: sendResult.provider,
@@ -120,11 +133,13 @@ export async function POST(req: NextRequest) {
       ...state,
       followupDueAt: retryAt,
       followupLastError: error,
+      followupNextStep: step,
       updatedAt: Date.now(),
     };
     await kv.set(key, nextState);
     dispatchResults.push({
       email,
+      step,
       dueAt: dueAtCandidate,
       status: "failed",
       provider: sendResult.provider,

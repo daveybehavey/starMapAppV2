@@ -71,7 +71,11 @@ Current implementation status:
 
 - Signup capture + honeypot + unsubscribe flow are live
 - Admin subscriber endpoint is live
-- Full lifecycle sequence and list ops are still manual
+- 3-email lifecycle sequence is now live:
+  - immediate welcome/coupon email
+  - objection-handling follow-up
+  - final reminder follow-up
+- Queue dispatch remains operator-run unless automated externally
 
 Primary KPIs:
 
@@ -79,6 +83,7 @@ Primary KPIs:
 - unsubscribe rate
 - subscriber-to-checkout rate
 - checkout-to-share rate
+- due follow-ups by step (`objection`, `urgency`)
 
 ## Weekly Operator Cadence
 
@@ -100,7 +105,7 @@ Run once per week:
 3. Proof loop operationalization:
    - publish first approved proof set on top-intent pages
 4. Lifecycle loop upgrade:
-   - ship one 3-email sequence (welcome, objection handling, urgency)
+   - monitor the new 3-email sequence (welcome, objection handling, urgency)
 5. Tighten instrumentation:
    - ensure every loop transition has one canonical event
 
