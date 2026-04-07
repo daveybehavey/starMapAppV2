@@ -146,6 +146,10 @@ function incrementBucket(map, key, by = 1) {
   map.set(key, (map.get(key) ?? 0) + by);
 }
 
+function emptyLifecycleStepCounts() {
+  return { objection: 0, urgency: 0 };
+}
+
 function topBuckets(map, labelKey) {
   return Array.from(map.entries())
     .sort((a, b) => b[1] - a[1])
@@ -155,6 +159,67 @@ function topBuckets(map, labelKey) {
 function normalizeToken(value) {
   if (typeof value !== "string") return "";
   return value.trim().toLowerCase();
+}
+
+function summarizePromotionSubscriberRows(subscribers) {
+  const queuedByStep = emptyLifecycleStepCounts();
+  const dueByStep = emptyLifecycleStepCounts();
+  const sentByStep = emptyLifecycleStepCounts();
+  let welcomeSent = 0;
+  let legacyFollowupSent = 0;
+  let pending = 0;
+  let dueNow = 0;
+  let completed = 0;
+  const now = Date.now();
+
+  for (const row of subscribers) {
+    if (row?.unsubscribedAt) continue;
+    if (row?.couponSentAt) {
+      welcomeSent += 1;
+    }
+
+    const sentSteps = new Set();
+    const history = Array.isArray(row?.followupHistory) ? row.followupHistory : [];
+    for (const entry of history) {
+      const step = normalizeToken(entry?.step);
+      if (step === "objection" || step === "urgency") {
+        sentSteps.add(step);
+      }
+    }
+    for (const step of sentSteps) {
+      sentByStep[step] += 1;
+    }
+
+    const nextStep = normalizeToken(row?.followupNextStep);
+    if (nextStep === "objection" || nextStep === "urgency") {
+      pending += 1;
+      queuedByStep[nextStep] += 1;
+      const dueAt = Number(row?.followupDueAt || 0);
+      if (Number.isFinite(dueAt) && dueAt > 0 && dueAt <= now) {
+        dueNow += 1;
+        dueByStep[nextStep] += 1;
+      }
+    }
+
+    const hasLegacyFollowup = Boolean(row?.followupSentAt) && sentSteps.size === 0;
+    if (hasLegacyFollowup) {
+      legacyFollowupSent += 1;
+    }
+    if (!nextStep && (hasLegacyFollowup || sentSteps.has("urgency"))) {
+      completed += 1;
+    }
+  }
+
+  return {
+    welcomeSent,
+    legacyFollowupSent,
+    pending,
+    dueNow,
+    queuedByStep,
+    dueByStep,
+    sentByStep,
+    completed,
+  };
 }
 
 function classifyResolvedPaymentMethod(paymentIntent) {
@@ -285,12 +350,35 @@ async function getPromotionSubscribers(site) {
     return { ok: false, error: `promotion_subscribers_${res.status}` };
   }
   const subscribers = body.subscribers;
+  const summary = body.summary && typeof body.summary === "object" ? body.summary : null;
+  const lifecycle = summary?.lifecycle && typeof summary.lifecycle === "object"
+    ? {
+        welcomeSent: Number(summary.lifecycle.welcomeSent || 0),
+        legacyFollowupSent: Number(summary.lifecycle.legacyFollowupSent || 0),
+        pending: Number(summary.lifecycle.pending || 0),
+        dueNow: Number(summary.lifecycle.dueNow || 0),
+        queuedByStep: {
+          objection: Number(summary.lifecycle.queuedByStep?.objection || 0),
+          urgency: Number(summary.lifecycle.queuedByStep?.urgency || 0),
+        },
+        dueByStep: {
+          objection: Number(summary.lifecycle.dueByStep?.objection || 0),
+          urgency: Number(summary.lifecycle.dueByStep?.urgency || 0),
+        },
+        sentByStep: {
+          objection: Number(summary.lifecycle.sentByStep?.objection || 0),
+          urgency: Number(summary.lifecycle.sentByStep?.urgency || 0),
+        },
+        completed: Number(summary.lifecycle.completed || 0),
+      }
+    : summarizePromotionSubscriberRows(subscribers);
   return {
     ok: true,
-    total: subscribers.length,
-    active: subscribers.filter((row) => !row.unsubscribedAt).length,
-    unsubscribed: subscribers.filter((row) => row.unsubscribedAt).length,
-    listComplete: Boolean(body.listComplete),
+    total: Number(summary?.total ?? subscribers.length),
+    active: Number(summary?.active ?? subscribers.filter((row) => !row.unsubscribedAt).length),
+    unsubscribed: Number(summary?.unsubscribed ?? subscribers.filter((row) => row.unsubscribedAt).length),
+    lifecycle,
+    listComplete: Boolean(summary?.listComplete ?? body.listComplete),
     nextCursor: body.nextCursor ?? null,
   };
 }
@@ -466,6 +554,7 @@ async function buildReport(args) {
           total: promotionSubscribers.total,
           active: promotionSubscribers.active,
           unsubscribed: promotionSubscribers.unsubscribed,
+          lifecycle: promotionSubscribers.lifecycle,
           listComplete: promotionSubscribers.listComplete,
           nextCursor: promotionSubscribers.nextCursor,
         }
@@ -733,6 +822,20 @@ function printHumanReport(report) {
     console.log(
       `active=${report.promotionSubscribers.active} unsubscribed=${report.promotionSubscribers.unsubscribed} total=${report.promotionSubscribers.total}`,
     );
+    if (report.promotionSubscribers.lifecycle) {
+      console.log(
+        `welcome sent=${report.promotionSubscribers.lifecycle.welcomeSent} pending=${report.promotionSubscribers.lifecycle.pending} due now=${report.promotionSubscribers.lifecycle.dueNow} completed=${report.promotionSubscribers.lifecycle.completed}`,
+      );
+      console.log(
+        `queued: objection=${report.promotionSubscribers.lifecycle.queuedByStep.objection} urgency=${report.promotionSubscribers.lifecycle.queuedByStep.urgency}`,
+      );
+      console.log(
+        `sent: objection=${report.promotionSubscribers.lifecycle.sentByStep.objection} urgency=${report.promotionSubscribers.lifecycle.sentByStep.urgency} legacy=${report.promotionSubscribers.lifecycle.legacyFollowupSent}`,
+      );
+      console.log(
+        `due now: objection=${report.promotionSubscribers.lifecycle.dueByStep.objection} urgency=${report.promotionSubscribers.lifecycle.dueByStep.urgency}`,
+      );
+    }
     if (!report.promotionSubscribers.listComplete) {
       console.log(`partial list (nextCursor=${report.promotionSubscribers.nextCursor || "unknown"})`);
     }

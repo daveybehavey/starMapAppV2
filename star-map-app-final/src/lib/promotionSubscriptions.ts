@@ -29,6 +29,19 @@ export type PromotionEmailState = {
   lastSource?: string;
 };
 
+export type PromotionLifecycleStepCounts = Record<PromotionFollowupStep, number>;
+
+export type PromotionLifecycleSummary = {
+  welcomeSent: number;
+  legacyFollowupSent: number;
+  pending: number;
+  dueNow: number;
+  queuedByStep: PromotionLifecycleStepCounts;
+  dueByStep: PromotionLifecycleStepCounts;
+  sentByStep: PromotionLifecycleStepCounts;
+  completed: number;
+};
+
 const MIN_SIGNING_SECRET_LENGTH = 16;
 
 function getSigningSecret() {
@@ -112,18 +125,83 @@ export type PromotionSubscriberSummary = {
   active: number;
   unsubscribed: number;
   listComplete: boolean;
+  lifecycle: PromotionLifecycleSummary;
 };
 
-export async function getPromotionSubscriberSummary(limit = 500): Promise<PromotionSubscriberSummary> {
-  const listed = await kv.list({ prefix: EMAIL_STATE_PREFIX, limit });
-  const states = await Promise.all(
-    listed.keys.map((key) => kv.get<PromotionEmailState>(key)),
-  );
+function createStepCounts(): PromotionLifecycleStepCounts {
+  return {
+    objection: 0,
+    urgency: 0,
+  };
+}
 
+function buildPromotionLifecycleSummary(states: PromotionEmailState[]): PromotionLifecycleSummary {
+  const queuedByStep = createStepCounts();
+  const dueByStep = createStepCounts();
+  const sentByStep = createStepCounts();
+  let welcomeSent = 0;
+  let legacyFollowupSent = 0;
+  let pending = 0;
+  let dueNow = 0;
+  let completed = 0;
+  const now = Date.now();
+
+  for (const state of states) {
+    if (state.unsubscribedAt) continue;
+    if (state.couponSentAt) {
+      welcomeSent += 1;
+    }
+
+    const sentSteps = new Set<PromotionFollowupStep>();
+    for (const entry of state.followupHistory ?? []) {
+      if (PROMOTION_FOLLOWUP_STEPS.includes(entry.step)) {
+        sentSteps.add(entry.step);
+      }
+    }
+    for (const step of sentSteps) {
+      sentByStep[step] += 1;
+    }
+
+    const nextStep = state.followupNextStep;
+    if (nextStep) {
+      pending += 1;
+      queuedByStep[nextStep] += 1;
+      if (typeof state.followupDueAt === "number" && Number.isFinite(state.followupDueAt) && state.followupDueAt <= now) {
+        dueNow += 1;
+        dueByStep[nextStep] += 1;
+      }
+    }
+
+    const hasLegacyFollowup = Boolean(state.followupSentAt) && sentSteps.size === 0;
+    if (hasLegacyFollowup) {
+      legacyFollowupSent += 1;
+    }
+    if (!nextStep && (hasLegacyFollowup || sentSteps.has("urgency"))) {
+      completed += 1;
+    }
+  }
+
+  return {
+    welcomeSent,
+    legacyFollowupSent,
+    pending,
+    dueNow,
+    queuedByStep,
+    dueByStep,
+    sentByStep,
+    completed,
+  };
+}
+
+export function summarizePromotionEmailStates(
+  states: Array<PromotionEmailState | null | undefined>,
+  listComplete = true,
+): PromotionSubscriberSummary {
+  const validStates = states.filter((state): state is PromotionEmailState => Boolean(state));
   let active = 0;
   let unsubscribed = 0;
-  for (const state of states) {
-    if (!state) continue;
+
+  for (const state of validStates) {
     if (state.unsubscribedAt) {
       unsubscribed += 1;
     } else {
@@ -132,9 +210,18 @@ export async function getPromotionSubscriberSummary(limit = 500): Promise<Promot
   }
 
   return {
-    total: listed.keys.length,
+    total: validStates.length,
     active,
     unsubscribed,
-    listComplete: listed.listComplete,
+    listComplete,
+    lifecycle: buildPromotionLifecycleSummary(validStates),
   };
+}
+
+export async function getPromotionSubscriberSummary(limit = 500): Promise<PromotionSubscriberSummary> {
+  const listed = await kv.list({ prefix: EMAIL_STATE_PREFIX, limit });
+  const states = await Promise.all(
+    listed.keys.map((key) => kv.get<PromotionEmailState>(key)),
+  );
+  return summarizePromotionEmailStates(states, listed.listComplete);
 }

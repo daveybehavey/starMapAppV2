@@ -199,6 +199,16 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
             <p className="text-sm text-neutral-400">
               {promotionSubscribers.total.toLocaleString()} total • {promotionSubscribers.unsubscribed.toLocaleString()} unsubscribed
             </p>
+            <p className="mt-2 text-xs text-neutral-400">
+              Welcome sent {promotionSubscribers.lifecycle.welcomeSent.toLocaleString()} • pending{" "}
+              {promotionSubscribers.lifecycle.pending.toLocaleString()} • due now{" "}
+              {promotionSubscribers.lifecycle.dueNow.toLocaleString()}
+            </p>
+            <p className="mt-1 text-xs text-neutral-500">
+              objection {promotionSubscribers.lifecycle.queuedByStep.objection.toLocaleString()} queued • urgency{" "}
+              {promotionSubscribers.lifecycle.queuedByStep.urgency.toLocaleString()} queued • completed{" "}
+              {promotionSubscribers.lifecycle.completed.toLocaleString()}
+            </p>
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Referral conversions</p>

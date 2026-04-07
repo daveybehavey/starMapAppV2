@@ -3,6 +3,7 @@ import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import {
   keyNameToPromotionEmail,
+  summarizePromotionEmailStates,
   type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
 
@@ -67,9 +68,18 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 
+  const summary = summarizePromotionEmailStates(
+    rows
+      .filter((row) => row.email && row.state)
+      .filter((row) => includeUnsubscribed || !row.state?.unsubscribedAt)
+      .map((row) => row.state),
+    listed.listComplete,
+  );
+
   return NextResponse.json({
     ok: true,
     subscribers,
+    summary,
     nextCursor: listed.cursor ?? null,
     listComplete: listed.listComplete,
   });

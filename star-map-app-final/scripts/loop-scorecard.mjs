@@ -76,6 +76,7 @@ function buildScorecard(digest) {
   const activeSubscribers = Number(digest?.promotionSubscribers?.active || 0);
   const unsubscribedSubscribers = Number(digest?.promotionSubscribers?.unsubscribed || 0);
   const totalSubscribers = Number(digest?.promotionSubscribers?.total || 0);
+  const lifecycle = digest?.promotionSubscribers?.lifecycle || null;
   const clientBlockers = Array.isArray(digest?.checkoutDiagnostics)
     ? digest.checkoutDiagnostics.filter((row) => String(row?.reason || "").startsWith("client_"))
     : [];
@@ -117,6 +118,17 @@ function buildScorecard(digest) {
         activeSubscribers,
         unsubscribedSubscribers,
         totalSubscribers,
+        welcomeSent: Number(lifecycle?.welcomeSent || 0),
+        followupPending: Number(lifecycle?.pending || 0),
+        followupDueNow: Number(lifecycle?.dueNow || 0),
+        queuedObjection: Number(lifecycle?.queuedByStep?.objection || 0),
+        queuedUrgency: Number(lifecycle?.queuedByStep?.urgency || 0),
+        dueObjection: Number(lifecycle?.dueByStep?.objection || 0),
+        dueUrgency: Number(lifecycle?.dueByStep?.urgency || 0),
+        sentObjection: Number(lifecycle?.sentByStep?.objection || 0),
+        sentUrgency: Number(lifecycle?.sentByStep?.urgency || 0),
+        completed: Number(lifecycle?.completed || 0),
+        legacyFollowupSent: Number(lifecycle?.legacyFollowupSent || 0),
         checkoutStarted,
         paidSessions,
         paidSessionsAll,
@@ -191,6 +203,25 @@ function printHumanScorecard(scorecard) {
   console.log("Loop 3 · Promo lifecycle");
   console.log(`Active subscribers: ${scorecard.loops.promoLifecycle.activeSubscribers}`);
   console.log(`Unsubscribed: ${scorecard.loops.promoLifecycle.unsubscribedSubscribers}`);
+  console.log(
+    `Welcome sent: ${scorecard.loops.promoLifecycle.welcomeSent} | ` +
+      `pending: ${scorecard.loops.promoLifecycle.followupPending} | ` +
+      `due now: ${scorecard.loops.promoLifecycle.followupDueNow} | ` +
+      `completed: ${scorecard.loops.promoLifecycle.completed}`,
+  );
+  console.log(
+    `Queued by step: objection=${scorecard.loops.promoLifecycle.queuedObjection} ` +
+      `urgency=${scorecard.loops.promoLifecycle.queuedUrgency}`,
+  );
+  console.log(
+    `Sent by step: objection=${scorecard.loops.promoLifecycle.sentObjection} ` +
+      `urgency=${scorecard.loops.promoLifecycle.sentUrgency} ` +
+      `legacy=${scorecard.loops.promoLifecycle.legacyFollowupSent}`,
+  );
+  console.log(
+    `Due now by step: objection=${scorecard.loops.promoLifecycle.dueObjection} ` +
+      `urgency=${scorecard.loops.promoLifecycle.dueUrgency}`,
+  );
   console.log(
     `Paid sessions (revenue-positive, ex QA): ${scorecard.loops.promoLifecycle.paidSessions}` +
       ` | revenue-paid all: ${scorecard.loops.promoLifecycle.paidSessionsRevenue}` +

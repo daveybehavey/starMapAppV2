@@ -27,6 +27,17 @@ export type LoopScorecard = {
       activeSubscribers: number;
       unsubscribedSubscribers: number;
       totalSubscribers: number;
+      welcomeSent: number;
+      followupPending: number;
+      followupDueNow: number;
+      queuedObjection: number;
+      queuedUrgency: number;
+      dueObjection: number;
+      dueUrgency: number;
+      sentObjection: number;
+      sentUrgency: number;
+      completed: number;
+      legacyFollowupSent: number;
       checkoutStarted: number;
       paidSessions: number;
       paidSessionsAll: number;
@@ -221,6 +232,17 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
         activeSubscribers: promotionSubscribers.active,
         unsubscribedSubscribers: promotionSubscribers.unsubscribed,
         totalSubscribers: promotionSubscribers.total,
+        welcomeSent: promotionSubscribers.lifecycle.welcomeSent,
+        followupPending: promotionSubscribers.lifecycle.pending,
+        followupDueNow: promotionSubscribers.lifecycle.dueNow,
+        queuedObjection: promotionSubscribers.lifecycle.queuedByStep.objection,
+        queuedUrgency: promotionSubscribers.lifecycle.queuedByStep.urgency,
+        dueObjection: promotionSubscribers.lifecycle.dueByStep.objection,
+        dueUrgency: promotionSubscribers.lifecycle.dueByStep.urgency,
+        sentObjection: promotionSubscribers.lifecycle.sentByStep.objection,
+        sentUrgency: promotionSubscribers.lifecycle.sentByStep.urgency,
+        completed: promotionSubscribers.lifecycle.completed,
+        legacyFollowupSent: promotionSubscribers.lifecycle.legacyFollowupSent,
         checkoutStarted,
         paidSessions,
         paidSessionsAll,
