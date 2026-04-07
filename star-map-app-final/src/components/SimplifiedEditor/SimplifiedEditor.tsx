@@ -30,7 +30,7 @@ import {
   isValidIsoDateInput,
   toISODate,
 } from "@/lib/dateInput";
-import { track, trackBeginCheckout, trackCheckoutClientDiagnostic } from "@/lib/analytics";
+import { track, trackBeginCheckout, trackCheckoutClientDiagnostic, trackFunnelStep } from "@/lib/analytics";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 import {
@@ -483,6 +483,17 @@ export function SimplifiedEditor() {
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
+      if (mode !== "hd") {
+        track("export_free_clicked", {
+          isPaid: paid,
+          visualMode: renderOptions.visualMode,
+          exportResolution: 1200,
+        });
+        track("export_download", { type: "preview", source: "simplified_editor" });
+        if (!paid) {
+          trackFunnelStep("preview_download_started", { source: "simplified_editor" });
+        }
+      }
       link.download = buildStarMapDownloadFilename({
         recipe,
         mode: mode === "hd" ? "hd" : "preview",
@@ -492,6 +503,9 @@ export function SimplifiedEditor() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      if (mode !== "hd" && !paid) {
+        trackFunnelStep("preview_download_completed", { source: "simplified_editor" });
+      }
       setDownloadHint(getDownloadLocationHint());
     },
     [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]

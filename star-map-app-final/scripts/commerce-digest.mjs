@@ -617,6 +617,8 @@ function printHumanReport(report) {
     const stepOrder = [
       "landing_view",
       "preview_started",
+      "preview_download_started",
+      "preview_download_completed",
       "checkout_started",
       "checkout_request_received",
       "checkout_session_created",
@@ -632,8 +634,26 @@ function printHumanReport(report) {
     const checkoutRequestReceived = Number(report.funnel.checkout_request_received || 0);
     const sessionCreated = Number(report.funnel.checkout_session_created || 0);
     const paid = Number(report.funnel.payment_verified || 0);
+    const previewDownloads = Number(report.funnel.preview_download_completed || 0);
     const revenuePaid = Number(report.stripe.revenuePaidSessions || 0);
     const revenuePaidExcludingQa = Number(report.stripe.revenuePaidSessionsExcludingQa || 0);
+    console.log("");
+    console.log("Preview export")
+    if (Number(report.funnel.preview_started || 0) > 0) {
+      console.log(
+        `preview -> preview download: ${((previewDownloads / Number(report.funnel.preview_started || 0)) * 100).toFixed(2)}% (${previewDownloads}/${Number(report.funnel.preview_started || 0)})`,
+      );
+    } else {
+      console.log("preview -> preview download: n/a");
+    }
+    if (previewDownloads > 0) {
+      console.log(
+        `preview download -> checkout intent: ${((checkoutStarted / previewDownloads) * 100).toFixed(2)}% (${checkoutStarted}/${previewDownloads})`,
+      );
+    } else {
+      console.log("preview download -> checkout intent: n/a");
+    }
+
     if (checkoutStarted > 0) {
       console.log(
         `intent -> api request: ${((checkoutRequestReceived / checkoutStarted) * 100).toFixed(2)}% (${checkoutRequestReceived}/${checkoutStarted})`,

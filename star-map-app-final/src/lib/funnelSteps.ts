@@ -3,6 +3,8 @@ export const FUNNEL_STEPS = [
   "hero_plan_click",
   "preview_started",
   "editor_reveal",
+  "preview_download_started",
+  "preview_download_completed",
   "checkout_started",
   "checkout_request_received",
   "checkout_session_created",

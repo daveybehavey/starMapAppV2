@@ -1112,9 +1112,15 @@ export function EditorExperience({
           visualMode: renderOptions.visualMode,
           exportResolution: 1200,
         });
+        if (!hasAccess) {
+          trackFunnelStep("preview_download_started", { source: "editor" });
+        }
         track("export_download", { type: "preview" });
         const renderedPreview = await renderExportFile("preview", hasAccess);
         triggerDownload(renderedPreview.blob, renderedPreview.filename);
+        if (!hasAccess) {
+          trackFunnelStep("preview_download_completed", { source: "editor" });
+        }
       } catch (error) {
         console.error("Export failed", error);
         if (isHd) {
