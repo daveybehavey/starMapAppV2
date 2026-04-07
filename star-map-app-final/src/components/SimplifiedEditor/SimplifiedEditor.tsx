@@ -133,6 +133,7 @@ export function SimplifiedEditor() {
   const [hdExporting, setHdExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [downloadHint, setDownloadHint] = useState<string | null>(null);
+  const [lastDownloadMode, setLastDownloadMode] = useState<"preview" | "hd" | null>(null);
   const [titleTouched, setTitleTouched] = useState(false);
   const [dateTouched, setDateTouched] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
@@ -506,6 +507,7 @@ export function SimplifiedEditor() {
       if (mode !== "hd" && !paid) {
         trackFunnelStep("preview_download_completed", { source: "simplified_editor" });
       }
+      setLastDownloadMode(mode === "hd" ? "hd" : "preview");
       setDownloadHint(getDownloadLocationHint());
     },
     [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]
@@ -513,7 +515,10 @@ export function SimplifiedEditor() {
 
   useEffect(() => {
     if (!downloadHint) return;
-    const timeout = window.setTimeout(() => setDownloadHint(null), 12000);
+    const timeout = window.setTimeout(() => {
+      setDownloadHint(null);
+      setLastDownloadMode(null);
+    }, 20000);
     return () => window.clearTimeout(timeout);
   }, [downloadHint]);
 
@@ -1165,7 +1170,26 @@ export function SimplifiedEditor() {
         )}
         <p className="text-[11px] text-white/65">{digitalCheckoutHelperText}</p>
         <p className="text-[11px] text-white/55">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
-        {downloadHint && (
+        {downloadHint && lastDownloadMode === "preview" && !paid && (
+          <div className="rounded-lg border border-amber-300/35 bg-amber-300/10 px-4 py-3 text-xs text-amber-50">
+            <p className="font-semibold text-amber-100">Free preview saved with watermark.</p>
+            <p className="mt-1 text-amber-100/85">
+              Buy the HD file to keep this exact map without watermark.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleHdDownload}
+                disabled={!canExport || hdExporting}
+                className="inline-flex items-center rounded-full bg-amber-300 px-3 py-1.5 text-[11px] font-semibold text-[#0b1433] transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {getDigitalCheckoutPrimaryLabel(singlePriceLabel)}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-amber-100/80">{downloadHint}</p>
+          </div>
+        )}
+        {downloadHint && (lastDownloadMode === "hd" || paid) && (
           <div className="rounded-lg border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-100">
             <p>{downloadHint}</p>
             <a

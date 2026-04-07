@@ -342,6 +342,7 @@ export function EditorExperience({
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
   const [downloadHint, setDownloadHint] = useState<string | null>(null);
+  const [lastDownloadMode, setLastDownloadMode] = useState<"preview" | "hd" | null>(null);
   const prefillAppliedRef = useRef(false);
   const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
@@ -988,19 +989,23 @@ export function EditorExperience({
     [aspectRatio, dateTime, location, paid, renderOptions, selectedStyle, shape, textBoxes]
   );
 
-  const triggerDownload = useCallback((blob: Blob, filename: string) => {
+  const triggerDownload = useCallback((blob: Blob, filename: string, mode: "preview" | "hd") => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.download = filename;
     link.href = url;
     link.click();
+    setLastDownloadMode(mode);
     setDownloadHint(getDownloadLocationHint());
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }, []);
 
   useEffect(() => {
     if (!downloadHint) return;
-    const timeout = window.setTimeout(() => setDownloadHint(null), 12000);
+    const timeout = window.setTimeout(() => {
+      setDownloadHint(null);
+      setLastDownloadMode(null);
+    }, 20000);
     return () => window.clearTimeout(timeout);
   }, [downloadHint]);
 
@@ -1023,7 +1028,7 @@ export function EditorExperience({
         .then(async (rendered) => {
           const ok = await consumeHdCredit();
           if (!ok) return;
-          triggerDownload(rendered.blob, rendered.filename);
+          triggerDownload(rendered.blob, rendered.filename, "hd");
         })
         .catch(() => {})
         .finally(() => {
@@ -1103,7 +1108,7 @@ export function EditorExperience({
           });
           trackFunnelStep("download_started", { source: "editor" });
           track("export_download", { type: "hd" });
-          triggerDownload(rendered.blob, rendered.filename);
+          triggerDownload(rendered.blob, rendered.filename, "hd");
           trackFunnelStep("download_completed", { source: "editor" });
           return;
         }
@@ -1117,7 +1122,7 @@ export function EditorExperience({
         }
         track("export_download", { type: "preview" });
         const renderedPreview = await renderExportFile("preview", hasAccess);
-        triggerDownload(renderedPreview.blob, renderedPreview.filename);
+        triggerDownload(renderedPreview.blob, renderedPreview.filename, "preview");
         if (!hasAccess) {
           trackFunnelStep("preview_download_completed", { source: "editor" });
         }
@@ -2721,7 +2726,40 @@ export function EditorExperience({
                             For multiple files, create or edit the next map before each download.
                           </p>
                         )}
-                        {downloadHint && (
+                        {downloadHint && lastDownloadMode === "preview" && !paid && (
+                          <div className="mt-2 rounded-lg border border-amber-300/35 bg-amber-300/10 px-3 py-3">
+                            <p className="text-[11px] font-semibold text-amber-100">Free preview saved with watermark.</p>
+                            <p className="mt-1 text-[11px] text-amber-100/85">
+                              Buy the HD file to keep this exact map without watermark, or compare print options if you want the finished gift.
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleExport("hd");
+                                }}
+                                className="inline-flex items-center rounded-full bg-amber-300 px-3 py-1.5 text-[11px] font-semibold text-[#0b1433] transition hover:bg-amber-200"
+                              >
+                                {getDigitalCheckoutPrimaryLabel(priceLabels.single)}
+                              </button>
+                              {printCheckoutEnabled && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPaywallIntent("print");
+                                    setPaywallOpen(true);
+                                    setCheckoutError(null);
+                                  }}
+                                  className="inline-flex items-center rounded-full border border-amber-200/30 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-amber-50 transition hover:bg-white/15"
+                                >
+                                  Compare print options
+                                </button>
+                              )}
+                            </div>
+                            <p className="mt-2 text-[11px] text-amber-100/80">{downloadHint}</p>
+                          </div>
+                        )}
+                        {downloadHint && (lastDownloadMode === "hd" || paid) && (
                           <div className="mt-2 rounded-lg border border-emerald-300/35 bg-emerald-500/10 px-3 py-2">
                             <p className="text-[11px] text-emerald-100">{downloadHint}</p>
                             <a
