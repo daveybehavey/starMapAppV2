@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import ResilientImage from "@/components/ResilientImage";
+import { featuredRenderExamples } from "@/lib/galleryExamples";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
@@ -97,6 +99,44 @@ export default function FramedProofSection({
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700">Framed in real spaces</p>
             <h2 className="text-xl font-semibold text-midnight">{heading}</h2>
             <p className="text-sm text-neutral-800 sm:text-base">{intro}</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Current example outputs</p>
+                <p className="text-xs text-neutral-700">Fresh renders from the same engine used in preview.</p>
+              </div>
+              <Link
+                href="/star-map-gallery"
+                className="text-xs font-semibold text-amber-800 underline decoration-amber-400/70 underline-offset-4 transition hover:text-amber-900"
+              >
+                View full gallery
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {featuredRenderExamples.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/star-map-gallery#${item.anchor}`}
+                  className="overflow-hidden rounded-2xl border border-black/10 bg-white transition hover:-translate-y-[1px] hover:shadow-md"
+                >
+                  <div className="relative aspect-square">
+                    <Image
+                      src={item.src}
+                      alt={item.alt}
+                      fill
+                      sizes="(max-width: 1024px) 33vw, 140px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="space-y-1 px-2 py-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-700">{item.badge}</p>
+                    <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-midnight">{item.shortLabel}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
