@@ -1,6 +1,7 @@
 .tmp_codex_key
 .tmp_codex_key.pub
 .ssh_config_codex
+.codex
 lighthouse-*.report.*
 lighthouse-*.json
 lighthouse-*.html
