@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import CollectionPageSchema from "@/components/CollectionPageSchema";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
@@ -236,6 +237,19 @@ export default function StarMapGiftIdeasPage() {
             question: "Can I preview the map before purchasing?",
             answer: "Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD digital delivery.",
           },
+        ]}
+      />
+      <CollectionPageSchema
+        name="Star Map Gift Ideas"
+        description="Browse star map gift ideas by occasion, season, and style, then continue to the clearest main gift page once you know the angle that fits."
+        path="/star-map-gift-ideas"
+        items={[
+          { name: "Star map gift", path: "/star-map-gift" },
+          { name: "Anniversary star map", path: "/anniversary" },
+          { name: "Wedding star map", path: "/wedding" },
+          { name: "Valentine’s Day", path: "/star-map-for/valentines-day" },
+          { name: "Mother's Day", path: "/star-map-for/mothers-day" },
+          { name: "Graduation", path: "/star-map-for/graduation" },
         ]}
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

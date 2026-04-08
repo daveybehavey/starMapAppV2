@@ -74,6 +74,15 @@ function hasProductSchema(html, productName) {
   return normalized.includes('"@type":"Product"') && normalized.includes(`"name":"${productName}"`);
 }
 
+function hasCollectionPageSchema(html, pageName) {
+  const normalized = typeof html === "string" ? html.replace(/\s+/g, " ") : "";
+  return (
+    normalized.includes("CollectionPage") &&
+    normalized.includes("ItemList") &&
+    normalized.includes(`"name":"${pageName}"`)
+  );
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const checks = [];
@@ -298,6 +307,48 @@ async function main() {
   } catch (error) {
     failed = true;
     runCheck("City detail page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const occasionHubRes = await fetchWithTimeout(`${site}/star-map-for`, { cache: "no-store" }, args.timeoutMs);
+    const occasionHubHtml = await occasionHubRes.text();
+    runCheck("Occasion hub page responds 200", occasionHubRes.status === 200, `status=${occasionHubRes.status}`);
+    runCheck(
+      "Occasion hub page includes collection schema",
+      hasCollectionPageSchema(occasionHubHtml, "Star Map for Occasions"),
+      "CollectionPage JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Occasion hub page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const cityHubRes = await fetchWithTimeout(`${site}/star-map-in`, { cache: "no-store" }, args.timeoutMs);
+    const cityHubHtml = await cityHubRes.text();
+    runCheck("City hub page responds 200", cityHubRes.status === 200, `status=${cityHubRes.status}`);
+    runCheck(
+      "City hub page includes collection schema",
+      hasCollectionPageSchema(cityHubHtml, "Star Map by City"),
+      "CollectionPage JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("City hub page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const giftIdeasRes = await fetchWithTimeout(`${site}/star-map-gift-ideas`, { cache: "no-store" }, args.timeoutMs);
+    const giftIdeasHtml = await giftIdeasRes.text();
+    runCheck("Gift ideas page responds 200", giftIdeasRes.status === 200, `status=${giftIdeasRes.status}`);
+    runCheck(
+      "Gift ideas page includes collection schema",
+      hasCollectionPageSchema(giftIdeasHtml, "Star Map Gift Ideas"),
+      "CollectionPage JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Gift ideas page checks", false, error instanceof Error ? error.message : String(error));
   }
 
   try {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import CollectionPageSchema from "@/components/CollectionPageSchema";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -138,6 +139,15 @@ export default function StarMapByCityPage() {
         guideLabel="Print and frame guide"
       />
 
+      <CollectionPageSchema
+        name="Star Map by City"
+        description="Browse city-specific star map routes, then continue to the clearest main purchase page once you know the location that matters."
+        path="/star-map-in"
+        items={indexableLocations.slice(0, 12).map((location) => ({
+          name: formatLocationDisplay(location),
+          path: `/star-map-in/${location.slug}`,
+        }))}
+      />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

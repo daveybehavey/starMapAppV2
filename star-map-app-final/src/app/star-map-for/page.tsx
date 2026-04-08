@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import CollectionPageSchema from "@/components/CollectionPageSchema";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -182,6 +183,15 @@ export default function StarMapForOccasionsPage() {
         guideLabel="Print and frame guide"
       />
 
+      <CollectionPageSchema
+        name="Star Map for Occasions"
+        description="Browse occasion-specific star map routes, then continue to the clearest main purchase page once you know the moment."
+        path="/star-map-for"
+        items={featuredOccasions.map((occasion) => ({
+          name: occasion.label,
+          path: resolveOccasionIntentPath(occasion.slug),
+        }))}
+      />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
