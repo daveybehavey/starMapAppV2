@@ -522,7 +522,7 @@ export const blogPosts: BlogPost[] = [
         </p>
         <p>
           If you are picking a gift for February, see our{" "}
-          <Link href="/blog/most-meaningful-valentines-day-gift-custom-star-map">
+          <Link href="/blog/valentines-day-star-map">
             Valentine's Day star map guide
           </Link>{" "}
           for romantic moment ideas and fast personalization tips.
@@ -996,7 +996,7 @@ export const blogPosts: BlogPost[] = [
         </p>
         <p>
           Need a romantic angle for February? Read our{" "}
-          <Link href="/blog/most-meaningful-valentines-day-gift-custom-star-map">
+          <Link href="/blog/valentines-day-star-map">
             Valentine's Day star map gift guide
           </Link>{" "}
           for ideas that feel personal and gift-ready.

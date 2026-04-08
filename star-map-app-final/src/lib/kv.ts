@@ -16,12 +16,19 @@ type CloudflareKvNamespace = {
 };
 
 const CLOUDFLARE_KV_BINDING = "STAR_MAP_KV";
+const isProductionLike =
+  (process.env.NODE_ENV || "").trim() === "production" || (process.env.NEXTJS_ENV || "").trim() === "production";
 const memoryStore: Map<string, unknown> =
   (globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv ?? new Map();
 const fallbackKvDir = process.env.STARMAP_KV_DIR?.trim() || path.join(process.cwd(), ".tmp", "kv-store");
+const kvGlobals = globalThis as typeof globalThis & {
+  __starmapKv?: Map<string, unknown>;
+  __starmapCloudflareKv?: CloudflareKvNamespace;
+  __starmapCloudflareKvPromise?: Promise<CloudflareKvNamespace | null>;
+};
 
-if (!(globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv) {
-  (globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv = memoryStore;
+if (!kvGlobals.__starmapKv) {
+  kvGlobals.__starmapKv = memoryStore;
 }
 
 function fallbackFilePathForKey(key: string) {
@@ -45,17 +52,51 @@ async function writeFallbackValue<T>(key: string, value: T): Promise<void> {
   await fs.writeFile(filePath, JSON.stringify(value), "utf8");
 }
 
-async function getCloudflareKv(): Promise<CloudflareKvNamespace | null> {
-  const timeoutMs = 120;
+function resolveCloudflareKvFromContext(cloudflareContext: unknown): CloudflareKvNamespace | null {
+  const bindings = (cloudflareContext as { env?: Record<string, unknown> } | null | undefined)?.env;
+  return (bindings?.[CLOUDFLARE_KV_BINDING] as CloudflareKvNamespace | undefined) ?? null;
+}
+
+function getCloudflareKvSync(): CloudflareKvNamespace | null {
   try {
-    const cloudflareContext = await Promise.race([
-      getCloudflareContext({ async: true }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-    ]);
-    if (!cloudflareContext) return null;
-    const { env } = cloudflareContext;
-    const bindings = env as unknown as Record<string, unknown> | undefined;
-    return (bindings?.[CLOUDFLARE_KV_BINDING] as CloudflareKvNamespace | undefined) ?? null;
+    return resolveCloudflareKvFromContext(getCloudflareContext());
+  } catch {
+    return null;
+  }
+}
+
+async function getCloudflareKv(): Promise<CloudflareKvNamespace | null> {
+  if (kvGlobals.__starmapCloudflareKv) {
+    return kvGlobals.__starmapCloudflareKv;
+  }
+
+  const syncBinding = getCloudflareKvSync();
+  if (syncBinding) {
+    kvGlobals.__starmapCloudflareKv = syncBinding;
+    return syncBinding;
+  }
+
+  if (kvGlobals.__starmapCloudflareKvPromise) {
+    return kvGlobals.__starmapCloudflareKvPromise;
+  }
+
+  kvGlobals.__starmapCloudflareKvPromise = (async () => {
+    try {
+      const cloudflareContext = await getCloudflareContext({ async: true });
+      const binding = resolveCloudflareKvFromContext(cloudflareContext);
+      if (binding) {
+        kvGlobals.__starmapCloudflareKv = binding;
+      }
+      return binding;
+    } catch {
+      return null;
+    } finally {
+      kvGlobals.__starmapCloudflareKvPromise = undefined;
+    }
+  })();
+
+  try {
+    return await kvGlobals.__starmapCloudflareKvPromise;
   } catch {
     return null;
   }
@@ -79,7 +120,7 @@ export const kv = {
         if (cfValue !== null) {
           return cfValue;
         }
-        if (process.env.NODE_ENV === "production") {
+        if (isProductionLike) {
           return null;
         }
       } catch {
@@ -88,6 +129,9 @@ export const kv = {
     }
     if (memoryStore.has(key)) {
       return memoryStore.get(key) as T;
+    }
+    if (isProductionLike) {
+      return null;
     }
     const fallbackValue = await readFallbackValue<T>(key);
     if (fallbackValue !== null) {
@@ -101,7 +145,7 @@ export const kv = {
       const ttl = ttlFromOptions(options);
       try {
         await cfKv.put(key, JSON.stringify(value), ttl ? { expirationTtl: ttl } : undefined);
-        if (process.env.NODE_ENV !== "production") {
+        if (!isProductionLike) {
           memoryStore.set(key, value);
           await writeFallbackValue(key, value);
         }
@@ -111,7 +155,9 @@ export const kv = {
       }
     }
     memoryStore.set(key, value);
-    await writeFallbackValue(key, value);
+    if (!isProductionLike) {
+      await writeFallbackValue(key, value);
+    }
     return "OK";
   },
   async incr(key: string, by = 1, options?: KvIncrOptions): Promise<number> {
@@ -130,7 +176,9 @@ export const kv = {
     const current = Number((await kv.get<number>(key)) ?? 0);
     const next = current + by;
     memoryStore.set(key, next);
-    await writeFallbackValue(key, next);
+    if (!isProductionLike) {
+      await writeFallbackValue(key, next);
+    }
     return next;
   },
   async list(options?: KvListOptions): Promise<{ keys: string[]; listComplete: boolean; cursor?: string | null }> {

@@ -320,7 +320,7 @@ export default function AnniversaryPostPage() {
             <p>
               Planning a February surprise too? See our{" "}
               <Link
-                href="/blog/most-meaningful-valentines-day-gift-custom-star-map"
+                href="/blog/valentines-day-star-map"
                 className="text-amber-300 hover:underline"
               >
                 Valentine's Day star map gift guide

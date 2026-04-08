@@ -570,6 +570,45 @@ async function main() {
     runCheck("Sitemap checks", false, error instanceof Error ? error.message : String(error));
   }
 
+  try {
+    const anniversaryGuideRes = await fetchWithTimeout(
+      `${site}/blog/custom-star-map-for-anniversary`,
+      { cache: "no-store" },
+      args.timeoutMs,
+    );
+    const anniversaryGuideHtml = await anniversaryGuideRes.text();
+    runCheck("Anniversary guide responds 200", anniversaryGuideRes.status === 200, `status=${anniversaryGuideRes.status}`);
+    runCheck(
+      "Anniversary guide links to live Valentines guide",
+      anniversaryGuideHtml.includes('href="/blog/valentines-day-star-map"') &&
+        !anniversaryGuideHtml.includes('href="/blog/most-meaningful-valentines-day-gift-custom-star-map"'),
+      "blog CTA target",
+    );
+
+    const brokenSlugRes = await fetchWithTimeout(
+      `${site}/blog/most-meaningful-valentines-day-gift-custom-star-map`,
+      { cache: "no-store", redirect: "manual" },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Old Valentines guide slug redirects to canonical guide",
+      (brokenSlugRes.status === 307 || brokenSlugRes.status === 308) &&
+        (brokenSlugRes.headers.get("location") === "/blog/valentines-day-star-map" ||
+          brokenSlugRes.headers.get("location") === `${site}/blog/valentines-day-star-map`),
+      `status=${brokenSlugRes.status} location=${brokenSlugRes.headers.get("location") ?? "missing"}`,
+    );
+
+    const valentinesGuideRes = await fetchWithTimeout(
+      `${site}/blog/valentines-day-star-map`,
+      { cache: "no-store" },
+      args.timeoutMs,
+    );
+    runCheck("Valentines guide responds 200", valentinesGuideRes.status === 200, `status=${valentinesGuideRes.status}`);
+  } catch (error) {
+    failed = true;
+    runCheck("Blog guide link checks", false, error instanceof Error ? error.message : String(error));
+  }
+
   const summary = {
     generatedAt: new Date().toISOString(),
     site,

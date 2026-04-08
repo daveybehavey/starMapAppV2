@@ -4,6 +4,7 @@ import Link from "next/link";
 import { blogPosts } from "@/lib/blogPosts";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
+const redirectedBlogSlugs = new Set(["most-meaningful-valentines-day-gift-custom-star-map"]);
 
 export const metadata: Metadata = {
   title: "Blog: Custom Star Map Guides | StarMapCo",
@@ -63,6 +64,7 @@ function resolveBlogCardImage(rawImage?: string) {
 }
 
 const indexPosts: IndexPost[] = [...blogPosts]
+  .filter((post) => !redirectedBlogSlugs.has(post.slug))
   .sort((a, b) => b.date.localeCompare(a.date))
   .map((post) => ({
     slug: post.slug,
