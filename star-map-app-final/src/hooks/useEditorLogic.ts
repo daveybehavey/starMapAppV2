@@ -177,16 +177,20 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
     (mode: RenderModeId, level: number) => {
       const cfg = renderModes[mode];
       const normalized = Math.min(Math.max(level / 100, 0), 1);
+      const brightnessAdjusted = normalized * cfg.starBrightness;
 
       const starIntensity: RenderOptions["starIntensity"] =
-        normalized < 0.3 ? "subtle" : normalized < 0.7 ? "normal" : "bold";
-      const starGlow = cfg.glow + normalized * 0.2 > 0.3;
+        brightnessAdjusted < 0.35 ? "subtle" : brightnessAdjusted < 0.85 ? "normal" : "bold";
+      const starGlowThreshold = mode === "classic" || mode === "blueprint" ? 0.4 : 0.24;
+      const starGlow = cfg.glow + normalized * 0.16 > starGlowThreshold;
       const visualMode: RenderOptions["visualMode"] =
-        mode === "blueprint" ? "astronomical" : mode === "cinematic" ? "illustrated" : "enhanced";
+        mode === "blueprint" ? "astronomical" : mode === "classic" ? "enhanced" : "illustrated";
       const constellationLines: RenderOptions["constellationLines"] =
         mode === "blueprint" ? "thick" : "thin";
       const planetEmphasis: RenderOptions["planetEmphasis"] =
-        cfg.contrast > 1.15 ? "highlighted" : "normal";
+        mode === "cinematic" || mode === "luxe" || cfg.contrast > 1.2 ? "highlighted" : "normal";
+      const constellationLineScale =
+        mode === "blueprint" ? 1.25 : mode === "luxe" ? 1.1 : mode === "cinematic" ? 1.05 : 0.95;
 
       setRenderOptions({
         starIntensity,
@@ -194,6 +198,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
         visualMode,
         constellationLines,
         planetEmphasis,
+        constellationLineScale,
       });
 
       onVisualOptionsApplied?.();
