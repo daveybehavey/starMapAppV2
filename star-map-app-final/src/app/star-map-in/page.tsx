@@ -21,12 +21,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map by City | StarMapCo",
   description:
-    "Browse city-specific star map pages, compare local examples, and jump to the best location page or start a preview.",
+    "Browse city-specific star map pages, then jump to the clearest main route or start a preview when you already know the location.",
   alternates: { canonical: `${siteUrl}/star-map-in` },
   openGraph: {
     title: "Star Map by City | StarMapCo",
     description:
-      "Browse city-specific star map pages, compare local examples, and jump to the best location page or start a preview.",
+      "Browse city-specific star map pages, then jump to the clearest main route or start a preview when you already know the location.",
     url: `${siteUrl}/star-map-in`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Browse city-specific star map pages, compare local examples, and jump to the best location page or start a preview.",
+      "Browse city-specific star map pages, then jump to the clearest main route or start a preview when you already know the location.",
     images: [ogImage],
   },
 };
@@ -50,7 +50,7 @@ export default function StarMapByCityPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map by City</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Use this hub to find the best city-specific page first, or start a preview if you already know the location you want.
+          Use this hub to find the best city-specific page first, or jump straight into preview if you already know the location you want.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -92,7 +92,7 @@ export default function StarMapByCityPage() {
       />
       <PrimaryIntentLinksSection
         heading="Primary start pages"
-        intro="Use this hub to browse city intent. If you want the stronger primary route after previewing, start with one of these pages."
+        intro="Use this hub to browse city intent. If you want the clearest main purchase page after previewing, start with one of these pages."
         links={[
           { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
           { href: "/star-map-gift", label: "Star map gift" },
@@ -103,7 +103,7 @@ export default function StarMapByCityPage() {
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Popular locations</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Each page includes tailored examples, FAQs, and a direct path into the editor.
+          Each page gives you location-specific wording and examples, but the same core preview and checkout flow.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           {indexableLocations.map((location) => (

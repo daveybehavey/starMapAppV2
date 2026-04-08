@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!location) return {};
   const display = formatLocationDisplay(location);
   const shouldIndex = isIndexableLocationSlug(location.slug);
-  const description = `Create a custom star map in ${display}. Start with a free preview, then choose framed print, unframed print, or HD digital delivery from the same design.`;
+  const description = `Preview a star map in ${display}, then continue to the clearest main purchase route once the design feels right.`;
 
   return {
     title: `Star Map in ${display} | StarMapCo`,
@@ -96,8 +96,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map in {display}</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Create a custom star map for {display} and capture the exact night sky from your date and location. Preview instantly,
-          then choose framed print, unframed print, or HD digital delivery from the same design.
+          Use this page when {display} matters in the wording. Preview the exact sky first, then move into the clearest main purchase route once the design feels right.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -140,7 +139,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
       <StickyCtaBar source={`sticky-city-${location.slug}`} />
       <PrimaryIntentLinksSection
         heading="Primary start pages"
-        intro={`Use this page for ${display} search intent. If you want the stronger primary route after previewing, start with one of these pages.`}
+        intro={`Use this page for ${display} search intent. If you want the clearest main purchase page after previewing, start with one of these pages.`}
         links={[
           { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
           { href: "/star-map-gift", label: "Star map gift" },

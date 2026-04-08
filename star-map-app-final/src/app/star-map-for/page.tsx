@@ -102,7 +102,7 @@ export default function StarMapForOccasionsPage() {
       />
       <PrimaryIntentLinksSection
         heading="Primary buying pages"
-        intro="Use this hub to browse occasion intent. If you want the stronger primary route after previewing, start with one of these pages."
+        intro="Use this hub to browse occasion intent. If you want the clearest main purchase page after previewing, start with one of these pages."
         links={[
           { href: "/star-map-gift", label: "Star map gift", recommended: true },
           { href: "/anniversary", label: "Anniversary star map" },
