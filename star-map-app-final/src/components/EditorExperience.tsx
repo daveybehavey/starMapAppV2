@@ -2720,12 +2720,6 @@ export function EditorExperience({
                         )}
                         <p className="mt-1 text-[11px] text-neutral-300/95">{digitalCheckoutHelperText}</p>
                         <p className="mt-1 text-[11px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
-                        {typeof creditsRemaining === "number" && currentPlan !== "subscription" && (
-                          <p className="mt-1 text-[11px] text-neutral-300/95">
-                            Pack reminder: each HD click exports the <span className="font-semibold text-white">current map only</span>.
-                            For multiple files, create or edit the next map before each download.
-                          </p>
-                        )}
                         {downloadHint && lastDownloadMode === "preview" && !paid && (
                           <div className="mt-2 rounded-lg border border-amber-300/35 bg-amber-300/10 px-3 py-3">
                             <p className="text-[11px] font-semibold text-amber-100">Free preview saved with watermark.</p>

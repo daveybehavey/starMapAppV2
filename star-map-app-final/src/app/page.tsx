@@ -180,7 +180,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "What is included in the free version vs. premium unlock?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: `Free preview lets you confirm the date, location, and layout first. Paid checkout can unlock framed print (${printFramedLabel}), unframed print (${printUnframedOfferLabel}), or HD digital delivery from ${priceLabel}. Digital packs and subscription stay available if you need repeat exports.`,
+              text: `Free preview lets you confirm the date, location, and layout first. Paid checkout can unlock framed print (${printFramedLabel}), unframed print (${printUnframedOfferLabel}), or HD digital delivery from ${priceLabel}. If you later need multiple HD exports, repeat-buyer plans stay available after you start.`,
             },
           },
           {

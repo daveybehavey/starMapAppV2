@@ -199,8 +199,8 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital HD plans</p>
-              <p className="mt-1 text-[11px] text-neutral-300">Start one-time unless you already know you need repeat exports.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital delivery</p>
+              <p className="mt-1 text-[11px] text-neutral-300">For most buyers, the right route is the one-time HD file for this exact map.</p>
             </div>
             <a
               href="/star-map-gift-formats"
@@ -209,7 +209,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               Compare all formats
             </a>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
             <a
               href="/editor?mode=quick&source=home-plan-single"
               className="rounded-xl border border-amber-300/55 bg-amber-300/15 px-3 py-3 text-left transition hover:border-amber-300/75 hover:bg-amber-300/20"
@@ -222,26 +222,20 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               </div>
               <p className="mt-1 text-sm font-semibold text-amber-200">{priceLabels.single}</p>
               <p className="mt-1 text-[11px] text-amber-100/80">One finished map.</p>
-            </a>
-            <a
-              href="/editor?mode=quick&source=home-plan-pack3"
-              className="rounded-xl border border-white/20 bg-white/10 px-3 py-3 text-left transition hover:border-amber-300/50 hover:bg-white/15"
-            >
-              <p className="text-sm font-semibold text-white">3 HD credits</p>
-              <p className="mt-1 text-sm font-semibold text-amber-200">
-                {priceLabels.pack3}
-                {priceLabels.packSavingsPercent > 0 ? ` (${priceLabels.packSavingsPercent}% off)` : ""}
+              <p className="mt-3 text-[11px] text-neutral-200">
+                Best for fast gifting, local printing later, or buyers who want the clean digital file first.
               </p>
-              <p className="mt-1 text-[11px] text-neutral-300">For multiple maps or revisions.</p>
             </a>
-            <a
-              href="/editor?mode=quick&source=home-plan-subscription"
-              className="rounded-xl border border-white/15 bg-white/5 px-3 py-3 text-left transition hover:border-white/25 hover:bg-white/10"
-            >
-              <p className="text-sm font-semibold text-white">Unlimited monthly</p>
-              <p className="mt-1 text-sm font-semibold text-neutral-100">{priceLabels.subscription}/mo</p>
-              <p className="mt-1 text-[11px] text-neutral-300">Only for ongoing use.</p>
-            </a>
+            <div className="rounded-xl border border-white/15 bg-white/6 px-3 py-3 text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-200">Repeat-buyer plans</p>
+              <p className="mt-2 text-sm font-semibold text-white">Only if you already need multiple future exports.</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-neutral-300">
+                3-credit and unlimited plans still exist, but they stay secondary to the one-time HD route for a first purchase.
+              </p>
+              <p className="mt-3 text-[11px] text-neutral-300">
+                Open the preview first, then reveal repeat-use plans only if you know you need them.
+              </p>
+            </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-300">
             <p>Print orders can still add the HD file for {printLabels.digitalAddOn}.</p>

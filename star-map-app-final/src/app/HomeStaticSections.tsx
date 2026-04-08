@@ -129,7 +129,7 @@ export default function HomeStaticSections({
               },
               {
                 q: "What does premium unlock include?",
-                a: `After the free preview, you can take the framed route from ${printLabels.framed}, the unframed route from ${printLabels.unframed}, or unlock HD digital from ${priceLabels.single}. Digital packs and subscription stay optional for repeat exports.`,
+                a: `After the free preview, you can take the framed route from ${printLabels.framed}, the unframed route from ${printLabels.unframed}, or unlock HD digital from ${priceLabels.single}. If you later need multiple HD exports, repeat-buyer plans stay available after you start.`,
               },
               {
                 q: "Are the maps print-ready?",

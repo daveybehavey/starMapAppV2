@@ -61,16 +61,16 @@ const PAYWALL_COPY: Record<
   control: {
     title: "Get this exact map in HD or print",
     subtitle: "This exact preview is already saved. Most buyers start with the one-time HD download for this map, then switch to print only if they want a shipped keepsake.",
-    packCta: "Buy 3 HD exports",
-    subscriptionCta: "Start unlimited",
-    badgeLabel: "Repeat use",
+    packCta: "Choose 3 HD credits",
+    subscriptionCta: "Choose unlimited monthly",
+    badgeLabel: "Repeat buyers",
   },
   value_anchor: {
     title: "Get this exact map in HD",
     subtitle: "This exact preview is already saved. The fastest route is the one-time HD download for this map. Print stays available from the other tab if you need a physical gift.",
-    packCta: "Buy 3 HD exports",
-    subscriptionCta: "Start unlimited",
-    badgeLabel: "Repeat use",
+    packCta: "Choose 3 HD credits",
+    subscriptionCta: "Choose unlimited monthly",
+    badgeLabel: "Repeat buyers",
   },
 };
 
@@ -519,7 +519,7 @@ export function PaywallModal({
                   onClick={handleToggleMoreDigitalOptions}
                   className="mt-2 text-[11px] font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
                 >
-                  {showMoreDigitalOptions ? "Hide pack + unlimited plans" : "Need more than one map? Show pack + unlimited plans"}
+                  {showMoreDigitalOptions ? "Hide repeat-buyer plans" : "Need multiple future exports? Show repeat-buyer plans"}
                 </button>
                 {activeIntent !== "print" && checkoutError && (
                   <p className="mt-2 rounded-lg border border-rose-200/60 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700" role="alert">
@@ -533,7 +533,7 @@ export function PaywallModal({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-midnight">3-credit pack</p>
-                      <p className="text-xs text-neutral-600">Use when you plan to make more maps, variants, or gifts later</p>
+                      <p className="text-xs text-neutral-600">Only if you already know you need multiple different maps or revisions later</p>
                     </div>
                     <div className="text-right text-sm font-semibold text-amber-800">
                       {priceLabels.pack3}
@@ -561,7 +561,7 @@ export function PaywallModal({
                           {copy.badgeLabel}
                         </span>
                       </div>
-                      <p className="text-xs text-neutral-700">Unlimited HD exports for ongoing use • cancel anytime</p>
+                      <p className="text-xs text-neutral-700">For ongoing export volume, not a one-time gift purchase</p>
                     </div>
                     <div className="text-right text-sm font-semibold text-amber-900">
                       {priceLabels.subscription}
@@ -606,7 +606,7 @@ export function PaywallModal({
 
         <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-600">
           <p>Promo codes apply at checkout.</p>
-          {showMoreDigitalOptions && <p>Unlimited can be canceled anytime.</p>}
+          {showMoreDigitalOptions && <p>Repeat-buyer plans stay optional.</p>}
           <p>Questions? Email {supportEmail}.</p>
         </div>
         {showReferralHint && (
