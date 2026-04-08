@@ -10,6 +10,13 @@ Use this with:
 - `docs/social-content-tracker.csv`
 - `docs/pinterest-content-tracker.csv`
 - `docs/traffic-sprint-tracker.csv`
+- `docs/traffic-day1-post-pack.md`
+- `docs/traffic-day2-post-pack.md`
+- `docs/traffic-day3-post-pack.md`
+- `docs/traffic-day4-post-pack.md`
+- `docs/traffic-day5-post-pack.md`
+- `docs/traffic-day6-post-pack.md`
+- `docs/traffic-day7-post-pack.md`
 - `docs/weekly-social-review.md`
 
 ## 1) Non-Negotiable Operating Rules
