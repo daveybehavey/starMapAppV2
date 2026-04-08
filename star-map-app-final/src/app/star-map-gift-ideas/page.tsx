@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { galleryStyleQuickLinks } from "@/lib/galleryExamples";
@@ -81,6 +82,16 @@ export default function StarMapGiftIdeasPage() {
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
+
+      <PrimaryIntentLinksSection
+        heading="Primary gift pages"
+        intro="This page is for browsing ideas. If you already know the moment or buyer type, start with the stronger gift page below."
+        links={[
+          { href: "/star-map-gift", label: "Star map gift", recommended: true },
+          { href: "/anniversary", label: "Anniversary star map" },
+          { href: "/wedding", label: "Wedding star map" },
+        ]}
+      />
 
       <PreviewStartForm
         source="star-map-gift-ideas"
@@ -197,11 +208,11 @@ export default function StarMapGiftIdeasPage() {
           <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
             Star map gift
           </Link>
-          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
-            Night sky map gift
+          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
+            Anniversary star map
           </Link>
-          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
-            Star map gallery
+          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
+            Wedding star map
           </Link>
         </div>
       </section>

@@ -5,6 +5,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
+import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
@@ -58,6 +59,16 @@ export default function NightSkyMapGiftPage() {
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
+
+      <PrimaryIntentLinksSection
+        heading="Primary gift pages"
+        intro="Use this page for night-sky-gift phrasing. If you already know the buying route, start with the stronger primary page below."
+        links={[
+          { href: "/star-map-gift", label: "Star map gift", recommended: true },
+          { href: "/anniversary", label: "Anniversary star map" },
+          { href: "/wedding", label: "Wedding star map" },
+        ]}
+      />
 
       <PreviewStartForm
         source="night-sky-map-gift"

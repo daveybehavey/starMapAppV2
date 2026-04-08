@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -91,6 +92,16 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
+
+      <PrimaryIntentLinksSection
+        heading="Primary buying pages"
+        intro={`Use this page for ${occasion.label.toLowerCase()}-specific search intent. If you already know the core route, start with the stronger page below.`}
+        links={[
+          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
+          { href: "/star-map-gift", label: "Star map gift" },
+          { href: "/star-map-gallery", label: "Star map gallery" },
+        ]}
+      />
 
       <PreviewStartForm
         title={`Preview a ${occasion.label.toLowerCase()} star map`}
@@ -201,8 +212,8 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
               {item.label}
             </Link>
           ))}
-          <Link href="/star-map-generator" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
-            Star map generator
+          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
+            Personalized star map
           </Link>
           <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
             Star map gift

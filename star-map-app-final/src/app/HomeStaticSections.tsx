@@ -176,7 +176,7 @@ export default function HomeStaticSections({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300">Explore more</p>
-              <p className="mt-1 text-xs text-neutral-300">Secondary entry points for gifts, posters, and city pages.</p>
+              <p className="mt-1 text-xs text-neutral-300">Primary routes for gifts, personalization, and example browsing.</p>
             </div>
             <Link
               href="/star-map-gift-formats"
@@ -187,11 +187,11 @@ export default function HomeStaticSections({
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-100">
             {[
-              { href: "/star-map-generator", label: "Star map generator" },
-              { href: "/star-map-for", label: "Star map by occasion" },
-              { href: "/star-map-in", label: "Star map by city" },
-              { href: "/star-map-poster", label: "Star map poster" },
+              { href: "/personalized-star-map", label: "Personalized star map" },
               { href: "/star-map-gift", label: "Star map gift" },
+              { href: "/anniversary", label: "Anniversary star map" },
+              { href: "/wedding", label: "Wedding star map" },
+              { href: "/star-map-gallery", label: "Star map gallery" },
             ].map((link) => (
               <a
                 key={link.href}

@@ -34,9 +34,9 @@ const defaultSocialLinks: SocialLink[] = [
 
 const footerLinks = [
   { label: "About", href: "/about" },
+  { label: "Personalized Star Map", href: "/personalized-star-map" },
+  { label: "Star Map Gift", href: "/star-map-gift" },
   { label: "Gallery", href: "/star-map-gallery" },
-  { label: "Gift Ideas", href: "/star-map-gift-ideas" },
-  { label: "Gift Formats", href: "/star-map-gift-formats" },
   { label: "Blog", href: "/blog" },
   { label: "My Downloads", href: "/my-downloads" },
   { label: "Contact", href: "/contact" },

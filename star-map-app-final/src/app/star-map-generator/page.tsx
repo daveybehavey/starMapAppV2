@@ -4,6 +4,7 @@ import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
+import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
@@ -48,23 +49,15 @@ export default function StarMapGeneratorPage() {
         </p>
       </header>
 
-      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-5 shadow-xl shadow-black/10">
-        <h2 className="text-base font-semibold text-midnight">Best fit pages</h2>
-        <p className="mt-2 text-sm text-neutral-700">
-          Use the generator when you want the tool first. If you already know the buying intent, start with the direct page below.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100">
-            Personalized star map
-          </Link>
-          <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
-            Star map gift
-          </Link>
-          <Link href="/star-map-gallery" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
-            Star map gallery
-          </Link>
-        </div>
-      </section>
+      <PrimaryIntentLinksSection
+        heading="Primary start pages"
+        intro="Use the generator when you want the tool first. If you already know the buying intent, start with the stronger page below."
+        links={[
+          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
+          { href: "/star-map-gift", label: "Star map gift" },
+          { href: "/star-map-gallery", label: "Star map gallery" },
+        ]}
+      />
 
       <PreviewStartForm
         source="star-map-generator"
