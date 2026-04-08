@@ -6,6 +6,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import ProductSchema from "@/components/ProductSchema";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
@@ -193,6 +194,15 @@ export default function AnniversaryPage() {
               "Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment.",
           },
         ]}
+      />
+      <ProductSchema
+        name="Personalized Anniversary Star Map"
+        description="Preview the exact night sky from the anniversary date and place that shaped your story, then choose HD delivery or a printed keepsake."
+        path="/anniversary"
+        image={ogImage}
+        digitalOfferName="Anniversary star map HD download"
+        unframedOfferName="Anniversary star map unframed print"
+        framedOfferName="Anniversary star map framed print"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

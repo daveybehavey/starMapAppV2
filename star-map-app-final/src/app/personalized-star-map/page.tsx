@@ -6,6 +6,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import ProductSchema from "@/components/ProductSchema";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
@@ -226,6 +227,15 @@ export default function PersonalizedStarMapPage() {
             answer: `Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. ${shippingDisclosure}`,
           },
         ]}
+      />
+      <ProductSchema
+        name="Personalized Star Map"
+        description="Preview the exact night sky from any meaningful date and place, personalize the wording, then choose HD download or a printed keepsake."
+        path="/personalized-star-map"
+        image={ogImage}
+        digitalOfferName="Personalized star map HD download"
+        unframedOfferName="Personalized star map unframed print"
+        framedOfferName="Personalized star map framed print"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

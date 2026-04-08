@@ -6,6 +6,7 @@ import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import ProductSchema from "@/components/ProductSchema";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
@@ -234,6 +235,15 @@ export default function StarMapGiftPage() {
             answer: `Yes. You can choose framed print or unframed print in checkout after previewing your design. ${shippingDisclosure}`,
           },
         ]}
+      />
+      <ProductSchema
+        name="Star Map Gift"
+        description="Give the exact night sky from the moment that changed everything. Preview it free, then choose HD delivery or a printed gift."
+        path="/star-map-gift"
+        image={ogImage}
+        digitalOfferName="Star map gift HD download"
+        unframedOfferName="Star map gift unframed print"
+        framedOfferName="Star map gift framed print"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

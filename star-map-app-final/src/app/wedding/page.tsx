@@ -6,6 +6,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import ProductSchema from "@/components/ProductSchema";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
@@ -224,6 +225,15 @@ export default function WeddingPage() {
             answer: `Yes. After preview, checkout includes framed print, unframed print, and HD digital delivery. ${shippingDisclosure}`,
           },
         ]}
+      />
+      <ProductSchema
+        name="Personalized Wedding Star Map"
+        description="Preview the exact night sky from your wedding day and place, then choose HD delivery or a printed keepsake."
+        path="/wedding"
+        image={ogImage}
+        digitalOfferName="Wedding star map HD download"
+        unframedOfferName="Wedding star map unframed print"
+        framedOfferName="Wedding star map framed print"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
