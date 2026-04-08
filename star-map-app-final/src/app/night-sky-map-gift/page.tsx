@@ -28,12 +28,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Night Sky Map Gift | StarMapCo",
   description:
-    "Preview a night sky map gift from any meaningful date and place, then choose HD delivery or a printed keepsake.",
+    "Preview a night sky map gift from any meaningful date and place, then continue to the strongest gift route or choose HD and print once the design feels right.",
   alternates: { canonical: `${siteUrl}/night-sky-map-gift` },
   openGraph: {
     title: "Night Sky Map Gift | StarMapCo",
     description:
-      "Preview a night sky map gift from any meaningful date and place, then choose HD delivery or a printed keepsake.",
+      "Preview a night sky map gift from any meaningful date and place, then continue to the strongest gift route or choose HD and print once the design feels right.",
     url: `${siteUrl}/night-sky-map-gift`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -51,7 +51,7 @@ export default function NightSkyMapGiftPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Night Sky Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Preview a night sky map gift from any meaningful date and place, then choose HD delivery or a printed keepsake.
+          Preview a night sky map gift from any meaningful date and place, then move into the clearest gift route once the design feels right.
         </p>
         <div className="hidden flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 sm:flex">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
@@ -99,7 +99,7 @@ export default function NightSkyMapGiftPage() {
       />
       <PrimaryIntentLinksSection
         heading="Primary gift pages"
-        intro="Use this page for night-sky-gift phrasing. If you want the stronger primary gift route after previewing, start with one of these pages."
+        intro="Use this page for night-sky-gift phrasing. If you want the clearest main gift page after previewing, start with one of these pages."
         links={[
           { href: "/star-map-gift", label: "Star map gift", recommended: true },
           { href: "/anniversary", label: "Anniversary star map" },

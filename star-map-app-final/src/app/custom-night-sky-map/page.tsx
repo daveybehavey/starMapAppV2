@@ -21,12 +21,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Custom Night Sky Map | StarMapCo",
   description:
-    "Preview a custom night sky map from any meaningful date and place, compare digital and print routes, and explore related gift ideas.",
+    "Preview a custom night sky map from any meaningful date and place, then continue to the strongest personalized or gift route when you are ready to buy.",
   alternates: { canonical: `${siteUrl}/custom-night-sky-map` },
   openGraph: {
     title: "Custom Night Sky Map | StarMapCo",
     description:
-      "Preview a custom night sky map from any meaningful date and place, compare digital and print routes, and explore related gift ideas.",
+      "Preview a custom night sky map from any meaningful date and place, then continue to the strongest personalized or gift route when you are ready to buy.",
     url: `${siteUrl}/custom-night-sky-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -42,7 +42,7 @@ export default function CustomNightSkyMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Night Sky Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Preview a custom night sky map from any meaningful date and place, then compare digital and print routes from the same design.
+          Preview a custom night sky map from any meaningful date and place, then move into the stronger personalized or gift route once the design feels right.
         </p>
       </header>
 
@@ -85,7 +85,7 @@ export default function CustomNightSkyMapPage() {
       />
       <PrimaryIntentLinksSection
         heading="Primary start pages"
-        intro="Use this page for broad night-sky-map intent. If you want the stronger primary route after previewing, start with one of these pages."
+        intro="Use this page for broad night-sky-map phrasing. If you want the stronger main purchase page after previewing, start with one of these pages."
         links={[
           { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
           { href: "/star-map-gift", label: "Star map gift" },
@@ -130,9 +130,9 @@ export default function CustomNightSkyMapPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Related ideas</h2>
+        <h2 className="text-lg font-semibold text-midnight">Best next routes</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Looking for a specific format? Explore these popular options.
+          If you are ready to move beyond the broad night-sky wording, these are the stronger core pages.
         </p>
         <div className="flex gap-3 text-sm text-neutral-800">
           <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
@@ -140,6 +140,9 @@ export default function CustomNightSkyMapPage() {
           </Link>
           <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
             Personalized star map
+          </Link>
+          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
+            Star map gallery
           </Link>
         </div>
       </section>

@@ -22,12 +22,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Generator | StarMapCo",
   description:
-    "Use the StarMapCo generator to preview the exact sky from any date and place, test styles, and move into digital or print checkout when ready.",
+    "Use the StarMapCo generator to preview the exact sky from any date and place, then continue to the strongest personalized or gift route when you are ready to buy.",
   alternates: { canonical: `${siteUrl}/star-map-generator` },
   openGraph: {
     title: "Star Map Generator | StarMapCo",
     description:
-      "Use the StarMapCo generator to preview the exact sky from any date and place, test styles, and move into digital or print checkout when ready.",
+      "Use the StarMapCo generator to preview the exact sky from any date and place, then continue to the strongest personalized or gift route when you are ready to buy.",
     url: `${siteUrl}/star-map-generator`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -45,7 +45,7 @@ export default function StarMapGeneratorPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Generator</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Use the generator to preview the exact sky, test styles, and move into digital or print checkout when the design feels right.
+          Use the generator to preview the exact sky and test styles first, then move into the stronger personalized or gift route when the design feels right.
         </p>
       </header>
 
@@ -88,7 +88,7 @@ export default function StarMapGeneratorPage() {
       />
       <PrimaryIntentLinksSection
         heading="Primary start pages"
-        intro="Use the generator when you want the tool first. If you want the stronger primary route after previewing, start with one of these pages."
+        intro="Use the generator when you want the tool first. If you want the stronger main purchase page after previewing, start with one of these pages."
         links={[
           { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
           { href: "/star-map-gift", label: "Star map gift" },
@@ -122,10 +122,9 @@ export default function StarMapGeneratorPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Popular use cases</h2>
+        <h2 className="text-lg font-semibold text-midnight">Best next routes after the generator</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Star map generators are commonly used for anniversaries, weddings, births, and memorials. Add a title, names, and a
-          short dedication to make it personal.
+          Use the generator to confirm the sky first, then jump to the strongest page for the outcome you want.
         </p>
         <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           <Link
@@ -168,9 +167,9 @@ export default function StarMapGeneratorPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Need inspiration?</h2>
+        <h2 className="text-lg font-semibold text-midnight">Need examples instead?</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Browse real examples or explore curated gift ideas before you build your own.
+          Browse real examples or curated gift routes before you commit to a final purchase path.
         </p>
         <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           <Link
