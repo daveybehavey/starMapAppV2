@@ -33,6 +33,7 @@ import {
 import { track, trackBeginCheckout, trackCheckoutClientDiagnostic, trackFunnelStep } from "@/lib/analytics";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
+import { useAutoMomentText } from "@/hooks/useAutoMomentText";
 import {
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_REDIRECT_LABEL,
@@ -207,6 +208,14 @@ export function SimplifiedEditor() {
       showSubtitle: Boolean(subtitleBox),
     };
   }, [textBoxes]);
+
+  useAutoMomentText({
+    dateTime,
+    locationName: location.name ?? "",
+    timeZone: location.timezone,
+    textBoxes,
+    setTextBoxes,
+  });
 
   useEffect(() => {
     if (draftLoadedRef.current) return;

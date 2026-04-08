@@ -8,6 +8,7 @@ import { proPresets } from "@/lib/proPresets";
 import { renderModes, type RenderModeId } from "@/lib/renderModes";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track } from "@/lib/analytics";
+import { useAutoMomentText } from "@/hooks/useAutoMomentText";
 
 export interface UseEditorLogicOptions {
   /** Editor variant affects default intensity value */
@@ -150,6 +151,14 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
   const locationName = location.name?.trim() ?? "";
   const hasDate = Number.isFinite(new Date(dateTime).getTime());
   const canReveal = Boolean(locationName) && hasDate;
+
+  useAutoMomentText({
+    dateTime,
+    locationName,
+    timeZone: location.timezone,
+    textBoxes,
+    setTextBoxes,
+  });
 
   // Cleanup presetHintTimer on unmount to prevent memory leaks
   useEffect(() => {
