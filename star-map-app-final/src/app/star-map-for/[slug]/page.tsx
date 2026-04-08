@@ -93,16 +93,6 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         </div>
       </header>
 
-      <PrimaryIntentLinksSection
-        heading="Primary buying pages"
-        intro={`Use this page for ${occasion.label.toLowerCase()}-specific search intent. If you already know the core route, start with the stronger page below.`}
-        links={[
-          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
-          { href: "/star-map-gift", label: "Star map gift" },
-          { href: "/star-map-gallery", label: "Star map gallery" },
-        ]}
-      />
-
       <PreviewStartForm
         title={`Preview a ${occasion.label.toLowerCase()} star map`}
         description="Add the date and location, then start with the framed path, the unframed path, or a neutral preview-first route."
@@ -140,6 +130,15 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         secondaryHref={`/editor?mode=quick&source=sticky-occasion-${occasion.slug}-framed&checkout=print&print_variant=poster_framed`}
         secondaryPlan="print_framed"
       />
+      <PrimaryIntentLinksSection
+        heading="Primary buying pages"
+        intro={`Use this page for ${occasion.label.toLowerCase()}-specific search intent. If you want the stronger primary route after previewing, start with one of these pages.`}
+        links={[
+          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
+          { href: "/star-map-gift", label: "Star map gift" },
+          { href: "/star-map-gallery", label: "Star map gallery" },
+        ]}
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why a {occasion.label.toLowerCase()} star map works</h2>
@@ -168,14 +167,6 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           <li>Customize text and styles</li>
           <li>Choose framed print, unframed print, or HD digital delivery once the preview feels right</li>
         </ol>
-        <div className="pt-2">
-          <Link
-            href={`/editor?mode=quick&source=star-map-for-${occasion.slug}-cta-framed&checkout=print&print_variant=poster_framed`}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start with framed print preview
-          </Link>
-        </div>
       </section>
 
       <DeliveryFormatModule

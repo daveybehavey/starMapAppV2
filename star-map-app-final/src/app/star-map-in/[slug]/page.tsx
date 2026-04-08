@@ -106,16 +106,6 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         </div>
       </header>
 
-      <PrimaryIntentLinksSection
-        heading="Primary start pages"
-        intro={`Use this page for ${display} search intent. If you already know the buying route, start with the stronger page below.`}
-        links={[
-          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
-          { href: "/star-map-gift", label: "Star map gift" },
-          { href: "/star-map-gallery", label: "Star map gallery" },
-        ]}
-      />
-
       <PreviewStartForm
         title={`Preview a ${display} star map`}
         description="Add your date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
@@ -148,6 +138,15 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         ]}
       />
       <StickyCtaBar source={`sticky-city-${location.slug}`} />
+      <PrimaryIntentLinksSection
+        heading="Primary start pages"
+        intro={`Use this page for ${display} search intent. If you want the stronger primary route after previewing, start with one of these pages.`}
+        links={[
+          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
+          { href: "/star-map-gift", label: "Star map gift" },
+          { href: "/star-map-gallery", label: "Star map gallery" },
+        ]}
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">A star map that matches your moment in {display}</h2>
@@ -171,14 +170,6 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           <li>Customize text, styles, and shapes</li>
           <li>Continue into framed print, unframed print, or HD digital delivery once the preview looks right</li>
         </ol>
-        <div className="pt-2">
-          <Link
-            href={`/editor?mode=quick&source=star-map-in-${location.slug}-cta-framed&checkout=print&print_variant=poster_framed`}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start with framed print preview
-          </Link>
-        </div>
       </section>
 
       <DeliveryFormatModule
