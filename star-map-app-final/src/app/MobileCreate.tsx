@@ -9,10 +9,11 @@ import { EditorDrawer } from "@/components/EditorDrawer";
 import EditorFontShell from "@/components/EditorFontShell";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
-import { aspectRatioToNumber } from "@/lib/renderSky";
+import { STYLE_THEME, aspectRatioToNumber } from "@/lib/renderSky";
 import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults, normalizeTextBoxLayout } from "@/lib/styleDefaults";
+import { getRenderPresetOptions } from "@/lib/renderPresets";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan } from "@/lib/pricing";
@@ -216,6 +217,10 @@ export function MobileCreate({
   const aspectRatioLabel =
     aspectRatio === "square" ? "Square" : aspectRatio === "4:5" ? "Poster" : "Wide";
   const textLineSummary = `${textBoxes.length} line${textBoxes.length === 1 ? "" : "s"}`;
+  const effectiveShapeBackgroundColor =
+    renderOptions.backgroundColor ||
+    getRenderPresetOptions("signature", selectedStyle).backgroundColor ||
+    STYLE_THEME[selectedStyle].background;
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -1044,7 +1049,7 @@ export function MobileCreate({
                   <input
                     id="shape-background-color"
                     type="color"
-                    value={renderOptions.backgroundColor || "#0b1a30"}
+                    value={effectiveShapeBackgroundColor}
                     onChange={(e) => setRenderOptions({ backgroundColor: e.target.value })}
                     className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
                   />

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { TextBox, useStore } from "@/lib/store";
-import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import { STYLE_THEME, aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { Shape } from "@/lib/types";
@@ -23,6 +23,7 @@ import {
   type PrintVariant,
 } from "@/lib/pricing";
 import { applyStyleDefaults, normalizeTextBoxLayout } from "@/lib/styleDefaults";
+import { getRenderPresetOptions } from "@/lib/renderPresets";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale } from "@/lib/config";
@@ -252,6 +253,11 @@ export function EditorExperience({
     applyPreset: hookApplyPreset,
     applyProPreset,
   } = useEditorLogic({ variant, onVisualOptionsApplied });
+
+  const effectiveShapeBackgroundColor =
+    renderOptions.backgroundColor ||
+    getRenderPresetOptions("signature", selectedStyle).backgroundColor ||
+    STYLE_THEME[selectedStyle].background;
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
@@ -2333,7 +2339,7 @@ export function EditorExperience({
                                             </label>
                                             <input
                                               type="color"
-                                              value={renderOptions.backgroundColor || "#0b1a30"}
+                                              value={effectiveShapeBackgroundColor}
                                               onChange={(e) =>
                                                 setRenderOptions({ backgroundColor: e.target.value })
                                               }
