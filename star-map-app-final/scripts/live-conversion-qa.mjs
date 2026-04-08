@@ -443,9 +443,12 @@ async function run() {
           report.stripe.discountedCheckoutSessionId = discountedSession.id;
           await page.goto(discountedSession.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
           await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000, waitUntil: "domcontentloaded" });
+          await page.waitForLoadState("networkidle").catch(() => {});
+          await page.waitForTimeout(1500);
           const discountedEmailInput = page.locator("input[type='email'], input[name='email']").first();
           if (await discountedEmailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
             await discountedEmailInput.fill(qaEmail);
+            await page.waitForTimeout(1000);
           }
         } else {
           const promoResult = await applyPromoCode(page, promo.code);
@@ -463,9 +466,12 @@ async function run() {
             report.stripe.fallbackCheckoutSessionId = fallbackSession.id;
             await page.goto(fallbackSession.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
             await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000, waitUntil: "domcontentloaded" });
+            await page.waitForLoadState("networkidle").catch(() => {});
+            await page.waitForTimeout(1500);
             const fallbackEmailInput = page.locator("input[type='email'], input[name='email']").first();
             if (await fallbackEmailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
               await fallbackEmailInput.fill(qaEmail);
+              await page.waitForTimeout(1000);
             }
           } else {
             report.steps.push("Applied promo code");
@@ -483,7 +489,9 @@ async function run() {
       const submitCandidates = [
         "button[data-testid='hosted-payment-submit-button']",
         "button[data-testid='submit-button']",
+        "button[type='submit']",
         "button:has-text('Pay')",
+        "button:has-text('Complete order')",
         "button:has-text('Complete')",
         "button:has-text('Subscribe')",
       ];
