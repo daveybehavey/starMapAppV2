@@ -94,8 +94,8 @@ export default function StarMapGalleryPage() {
           Want to see more? Explore by occasion or jump into the editor with your own date.
         </div>
         <div className="flex flex-wrap gap-3 pt-1 text-sm font-semibold">
-          <Link href="/star-map-for" className="text-amber-700 underline hover:text-amber-800">
-            Browse by occasion
+          <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
+            Main gift page
           </Link>
           <Link
             href="/editor?mode=quick&source=star-map-gallery-inline-cta"

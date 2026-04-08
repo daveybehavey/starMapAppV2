@@ -19,8 +19,8 @@ export default function OccasionLinks() {
           <h2 className="text-sm font-semibold text-amber-100">Popular occasions</h2>
           <p className="mt-1 text-xs text-neutral-300">Switch to another high-intent moment without leaving the main flow.</p>
         </div>
-        <Link href="/star-map-for" prefetch={false} className="text-xs font-semibold text-amber-200 underline hover:text-amber-100">
-          See all occasions
+        <Link href="/star-map-gift" prefetch={false} className="text-xs font-semibold text-amber-200 underline hover:text-amber-100">
+          Main gift page
         </Link>
       </div>
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-amber-100 sm:text-sm">

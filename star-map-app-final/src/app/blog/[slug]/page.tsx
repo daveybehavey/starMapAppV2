@@ -127,11 +127,11 @@ export default async function BlogPostPage({ params }: Props) {
             >
               Start with framed print preview
             </Link>
-            <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-900">
-              Star map generator
+            <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-900">
+              Star map gift
             </Link>
-            <Link href="/constellation-map" className="text-amber-700 underline hover:text-amber-900">
-              Constellation map
+            <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-900">
+              Star map gallery
             </Link>
             <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-900">
               Personalized star map

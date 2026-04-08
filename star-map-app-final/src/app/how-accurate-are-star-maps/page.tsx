@@ -186,11 +186,11 @@ export default function HowAccurateAreStarMapsPage() {
         <section className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-xl font-semibold text-white">Related guides</h2>
           <div className="flex flex-wrap gap-2 text-sm font-semibold">
-            <Link href="/star-map-generator" className="rounded-full border border-white/15 bg-white/8 px-3 py-2 text-amber-100 transition hover:bg-white/12">
-              Star map generator
-            </Link>
             <Link href="/personalized-star-map" className="rounded-full border border-white/15 bg-white/8 px-3 py-2 text-amber-100 transition hover:bg-white/12">
               Personalized star maps
+            </Link>
+            <Link href="/star-map-gallery" className="rounded-full border border-white/15 bg-white/8 px-3 py-2 text-amber-100 transition hover:bg-white/12">
+              Star map gallery
             </Link>
             <Link href="/wedding" className="rounded-full border border-white/15 bg-white/8 px-3 py-2 text-amber-100 transition hover:bg-white/12">
               Wedding star maps

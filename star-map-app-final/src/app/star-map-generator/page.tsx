@@ -138,28 +138,28 @@ export default function StarMapGeneratorPage() {
         </p>
         <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           <Link
-            href="/constellation-map"
+            href="/personalized-star-map"
             className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
           >
-            Constellation map
+            Personalized star map
           </Link>
           <Link
-            href="/star-map-poster"
+            href="/star-map-gift"
             className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
           >
-            Star map poster
+            Star map gift
           </Link>
           <Link
-            href="/star-map-for"
+            href="/anniversary"
             className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
           >
-            Occasion hub
+            Anniversary star map
           </Link>
           <Link
-            href="/star-map-in"
+            href="/wedding"
             className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
           >
-            Location hub
+            Wedding star map
           </Link>
         </div>
       </section>
@@ -189,10 +189,10 @@ export default function StarMapGeneratorPage() {
             Star map gallery
           </Link>
           <Link
-            href="/star-map-gift-ideas"
+            href="/star-map-gift"
             className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
           >
-            Star map gift ideas
+            Star map gift
           </Link>
           <Link
             href="/blog"

@@ -288,7 +288,7 @@ export const blogPosts: BlogPost[] = [
         <h3>5) Preview and download</h3>
         <p>
           Check the design, then download a print-ready file or share digitally. You can start with the{" "}
-          <Link href="/star-map-generator">star map generator</Link> and preview instantly.
+          <Link href="/personalized-star-map">personalized star map page</Link> and preview instantly.
         </p>
 
         <h2>A perfect last-minute Valentine's Day gift</h2>
@@ -1150,7 +1150,7 @@ export const blogPosts: BlogPost[] = [
           HD digital.
         </p>
         <p>
-          Start with a free preview on <Link href="/star-map-generator">the star map generator</Link> and finalize
+          Start with a free preview on <Link href="/personalized-star-map">the personalized star map page</Link> and finalize
           format after you approve the design.
         </p>
       </article>
@@ -1231,8 +1231,8 @@ export const blogPosts: BlogPost[] = [
 
         <h2>More inspiration</h2>
         <p>
-          Browse the <Link href="/star-map-gallery">star map gallery</Link> for real examples or explore more{" "}
-          <Link href="/star-map-gift-ideas">star map gift ideas</Link> for other occasions.
+          Browse the <Link href="/star-map-gallery">star map gallery</Link> for real examples or explore the{" "}
+          <Link href="/star-map-gift">main gift page</Link> for other occasions.
         </p>
       </article>
     ),
@@ -1308,8 +1308,8 @@ export const blogPosts: BlogPost[] = [
 
         <h2>More gift inspiration</h2>
         <p>
-          Need ideas for other occasions? Browse the <Link href="/star-map-gallery">gallery</Link> or explore{" "}
-          <Link href="/star-map-gift-ideas">gift ideas</Link>.
+          Need ideas for other occasions? Browse the <Link href="/star-map-gallery">gallery</Link> or explore the{" "}
+          <Link href="/star-map-gift">main gift page</Link>.
         </p>
       </article>
     ),
@@ -1379,8 +1379,8 @@ export const blogPosts: BlogPost[] = [
 
         <h2>Explore more examples</h2>
         <p>
-          See real outputs in the <Link href="/star-map-gallery">star map gallery</Link> or explore{" "}
-          <Link href="/star-map-gift-ideas">gift ideas</Link> for other milestones.
+          See real outputs in the <Link href="/star-map-gallery">star map gallery</Link> or explore the{" "}
+          <Link href="/star-map-gift">main gift page</Link> for other milestones.
         </p>
       </article>
     ),
