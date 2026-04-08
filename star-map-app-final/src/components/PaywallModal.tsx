@@ -604,10 +604,13 @@ export function PaywallModal({
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-600">
-          <p>Promo codes apply at checkout.</p>
-          {showMoreDigitalOptions && <p>Repeat-buyer plans stay optional.</p>}
-          <p>Questions? Email {supportEmail}.</p>
+        <div className="mt-4 space-y-2 text-[11px] text-neutral-600">
+          <p>Your current preview stays saved. Close this and keep editing free if you are not ready to buy yet.</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <p>Promo codes apply at checkout.</p>
+            {showMoreDigitalOptions && <p>Repeat-buyer plans stay optional.</p>}
+            <p>Questions? Email {supportEmail}.</p>
+          </div>
         </div>
         {showReferralHint && (
           <p className="mt-1 text-[11px] text-neutral-600">

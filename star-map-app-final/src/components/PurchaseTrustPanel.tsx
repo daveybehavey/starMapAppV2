@@ -8,6 +8,7 @@ type PurchaseTrustPanelProps = {
   rightTitle: string;
   rightPoints: string[];
   tone?: "light" | "dark";
+  highlights?: string[];
   guideLabel?: string;
   shippingLabel?: string;
   returnsLabel?: string;
@@ -22,6 +23,7 @@ export default function PurchaseTrustPanel({
   rightTitle,
   rightPoints,
   tone = "light",
+  highlights = ["Preview stays free", "Pay once when ready", "Support if you get stuck"],
   guideLabel = "Print and frame guide",
   shippingLabel = "Shipping policy",
   returnsLabel = "Returns and refunds",
@@ -39,6 +41,20 @@ export default function PurchaseTrustPanel({
     >
       <h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-midnight"}`}>{heading}</h2>
       <p className={`text-sm sm:text-base ${isDark ? "text-neutral-200" : "text-neutral-800"}`}>{intro}</p>
+      <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+        {highlights.map((item) => (
+          <span
+            key={item}
+            className={
+              isDark
+                ? "inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-amber-100"
+                : "inline-flex items-center rounded-full border border-amber-200/80 bg-white/80 px-3 py-1.5 text-amber-900"
+            }
+          >
+            {item}
+          </span>
+        ))}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div
           className={

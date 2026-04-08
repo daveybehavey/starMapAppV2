@@ -220,8 +220,8 @@ export default function PreviewStartForm({
             ) : null}
             <p className="text-xs text-neutral-600">
               {printCheckoutEnabled
-                ? "Start with the recommended route if you already know the format. You can still switch after preview."
-                : "Your date and location carry into the editor so you can preview first, then choose how to finish the order."}
+                ? "Nothing is charged here. Start with the closest route now, then switch between HD, framed, or unframed after preview."
+                : "Nothing is charged here. Your date and location carry into the editor so you can preview before you buy."}
             </p>
           </div>
         ) : (
@@ -246,10 +246,10 @@ export default function PreviewStartForm({
           Preview before payment
         </span>
         <span className="inline-flex items-center rounded-full border border-amber-200/80 bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-amber-900">
-          Calculated from date + place
+          {printCheckoutEnabled ? "Same design for digital or print" : "Calculated from date + place"}
         </span>
         <span className="inline-flex items-center rounded-full border border-amber-200/80 bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-amber-900">
-          Secure checkout + support
+          Support if you get stuck
         </span>
       </div>
     </section>

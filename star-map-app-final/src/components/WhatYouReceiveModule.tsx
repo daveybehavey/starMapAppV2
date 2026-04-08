@@ -13,26 +13,26 @@ type WhatYouReceiveModuleProps = {
 
 const defaultItems: ReceiveItem[] = [
   {
-    title: "Astronomically accurate map",
-    detail: "Rendered from your selected date, time, and location using the same engine used in preview.",
+    title: "Exact saved design",
+    detail: "The approved date, place, wording, and layout from preview carry straight into checkout. No rebuild required.",
   },
   {
-    title: "HD watermark-free PNG",
-    detail: "Final export is up to 6000x6000 so stars and text stay sharp when printed.",
+    title: "One-time HD unlock",
+    detail: "Buy this map once for a watermark-free export up to 6000x6000. No subscription is required for the single file.",
   },
   {
-    title: "Immediate unlock after payment",
-    detail: "Checkout completes in Stripe, then HD access appears right away in your success/download flow.",
+    title: "Immediate access after payment",
+    detail: "Checkout completes in Stripe, then HD access appears right away in your success and download flow.",
   },
   {
-    title: "Print + policy guidance",
-    detail: "You get direct links for print planning, frame sizing, and returns before and after checkout.",
+    title: "Print route stays available",
+    detail: "The same approved map can still move into framed or unframed checkout later when you want a shipped keepsake.",
   },
 ];
 
 export default function WhatYouReceiveModule({
   heading = "What you receive",
-  intro = "Exactly what unlocks when you move from free preview to final purchase.",
+  intro = "Exactly what changes when you move from free preview to final purchase.",
   items = defaultItems,
 }: WhatYouReceiveModuleProps) {
   return (

@@ -2786,22 +2786,9 @@ export function EditorExperience({
                                 ? `Estimated shipping to ${getPrintShippingCountryLabel(printShippingCountry)}: framed ${framedShippingLabel} · unframed ${unframedShippingLabel}.`
                                 : "Shipping is shown before payment after you choose your country in the next step."}
                             </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPaywallIntent("print");
-                                setPaywallOpen(true);
-                                setCheckoutError(null);
-                                track("print_option_clicked", {
-                                  source: "editor_print_upsell_panel",
-                                  variant: preferredPrintVariant,
-                                  includeDigitalAddOn: false,
-                                });
-                              }}
-                              className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46 focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                            >
-                              See printed gift options
-                            </button>
+                            <p className="mt-2 text-[11px] text-amber-100/85">
+                              Use the <span className="font-semibold text-amber-100">Printed gift options</span> button above to compare framed and unframed checkout.
+                            </p>
                             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                               <a
                                 href="/star-map-gift-formats"
