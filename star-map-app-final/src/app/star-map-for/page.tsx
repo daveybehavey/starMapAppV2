@@ -32,12 +32,12 @@ const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasion
 export const metadata: Metadata = {
   title: "Star Map for Occasions | StarMapCo",
   description:
-    "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the best starting page.",
+    "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the clearest main route for the gift or preview path you want.",
   alternates: { canonical: `${siteUrl}/star-map-for` },
   openGraph: {
     title: "Star Map for Occasions | StarMapCo",
     description:
-      "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the best starting page.",
+      "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the clearest main route for the gift or preview path you want.",
     url: `${siteUrl}/star-map-for`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the best starting page.",
+      "Browse occasion-based star map pages for weddings, anniversaries, proposals, graduations, and more, then jump to the clearest main route for the gift or preview path you want.",
     images: [ogImage],
   },
 };

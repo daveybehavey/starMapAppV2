@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const occasion = getOccasion(slug);
   if (!occasion) return {};
   const shouldIndex = isIndexableOccasionSlug(occasion.slug);
-  const description = `Create a star map for ${occasion.label.toLowerCase()}. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.`;
+  const description = `Preview a star map for ${occasion.label.toLowerCase()}, then continue to the clearest main purchase route once the design feels right.`;
 
   return {
     title: `Star Map for ${occasion.label} | StarMapCo`,
@@ -132,7 +132,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       />
       <PrimaryIntentLinksSection
         heading="Primary buying pages"
-        intro={`Use this page for ${occasion.label.toLowerCase()}-specific search intent. If you want the stronger primary route after previewing, start with one of these pages.`}
+        intro={`Use this page for ${occasion.label.toLowerCase()}-specific search intent. If you want the clearest main purchase page after previewing, start with one of these pages.`}
         links={[
           { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
           { href: "/star-map-gift", label: "Star map gift" },
