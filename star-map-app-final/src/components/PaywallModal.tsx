@@ -63,14 +63,14 @@ const PAYWALL_COPY: Record<
     subtitle: "This exact preview is already saved. Most buyers start with the one-time HD download for this map, then switch to print only if they want a shipped keepsake.",
     packCta: "Choose 3 HD credits",
     subscriptionCta: "Choose unlimited monthly",
-    badgeLabel: "Repeat buyers",
+    badgeLabel: "Optional",
   },
   value_anchor: {
     title: "Get this exact map in HD",
     subtitle: "This exact preview is already saved. The fastest route is the one-time HD download for this map. Print stays available from the other tab if you need a physical gift.",
     packCta: "Choose 3 HD credits",
     subscriptionCta: "Choose unlimited monthly",
-    badgeLabel: "Repeat buyers",
+    badgeLabel: "Optional",
   },
 };
 
@@ -519,7 +519,7 @@ export function PaywallModal({
                   onClick={handleToggleMoreDigitalOptions}
                   className="mt-2 text-[11px] font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
                 >
-                  {showMoreDigitalOptions ? "Hide repeat-buyer plans" : "Need multiple future exports? Show repeat-buyer plans"}
+                  {showMoreDigitalOptions ? "Hide advanced digital plans" : "Need more than one future HD export? Show advanced plans"}
                 </button>
                 {activeIntent !== "print" && checkoutError && (
                   <p className="mt-2 rounded-lg border border-rose-200/60 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700" role="alert">
@@ -533,7 +533,7 @@ export function PaywallModal({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-midnight">3-credit pack</p>
-                      <p className="text-xs text-neutral-600">Only if you already know you need multiple different maps or revisions later</p>
+                      <p className="text-xs text-neutral-600">Only if you already know you need multiple different maps later</p>
                     </div>
                     <div className="text-right text-sm font-semibold text-amber-800">
                       {priceLabels.pack3}
@@ -608,7 +608,7 @@ export function PaywallModal({
           <p>Your current preview stays saved. Close this and keep editing free if you are not ready to buy yet.</p>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
             <p>Promo codes apply at checkout.</p>
-            {showMoreDigitalOptions && <p>Repeat-buyer plans stay optional.</p>}
+            {showMoreDigitalOptions && <p>Advanced digital plans stay optional.</p>}
             <p>Questions? Email {supportEmail}.</p>
           </div>
         </div>

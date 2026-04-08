@@ -202,17 +202,11 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital delivery</p>
               <p className="mt-1 text-[11px] text-neutral-300">For most buyers, the right route is the one-time HD file for this exact map.</p>
             </div>
-            <a
-              href="/star-map-gift-formats"
-              className="text-xs font-semibold text-amber-200 underline hover:text-amber-100"
-            >
-              Compare all formats
-            </a>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
+          <div className="mt-3">
             <a
               href="/editor?mode=quick&source=home-plan-single"
-              className="rounded-xl border border-amber-300/55 bg-amber-300/15 px-3 py-3 text-left transition hover:border-amber-300/75 hover:bg-amber-300/20"
+              className="block rounded-xl border border-amber-300/55 bg-amber-300/15 px-3 py-3 text-left transition hover:border-amber-300/75 hover:bg-amber-300/20"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-white">Single HD</p>
@@ -226,16 +220,12 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
                 Best for fast gifting, local printing later, or buyers who want the clean digital file first.
               </p>
             </a>
-            <div className="rounded-xl border border-white/15 bg-white/6 px-3 py-3 text-left">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-200">Repeat-buyer plans</p>
-              <p className="mt-2 text-sm font-semibold text-white">Only if you already need multiple future exports.</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-neutral-300">
-                3-credit and unlimited plans still exist, but they stay secondary to the one-time HD route for a first purchase.
-              </p>
-              <p className="mt-3 text-[11px] text-neutral-300">
-                Open the preview first, then reveal repeat-use plans only if you know you need them.
-              </p>
-            </div>
+          </div>
+          <div className="mt-3 rounded-xl border border-white/15 bg-white/6 px-3 py-3 text-left">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-200">Need more than one HD export later?</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-neutral-300">
+              Extra digital plans stay available after you open the preview, but they are not the default first-purchase route.
+            </p>
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-300">
             <p>Print orders can still add the HD file for {printLabels.digitalAddOn}.</p>
