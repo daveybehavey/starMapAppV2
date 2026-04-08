@@ -22,7 +22,7 @@ import {
   type CheckoutPlan,
   type PrintVariant,
 } from "@/lib/pricing";
-import { applyStyleDefaults } from "@/lib/styleDefaults";
+import { applyStyleDefaults, normalizeTextBoxLayout } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale } from "@/lib/config";
@@ -2290,12 +2290,19 @@ export function EditorExperience({
                                                 key={shapeOption.id}
                                                 type="button"
                                                 onClick={() => {
+                                                  const nextShape = shapeOption.id;
                                                   if (isPremium && !paid) {
                                                     // Allow preview, but note that HD export requires payment
-                                                    setShape(shapeOption.id);
+                                                    setShape(nextShape);
                                                   } else {
-                                                    setShape(shapeOption.id);
+                                                    setShape(nextShape);
                                                   }
+                                                  setTextBoxes(
+                                                    normalizeTextBoxLayout(textBoxes, {
+                                                      shape: nextShape,
+                                                      aspectRatio,
+                                                    }),
+                                                  );
                                                 }}
                                                 className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
                                                   isSelected
@@ -2366,7 +2373,15 @@ export function EditorExperience({
                                               <button
                                                 key={ratio.id}
                                                 type="button"
-                                                onClick={() => setAspectRatio(ratio.id)}
+                                                onClick={() => {
+                                                  setAspectRatio(ratio.id);
+                                                  setTextBoxes(
+                                                    normalizeTextBoxLayout(textBoxes, {
+                                                      shape,
+                                                      aspectRatio: ratio.id,
+                                                    }),
+                                                  );
+                                                }}
                                                 className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
                                                   isSelected
                                                     ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"

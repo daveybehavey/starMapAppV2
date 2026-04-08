@@ -14,7 +14,7 @@ import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import { getShapeData } from "@/lib/shapeUtils";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";
-import { applyStyleDefaults } from "@/lib/styleDefaults";
+import { applyStyleDefaults, normalizeTextBoxLayout } from "@/lib/styleDefaults";
 import dynamic from "next/dynamic";
 import { LocationInput } from "./LocationInput";
 import { AdvancedOptionsPanel } from "./AdvancedOptionsPanel";
@@ -400,8 +400,9 @@ export function SimplifiedEditor() {
   const handleShapeChange = useCallback(
     (newShape: Shape) => {
       setShape(newShape);
+      setTextBoxes(normalizeTextBoxLayout(textBoxes, { shape: newShape, aspectRatio }));
     },
-    [setShape]
+    [aspectRatio, setShape, setTextBoxes, textBoxes]
   );
 
   const handleSubtitleChange = useCallback(

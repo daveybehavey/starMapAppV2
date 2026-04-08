@@ -62,6 +62,10 @@ type ApplyStyleDefaultsOptions = {
   aspectRatio?: AspectRatio;
 };
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function getShapeYAdjustment(shape: Shape | undefined, boxId: string) {
   if (!shape || shape === "rectangle") return 0;
   if (shape === "circle") {
@@ -111,6 +115,82 @@ function getAspectAdjustments(aspectRatio: AspectRatio | undefined, boxId: strin
     default:
       return { sizeMultiplier: 1, yDelta: 0 };
   }
+}
+
+function getVerticalRange(boxId: string, options: ApplyStyleDefaultsOptions) {
+  if (boxId !== "title" && boxId !== "subtitle" && boxId !== "dedication") {
+    return { minY: 0.08, maxY: 0.92 };
+  }
+
+  const baseRange =
+    boxId === "title"
+      ? { minY: 0.08, maxY: 0.24 }
+      : boxId === "subtitle"
+        ? { minY: 0.12, maxY: 0.34 }
+        : { minY: 0.72, maxY: 0.92 };
+
+  const { yDelta } = getAspectAdjustments(options.aspectRatio, boxId);
+  const shapeYDelta = getShapeYAdjustment(options.shape, boxId);
+  const shiftedMin = clamp(baseRange.minY + yDelta + shapeYDelta, 0.08, 0.9);
+  const shiftedMax = clamp(baseRange.maxY + yDelta + shapeYDelta, shiftedMin + 0.04, 0.92);
+
+  return { minY: shiftedMin, maxY: shiftedMax };
+}
+
+function getShapeWidthFraction(shape: Shape | undefined, yNorm: number) {
+  const y = clamp(yNorm, 0, 1);
+  switch (shape) {
+    case "circle": {
+      const radius = 0.44;
+      const dy = Math.abs(y - 0.5);
+      if (dy >= radius) return 0.34;
+      return clamp(2 * Math.sqrt(Math.max(0, radius * radius - dy * dy)) * 0.92, 0.34, 0.84);
+    }
+    case "diamond":
+      return clamp((1 - Math.abs(y - 0.5) * 2) * 0.86, 0.34, 0.82);
+    case "star":
+      if (y < 0.16 || y > 0.84) return 0.42;
+      if (y < 0.3 || y > 0.7) return 0.6;
+      return 0.76;
+    case "heart":
+      if (y < 0.18) return 0.7;
+      if (y < 0.46) return 0.8;
+      if (y < 0.68) return 0.74;
+      return clamp(0.82 - (y - 0.68) * 1.65, 0.36, 0.82);
+    case "rectangle":
+    default:
+      return 0.84;
+  }
+}
+
+function getHorizontalRange(shape: Shape | undefined, yNorm: number) {
+  const widthFraction = getShapeWidthFraction(shape, yNorm);
+  const inset = shape && shape !== "rectangle" ? 0.1 : 0.08;
+  const halfWidth = widthFraction / 2;
+  const minX = clamp(0.5 - halfWidth + inset, 0.08, 0.5);
+  const maxX = clamp(0.5 + halfWidth - inset, 0.5, 0.92);
+  return { minX, maxX };
+}
+
+export function normalizeTextBoxLayout(
+  textBoxes: TextBox[],
+  options: ApplyStyleDefaultsOptions = {},
+) {
+  return textBoxes.map((box) => {
+    const currentX = box.position?.x ?? 0.5;
+    const currentY = box.position?.y ?? 0.5;
+    const { minY, maxY } = getVerticalRange(box.id, options);
+    const nextY = clamp(currentY, minY, maxY);
+    const { minX, maxX } = getHorizontalRange(options.shape, nextY);
+
+    return {
+      ...box,
+      position: {
+        x: clamp(currentX, minX, maxX),
+        y: nextY,
+      },
+    };
+  });
 }
 
 export function applyStyleDefaults(styleId: StyleId, textBoxes: TextBox[], options: ApplyStyleDefaultsOptions = {}) {

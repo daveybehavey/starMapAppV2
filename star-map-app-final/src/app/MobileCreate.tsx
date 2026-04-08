@@ -12,7 +12,7 @@ import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
 import { proPresets } from "@/lib/proPresets";
-import { applyStyleDefaults } from "@/lib/styleDefaults";
+import { applyStyleDefaults, normalizeTextBoxLayout } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan } from "@/lib/pricing";
@@ -490,6 +490,22 @@ export function MobileCreate({
       }
     },
     [aspectRatio, setRenderOptions, setStyle, setTextBoxes, shape, textBoxes],
+  );
+
+  const handleShapeChange = useCallback(
+    (nextShape: typeof shape) => {
+      setShape(nextShape);
+      setTextBoxes(normalizeTextBoxLayout(textBoxes, { shape: nextShape, aspectRatio }));
+    },
+    [aspectRatio, setShape, setTextBoxes, textBoxes],
+  );
+
+  const handleAspectRatioChange = useCallback(
+    (nextAspectRatio: typeof aspectRatio) => {
+      setAspectRatio(nextAspectRatio);
+      setTextBoxes(normalizeTextBoxLayout(textBoxes, { shape, aspectRatio: nextAspectRatio }));
+    },
+    [setAspectRatio, setTextBoxes, shape, textBoxes],
   );
 
   return (
@@ -1009,7 +1025,7 @@ export function MobileCreate({
                   <button
                     key={shapeOption.id}
                     type="button"
-                    onClick={() => setShape(shapeOption.id)}
+                    onClick={() => handleShapeChange(shapeOption.id)}
                     className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition active:scale-95 ${
                       shape === shapeOption.id
                         ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight"
@@ -1052,7 +1068,7 @@ export function MobileCreate({
                   <button
                     key={ratio.id}
                     type="button"
-                    onClick={() => setAspectRatio(ratio.id)}
+                    onClick={() => handleAspectRatioChange(ratio.id)}
                     className={`flex items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition active:scale-95 ${
                       aspectRatio === ratio.id
                         ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight"
