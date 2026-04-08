@@ -53,24 +53,15 @@ const PAYWALL_COPY: Record<
   {
     title: string;
     subtitle: string;
-    packCta: string;
-    subscriptionCta: string;
-    badgeLabel: string;
   }
 > = {
   control: {
     title: "Get this exact map in HD or print",
     subtitle: "This exact preview is already saved. Most buyers start with the one-time HD download for this map, then switch to print only if they want a shipped keepsake.",
-    packCta: "Choose 3 HD credits",
-    subscriptionCta: "Choose unlimited monthly",
-    badgeLabel: "Optional",
   },
   value_anchor: {
     title: "Get this exact map in HD",
     subtitle: "This exact preview is already saved. The fastest route is the one-time HD download for this map. Print stays available from the other tab if you need a physical gift.",
-    packCta: "Choose 3 HD credits",
-    subscriptionCta: "Choose unlimited monthly",
-    badgeLabel: "Optional",
   },
 };
 
@@ -95,7 +86,6 @@ export function PaywallModal({
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
-  const [showMoreDigitalOptions, setShowMoreDigitalOptions] = useState(false);
   const [printUpsellHint, setPrintUpsellHint] = useState<string | null>(null);
   const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
@@ -150,12 +140,6 @@ export function PaywallModal({
   }, [hasPrintOptions, purchaseIntent]);
 
   useEffect(() => {
-    if (activeIntent === "digital") {
-      setShowMoreDigitalOptions(false);
-    }
-  }, [activeIntent]);
-
-  useEffect(() => {
     if (printShippingCountry) {
       setPrintUpsellHint(null);
     }
@@ -169,18 +153,6 @@ export function PaywallModal({
         items: [{ plan: "single", orderType: "digital", index: 0 }],
       });
       viewedListsRef.current.add("paywall_digital_primary");
-    }
-
-    if (showDigitalPlans && showMoreDigitalOptions && !viewedListsRef.current.has("paywall_digital_secondary")) {
-      trackViewItemList({
-        itemListId: "paywall_digital_secondary",
-        itemListName: "Paywall digital secondary options",
-        items: [
-          { plan: "pack3", orderType: "digital", index: 0 },
-          { plan: "subscription", orderType: "digital", index: 1 },
-        ],
-      });
-      viewedListsRef.current.add("paywall_digital_secondary");
     }
 
     if (!hasPrintOptions || !printPriceLabels) return;
@@ -205,32 +177,19 @@ export function PaywallModal({
             ],
     });
     viewedListsRef.current.add(listId);
-  }, [activeIntent, hasPrintOptions, printPriceLabels, showDigitalPlans, showMoreDigitalOptions]);
+  }, [activeIntent, hasPrintOptions, printPriceLabels, showDigitalPlans]);
 
   const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
-    const listId = plan === "single" ? "paywall_digital_primary" : "paywall_digital_secondary";
-    const listName = plan === "single" ? "Paywall digital primary option" : "Paywall digital secondary options";
     trackSelectItem({
-      itemListId: listId,
-      itemListName: listName,
+      itemListId: "paywall_digital_primary",
+      itemListName: "Paywall digital primary option",
       item: {
         plan,
         orderType: "digital",
-        index: plan === "single" ? 0 : plan === "pack3" ? 0 : 1,
+        index: 0,
       },
     });
     onStartCheckout(plan);
-  };
-
-  const handleToggleMoreDigitalOptions = () => {
-    setShowMoreDigitalOptions((prev) => {
-      const next = !prev;
-      track("paywall_more_digital_options_toggled", {
-        expanded: next,
-        activeIntent,
-      });
-      return next;
-    });
   };
 
   const handleSwitchToPrintIntent = () => {
@@ -514,70 +473,12 @@ export function PaywallModal({
                     ? DIGITAL_CHECKOUT_IN_FLIGHT_HELPER_TEXT
                     : "Pay once for this saved design. Preview stays free, and the HD file unlocks right after payment."}
                 </p>
-                <button
-                  type="button"
-                  onClick={handleToggleMoreDigitalOptions}
-                  className="mt-2 text-[11px] font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
-                >
-                  {showMoreDigitalOptions ? "Hide advanced digital plans" : "Need more than one future HD export? Show advanced plans"}
-                </button>
                 {activeIntent !== "print" && checkoutError && (
                   <p className="mt-2 rounded-lg border border-rose-200/60 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700" role="alert">
                     {checkoutError}
                   </p>
                 )}
               </div>
-
-              {showMoreDigitalOptions && (
-                <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-midnight">3-credit pack</p>
-                      <p className="text-xs text-neutral-600">Only if you already know you need multiple different maps later</p>
-                    </div>
-                    <div className="text-right text-sm font-semibold text-amber-800">
-                      {priceLabels.pack3}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDigitalCheckoutClick("pack3")}
-                    disabled={checkoutInFlight}
-                    className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                  >
-                    {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.packCta}
-                  </button>
-                  <p className="mt-2 text-[11px] text-neutral-600">Each HD export uses one credit from this pack.</p>
-                </div>
-              )}
-
-              {showMoreDigitalOptions && (
-                <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-midnight">Unlimited monthly</p>
-                        <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-midnight">
-                          {copy.badgeLabel}
-                        </span>
-                      </div>
-                      <p className="text-xs text-neutral-700">For ongoing export volume, not a one-time gift purchase</p>
-                    </div>
-                    <div className="text-right text-sm font-semibold text-amber-900">
-                      {priceLabels.subscription}
-                      <span className="text-xs text-amber-900/70">/mo</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDigitalCheckoutClick("subscription")}
-                    disabled={checkoutInFlight}
-                    className="mt-3 w-full rounded-full bg-[#0b1433] px-4 py-2 text-sm font-semibold text-amber-100 shadow-md transition hover:-translate-y-[1px] hover:bg-[#0b1a40] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                  >
-                    {checkoutInFlight ? DIGITAL_CHECKOUT_REDIRECT_LABEL : copy.subscriptionCta}
-                  </button>
-                </div>
-              )}
             </>
           )}
 
@@ -608,7 +509,6 @@ export function PaywallModal({
           <p>Your current preview stays saved. Close this and keep editing free if you are not ready to buy yet.</p>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
             <p>Promo codes apply at checkout.</p>
-            {showMoreDigitalOptions && <p>Advanced digital plans stay optional.</p>}
             <p>Questions? Email {supportEmail}.</p>
           </div>
         </div>
