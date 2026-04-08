@@ -3,7 +3,7 @@ import { computeVisibleStars, toUTCDateFromLocal, type VisibleSky } from "@/lib/
 import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
 import { SHAPE_PATHS } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
-import { FONT_STACKS } from "@/lib/fonts";
+import { FONT_STACKS, FONT_WEIGHTS } from "@/lib/fonts";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
 
@@ -1243,7 +1243,8 @@ function drawText(
     if (!box.text || box.text.trim() === "") return;
 
     const fontSize = Math.max(10, (box.size ?? 28) * scale);
-    ctx.font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    const fontWeight = FONT_WEIGHTS[box.fontFamily] ?? 600;
+    ctx.font = `${fontWeight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
       ctx.shadowColor = `${box.color}90`;
@@ -1266,7 +1267,7 @@ function drawText(
     ctx.fillText(box.text, px, py);
 
     if (bounds) {
-      const font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+      const font = `${fontWeight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
       const textWidth = getCachedTextWidth(ctx, box.text, font);
       const textHeight = fontSize * 1.2;
       let left = px;

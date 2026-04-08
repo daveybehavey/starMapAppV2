@@ -40,3 +40,21 @@ export const FONT_STACKS: Record<TextBox["fontFamily"], string> = {
   bebasNeue: '"Bebas Neue", Impact, sans-serif',
   abrilFatface: '"Abril Fatface", "Rockwell", display',
 };
+
+export const FONT_WEIGHTS: Record<TextBox["fontFamily"], number> = {
+  playfair: 700,
+  cinzel: 700,
+  script: 400,
+  cormorant: 600,
+  montserrat: 600,
+  libreBaskerville: 700,
+  ebGaramond: 600,
+  crimsonText: 600,
+  lora: 600,
+  raleway: 600,
+  poppins: 600,
+  dancingScript: 400,
+  parisienne: 400,
+  bebasNeue: 400,
+  abrilFatface: 400,
+};
