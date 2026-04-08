@@ -36,7 +36,6 @@ import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import { getPrintAllowedCountries } from "@/lib/printCheckoutConfig";
 import {
-  getPrintShippingCountryLabel,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
@@ -2756,22 +2755,29 @@ export function EditorExperience({
                           </div>
                         )}
                         {printCheckoutEnabled && (
-                          <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/8 px-3 py-2.5">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full border border-amber-300/35 bg-amber-300/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                                Framed = gift-ready
-                              </span>
-                              <span className="rounded-full border border-white/12 bg-white/6 px-2 py-0.5 text-[10px] font-semibold text-white/70">
-                                {printShippingCountry
-                                  ? `Shipping to ${getPrintShippingCountryLabel(printShippingCountry)} shown before payment`
-                                  : "Shipping shown before payment"}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-[11px] text-amber-100/82">
-                              Need the physical gift instead? Use <span className="font-semibold text-amber-100">Printed gift options</span> above to compare framed and unframed checkout for this saved design.
+                          <div className="mt-3 space-y-2">
+                            <p className="text-[11px] text-neutral-400">
+                              Need the physical gift instead? Use{" "}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPaywallIntent("print");
+                                  setPaywallOpen(true);
+                                  setCheckoutError(null);
+                                  track("print_option_clicked", {
+                                    source: "preview_secondary_print_link",
+                                    variant: preferredPrintVariant,
+                                    includeDigitalAddOn: false,
+                                  });
+                                }}
+                                className="font-semibold text-amber-100 underline underline-offset-2 transition hover:text-amber-50"
+                              >
+                                Printed gift options
+                              </button>{" "}
+                              above to compare framed and unframed checkout for this saved design.
                             </p>
                             {checkoutError && (
-                              <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
+                              <p className="text-[11px] font-semibold text-rose-200">{checkoutError}</p>
                             )}
                           </div>
                         )}
