@@ -383,7 +383,10 @@ export function SimplifiedEditor() {
   const handleStyleChange = useCallback(
     (style: StyleId) => {
       setStyle(style);
-      const defaults = applyStyleDefaults(style, textBoxes);
+      const defaults = applyStyleDefaults(style, textBoxes, {
+        shape,
+        aspectRatio,
+      });
       if (Object.keys(defaults.renderOptions).length) {
         setRenderOptions(defaults.renderOptions);
       }
@@ -391,7 +394,7 @@ export function SimplifiedEditor() {
         setTextBoxes(defaults.textBoxes);
       }
     },
-    [setRenderOptions, setStyle, setTextBoxes, textBoxes]
+    [aspectRatio, setRenderOptions, setStyle, setTextBoxes, shape, textBoxes]
   );
 
   const handleShapeChange = useCallback(

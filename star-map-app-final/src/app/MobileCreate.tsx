@@ -478,7 +478,10 @@ export function MobileCreate({
   const handleStyleChange = useCallback(
     (styleId: typeof selectedStyle) => {
       setStyle(styleId);
-      const defaults = applyStyleDefaults(styleId, textBoxes);
+      const defaults = applyStyleDefaults(styleId, textBoxes, {
+        shape,
+        aspectRatio,
+      });
       if (Object.keys(defaults.renderOptions).length) {
         setRenderOptions(defaults.renderOptions);
       }
@@ -486,7 +489,7 @@ export function MobileCreate({
         setTextBoxes(defaults.textBoxes);
       }
     },
-    [setRenderOptions, setStyle, setTextBoxes, textBoxes],
+    [aspectRatio, setRenderOptions, setStyle, setTextBoxes, shape, textBoxes],
   );
 
   return (

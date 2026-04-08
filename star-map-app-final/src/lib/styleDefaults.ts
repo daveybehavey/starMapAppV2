@@ -1,5 +1,6 @@
 import { getRenderPresetOptions } from "@/lib/renderPresets";
 import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
+import type { AspectRatio, Shape } from "@/lib/types";
 
 type StyleDefaults = {
   renderOptions?: Partial<RenderOptions>;
@@ -56,7 +57,63 @@ const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
   },
 };
 
-export function applyStyleDefaults(styleId: StyleId, textBoxes: TextBox[]) {
+type ApplyStyleDefaultsOptions = {
+  shape?: Shape;
+  aspectRatio?: AspectRatio;
+};
+
+function getShapeYAdjustment(shape: Shape | undefined, boxId: string) {
+  if (!shape || shape === "rectangle") return 0;
+  if (shape === "circle") {
+    if (boxId === "title") return 0.02;
+    if (boxId === "subtitle") return 0.02;
+    if (boxId === "dedication") return -0.025;
+    return 0;
+  }
+  if (shape === "heart") {
+    if (boxId === "title") return 0.03;
+    if (boxId === "subtitle") return 0.03;
+    if (boxId === "dedication") return -0.05;
+    return 0;
+  }
+  if (shape === "diamond") {
+    if (boxId === "title") return 0.045;
+    if (boxId === "subtitle") return 0.035;
+    if (boxId === "dedication") return -0.045;
+    return 0;
+  }
+  if (shape === "star") {
+    if (boxId === "title") return 0.04;
+    if (boxId === "subtitle") return 0.03;
+    if (boxId === "dedication") return -0.04;
+    return 0;
+  }
+  return 0;
+}
+
+function getAspectAdjustments(aspectRatio: AspectRatio | undefined, boxId: string) {
+  switch (aspectRatio) {
+    case "2:3":
+      return {
+        sizeMultiplier: boxId === "title" ? 0.9 : boxId === "subtitle" ? 0.92 : 0.95,
+        yDelta: boxId === "dedication" ? -0.04 : 0.025,
+      };
+    case "3:4":
+      return {
+        sizeMultiplier: boxId === "title" ? 0.94 : 0.96,
+        yDelta: boxId === "dedication" ? -0.025 : 0.015,
+      };
+    case "4:5":
+      return {
+        sizeMultiplier: boxId === "title" ? 0.97 : 0.98,
+        yDelta: boxId === "dedication" ? -0.015 : 0.01,
+      };
+    default:
+      return { sizeMultiplier: 1, yDelta: 0 };
+  }
+}
+
+export function applyStyleDefaults(styleId: StyleId, textBoxes: TextBox[], options: ApplyStyleDefaultsOptions = {}) {
   const defaults = STYLE_DEFAULTS[styleId];
   if (!defaults) {
     return { renderOptions: {}, textBoxes };
@@ -65,12 +122,20 @@ export function applyStyleDefaults(styleId: StyleId, textBoxes: TextBox[]) {
   const nextTextBoxes = defaults.text
     ? textBoxes.map((box) => {
         const byId = defaults.text?.byId?.[box.id];
+        const targetPosition = byId?.position ?? box.position;
+        const { sizeMultiplier, yDelta } = getAspectAdjustments(options.aspectRatio, box.id);
+        const shapeYDelta = getShapeYAdjustment(options.shape, box.id);
         return {
           ...box,
           fontFamily: byId?.fontFamily ?? defaults.text?.fallback?.fontFamily ?? box.fontFamily,
           color: byId?.color ?? defaults.text?.fallback?.color ?? box.color,
-          size: byId?.size ?? box.size,
-          position: byId?.position ?? box.position,
+          size: byId?.size ? Math.round(byId.size * sizeMultiplier) : box.size,
+          position: targetPosition
+            ? {
+                x: targetPosition.x,
+                y: Math.min(0.92, Math.max(0.08, targetPosition.y + yDelta + shapeYDelta)),
+              }
+            : box.position,
         };
       })
     : textBoxes;

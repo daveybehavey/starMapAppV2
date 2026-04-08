@@ -2240,7 +2240,10 @@ export function EditorExperience({
                                               type="button"
                                               onClick={() => {
                                                 setStyle(style.id);
-                                                const defaults = applyStyleDefaults(style.id, textBoxes);
+                                                const defaults = applyStyleDefaults(style.id, textBoxes, {
+                                                  shape,
+                                                  aspectRatio,
+                                                });
                                                 if (Object.keys(defaults.renderOptions).length) {
                                                   setRenderOptions(defaults.renderOptions);
                                                 }

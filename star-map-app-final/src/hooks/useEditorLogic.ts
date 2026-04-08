@@ -242,7 +242,9 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       // Always apply style, shape, textBoxes, and render options from preset
       setTextBoxes(preset.textBoxes);
       setStyle(preset.style);
-      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
+      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes, {
+        shape: preset.shape,
+      });
       if (Object.keys(styleDefaults.renderOptions).length) {
         setRenderOptions(styleDefaults.renderOptions);
       }
@@ -303,7 +305,10 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       setSelectedOccasion(id);
       setCustomOccasion(false);
       setStyle(preset.style);
-      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
+      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes, {
+        shape: preset.shape,
+        aspectRatio: preset.aspectRatio,
+      });
       if (Object.keys(styleDefaults.renderOptions).length) {
         setRenderOptions(styleDefaults.renderOptions);
       }
