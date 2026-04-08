@@ -154,8 +154,8 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   ],
   selectedStyle: "navyGold",
   renderOptions: {
-    visualMode: "enhanced",
-    starIntensity: "normal",
+    visualMode: "illustrated",
+    starIntensity: "bold",
     starGlow: true,
     constellationLines: "thin",
     constellationLabels: false,
