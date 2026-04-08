@@ -34,9 +34,8 @@ import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
-import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintAllowedCountries } from "@/lib/printCheckoutConfig";
 import {
-  formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
@@ -443,15 +442,6 @@ export function EditorExperience({
   const editorReady = mounted || Boolean(forceViewport);
 
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
-  const shippingDisclosure = getPrintShippingDisclosure();
-  const framedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
-    [printShippingCountry],
-  );
-  const unframedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
-    [printShippingCountry],
-  );
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const previewRef = useRef<HTMLDivElement>(null);
@@ -2766,43 +2756,20 @@ export function EditorExperience({
                           </div>
                         )}
                         {printCheckoutEnabled && (
-                          <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-amber-100">Need the finished gift to arrive ready to display?</p>
-                              <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                                Framed + HD recommended
+                          <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/8 px-3 py-2.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-amber-300/35 bg-amber-300/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                Framed = gift-ready
+                              </span>
+                              <span className="rounded-full border border-white/12 bg-white/6 px-2 py-0.5 text-[10px] font-semibold text-white/70">
+                                {printShippingCountry
+                                  ? `Shipping to ${getPrintShippingCountryLabel(printShippingCountry)} shown before payment`
+                                  : "Shipping shown before payment"}
                               </span>
                             </div>
-                            <p className="mt-1 text-[11px] text-amber-100/85">
-                              The same saved design can go to a gift-ready framed print or a lower-total unframed print. {shippingDisclosure}
+                            <p className="mt-2 text-[11px] text-amber-100/82">
+                              Need the physical gift instead? Use <span className="font-semibold text-amber-100">Printed gift options</span> above to compare framed and unframed checkout for this saved design.
                             </p>
-                            <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[11px] text-amber-100/85">
-                              <span className="font-semibold text-amber-100">Framed:</span> {printPriceLabels.framed} + shipping.
-                              <span className="mx-2 text-amber-100/55">·</span>
-                              <span className="font-semibold text-amber-100">Unframed:</span> {printPriceLabels.unframed} + shipping.
-                            </div>
-                            <p className="mt-2 text-[10px] text-amber-100/80">
-                              {printShippingCountry
-                                ? `Estimated shipping to ${getPrintShippingCountryLabel(printShippingCountry)}: framed ${framedShippingLabel} · unframed ${unframedShippingLabel}.`
-                                : "Shipping is shown before payment after you choose your country in the next step."}
-                            </p>
-                            <p className="mt-2 text-[11px] text-amber-100/85">
-                              Use the <span className="font-semibold text-amber-100">Printed gift options</span> button above to compare framed and unframed checkout.
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                              <a
-                                href="/star-map-gift-formats"
-                                className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2 hover:text-white"
-                              >
-                                Compare formats
-                              </a>
-                              <a
-                                href="/shipping"
-                                className="font-semibold text-amber-100 underline decoration-amber-300/60 underline-offset-2 hover:text-white"
-                              >
-                                Shipping details
-                              </a>
-                            </div>
                             {checkoutError && (
                               <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
                             )}
@@ -2834,7 +2801,6 @@ export function EditorExperience({
               singlePriceLabel={priceLabels.single}
               printCheckoutEnabled={printCheckoutEnabled}
               printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
-              printShippingCountry={printShippingCountry}
               onOpenPrintOptions={
                 printCheckoutEnabled
                   ? () => {

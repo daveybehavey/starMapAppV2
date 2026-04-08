@@ -17,11 +17,6 @@ import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan } from "@/lib/pricing";
 import {
-  formatPrintDeliveryEstimate,
-  formatPrintShippingEstimate,
-  getPrintShippingCountryLabel,
-} from "@/lib/printfulShipping";
-import {
   DIGITAL_CHECKOUT_HELPER_TEXT,
   DIGITAL_CHECKOUT_TRUST_LINE,
   getDigitalCheckoutPrimaryLabel,
@@ -49,7 +44,6 @@ interface MobileCreateProps {
     framed: string;
     digitalAddOn: string;
   };
-  printShippingCountry?: string | null;
   onOpenPrintOptions?: () => void;
 }
 
@@ -109,7 +103,6 @@ export function MobileCreate({
   singlePriceLabel,
   printCheckoutEnabled = false,
   printPriceLabels,
-  printShippingCountry,
   onOpenPrintOptions,
 }: MobileCreateProps) {
   // Use shared editor logic hook
@@ -154,13 +147,6 @@ export function MobileCreate({
     applyPreset: hookApplyPreset,
     applyProPreset,
   } = useEditorLogic({ variant });
-  const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
-  const framedDeliveryLabel = formatPrintDeliveryEstimate("poster_framed", printShippingCountry);
-  const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
-  const printShippingSummary = printShippingCountry
-    ? `Estimated shipping to ${getPrintShippingCountryLabel(printShippingCountry)}: framed ${framedShippingLabel} · unframed ${unframedShippingLabel}.`
-    : `Shipping is shown before payment. Framed delivery is usually ${framedDeliveryLabel}.`;
-
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
   const [showOccasionPresets, setShowOccasionPresets] = useState(() => !isQuick);
@@ -1406,24 +1392,27 @@ export function MobileCreate({
           <p className="mt-2 text-[10px] text-neutral-300">{digitalCheckoutHelperText}</p>
           <p className="mt-1 text-[10px] text-neutral-400">{DIGITAL_CHECKOUT_TRUST_LINE}</p>
           {printCheckoutEnabled && printPriceLabels && onOpenPrintOptions && (
-            <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
-              <p className="text-[11px] font-semibold text-amber-100">Want this saved design shipped as a gift?</p>
-              <p className="mt-1 text-[10px] text-amber-100/80">
-                Framed stays the ready-to-display route. Unframed keeps the physical total lower.
-              </p>
+            <div className="mt-2 rounded-xl border border-amber-300/35 bg-amber-300/8 p-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full border border-amber-300/35 bg-amber-300/12 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+                  Framed = gift-ready
+                </span>
+                <span className="inline-flex items-center rounded-full border border-white/12 bg-white/6 px-2 py-0.5 text-[10px] font-semibold text-white/70">
+                  Shipping shown before payment
+                </span>
+              </div>
               <p className="mt-2 text-[10px] text-amber-100/80">
-                Framed from {printPriceLabels.framed} + shipping. Unframed from {printPriceLabels.unframed} + shipping.
+                Need the physical gift instead? Compare framed and unframed checkout for this same saved design.
               </p>
-              <p className="mt-1 text-[10px] text-amber-100/70">{printShippingSummary}</p>
               <button
                 type="button"
                 onClick={onOpenPrintOptions}
-                className="mt-2 inline-flex w-full items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
+                className="mt-2 inline-flex w-full items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/30 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/40"
               >
                 Compare print options
               </button>
             </div>
-            )}
+          )}
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
