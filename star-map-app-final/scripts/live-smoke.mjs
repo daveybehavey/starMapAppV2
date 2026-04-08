@@ -231,6 +231,34 @@ async function main() {
   }
 
   try {
+    const customNightSkyRes = await fetchWithTimeout(`${site}/custom-night-sky-map`, { cache: "no-store" }, args.timeoutMs);
+    const customNightSkyHtml = await customNightSkyRes.text();
+    runCheck("Custom night sky page responds 200", customNightSkyRes.status === 200, `status=${customNightSkyRes.status}`);
+    runCheck(
+      "Custom night sky page includes product schema",
+      hasProductSchema(customNightSkyHtml, "Custom Night Sky Map"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Custom night sky page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const generatorRes = await fetchWithTimeout(`${site}/star-map-generator`, { cache: "no-store" }, args.timeoutMs);
+    const generatorHtml = await generatorRes.text();
+    runCheck("Star map generator page responds 200", generatorRes.status === 200, `status=${generatorRes.status}`);
+    runCheck(
+      "Star map generator page includes product schema",
+      hasProductSchema(generatorHtml, "Star Map Generator"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Star map generator page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const editorRes = await fetchWithTimeout(`${site}/editor`, { cache: "no-store" }, args.timeoutMs);
     const editorHtml = await editorRes.text();
     runCheck("Editor responds 200", editorRes.status === 200, `status=${editorRes.status}`);

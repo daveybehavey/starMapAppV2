@@ -5,6 +5,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import type { Metadata } from "next";
@@ -179,6 +180,11 @@ export default function CustomNightSkyMapPage() {
             answer: "Yes. You can preview the map for free, then choose framed print, unframed print, or HD digital delivery when you are ready.",
           },
         ]}
+      />
+      <ProductSchema
+        name="Custom Night Sky Map"
+        description="Preview a custom night sky map from any meaningful date and place, then choose HD digital delivery or a framed or unframed print once the design is approved."
+        path="/custom-night-sky-map"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

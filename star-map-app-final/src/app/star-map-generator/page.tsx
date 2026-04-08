@@ -5,6 +5,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
@@ -225,6 +226,11 @@ export default function StarMapGeneratorPage() {
               "Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before choosing framed print, unframed print, or HD digital delivery.",
           },
         ]}
+      />
+      <ProductSchema
+        name="Star Map Generator"
+        description="Use the StarMapCo generator to preview the exact sky from any date and place, then choose HD digital delivery or a framed or unframed print when the design feels right."
+        path="/star-map-generator"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
