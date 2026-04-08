@@ -69,9 +69,40 @@ export default function StarMapForOccasionsPage() {
         </div>
       </header>
 
+      <PreviewStartForm
+        source="star-map-for"
+        title="Start your occasion preview"
+        description="Use the occasion links below if you want a more specific route. Otherwise enter the date and location to start a neutral preview."
+        intentOptions={[
+          {
+            label: "Preview framed print",
+            sourceSuffix: "framed",
+            checkout: "print",
+            printVariant: "poster_framed",
+            plan: "print_framed",
+            tone: "recommended",
+            detail: "Best when the finished piece should arrive ready to hang.",
+          },
+          {
+            label: "Preview unframed print",
+            sourceSuffix: "unframed",
+            checkout: "print",
+            printVariant: "poster_unframed",
+            plan: "print_unframed",
+            tone: "default",
+            detail: "Best if you want the physical print but already know the frame plan.",
+          },
+          {
+            label: "Preview first, decide later",
+            plan: "preview",
+            tone: "neutral",
+            detail: "Keep the editor neutral until the design feels right.",
+          },
+        ]}
+      />
       <PrimaryIntentLinksSection
         heading="Primary buying pages"
-        intro="Use this hub to browse occasion intent. If you already know the core route, start with the stronger page below."
+        intro="Use this hub to browse occasion intent. If you want the stronger primary route after previewing, start with one of these pages."
         links={[
           { href: "/star-map-gift", label: "Star map gift", recommended: true },
           { href: "/anniversary", label: "Anniversary star map" },
@@ -115,38 +146,6 @@ export default function StarMapForOccasionsPage() {
           ))}
         </div>
       </section>
-
-      <PreviewStartForm
-        source="star-map-for"
-        title="Start your occasion preview"
-        description="Use the occasion links above if you already know the moment. Otherwise enter the date and location to start a neutral preview."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best when the finished piece should arrive ready to hang.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you want the physical print but already know the frame plan.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Keep the editor neutral until the design feels right.",
-          },
-        ]}
-      />
 
       <DeliveryFormatModule
         heading="Choose the format after preview"

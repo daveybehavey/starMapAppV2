@@ -59,53 +59,10 @@ export default function StarMapByCityPage() {
         </div>
       </header>
 
-      <PrimaryIntentLinksSection
-        heading="Primary start pages"
-        intro="Use this hub to browse city intent. If you already know the buyer route, start with the stronger page below."
-        links={[
-          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
-          { href: "/star-map-gift", label: "Star map gift" },
-          { href: "/star-map-gallery", label: "Star map gallery" },
-        ]}
-      />
-
-      <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Popular locations</h2>
-        <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Each page includes tailored examples, FAQs, and a direct path into the editor.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          {indexableLocations.map((location) => (
-            <Link
-              key={location.slug}
-              href={`/star-map-in/${location.slug}`}
-              className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
-            >
-              {formatLocationDisplay(location)}
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Start your map in minutes</h2>
-        <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Enter your date and location, preview the exact sky, and then choose framed print, unframed print, or HD digital delivery when ready.
-        </p>
-        <div className="pt-3">
-          <Link
-            href="/editor?mode=quick&source=star-map-in-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start with framed print preview
-          </Link>
-        </div>
-      </section>
-
       <PreviewStartForm
         source="star-map-in-hub"
         title="Start a location-based preview"
-        description="Use the location links above if you want a city-specific page first. Otherwise enter your date and location to open the preview."
+        description="Use the location links below if you want a city-specific page first. Otherwise enter your date and location to open the preview."
         intentOptions={[
           {
             label: "Preview framed print",
@@ -133,6 +90,33 @@ export default function StarMapByCityPage() {
           },
         ]}
       />
+      <PrimaryIntentLinksSection
+        heading="Primary start pages"
+        intro="Use this hub to browse city intent. If you want the stronger primary route after previewing, start with one of these pages."
+        links={[
+          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
+          { href: "/star-map-gift", label: "Star map gift" },
+          { href: "/star-map-gallery", label: "Star map gallery" },
+        ]}
+      />
+
+      <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-xl font-semibold text-midnight">Popular locations</h2>
+        <p className="mt-2 text-sm text-neutral-700 sm:text-base">
+          Each page includes tailored examples, FAQs, and a direct path into the editor.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          {indexableLocations.map((location) => (
+            <Link
+              key={location.slug}
+              href={`/star-map-in/${location.slug}`}
+              className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+            >
+              {formatLocationDisplay(location)}
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <DeliveryFormatModule
         heading="Choose the format after preview"
