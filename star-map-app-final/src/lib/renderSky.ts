@@ -491,7 +491,10 @@ export function renderStarMap({
 
   // Overlays
   if (includeText) {
-    drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
+    drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale, {
+      shape: shapeName,
+      aspectRatio: recipe.aspectRatio,
+    });
   } else if (textBounds) {
     textBounds.clear();
   }
@@ -507,6 +510,8 @@ export function renderStarMapTextLayer({
   width,
   height,
   textBoxes,
+  shape,
+  aspectRatio,
   pixelRatio = 1,
   textBounds,
 }: {
@@ -514,6 +519,8 @@ export function renderStarMapTextLayer({
   width: number;
   height: number;
   textBoxes: TextBox[];
+  shape: Shape;
+  aspectRatio: AspectRatio;
   pixelRatio?: number;
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
 }) {
@@ -545,7 +552,7 @@ export function renderStarMapTextLayer({
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
   const scale = width / BASE_CANVAS_WIDTH;
-  drawText(ctx, width, height, textBoxes, textBounds, scale);
+  drawText(ctx, width, height, textBoxes, textBounds, scale, { shape, aspectRatio });
   ctx.restore();
 }
 
@@ -1225,6 +1232,175 @@ function resolveBandColor(color: string) {
   return "#ffffff";
 }
 
+type TextLayoutContext = {
+  shape: Shape;
+  aspectRatio: AspectRatio;
+};
+
+type LaidOutText = {
+  lines: string[];
+  fontSize: number;
+  lineHeight: number;
+  lineWidths: number[];
+  blockWidth: number;
+  blockHeight: number;
+  font: string;
+};
+
+function getAspectTextWidthMultiplier(aspectRatio: AspectRatio) {
+  switch (aspectRatio) {
+    case "2:3":
+      return 0.88;
+    case "3:4":
+      return 0.92;
+    case "4:5":
+      return 0.95;
+    default:
+      return 1;
+  }
+}
+
+function getShapeTextWidthFraction(shape: Shape, yNorm: number) {
+  const y = clamp(yNorm, 0, 1);
+  switch (shape) {
+    case "circle": {
+      const radius = 0.44;
+      const dy = Math.abs(y - 0.5);
+      if (dy >= radius) return 0.34;
+      return clamp(2 * Math.sqrt(Math.max(0, radius * radius - dy * dy)) * 0.92, 0.34, 0.84);
+    }
+    case "diamond":
+      return clamp((1 - Math.abs(y - 0.5) * 2) * 0.86, 0.34, 0.82);
+    case "star":
+      if (y < 0.16 || y > 0.84) return 0.42;
+      if (y < 0.3 || y > 0.7) return 0.6;
+      return 0.76;
+    case "heart":
+      if (y < 0.18) return 0.7;
+      if (y < 0.46) return 0.8;
+      if (y < 0.68) return 0.74;
+      return clamp(0.82 - (y - 0.68) * 1.65, 0.36, 0.82);
+    case "rectangle":
+    default:
+      return 0.84;
+  }
+}
+
+function getMaxTextWidth(width: number, height: number, box: TextBox, context: TextLayoutContext) {
+  const yNorm = clamp(box.position?.y ?? 0.5, 0.05, 0.95);
+  const shapeFraction = getShapeTextWidthFraction(context.shape, yNorm);
+  const aspectMultiplier = getAspectTextWidthMultiplier(context.aspectRatio);
+  const sidePadding = Math.min(width * 0.08, height * 0.1);
+  const rawWidth = width * shapeFraction * aspectMultiplier;
+  return clamp(rawWidth, width * 0.28, width - sidePadding * 2);
+}
+
+function getMaxTextLines(box: TextBox) {
+  if (box.id === "title") return 2;
+  if (box.id === "subtitle") return 2;
+  if (box.id === "dedication") return 3;
+  return 2;
+}
+
+function splitIntoLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  font: string,
+  maxWidth: number,
+  maxLines: number,
+) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 1 || maxLines <= 1) {
+    const singleWidth = getCachedTextWidth(ctx, text, font);
+    return { lines: [text], widths: [singleWidth], fits: singleWidth <= maxWidth };
+  }
+
+  const lines: string[] = [];
+  const widths: number[] = [];
+  let current = words[0];
+
+  for (let index = 1; index < words.length; index += 1) {
+    const candidate = `${current} ${words[index]}`;
+    const candidateWidth = getCachedTextWidth(ctx, candidate, font);
+    if (candidateWidth <= maxWidth || current === "") {
+      current = candidate;
+      continue;
+    }
+    lines.push(current);
+    widths.push(getCachedTextWidth(ctx, current, font));
+    current = words[index];
+    if (lines.length >= maxLines) {
+      const overflowText = [current, ...words.slice(index + 1)].join(" ").trim();
+      const overflowWidth = getCachedTextWidth(ctx, overflowText, font);
+      return {
+        lines: [...lines, overflowText],
+        widths: [...widths, overflowWidth],
+        fits: false,
+      };
+    }
+  }
+
+  lines.push(current);
+  widths.push(getCachedTextWidth(ctx, current, font));
+  return { lines, widths, fits: lines.length <= maxLines && widths.every((value) => value <= maxWidth) };
+}
+
+function layoutTextBlock(
+  ctx: CanvasRenderingContext2D,
+  box: TextBox,
+  width: number,
+  height: number,
+  scale: number,
+  context: TextLayoutContext,
+): LaidOutText {
+  const initialFontSize = Math.max(10, (box.size ?? 28) * scale);
+  const minFontSize = Math.max(
+    10,
+    initialFontSize * (box.id === "title" ? 0.62 : box.id === "dedication" ? 0.68 : 0.72),
+  );
+  const maxWidth = getMaxTextWidth(width, height, box, context);
+  const maxLines = getMaxTextLines(box);
+  const fontWeight = FONT_WEIGHTS[box.fontFamily] ?? 600;
+
+  let fontSize = initialFontSize;
+  let fallbackLayout: LaidOutText | null = null;
+
+  for (let iteration = 0; iteration < 16; iteration += 1) {
+    const roundedFontSize = Math.max(minFontSize, Math.round(fontSize * 10) / 10);
+    const font = `${fontWeight} ${roundedFontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    const { lines, widths, fits } = splitIntoLines(ctx, box.text.trim(), font, maxWidth, maxLines);
+    const lineHeight = roundedFontSize * 1.15;
+    const layout = {
+      lines,
+      fontSize: roundedFontSize,
+      lineHeight,
+      lineWidths: widths,
+      blockWidth: Math.max(...widths, 0),
+      blockHeight: Math.max(lineHeight, lines.length * lineHeight),
+      font,
+    };
+    fallbackLayout = layout;
+    if (fits || roundedFontSize <= minFontSize + 0.05) {
+      return layout;
+    }
+    fontSize = Math.max(minFontSize, fontSize * 0.94);
+  }
+
+  return (
+    fallbackLayout ?? {
+      lines: [box.text],
+      fontSize: initialFontSize,
+      lineHeight: initialFontSize * 1.15,
+      lineWidths: [
+        getCachedTextWidth(ctx, box.text, `${fontWeight} ${initialFontSize}px ${FONT_STACKS[box.fontFamily]}`),
+      ],
+      blockWidth: getCachedTextWidth(ctx, box.text, `${fontWeight} ${initialFontSize}px ${FONT_STACKS[box.fontFamily]}`),
+      blockHeight: initialFontSize * 1.15,
+      font: `${fontWeight} ${initialFontSize}px ${FONT_STACKS[box.fontFamily]}`,
+    }
+  );
+}
+
 function drawText(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -1232,6 +1408,7 @@ function drawText(
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
+  context: TextLayoutContext = { shape: "rectangle", aspectRatio: "square" },
 ) {
   const baseY = height * 0.72;
   const lineGap = 28 * scale;
@@ -1242,9 +1419,8 @@ function drawText(
     // Skip empty text boxes
     if (!box.text || box.text.trim() === "") return;
 
-    const fontSize = Math.max(10, (box.size ?? 28) * scale);
-    const fontWeight = FONT_WEIGHTS[box.fontFamily] ?? 600;
-    ctx.font = `${fontWeight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    const layout = layoutTextBlock(ctx, box, width, height, scale, context);
+    ctx.font = layout.font;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
       ctx.shadowColor = `${box.color}90`;
@@ -1264,12 +1440,14 @@ function drawText(
     ctx.textBaseline = "middle";
     const px = clamp(box.position?.x ?? 0.5, 0, 1) * width;
     const py = clamp(box.position?.y ?? (baseY + index * lineGap) / height, 0, 1) * height;
-    ctx.fillText(box.text, px, py);
+    const firstLineY = py - (layout.blockHeight - layout.lineHeight) / 2;
+    layout.lines.forEach((line, lineIndex) => {
+      ctx.fillText(line, px, firstLineY + lineIndex * layout.lineHeight);
+    });
 
     if (bounds) {
-      const font = `${fontWeight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
-      const textWidth = getCachedTextWidth(ctx, box.text, font);
-      const textHeight = fontSize * 1.2;
+      const textWidth = layout.blockWidth;
+      const textHeight = layout.blockHeight;
       let left = px;
       if (ctx.textAlign === "center") left = px - textWidth / 2;
       if (ctx.textAlign === "right") left = px - textWidth;

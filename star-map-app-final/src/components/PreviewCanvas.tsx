@@ -37,6 +37,9 @@ const SNAP_THRESHOLD = 0.012;
 const STANDARD_PREVIEW_PIXEL_BUDGET = 6_200_000;
 const HIGH_PREVIEW_PIXEL_BUDGET = 9_500_000;
 const DRAG_PREVIEW_PIXEL_BUDGET = 1_600_000;
+const LARGE_PREVIEW_WIDTH = 640;
+const DESKTOP_STANDARD_PIXEL_BUDGET = 7_400_000;
+const DESKTOP_HIGH_PIXEL_BUDGET = 11_200_000;
 
 function clampPixelRatioToBudget(
   width: number,
@@ -61,13 +64,18 @@ function resolvePreviewPixelRatio({
   isDragging: boolean;
 }) {
   const deviceRatio = window.devicePixelRatio || 1;
-  const fidelityFloor = previewFidelity === "high" ? 2 : 1.75;
-  const fidelityCap = previewFidelity === "high" ? 3 : 2.5;
+  const largePreview = width >= LARGE_PREVIEW_WIDTH;
+  const fidelityFloor = previewFidelity === "high" ? (largePreview ? 2.2 : 2) : largePreview ? 1.9 : 1.75;
+  const fidelityCap = previewFidelity === "high" ? (largePreview ? 3.2 : 3) : largePreview ? 2.7 : 2.5;
   const pixelBudget = isDragging
     ? DRAG_PREVIEW_PIXEL_BUDGET
     : previewFidelity === "high"
-      ? HIGH_PREVIEW_PIXEL_BUDGET
-      : STANDARD_PREVIEW_PIXEL_BUDGET;
+      ? largePreview
+        ? DESKTOP_HIGH_PIXEL_BUDGET
+        : HIGH_PREVIEW_PIXEL_BUDGET
+      : largePreview
+        ? DESKTOP_STANDARD_PIXEL_BUDGET
+        : STANDARD_PREVIEW_PIXEL_BUDGET;
   const targetRatio = isDragging ? 1 : Math.min(Math.max(deviceRatio, fidelityFloor), fidelityCap);
   return clampPixelRatioToBudget(width, height, targetRatio, pixelBudget);
 }
@@ -302,6 +310,8 @@ export default function PreviewCanvas({
       width,
       height,
       textBoxes: textLayerBoxes,
+      shape: effectiveShape,
+      aspectRatio: effectiveAspectRatio,
       pixelRatio,
       textBounds: textBoundsRef.current,
     });
@@ -322,7 +332,7 @@ export default function PreviewCanvas({
         });
       }
     }
-  }, [dimensions, textLayerBoxes, activeBox, previewFidelity, isDragging]);
+  }, [dimensions, textLayerBoxes, activeBox, previewFidelity, isDragging, effectiveShape, effectiveAspectRatio]);
 
   useEffect(() => {
     if (readOnly) return;
