@@ -25,17 +25,6 @@ export default function HomeHero() {
     printTiers.poster_unframed.currency,
   );
 
-  const handleFramedPreviewClick = () => {
-    track("hero_framed_preview_clicked", {
-      source: "home-hero",
-      placement: "hero-cta-row",
-    });
-    trackFunnelStep("hero_plan_click", {
-      source: "home-hero",
-      plan: "print_framed",
-    });
-  };
-
   const handlePrintGuideClick = () => {
     track("print_guide_clicked", {
       source: "home-hero",
@@ -93,13 +82,6 @@ export default function HomeHero() {
               className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
             >
               Start free preview
-            </a>
-            <a
-              href="/editor?mode=quick&source=home-hero-framed&checkout=print&print_variant=poster_framed"
-              onClick={handleFramedPreviewClick}
-              className="hidden items-center px-2 py-2 text-xs font-semibold text-amber-200 underline decoration-amber-300/60 underline-offset-4 transition hover:text-amber-100 sm:inline-flex"
-            >
-              Gift-ready? Preview framed print
             </a>
           </div>
         </div>

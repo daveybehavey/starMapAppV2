@@ -79,7 +79,7 @@ export default function HeroEditorDeferred() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/80">
             Create your map
           </p>
-          <span className="text-xs text-white/60">Opens a simple editor first</span>
+          <span className="text-xs text-white/60">Nothing charged until you decide to buy</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="min-w-0">
@@ -113,7 +113,7 @@ export default function HeroEditorDeferred() {
           Preview your map
         </button>
         <p className="mt-3 text-xs text-white/75">
-          Free preview first. Choose framed print, unframed print, or HD delivery after the design feels right.
+          Nothing is charged here. Preview first, then choose HD, framed, or unframed checkout when the design feels right.
         </p>
       </form>
     </div>
