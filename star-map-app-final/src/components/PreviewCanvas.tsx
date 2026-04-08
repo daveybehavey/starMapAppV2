@@ -400,7 +400,7 @@ export default function PreviewCanvas({
         const centerX = pending.x - activeDrag.offsetX;
         const centerY = pending.y - activeDrag.offsetY;
         const rect = textBoundsRef.current.get(activeDrag.id);
-        const { x: clampedX, y: clampedY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect);
+        const { x: clampedX, y: clampedY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect, effectiveShape);
         const snapVertical = Math.abs(clampedX - 0.5) <= SNAP_THRESHOLD;
         const snapHorizontal = Math.abs(clampedY - 0.5) <= SNAP_THRESHOLD;
         const newX = snapVertical ? 0.5 : clampedX;
@@ -464,7 +464,7 @@ export default function PreviewCanvas({
       window.removeEventListener("pointercancel", handlePointerUp);
       if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
     };
-  }, [readOnly, updateTextBox]);
+  }, [readOnly, updateTextBox, effectiveShape]);
 
   const nudgeActiveTextBox = useCallback((deltaX: number, deltaY: number) => {
     if (readOnly || !activeBox) return;
@@ -479,13 +479,13 @@ export default function PreviewCanvas({
     const fallbackCenterY = clamp(currentBox.position?.y ?? 0.5, 0, 1) * Math.max(bounds.height, 1);
     const centerX = rect ? rect.x + rect.width / 2 : fallbackCenterX;
     const centerY = rect ? rect.y + rect.height / 2 : fallbackCenterY;
-    const { x, y } = clampPositionToCanvas(centerX + deltaX, centerY + deltaY, bounds, rect);
+    const { x, y } = clampPositionToCanvas(centerX + deltaX, centerY + deltaY, bounds, rect, effectiveShape);
 
     updateTextBox(activeBox, { position: { x, y } });
     setDragPreviewPosition(null);
     const nextRect = textBoundsRef.current.get(activeBox);
     if (nextRect) setBoxRect(nextRect);
-  }, [activeBox, readOnly, textBoxes, updateTextBox]);
+  }, [activeBox, readOnly, textBoxes, updateTextBox, effectiveShape]);
 
   useEffect(() => {
     if (readOnly || !activeBox) return;
@@ -707,20 +707,55 @@ function clampPositionToCanvas(
   centerX: number,
   centerY: number,
   bounds: Pick<DOMRect, "width" | "height">,
-  textRect?: { width: number; height: number }
+  textRect?: { width: number; height: number },
+  shape: "rectangle" | "heart" | "circle" | "star" | "diamond" = "rectangle",
 ) {
   const width = Math.max(bounds.width, 1);
   const height = Math.max(bounds.height, 1);
   const halfWidth = textRect ? textRect.width / (width * 2) : 0;
   const halfHeight = textRect ? textRect.height / (height * 2) : 0;
-  const minX = clamp(halfWidth, 0, 0.5);
-  const maxX = clamp(1 - halfWidth, 0.5, 1);
   const minY = clamp(halfHeight, 0, 0.5);
   const maxY = clamp(1 - halfHeight, 0.5, 1);
+  const y = clamp(centerY / height, minY, maxY);
+  const minX = clamp(halfWidth, 0, 0.5);
+  const maxX = clamp(1 - halfWidth, 0.5, 1);
+  const shapeWidthFraction = getShapeDragWidthFraction(shape, y);
+  const shapeHalfWidth = shapeWidthFraction / 2;
+  const shapeMinX = clamp(0.5 - shapeHalfWidth + halfWidth, minX, 0.5);
+  const shapeMaxX = clamp(0.5 + shapeHalfWidth - halfWidth, 0.5, maxX);
   return {
-    x: clamp(centerX / width, minX, maxX),
-    y: clamp(centerY / height, minY, maxY),
+    x: clamp(centerX / width, shapeMinX, Math.max(shapeMinX, shapeMaxX)),
+    y,
   };
+}
+
+function getShapeDragWidthFraction(
+  shape: "rectangle" | "heart" | "circle" | "star" | "diamond",
+  yNorm: number,
+) {
+  const y = clamp(yNorm, 0, 1);
+  switch (shape) {
+    case "circle": {
+      const radius = 0.44;
+      const dy = Math.abs(y - 0.5);
+      if (dy >= radius) return 0.34;
+      return clamp(2 * Math.sqrt(Math.max(0, radius * radius - dy * dy)) * 0.96, 0.34, 0.9);
+    }
+    case "diamond":
+      return clamp((1 - Math.abs(y - 0.5) * 2) * 0.92, 0.34, 0.88);
+    case "star":
+      if (y < 0.16 || y > 0.84) return 0.44;
+      if (y < 0.3 || y > 0.7) return 0.66;
+      return 0.82;
+    case "heart":
+      if (y < 0.18) return 0.74;
+      if (y < 0.46) return 0.86;
+      if (y < 0.68) return 0.78;
+      return clamp(0.86 - (y - 0.68) * 1.75, 0.38, 0.86);
+    case "rectangle":
+    default:
+      return 0.94;
+  }
 }
 
 function hitTestText(
