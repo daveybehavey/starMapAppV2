@@ -1104,30 +1104,6 @@ export function SimplifiedEditor() {
         <div className="flex flex-col gap-3" role="group" aria-label="Download options">
           <button
             type="button"
-            onClick={handleFreePreview}
-            disabled={!canExport || exporting}
-            aria-busy={exporting}
-            aria-describedby={`${formId}-preview-hint`}
-            className="w-full rounded-full bg-white/10 py-4 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50 sm:py-3.5"
-          >
-            {exporting ? (
-              <>
-                <span
-                  className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                  aria-hidden="true"
-                />
-                Exporting...
-              </>
-            ) : (
-              <>Download free preview</>
-            )}
-          </button>
-          <span id={`${formId}-preview-hint`} className="sr-only">
-            Download a free watermarked preview of your star map
-          </span>
-
-          <button
-            type="button"
             onClick={handleHdDownload}
             disabled={!canExport || hdExporting}
             aria-busy={hdExporting}
@@ -1150,6 +1126,29 @@ export function SimplifiedEditor() {
           </button>
           <span id={`${formId}-hd-hint`} className="sr-only">
             {paid ? "Download high-resolution star map" : "Purchase to unlock high-resolution download"}
+          </span>
+          <button
+            type="button"
+            onClick={handleFreePreview}
+            disabled={!canExport || exporting}
+            aria-busy={exporting}
+            aria-describedby={`${formId}-preview-hint`}
+            className="w-full rounded-full border border-white/15 bg-white/6 py-3 text-[11px] font-semibold text-white/75 transition hover:border-white/25 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#070b1b] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting ? (
+              <>
+                <span
+                  className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                  aria-hidden="true"
+                />
+                Exporting preview...
+              </>
+            ) : (
+              <>Download preview</>
+            )}
+          </button>
+          <span id={`${formId}-preview-hint`} className="sr-only">
+            Download a free watermarked preview of your star map
           </span>
         </div>
         {!canExport && checkoutBlockedReason && (

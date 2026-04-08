@@ -1363,22 +1363,22 @@ export function MobileCreate({
 
       {revealed && (
         <>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void onExport("preview")}
-              aria-label="Free export"
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95"
-            >
-              Free preview
-            </button>
+          <div className="flex flex-col gap-2">
             <button
               type="button"
               onClick={() => void onExport("hd")}
               aria-label="HD export"
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
             >
               {paid ? "HD download" : getDigitalCheckoutPrimaryLabel(singlePriceLabel)}
+            </button>
+            <button
+              type="button"
+              onClick={() => void onExport("preview")}
+              aria-label="Free export"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/6 px-4 py-2.5 text-[11px] font-semibold text-white/75 shadow-sm transition hover:-translate-y-[1px] hover:border-white/25 hover:bg-white/10 hover:text-white active:scale-95"
+            >
+              Download preview
             </button>
           </div>
           {hdCreditLabel && (
