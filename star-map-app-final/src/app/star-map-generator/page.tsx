@@ -49,16 +49,6 @@ export default function StarMapGeneratorPage() {
         </p>
       </header>
 
-      <PrimaryIntentLinksSection
-        heading="Primary start pages"
-        intro="Use the generator when you want the tool first. If you already know the buying intent, start with the stronger page below."
-        links={[
-          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
-          { href: "/star-map-gift", label: "Star map gift" },
-          { href: "/star-map-gallery", label: "Star map gallery" },
-        ]}
-      />
-
       <PreviewStartForm
         source="star-map-generator"
         title="Start your generator preview"
@@ -95,6 +85,15 @@ export default function StarMapGeneratorPage() {
         secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-star-map-generator-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
+      />
+      <PrimaryIntentLinksSection
+        heading="Primary start pages"
+        intro="Use the generator when you want the tool first. If you want the stronger primary route after previewing, start with one of these pages."
+        links={[
+          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
+          { href: "/star-map-gift", label: "Star map gift" },
+          { href: "/star-map-gallery", label: "Star map gallery" },
+        ]}
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

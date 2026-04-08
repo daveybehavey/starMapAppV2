@@ -83,16 +83,6 @@ export default function StarMapGiftIdeasPage() {
         </div>
       </header>
 
-      <PrimaryIntentLinksSection
-        heading="Primary gift pages"
-        intro="This page is for browsing ideas. If you already know the moment or buyer type, start with the stronger gift page below."
-        links={[
-          { href: "/star-map-gift", label: "Star map gift", recommended: true },
-          { href: "/anniversary", label: "Anniversary star map" },
-          { href: "/wedding", label: "Wedding star map" },
-        ]}
-      />
-
       <PreviewStartForm
         source="star-map-gift-ideas"
         title="Start your gift preview"
@@ -129,6 +119,15 @@ export default function StarMapGiftIdeasPage() {
         secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-star-map-gift-ideas-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
+      />
+      <PrimaryIntentLinksSection
+        heading="Primary gift pages"
+        intro="This page is for browsing ideas. If you want the stronger gift page after previewing, start with one of these routes."
+        links={[
+          { href: "/star-map-gift", label: "Star map gift", recommended: true },
+          { href: "/anniversary", label: "Anniversary star map" },
+          { href: "/wedding", label: "Wedding star map" },
+        ]}
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

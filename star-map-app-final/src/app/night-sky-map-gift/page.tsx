@@ -60,16 +60,6 @@ export default function NightSkyMapGiftPage() {
         </div>
       </header>
 
-      <PrimaryIntentLinksSection
-        heading="Primary gift pages"
-        intro="Use this page for night-sky-gift phrasing. If you already know the buying route, start with the stronger primary page below."
-        links={[
-          { href: "/star-map-gift", label: "Star map gift", recommended: true },
-          { href: "/anniversary", label: "Anniversary star map" },
-          { href: "/wedding", label: "Wedding star map" },
-        ]}
-      />
-
       <PreviewStartForm
         source="night-sky-map-gift"
         title="Start the night-sky gift preview"
@@ -106,6 +96,15 @@ export default function NightSkyMapGiftPage() {
         secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-night-sky-map-gift-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
+      />
+      <PrimaryIntentLinksSection
+        heading="Primary gift pages"
+        intro="Use this page for night-sky-gift phrasing. If you want the stronger primary gift route after previewing, start with one of these pages."
+        links={[
+          { href: "/star-map-gift", label: "Star map gift", recommended: true },
+          { href: "/anniversary", label: "Anniversary star map" },
+          { href: "/wedding", label: "Wedding star map" },
+        ]}
       />
       <FramedProofSection sourcePrefix="night-sky-gift-proof" />
       <PurchaseTrustPanel

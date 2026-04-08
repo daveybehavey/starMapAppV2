@@ -43,24 +43,6 @@ export default function ConstellationMapPage() {
         </p>
       </header>
 
-      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-5 shadow-xl shadow-black/10">
-        <h2 className="text-base font-semibold text-midnight">Best fit pages</h2>
-        <p className="mt-2 text-sm text-neutral-700">
-          Use this page if constellation-focused language matters most. If you want the main buying paths, start with the direct pages below.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100">
-            Personalized star map
-          </Link>
-          <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
-            Star map gift
-          </Link>
-          <Link href="/star-map-gallery" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
-            Star map gallery
-          </Link>
-        </div>
-      </section>
-
       <PreviewStartForm
         source="constellation-map"
         title="Start your constellation preview"
@@ -98,6 +80,23 @@ export default function ConstellationMapPage() {
         secondaryHref="/editor?mode=quick&source=sticky-constellation-map-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
+      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-5 shadow-xl shadow-black/10">
+        <h2 className="text-base font-semibold text-midnight">Best fit pages</h2>
+        <p className="mt-2 text-sm text-neutral-700">
+          Use this page if constellation-focused language matters most. If you want the stronger primary route after previewing, start with one of these pages.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
+          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100">
+            Personalized star map
+          </Link>
+          <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Star map gift
+          </Link>
+          <Link href="/star-map-gallery" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50">
+            Star map gallery
+          </Link>
+        </div>
+      </section>
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why a constellation map is special</h2>

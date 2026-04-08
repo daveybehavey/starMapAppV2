@@ -46,16 +46,6 @@ export default function CustomNightSkyMapPage() {
         </p>
       </header>
 
-      <PrimaryIntentLinksSection
-        heading="Primary start pages"
-        intro="Use this page for broad night-sky-map intent. If you already know the buying route, start with the stronger page below."
-        links={[
-          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
-          { href: "/star-map-gift", label: "Star map gift" },
-          { href: "/star-map-gallery", label: "Star map gallery" },
-        ]}
-      />
-
       <PreviewStartForm
         source="custom-night-sky-map"
         title="Start your custom night-sky preview"
@@ -92,6 +82,15 @@ export default function CustomNightSkyMapPage() {
         secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-custom-night-sky-map-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
+      />
+      <PrimaryIntentLinksSection
+        heading="Primary start pages"
+        intro="Use this page for broad night-sky-map intent. If you want the stronger primary route after previewing, start with one of these pages."
+        links={[
+          { href: "/personalized-star-map", label: "Personalized star map", recommended: true },
+          { href: "/star-map-gift", label: "Star map gift" },
+          { href: "/star-map-gallery", label: "Star map gallery" },
+        ]}
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
