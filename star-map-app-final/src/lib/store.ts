@@ -166,7 +166,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     planetEmphasis: "highlighted",
     showMoon: true,
     moonSize: "large",
-    shapeMask: "circle",
+    shapeMask: "rectangle",
     frameEnabled: true,
     backgroundColor: "",
     constellationColor: "",
@@ -206,7 +206,11 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
-  setShape: (shape) => set({ shape }),
+  setShape: (shape) =>
+    set((state) => ({
+      shape,
+      renderOptions: { ...state.renderOptions, shapeMask: shape },
+    })),
   setRenderOptions: (options) =>
     set((state) => ({ renderOptions: { ...state.renderOptions, ...options } })),
   setPreviewFidelity: (previewFidelity) => set({ previewFidelity }),

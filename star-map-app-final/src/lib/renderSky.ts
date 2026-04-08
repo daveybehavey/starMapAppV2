@@ -104,7 +104,7 @@ export const DEFAULT_RECIPE: MapRecipe = {
     planetEmphasis: "highlighted",
     showMoon: true,
     moonSize: "large",
-    shapeMask: "circle",
+    shapeMask: "rectangle",
     frameEnabled: true,
     premiumStars: "off",
     premiumPlanets: "off",
@@ -615,6 +615,7 @@ export function buildRecipeFromState(input: {
   renderOptions?: MapRecipe["renderOptions"];
   seed?: string;
 }): MapRecipe {
+  const resolvedShape = input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle";
   return {
     version: 1,
     seed: input.seed || "default",
@@ -622,7 +623,7 @@ export function buildRecipeFromState(input: {
     location: input.location,
     textBoxes: input.textBoxes,
     selectedStyle: input.selectedStyle,
-    shape: input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
+    shape: resolvedShape,
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
       visualMode: input.renderOptions?.visualMode ?? "illustrated",
@@ -637,7 +638,7 @@ export function buildRecipeFromState(input: {
       planetEmphasis: input.renderOptions?.planetEmphasis ?? "highlighted",
       showMoon: input.renderOptions?.showMoon ?? true,
       moonSize: input.renderOptions?.moonSize ?? "large",
-      shapeMask: input.renderOptions?.shapeMask ?? "circle",
+      shapeMask: resolvedShape,
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",

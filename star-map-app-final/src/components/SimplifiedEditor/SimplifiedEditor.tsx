@@ -111,7 +111,7 @@ const SAMPLE_RECIPE: MapRecipe = {
     planetEmphasis: "highlighted",
     showMoon: true,
     moonSize: "large",
-    shapeMask: "circle",
+    shapeMask: "rectangle",
     frameEnabled: true,
     constellationLineScale: 1.1,
   },
