@@ -69,6 +69,11 @@ async function ensureDirFor(filePath) {
   await fs.mkdir(path.dirname(path.resolve(process.cwd(), filePath)), { recursive: true });
 }
 
+function hasProductSchema(html, productName) {
+  const normalized = typeof html === "string" ? html.replace(/\s+/g, " ") : "";
+  return normalized.includes('"@type":"Product"') && normalized.includes(`"name":"${productName}"`);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const checks = [];
@@ -159,9 +164,56 @@ async function main() {
         /shipping is added at checkout|shipping shows before payment/i.test(personalizedHtml),
       "print intent copy",
     );
+    runCheck(
+      "Personalized page includes product schema",
+      hasProductSchema(personalizedHtml, "Personalized Star Map"),
+      "Product JSON-LD",
+    );
   } catch (error) {
     failed = true;
     runCheck("Personalized page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const giftRes = await fetchWithTimeout(`${site}/star-map-gift`, { cache: "no-store" }, args.timeoutMs);
+    const giftHtml = await giftRes.text();
+    runCheck("Gift page responds 200", giftRes.status === 200, `status=${giftRes.status}`);
+    runCheck(
+      "Gift page includes product schema",
+      hasProductSchema(giftHtml, "Star Map Gift"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Gift page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const weddingRes = await fetchWithTimeout(`${site}/wedding`, { cache: "no-store" }, args.timeoutMs);
+    const weddingHtml = await weddingRes.text();
+    runCheck("Wedding page responds 200", weddingRes.status === 200, `status=${weddingRes.status}`);
+    runCheck(
+      "Wedding page includes product schema",
+      hasProductSchema(weddingHtml, "Personalized Wedding Star Map"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Wedding page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const anniversaryRes = await fetchWithTimeout(`${site}/anniversary`, { cache: "no-store" }, args.timeoutMs);
+    const anniversaryHtml = await anniversaryRes.text();
+    runCheck("Anniversary page responds 200", anniversaryRes.status === 200, `status=${anniversaryRes.status}`);
+    runCheck(
+      "Anniversary page includes product schema",
+      hasProductSchema(anniversaryHtml, "Personalized Anniversary Star Map"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Anniversary page checks", false, error instanceof Error ? error.message : String(error));
   }
 
   try {
