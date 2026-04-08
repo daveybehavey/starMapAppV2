@@ -6,6 +6,7 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import QuickStartStepsSection from "@/components/QuickStartStepsSection";
@@ -206,6 +207,11 @@ export default function NightSkyMapGiftPage() {
               "Every map is generated from the exact date and location you choose, plus custom text like names and a message.",
           },
         ]}
+      />
+      <ProductSchema
+        name="Night Sky Map Gift"
+        description="Preview a personalized night sky map gift from any meaningful date and place, then choose HD digital delivery or a framed or unframed print once the design feels right."
+        path="/night-sky-map-gift"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

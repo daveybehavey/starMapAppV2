@@ -217,6 +217,20 @@ async function main() {
   }
 
   try {
+    const nightSkyGiftRes = await fetchWithTimeout(`${site}/night-sky-map-gift`, { cache: "no-store" }, args.timeoutMs);
+    const nightSkyGiftHtml = await nightSkyGiftRes.text();
+    runCheck("Night sky gift page responds 200", nightSkyGiftRes.status === 200, `status=${nightSkyGiftRes.status}`);
+    runCheck(
+      "Night sky gift page includes product schema",
+      hasProductSchema(nightSkyGiftHtml, "Night Sky Map Gift"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Night sky gift page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const editorRes = await fetchWithTimeout(`${site}/editor`, { cache: "no-store" }, args.timeoutMs);
     const editorHtml = await editorRes.text();
     runCheck("Editor responds 200", editorRes.status === 200, `status=${editorRes.status}`);
