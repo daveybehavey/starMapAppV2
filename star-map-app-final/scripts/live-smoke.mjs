@@ -259,6 +259,48 @@ async function main() {
   }
 
   try {
+    const constellationRes = await fetchWithTimeout(`${site}/constellation-map`, { cache: "no-store" }, args.timeoutMs);
+    const constellationHtml = await constellationRes.text();
+    runCheck("Constellation map page responds 200", constellationRes.status === 200, `status=${constellationRes.status}`);
+    runCheck(
+      "Constellation map page includes product schema",
+      hasProductSchema(constellationHtml, "Custom Constellation Map"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Constellation map page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const occasionRes = await fetchWithTimeout(`${site}/star-map-for/valentines-day`, { cache: "no-store" }, args.timeoutMs);
+    const occasionHtml = await occasionRes.text();
+    runCheck("Occasion detail page responds 200", occasionRes.status === 200, `status=${occasionRes.status}`);
+    runCheck(
+      "Occasion detail page includes product schema",
+      hasProductSchema(occasionHtml, "Star Map for Valentine’s Day"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Occasion detail page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const cityRes = await fetchWithTimeout(`${site}/star-map-in/new-york-ny`, { cache: "no-store" }, args.timeoutMs);
+    const cityHtml = await cityRes.text();
+    runCheck("City detail page responds 200", cityRes.status === 200, `status=${cityRes.status}`);
+    runCheck(
+      "City detail page includes product schema",
+      hasProductSchema(cityHtml, "Star Map in New York, NY"),
+      "Product JSON-LD",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("City detail page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const editorRes = await fetchWithTimeout(`${site}/editor`, { cache: "no-store" }, args.timeoutMs);
     const editorHtml = await editorRes.text();
     runCheck("Editor responds 200", editorRes.status === 200, `status=${editorRes.status}`);

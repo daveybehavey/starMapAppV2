@@ -5,6 +5,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -265,6 +266,11 @@ export default async function StarMapLocationPage({ params }: PageProps) {
             answer: "The HD export is a high‑resolution PNG designed for printing and framing.",
           },
         ]}
+      />
+      <ProductSchema
+        name={`Star Map in ${display}`}
+        description={`Preview a star map in ${display}, then choose HD digital delivery or a framed or unframed print once the design is approved.`}
+        path={`/star-map-in/${location.slug}`}
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

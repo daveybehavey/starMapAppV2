@@ -4,6 +4,7 @@ import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -248,6 +249,11 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       </section>
 
       <FaqSchema items={occasion.faqs} />
+      <ProductSchema
+        name={`Star Map for ${occasion.label}`}
+        description={`Preview a star map for ${occasion.label.toLowerCase()}, then choose HD digital delivery or a framed or unframed print once the design is approved.`}
+        path={`/star-map-for/${occasion.slug}`}
+      />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

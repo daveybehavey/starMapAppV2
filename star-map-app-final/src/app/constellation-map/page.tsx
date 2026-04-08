@@ -2,6 +2,7 @@ import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PrimaryIntentLinksSection from "@/components/PrimaryIntentLinksSection";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import type { Metadata } from "next";
@@ -157,6 +158,11 @@ export default function ConstellationMapPage() {
               "Yes. Add names, a date line, and a dedication, then choose styles and labels before deciding on framed print, unframed print, or HD digital delivery.",
           },
         ]}
+      />
+      <ProductSchema
+        name="Custom Constellation Map"
+        description="Preview a constellation-focused star map from any date and place, then choose HD digital delivery or a framed or unframed print once the design is approved."
+        path="/constellation-map"
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
