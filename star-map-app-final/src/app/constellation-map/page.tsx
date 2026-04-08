@@ -19,12 +19,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Custom Constellation Map | StarMapCo",
   description:
-    "Preview a constellation-focused star map from any date and place, personalize the layout, and compare digital or print delivery.",
+    "Preview a constellation-focused star map from any meaningful date and place, then continue to the clearest personalized or gift route once the layout feels right.",
   alternates: { canonical: `${siteUrl}/constellation-map` },
   openGraph: {
     title: "Custom Constellation Map | StarMapCo",
     description:
-      "Preview a constellation-focused star map from any date and place, personalize the layout, and compare digital or print delivery.",
+      "Preview a constellation-focused star map from any meaningful date and place, then continue to the clearest personalized or gift route once the layout feels right.",
     url: `${siteUrl}/constellation-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -40,7 +40,7 @@ export default function ConstellationMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Constellation Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Preview a constellation-focused star map from any date and place, then compare digital and print delivery from the same design.
+          Preview a constellation-focused star map from any meaningful date and place, then move into the clearest personalized or gift route once the layout feels right.
         </p>
       </header>
 

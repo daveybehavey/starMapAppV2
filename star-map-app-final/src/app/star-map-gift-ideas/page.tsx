@@ -53,12 +53,12 @@ const seasonalIdeas = [
 export const metadata: Metadata = {
   title: "Star Map Gift Ideas | StarMapCo",
   description:
-    "Browse star map gift ideas by occasion, season, and style, then jump to the clearest main gift page for that moment.",
+    "Browse star map gift ideas by occasion, season, and style, then continue to the clearest main gift page once you know the angle that fits.",
   alternates: { canonical: `${siteUrl}/star-map-gift-ideas` },
   openGraph: {
     title: "Star Map Gift Ideas | StarMapCo",
     description:
-      "Browse star map gift ideas by occasion, season, and style, then jump to the clearest main gift page for that moment.",
+      "Browse star map gift ideas by occasion, season, and style, then continue to the clearest main gift page once you know the angle that fits.",
     url: `${siteUrl}/star-map-gift-ideas`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -74,13 +74,8 @@ export default function StarMapGiftIdeasPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gift Ideas</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Browse occasion and seasonal gift ideas first, then jump to the clearest main gift page for the moment you care about.
+          Browse occasion and seasonal gift ideas first, then move into the clearest main gift page once you know which angle fits the moment.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
-        </div>
       </header>
 
       <PreviewStartForm

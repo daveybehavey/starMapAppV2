@@ -21,12 +21,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map by City | StarMapCo",
   description:
-    "Browse city-specific star map pages, then jump to the clearest main route or start a preview when you already know the location.",
+    "Browse city-specific star map routes, then continue to the clearest main purchase page once you know the location that matters.",
   alternates: { canonical: `${siteUrl}/star-map-in` },
   openGraph: {
     title: "Star Map by City | StarMapCo",
     description:
-      "Browse city-specific star map pages, then jump to the clearest main route or start a preview when you already know the location.",
+      "Browse city-specific star map routes, then continue to the clearest main purchase page once you know the location that matters.",
     url: `${siteUrl}/star-map-in`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Browse city-specific star map pages, then jump to the clearest main route or start a preview when you already know the location.",
+      "Browse city-specific star map routes, then continue to the clearest main purchase page once you know the location that matters.",
     images: [ogImage],
   },
 };
@@ -50,13 +50,8 @@ export default function StarMapByCityPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map by City</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Use this hub to find the best city-specific page first, or jump straight into preview if you already know the location you want.
+          Use this hub to find the strongest city-specific route first, then move into the clearest purchase page or preview flow once the location is set.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
-        </div>
       </header>
 
       <PreviewStartForm
