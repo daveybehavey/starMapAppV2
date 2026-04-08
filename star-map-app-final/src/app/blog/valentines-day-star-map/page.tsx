@@ -157,11 +157,21 @@ export default function ValentinesStarMapPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Real love, real proof</h2>
-          <blockquote className="rounded-2xl border-l-4 border-amber-300/80 bg-white/5 p-4 text-sm text-neutral-200">
-            “We sent a star map for Valentine’s and she cried—said it looked like the exact night the fireworks
-            burst. The print still hangs in our kitchen.” — Jordan & Alex
-          </blockquote>
+          <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">What makes this feel premium</h2>
+          <div className="grid gap-4 text-sm text-neutral-200 sm:grid-cols-3">
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <h3 className="mb-2 font-semibold text-amber-100">Preview before payment</h3>
+              <p>Build the design first, then decide whether to keep it digital or move into print checkout.</p>
+            </article>
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <h3 className="mb-2 font-semibold text-amber-100">Real sky data</h3>
+              <p>The map is generated from the actual date, time, and location you choose, not a generic template.</p>
+            </article>
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <h3 className="mb-2 font-semibold text-amber-100">Physical or instant delivery</h3>
+              <p>Choose the faster HD route now, or compare framed and unframed print options after preview.</p>
+            </article>
+          </div>
         </section>
 
         <section className="space-y-4">
