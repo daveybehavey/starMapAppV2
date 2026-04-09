@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
@@ -129,24 +128,6 @@ export default function CustomNightSkyMapPage() {
         intro="Use the exact night sky preview as the source of truth, then decide whether the final version should arrive framed, ship unframed, or stay digital."
         sourcePrefix="custom-night-sky-proof"
       />
-
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Best next routes</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          If you are ready to move beyond the broad night-sky wording, these are the stronger core pages.
-        </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
-          <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
-            Star map gift
-          </Link>
-          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
-            Personalized star map
-          </Link>
-          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
-            Star map gallery
-          </Link>
-        </div>
-      </section>
 
       <OccasionLinks />
 

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -122,39 +121,6 @@ export default function StarMapGeneratorPage() {
         </ol>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Best next routes after the generator</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Use the generator to confirm the sky first, then jump to the strongest page for the outcome you want.
-        </p>
-        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          <Link
-            href="/personalized-star-map"
-            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
-          >
-            Personalized star map
-          </Link>
-          <Link
-            href="/star-map-gift"
-            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
-          >
-            Star map gift
-          </Link>
-          <Link
-            href="/anniversary"
-            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
-          >
-            Anniversary star map
-          </Link>
-          <Link
-            href="/wedding"
-            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
-          >
-            Wedding star map
-          </Link>
-        </div>
-      </section>
-
       <DeliveryFormatModule
         heading="Choose digital, unframed print, or framed print after preview"
         intro={`The generator starts the same way for every buyer: build the exact sky first, then decide whether this should become a framed gift, a lower-total unframed print, or HD digital delivery. ${shippingDisclosure}`}
@@ -166,33 +132,6 @@ export default function StarMapGeneratorPage() {
         intro={`This is the part most generator pages skip. After preview, the same design can move into framed checkout, unframed checkout, or HD digital delivery without rebuilding the map. ${shippingDisclosure}`}
         sourcePrefix="generator-proof"
       />
-
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Need examples instead?</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Browse real examples or curated gift routes before you commit to a final purchase path.
-        </p>
-        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          <Link
-            href="/star-map-gallery"
-            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
-          >
-            Star map gallery
-          </Link>
-          <Link
-            href="/star-map-gift"
-            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
-          >
-            Star map gift
-          </Link>
-          <Link
-            href="/blog"
-            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
-          >
-            Blog
-          </Link>
-        </div>
-      </section>
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Star map generator FAQ</h2>
