@@ -129,6 +129,25 @@ function getReferralOfferVariant(session) {
   return variant || "";
 }
 
+function getCustomerEmail(session) {
+  const sessionCustomerEmail = String(session.customer_email || "").trim().toLowerCase();
+  if (sessionCustomerEmail) return sessionCustomerEmail;
+  const customerDetailsEmail = String(session.customer_details?.email || "").trim().toLowerCase();
+  return customerDetailsEmail || "";
+}
+
+function hasCheckoutAttribution(session) {
+  const metadata = session.metadata || {};
+  return Boolean(
+    String(metadata.referral_code || "").trim() ||
+      String(metadata.referrer_session_id || "").trim() ||
+      String(metadata.referral_source || "").trim() ||
+      String(metadata.referral_medium || "").trim() ||
+      String(metadata.referral_campaign || "").trim() ||
+      String(metadata.promotion_code_id || "").trim(),
+  );
+}
+
 function formatMoney(cents, currency) {
   if (!Number.isFinite(cents)) return "0";
   const code = String(currency || "usd").toUpperCase();
@@ -430,6 +449,7 @@ async function buildReport(args) {
   ]);
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session));
+  const unpaidSessions = sessions.filter((session) => !isPaidCheckoutSession(session));
   const revenuePaidSessions = paidSessions.filter((session) => isRevenuePositivePaidSession(session));
   const noChargePaidSessions = paidSessions.filter((session) => !isRevenuePositivePaidSession(session));
   const qaTaggedPaidSessions = paidSessions.filter((session) => isQaTaggedSession(session));
@@ -512,6 +532,26 @@ async function buildReport(args) {
     missingFailureAlerts: 0,
   };
 
+  const unpaidStatusCounts = new Map();
+  let unpaidDigitalSessions = 0;
+  let unpaidPrintSessions = 0;
+  let unpaidMissingEmail = 0;
+  let unpaidMissingAttribution = 0;
+  let unpaidAnonymousContext = 0;
+  for (const session of unpaidSessions) {
+    incrementBucket(unpaidStatusCounts, String(session.status || "unknown").trim().toLowerCase() || "unknown");
+    if (classifyOrder(session) === "print") {
+      unpaidPrintSessions += 1;
+    } else {
+      unpaidDigitalSessions += 1;
+    }
+    const hasEmail = Boolean(getCustomerEmail(session));
+    const hasAttribution = hasCheckoutAttribution(session);
+    if (!hasEmail) unpaidMissingEmail += 1;
+    if (!hasAttribution) unpaidMissingAttribution += 1;
+    if (!hasEmail && !hasAttribution) unpaidAnonymousContext += 1;
+  }
+
   if (adminToken && printPaid.length) {
     for (const session of printPaid) {
       const status = await getPrintStatus(args.site, session.id, adminToken);
@@ -567,8 +607,14 @@ async function buildReport(args) {
       revenuePaidSessionsExcludingQa: revenuePaidSessionsNonQa.length,
       noChargePaidSessions: noChargePaidSessions.length,
       qaTaggedPaidSessions: qaTaggedPaidSessions.length,
+      unpaidSessions: unpaidSessions.length,
       digitalPaidSessions: digitalPaid.length,
       printPaidSessions: printPaid.length,
+      unpaidDigitalSessions,
+      unpaidPrintSessions,
+      unpaidMissingEmail,
+      unpaidMissingAttribution,
+      unpaidAnonymousContext,
       digitalRevenuePaidSessions: digitalRevenuePaid.length,
       printRevenuePaidSessions: printRevenuePaid.length,
       digitalRevenueCents,
@@ -587,6 +633,7 @@ async function buildReport(args) {
       paidRevenuePaymentMethods: topBuckets(paidRevenuePaymentMethodCounts, "method"),
       digitalRevenuePaymentMethods: topBuckets(digitalRevenuePaymentMethodCounts, "method"),
       printRevenuePaymentMethods: topBuckets(printRevenuePaymentMethodCounts, "method"),
+      unpaidStatusCounts: topBuckets(unpaidStatusCounts, "status"),
       referralPaidSources: topBuckets(referralSourceCounts, "source"),
       referralOfferVariants: topBuckets(referralOfferVariantCounts, "variant"),
     },
@@ -626,6 +673,22 @@ function printHumanReport(report) {
   console.log(
     `Mix (revenue-paid): digital=${report.stripe.digitalRevenuePaidSessions} print=${report.stripe.printRevenuePaidSessions}`,
   );
+
+  console.log("");
+  console.log("Unpaid sessions");
+  console.log(
+    `total=${report.stripe.unpaidSessions} digital=${report.stripe.unpaidDigitalSessions} print=${report.stripe.unpaidPrintSessions}`,
+  );
+  console.log(
+    `missing email=${report.stripe.unpaidMissingEmail} missing attribution=${report.stripe.unpaidMissingAttribution} anonymous context=${report.stripe.unpaidAnonymousContext}`,
+  );
+  if (!report.stripe.unpaidStatusCounts.length) {
+    console.log("statuses: none");
+  } else {
+    console.log(
+      `statuses: ${report.stripe.unpaidStatusCounts.map((item) => `${item.status}:${item.count}`).join(", ")}`,
+    );
+  }
 
   console.log("");
   console.log("Top digital plans");
