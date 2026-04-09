@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -10,7 +9,7 @@ import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { getOccasion, seoOccasions } from "@/data/seoOccasions";
-import { getCanonicalOccasionPath, isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
+import { getCanonicalOccasionPath, isIndexableOccasionSlug } from "@/data/seoIndexing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -65,13 +64,6 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
   if (canonicalPath) permanentRedirect(canonicalPath);
   const occasion = getOccasion(slug);
   if (!occasion) notFound();
-  const indexableOccasions = seoOccasions.filter((item) => isIndexableOccasionSlug(item.slug));
-  const occasionIndex = indexableOccasions.findIndex((item) => item.slug === occasion.slug);
-  const rotatedOccasions =
-    occasionIndex >= 0
-      ? [...indexableOccasions.slice(occasionIndex + 1), ...indexableOccasions.slice(0, occasionIndex)]
-      : indexableOccasions;
-  const siblingOccasions = rotatedOccasions.slice(0, 4);
   const shippingDisclosure = getPrintShippingDisclosure();
 
   const breadcrumbs = [
@@ -154,9 +146,9 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         ) : null}
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate star positions for any date and location</li>
-          <li>Instant preview before you download</li>
+          <li>Instant preview before you choose how to keep it</li>
           <li>Multiple styles, shapes, and text options</li>
-          <li>Print‑ready HD file after unlock</li>
+          <li>The same approved design can stay digital, go unframed, or arrive framed</li>
         </ul>
       </section>
 
@@ -184,33 +176,6 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         <p className="mt-2 rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm font-semibold text-midnight">
           {occasion.exampleLine}
         </p>
-      </section>
-
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Related ideas</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Browse related occasion pages and map formats:
-        </p>
-        <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          <Link href="/star-map-for" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-100">
-            All occasions
-          </Link>
-          {siblingOccasions.map((item) => (
-            <Link
-              key={item.slug}
-              href={resolveOccasionIntentPath(item.slug)}
-              className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50"
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/personalized-star-map" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
-            Personalized star map
-          </Link>
-          <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
-            Star map gift
-          </Link>
-        </div>
       </section>
 
       <PurchaseTrustPanel

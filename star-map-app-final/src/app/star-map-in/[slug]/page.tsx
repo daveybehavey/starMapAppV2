@@ -158,7 +158,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           <li>Accurate to your date, time, and location</li>
           <li>Instant preview so you can refine the details</li>
           <li>Multiple styles, shapes, and text layouts</li>
-          <li>Print‑ready HD download after unlock</li>
+          <li>The same approved design can stay digital, go unframed, or arrive framed</li>
         </ul>
       </section>
 

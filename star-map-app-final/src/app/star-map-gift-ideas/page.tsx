@@ -193,25 +193,6 @@ export default function StarMapGiftIdeasPage() {
         </div>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Milestone gift ideas</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Star maps shine for anniversaries, weddings, birthdays, new homes, and memorials. Start with one free preview,
-          then take the framed route, unframed route, or HD digital route that fits your timing and budget.
-        </p>
-        <div className="flex flex-wrap gap-3 text-sm font-semibold">
-          <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
-            Star map gift
-          </Link>
-          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
-            Anniversary star map
-          </Link>
-          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
-            Wedding star map
-          </Link>
-        </div>
-      </section>
-
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
