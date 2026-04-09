@@ -26,6 +26,13 @@ import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
+import {
+  CHECKOUT_INTENT_COOKIE_NAME,
+  checkoutIntentKey,
+  isCheckoutIntentProtectionEnabled,
+  verifyStoredCheckoutIntent,
+  type StoredCheckoutIntent,
+} from "@/lib/checkoutIntent";
 
 export const runtime = "nodejs";
 
@@ -220,6 +227,26 @@ async function assertDigitalCheckoutMap(mapId: string | undefined) {
       "We couldn't find that map. Open the editor, generate your preview, then retry checkout.",
       "map_not_found",
       404,
+    );
+  }
+}
+
+async function assertCheckoutIntent(req: NextRequest, mapId: string | undefined) {
+  if (!mapId || !isCheckoutIntentProtectionEnabled()) return;
+  const intentCookie = req.cookies.get(CHECKOUT_INTENT_COOKIE_NAME)?.value?.trim();
+  if (!intentCookie) {
+    throw new CheckoutError(
+      "Please refresh your preview and try checkout again.",
+      "checkout_intent_missing",
+      400,
+    );
+  }
+  const storedIntent = await kv.get<StoredCheckoutIntent>(checkoutIntentKey(mapId));
+  if (!verifyStoredCheckoutIntent(intentCookie, storedIntent)) {
+    throw new CheckoutError(
+      "Your checkout session expired. Refresh your preview and try again.",
+      "checkout_intent_invalid",
+      400,
     );
   }
 }
@@ -937,20 +964,21 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
-  if (orderType !== "print") {
-    try {
+  try {
+    if (orderType !== "print") {
       await assertDigitalCheckoutMap(mapId);
-    } catch (error) {
-      if (error instanceof CheckoutError) {
-        await recordCheckoutFailure({
-          reason: error.code,
-          source: "checkout_api_digital_get",
-          plan,
-        });
-        return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
-      }
-      throw error;
     }
+    await assertCheckoutIntent(req, mapId);
+  } catch (error) {
+    if (error instanceof CheckoutError) {
+      await recordCheckoutFailure({
+        reason: error.code,
+        source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+        plan: orderType === "print" ? printVariant : plan,
+      });
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+    throw error;
   }
 
   try {
@@ -1105,6 +1133,7 @@ export async function POST(req: NextRequest) {
     if (orderType !== "print") {
       await assertDigitalCheckoutMap(mapId);
     }
+    await assertCheckoutIntent(req, mapId);
     const promotion = orderType === "digital" && plan === "subscription"
       ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
       : canUseManualPromotionCode(orderType, plan)

@@ -263,6 +263,78 @@ test.describe("API route regressions", () => {
     expect(body.error).toMatch(/preview before starting checkout/i);
   });
 
+  test("digital checkout accepts a freshly saved map in the same session", async ({ request }) => {
+    const mapPayload = {
+      version: 1,
+      seed: "api-checkout-intent",
+      datetimeISO: "2024-06-15T12:00:00.000Z",
+      location: {
+        name: "New York, NY, USA",
+        latitude: 40.7128,
+        longitude: -74.006,
+        timezone: "America/New_York",
+      },
+      selectedStyle: "navyGold",
+      aspectRatio: "square",
+      shape: "rectangle",
+      textBoxes: [
+        {
+          id: "title",
+          label: "Title",
+          text: "API Checkout Smoke",
+          fontFamily: "cinzel",
+          color: "#d7b56c",
+          size: 40,
+          align: "center",
+        },
+      ],
+      renderOptions: {
+        visualMode: "enhanced",
+        starIntensity: "normal",
+        starGlow: true,
+        constellationLines: "thin",
+        constellationLabels: false,
+        showGrid: false,
+        showPlanets: true,
+        premiumStars: "off",
+        premiumPlanets: "off",
+        planetEmphasis: "highlighted",
+        showMoon: true,
+        moonSize: "large",
+        shapeMask: "rectangle",
+        frameEnabled: true,
+      },
+    };
+
+    const mapResponse = await requestUntilReady(request, "/api/maps", {
+      method: "POST",
+      data: mapPayload,
+    });
+    expect(mapResponse.status()).toBe(200);
+    const mapBody = (await mapResponse.json()) as { id?: string };
+    expect(mapBody.id).toMatch(/^[0-9a-f-]{36}$/i);
+    const setCookie = mapResponse.headers()["set-cookie"] || "";
+    expect(setCookie).toContain("starmap_checkout_intent=");
+
+    const checkoutResponse = await requestUntilReady(request, "/api/checkout", {
+      method: "POST",
+      data: {
+        plan: "single",
+        orderType: "digital",
+        mapId: mapBody.id,
+      },
+    });
+    const checkoutBody = (await checkoutResponse.json()) as { url?: string; code?: string; error?: string };
+    expect(checkoutBody.code).not.toBe("checkout_intent_missing");
+    expect(checkoutBody.code).not.toBe("checkout_intent_invalid");
+    if (checkoutResponse.status() === 200) {
+      expect(checkoutBody.url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
+      return;
+    }
+    expect(checkoutResponse.status()).toBe(500);
+    expect(checkoutBody.error).toBe("Checkout failed");
+  });
+
   test("print checkout rejects unsupported shipping countries when enabled", async ({ request }) => {
     const allowedCountries = new Set(parseAllowedPrintCountries());
     const candidateCountries = ["CA", "GB", "AU", "DE", "FR", "JP", "BR", "MX"];

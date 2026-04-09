@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import crypto from "node:crypto";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
+import {
+  CHECKOUT_INTENT_COOKIE_NAME,
+  CHECKOUT_INTENT_TTL_SECONDS,
+  checkoutIntentKey,
+  createCheckoutIntentNonce,
+  createStoredCheckoutIntent,
+} from "@/lib/checkoutIntent";
 
 const MAX_BODY_BYTES = 50_000;
 const MAX_TEXTBOXES = 12;
@@ -123,7 +130,24 @@ export async function POST(req: NextRequest) {
   const id = crypto.randomUUID();
   const ttlSeconds = 30 * 24 * 60 * 60; // 30 days
   await kv.set<StoredRecipe>(`map:${id}`, sanitized, { ex: ttlSeconds });
-  return NextResponse.json({ id });
+  const response = NextResponse.json({ id });
+  const checkoutIntentNonce = createCheckoutIntentNonce();
+  const storedCheckoutIntent = createStoredCheckoutIntent(checkoutIntentNonce);
+  if (storedCheckoutIntent) {
+    await kv.set(checkoutIntentKey(id), storedCheckoutIntent, { ex: CHECKOUT_INTENT_TTL_SECONDS });
+    response.cookies.set({
+      name: CHECKOUT_INTENT_COOKIE_NAME,
+      value: checkoutIntentNonce,
+      httpOnly: true,
+      sameSite: "lax",
+      secure:
+        (process.env.NODE_ENV || "").trim() === "production" ||
+        (process.env.NEXTJS_ENV || "").trim() === "production",
+      path: "/api/checkout",
+      maxAge: CHECKOUT_INTENT_TTL_SECONDS,
+    });
+  }
+  return response;
 }
 
 export async function GET(req: NextRequest) {

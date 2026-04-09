@@ -669,14 +669,23 @@ async function main() {
     );
     const mapCreateJson = await mapCreateRes.json().catch(() => ({}));
     const mapId = typeof mapCreateJson?.id === "string" ? mapCreateJson.id.trim() : "";
+    const mapSetCookieHeader = mapCreateRes.headers.get("set-cookie") || "";
+    const checkoutIntentCookieMatch = /(?:^|,\s*)starmap_checkout_intent=([^;]+)/i.exec(mapSetCookieHeader);
+    const checkoutIntentCookie = checkoutIntentCookieMatch
+      ? `starmap_checkout_intent=${checkoutIntentCookieMatch[1]}`
+      : "";
     runCheck("Map save endpoint responds 200", mapCreateRes.status === 200, `status=${mapCreateRes.status}`);
     runCheck("Map save returns map id", /^[0-9a-f-]{36}$/i.test(mapId), mapId || "missing id");
+    runCheck("Map save returns checkout intent cookie", Boolean(checkoutIntentCookie), mapSetCookieHeader || "missing cookie");
 
     const checkoutRes = await fetchWithTimeout(
       `${site}/api/checkout`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(checkoutIntentCookie ? { cookie: checkoutIntentCookie } : {}),
+        },
         body: JSON.stringify({ plan: "single", mapId }),
         cache: "no-store",
       },
