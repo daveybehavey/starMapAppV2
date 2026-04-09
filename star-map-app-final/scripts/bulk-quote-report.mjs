@@ -159,6 +159,21 @@ async function getRecord({ accountId, namespaceId, key, headers }) {
   return response.json();
 }
 
+async function putRecord({ accountId, namespaceId, key, headers, record }) {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${encodeURIComponent(key)}`;
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(record),
+  });
+  if (!response.ok) {
+    throw new Error(`Cloudflare KV write failed for ${key}: ${response.status} ${response.statusText}`);
+  }
+}
+
 function parseArgs(argv) {
   const result = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -182,11 +197,14 @@ function usage() {
   node scripts/bulk-quote-report.mjs --json
   node scripts/bulk-quote-report.mjs --limit 100
   node scripts/bulk-quote-report.mjs --status new
+  node scripts/bulk-quote-report.mjs --set-status contacted --id <requestId>
 
 Options:
   --json           Output raw JSON
   --limit <n>      Max records to fetch (default: 50, max: 500)
   --status <value> Filter by new|contacted|quoted|won|lost|archived
+  --set-status     Update one request status
+  --id <requestId> Request id for --set-status
 `);
 }
 
@@ -209,8 +227,16 @@ async function main() {
 
   const limit = Math.max(1, Math.min(500, Number.parseInt(args.limit ?? "50", 10) || 50));
   const statusFilter = typeof args.status === "string" ? args.status.trim() : "";
+  const setStatus = typeof args["set-status"] === "string" ? args["set-status"].trim() : "";
+  const requestId = typeof args.id === "string" ? args.id.trim() : "";
   if (statusFilter && !VALID_STATUSES.has(statusFilter)) {
     throw new Error(`Invalid --status value: ${statusFilter}`);
+  }
+  if (setStatus && !VALID_STATUSES.has(setStatus)) {
+    throw new Error(`Invalid --set-status value: ${setStatus}`);
+  }
+  if (setStatus && !requestId) {
+    throw new Error("Missing --id for status update.");
   }
 
   const { accountId, namespaceId } = readWranglerConfig(rootDir);
@@ -218,6 +244,24 @@ async function main() {
     throw new Error("Could not resolve Cloudflare account_id or STAR_MAP_KV namespace id.");
   }
   const headers = getCloudflareAuthHeaders();
+
+  if (setStatus) {
+    const key = `${BULK_QUOTE_PREFIX}${requestId}`;
+    const record = await getRecord({ accountId, namespaceId, headers, key });
+    if (!record) {
+      throw new Error(`No bulk quote found for ${requestId}.`);
+    }
+
+    const nextRecord = {
+      ...record,
+      status: setStatus,
+      updatedAt: new Date().toISOString(),
+    };
+    await putRecord({ accountId, namespaceId, headers, key, record: nextRecord });
+    console.log(`Updated ${requestId} -> ${setStatus}`);
+    return;
+  }
+
   const keys = await listKeys({ accountId, namespaceId, headers, limit });
   const records = (await Promise.all(keys.map((key) => getRecord({ accountId, namespaceId, headers, key }))))
     .filter(Boolean)
@@ -239,6 +283,7 @@ async function main() {
   console.log("");
   for (const record of filtered) {
     const summary = [
+      record.id || "unknown",
       `${formatDate(record.createdAt)} | ${record.status || "new"} | ${record.quantity} pcs`,
       `${record.versionCount || 1} version${record.versionCount === 1 ? "" : "s"}`,
       record.organization || record.name || "Unknown",

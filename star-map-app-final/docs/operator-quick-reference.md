@@ -230,6 +230,9 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
     - `npm run ops:bulk-quotes -- --json`
     - `npm run ops:bulk-quotes -- --limit 100`
     - `npm run ops:bulk-quotes -- --status new`
+  - update request status:
+    - `npm run ops:bulk-quotes -- --set-status contacted --id <requestId>`
+    - statuses: `new`, `contacted`, `quoted`, `won`, `lost`, `archived`
   - request records are stored under:
     - `bulk:quote:<requestId>`
   - launch and pricing rules:

@@ -107,6 +107,8 @@ before giving a hard final quote.
 - `npm run ops:bulk-quotes`
 - `npm run ops:bulk-quotes -- --json`
 - `npm run ops:bulk-quotes -- --limit 100`
+- `npm run ops:bulk-quotes -- --status new`
+- `npm run ops:bulk-quotes -- --set-status contacted --id <requestId>`
 
 ## Response Templates
 - `docs/bulk-quote-email-templates.md`
