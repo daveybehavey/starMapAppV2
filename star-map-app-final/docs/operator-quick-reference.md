@@ -223,6 +223,17 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - review-consent KV keys:
     - `proof:consent:map:<mapId>`
     - `proof:consent:session:<sessionId>`
+- **Bulk quote requests**:
+  - dark manual-sales lane lives at `/bulk-event-orders` and only exists when `BULK_EVENT_ORDERS_ENABLED=true`
+  - list captured requests:
+    - `npm run ops:bulk-quotes`
+    - `npm run ops:bulk-quotes -- --json`
+    - `npm run ops:bulk-quotes -- --limit 100`
+    - `npm run ops:bulk-quotes -- --status new`
+  - request records are stored under:
+    - `bulk:quote:<requestId>`
+  - launch and pricing rules:
+    - `docs/bulk-event-orders-playbook.md`
 - **Promo signup hardening**:
   - promo emails now include a signed unsubscribe link
   - `/unsubscribe` updates promo signup state server-side
