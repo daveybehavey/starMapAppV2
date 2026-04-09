@@ -1057,9 +1057,9 @@ export function MobileCreate({
               )}
             </MobileDrawerSection>
 
-            {/* Frame */}
+            {/* Format */}
             <MobileDrawerSection
-              title="Frame"
+              title="Format"
               summary={`${aspectRatioLabel}${renderOptions.frameEnabled ? " + border" : ""}`}
               collapsed={collapsedDrawerSections.frame}
               onToggle={() => toggleDrawerSection("frame")}
@@ -1093,7 +1093,7 @@ export function MobileCreate({
                     : "border-white/15 bg-white/10 text-white"
                 }`}
                 >
-                  {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
+                  {renderOptions.frameEnabled ? "Border On" : "Border Off"}
                 </button>
             </MobileDrawerSection>
 

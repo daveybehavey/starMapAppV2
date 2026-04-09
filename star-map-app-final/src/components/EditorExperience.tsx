@@ -2359,7 +2359,7 @@ export function EditorExperience({
                                       className="flex w-full items-center justify-between text-left"
                                     >
                                       <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                                        Frame
+                                        Format
                                       </h3>
                                       <span className="text-[11px] font-semibold text-amber-100">
                                         {collapsedCards.frame ? "Show" : "Hide"}
@@ -2411,8 +2411,8 @@ export function EditorExperience({
                                           }`}
                                         >
                                           {renderOptions.frameEnabled
-                                            ? "Frame Border On"
-                                            : "Frame Border Off"}
+                                            ? "Border On"
+                                            : "Border Off"}
                                         </button>
                                       </>
                                     )}
