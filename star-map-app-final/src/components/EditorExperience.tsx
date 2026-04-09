@@ -2371,7 +2371,7 @@ export function EditorExperience({
                                           {[
                                             { id: "square" as const, label: "Square" },
                                             { id: "4:5" as const, label: "Poster" },
-                                            { id: "2:3" as const, label: "Wide" },
+                                            { id: "2:3" as const, label: "Tall" },
                                           ].map((ratio) => {
                                             const isSelected = aspectRatio === ratio.id;
 

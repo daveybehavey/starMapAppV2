@@ -730,7 +730,7 @@ export function SimplifiedEditor() {
   ];
 
   const shapes: { id: Shape; name: string; icon: string }[] = [
-    { id: "rectangle", name: "Square", icon: "□" },
+    { id: "rectangle", name: "Rectangle", icon: "□" },
     { id: "circle", name: "Circle", icon: "○" },
     { id: "heart", name: "Heart", icon: "♥" },
     { id: "star", name: "Star", icon: "★" },

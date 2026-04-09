@@ -14,6 +14,7 @@ import { styles, fontOptions, visualModes, shapes, constellationPresets } from "
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults, normalizeTextBoxLayout } from "@/lib/styleDefaults";
 import { getRenderPresetOptions } from "@/lib/renderPresets";
+import { getAspectRatioLabel } from "@/lib/aspectRatioLabels";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import type { CheckoutPlan } from "@/lib/pricing";
@@ -214,8 +215,7 @@ export function MobileCreate({
   const selectedVisualModeLabel = visualModes.find((mode) => mode.id === renderOptions.visualMode)?.label ?? "Standard";
   const selectedConstellationLabel =
     constellationPresets.find((preset) => preset.id === renderOptions.constellationLines)?.label ?? "Off";
-  const aspectRatioLabel =
-    aspectRatio === "square" ? "Square" : aspectRatio === "4:5" ? "Poster" : "Wide";
+  const aspectRatioLabel = getAspectRatioLabel(aspectRatio);
   const textLineSummary = `${textBoxes.length} line${textBoxes.length === 1 ? "" : "s"}`;
   const effectiveShapeBackgroundColor =
     renderOptions.backgroundColor ||
@@ -1068,7 +1068,7 @@ export function MobileCreate({
                 {[
                   { id: "square" as const, label: "Square" },
                   { id: "4:5" as const, label: "Poster" },
-                  { id: "2:3" as const, label: "Wide" },
+                  { id: "2:3" as const, label: "Tall" },
                 ].map((ratio) => (
                   <button
                     key={ratio.id}
