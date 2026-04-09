@@ -17,6 +17,13 @@ Use this with:
 - `docs/traffic-day5-post-pack.md`
 - `docs/traffic-day6-post-pack.md`
 - `docs/traffic-day7-post-pack.md`
+- `docs/traffic-day8-post-pack.md`
+- `docs/traffic-day9-post-pack.md`
+- `docs/traffic-day10-post-pack.md`
+- `docs/traffic-day11-post-pack.md`
+- `docs/traffic-day12-post-pack.md`
+- `docs/traffic-day13-post-pack.md`
+- `docs/traffic-day14-post-pack.md`
 - `docs/weekly-social-review.md`
 
 ## 1) Non-Negotiable Operating Rules
