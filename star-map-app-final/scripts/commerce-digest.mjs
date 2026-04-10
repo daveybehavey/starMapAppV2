@@ -857,8 +857,19 @@ function printHumanReport(report) {
   } else if (!report.checkoutDiagnostics.length) {
     console.log("none");
   } else {
+    const intentRows = report.checkoutDiagnostics.filter((item) =>
+      ["checkout_intent_missing", "checkout_intent_invalid", "checkout_intent_used"].includes(String(item.reason)),
+    );
     const clientRows = report.checkoutDiagnostics.filter((item) => String(item.reason).startsWith("client_"));
     const serverRows = report.checkoutDiagnostics.filter((item) => !String(item.reason).startsWith("client_"));
+    if (intentRows.length) {
+      console.log("checkout intent gate:");
+      for (const item of intentRows) {
+        console.log(`  ${item.reason}: last_${report.days}d=${item.lastNDays} total=${item.total}`);
+      }
+    } else {
+      console.log("checkout intent gate: none");
+    }
     if (clientRows.length) {
       console.log("client-side (before checkout API response):");
       for (const item of clientRows.slice(0, 6)) {

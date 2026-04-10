@@ -699,6 +699,26 @@ async function main() {
       /^https:\/\/checkout\.stripe\.com\//.test(checkoutUrl),
       checkoutUrl ? checkoutUrl.slice(0, 80) : "missing url",
     );
+
+    const replayRes = await fetchWithTimeout(
+      `${site}/api/checkout`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(checkoutIntentCookie ? { cookie: checkoutIntentCookie } : {}),
+        },
+        body: JSON.stringify({ plan: "single", mapId }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    const replayJson = await replayRes.json().catch(() => ({}));
+    runCheck(
+      "Digital checkout rejects replayed intent",
+      replayRes.status === 400 && replayJson?.code === "checkout_intent_used",
+      `status=${replayRes.status} code=${String(replayJson?.code || "missing")}`,
+    );
   } catch (error) {
     failed = true;
     runCheck("Digital checkout checks", false, error instanceof Error ? error.message : String(error));
