@@ -26,12 +26,14 @@ type EditorPageClientProps = {
 
 export default function EditorPageClient({ promoStatus, promoCode }: EditorPageClientProps) {
   const promotionTargetLabel = getPromotionTargetLabel();
-  const showPromo = promoStatus === "success" || promoStatus === "error";
+  const showPromo = promoStatus === "success" || promoStatus === "error" || Boolean(promoCode);
   const promoMessage =
     promoStatus === "success"
       ? promoCode
         ? `Your HD starter offer is ready. Code ${promoCode} is saved for ${promotionTargetLabel}.`
         : "You're on the list. Watch your inbox for your 50% off HD starter code."
+      : promoCode
+        ? `Offer code ${promoCode} is saved and will be checked at checkout if it applies to your route.`
       : "We couldn't save that email. Please try again.";
 
   return (

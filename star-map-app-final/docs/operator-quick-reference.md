@@ -153,6 +153,24 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
    - `NEXT_PUBLIC_PROMOTION_TARGET_SCOPE`
    - `NEXT_PUBLIC_PROMOTION_OFFER_NAME`
 
+### Create one-off channel promo codes safely
+
+Use this for channel-specific offers that should not overwrite the default signup promo env.
+
+Examples:
+- `npm run promo:create -- --code PRINT10 --percent 10 --scope any_print`
+- `npm run promo:create -- --code REDDIT50 --percent 50 --scope single_digital --max-redemptions 15`
+- `npm run promo:create -- --code TIKTOK50 --percent 50 --scope single_digital --max-redemptions 15`
+
+Notes:
+- this script creates live Stripe coupons/promotion codes
+- it does not rewrite `.env.local`
+- checkout can validate these codes even if they are not the default signup promo
+- current rollout docs:
+  - `docs/google-merchant-center-promotions-playbook.md`
+  - `docs/social-promo-offers-playbook.md`
+  - `docs/promo-offer-tracker.csv`
+
 ### Internal funnel page
 
 - Open `/funnel?token=<FUNNEL_DASHBOARD_TOKEN>`

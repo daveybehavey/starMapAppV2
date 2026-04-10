@@ -43,6 +43,10 @@ type Props = {
   purchaseIntent?: "digital" | "print";
   preferredPrintVariant?: PrintVariant;
   showReferralHint?: boolean;
+  promoCode?: string | null;
+  promoCodeError?: string | null;
+  onApplyPromoCode?: (code: string) => void;
+  onClearPromoCode?: () => void;
   onStartCheckout: (plan: CheckoutPlan) => void;
   onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
   onClose: () => void;
@@ -77,6 +81,10 @@ export function PaywallModal({
   printShippingCountries = [],
   onPrintShippingCountryChange,
   showReferralHint = false,
+  promoCode = null,
+  promoCodeError = null,
+  onApplyPromoCode,
+  onClearPromoCode,
   onStartCheckout,
   onStartPrintCheckout,
   onClose,
@@ -86,6 +94,7 @@ export function PaywallModal({
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
+  const [promoDraft, setPromoDraft] = useState(promoCode ?? "");
   const [printUpsellHint, setPrintUpsellHint] = useState<string | null>(null);
   const supportEmail = getBusinessProfile().email;
   const shippingDisclosure = getPrintShippingDisclosure();
@@ -138,6 +147,10 @@ export function PaywallModal({
     }
     setActiveIntent(purchaseIntent === "print" ? "print" : "digital");
   }, [hasPrintOptions, purchaseIntent]);
+
+  useEffect(() => {
+    setPromoDraft(promoCode ?? "");
+  }, [promoCode]);
 
   useEffect(() => {
     if (printShippingCountry) {
@@ -251,6 +264,61 @@ export function PaywallModal({
               {pill}
             </span>
           ))}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-amber-200/70 bg-white/75 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
+                Promo code
+              </p>
+              <p className="mt-1 text-xs text-neutral-700">
+                Apply a valid offer code before checkout. This works for digital and print routes.
+              </p>
+            </div>
+            {promoCode ? (
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800">
+                Saved
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              value={promoDraft}
+              onChange={(event) => setPromoDraft(event.target.value.toUpperCase())}
+              placeholder="Enter code"
+              className="min-w-0 flex-1 rounded-full border border-amber-200 bg-white px-3 py-2 text-sm font-semibold tracking-[0.08em] text-neutral-900 outline-none transition focus:border-amber-400"
+            />
+            {promoCode ? (
+              <button
+                type="button"
+                onClick={() => onClearPromoCode?.()}
+                className="rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:-translate-y-[1px]"
+              >
+                Clear
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onApplyPromoCode?.(promoDraft)}
+              className="rounded-full border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900 transition hover:-translate-y-[1px]"
+            >
+              Apply
+            </button>
+          </div>
+          {promoCode ? (
+            <p className="mt-2 text-[11px] font-medium text-emerald-800">
+              Code {promoCode} is saved and will be checked at checkout.
+            </p>
+          ) : null}
+          {promoCodeError ? (
+            <p className="mt-2 text-[11px] font-medium text-rose-700">{promoCodeError}</p>
+          ) : null}
         </div>
 
         {hasPrintOptions && (

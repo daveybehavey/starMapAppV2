@@ -347,6 +347,8 @@ export function EditorExperience({
   const hdExportInFlightRef = useRef(false);
   const [downloadHint, setDownloadHint] = useState<string | null>(null);
   const [lastDownloadMode, setLastDownloadMode] = useState<"preview" | "hd" | null>(null);
+  const [activePromoCode, setActivePromoCode] = useState<string | null>(null);
+  const [promoCodeError, setPromoCodeError] = useState<string | null>(null);
   const prefillAppliedRef = useRef(false);
   const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
@@ -386,10 +388,7 @@ export function EditorExperience({
       return null;
     }
   }, []);
-  const getCheckoutPromoCode = useCallback(
-    () => queryPromoCode ?? readStoredPromoCode(),
-    [queryPromoCode, readStoredPromoCode]
-  );
+  const getCheckoutPromoCode = useCallback(() => activePromoCode, [activePromoCode]);
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
     [queryReferralCode]
@@ -405,13 +404,47 @@ export function EditorExperience({
   }, []);
 
   useEffect(() => {
-    if (!queryPromoCode || typeof window === "undefined") return;
+    const nextPromoCode = queryPromoCode ?? readStoredPromoCode();
+    setActivePromoCode(nextPromoCode);
+    setPromoCodeError(null);
+  }, [queryPromoCode, readStoredPromoCode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(PROMO_CODE_KEY, queryPromoCode);
+      if (activePromoCode) {
+        window.localStorage.setItem(PROMO_CODE_KEY, activePromoCode);
+      } else {
+        window.localStorage.removeItem(PROMO_CODE_KEY);
+      }
     } catch {
       // ignore storage errors
     }
-  }, [queryPromoCode]);
+  }, [activePromoCode]);
+
+  const applyPromoCode = useCallback((rawCode: string) => {
+    const normalized = normalizePromoCode(rawCode);
+    if (!normalized) {
+      setPromoCodeError("Enter a valid promo code.");
+      return;
+    }
+    setActivePromoCode(normalized);
+    setPromoCodeError(null);
+    setCheckoutError(null);
+    track("promo_code_saved", {
+      source: "paywall_modal",
+      codeLength: normalized.length,
+    });
+  }, []);
+
+  const clearPromoCode = useCallback(() => {
+    setActivePromoCode(null);
+    setPromoCodeError(null);
+    setCheckoutError(null);
+    track("promo_code_cleared", {
+      source: "paywall_modal",
+    });
+  }, []);
 
   useEffect(() => {
     if (!paywallOpen) return;
@@ -2865,6 +2898,10 @@ export function EditorExperience({
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}
               showReferralHint={Boolean(getCheckoutReferralCode())}
+              promoCode={activePromoCode}
+              promoCodeError={promoCodeError}
+              onApplyPromoCode={applyPromoCode}
+              onClearPromoCode={clearPromoCode}
               onStartCheckout={(plan) => {
                 setPaywallIntent("digital");
                 void startCheckout(plan);

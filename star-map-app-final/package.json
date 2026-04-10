@@ -33,6 +33,7 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "check:env": "node scripts/check-env.mjs",
     "promo:setup": "node scripts/setup-promotion-code.mjs",
+    "promo:create": "node scripts/create-stripe-promo-code.mjs",
     "sync:static-home": "node scripts/sync-static-homepage.mjs",
     "check:static-home": "node scripts/sync-static-homepage.mjs --check",
     "check:static-assets": "node scripts/check-static-assets.mjs",

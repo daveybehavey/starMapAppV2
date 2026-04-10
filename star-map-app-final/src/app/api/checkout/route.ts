@@ -26,6 +26,7 @@ import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
+import { isManualPromotionAllowedForCheckout } from "@/lib/manualPromotionCatalog";
 import {
   CHECKOUT_INTENT_COOKIE_NAME,
   CHECKOUT_INTENT_TTL_SECONDS,
@@ -854,7 +855,7 @@ async function createCheckoutSession(
     after_expiration: {
       recovery: {
         enabled: true,
-        ...(allowPromotionCodes ? { allow_promotion_codes: true } : {}),
+        ...(allowPromotionCodes && !promotionCodeId ? { allow_promotion_codes: true } : {}),
       },
     },
     client_reference_id: mapId,
@@ -979,6 +980,20 @@ export async function GET(req: NextRequest) {
     : canUseManualPromotionCode(orderType, plan)
       ? await resolvePromotionCodeId(promoCodeParam)
       : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+  if (
+    promoCodeParam &&
+    !isManualPromotionAllowedForCheckout({
+      promoCode: promoCodeParam,
+      orderType,
+      plan,
+      printVariant,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "That promo code does not apply to this checkout route.", code: "promotion_not_applicable" },
+      { status: 400 },
+    );
+  }
   const selectedPromotion = selectCheckoutPromotion({
     manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
     referralCode: referral.code,
@@ -1179,6 +1194,20 @@ export async function POST(req: NextRequest) {
       : canUseManualPromotionCode(orderType, plan)
         ? await resolvePromotionCodeId(promoCode)
         : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+    if (
+      promoCode &&
+      !isManualPromotionAllowedForCheckout({
+        promoCode,
+        orderType,
+        plan,
+        printVariant,
+      })
+    ) {
+      return NextResponse.json(
+        { error: "That promo code does not apply to this checkout route.", code: "promotion_not_applicable" },
+        { status: 400 },
+      );
+    }
     if (promoCode && promotion.invalid) {
       return NextResponse.json(
         { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
