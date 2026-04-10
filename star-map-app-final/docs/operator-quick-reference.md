@@ -170,6 +170,7 @@ Notes:
   - `docs/google-merchant-center-promotions-playbook.md`
   - `docs/social-promo-offers-playbook.md`
   - `docs/promo-offer-tracker.csv`
+  - `docs/social-promo-post-pack.md`
 
 ### Internal funnel page
 

@@ -20,6 +20,12 @@ Drive early preview starts and paid digital conversions with a small, measurable
 - max redemptions: `15`
 - first-time only: `false`
 
+## Execution pack
+
+Use the exact post drafts and posting order in:
+
+- `docs/social-promo-post-pack.md`
+
 ## Landing URLs
 
 Use direct editor links so the promo code is saved immediately.
@@ -86,4 +92,3 @@ These founder/business communities are better for build-in-public or founder-sto
 2. do not use one universal code for every channel
 3. do not lead with the discount before the product story
 4. do not scale paid social until one organic framing actually works
-
