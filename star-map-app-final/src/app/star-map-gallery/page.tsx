@@ -1,9 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
+import GalleryExplorer from "@/components/GalleryExplorer";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -54,57 +54,7 @@ export default function StarMapGalleryPage() {
       />
       <StickyCtaBar source="sticky-star-map-gallery" />
 
-      <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-midnight">Gallery highlights</h2>
-          <p className="text-sm text-neutral-800 sm:text-base">
-            Every example uses real astronomical data and the current preset engine, so the gallery reflects what buyers actually see in the editor today.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {galleryExamples.map((item) => (
-            <div
-              key={item.src}
-              id={item.anchor}
-              className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-lg shadow-black/10"
-            >
-              <div className="relative aspect-square overflow-hidden">
-                <Image
-                  src={item.src}
-                  alt={item.alt}
-                  width={1200}
-                  height={1200}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="border-t border-black/5 px-4 py-3 text-sm text-neutral-800">
-                <div className="flex items-center justify-between gap-2 text-sm font-semibold text-midnight">
-                  <span>{item.title}</span>
-                  <span className="rounded-full border border-amber-200/70 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                    {item.badge}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-neutral-600">{item.caption}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="pt-2 text-sm text-neutral-700">
-          Want to see more? Explore by occasion or jump into the editor with your own date.
-        </div>
-        <div className="flex flex-wrap gap-3 pt-1 text-sm font-semibold">
-          <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
-            Main gift page
-          </Link>
-          <Link
-            href="/editor?mode=quick&source=star-map-gallery-inline-cta"
-            className="text-amber-700 underline hover:text-amber-800"
-          >
-            Create your map
-          </Link>
-        </div>
-      </section>
+      <GalleryExplorer examples={galleryExamples} />
 
       <FramedProofSection
         heading="Compare the finished print with the on-screen render"

@@ -7,6 +7,8 @@ export type GalleryExample = {
   caption: string;
   badge: string;
   anchor: string;
+  occasion: string;
+  styleLabel: string;
 };
 
 export const galleryExamples: GalleryExample[] = [
@@ -19,6 +21,8 @@ export const galleryExamples: GalleryExample[] = [
     caption: "Santorini, Greece · June 1, 2024",
     badge: "AURORA",
     anchor: "aurora-night",
+    occasion: "Wedding",
+    styleLabel: "Aurora Night",
   },
   {
     id: "anniversary-heirloom",
@@ -29,6 +33,8 @@ export const galleryExamples: GalleryExample[] = [
     caption: "Paris, France · September 17, 2016",
     badge: "HEIRLOOM",
     anchor: "heirloom",
+    occasion: "Anniversary",
+    styleLabel: "Heirloom",
   },
   {
     id: "birthday-noir",
@@ -39,6 +45,8 @@ export const galleryExamples: GalleryExample[] = [
     caption: "Tokyo, Japan · July 9, 1995",
     badge: "NOIR",
     anchor: "noir-minimal",
+    occasion: "Birthday",
+    styleLabel: "Noir Minimal",
   },
   {
     id: "new-baby-heirloom",
@@ -49,6 +57,8 @@ export const galleryExamples: GalleryExample[] = [
     caption: "Toronto, Canada · February 18, 2023",
     badge: "HEIRLOOM",
     anchor: "new-baby-heirloom",
+    occasion: "New Baby",
+    styleLabel: "Heirloom",
   },
   {
     id: "memorial-starlace",
@@ -59,6 +69,8 @@ export const galleryExamples: GalleryExample[] = [
     caption: "London, UK · November 2, 2018",
     badge: "STARLACE",
     anchor: "starlace",
+    occasion: "Memorial",
+    styleLabel: "Starlace",
   },
   {
     id: "graduation-aurora",
@@ -69,6 +81,8 @@ export const galleryExamples: GalleryExample[] = [
     caption: "Boston, USA · May 25, 2024",
     badge: "AURORA",
     anchor: "graduation-aurora",
+    occasion: "Graduation",
+    styleLabel: "Aurora Night",
   },
 ];
 
