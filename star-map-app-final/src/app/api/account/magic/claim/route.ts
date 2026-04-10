@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
+import { isProductionLikeRuntime } from "@/lib/runtimeEnv";
 import {
   ACCOUNT_LITE_SESSION_COOKIE,
   ACCOUNT_LITE_SESSION_TTL_SECONDS,
@@ -58,10 +59,10 @@ export async function POST(req: NextRequest) {
     usedAt: Date.now(),
   });
 
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   response.cookies.set(ACCOUNT_LITE_SESSION_COOKIE, sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProductionLikeRuntime(),
     sameSite: "lax",
     path: "/",
     maxAge: ACCOUNT_LITE_SESSION_TTL_SECONDS,

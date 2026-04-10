@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
+import { isProductionLikeRuntime } from "@/lib/runtimeEnv";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { getPrintShippingEstimate } from "@/lib/printfulShipping";
@@ -177,7 +178,7 @@ export async function GET(req: NextRequest) {
     if (hasDigitalEntitlement) {
       response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: isProductionLikeRuntime(),
         sameSite: "lax",
         path: "/",
         maxAge: PREMIUM_COOKIE_TTL_SECONDS,
@@ -302,7 +303,7 @@ export async function GET(req: NextRequest) {
     if (hasDigitalEntitlement) {
       response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: isProductionLikeRuntime(),
         sameSite: "lax",
         path: "/",
         maxAge: PREMIUM_COOKIE_TTL_SECONDS,

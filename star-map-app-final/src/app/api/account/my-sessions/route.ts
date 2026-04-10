@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
+import { isProductionLikeRuntime } from "@/lib/runtimeEnv";
 import { getAccountLiteEmailSessions, normalizeAccountLiteEmail } from "@/lib/accountLite";
 import {
   ACCOUNT_LITE_SESSION_COOKIE,
@@ -32,10 +33,13 @@ type SessionListItem = {
 const stripeSessionKey = (id: string) => `stripe:session:${id}`;
 
 function unauthorizedResponse() {
-  const response = NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const response = NextResponse.json(
+    { ok: false, error: "Unauthorized" },
+    { status: 401, headers: { "Cache-Control": "no-store" } },
+  );
   response.cookies.set(ACCOUNT_LITE_SESSION_COOKIE, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProductionLikeRuntime(),
     sameSite: "lax",
     path: "/",
     maxAge: 0,
@@ -61,10 +65,13 @@ export async function GET(req: NextRequest) {
 
   const lookup = await getAccountLiteEmailSessions(email);
   if (!lookup?.sessions?.length) {
-    return NextResponse.json({
-      ok: true,
-      sessions: [],
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        sessions: [],
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   const origin = new URL(req.url).origin;
@@ -106,8 +113,11 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({
-    ok: true,
-    sessions: items,
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      sessions: items,
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

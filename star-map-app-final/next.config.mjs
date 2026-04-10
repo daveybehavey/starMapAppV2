@@ -7,9 +7,24 @@ const redirectedBlogSlugs = [
     permanent: true,
   },
 ];
+const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+];
 
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
+    ];
+  },
   async redirects() {
     return [
       ...redirectHosts.map((host) => ({

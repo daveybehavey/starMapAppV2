@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
+import { isProductionLikeRuntime } from "@/lib/runtimeEnv";
 import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
 type ClaimRecord = {
@@ -57,19 +58,22 @@ export async function GET(req: NextRequest) {
     record.plan === "subscription" ? subscriptionActive : creditsRemaining > 0 || Boolean(record.paid)
   );
 
-  const response = NextResponse.json({
-    ok: true,
-    paid,
-    mapId: claim.mapId ?? record.mapId ?? null,
-    plan: record.plan ?? null,
-    creditsRemaining: record.plan === "subscription" ? null : creditsRemaining,
-    subscriptionActive: record.plan === "subscription" ? subscriptionActive : null,
-  });
+  const response = NextResponse.json(
+    {
+      ok: true,
+      paid,
+      mapId: claim.mapId ?? record.mapId ?? null,
+      plan: record.plan ?? null,
+      creditsRemaining: record.plan === "subscription" ? null : creditsRemaining,
+      subscriptionActive: record.plan === "subscription" ? subscriptionActive : null,
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 
   if (paid) {
     response.cookies.set(PREMIUM_COOKIE_NAME, claim.sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProductionLikeRuntime(),
       sameSite: "lax",
       path: "/",
       maxAge: PREMIUM_COOKIE_TTL_SECONDS,
