@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
   await kv.set<StoredRecipe>(`map:${id}`, sanitized, { ex: ttlSeconds });
   const response = NextResponse.json({ id });
   const checkoutIntentNonce = createCheckoutIntentNonce();
-  const storedCheckoutIntent = createStoredCheckoutIntent(checkoutIntentNonce);
+  const storedCheckoutIntent = createStoredCheckoutIntent(checkoutIntentNonce, req);
   if (storedCheckoutIntent) {
     await kv.set(checkoutIntentKey(id), storedCheckoutIntent, { ex: CHECKOUT_INTENT_TTL_SECONDS });
     response.cookies.set({

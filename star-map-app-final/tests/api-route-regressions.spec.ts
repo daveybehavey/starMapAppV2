@@ -264,6 +264,7 @@ test.describe("API route regressions", () => {
   });
 
   test("digital checkout accepts a freshly saved map in the same session", async ({ request }) => {
+    const ip = randomIp();
     const mapPayload = {
       version: 1,
       seed: "api-checkout-intent",
@@ -308,6 +309,9 @@ test.describe("API route regressions", () => {
 
     const mapResponse = await requestUntilReady(request, "/api/maps", {
       method: "POST",
+      headers: {
+        "x-forwarded-for": ip,
+      },
       data: mapPayload,
     });
     expect(mapResponse.status()).toBe(200);
@@ -318,6 +322,9 @@ test.describe("API route regressions", () => {
 
     const checkoutResponse = await requestUntilReady(request, "/api/checkout", {
       method: "POST",
+      headers: {
+        "x-forwarded-for": ip,
+      },
       data: {
         plan: "single",
         orderType: "digital",
@@ -333,6 +340,92 @@ test.describe("API route regressions", () => {
     }
     expect(checkoutResponse.status()).toBe(500);
     expect(checkoutBody.error).toBe("Checkout failed");
+  });
+
+  test("digital checkout rejects replayed checkout intent for the same saved map", async ({ request }) => {
+    const ip = randomIp();
+    const mapResponse = await requestUntilReady(request, "/api/maps", {
+      method: "POST",
+      headers: {
+        "x-forwarded-for": ip,
+      },
+      data: {
+        version: 1,
+        seed: "api-checkout-intent-replay",
+        datetimeISO: "2024-06-15T12:00:00.000Z",
+        location: {
+          name: "Scottsdale, AZ, USA",
+          latitude: 33.4942,
+          longitude: -111.9261,
+          timezone: "America/Phoenix",
+        },
+        selectedStyle: "navyGold",
+        aspectRatio: "square",
+        shape: "rectangle",
+        textBoxes: [
+          {
+            id: "title",
+            label: "Title",
+            text: "Replay Test",
+            fontFamily: "cinzel",
+            color: "#d7b56c",
+            size: 40,
+            align: "center",
+          },
+        ],
+        renderOptions: {
+          visualMode: "enhanced",
+          starIntensity: "normal",
+          starGlow: true,
+          constellationLines: "thin",
+          constellationLabels: false,
+          showGrid: false,
+          showPlanets: true,
+          premiumStars: "off",
+          premiumPlanets: "off",
+          planetEmphasis: "highlighted",
+          showMoon: true,
+          moonSize: "large",
+          shapeMask: "rectangle",
+          frameEnabled: true,
+        },
+      },
+    });
+    expect(mapResponse.status()).toBe(200);
+    const mapBody = (await mapResponse.json()) as { id?: string };
+    expect(mapBody.id).toMatch(/^[0-9a-f-]{36}$/i);
+    const setCookie = mapResponse.headers()["set-cookie"] || "";
+    const cookieMatch = /(?:^|,\s*)starmap_checkout_intent=([^;]+)/i.exec(setCookie);
+    const checkoutCookie = cookieMatch ? `starmap_checkout_intent=${cookieMatch[1]}` : "";
+    expect(checkoutCookie).toContain("starmap_checkout_intent=");
+
+    const checkoutRequest = {
+      method: "POST" as const,
+      headers: {
+        "x-forwarded-for": ip,
+        cookie: checkoutCookie,
+      },
+      data: {
+        plan: "single",
+        orderType: "digital",
+        mapId: mapBody.id,
+      },
+    };
+
+    const firstResponse = await requestUntilReady(request, "/api/checkout", checkoutRequest);
+    const firstBody = (await firstResponse.json()) as { url?: string; error?: string };
+    if (firstResponse.status() === 200) {
+      expect(firstBody.url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
+    } else {
+      expect(firstResponse.status()).toBe(500);
+      expect(firstBody.error).toBe("Checkout failed");
+    }
+
+    const replayResponse = await requestUntilReady(request, "/api/checkout", checkoutRequest);
+    expect(replayResponse.status()).toBe(400);
+    const replayBody = (await replayResponse.json()) as { code?: string; error?: string };
+    expect(replayBody.code).toBe("checkout_intent_used");
+    expect(replayBody.error).toMatch(/already used for checkout/i);
   });
 
   test("print checkout rejects unsupported shipping countries when enabled", async ({ request }) => {

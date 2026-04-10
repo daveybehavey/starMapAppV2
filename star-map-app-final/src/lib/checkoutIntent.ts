@@ -1,4 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import type { NextRequest } from "next/server";
+import { getClientIp } from "@/lib/rateLimit";
 
 export const CHECKOUT_INTENT_COOKIE_NAME = "starmap_checkout_intent";
 export const CHECKOUT_INTENT_TTL_SECONDS = 30 * 60;
@@ -6,6 +8,8 @@ export const CHECKOUT_INTENT_TTL_SECONDS = 30 * 60;
 export type StoredCheckoutIntent = {
   nonceHash: string;
   createdAt: number;
+  fingerprintHash?: string;
+  consumedAt?: number;
 };
 
 const MIN_SECRET_LENGTH = 16;
@@ -32,6 +36,13 @@ function signatureFor(nonce: string, secret: string) {
     .digest("base64url");
 }
 
+function fingerprintSource(req: Pick<NextRequest, "headers">) {
+  const userAgent = req.headers.get("user-agent")?.trim() || "";
+  const acceptLanguage = req.headers.get("accept-language")?.trim() || "";
+  const ip = getClientIp(req as unknown as Request).trim();
+  return `${ip}\n${userAgent}\n${acceptLanguage}`;
+}
+
 export function checkoutIntentKey(mapId: string) {
   return `checkout:intent:${mapId}`;
 }
@@ -44,20 +55,27 @@ export function createCheckoutIntentNonce() {
   return randomBytes(24).toString("base64url");
 }
 
-export function createStoredCheckoutIntent(nonce: string, now = Date.now()): StoredCheckoutIntent | null {
+export function createStoredCheckoutIntent(
+  nonce: string,
+  req: Pick<NextRequest, "headers">,
+  now = Date.now(),
+): StoredCheckoutIntent | null {
   const normalizedNonce = nonce.trim();
   if (!normalizedNonce) return null;
   const secret = getCheckoutIntentSecret();
   if (!secret) return null;
+  const fingerprintHash = signatureFor(fingerprintSource(req), secret);
   return {
     nonceHash: signatureFor(normalizedNonce, secret),
     createdAt: Math.max(0, Math.floor(now)),
+    fingerprintHash,
   };
 }
 
 export function verifyStoredCheckoutIntent(
   nonce: string | null | undefined,
   stored: StoredCheckoutIntent | null | undefined,
+  req: Pick<NextRequest, "headers">,
   now = Date.now(),
 ) {
   const normalizedNonce = typeof nonce === "string" ? nonce.trim() : "";
@@ -68,8 +86,20 @@ export function verifyStoredCheckoutIntent(
   if (ageMs > CHECKOUT_INTENT_TTL_SECONDS * 1000) {
     return false;
   }
+  if (Number.isFinite(stored.consumedAt)) {
+    return false;
+  }
   const secret = getCheckoutIntentSecret();
   if (!secret) return false;
+  if (stored.fingerprintHash) {
+    const expectedFingerprint = signatureFor(fingerprintSource(req), secret);
+    const fingerprintBuffer = Buffer.from(stored.fingerprintHash);
+    const expectedFingerprintBuffer = Buffer.from(expectedFingerprint);
+    if (fingerprintBuffer.length !== expectedFingerprintBuffer.length) return false;
+    if (!timingSafeEqual(fingerprintBuffer, expectedFingerprintBuffer)) {
+      return false;
+    }
+  }
   const expected = signatureFor(normalizedNonce, secret);
   const actualBuffer = Buffer.from(stored.nonceHash);
   const expectedBuffer = Buffer.from(expected);

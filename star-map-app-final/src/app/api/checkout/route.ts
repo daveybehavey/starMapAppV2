@@ -28,6 +28,7 @@ import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
 import {
   CHECKOUT_INTENT_COOKIE_NAME,
+  CHECKOUT_INTENT_TTL_SECONDS,
   checkoutIntentKey,
   isCheckoutIntentProtectionEnabled,
   verifyStoredCheckoutIntent,
@@ -231,8 +232,8 @@ async function assertDigitalCheckoutMap(mapId: string | undefined) {
   }
 }
 
-async function assertCheckoutIntent(req: NextRequest, mapId: string | undefined) {
-  if (!mapId || !isCheckoutIntentProtectionEnabled()) return;
+async function assertCheckoutIntent(req: NextRequest, mapId: string | undefined): Promise<StoredCheckoutIntent | null> {
+  if (!mapId || !isCheckoutIntentProtectionEnabled()) return null;
   const intentCookie = req.cookies.get(CHECKOUT_INTENT_COOKIE_NAME)?.value?.trim();
   if (!intentCookie) {
     throw new CheckoutError(
@@ -242,13 +243,47 @@ async function assertCheckoutIntent(req: NextRequest, mapId: string | undefined)
     );
   }
   const storedIntent = await kv.get<StoredCheckoutIntent>(checkoutIntentKey(mapId));
-  if (!verifyStoredCheckoutIntent(intentCookie, storedIntent)) {
+  if (storedIntent?.consumedAt && Number.isFinite(storedIntent.consumedAt)) {
+    throw new CheckoutError(
+      "That preview was already used for checkout. Refresh your preview and try again.",
+      "checkout_intent_used",
+      400,
+    );
+  }
+  if (!verifyStoredCheckoutIntent(intentCookie, storedIntent, req)) {
     throw new CheckoutError(
       "Your checkout session expired. Refresh your preview and try again.",
       "checkout_intent_invalid",
       400,
     );
   }
+  return storedIntent;
+}
+
+async function consumeCheckoutIntent(mapId: string | undefined, storedIntent: StoredCheckoutIntent | null) {
+  if (!mapId || !storedIntent || !isCheckoutIntentProtectionEnabled()) return;
+  await kv.set(
+    checkoutIntentKey(mapId),
+    {
+      ...storedIntent,
+      consumedAt: Date.now(),
+    },
+    { ex: CHECKOUT_INTENT_TTL_SECONDS },
+  );
+}
+
+function expireCheckoutIntentCookie(response: NextResponse) {
+  response.cookies.set({
+    name: CHECKOUT_INTENT_COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure:
+      (process.env.NODE_ENV || "").trim() === "production" ||
+      (process.env.NEXTJS_ENV || "").trim() === "production",
+    path: "/api/checkout",
+    maxAge: 0,
+  });
 }
 
 type ReferralAutoOfferVariant = "primary" | "alt" | "print_framed";
@@ -964,11 +999,12 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
+  let storedIntent: StoredCheckoutIntent | null = null;
   try {
     if (orderType !== "print") {
       await assertDigitalCheckoutMap(mapId);
     }
-    await assertCheckoutIntent(req, mapId);
+    storedIntent = await assertCheckoutIntent(req, mapId);
   } catch (error) {
     if (error instanceof CheckoutError) {
       await recordCheckoutFailure({
@@ -992,6 +1028,7 @@ export async function GET(req: NextRequest) {
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
+    await consumeCheckoutIntent(mapId, storedIntent);
     const { url: sessionUrl } = await createCheckoutSession({
       plan,
       mapId,
@@ -1022,7 +1059,9 @@ export async function GET(req: NextRequest) {
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
-    return NextResponse.redirect(sessionUrl, { status: 303 });
+    const response = NextResponse.redirect(sessionUrl, { status: 303 });
+    expireCheckoutIntentCookie(response);
+    return response;
   } catch (err) {
     if (err instanceof CheckoutError) {
       await recordCheckoutFailure({
@@ -1062,6 +1101,7 @@ export async function POST(req: NextRequest) {
     let promoCode: string | undefined;
     let referralCode: string | undefined;
     let shippingCountry: string | undefined;
+    let storedIntent: StoredCheckoutIntent | null = null;
     try {
       const body = (await req.json()) as {
         mapId?: string;
@@ -1133,7 +1173,7 @@ export async function POST(req: NextRequest) {
     if (orderType !== "print") {
       await assertDigitalCheckoutMap(mapId);
     }
-    await assertCheckoutIntent(req, mapId);
+    storedIntent = await assertCheckoutIntent(req, mapId);
     const promotion = orderType === "digital" && plan === "subscription"
       ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
       : canUseManualPromotionCode(orderType, plan)
@@ -1172,6 +1212,7 @@ export async function POST(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
 
+    await consumeCheckoutIntent(mapId, storedIntent);
     const session = await createCheckoutSession({
       plan,
       mapId,
@@ -1208,7 +1249,7 @@ export async function POST(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       url: session.url,
       promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
       referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
@@ -1216,6 +1257,8 @@ export async function POST(req: NextRequest) {
         selectedPromotion.source === "referral_auto" && !session.discountRejected ? referralAutoOffer.variant ?? null : null,
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
     });
+    expireCheckoutIntentCookie(response);
+    return response;
   } catch (err) {
     if (err instanceof CheckoutError) {
       await recordCheckoutFailure({
