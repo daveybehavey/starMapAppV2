@@ -114,6 +114,13 @@ before giving a hard final quote.
 
 ## Response Templates
 - `docs/bulk-quote-email-templates.md`
+- `docs/bulk-version-template-guide.md`
+
+## Version Collection Asset
+- Downloadable CSV:
+  - `/templates/starmapco-bulk-versions-template.csv`
+- Use this after one base layout or style group is approved.
+- Keep one row per unique map version.
 
 ## Launch Checklist
 Before enabling the route:

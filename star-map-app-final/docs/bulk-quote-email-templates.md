@@ -35,10 +35,17 @@ Once I have that, I can send back:
 - estimated production and delivery timing
 - a proof plan for approval
 
+If multiple versions are involved, I can also send a simple version sheet for your team to fill out in one pass.
+
 Best,
 <Your name>
 StarMapCo
 ```
+
+Version sheet asset:
+
+- `https://starmapco.com/templates/starmapco-bulk-versions-template.csv`
+- column guide: `docs/bulk-version-template-guide.md`
 
 ## 2. Budgetary quote after basic specs
 

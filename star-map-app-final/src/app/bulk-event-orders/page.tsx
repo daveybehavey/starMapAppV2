@@ -63,6 +63,7 @@ const includedItems = [
   "Manual quote based on quantity, versions, and timing",
   "One proof and one revision round before production",
   "Unframed-first pricing for the cleanest margin and fulfillment path",
+  "Simple version sheet for multi-map orders",
 ];
 
 const steps = [
@@ -130,6 +131,12 @@ export default function BulkEventOrdersPage() {
                 className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/8 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/12 focus:outline-none focus:ring-2 focus:ring-white/30"
               >
                 Email {business.email}
+              </a>
+              <a
+                href="/templates/starmapco-bulk-versions-template.csv"
+                className="inline-flex items-center justify-center rounded-full border border-amber-200/35 bg-amber-200/10 px-6 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/16 focus:outline-none focus:ring-2 focus:ring-amber-200/40"
+              >
+                Download version sheet
               </a>
             </div>
           </div>

@@ -263,6 +263,9 @@ Notes:
     - `bulk:quote:<requestId>`
   - launch and pricing rules:
     - `docs/bulk-event-orders-playbook.md`
+    - `docs/bulk-version-template-guide.md`
+  - version sheet:
+    - `https://starmapco.com/templates/starmapco-bulk-versions-template.csv`
 - **Promo signup hardening**:
   - promo emails now include a signed unsubscribe link
   - `/unsubscribe` updates promo signup state server-side
