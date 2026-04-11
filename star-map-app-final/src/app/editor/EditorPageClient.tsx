@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import EditorFontShell from "@/components/EditorFontShell";
+import EditorPromotionInvite from "@/components/EditorPromotionInvite";
 import { getPromotionTargetLabel } from "@/lib/promotionOffer";
 
 const EditorExperience = dynamic(
@@ -44,6 +45,7 @@ export default function EditorPageClient({ promoStatus, promoCode }: EditorPageC
             {promoMessage}
           </div>
         ) : null}
+        <EditorPromotionInvite promoStatus={promoStatus} promoCode={promoCode} />
         <EditorExperience variant="quick" allowAdvancedInQuick />
       </main>
     </EditorFontShell>

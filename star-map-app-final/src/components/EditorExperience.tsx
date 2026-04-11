@@ -51,6 +51,7 @@ import {
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { getInAppBrowserDownloadHint } from "@/lib/inAppBrowser";
 import { inferTimezoneFromCoordinates, resolveGeocodeSuggestion } from "@/lib/locationSearch";
+import { normalizePromoCode, PROMO_CODE_STORAGE_KEY, readStoredPromoCode } from "@/lib/promotionCapture";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -99,7 +100,6 @@ const DRAFT_KEY = "star-map-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
-const PROMO_CODE_KEY = "star-map-promo-code";
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const REVEAL_ANIMATION_MS = 900;
 const DEFAULT_TITLE_TEXT = "our night sky";
@@ -124,13 +124,6 @@ function getDownloadLocationHint() {
     return `Download started. On Android, open Files/My Files -> Downloads (or your browser download history).${inAppHint ? ` ${inAppHint}` : ""}`;
   }
   return `Download started. Check your Downloads folder (or browser download history) if it doesn't appear immediately.${inAppHint ? ` ${inAppHint}` : ""}`;
-}
-
-function normalizePromoCode(raw: string | null | undefined) {
-  if (!raw) return null;
-  const normalized = raw.trim().toUpperCase();
-  if (!/^[A-Z0-9_-]{3,40}$/.test(normalized)) return null;
-  return normalized;
 }
 
 function parseDateParamToIso(dateParam: string) {
@@ -380,14 +373,6 @@ export function EditorExperience({
       setPrintShippingCountryValue(printShippingCountries[0], "initial");
     }
   }, [printShippingCountries, setPrintShippingCountryValue]);
-  const readStoredPromoCode = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      return normalizePromoCode(window.localStorage.getItem(PROMO_CODE_KEY));
-    } catch {
-      return null;
-    }
-  }, []);
   const getCheckoutPromoCode = useCallback(() => activePromoCode, [activePromoCode]);
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
@@ -407,15 +392,15 @@ export function EditorExperience({
     const nextPromoCode = queryPromoCode ?? readStoredPromoCode();
     setActivePromoCode(nextPromoCode);
     setPromoCodeError(null);
-  }, [queryPromoCode, readStoredPromoCode]);
+  }, [queryPromoCode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       if (activePromoCode) {
-        window.localStorage.setItem(PROMO_CODE_KEY, activePromoCode);
+        window.localStorage.setItem(PROMO_CODE_STORAGE_KEY, activePromoCode);
       } else {
-        window.localStorage.removeItem(PROMO_CODE_KEY);
+        window.localStorage.removeItem(PROMO_CODE_STORAGE_KEY);
       }
     } catch {
       // ignore storage errors
