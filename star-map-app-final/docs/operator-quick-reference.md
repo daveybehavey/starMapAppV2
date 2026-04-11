@@ -171,6 +171,10 @@ Notes:
 - it does not rewrite `.env.local`
 - checkout can validate these codes even if they are not the default signup promo
 - run `npm run qa:promo-links` before posting the live Reddit/TikTok URLs
+- run `npm run qa:promo-offers -- --days 14` to check:
+  - whether `PRINT10`, `EMAIL50`, `REDDIT50`, and `TIKTOK50` still exist and are active in Stripe
+  - remaining redemption headroom
+  - recent session / paid / revenue counts per code
 - `qa:promo-links` currently validates the full live editor URLs with saved codes; short `/offer/...` redirects are still waiting on the next production deploy
 - current rollout docs:
   - `docs/google-merchant-center-promotions-playbook.md`
