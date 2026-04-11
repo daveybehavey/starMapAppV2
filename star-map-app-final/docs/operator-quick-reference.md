@@ -2,6 +2,9 @@
 
 Use this page when you need to check sales, analytics, print ops, or coupons quickly.
 
+- **Canonical roadmap**:
+  - `docs/roadmap-status.md`
+
 ## 1) Analytics and funnel
 
 - **GA4 realtime**: `https://analytics.google.com/analytics/web/`
@@ -244,6 +247,9 @@ Notes:
     - `proof:consent:session:<sessionId>`
 - **Bulk quote requests**:
   - dark manual-sales lane lives at `/bulk-event-orders` and only exists when `BULK_EVENT_ORDERS_ENABLED=true`
+  - launch-readiness check:
+    - `npm run qa:bulk-launch-readiness`
+    - `npm run qa:bulk-launch-readiness -- --json`
   - list captured requests:
     - `npm run ops:bulk-quotes`
     - `npm run ops:bulk-quotes -- --json`

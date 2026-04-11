@@ -109,12 +109,15 @@ before giving a hard final quote.
 - `npm run ops:bulk-quotes -- --limit 100`
 - `npm run ops:bulk-quotes -- --status new`
 - `npm run ops:bulk-quotes -- --set-status contacted --id <requestId>`
+- `npm run qa:bulk-launch-readiness`
+- `npm run qa:bulk-launch-readiness -- --json`
 
 ## Response Templates
 - `docs/bulk-quote-email-templates.md`
 
 ## Launch Checklist
 Before enabling the route:
+- run `npm run qa:bulk-launch-readiness`
 - confirm `BULK_QUOTE_ALERT_FROM` and `BULK_QUOTE_ALERT_TO`
 - confirm Resend or SendGrid is configured
 - test one request in a non-production environment
