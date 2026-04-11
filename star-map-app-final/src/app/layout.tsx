@@ -208,9 +208,7 @@ export default function RootLayout({
         <div className="cosmic-backdrop">
           {children}
         </div>
-        <Suspense fallback={null}>
-          <PromotionCaptureSlideIn />
-        </Suspense>
+        <PromotionCaptureSlideIn />
         <footer className="relative overflow-hidden border-t border-[#b5934f]/45 bg-[linear-gradient(140deg,rgba(4,10,31,0.98),rgba(8,24,61,0.97),rgba(10,34,80,0.94))] text-[#f7f0e2] shadow-[0_-14px_36px_rgba(0,0,0,0.45)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(248,212,117,0.12),transparent_42%),radial-gradient(circle_at_88%_22%,rgba(130,173,255,0.16),transparent_38%)]" />
           <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-6 sm:py-9">

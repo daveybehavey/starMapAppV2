@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { PromotionForm } from "@/components/PromotionForm";
 import { track } from "@/lib/analytics";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
@@ -77,7 +77,6 @@ function getSourceForPath(pathname: string) {
 
 export default function PromotionCaptureSlideIn() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const promotionOfferName = getPromotionOfferName();
   const promotionTargetLabel = getPromotionTargetLabel();
   const [eligible, setEligible] = useState(false);
@@ -95,13 +94,14 @@ export default function PromotionCaptureSlideIn() {
       return;
     }
 
-    const hasImmediatePromo = Boolean(searchParams.get("promo") || searchParams.get("code"));
+    const params = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+    const hasImmediatePromo = Boolean(params?.get("promo") || params?.get("code"));
     const storedPromo = readStoredPromoCode();
     const dismissedUntil = readTimestamp(DISMISS_KEY);
     const alreadySeenThisSession = readSessionFlag(`${SESSION_SEEN_KEY}:${pathname}`);
     const nextEligible = !hasImmediatePromo && !storedPromo && dismissedUntil <= Date.now() && !alreadySeenThisSession;
     setEligible(nextEligible);
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   useEffect(() => {
     if (!eligible) return;
