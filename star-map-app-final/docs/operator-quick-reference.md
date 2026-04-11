@@ -169,6 +169,7 @@ Notes:
 - this script creates live Stripe coupons/promotion codes
 - it does not rewrite `.env.local`
 - checkout can validate these codes even if they are not the default signup promo
+- run `npm run qa:promo-links` before posting the live Reddit/TikTok URLs
 - current rollout docs:
   - `docs/google-merchant-center-promotions-playbook.md`
   - `docs/social-promo-offers-playbook.md`

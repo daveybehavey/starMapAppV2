@@ -48,6 +48,7 @@
     "qa:merchant-feed": "node scripts/merchant-feed-health.mjs",
     "qa:merchant-feed:live": "node scripts/merchant-feed-health.mjs --feed https://starmapco.com/merchant-feed.xml",
     "qa:merchant-readiness": "npm run assets:commerce-refresh && npm run merchant:shipping-reference && npm run merchant:shipping-groups && npm run merchant:products:status",
+    "qa:promo-links": "node scripts/promo-link-readiness.mjs --site https://starmapco.com",
     "qa:printful": "node scripts/printful-verify.mjs",
     "qa:print-ops": "node scripts/print-ops-report.mjs",
     "qa:print-margin": "node scripts/print-margin-audit.mjs",

@@ -10,6 +10,12 @@ This pack turns the promo rollout into something executable:
 - rule-safe Reddit usage
 - logging rules
 
+Before using any of these links publicly, run:
+
+```bash
+npm run qa:promo-links
+```
+
 ## Live offers
 
 1. `PRINT10`

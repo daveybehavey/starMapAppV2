@@ -38,6 +38,21 @@ Use direct editor links so the promo code is saved immediately.
 
 `https://starmapco.com/editor?mode=quick&code=TIKTOK50&utm_source=tiktok&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=tiktok_offer_01`
 
+## Readiness check
+
+Before posting, run:
+
+```bash
+npm run qa:promo-links
+```
+
+What it verifies:
+
+- the live Reddit and TikTok promo URLs load
+- the expected code is saved in browser local storage
+- digital checkout still accepts `REDDIT50` and `TIKTOK50`
+- `PRINT10` is still rejected on digital checkout
+
 ## Channel strategy
 
 ### Reddit
