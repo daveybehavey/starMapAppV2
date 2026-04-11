@@ -27,6 +27,7 @@ import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/pri
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
 import { isManualPromotionAllowedForCheckout } from "@/lib/manualPromotionCatalog";
+import { classifyUnexpectedCheckoutError, describeCheckoutErrorForLog } from "@/lib/checkoutErrorClassification";
 import {
   CHECKOUT_INTENT_COOKIE_NAME,
   CHECKOUT_INTENT_TTL_SECONDS,
@@ -1092,12 +1093,17 @@ export async function GET(req: NextRequest) {
       });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
+    const failureReason = classifyUnexpectedCheckoutError(err);
     await recordCheckoutFailure({
-      reason: "unknown_error",
+      reason: failureReason,
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
-    console.error("Stripe checkout error", err);
+    console.error("Stripe checkout error", {
+      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+      plan: orderType === "print" ? printVariant : plan,
+      ...describeCheckoutErrorForLog(err),
+    });
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
@@ -1303,12 +1309,17 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
+    const failureReason = classifyUnexpectedCheckoutError(err);
     await recordCheckoutFailure({
-      reason: "unknown_error",
+      reason: failureReason,
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
     });
-    console.error("Stripe checkout error", err);
+    console.error("Stripe checkout error", {
+      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+      plan: orderType === "print" ? printVariant : plan,
+      ...describeCheckoutErrorForLog(err),
+    });
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }

@@ -49,6 +49,15 @@ function percent(numerator, denominator) {
   return (numerator / denominator) * 100;
 }
 
+function numberOrFallback(primary, fallback = 0) {
+  if (primary !== null && primary !== undefined && primary !== "") {
+    const parsed = Number(primary);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  const fallbackParsed = Number(fallback);
+  return Number.isFinite(fallbackParsed) ? fallbackParsed : 0;
+}
+
 function toRate(numerator, denominator) {
   return `${percent(numerator, denominator).toFixed(2)}% (${numerator}/${denominator})`;
 }
@@ -67,13 +76,13 @@ function formatMoney(cents, currency = "usd") {
 }
 
 function buildScorecard(digest) {
-  const paidSessionsAll = Number(digest?.stripe?.paidSessions || 0);
-  const paidSessionsRevenue = Number(digest?.stripe?.revenuePaidSessions || paidSessionsAll);
-  const paidSessions = Number(digest?.stripe?.revenuePaidSessionsExcludingQa || paidSessionsRevenue);
-  const printPaidSessionsAll = Number(digest?.stripe?.printPaidSessions || 0);
-  const printPaidSessionsRevenue = Number(digest?.stripe?.printRevenuePaidSessions || printPaidSessionsAll);
-  const noChargePaidSessions = Number(digest?.stripe?.noChargePaidSessions || 0);
-  const qaTaggedPaidSessions = Number(digest?.stripe?.qaTaggedPaidSessions || 0);
+  const paidSessionsAll = numberOrFallback(digest?.stripe?.paidSessions, 0);
+  const paidSessionsRevenue = numberOrFallback(digest?.stripe?.revenuePaidSessions, paidSessionsAll);
+  const paidSessions = numberOrFallback(digest?.stripe?.revenuePaidSessionsExcludingQa, paidSessionsRevenue);
+  const printPaidSessionsAll = numberOrFallback(digest?.stripe?.printPaidSessions, 0);
+  const printPaidSessionsRevenue = numberOrFallback(digest?.stripe?.printRevenuePaidSessions, printPaidSessionsAll);
+  const noChargePaidSessions = numberOrFallback(digest?.stripe?.noChargePaidSessions, 0);
+  const qaTaggedPaidSessions = numberOrFallback(digest?.stripe?.qaTaggedPaidSessions, 0);
   const referralPaidSessions = Array.isArray(digest?.stripe?.referralPaidSources)
     ? digest.stripe.referralPaidSources.reduce((sum, row) => sum + Number(row?.count || 0), 0)
     : 0;

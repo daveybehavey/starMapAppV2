@@ -982,9 +982,15 @@ function printHumanReport(report) {
       console.log("preview -> preview download: n/a");
     }
     if (previewDownloads > 0) {
-      console.log(
-        `preview download -> checkout intent: ${((checkoutStarted / previewDownloads) * 100).toFixed(2)}% (${checkoutStarted}/${previewDownloads})`,
-      );
+      if (checkoutStarted > previewDownloads) {
+        console.log(
+          `preview download -> checkout intent: partial history / mixed entry points (${checkoutStarted} checkout intents, ${previewDownloads} preview downloads tracked in-window)`,
+        );
+      } else {
+        console.log(
+          `preview download -> checkout intent: ${((checkoutStarted / previewDownloads) * 100).toFixed(2)}% (${checkoutStarted}/${previewDownloads})`,
+        );
+      }
     } else {
       console.log("preview download -> checkout intent: n/a");
     }
