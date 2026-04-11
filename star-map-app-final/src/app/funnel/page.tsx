@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getFunnelDashboard } from "@/lib/funnel";
 import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
+import { getStripePromotionCheckoutSummary } from "@/lib/promotionCheckoutSummary";
 import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
 import { getReferralDashboard } from "@/lib/referralDashboard";
 import {
@@ -92,11 +93,12 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
     );
   }
 
-  const [dashboard, checkoutDiagnostics, promotionSubscribers, referralDashboard] = await Promise.all([
+  const [dashboard, checkoutDiagnostics, promotionSubscribers, referralDashboard, promotionCheckouts] = await Promise.all([
     getFunnelDashboard(days),
     getCheckoutFailureDashboard(days),
     getPromotionSubscriberSummary(500),
     getReferralDashboard(days),
+    getStripePromotionCheckoutSummary(days),
   ]);
   const lastStep = dashboard.rows[dashboard.rows.length - 1];
   const landingTotal = dashboard.rows.find((row) => row.step === "landing_view")?.total ?? 0;
@@ -210,6 +212,15 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 {promotionSubscribers.sources
                   .slice(0, 4)
                   .map((row) => `${row.source} (${row.active}/${row.total})`)
+                  .join(" • ")}
+              </p>
+            ) : null}
+            {promotionCheckouts.topCodes.length ? (
+              <p className="mt-1 text-xs text-neutral-400">
+                Top checkout promos:{" "}
+                {promotionCheckouts.topCodes
+                  .slice(0, 4)
+                  .map((row) => `${row.label} (${row.revenuePaidSessions}/${row.sessions})`)
                   .join(" • ")}
               </p>
             ) : null}

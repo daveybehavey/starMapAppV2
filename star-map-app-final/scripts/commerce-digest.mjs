@@ -136,6 +136,18 @@ function getCustomerEmail(session) {
   return customerDetailsEmail || "";
 }
 
+function normalizeMetadataValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeMetadataLower(value) {
+  return normalizeMetadataValue(value).toLowerCase();
+}
+
+function normalizeMetadataUpper(value) {
+  return normalizeMetadataValue(value).toUpperCase();
+}
+
 function hasCheckoutAttribution(session) {
   const metadata = session.metadata || {};
   return Boolean(
@@ -146,6 +158,149 @@ function hasCheckoutAttribution(session) {
       String(metadata.referral_campaign || "").trim() ||
       String(metadata.promotion_code_id || "").trim(),
   );
+}
+
+async function resolvePromotionCodeLabelsById(stripe, sessions) {
+  const promotionCodeIds = [...new Set(
+    sessions
+      .map((session) => normalizeMetadataValue(session.metadata?.promotion_code_id))
+      .filter(Boolean),
+  )];
+  const labels = new Map();
+
+  await Promise.all(
+    promotionCodeIds.map(async (promotionCodeId) => {
+      try {
+        const promotionCode = await stripe.promotionCodes.retrieve(promotionCodeId);
+        const code = normalizeMetadataUpper(promotionCode.code);
+        if (code) {
+          labels.set(promotionCodeId, code);
+        }
+      } catch (error) {
+        console.error("Promotion code retrieve failed for reporting", { promotionCodeId, error });
+      }
+    }),
+  );
+
+  return labels;
+}
+
+function resolvePromotionSummaryDetails(session, promotionCodeLabelsById) {
+  const metadata = session.metadata || {};
+  const explicitSource = normalizeMetadataLower(metadata.promotion_source);
+  const referralOfferApplied = normalizeMetadataLower(metadata.referral_offer_applied) === "true";
+  const referralOfferVariant = normalizeMetadataLower(metadata.referral_offer_variant);
+  const orderType = classifyOrder(session) === "print" ? "print" : "digital";
+
+  if (
+    explicitSource === "referral_auto" ||
+    referralOfferApplied ||
+    referralOfferVariant.startsWith("referral_auto")
+  ) {
+    return {
+      label: referralOfferVariant ? `REFERRAL_AUTO (${referralOfferVariant})` : "REFERRAL_AUTO",
+      source: "referral_auto",
+      orderType,
+    };
+  }
+
+  const explicitCode = normalizeMetadataUpper(metadata.promotion_code);
+  const promotionCodeId = normalizeMetadataValue(metadata.promotion_code_id);
+  const resolvedCode = explicitCode || normalizeMetadataUpper(promotionCodeLabelsById.get(promotionCodeId));
+  if (resolvedCode) {
+    return {
+      label: resolvedCode,
+      source: explicitSource === "unknown" || !explicitSource ? "manual" : explicitSource,
+      orderType,
+    };
+  }
+
+  if (promotionCodeId) {
+    return {
+      label: `PROMO_ID:${promotionCodeId.slice(-8).toUpperCase()}`,
+      source: explicitSource === "unknown" || !explicitSource ? "manual" : explicitSource,
+      orderType,
+    };
+  }
+
+  return null;
+}
+
+async function buildPromotionSummary(stripe, sessions) {
+  const promotionCodeLabelsById = await resolvePromotionCodeLabelsById(stripe, sessions);
+  const buckets = new Map();
+  let appliedSessions = 0;
+  let paidSessions = 0;
+  let revenuePaidSessions = 0;
+  let revenueCents = 0;
+
+  for (const session of sessions) {
+    const resolved = resolvePromotionSummaryDetails(session, promotionCodeLabelsById);
+    if (!resolved) continue;
+
+    appliedSessions += 1;
+    const key = `${resolved.source}:${resolved.label}`;
+    const bucket = buckets.get(key) ?? {
+      label: resolved.label,
+      source: resolved.source,
+      sessions: 0,
+      unpaidSessions: 0,
+      paidSessions: 0,
+      revenuePaidSessions: 0,
+      revenueCents: 0,
+      hasDigital: false,
+      hasPrint: false,
+    };
+    bucket.sessions += 1;
+    if (resolved.orderType === "digital") bucket.hasDigital = true;
+    if (resolved.orderType === "print") bucket.hasPrint = true;
+
+    if (isPaidCheckoutSession(session)) {
+      bucket.paidSessions += 1;
+      paidSessions += 1;
+    } else {
+      bucket.unpaidSessions += 1;
+    }
+
+    if (isRevenuePositivePaidSession(session)) {
+      const amount = Math.max(0, Number(session.amount_total || 0));
+      bucket.revenuePaidSessions += 1;
+      bucket.revenueCents += amount;
+      revenuePaidSessions += 1;
+      revenueCents += amount;
+    }
+
+    buckets.set(key, bucket);
+  }
+
+  const topCodes = [...buckets.values()]
+    .map((entry) => ({
+      label: entry.label,
+      source: entry.source,
+      orderType: entry.hasDigital && entry.hasPrint ? "mixed" : entry.hasPrint ? "print" : "digital",
+      sessions: entry.sessions,
+      unpaidSessions: entry.unpaidSessions,
+      paidSessions: entry.paidSessions,
+      revenuePaidSessions: entry.revenuePaidSessions,
+      revenueCents: entry.revenueCents,
+      positiveRevenueAovCents:
+        entry.revenuePaidSessions > 0 ? Math.round(entry.revenueCents / entry.revenuePaidSessions) : 0,
+    }))
+    .sort((a, b) => {
+      if (b.revenuePaidSessions !== a.revenuePaidSessions) return b.revenuePaidSessions - a.revenuePaidSessions;
+      if (b.sessions !== a.sessions) return b.sessions - a.sessions;
+      if (b.revenueCents !== a.revenueCents) return b.revenueCents - a.revenueCents;
+      return a.label.localeCompare(b.label);
+    });
+
+  return {
+    appliedSessions,
+    unpaidSessions: Math.max(0, appliedSessions - paidSessions),
+    paidSessions,
+    revenuePaidSessions,
+    revenueCents,
+    topCodes,
+  };
 }
 
 function formatMoney(cents, currency) {
@@ -471,6 +626,7 @@ async function buildReport(args) {
   const printRevenuePaid = revenuePaidSessions.filter((session) => classifyOrder(session) === "print");
   const paymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, paidSessions);
   const revenuePaymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, revenuePaidSessions);
+  const promotionSummary = await buildPromotionSummary(stripe, sessions);
 
   const digitalPlanCounts = new Map();
   const printVariantCounts = new Map();
@@ -604,6 +760,7 @@ async function buildReport(args) {
           total: promotionSubscribers.total,
           active: promotionSubscribers.active,
           unsubscribed: promotionSubscribers.unsubscribed,
+          sources: promotionSubscribers.sources,
           lifecycle: promotionSubscribers.lifecycle,
           listComplete: promotionSubscribers.listComplete,
           nextCursor: promotionSubscribers.nextCursor,
@@ -646,6 +803,7 @@ async function buildReport(args) {
       unpaidStatusCounts: topBuckets(unpaidStatusCounts, "status"),
       referralPaidSources: topBuckets(referralSourceCounts, "source"),
       referralOfferVariants: topBuckets(referralOfferVariantCounts, "variant"),
+      promotions: promotionSummary,
     },
     printOps,
   };
@@ -768,6 +926,21 @@ function printHumanReport(report) {
   } else {
     for (const item of report.stripe.referralOfferVariants.slice(0, 8)) {
       console.log(`${item.variant}: ${item.count}`);
+    }
+  }
+
+  console.log("");
+  console.log("Promotion codes");
+  console.log(
+    `applied=${report.stripe.promotions.appliedSessions} paid=${report.stripe.promotions.paidSessions} revenue-paid=${report.stripe.promotions.revenuePaidSessions} revenue=${formatMoney(report.stripe.promotions.revenueCents, report.stripe.currency)}`,
+  );
+  if (!report.stripe.promotions.topCodes.length) {
+    console.log("none");
+  } else {
+    for (const item of report.stripe.promotions.topCodes.slice(0, 8)) {
+      console.log(
+        `${item.label}: source=${item.source} order=${item.orderType} sessions=${item.sessions} revenue-paid=${item.revenuePaidSessions} revenue=${formatMoney(item.revenueCents, report.stripe.currency)}`,
+      );
     }
   }
 

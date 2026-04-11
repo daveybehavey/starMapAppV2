@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
 import { getFunnelDashboard } from "@/lib/funnel";
+import { getStripePromotionCheckoutSummary } from "@/lib/promotionCheckoutSummary";
 import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
 import { getReferralDashboard } from "@/lib/referralDashboard";
 
@@ -44,6 +45,16 @@ export type LoopScorecard = {
       completed: number;
       legacyFollowupSent: number;
       checkoutStarted: number;
+      promoAppliedSessions: number;
+      promoRevenuePaidSessions: number;
+      promoRevenueCents: number;
+      topCheckoutPromotions: Array<{
+        label: string;
+        source: "manual" | "referral_auto" | "unknown";
+        orderType: "digital" | "print" | "mixed";
+        sessions: number;
+        revenuePaidSessions: number;
+      }>;
       paidSessions: number;
       paidSessionsAll: number;
       paidSessionsRevenue: number;
@@ -184,13 +195,14 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
     "",
   );
 
-  const [funnelDashboard, checkoutFailures, promotionSubscribers, referralDashboard, stripeMix] =
+  const [funnelDashboard, checkoutFailures, promotionSubscribers, referralDashboard, stripeMix, promotionCheckoutSummary] =
     await Promise.all([
       getFunnelDashboard(days),
       getCheckoutFailureDashboard(days),
       getPromotionSubscriberSummary(500),
       getReferralDashboard(days),
       getStripePaidMix(days),
+      getStripePromotionCheckoutSummary(days),
     ]);
 
   const landingViews = getLastNDaysCount(funnelDashboard.rows, "landing_view");
@@ -254,6 +266,16 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
         completed: promotionSubscribers.lifecycle.completed,
         legacyFollowupSent: promotionSubscribers.lifecycle.legacyFollowupSent,
         checkoutStarted,
+        promoAppliedSessions: promotionCheckoutSummary.appliedSessions,
+        promoRevenuePaidSessions: promotionCheckoutSummary.revenuePaidSessions,
+        promoRevenueCents: promotionCheckoutSummary.revenueCents,
+        topCheckoutPromotions: promotionCheckoutSummary.topCodes.slice(0, 5).map((row) => ({
+          label: row.label,
+          source: row.source,
+          orderType: row.orderType,
+          sessions: row.sessions,
+          revenuePaidSessions: row.revenuePaidSessions,
+        })),
         paidSessions,
         paidSessionsAll,
         paidSessionsRevenue,

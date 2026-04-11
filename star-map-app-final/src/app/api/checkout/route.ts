@@ -686,6 +686,10 @@ async function createCheckoutSession(
     if (tier.credits) metadata.credits = String(tier.credits);
   }
   if (promotionCodeId) metadata.promotion_code_id = promotionCodeId;
+  if (promotionSource !== "none") metadata.promotion_source = promotionSource;
+  if (promotionSource === "manual" && resolvedPromotionCode?.code) {
+    metadata.promotion_code = resolvedPromotionCode.code.trim().toUpperCase();
+  }
   if (promotionSource === "referral_auto") metadata.referral_offer_applied = "true";
   const referralOfferVariant = resolveReferralOfferVariant({
     referralCode,
@@ -912,6 +916,8 @@ async function createCheckoutSession(
     });
     const fallbackMetadata = { ...metadata };
     delete fallbackMetadata.promotion_code_id;
+    delete fallbackMetadata.promotion_code;
+    delete fallbackMetadata.promotion_source;
     delete fallbackMetadata.referral_offer_applied;
     if (referralCode) {
       fallbackMetadata.referral_offer_variant = "referral_no_discount";

@@ -13,12 +13,12 @@ const LIVE_PROMO_LINKS = [
   {
     label: "Reddit social offer",
     code: "REDDIT50",
-    url: `${DEFAULT_SITE}/offer/reddit`,
+    url: `${DEFAULT_SITE}/editor?mode=quick&code=REDDIT50&utm_source=reddit&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=reddit_offer_01`,
   },
   {
     label: "TikTok social offer",
     code: "TIKTOK50",
-    url: `${DEFAULT_SITE}/offer/tiktok`,
+    url: `${DEFAULT_SITE}/editor?mode=quick&code=TIKTOK50&utm_source=tiktok&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=tiktok_offer_01`,
   },
 ];
 

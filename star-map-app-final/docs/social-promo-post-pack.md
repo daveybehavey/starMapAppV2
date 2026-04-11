@@ -52,11 +52,13 @@ npm run qa:promo-links
 
 ### TikTok / Reels
 
-`https://starmapco.com/offer/tiktok`
+`https://starmapco.com/editor?mode=quick&code=TIKTOK50&utm_source=tiktok&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=tiktok_offer_01`
 
 ### Reddit
 
-`https://starmapco.com/offer/reddit`
+`https://starmapco.com/editor?mode=quick&code=REDDIT50&utm_source=reddit&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=reddit_offer_01`
+
+Short `/offer/...` links are queued for the next deploy. Until then, use the full editor URLs above.
 
 ## TikTok / Reels posts
 
@@ -136,7 +138,7 @@ Use Reddit in one of three ways:
 
 Use this only where direct offers are allowed.
 
-`If anyone here is looking for a more personal gift angle, I run StarMapCo and we make custom star maps from a real date and location. I set up a small Reddit offer for early users: REDDIT50 for 50% off the single HD digital version. Start with the date that matters most: https://starmapco.com/offer/reddit`
+`If anyone here is looking for a more personal gift angle, I run StarMapCo and we make custom star maps from a real date and location. I set up a small Reddit offer for early users: REDDIT50 for 50% off the single HD digital version. Start with the date that matters most: https://starmapco.com/editor?mode=quick&code=REDDIT50&utm_source=reddit&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=reddit_offer_01`
 
 ### Reddit story-led version
 

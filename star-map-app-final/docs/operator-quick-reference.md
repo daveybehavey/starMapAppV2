@@ -170,6 +170,7 @@ Notes:
 - it does not rewrite `.env.local`
 - checkout can validate these codes even if they are not the default signup promo
 - run `npm run qa:promo-links` before posting the live Reddit/TikTok URLs
+- `qa:promo-links` currently validates the full live editor URLs with saved codes; short `/offer/...` redirects are still waiting on the next production deploy
 - current rollout docs:
   - `docs/google-merchant-center-promotions-playbook.md`
   - `docs/social-promo-offers-playbook.md`
@@ -185,6 +186,7 @@ Notes:
   - Stripe session creation (`checkout_request_received` -> `checkout_session_created`)
   - paid-after-Stripe conversion
   - promo signup counts
+  - top checkout promo codes
   - top checkout blockers
 
 ### Inspect captured promo signups

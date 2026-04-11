@@ -53,6 +53,19 @@ function toRate(numerator, denominator) {
   return `${percent(numerator, denominator).toFixed(2)}% (${numerator}/${denominator})`;
 }
 
+function formatMoney(cents, currency = "usd") {
+  if (!Number.isFinite(cents)) return "0";
+  const code = String(currency || "usd").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+    }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${code}`;
+  }
+}
+
 function buildScorecard(digest) {
   const paidSessionsAll = Number(digest?.stripe?.paidSessions || 0);
   const paidSessionsRevenue = Number(digest?.stripe?.revenuePaidSessions || paidSessionsAll);
@@ -137,6 +150,18 @@ function buildScorecard(digest) {
         completed: Number(lifecycle?.completed || 0),
         legacyFollowupSent: Number(lifecycle?.legacyFollowupSent || 0),
         checkoutStarted,
+        promoAppliedSessions: Number(digest?.stripe?.promotions?.appliedSessions || 0),
+        promoRevenuePaidSessions: Number(digest?.stripe?.promotions?.revenuePaidSessions || 0),
+        promoRevenueCents: Number(digest?.stripe?.promotions?.revenueCents || 0),
+        topCheckoutPromotions: Array.isArray(digest?.stripe?.promotions?.topCodes)
+          ? digest.stripe.promotions.topCodes.slice(0, 5).map((row) => ({
+              label: String(row?.label || "unknown"),
+              source: String(row?.source || "unknown"),
+              orderType: String(row?.orderType || "digital"),
+              sessions: Number(row?.sessions || 0),
+              revenuePaidSessions: Number(row?.revenuePaidSessions || 0),
+            }))
+          : [],
         paidSessions,
         paidSessionsAll,
         paidSessionsRevenue,
@@ -241,6 +266,18 @@ function printHumanScorecard(scorecard) {
       ` | revenue-paid all: ${scorecard.loops.promoLifecycle.paidSessionsRevenue}` +
       ` | paid all: ${scorecard.loops.promoLifecycle.paidSessionsAll}`,
   );
+  if (scorecard.loops.promoLifecycle.topCheckoutPromotions.length > 0) {
+    console.log(
+      `Top checkout promos: ${scorecard.loops.promoLifecycle.topCheckoutPromotions
+        .map((row) => `${row.label} (${row.revenuePaidSessions}/${row.sessions})`)
+        .join(" | ")}`,
+    );
+    console.log(
+      `Promo-attributed sessions: ${scorecard.loops.promoLifecycle.promoAppliedSessions}` +
+        ` | revenue-paid: ${scorecard.loops.promoLifecycle.promoRevenuePaidSessions}` +
+        ` | revenue: ${formatMoney(scorecard.loops.promoLifecycle.promoRevenueCents)}`,
+    );
+  }
   console.log(
     `Subscriber -> paid proxy (revenue-positive, ex QA): ${scorecard.loops.promoLifecycle.paidPerActiveSubscriberPct.toFixed(2)}%`,
   );
