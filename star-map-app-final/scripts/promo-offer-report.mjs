@@ -141,6 +141,14 @@ function isRevenuePositivePaidSession(session) {
   return isPaidCheckoutSession(session) && Number(session.amount_total || 0) > 0;
 }
 
+function isQaTaggedSession(session) {
+  const metadata = session.metadata || {};
+  const qaRun = normalizeValue(metadata.qa_run).toLowerCase();
+  const qaSource = normalizeValue(metadata.qa_source).toLowerCase();
+  const clientReferenceId = normalizeValue(session.client_reference_id).toLowerCase();
+  return qaRun === "true" || Boolean(qaSource) || clientReferenceId.includes("qa");
+}
+
 async function findPromotionCodeByCode(code) {
   const list = await stripe.promotionCodes.list({
     code,
@@ -205,6 +213,7 @@ function summarizeSessionsForCode(sessions, code, promotionCodeLabelsById) {
   let revenueCents = 0;
 
   for (const session of sessions) {
+    if (isQaTaggedSession(session)) continue;
     const metadata = session.metadata || {};
     const sessionCode =
       normalizeUpper(metadata.promotion_code) ||

@@ -96,4 +96,41 @@ test.describe("promotion checkout summary", () => {
       revenueCents: 5200,
     });
   });
+
+  test("excludes QA-tagged sessions from promo summaries", () => {
+    const summary = summarizePromotionCheckoutSessions([
+      {
+        id: "cs_test_real",
+        payment_status: "unpaid",
+        amount_total: 4500,
+        metadata: {
+          order_type: "digital",
+          promotion_source: "manual",
+          promotion_code: "EMAIL50",
+          promotion_code_id: "promo_email_1",
+        },
+      },
+      {
+        id: "cs_test_qa",
+        payment_status: "unpaid",
+        amount_total: 4500,
+        metadata: {
+          order_type: "digital",
+          promotion_source: "manual",
+          promotion_code: "EMAIL50",
+          promotion_code_id: "promo_email_1",
+          qa_run: "true",
+          qa_source: "promo_link_readiness",
+        },
+      },
+    ]);
+
+    expect(summary.appliedSessions).toBe(1);
+    expect(summary.unpaidSessions).toBe(1);
+    expect(summary.topCodes[0]).toMatchObject({
+      label: "EMAIL50",
+      sessions: 1,
+      unpaidSessions: 1,
+    });
+  });
 });

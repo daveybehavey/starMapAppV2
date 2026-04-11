@@ -8,6 +8,7 @@ const DEFAULT_SITE = "https://starmapco.com";
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_REPORT_PATH = "reports/promo-link-readiness.json";
 const PROMO_CODE_STORAGE_KEY = "star-map-promo-code";
+const QA_ADMIN_TOKEN = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
 
 const LIVE_PROMO_LINKS = [
   {
@@ -110,6 +111,15 @@ function runCheck(checks, name, passed, details) {
   console.log(`[${prefix}] ${name}${details ? ` — ${details}` : ""}`);
 }
 
+function buildQaHeaders(source) {
+  if (!QA_ADMIN_TOKEN) return {};
+  return {
+    "x-admin-token": QA_ADMIN_TOKEN,
+    "x-qa-run": "true",
+    "x-qa-source": source,
+  };
+}
+
 async function verifyPromoLinkInBrowser(browser, link, timeoutMs) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -120,7 +130,7 @@ async function verifyPromoLinkInBrowser(browser, link, timeoutMs) {
     runCheck(checks, `${link.label} loads`, response?.status() === 200, `status=${response?.status() ?? "n/a"}`);
 
     await page.waitForLoadState("networkidle", { timeout: timeoutMs }).catch(() => {});
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1500);
 
     await page
       .waitForFunction(
@@ -132,7 +142,7 @@ async function verifyPromoLinkInBrowser(browser, link, timeoutMs) {
           }
         },
         [PROMO_CODE_STORAGE_KEY, link.code],
-        { timeout: Math.min(timeoutMs, 5_000) },
+        { timeout: Math.min(timeoutMs, 10_000) },
       )
       .catch(() => {});
 
@@ -169,6 +179,7 @@ async function saveMap({ site, timeoutMs, userAgent }) {
   const headers = {
     "content-type": "application/json",
     "user-agent": userAgent,
+    ...buildQaHeaders("promo_link_readiness"),
   };
   const response = await fetchWithTimeout(
     `${site}/api/maps`,
@@ -245,6 +256,7 @@ async function createDigitalCheckout({ site, timeoutMs, mapId, checkoutIntentCoo
         "content-type": "application/json",
         "user-agent": userAgent,
         cookie: checkoutIntentCookie,
+        ...buildQaHeaders("promo_link_readiness"),
       },
       body: JSON.stringify({ plan: "single", mapId, promoCode }),
       cache: "no-store",

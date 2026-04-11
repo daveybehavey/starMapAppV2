@@ -95,7 +95,7 @@ function isQaTaggedSession(session) {
   const qaRun = String(metadata.qa_run || "").trim().toLowerCase();
   const qaSource = String(metadata.qa_source || "").trim().toLowerCase();
   const clientReferenceId = String(session.client_reference_id || "").trim().toLowerCase();
-  return qaRun === "true" || qaSource.startsWith("qa") || clientReferenceId.includes("qa");
+  return qaRun === "true" || Boolean(qaSource) || clientReferenceId.includes("qa");
 }
 
 function classifyOrder(session) {
@@ -613,11 +613,13 @@ async function buildReport(args) {
     loadSessions(stripe, args.days),
   ]);
 
-  const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session));
-  const unpaidSessions = sessions.filter((session) => !isPaidCheckoutSession(session));
+  const qaTaggedSessions = sessions.filter((session) => isQaTaggedSession(session));
+  const nonQaSessions = sessions.filter((session) => !isQaTaggedSession(session));
+  const paidSessions = nonQaSessions.filter((session) => isPaidCheckoutSession(session));
+  const unpaidSessions = nonQaSessions.filter((session) => !isPaidCheckoutSession(session));
   const revenuePaidSessions = paidSessions.filter((session) => isRevenuePositivePaidSession(session));
   const noChargePaidSessions = paidSessions.filter((session) => !isRevenuePositivePaidSession(session));
-  const qaTaggedPaidSessions = paidSessions.filter((session) => isQaTaggedSession(session));
+  const qaTaggedPaidSessions = qaTaggedSessions.filter((session) => isPaidCheckoutSession(session));
   const revenuePaidSessionsNonQa = revenuePaidSessions.filter((session) => !isQaTaggedSession(session));
 
   const digitalPaid = paidSessions.filter((session) => classifyOrder(session) === "digital");
@@ -626,7 +628,7 @@ async function buildReport(args) {
   const printRevenuePaid = revenuePaidSessions.filter((session) => classifyOrder(session) === "print");
   const paymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, paidSessions);
   const revenuePaymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, revenuePaidSessions);
-  const promotionSummary = await buildPromotionSummary(stripe, sessions);
+  const promotionSummary = await buildPromotionSummary(stripe, nonQaSessions);
 
   const digitalPlanCounts = new Map();
   const printVariantCounts = new Map();
@@ -769,6 +771,7 @@ async function buildReport(args) {
     promotionSubscribersError: promotionSubscribers.ok ? null : promotionSubscribers.error,
     stripe: {
       sessionsScanned: sessions.length,
+      qaTaggedSessions: qaTaggedSessions.length,
       paidSessions: paidSessions.length,
       revenuePaidSessions: revenuePaidSessions.length,
       revenuePaidSessionsExcludingQa: revenuePaidSessionsNonQa.length,
@@ -836,7 +839,8 @@ function printHumanReport(report) {
     `Positive-revenue AOV: ${formatMoney(report.stripe.positiveRevenueAovCents, report.stripe.currency)}`,
   );
   console.log(
-    `Mix (all paid): digital=${report.stripe.digitalPaidSessions} print=${report.stripe.printPaidSessions} scanned=${report.stripe.sessionsScanned}`,
+    `Mix (all paid): digital=${report.stripe.digitalPaidSessions} print=${report.stripe.printPaidSessions} ` +
+      `scanned=${report.stripe.sessionsScanned} qa=${report.stripe.qaTaggedSessions}`,
   );
   console.log(
     `Mix (revenue-paid): digital=${report.stripe.digitalRevenuePaidSessions} print=${report.stripe.printRevenuePaidSessions}`,

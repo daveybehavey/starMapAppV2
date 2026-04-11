@@ -28,6 +28,7 @@ import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
 import { isManualPromotionAllowedForCheckout } from "@/lib/manualPromotionCatalog";
 import { classifyUnexpectedCheckoutError, describeCheckoutErrorForLog } from "@/lib/checkoutErrorClassification";
+import { resolveQaRequestContext, type QaRequestContext } from "@/lib/qaSession";
 import {
   CHECKOUT_INTENT_COOKIE_NAME,
   CHECKOUT_INTENT_TTL_SECONDS,
@@ -568,6 +569,16 @@ type CheckoutSessionResult = {
   discountRejected: boolean;
 };
 
+async function maybeRecordCheckoutFailure(qaContext: QaRequestContext, input: Parameters<typeof recordCheckoutFailure>[0]) {
+  if (qaContext.enabled) return;
+  await recordCheckoutFailure(input);
+}
+
+async function maybeRecordFunnelStep(qaContext: QaRequestContext, input: Parameters<typeof recordFunnelStep>[0]) {
+  if (qaContext.enabled) return;
+  await recordFunnelStep(input);
+}
+
 class CheckoutError extends Error {
   code: string;
   status: number;
@@ -598,6 +609,7 @@ async function createCheckoutSession(
     referralAttribution?: ReferralAttribution | null;
     promotionSource?: PromotionSource;
     referralAutoOfferVariant?: ReferralAutoOfferVariant;
+    qaContext?: QaRequestContext;
   },
 ): Promise<CheckoutSessionResult> {
   const {
@@ -617,6 +629,7 @@ async function createCheckoutSession(
     referralAttribution,
     promotionSource = "none",
     referralAutoOfferVariant,
+    qaContext = { enabled: false, source: null },
   } = input;
   if (!stripe) {
     throw new Error("Stripe not configured");
@@ -713,6 +726,10 @@ async function createCheckoutSession(
   }
   if (isPrintOrder && typeof printShippingChargeCents === "number") {
     metadata.print_shipping_charge_cents = String(printShippingChargeCents);
+  }
+  if (qaContext.enabled) {
+    metadata.qa_run = "true";
+    if (qaContext.source) metadata.qa_source = qaContext.source;
   }
 
   const digitalPriceId = stripePriceIds[effectivePlan]?.trim();
@@ -948,6 +965,7 @@ export async function GET(req: NextRequest) {
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetIn);
   }
+  const qaContext = resolveQaRequestContext(req.headers, process.env.PRINT_ADMIN_TOKEN);
 
   const planParam = req.nextUrl.searchParams.get("plan");
   const mapParam = req.nextUrl.searchParams.get("map_id");
@@ -1029,7 +1047,7 @@ export async function GET(req: NextRequest) {
     storedIntent = await assertCheckoutIntent(req, mapId);
   } catch (error) {
     if (error instanceof CheckoutError) {
-      await recordCheckoutFailure({
+      await maybeRecordCheckoutFailure(qaContext, {
         reason: error.code,
         source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
         plan: orderType === "print" ? printVariant : plan,
@@ -1040,12 +1058,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_started",
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_request_received",
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
@@ -1067,16 +1085,17 @@ export async function GET(req: NextRequest) {
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      qaContext,
     });
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_session_created",
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_redirected",
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
@@ -1086,7 +1105,7 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (err) {
     if (err instanceof CheckoutError) {
-      await recordCheckoutFailure({
+      await maybeRecordCheckoutFailure(qaContext, {
         reason: err.code,
         source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
         plan: orderType === "print" ? printVariant : plan,
@@ -1094,7 +1113,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
     const failureReason = classifyUnexpectedCheckoutError(err);
-    await recordCheckoutFailure({
+    await maybeRecordCheckoutFailure(qaContext, {
       reason: failureReason,
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
@@ -1119,6 +1138,7 @@ export async function POST(req: NextRequest) {
   let plan: CheckoutPlan = "single";
   let orderType: CheckoutOrderType = "digital";
   let printVariant: PrintVariant = "poster_framed";
+  const qaContext = resolveQaRequestContext(req.headers, process.env.PRINT_ADMIN_TOKEN);
 
   try {
     const clientCountry = getRequestCountry(req);
@@ -1241,13 +1261,13 @@ export async function POST(req: NextRequest) {
       printVariant,
     });
 
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_started",
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
     });
 
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_request_received",
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
@@ -1271,6 +1291,7 @@ export async function POST(req: NextRequest) {
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      qaContext,
     });
     if (promoCode && session.discountRejected) {
       return NextResponse.json(
@@ -1278,13 +1299,13 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_session_created",
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
     });
 
-    await recordFunnelStep({
+    await maybeRecordFunnelStep(qaContext, {
       step: "checkout_redirected",
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
@@ -1302,7 +1323,7 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err) {
     if (err instanceof CheckoutError) {
-      await recordCheckoutFailure({
+      await maybeRecordCheckoutFailure(qaContext, {
         reason: err.code,
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
         plan: orderType === "print" ? printVariant : plan,
@@ -1310,7 +1331,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
     const failureReason = classifyUnexpectedCheckoutError(err);
-    await recordCheckoutFailure({
+    await maybeRecordCheckoutFailure(qaContext, {
       reason: failureReason,
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,

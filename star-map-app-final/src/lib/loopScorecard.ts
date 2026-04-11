@@ -3,6 +3,7 @@ import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
 import { getFunnelDashboard } from "@/lib/funnel";
 import { getStripePromotionCheckoutSummary } from "@/lib/promotionCheckoutSummary";
 import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
+import { isQaTaggedSessionLike } from "@/lib/qaSession";
 import { getReferralDashboard } from "@/lib/referralDashboard";
 
 export type LoopScorecard = {
@@ -115,14 +116,6 @@ function isRevenuePositivePaidSession(session: Stripe.Checkout.Session) {
   return isPaidCheckoutSession(session) && Number(session.amount_total || 0) > 0;
 }
 
-function isQaTaggedSession(session: Stripe.Checkout.Session) {
-  const metadata = session.metadata || {};
-  const qaRun = String(metadata.qa_run || "").trim().toLowerCase();
-  const qaSource = String(metadata.qa_source || "").trim().toLowerCase();
-  const clientReferenceId = String(session.client_reference_id || "").trim().toLowerCase();
-  return qaRun === "true" || qaSource.startsWith("qa") || clientReferenceId.includes("qa");
-}
-
 function belongsToStarMap(session: Stripe.Checkout.Session) {
   const metadata = session.metadata || {};
   return Boolean(
@@ -172,7 +165,7 @@ async function getStripePaidMix(days: number) {
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session) && belongsToStarMap(session));
   const paidRevenueSessions = paidSessions.filter((session) => isRevenuePositivePaidSession(session));
-  const paidRevenueSessionsExcludingQa = paidRevenueSessions.filter((session) => !isQaTaggedSession(session));
+  const paidRevenueSessionsExcludingQa = paidRevenueSessions.filter((session) => !isQaTaggedSessionLike(session));
   const printPaidSessions = paidSessions.filter((session) => classifyOrder(session) === "print");
   const printPaidRevenueSessionsExcludingQa = paidRevenueSessionsExcludingQa.filter(
     (session) => classifyOrder(session) === "print",

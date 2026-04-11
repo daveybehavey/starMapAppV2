@@ -6,6 +6,16 @@ import path from "node:path";
 const DEFAULT_SITE = "https://starmapco.com";
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_REPORT_PATH = "reports/live-smoke.json";
+const QA_ADMIN_TOKEN = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
+
+function buildQaHeaders(source) {
+  if (!QA_ADMIN_TOKEN) return {};
+  return {
+    "x-admin-token": QA_ADMIN_TOKEN,
+    "x-qa-run": "true",
+    "x-qa-source": source,
+  };
+}
 
 function parseArgs(argv) {
   const args = {
@@ -89,6 +99,7 @@ async function main() {
   const smokeRequestHeaders = {
     "content-type": "application/json",
     "user-agent": "star-map-live-smoke/1.0",
+    ...buildQaHeaders("live_smoke"),
   };
   const runCheck = (name, passed, details) => {
     checks.push({ name, passed, details });

@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { isQaTaggedSessionLike } from "@/lib/qaSession";
 
 export type PromotionSource = "manual" | "referral_auto" | "unknown";
 export type PromotionOrderType = "digital" | "print" | "mixed";
@@ -165,6 +166,7 @@ export function summarizePromotionCheckoutSessions(
   const buckets = new Map<string, MutablePromotionSummary>();
 
   for (const session of sessions) {
+    if (isQaTaggedSessionLike(session)) continue;
     const resolved = resolvePromotionDetails(session, promotionCodeLabelsById);
     if (!resolved) continue;
 
