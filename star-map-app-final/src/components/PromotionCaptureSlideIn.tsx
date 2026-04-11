@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { PromotionForm } from "@/components/PromotionForm";
 import { track } from "@/lib/analytics";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
@@ -76,32 +75,43 @@ function getSourceForPath(pathname: string) {
 }
 
 export default function PromotionCaptureSlideIn() {
-  const pathname = usePathname();
   const promotionOfferName = getPromotionOfferName();
   const promotionTargetLabel = getPromotionTargetLabel();
+  const [pathname, setPathname] = useState<string>("/");
+  const [source, setSource] = useState("promotion_slidein_marketing");
   const [eligible, setEligible] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const hasTrackedView = useRef(false);
 
-  const source = useMemo(() => getSourceForPath(pathname), [pathname]);
-
   useEffect(() => {
     hasTrackedView.current = false;
     setIsVisible(false);
+    setEligible(false);
 
-    if (!pathname || isBlockedPath(pathname)) {
-      setEligible(false);
+    if (typeof window === "undefined") {
       return;
     }
 
-    const params = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+    const nextPathname = window.location.pathname || "/";
+    setPathname(nextPathname);
+    setSource(getSourceForPath(nextPathname));
+
+    if (!nextPathname || isBlockedPath(nextPathname)) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
     const hasImmediatePromo = Boolean(params?.get("promo") || params?.get("code"));
     const storedPromo = readStoredPromoCode();
     const dismissedUntil = readTimestamp(DISMISS_KEY);
-    const alreadySeenThisSession = readSessionFlag(`${SESSION_SEEN_KEY}:${pathname}`);
-    const nextEligible = !hasImmediatePromo && !storedPromo && dismissedUntil <= Date.now() && !alreadySeenThisSession;
-    setEligible(nextEligible);
-  }, [pathname]);
+    const alreadySeenThisSession = readSessionFlag(`${SESSION_SEEN_KEY}:${nextPathname}`);
+    setEligible(
+      !hasImmediatePromo &&
+        !storedPromo &&
+        dismissedUntil <= Date.now() &&
+        !alreadySeenThisSession,
+    );
+  }, []);
 
   useEffect(() => {
     if (!eligible) return;
@@ -141,6 +151,7 @@ export default function PromotionCaptureSlideIn() {
     }
 
     window.addEventListener("scroll", onScroll, { passive: true });
+    updateFromScroll();
 
     return () => {
       window.clearTimeout(timerId);
@@ -154,7 +165,10 @@ export default function PromotionCaptureSlideIn() {
   if (!eligible || !isVisible) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-3 z-40 px-3 sm:bottom-5 sm:right-5 sm:left-auto sm:max-w-md sm:px-0">
+    <div
+      data-promotion-slidein="true"
+      className="pointer-events-none fixed inset-x-0 bottom-3 z-40 px-3 sm:bottom-5 sm:right-5 sm:left-auto sm:max-w-md sm:px-0"
+    >
       <section className="pointer-events-auto overflow-hidden rounded-[26px] border border-amber-200/70 bg-[linear-gradient(160deg,rgba(255,249,235,0.98),rgba(246,239,224,0.96),rgba(255,255,255,0.94))] text-midnight shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur">
         <div className="flex items-start justify-between gap-3 border-b border-amber-200/70 px-4 py-4 sm:px-5">
           <div className="space-y-1">
