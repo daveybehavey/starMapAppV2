@@ -53,5 +53,29 @@
     "phase": "phase-3",
     "bundleOnly": true,
     "notes": "Use as checkout add-on only; weak standalone economics."
+  },
+  {
+    "id": "acrylic_ornament_circle",
+    "label": "Acrylic ornament (circle)",
+    "variantId": 20250,
+    "targetMarginUsd": 15,
+    "proposedPriceUsd": 29,
+    "fit": "high",
+    "phase": "phase-3",
+    "bundleOnly": false,
+    "launchCountries": ["US"],
+    "notes": "Strong thematic fit for seasonal gifting, but currently US-only in Printful."
+  },
+  {
+    "id": "luggage_tag",
+    "label": "Luggage tag",
+    "variantId": 23889,
+    "targetMarginUsd": 15,
+    "proposedPriceUsd": 34,
+    "fit": "medium",
+    "phase": "phase-3",
+    "bundleOnly": false,
+    "launchCountries": ["US"],
+    "notes": "Functional add-on with weaker star-map fit; only worth a limited US test."
   }
 ]

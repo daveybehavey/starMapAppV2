@@ -168,6 +168,13 @@ Best-fit early expansion:
 5. postcard or keepsake card set
 6. keychain if quality is genuinely good
 
+Current scored candidates:
+
+- `Canvas (entry size)` currently scores `launch_ready`
+- `Acrylic ornament (circle)` currently scores `test_limited` as a US-only seasonal candidate
+- `Luggage tag` currently scores `test_limited`, but with weaker thematic fit
+- `Greeting card (4x6)` currently stays `bundle_only`
+
 Why later:
 - expansion without traffic and conversion just adds surface area and ops load
 
@@ -179,6 +186,7 @@ Definition of done:
 Rule:
 - expand with emotionally coherent keepsake products first
 - do not start with generic apparel
+- do not force keychains or apparel into the roadmap before a strong supplier-quality and fit case exists
 
 Lower-priority examples:
 

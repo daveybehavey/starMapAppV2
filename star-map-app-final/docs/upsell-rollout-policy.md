@@ -14,8 +14,9 @@ A candidate SKU must pass all of the following:
    - Current default scoring markets: `US`, `CA`, `GB`.
 2. Fit with the star-map gift flow is `high` or `medium`.
 3. No variant-option blockers in Printful estimate-costs API for launch countries.
-4. Checkout copy can explain the SKU in one sentence.
-5. Damage/refund workflow is clear for that SKU type.
+4. If a SKU is region-limited, the launch market is explicit in the rollout plan.
+5. Checkout copy can explain the SKU in one sentence.
+6. Damage/refund workflow is clear for that SKU type.
 
 If any gate fails, do not launch globally.
 
@@ -26,7 +27,7 @@ If any gate fails, do not launch globally.
   - High thematic fit.
   - No estimate blockers.
 - `test_limited`
-  - Margin target met, but medium fit.
+  - Margin target met, but fit is only medium or the SKU should stay country-limited at first.
   - Launch only to a limited cohort or in one funnel entry point.
 - `reprice_before_launch`
   - Proposed price misses margin target in at least one scored country.

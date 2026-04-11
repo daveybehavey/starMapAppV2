@@ -182,20 +182,21 @@ function marginAtProposedPriceUsd({ productPriceUsd, shippingUsd, totalCostUsd, 
   return revenue - stripeFee - totalCostUsd;
 }
 
-function classifyCandidate({ bundleOnly, allMeetTarget, fit }) {
+function classifyCandidate({ bundleOnly, allMeetTarget, fit, limitedMarket }) {
   if (bundleOnly) return "bundle_only";
   if (!allMeetTarget) return "reprice_before_launch";
+  if (limitedMarket) return "test_limited";
   if (fit === "high") return "launch_ready";
   return "test_limited";
 }
 
 function markdownTable(rows) {
   const lines = [];
-  lines.push("| SKU | Variant | Target margin | Proposed | Worst-country required | Worst-country projected | Action |");
-  lines.push("| --- | --- | ---: | ---: | ---: | ---: | --- |");
+  lines.push("| SKU | Variant | Launch markets | Target margin | Proposed | Worst-country required | Worst-country projected | Action |");
+  lines.push("| --- | --- | --- | ---: | ---: | ---: | ---: | --- |");
   for (const row of rows) {
     lines.push(
-      `| ${row.label} | ${row.variantId} | $${row.targetMarginUsd.toFixed(2)} | $${row.proposedPriceUsd.toFixed(2)} | $${row.worstRequiredUsd.toFixed(2)} | $${row.worstProjectedMarginUsd.toFixed(2)} | ${row.action} |`,
+      `| ${row.label} | ${row.variantId} | ${row.scoredCountries.join(", ")} | $${row.targetMarginUsd.toFixed(2)} | $${row.proposedPriceUsd.toFixed(2)} | $${row.worstRequiredUsd.toFixed(2)} | $${row.worstProjectedMarginUsd.toFixed(2)} | ${row.action} |`,
     );
   }
   return lines.join("\n");
@@ -250,11 +251,20 @@ async function main() {
   for (const candidate of candidates) {
     const variantId = Number(candidate.variantId);
     if (!Number.isFinite(variantId) || variantId <= 0) continue;
+    const launchCountries = Array.isArray(candidate.launchCountries)
+      ? candidate.launchCountries
+          .map((value) => String(value || "").trim().toUpperCase())
+          .filter((value) => /^[A-Z]{2}$/.test(value))
+      : [];
+    const scoredCountries = launchCountries.length
+      ? args.countries.filter((country) => launchCountries.includes(country))
+      : [...args.countries];
+    const limitedMarket = scoredCountries.length > 0 && scoredCountries.length < args.countries.length;
 
     const variant = await printfulGet(`/products/variant/${variantId}`, token);
     const markets = {};
 
-    for (const country of args.countries) {
+    for (const country of scoredCountries) {
       const recipient = COUNTRY_RECIPIENTS[country];
       if (!recipient) continue;
       try {
@@ -295,6 +305,7 @@ async function main() {
       results.push({
         ...candidate,
         variantId,
+        scoredCountries,
         variantName: variant?.variant?.name || null,
         action: "blocked",
         markets,
@@ -313,10 +324,12 @@ async function main() {
       bundleOnly: Boolean(candidate.bundleOnly),
       allMeetTarget,
       fit: String(candidate.fit || "medium").toLowerCase(),
+      limitedMarket,
     });
     results.push({
       ...candidate,
       variantId,
+      scoredCountries,
       variantName: variant?.variant?.name || null,
       action,
       markets,
@@ -351,7 +364,7 @@ async function main() {
     "",
     "Action labels:",
     "- `launch_ready`: margin target met in all scored countries and fit is high.",
-    "- `test_limited`: margin target met, but fit is medium so launch should be staged.",
+    "- `test_limited`: margin target met, but fit is medium or the launch should stay country-limited/staged.",
     "- `reprice_before_launch`: margin target missed at proposed price in at least one scored country.",
     "- `bundle_only`: do not launch standalone; allow only as checkout add-on.",
     "- `blocked`: could not price due to variant/options/shipping errors.",
