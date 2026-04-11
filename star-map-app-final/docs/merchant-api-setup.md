@@ -58,6 +58,12 @@ Verify auth:
 npm run merchant:api:verify
 ```
 
+Inspect processed Merchant Center products and approval state:
+
+```bash
+npm run merchant:products:status
+```
+
 Generate the local shipping-service plan:
 
 ```bash
@@ -113,3 +119,4 @@ The scripts write reports under `reports/`:
 - `merchant-shipping-settings.current.json`
 - `merchant-shipping-settings.preview.json`
 - `merchant-shipping-settings.applied.json`
+- `merchant-products-status.json`

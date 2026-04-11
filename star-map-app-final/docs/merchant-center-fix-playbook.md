@@ -10,6 +10,7 @@ From `star-map-app-final/`:
 npm run assets:commerce-refresh:with-proof
 npm run merchant:shipping-reference
 npm run merchant:shipping-groups
+npm run merchant:products:status
 # one-shot local readiness run
 npm run qa:merchant-readiness
 ```
@@ -19,6 +20,7 @@ Outputs:
 - `public/merchant-feed.xml`
 - `docs/merchant-shipping-reference.csv`
 - `docs/merchant-shipping-groups.md`
+- `reports/merchant-products-status.json`
 - `public/printproof/framed-latest.png` (if recent framed order exists)
 
 Current feed policy:
@@ -35,6 +37,15 @@ In Merchant Center:
 3. Feed URL should be:
    - `https://starmapco.com/merchant-feed.xml`
 4. Trigger **Fetch now**
+
+Before assuming the products are missing from Google, verify the account-side truth in the terminal:
+
+```bash
+npm run merchant:products:status
+```
+
+If that command shows both `print_poster_unframed` and `print_poster_framed` approved for
+`FREE_LISTINGS` and `SHOPPING_ADS`, the account already has the products even if the UI is lagging or filtered.
 
 ## 3) Fix shipping configuration (most common blocker)
 
@@ -106,6 +117,7 @@ If you want terminal-driven shipping setup instead of manual GMC editing:
 
 ```bash
 npm run merchant:api:verify
+npm run merchant:products:status
 npm run merchant:shipping:plan
 npm run merchant:shipping:get
 npm run merchant:shipping:preview

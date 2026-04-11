@@ -276,6 +276,9 @@ Notes:
   - `node scripts/generate-merchant-feed.mjs`
 - Feed sanity:
   - `npm run qa:merchant-feed`
+- Account product status:
+  - `npm run merchant:products:status`
+  - `npm run merchant:products:status -- --json`
 - Generate shipping reference CSV for Merchant Center setup:
   - `npm run merchant:shipping-reference`
   - output: `docs/merchant-shipping-reference.csv`
@@ -284,6 +287,7 @@ Notes:
   - output: `docs/merchant-shipping-groups.md`
 - Full fix workflow:
   - `docs/merchant-center-fix-playbook.md`
+  - `npm run qa:merchant-readiness`
 
 ## 5) Loop Marketing Ops
 

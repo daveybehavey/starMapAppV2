@@ -38,7 +38,7 @@ Everything else stays queued unless it directly improves one of those lanes.
 - Product path is live: preview, digital checkout, print route, recovery, referral, lifecycle, ops
 - Core measurement is live: funnel reports, commerce digest, loop scorecard, promo-source reporting
 - Bulk lane exists but is intentionally dark
-- Merchant feed exists but Merchant Center product visibility is still incomplete
+- Merchant feed exists and the Merchant API confirms both print offers are present and approved
 - Traffic execution docs are ready, but posting has not started
 - Real buyer volume is still low, so proof and lifecycle optimization are underpowered
 
@@ -107,15 +107,16 @@ Definition of done:
 
 ## Next Up
 
-### 5. Merchant Center readiness
+### 5. Merchant Center activation
 
 Why next:
-- Merchant feed and `PRINT10` are ready on the site side
-- account-side product visibility is still the blocker
+- Merchant feed, Merchant API checks, and `PRINT10` are ready
+- the remaining step is manual promotion setup and account-side workflow discipline
 
 Definition of done:
-- print products appear correctly in Merchant Center
+- `merchant:products:status` stays clean
 - `PRINT10` can be run as the first US print promotion
+- operator workflow is explicit enough that GMC is not a guess-based lane
 
 ### 6. Bulk lane soft launch
 
@@ -259,7 +260,7 @@ Use these to move items forward.
 ### Move Merchant Center up when:
 
 1. traffic posting has started
-2. Merchant Center account shows the print products
+2. Merchant Center product approval is verified and `PRINT10` is ready to be activated
 
 ### Move bulk lane live when:
 
@@ -287,8 +288,8 @@ This is the current order.
 
 1. start traffic execution next week
 2. read capture-source and checkout-quality data
-3. fix Merchant Center product visibility
-4. enable `PRINT10` when GMC is ready
+3. activate `PRINT10` in Merchant Center when you are ready to use it
+4. keep GMC checks on the operator path with `merchant:products:status`
 5. keep the bulk lane dark but operationally ready
 6. soft-launch the bulk lane when there is reason
 7. publish proof when real approved assets exist
