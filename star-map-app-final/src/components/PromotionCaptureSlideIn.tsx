@@ -162,63 +162,65 @@ export default function PromotionCaptureSlideIn() {
     };
   }, [eligible, pathname, source]);
 
-  if (!eligible || !isVisible) return null;
-
   return (
-    <div
-      data-promotion-slidein="true"
-      className="pointer-events-none fixed inset-x-0 bottom-3 z-40 px-3 sm:bottom-5 sm:right-5 sm:left-auto sm:max-w-md sm:px-0"
-    >
-      <section className="pointer-events-auto overflow-hidden rounded-[26px] border border-amber-200/70 bg-[linear-gradient(160deg,rgba(255,249,235,0.98),rgba(246,239,224,0.96),rgba(255,255,255,0.94))] text-midnight shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur">
-        <div className="flex items-start justify-between gap-3 border-b border-amber-200/70 px-4 py-4 sm:px-5">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-600">Lower-cost first order</p>
-            <h2 className="text-lg font-semibold leading-tight sm:text-xl">
-              Get 50% off your first HD digital map
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              writeTimestamp(DISMISS_KEY, DISMISS_MS);
-              setIsVisible(false);
-              track("promotion_capture_dismissed", {
-                surface: "slidein",
-                source,
-                path: pathname,
-              });
-            }}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-200/80 bg-white/70 text-lg font-semibold text-neutral-700 transition hover:bg-white"
-            aria-label="Dismiss offer"
-          >
-            ×
-          </button>
-        </div>
+    <div data-promotion-slidein-root="true">
+      {eligible && isVisible ? (
+        <div
+          data-promotion-slidein="true"
+          className="pointer-events-none fixed inset-x-0 bottom-3 z-40 px-3 sm:bottom-5 sm:right-5 sm:left-auto sm:max-w-md sm:px-0"
+        >
+          <section className="pointer-events-auto overflow-hidden rounded-[26px] border border-amber-200/70 bg-[linear-gradient(160deg,rgba(255,249,235,0.98),rgba(246,239,224,0.96),rgba(255,255,255,0.94))] text-midnight shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur">
+            <div className="flex items-start justify-between gap-3 border-b border-amber-200/70 px-4 py-4 sm:px-5">
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-600">Lower-cost first order</p>
+                <h2 className="text-lg font-semibold leading-tight sm:text-xl">
+                  Get 50% off your first HD digital map
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  writeTimestamp(DISMISS_KEY, DISMISS_MS);
+                  setIsVisible(false);
+                  track("promotion_capture_dismissed", {
+                    surface: "slidein",
+                    source,
+                    path: pathname,
+                  });
+                }}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-200/80 bg-white/70 text-lg font-semibold text-neutral-700 transition hover:bg-white"
+                aria-label="Dismiss offer"
+              >
+                ×
+              </button>
+            </div>
 
-        <div className="space-y-3 px-4 py-4 sm:px-5 sm:py-5">
-          <p className="text-sm leading-6 text-neutral-800">
-            If you want to start lower-cost, we&apos;ll email a one-time 50% off code for {promotionTargetLabel} and save it in this browser.
-          </p>
-          <PromotionForm
-            source={source}
-            inputVariant="light"
-            hideDisclaimer
-            buttonLabel={`Get ${promotionOfferName}`}
-            onSuccess={() => {
-              writeTimestamp(DISMISS_KEY, SUCCESS_DISMISS_MS);
-              setIsVisible(false);
-              track("promotion_capture_converted", {
-                surface: "slidein",
-                source,
-                path: pathname,
-              });
-            }}
-          />
-          <p className="text-[11px] leading-5 text-neutral-700">
-            One-time code only. Occasional offers only. Unsubscribe anytime.
-          </p>
+            <div className="space-y-3 px-4 py-4 sm:px-5 sm:py-5">
+              <p className="text-sm leading-6 text-neutral-800">
+                If you want to start lower-cost, we&apos;ll email a one-time 50% off code for {promotionTargetLabel} and save it in this browser.
+              </p>
+              <PromotionForm
+                source={source}
+                inputVariant="light"
+                hideDisclaimer
+                buttonLabel={`Get ${promotionOfferName}`}
+                onSuccess={() => {
+                  writeTimestamp(DISMISS_KEY, SUCCESS_DISMISS_MS);
+                  setIsVisible(false);
+                  track("promotion_capture_converted", {
+                    surface: "slidein",
+                    source,
+                    path: pathname,
+                  });
+                }}
+              />
+              <p className="text-[11px] leading-5 text-neutral-700">
+                One-time code only. Occasional offers only. Unsubscribe anytime.
+              </p>
+            </div>
+          </section>
         </div>
-      </section>
+      ) : null}
     </div>
   );
 }
