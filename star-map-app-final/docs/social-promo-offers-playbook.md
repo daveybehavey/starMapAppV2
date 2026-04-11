@@ -32,9 +32,21 @@ Use direct editor links so the promo code is saved immediately.
 
 ### Reddit
 
+Primary share link:
+
+`https://starmapco.com/offer/reddit`
+
+Resolved editor URL:
+
 `https://starmapco.com/editor?mode=quick&code=REDDIT50&utm_source=reddit&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=reddit_offer_01`
 
 ### TikTok
+
+Primary share link:
+
+`https://starmapco.com/offer/tiktok`
+
+Resolved editor URL:
 
 `https://starmapco.com/editor?mode=quick&code=TIKTOK50&utm_source=tiktok&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=tiktok_offer_01`
 
