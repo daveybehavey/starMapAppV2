@@ -50,7 +50,7 @@ yarn-error.log*
 .pnpm-debug.log*
 build.last.log
 
-# env files (can opt-in for committing if needed)
+# env files — do not commit (.env.local, .env.example, overrides, etc.)
 .env*
 
 # vercel

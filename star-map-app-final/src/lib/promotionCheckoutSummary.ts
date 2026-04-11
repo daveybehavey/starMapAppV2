@@ -209,11 +209,14 @@ export function summarizePromotionCheckoutSessions(
   }
 
   const topCodes = [...buckets.values()]
-    .map((entry) => ({
+    .map((entry) => {
+      const orderType: PromotionOrderType =
+        entry.hasDigital && entry.hasPrint ? "mixed" : entry.hasPrint ? "print" : "digital";
+      return {
       label: entry.label,
       code: entry.code,
       source: entry.source,
-      orderType: entry.hasDigital && entry.hasPrint ? "mixed" : entry.hasPrint ? "print" : "digital",
+      orderType,
       sessions: entry.sessions,
       unpaidSessions: entry.unpaidSessions,
       paidSessions: entry.paidSessions,
@@ -221,7 +224,8 @@ export function summarizePromotionCheckoutSessions(
       revenueCents: entry.revenueCents,
       positiveRevenueAovCents:
         entry.revenuePaidSessions > 0 ? Math.round(entry.revenueCents / entry.revenuePaidSessions) : 0,
-    }))
+    };
+    })
     .sort((a, b) => {
       if (b.revenuePaidSessions !== a.revenuePaidSessions) return b.revenuePaidSessions - a.revenuePaidSessions;
       if (b.sessions !== a.sessions) return b.sessions - a.sessions;
