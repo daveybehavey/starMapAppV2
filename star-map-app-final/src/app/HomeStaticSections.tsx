@@ -3,7 +3,6 @@ import FramedProofSection from "@/components/FramedProofSection";
 import HomeOfferStack from "@/components/HomeOfferStack";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
-import PromotionCaptureSlideIn from "@/components/PromotionCaptureSlideIn";
 import PromotionSignup from "@/components/PromotionSignup";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { getBusinessProfile } from "@/lib/businessProfile";
@@ -49,9 +48,19 @@ export default function HomeStaticSections({
   return (
     <>
       <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} proofImages={proofImages} />
-      <PromotionCaptureSlideIn />
+      <div className="pointer-events-none fixed inset-x-4 bottom-4 z-30 sm:right-5 sm:left-auto sm:max-w-xs">
+        <a
+          href="#lower-cost-offer"
+          className="pointer-events-auto flex items-center justify-center rounded-full border border-amber-200/70 bg-[linear-gradient(145deg,rgba(255,249,235,0.98),rgba(246,239,224,0.96))] px-4 py-3 text-center text-sm font-semibold text-midnight shadow-[0_18px_45px_rgba(0,0,0,0.24)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_55px_rgba(0,0,0,0.28)] sm:px-5"
+        >
+          Get 50% off your first HD digital map
+        </a>
+      </div>
 
-      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+      <section
+        id="lower-cost-offer"
+        className="content-visibility-auto scroll-mt-24 mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8"
+      >
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
       </section>
 
