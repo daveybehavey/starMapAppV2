@@ -118,6 +118,13 @@ function buildScorecard(digest) {
         activeSubscribers,
         unsubscribedSubscribers,
         totalSubscribers,
+        topSources: Array.isArray(digest?.promotionSubscribers?.sources)
+          ? digest.promotionSubscribers.sources.slice(0, 5).map((row) => ({
+              source: String(row?.source || "unknown"),
+              active: Number(row?.active || 0),
+              total: Number(row?.total || 0),
+            }))
+          : [],
         welcomeSent: Number(lifecycle?.welcomeSent || 0),
         followupPending: Number(lifecycle?.pending || 0),
         followupDueNow: Number(lifecycle?.dueNow || 0),
@@ -203,6 +210,13 @@ function printHumanScorecard(scorecard) {
   console.log("Loop 3 · Promo lifecycle");
   console.log(`Active subscribers: ${scorecard.loops.promoLifecycle.activeSubscribers}`);
   console.log(`Unsubscribed: ${scorecard.loops.promoLifecycle.unsubscribedSubscribers}`);
+  if (scorecard.loops.promoLifecycle.topSources.length > 0) {
+    console.log(
+      `Top sources: ${scorecard.loops.promoLifecycle.topSources
+        .map((row) => `${row.source} (${row.active}/${row.total})`)
+        .join(" | ")}`,
+    );
+  }
   console.log(
     `Welcome sent: ${scorecard.loops.promoLifecycle.welcomeSent} | ` +
       `pending: ${scorecard.loops.promoLifecycle.followupPending} | ` +

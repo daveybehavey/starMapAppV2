@@ -42,6 +42,13 @@ export type PromotionLifecycleSummary = {
   completed: number;
 };
 
+export type PromotionSourceSummaryEntry = {
+  source: string;
+  total: number;
+  active: number;
+  unsubscribed: number;
+};
+
 const MIN_SIGNING_SECRET_LENGTH = 16;
 
 function getSigningSecret() {
@@ -126,6 +133,7 @@ export type PromotionSubscriberSummary = {
   unsubscribed: number;
   listComplete: boolean;
   lifecycle: PromotionLifecycleSummary;
+  sources: PromotionSourceSummaryEntry[];
 };
 
 function createStepCounts(): PromotionLifecycleStepCounts {
@@ -193,6 +201,33 @@ function buildPromotionLifecycleSummary(states: PromotionEmailState[]): Promotio
   };
 }
 
+function buildPromotionSourceSummary(states: PromotionEmailState[]): PromotionSourceSummaryEntry[] {
+  const counts = new Map<string, PromotionSourceSummaryEntry>();
+
+  for (const state of states) {
+    const source = state.lastSource?.trim() || "unknown";
+    const current = counts.get(source) ?? {
+      source,
+      total: 0,
+      active: 0,
+      unsubscribed: 0,
+    };
+    current.total += 1;
+    if (state.unsubscribedAt) {
+      current.unsubscribed += 1;
+    } else {
+      current.active += 1;
+    }
+    counts.set(source, current);
+  }
+
+  return [...counts.values()].sort((a, b) => {
+    if (b.active !== a.active) return b.active - a.active;
+    if (b.total !== a.total) return b.total - a.total;
+    return a.source.localeCompare(b.source);
+  });
+}
+
 export function summarizePromotionEmailStates(
   states: Array<PromotionEmailState | null | undefined>,
   listComplete = true,
@@ -215,6 +250,7 @@ export function summarizePromotionEmailStates(
     unsubscribed,
     listComplete,
     lifecycle: buildPromotionLifecycleSummary(validStates),
+    sources: buildPromotionSourceSummary(validStates),
   };
 }
 

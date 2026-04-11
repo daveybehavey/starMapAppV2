@@ -396,6 +396,16 @@ async function getPromotionSubscribers(site) {
     total: Number(summary?.total ?? subscribers.length),
     active: Number(summary?.active ?? subscribers.filter((row) => !row.unsubscribedAt).length),
     unsubscribed: Number(summary?.unsubscribed ?? subscribers.filter((row) => row.unsubscribedAt).length),
+    sources: Array.isArray(summary?.sources)
+      ? summary.sources
+          .filter((row) => row && typeof row === "object")
+          .map((row) => ({
+            source: String(row.source || "unknown"),
+            total: Number(row.total || 0),
+            active: Number(row.active || 0),
+            unsubscribed: Number(row.unsubscribed || 0),
+          }))
+      : [],
     lifecycle,
     listComplete: Boolean(summary?.listComplete ?? body.listComplete),
     nextCursor: body.nextCursor ?? null,
@@ -908,6 +918,14 @@ function printHumanReport(report) {
       );
       console.log(
         `due now: objection=${report.promotionSubscribers.lifecycle.dueByStep.objection} urgency=${report.promotionSubscribers.lifecycle.dueByStep.urgency}`,
+      );
+    }
+    if (Array.isArray(report.promotionSubscribers.sources) && report.promotionSubscribers.sources.length > 0) {
+      console.log(
+        `top sources: ${report.promotionSubscribers.sources
+          .slice(0, 5)
+          .map((row) => `${row.source}: active=${row.active} total=${row.total}`)
+          .join(" | ")}`,
       );
     }
     if (!report.promotionSubscribers.listComplete) {

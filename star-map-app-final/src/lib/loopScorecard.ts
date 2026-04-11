@@ -27,6 +27,11 @@ export type LoopScorecard = {
       activeSubscribers: number;
       unsubscribedSubscribers: number;
       totalSubscribers: number;
+      topSources: Array<{
+        source: string;
+        active: number;
+        total: number;
+      }>;
       welcomeSent: number;
       followupPending: number;
       followupDueNow: number;
@@ -232,6 +237,11 @@ export async function buildLoopScorecard(input: BuildLoopScorecardInput = {}): P
         activeSubscribers: promotionSubscribers.active,
         unsubscribedSubscribers: promotionSubscribers.unsubscribed,
         totalSubscribers: promotionSubscribers.total,
+        topSources: promotionSubscribers.sources.slice(0, 5).map((row) => ({
+          source: row.source,
+          active: row.active,
+          total: row.total,
+        })),
         welcomeSent: promotionSubscribers.lifecycle.welcomeSent,
         followupPending: promotionSubscribers.lifecycle.pending,
         followupDueNow: promotionSubscribers.lifecycle.dueNow,

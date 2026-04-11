@@ -204,6 +204,15 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
               {promotionSubscribers.lifecycle.pending.toLocaleString()} • due now{" "}
               {promotionSubscribers.lifecycle.dueNow.toLocaleString()}
             </p>
+            {promotionSubscribers.sources.length ? (
+              <p className="mt-1 text-xs text-neutral-400">
+                Top sources:{" "}
+                {promotionSubscribers.sources
+                  .slice(0, 4)
+                  .map((row) => `${row.source} (${row.active}/${row.total})`)
+                  .join(" • ")}
+              </p>
+            ) : null}
             <p className="mt-1 text-xs text-neutral-500">
               objection {promotionSubscribers.lifecycle.queuedByStep.objection.toLocaleString()} queued • urgency{" "}
               {promotionSubscribers.lifecycle.queuedByStep.urgency.toLocaleString()} queued • completed{" "}
