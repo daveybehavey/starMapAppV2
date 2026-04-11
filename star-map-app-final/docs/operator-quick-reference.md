@@ -162,6 +162,7 @@ Use this for channel-specific offers that should not overwrite the default signu
 
 Examples:
 - `npm run promo:create -- --code PRINT10 --percent 10 --scope any_print`
+- `npm run promo:create -- --code EMAIL50 --percent 50 --scope single_digital --max-redemptions 15`
 - `npm run promo:create -- --code REDDIT50 --percent 50 --scope single_digital --max-redemptions 15`
 - `npm run promo:create -- --code TIKTOK50 --percent 50 --scope single_digital --max-redemptions 15`
 
@@ -176,6 +177,7 @@ Notes:
   - `docs/social-promo-offers-playbook.md`
   - `docs/promo-offer-tracker.csv`
   - `docs/social-promo-post-pack.md`
+  - `scripts/send-promotion-broadcast.mjs` now defaults to `EMAIL50` for subscriber email sends
 
 ### Internal funnel page
 

@@ -8,7 +8,7 @@ function parseArgs(argv) {
     testTo: "",
     onlyEmail: "",
     excludeDomains: [],
-    code: "REDDIT50",
+    code: "EMAIL50",
     subject: "50% off your StarMapCo HD map",
   };
 
@@ -67,7 +67,7 @@ Options:
   --test-to <email>               Send only to this test address
   --only-email <email>            Send only to one subscriber email
   --exclude-domain <domain>       Skip subscriber domains (repeatable)
-  --code <PROMO_CODE>             Promo code to embed (default: REDDIT50)
+  --code <PROMO_CODE>             Promo code to embed (default: EMAIL50)
   --subject <text>                Email subject line
   --help                          Show this help
 
@@ -118,7 +118,7 @@ function createUnsubscribeUrl(email, siteUrl) {
 }
 
 function buildEditorLink(siteUrl, code) {
-  return `${siteUrl.replace(/\/+$/, "")}/editor?mode=quick&code=${encodeURIComponent(code)}&utm_source=email&utm_medium=promo_blast&utm_campaign=apr2026_digital_offer&utm_content=subscriber_reactivation_01`;
+  return `${siteUrl.replace(/\/+$/, "")}/editor?mode=quick&code=${encodeURIComponent(code)}&utm_source=email&utm_medium=promo_blast&utm_campaign=apr2026_email_offer&utm_content=subscriber_reactivation_01`;
 }
 
 function buildCopy({ email, code, siteUrl, subject }) {

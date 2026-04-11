@@ -11,6 +11,11 @@ const PROMO_CODE_STORAGE_KEY = "star-map-promo-code";
 
 const LIVE_PROMO_LINKS = [
   {
+    label: "Email reactivation offer",
+    code: "EMAIL50",
+    url: `${DEFAULT_SITE}/editor?mode=quick&code=EMAIL50&utm_source=email&utm_medium=promo_blast&utm_campaign=apr2026_email_offer&utm_content=subscriber_reactivation_01`,
+  },
+  {
     label: "Reddit social offer",
     code: "REDDIT50",
     url: `${DEFAULT_SITE}/editor?mode=quick&code=REDDIT50&utm_source=reddit&utm_medium=organic_promo&utm_campaign=apr2026_digital_offer&utm_content=reddit_offer_01`,
@@ -60,7 +65,13 @@ Checks that live social promo links:
   - load in the editor
   - persist the expected promo code in local storage
   - still produce a valid discounted digital checkout session
-  - reject print-only promo codes on digital checkout`);
+  - reject print-only promo codes on digital checkout
+
+Current coverage:
+  - EMAIL50
+  - REDDIT50
+  - TIKTOK50
+`);
       process.exit(0);
     }
     throw new Error(`Unknown arg: ${token}`);

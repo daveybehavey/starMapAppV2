@@ -7,6 +7,7 @@ type ManualPromotionRule = {
 
 const MANUAL_PROMOTION_RULES: Record<string, ManualPromotionRule> = {
   PRINT10: { scope: "any_print" },
+  EMAIL50: { scope: "single_digital" },
   REDDIT50: { scope: "single_digital" },
   TIKTOK50: { scope: "single_digital" },
 };
