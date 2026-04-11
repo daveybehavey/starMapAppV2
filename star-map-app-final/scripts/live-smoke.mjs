@@ -86,6 +86,10 @@ function hasCollectionPageSchema(html, pageName) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const checks = [];
+  const smokeRequestHeaders = {
+    "content-type": "application/json",
+    "user-agent": "star-map-live-smoke/1.0",
+  };
   const runCheck = (name, passed, details) => {
     checks.push({ name, passed, details });
     const prefix = passed ? "PASS" : "FAIL";
@@ -621,7 +625,7 @@ async function main() {
       `${site}/api/maps`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: smokeRequestHeaders,
         body: JSON.stringify({
           version: 1,
           seed: "live-smoke-checkout",
@@ -683,7 +687,7 @@ async function main() {
       {
         method: "POST",
         headers: {
-          "content-type": "application/json",
+          ...smokeRequestHeaders,
           ...(checkoutIntentCookie ? { cookie: checkoutIntentCookie } : {}),
         },
         body: JSON.stringify({ plan: "single", mapId }),
@@ -705,7 +709,7 @@ async function main() {
       {
         method: "POST",
         headers: {
-          "content-type": "application/json",
+          ...smokeRequestHeaders,
           ...(checkoutIntentCookie ? { cookie: checkoutIntentCookie } : {}),
         },
         body: JSON.stringify({ plan: "single", mapId }),

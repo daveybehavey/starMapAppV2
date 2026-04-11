@@ -3,6 +3,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import HomeOfferStack from "@/components/HomeOfferStack";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import PromotionCaptureSlideIn from "@/components/PromotionCaptureSlideIn";
 import PromotionSignup from "@/components/PromotionSignup";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { getBusinessProfile } from "@/lib/businessProfile";
@@ -48,6 +49,7 @@ export default function HomeStaticSections({
   return (
     <>
       <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} proofImages={proofImages} />
+      <PromotionCaptureSlideIn />
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
