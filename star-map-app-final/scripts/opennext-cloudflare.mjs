@@ -1,8 +1,17 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 import process from "node:process";
 import { buildEnvWithWranglerVars } from "./wrangler-vars.mjs";
+
+function opennextCli(cwd) {
+  return path.join(cwd, "node_modules", "@opennextjs", "cloudflare", "dist", "cli", "index.js");
+}
+
+function wranglerCli(cwd) {
+  return path.join(cwd, "node_modules", "wrangler", "bin", "wrangler.js");
+}
 
 function writeCaptured(result) {
   if (result.stdout) process.stdout.write(result.stdout);
@@ -34,26 +43,26 @@ function isRecoverableR2DeployFailure(output) {
   );
 }
 
-function deployWorkerDirect(env) {
+function deployWorkerDirect(cwd, env) {
   console.warn(
     "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
   );
-  run("npx", ["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
+  run(process.execPath, [wranglerCli(cwd), "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
 }
 
-function deployBuilt(env) {
-  const result = runCapture("npx", ["opennextjs-cloudflare", "deploy"], env);
+function deployBuilt(cwd, env) {
+  const result = runCapture(process.execPath, [opennextCli(cwd), "deploy"], env);
   writeCaptured(result);
 
   if (result.status === 0) return;
 
   const combined = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (isRecoverableR2DeployFailure(combined)) {
-    deployWorkerDirect(env);
+    deployWorkerDirect(cwd, env);
     return;
   }
 
-  throw new Error(`Command failed: npx opennextjs-cloudflare deploy`);
+  throw new Error(`Command failed: opennextjs-cloudflare deploy`);
 }
 
 async function main() {
@@ -63,27 +72,28 @@ async function main() {
     process.exit(1);
   }
 
-  const env = await buildEnvWithWranglerVars(process.cwd());
+  const cwd = process.cwd();
+  const env = await buildEnvWithWranglerVars(cwd);
   run("node", ["scripts/generate-merchant-feed.mjs"], env);
 
   if (mode === "build") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
+    run(process.execPath, [opennextCli(cwd), "build"], env);
     return;
   }
 
   if (mode === "deploy") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
-    deployBuilt(env);
+    run(process.execPath, [opennextCli(cwd), "build"], env);
+    deployBuilt(cwd, env);
     return;
   }
 
   if (mode === "deploy-built") {
-    deployBuilt(env);
+    deployBuilt(cwd, env);
     return;
   }
 
-  run("npx", ["opennextjs-cloudflare", "build"], env);
-  run("npx", ["opennextjs-cloudflare", "preview"], env);
+  run(process.execPath, [opennextCli(cwd), "build"], env);
+  run(process.execPath, [opennextCli(cwd), "preview"], env);
 }
 
 main().catch((error) => {

@@ -6,6 +6,14 @@ import process from "node:process";
 import { spawnSync } from "node:child_process";
 import { buildEnvWithWranglerVars } from "./wrangler-vars.mjs";
 
+function opennextCli(cwd) {
+  return path.join(cwd, "node_modules", "@opennextjs", "cloudflare", "dist", "cli", "index.js");
+}
+
+function wranglerCli(cwd) {
+  return path.join(cwd, "node_modules", "wrangler", "bin", "wrangler.js");
+}
+
 const TOKEN_KEYS = [
   "CLOUDFLARE_API_TOKEN",
   "CF_API_TOKEN",
@@ -74,8 +82,8 @@ function run(command, args, options = {}) {
   return result;
 }
 
-function assertOAuthAuthMode() {
-  const result = run("npx", ["wrangler", "whoami"], { capture: true });
+function assertOAuthAuthMode(rootDir) {
+  const result = run(process.execPath, [wranglerCli(rootDir), "whoami"], { capture: true });
   const combined = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   process.stdout.write(combined);
 
@@ -107,7 +115,7 @@ async function main() {
   const backups = await sanitizeEnvFiles(rootDir);
 
   try {
-    assertOAuthAuthMode();
+    assertOAuthAuthMode(rootDir);
     if (authOnly) {
       console.log("Auth check passed.");
       return;
@@ -116,7 +124,7 @@ async function main() {
     const deployEnv = await buildEnvWithWranglerVars(rootDir);
 
     if (!skipBuild) {
-      run("npx", ["opennextjs-cloudflare", "build"], { env: deployEnv });
+      run(process.execPath, [opennextCli(rootDir), "build"], { env: deployEnv });
     }
     run("node", ["scripts/opennext-cloudflare.mjs", "deploy-built"], { env: deployEnv });
   } finally {
