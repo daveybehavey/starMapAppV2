@@ -11,6 +11,12 @@ alwaysApply: true
 - **Autonomy:** When the user asks to ship, fix prod, or “do the deploy loop,” prefer **running commands yourself** (`git pull`, `npm ci`, `npm run deploy:verify`, `wrangler rollback`, `qa:*`) instead of handing long checklists back. Stop only on a **hard blocker** (missing admin for WSL, Wrangler not logged in, merge conflicts).
 - **Do not** ask the user to paste secrets; never echo `.env` contents.
 
+## Cursor: keep chat / workspace stable
+
+- **Do not use “Open Folder” on a bare path** if chat keeps disappearing when you switch machines or paths.
+- **Preferred:** **File → Open Workspace from File…** → choose **`StarMapAppV2.code-workspace`** in the repo root (`C:\Users\david\dev\starMapAppV2`). Cursor binds history more reliably to a **`.code-workspace`** than to a raw folder.
+- **Optional shortcut:** on the Desktop, double‑click **`Open-StarMapAppV2-dev.code-workspace`** (points at this repo). Always use the **same** launcher so the same chat/history slot is reused.
+
 ## Canonical workspace (Windows)
 
 - Prefer opening **`C:\Users\david\dev\starMapAppV2`** in Cursor (not under OneDrive). OneDrive + `node_modules` causes flaky `npm ci` / extract errors.
