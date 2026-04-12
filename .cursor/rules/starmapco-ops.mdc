@@ -5,6 +5,12 @@ alwaysApply: true
 
 # StarMapCo — agent ops defaults
 
+## Owner preferences (keep in sync with user)
+
+- **Canonical Cursor folder:** `C:\Users\david\dev\starMapAppV2` — use this path for all terminal work unless the user says otherwise.
+- **Autonomy:** When the user asks to ship, fix prod, or “do the deploy loop,” prefer **running commands yourself** (`git pull`, `npm ci`, `npm run deploy:verify`, `wrangler rollback`, `qa:*`) instead of handing long checklists back. Stop only on a **hard blocker** (missing admin for WSL, Wrangler not logged in, merge conflicts).
+- **Do not** ask the user to paste secrets; never echo `.env` contents.
+
 ## Canonical workspace (Windows)
 
 - Prefer opening **`C:\Users\david\dev\starMapAppV2`** in Cursor (not under OneDrive). OneDrive + `node_modules` causes flaky `npm ci` / extract errors.
