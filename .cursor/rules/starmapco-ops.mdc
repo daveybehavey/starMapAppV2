@@ -1,0 +1,31 @@
+---
+description: StarMapCo repo layout, deploy defaults, and safety for agents
+alwaysApply: true
+---
+
+# StarMapCo — agent ops defaults
+
+## Canonical workspace (Windows)
+
+- Prefer opening **`C:\Users\david\dev\starMapAppV2`** in Cursor (not under OneDrive). OneDrive + `node_modules` causes flaky `npm ci` / extract errors.
+- App root for commands: **`star-map-app-final`** (e.g. `cd star-map-app-final` from repo root).
+
+## Before builds / deploys
+
+- After `git pull`: run **`npm ci`** inside `star-map-app-final`.
+- Target Node **20 or 22 LTS** when possible. OpenNext warns about Windows; for **production** releases prefer **WSL** (install with `wsl --install` in an elevated terminal, then deploy from Linux path under `/mnt/c/...`).
+
+## Deploy commands
+
+- Default ship path: **`npm run deploy:verify`** (runs OpenNext deploy + **`npm run qa:live-critical`**). Use plain `deploy` only if intentionally skipping the probe.
+- **`npm run deploy:safe`** when OAuth Wrangler is required and API tokens must be stripped from local env files.
+
+## Wrangler / secrets
+
+- Do **not** paste `.env` contents or API keys into chat. Use **`wrangler login`** (OAuth) on the machine that deploys.
+- If production breaks right after deploy: **`npx wrangler deployments list`** then **`npx wrangler rollback <previous-version-id> -y`**.
+
+## Quick verification
+
+- **`npm run qa:live-critical`** — fast GET checks on `/`, `/about`, `/contact`, `/editor`, `/api/premium`.
+- **`npm run qa:promo-links`** — Playwright; needs `npx playwright install chromium` once per machine.
