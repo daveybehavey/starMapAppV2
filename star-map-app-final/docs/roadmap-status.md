@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-04-10
+Updated: 2026-04-12
 
 This is the canonical operating roadmap for StarMapCo.
 
@@ -52,6 +52,7 @@ Why now:
 Current assets:
 - `docs/traffic-sprint-14-day.md`
 - `docs/social-command-center.md`
+- `docs/traffic-sprint-tracker.csv` (plan rows are pre-filled; add `date_posted` and metrics as each asset goes live)
 - day-by-day post packs through day 14
 - social promo offers and post pack
 

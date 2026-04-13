@@ -11,7 +11,7 @@ Use this when running Shopping/merchant promotions for StarMapCo print products.
   - `print_poster_framed`
 
 Source:
-- [scripts/generate-merchant-feed.mjs](/home/davidheslop/starMap/star-map-app-final/scripts/generate-merchant-feed.mjs)
+- [scripts/generate-merchant-feed.mjs](../scripts/generate-merchant-feed.mjs)
 
 ## Recommended first promotion
 

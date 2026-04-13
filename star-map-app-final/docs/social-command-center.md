@@ -13,7 +13,7 @@ Use it to:
 
 ## 1. Current Focus
 
-As of `March 10, 2026`, the most important near-term seasonal windows are:
+As of `April 12, 2026`, the most important near-term seasonal windows are:
 
 - Mother's Day: `May 10, 2026`
 - Graduation season: `May 2026` through `June 2026`
@@ -28,6 +28,8 @@ That means your content should lean especially hard into:
 - Mother's Day
 - graduation
 - last-minute meaningful gifts
+
+Execution pack for the active traffic lane (see `docs/roadmap-status.md`): run [14-Day Traffic Sprint](./traffic-sprint-14-day.md) and log each publish in [traffic-sprint-tracker.csv](./traffic-sprint-tracker.csv) (`date_posted` plus platform metrics as they arrive).
 
 ## 2. North Star
 

@@ -2,7 +2,7 @@
 
 Use this once per week. The goal is to turn content into a feedback loop, not just a posting routine.
 
-Review the last 7 days using the tracker in [social-content-tracker.csv](/home/davidheslop/starMap/star-map-app-final/docs/social-content-tracker.csv).
+Review the last 7 days using the tracker in [social-content-tracker.csv](./social-content-tracker.csv).
 
 ## 1. Week Summary
 

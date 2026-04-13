@@ -3,6 +3,7 @@
  * Tests all functionality of the simplified Create surface
  */
 
+const path = require('path');
 const puppeteer = require('puppeteer');
 
 const RESULTS = {
@@ -414,7 +415,7 @@ async function runAllTests() {
   // Write results to file
   const fs = require('fs');
   fs.writeFileSync(
-    '/home/davidheslop/starMap/star-map-app-final/test-results.json',
+    path.join(__dirname, 'test-results.json'),
     JSON.stringify(RESULTS, null, 2)
   );
 

@@ -1,6 +1,6 @@
 # Testimonial Intake Template
 
-Use this format before adding anything to [`src/data/testimonials.ts`](/home/davidheslop/starMap/star-map-app-final/src/data/testimonials.ts).
+Use this format before adding anything to [`src/data/testimonials.ts`](../src/data/testimonials.ts).
 
 Only publish testimonials that meet all of these:
 
