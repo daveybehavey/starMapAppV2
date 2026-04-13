@@ -2,7 +2,8 @@ import { test, expect, type Browser, type Page } from "@playwright/test";
 import { applySampleMoment, getPreviewArea, gotoEditor, mockGeocode, primeLocalStorage, waitForPreview } from "./test-helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
-test.setTimeout(60_000);
+// waitForEditor alone can take 60s on cold CI; geocode + preview steps need headroom after that.
+test.setTimeout(120_000);
 
 const IOS_USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)";
 
@@ -56,15 +57,36 @@ async function ensureProPresetsOpen(page: Page) {
 }
 
 async function expectDigitalPaywallVisible(page: Page) {
-  const paywallHeading = page.getByRole("heading", { name: /Buy this map in HD(?: or print)?/i }).first();
-  if (await paywallHeading.isVisible({ timeout: 12_000 }).catch(() => false)) {
-    await expect(
-      page
-        .getByRole("button", {
-          name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
-        })
-        .first(),
-    ).toBeVisible({ timeout: 8_000 });
+  const paywallHeading = page
+    .getByRole("heading", {
+      name: /Buy this map in HD(?: or print)?|Get this exact map in HD(?: or print)?|Choose your printed gift route|Download your print-ready star map|Unlock HD exports in seconds/i,
+    })
+    .first();
+  const paywallBodyMarker = page.getByText(/One-time HD for this map|Fast digital|Printed gift/i).first();
+  const closePaywall = page.getByRole("button", { name: /Close paywall/i }).first();
+  const digitalPaywallCta = page
+    .getByRole("button", {
+      name: /Get 1 HD map|Get 1 HD file|Buy this map in HD|Buy HD for|Buy HD download|Get 3 downloads|Get 3 HD files|Buy 3 HD exports|Go unlimited|Use unlimited plan|Start unlimited/i,
+    })
+    .first();
+
+  const paywallOpen =
+    (await paywallHeading.isVisible({ timeout: 12_000 }).catch(() => false)) ||
+    (await closePaywall.isVisible({ timeout: 500 }).catch(() => false)) ||
+    (await paywallBodyMarker.isVisible({ timeout: 500 }).catch(() => false));
+
+  if (paywallOpen) {
+    if (await digitalPaywallCta.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await expect(digitalPaywallCta).toBeVisible({ timeout: 8_000 });
+      return;
+    }
+    const fastDigital = page.getByRole("button", { name: /^Fast digital$/i }).first();
+    if (await fastDigital.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await fastDigital.click();
+      await expect(digitalPaywallCta).toBeVisible({ timeout: 10_000 });
+      return;
+    }
+    await expect(digitalPaywallCta).toBeVisible({ timeout: 10_000 });
     return;
   }
 
