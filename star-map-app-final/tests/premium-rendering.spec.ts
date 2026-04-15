@@ -9,7 +9,8 @@ const setupWithSampleMoment = async (page: Parameters<typeof gotoEditor>[0]) => 
 };
 
 test.describe("Premium Rendering Features", () => {
-  test.describe.configure({ timeout: 90_000 });
+  // Cold starts on Windows + Next dev server + screenshot/download can exceed 90s.
+  test.describe.configure({ timeout: 180_000 });
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test("star map renders with all visual elements", async ({ page }) => {

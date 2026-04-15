@@ -4,7 +4,8 @@ const useProdServer = process.env.PW_USE_PROD === "true";
 const webServerPort = Number.parseInt(process.env.PW_PORT ?? "3004", 10);
 const webServerHost = "127.0.0.1";
 const baseURL = `http://${webServerHost}:${webServerPort}`;
-const nextDistDir = `.next-playwright-${webServerPort}`;
+// Use a stable dist dir so Next doesn't keep rewriting tsconfig.json with per-port paths.
+const nextDistDir = ".next-playwright";
 const isWindows = process.platform === "win32";
 // Unix `env -u` is unavailable on Windows cmd; rely on webServer.env to drop color vars.
 const withoutColorEnv = "env -u NO_COLOR -u FORCE_COLOR";

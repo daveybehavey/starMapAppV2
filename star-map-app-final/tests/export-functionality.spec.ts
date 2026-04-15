@@ -40,7 +40,8 @@ const setTextBoxValues = async (
 };
 
 test.describe("Export Functionality", () => {
-  test.describe.configure({ timeout: 90_000 });
+  // Cold starts on Windows + Next dev server + download saveAs can exceed 90s.
+  test.describe.configure({ timeout: 180_000 });
   test.beforeEach(async ({ page }) => {
     await mockGeocode(page);
   });
