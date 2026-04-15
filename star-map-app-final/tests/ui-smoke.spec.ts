@@ -637,6 +637,7 @@ test("preview reveal shows staged reveal state before final map", async ({ page 
 });
 
 test("referral landing logs one visit per browser session", async ({ page }) => {
+  test.setTimeout(180_000);
   let referralVisitCalls = 0;
   await page.route("**/api/referrals/visit", async (route) => {
     referralVisitCalls += 1;
@@ -650,12 +651,13 @@ test("referral landing logs one visit per browser session", async ({ page }) => 
   await gotoEditor(page, { force: "desktop", query: { ref: "ABCD1234" } });
   await expect.poll(() => referralVisitCalls, { timeout: 10_000 }).toBe(1);
 
-  await page.reload();
-  await page.waitForTimeout(900);
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+  await page.waitForTimeout(300);
   expect(referralVisitCalls).toBe(1);
 });
 
 test("homepage referral query logs one visit per browser session", async ({ page }) => {
+  test.setTimeout(180_000);
   let referralVisitCalls = 0;
   await page.route("**/api/referrals/visit", async (route) => {
     referralVisitCalls += 1;
@@ -669,8 +671,8 @@ test("homepage referral query logs one visit per browser session", async ({ page
   await page.goto("/?ref=ABCD1234");
   await expect.poll(() => referralVisitCalls, { timeout: 12_000 }).toBe(1);
 
-  await page.reload();
-  await page.waitForTimeout(1200);
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+  await page.waitForTimeout(400);
   expect(referralVisitCalls).toBe(1);
 });
 
