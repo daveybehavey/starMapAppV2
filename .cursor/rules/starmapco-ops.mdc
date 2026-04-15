@@ -22,6 +22,15 @@ alwaysApply: true
 - Prefer opening **`C:\Users\david\dev\starMapAppV2`** in Cursor (not under OneDrive). OneDrive + `node_modules` causes flaky `npm ci` / extract errors.
 - App root for commands: **`star-map-app-final`** (e.g. `cd star-map-app-final` from repo root).
 
+## Local `company-os/` (automation workspace)
+
+- The `company-os/` directory is **gitignored**; it is for local agent / automation scaffolding only.
+- When the user asks for autonomy, workflows, approvals, or ops automation, follow `.cursor/rules/company-os.mdc` and prefer working there instead of touching `star-map-app-final/` unless they say otherwise.
+
+## Prettier / formatting gate
+
+- `npm run format:check` currently reports **many** pre-existing formatting differences across `src/`. Do **not** run repo-wide `npm run format` as a drive-by; treat full formatting as its own intentional PR.
+
 ## Before builds / deploys
 
 - After `git pull`: run **`npm ci`** inside `star-map-app-final`.
