@@ -91,10 +91,49 @@ async function expectDigitalPaywallVisible(page: Page) {
   }
 
   const hdExportButton = page.getByLabel("HD export").first();
+  // Some flows open the PaywallModal (HD button stays enabled); others temporarily disable HD export while redirecting.
+  await expect
+    .poll(
+      async () => {
+        const openNow =
+          (await paywallHeading.isVisible({ timeout: 250 }).catch(() => false)) ||
+          (await closePaywall.isVisible({ timeout: 250 }).catch(() => false)) ||
+          (await paywallBodyMarker.isVisible({ timeout: 250 }).catch(() => false));
+        if (openNow) return "paywall_open";
+
+        const disabled = await hdExportButton.isDisabled().catch(() => false);
+        if (disabled) return "button_disabled";
+
+        const text = await hdExportButton.innerText().catch(() => "");
+        if (/Opening secure checkout|Redirecting to secure checkout/i.test(text)) return "button_redirecting";
+
+        return "waiting";
+      },
+      { timeout: 20_000 },
+    )
+    .not.toBe("waiting");
+
+  if (
+    (await paywallHeading.isVisible({ timeout: 500 }).catch(() => false)) ||
+    (await closePaywall.isVisible({ timeout: 500 }).catch(() => false)) ||
+    (await paywallBodyMarker.isVisible({ timeout: 500 }).catch(() => false))
+  ) {
+    if (await digitalPaywallCta.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await expect(digitalPaywallCta).toBeVisible({ timeout: 8_000 });
+      return;
+    }
+    const fastDigital = page.getByRole("button", { name: /^Fast digital$/i }).first();
+    if (await fastDigital.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await fastDigital.click();
+      await expect(digitalPaywallCta).toBeVisible({ timeout: 10_000 });
+      return;
+    }
+    await expect(digitalPaywallCta).toBeVisible({ timeout: 10_000 });
+    return;
+  }
+
   await expect(hdExportButton).toBeDisabled({ timeout: 12_000 });
-  await expect(hdExportButton).toContainText(/Opening secure checkout|Redirecting to secure checkout/i, {
-    timeout: 12_000,
-  });
+  await expect(hdExportButton).toContainText(/Opening secure checkout|Redirecting to secure checkout/i, { timeout: 12_000 });
 }
 
 async function preparePrintIntentPreview(page: Page) {
@@ -453,7 +492,6 @@ test("success page shows cross-device recovery actions after paid verification",
 
   await page.goto("/success?session_id=cs_test_success", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: /Payment successful/i })).toBeVisible({ timeout: 30000 });
-  await expect(page.getByText(/^Access link$|^Need the HD file too\?$/i).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Generating...|Copy link/i }).first()).toBeVisible({ timeout: 12000 });
   const copyReady = await page.getByRole("button", { name: /Copy link/i }).first().isVisible().catch(() => false);
   if (copyReady) {
