@@ -1,0 +1,21 @@
+## company-os default scope
+
+When the user asks for “autonomy”, “agents”, “workflows”, “approvals”, “ops”, or “automation”, prefer working in `company-os/` and avoid modifying `star-map-app-final/` unless explicitly requested.
+
+## Safety gates
+
+- Any action that would email customers, post publicly, refund/charge money, or change live storefront behavior must be represented as a **pending approval**.
+- Automations may create approvals and append events.
+- Automations may only execute side-effects after an approval is **approved** and an audit event is written.
+
+## Persistence + auditability
+
+- All important state changes must write an event to the event log.
+- Ingest endpoints must be authenticated via bearer keys from environment variables.
+- Webhook-style endpoints must be idempotent when an external id is provided.
+
+## Change discipline
+
+- Prefer small, reversible changes.
+- Keep APIs explicit: `POST /api/ingest/*` for inbound signals; `POST /api/approvals` for gating; separate “execute” endpoints later.
+

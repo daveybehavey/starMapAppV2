@@ -5,3 +5,6 @@
 lighthouse-*.report.*
 lighthouse-*.json
 lighthouse-*.html
+
+# Local-only automation workspace (not part of this repo)
+company-os/
