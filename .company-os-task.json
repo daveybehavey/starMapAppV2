@@ -1,0 +1,13 @@
+{
+  "id": "4798f518-18e7-4963-b8a3-b6d396f4ef31",
+  "title": "Autopilot smoke 8: add AUTOPILOT-SMOKE-v2.md",
+  "description": "Create AUTOPILOT-SMOKE-v2.md at the repo root with exactly one line: 'autopilot e2e v2 OK 2026-04-17'. Do NOT modify any other file. Do NOT commit or push.",
+  "area": "ops",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "File AUTOPILOT-SMOKE-v2.md exists at the repo root.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-18T00:56:14.084Z",
+  "createdAt": "2026-04-17T21:21:22.650Z",
+  "updatedAt": "2026-04-18T00:56:14.084Z"
+}
