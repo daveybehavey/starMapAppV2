@@ -1,0 +1,14 @@
+{
+  "id": "3cb8f6bf-7315-4b86-9949-f0a375450a90",
+  "title": "Slack button test (01:30:25)",
+  "description": "This is an automatically generated test task.\n\nIf you approve it via Slack buttons, the [DRAFT] prefix should be stripped.\nIf you reject it, the task should be marked cancelled.\n",
+  "area": "ops",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "Click Approve or Reject in Slack.",
+  "testPlan": "Tap the Slack button; verify task title/status changes in /tasks.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-19T01:31:21.417Z",
+  "createdAt": "2026-04-19T01:30:25.480Z",
+  "updatedAt": "2026-04-19T01:31:21.417Z"
+}
