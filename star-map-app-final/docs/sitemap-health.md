@@ -1,6 +1,6 @@
 # Sitemap Health Check
 
-Checks every URL in your sitemap and fails when any of these are true:
+Checks every URL listed in the sitemap and fails when any of these are true:
 
 - URL returns non-2xx
 - sitemap includes parameterized URLs (`?foo=bar`)

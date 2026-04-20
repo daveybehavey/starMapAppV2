@@ -1,0 +1,14 @@
+{
+  "id": "d0687c4d-cb23-470c-9ce1-55953db08e86",
+  "title": "[MACHINE] Prove agent loop works",
+  "description": "Small safe change to confirm agents actually code.",
+  "area": "general",
+  "risk": "medium",
+  "status": "claimed",
+  "acceptanceCriteria": "Robot claims task and opens a draft PR updating a single doc line.",
+  "testPlan": "1) Wait for Slack milestone ping. 2) Confirm a draft PR opened. 3) Run npm run smoke.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-20T18:38:21.870Z",
+  "createdAt": "2026-04-20T18:36:27.478Z",
+  "updatedAt": "2026-04-20T18:38:21.870Z"
+}
