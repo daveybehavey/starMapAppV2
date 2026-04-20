@@ -1,0 +1,14 @@
+{
+  "id": "43ae07d8-4958-4468-b377-18ed2883c77a",
+  "title": "Add stable `data-measurement` hooks on homepage promo capture CTAs",
+  "description": "Roadmap lane: conversion (instrumentation supports measurement). The roadmap calls out homepage inline promo signup and promo jump CTA; headless checks and future reporting are easier when CTAs expose stable, semantic attributes. Add minimal `data-*` attributes (e.g., role-specific ids) on the existing promo signup and jump elements without changing pricing, checkout, or email behavior.\n\n— proposed by briefing agent on 2026-04-17T23:46:06.302Z",
+  "area": "conversion",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "HTTP GET `https://starmapco.com/` returns HTTP 200 and the HTML contains both substrings `data-capture=\"promo-inline\"` and `data-capture=\"promo-jump\"` on interactive elements (or the exact attribute names you implement, but must be documented in the PR and stable).",
+  "testPlan": "Fetch `/` and search the response body for the two required attribute strings.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-20T22:17:48.454Z",
+  "createdAt": "2026-04-17T23:46:06.622Z",
+  "updatedAt": "2026-04-20T22:17:48.454Z"
+}

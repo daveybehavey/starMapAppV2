@@ -88,6 +88,7 @@ export default function HomeHero() {
           <div className="mx-auto flex max-w-2xl flex-wrap justify-center gap-2 pt-2">
             <a
               href="#preview"
+              data-capture="promo-jump"
               className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
             >
               Start free preview
