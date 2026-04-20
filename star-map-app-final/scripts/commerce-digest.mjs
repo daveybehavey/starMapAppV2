@@ -259,6 +259,20 @@ async function getCheckoutDiagnostics(site, days) {
   return { ok: true, rows: Array.isArray(body.data.rows) ? body.data.rows : [] };
 }
 
+function aggregatePromoCaptureSources(subscribers) {
+  const activeRows = subscribers.filter((row) => !row.unsubscribedAt);
+  const counts = new Map();
+  for (const row of activeRows) {
+    const raw = row.lastSource;
+    const src = typeof raw === "string" && raw.trim() ? raw.trim() : "unknown";
+    counts.set(src, (counts.get(src) || 0) + 1);
+  }
+  const captureSources = [...counts.entries()]
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count);
+  return { captureSources, topCaptureSource: captureSources[0] || null };
+}
+
 async function getPromotionSubscribers(site) {
   const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
   if (!adminToken) {
@@ -273,6 +287,7 @@ async function getPromotionSubscribers(site) {
     return { ok: false, error: `promotion_subscribers_${res.status}` };
   }
   const subscribers = body.subscribers;
+  const { captureSources, topCaptureSource } = aggregatePromoCaptureSources(subscribers);
   return {
     ok: true,
     total: subscribers.length,
@@ -280,6 +295,8 @@ async function getPromotionSubscribers(site) {
     unsubscribed: subscribers.filter((row) => row.unsubscribedAt).length,
     listComplete: Boolean(body.listComplete),
     nextCursor: body.nextCursor ?? null,
+    captureSources,
+    topCaptureSource,
   };
 }
 
@@ -429,6 +446,8 @@ async function buildReport(args) {
           unsubscribed: promotionSubscribers.unsubscribed,
           listComplete: promotionSubscribers.listComplete,
           nextCursor: promotionSubscribers.nextCursor,
+          topCaptureSource: promotionSubscribers.topCaptureSource,
+          captureSources: promotionSubscribers.captureSources,
         }
       : null,
     promotionSubscribersError: promotionSubscribers.ok ? null : promotionSubscribers.error,
@@ -619,6 +638,18 @@ function printHumanReport(report) {
     console.log(
       `active=${report.promotionSubscribers.active} unsubscribed=${report.promotionSubscribers.unsubscribed} total=${report.promotionSubscribers.total}`,
     );
+    const top = report.promotionSubscribers.topCaptureSource;
+    if (top && Number(report.promotionSubscribers.active) > 0) {
+      console.log(`top capture source: ${top.source} (${top.count} active)`);
+    } else {
+      console.log("top capture source: —");
+    }
+    const sources = report.promotionSubscribers.captureSources;
+    if (Array.isArray(sources) && sources.length > 1) {
+      console.log(
+        `by source: ${sources.map((row) => `${row.source}=${row.count}`).join(", ")}`,
+      );
+    }
     if (!report.promotionSubscribers.listComplete) {
       console.log(`partial list (nextCursor=${report.promotionSubscribers.nextCursor || "unknown"})`);
     }
