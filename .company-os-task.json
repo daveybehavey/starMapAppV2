@@ -1,0 +1,14 @@
+{
+  "id": "891c9449-6fe1-4a4e-b619-39192054b921",
+  "title": "Traffic sprint: start execution + logging",
+  "description": "Use docs/social-command-center.md + docs/traffic-sprint-14-day.md. Make the execution log real and visible.",
+  "area": "traffic",
+  "risk": "medium",
+  "status": "claimed",
+  "acceptanceCriteria": "Traffic sprint is actively running: tracker updated daily with date_posted + basic metrics for each post.",
+  "testPlan": "Verify tracker updates + command center reflects current day + site smoke check.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-20T19:20:14.389Z",
+  "createdAt": "2026-04-20T19:20:14.187Z",
+  "updatedAt": "2026-04-20T19:20:14.389Z"
+}

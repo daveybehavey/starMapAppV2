@@ -13,6 +13,12 @@ Use it to:
 
 ## 1. Current Focus
 
+### Traffic sprint execution (live)
+
+- **Today:** `2026-04-20` (Monday) — **day 14 of 14** in the April 2026 traffic sprint (**start:** `2026-04-07`).
+- **Posting + metrics log:** [`docs/traffic-sprint-tracker.csv`](./traffic-sprint-tracker.csv) (`date_posted` per row; refresh engagement and funnel columns from native analytics after each post).
+- **Runbook:** [`docs/traffic-sprint-14-day.md`](./traffic-sprint-14-day.md).
+
 As of `March 10, 2026`, the most important near-term seasonal windows are:
 
 - Mother's Day: `May 10, 2026`
@@ -70,6 +76,8 @@ By the end of the week, you should have:
 - 1 concept tested with `A/B/C` hook variants
 
 ## 5. Immediate Next Actions
+
+**Sprint clock:** `2026-04-20` is day **14 / 14**. Close the sprint: confirm every planned row in [`docs/traffic-sprint-tracker.csv`](./traffic-sprint-tracker.csv) has `date_posted`, pull platform metrics into the numeric columns, then run the day-14 checklist in [`docs/traffic-sprint-14-day.md`](./traffic-sprint-14-day.md).
 
 ### Today
 
@@ -149,6 +157,7 @@ Use for:
 
 ### Posting Tracker
 
+- [Traffic Sprint Tracker](./traffic-sprint-tracker.csv) (April 2026 sprint: TikTok, Pinterest, referral rows — primary execution log)
 - [Social Content Tracker](./social-content-tracker.csv)
 
 Use for:
