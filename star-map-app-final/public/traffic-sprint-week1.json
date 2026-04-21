@@ -1,0 +1,32 @@
+{
+  "days": [
+    {
+      "day": "Day 1: Record one clean screen-capture batch (date entry, location entry, style switch, final map). Publish video 1 and video 2. Repost both to Instagram Reels. Log all rows in traffic-sprint-tracker.csv.",
+      "channel": "TikTok, Instagram Reels"
+    },
+    {
+      "day": "Day 2: Publish video 5 and video 6. Repost both to Instagram Reels. Publish two matching Pinterest pins. Update metrics for day 1 posts.",
+      "channel": "TikTok, Instagram Reels, Pinterest"
+    },
+    {
+      "day": "Day 3: Publish video 4 and video 7. Repost both to Instagram Reels. Publish two Pinterest pins. Mark first winner/loser calls from days 1-2 data.",
+      "channel": "TikTok, Instagram Reels, Pinterest"
+    },
+    {
+      "day": "Day 4: Publish two short-form posts daily from remaining queue + first remakes. Publish two fresh Pinterest pins daily. Add one referral social post. Produce three A/B hook variants for the top winner.",
+      "channel": "TikTok, Instagram Reels, Pinterest, referral"
+    },
+    {
+      "day": "Day 5: Publish two short-form posts daily from remaining queue + first remakes. Publish two fresh Pinterest pins daily. Add one referral social post. Produce three A/B hook variants for the top winner.",
+      "channel": "TikTok, Instagram Reels, Pinterest, referral"
+    },
+    {
+      "day": "Day 6: Publish two short-form posts daily from remaining queue + first remakes. Publish two fresh Pinterest pins daily. Add one referral social post. Produce three A/B hook variants for the top winner.",
+      "channel": "TikTok, Instagram Reels, Pinterest, referral"
+    },
+    {
+      "day": "Day 7: Publish two short-form posts daily from remaining queue + first remakes. Publish two fresh Pinterest pins daily. Add one referral social post. Produce three A/B hook variants for the top winner. At end of day 7, complete docs/weekly-social-review.md, pick top 3 winners and produce 2 remakes each, archive bottom 30% concepts, carry forward only hooks and pillars with real conversion signals.",
+      "channel": "TikTok, Instagram Reels, Pinterest, referral"
+    }
+  ]
+}

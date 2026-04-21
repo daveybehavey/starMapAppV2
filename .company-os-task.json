@@ -1,0 +1,14 @@
+{
+  "id": "323ae0f9-9eef-4bbb-b83c-7c9bed726707",
+  "title": "Publish Week 1 traffic-sprint JSON manifest in public web root",
+  "description": "Roadmap lane: traffic. Posting has not started; operators need a single canonical artifact for Days 1–7 so execution and logging are consistent with `docs/traffic-sprint-14-day.md`. Add a small static JSON file (or equivalent App Router public asset) that mirrors the first week of the sprint plan—no copywriting net-new beyond lifting from existing docs.\n\n— proposed by briefing agent on 2026-04-17T23:46:05.142Z",
+  "area": "traffic",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "HTTP GET `https://starmapco.com/traffic-sprint-week1.json` (or the repo’s configured production origin + exact path you choose) returns HTTP 200 with `Content-Type` containing `json`, a JSON object with key `days`, and `days.length === 7` where each element includes non-empty string fields `day` and `channel`.",
+  "testPlan": "Use `curl -fsS -D -` against the production URL and parse JSON with `node -e` or `jq` to assert schema and length.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T21:15:09.851Z",
+  "createdAt": "2026-04-17T23:46:05.770Z",
+  "updatedAt": "2026-04-21T21:15:09.851Z"
+}
