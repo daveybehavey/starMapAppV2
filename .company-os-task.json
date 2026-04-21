@@ -1,0 +1,14 @@
+{
+  "id": "34fb7584-e6c1-4353-bd99-39f683f19b84",
+  "title": "Traffic: post-sprint week scaffold in tracker + command center",
+  "description": "Extend traffic sprint execution beyond day 14 with a lightweight scaffold (no fake metrics).",
+  "area": "traffic",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "Tracker has next 7 days scaffolded + command center points to the new week section.",
+  "testPlan": "Open docs; links resolve; no runtime changes.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T15:13:13.112Z",
+  "createdAt": "2026-04-21T15:12:24.333Z",
+  "updatedAt": "2026-04-21T15:13:13.112Z"
+}
