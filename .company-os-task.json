@@ -1,0 +1,14 @@
+{
+  "id": "8faab603-9bbf-4a39-b0a4-afd0ff26b9ec",
+  "title": "Traffic: define posted vs scheduled + metric capture template",
+  "description": "Reduce ambiguity in traffic execution logging so metrics are consistent.",
+  "area": "traffic",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "A short checklist defines posted vs scheduled and includes a metric capture template.",
+  "testPlan": "Read-through; no code changes required.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T15:29:00.585Z",
+  "createdAt": "2026-04-21T15:13:19.298Z",
+  "updatedAt": "2026-04-21T15:29:00.585Z"
+}
