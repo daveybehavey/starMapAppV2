@@ -98,7 +98,14 @@ export default function ChooseDateLocationPost() {
 
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Tools to Help Choose</h2>
-            <p>Use maps apps for coordinates and time converters for zones to ensure accuracy.</p>
+            <p>
+              Use maps apps for coordinates and time converters for zones to ensure accuracy. For an interactive
+              way to set date, time, and place, use our{" "}
+              <Link href="/star-map-generator" className="text-amber-300 hover:underline">
+                star map generator
+              </Link>{" "}
+              and adjust details until the sky matches your moment.
+            </p>
           </section>
 
           <section className="space-y-4">

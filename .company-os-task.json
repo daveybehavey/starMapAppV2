@@ -1,0 +1,14 @@
+{
+  "id": "79d27454-d0c5-42bd-abe5-409ab9398b45",
+  "title": "Add in-content internal link from top guide blog post to /star-map-generator",
+  "description": "Roadmap traffic lane: Search Console shows /star-map-generator with high impressions but weak average position, while /blog/choose-date-location-custom-star-map already earns meaningful impressions with a stronger position. Add one clear, intent-matched in-body link (plus optional short context line) from that guide to /star-map-generator so crawlers and readers see a tighter topical cluster without starting a broad SEO project.\n\n— proposed by briefing agent on 2026-04-21T23:57:36.308Z",
+  "area": "traffic",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "HTTP GET https://starmapco.com/blog/choose-date-location-custom-star-map returns 200 and the response body includes an HTML anchor href to https://starmapco.com/star-map-generator (relative /star-map-generator is acceptable) inside the main article content area.",
+  "testPlan": "Fetch the blog URL with curl (follow redirects) and assert the href appears outside nav/footer-only chrome if the page structure allows distinguishing it.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T23:58:11.400Z",
+  "createdAt": "2026-04-21T23:57:36.338Z",
+  "updatedAt": "2026-04-21T23:58:11.400Z"
+}
