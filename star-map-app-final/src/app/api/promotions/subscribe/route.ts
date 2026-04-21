@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  applyHomepagePromoEditorAttribution,
+  isHomepagePromoInlineSource,
+  type HomepagePromoEditorRedirectReason,
+} from "@/lib/homepagePromoCapture";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PROMOTION_COUPON_CODE, runPromotionAutomation, runPromotionFollowup } from "@/lib/promotions";
@@ -45,6 +50,12 @@ async function readEmail(req: NextRequest) {
   }
 }
 
+function decorateEditorRedirect(url: URL, formSource: string, reason: HomepagePromoEditorRedirectReason) {
+  if (isHomepagePromoInlineSource(formSource)) {
+    applyHomepagePromoEditorAttribution(url, reason);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
   const rateLimit = await checkRateLimit(`promotions:subscribe:${ip}`, 30, 60);
@@ -62,6 +73,7 @@ export async function POST(req: NextRequest) {
       const redirectUrl = new URL("/editor", req.url);
       redirectUrl.searchParams.set("mode", "quick");
       redirectUrl.searchParams.set("promo", "error");
+      decorateEditorRedirect(redirectUrl, source, "error");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
     if (shouldRedirectHome) {
@@ -75,6 +87,7 @@ export async function POST(req: NextRequest) {
       const redirectUrl = new URL("/editor", req.url);
       redirectUrl.searchParams.set("mode", "quick");
       redirectUrl.searchParams.set("promo", "error");
+      decorateEditorRedirect(redirectUrl, source, "error");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
     if (shouldRedirectHome) {
@@ -88,6 +101,7 @@ export async function POST(req: NextRequest) {
       const redirectUrl = new URL("/editor", req.url);
       redirectUrl.searchParams.set("mode", "quick");
       redirectUrl.searchParams.set("promo", "success");
+      decorateEditorRedirect(redirectUrl, source, "honeypot_success");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
     if (shouldRedirectHome) {
@@ -168,6 +182,7 @@ export async function POST(req: NextRequest) {
     redirectUrl.searchParams.set("mode", "quick");
     redirectUrl.searchParams.set("promo", "success");
     redirectUrl.searchParams.set("code", PROMOTION_COUPON_CODE);
+    decorateEditorRedirect(redirectUrl, source, "success");
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 

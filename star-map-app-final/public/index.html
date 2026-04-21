@@ -1716,14 +1716,14 @@
       </section>
 
       <section class="section content-visibility-auto" id="signup">
-        <div class="signup">
+        <div class="signup" data-promo-capture="homepage">
           <h2>Need a lighter way to start?</h2>
           <p>Framed and unframed prints are the main gift routes. If you want the lowest-cost first purchase, join the insiders list for a one-time 50% off code on your first single HD digital checkout.</p>
-          <form method="POST" action="/api/promotions/subscribe?redirect=editor">
+          <form method="POST" action="/api/promotions/subscribe?redirect=editor" data-promo-slot="inline_signup">
             <input type="email" name="email" placeholder="you@email.com" required autocomplete="email" />
-            <input type="hidden" name="source" value="homepage_static_signup" />
+            <input type="hidden" name="source" value="homepage_promo_inline" />
             <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
-            <button type="submit">Get HD starter code</button>
+            <button type="submit" data-promo-cta="inline_submit">Get HD starter code</button>
           </form>
           <p class="signup-note">
             No spam — just occasional updates. Unsubscribe anytime.

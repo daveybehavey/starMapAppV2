@@ -1,0 +1,14 @@
+{
+  "id": "17ccb23f-78d2-4bd9-a785-916354da6ba5",
+  "title": "Conversion: standardize homepage promo CTA UTMs + data attributes",
+  "description": "This supports capture/source measurement and removes brittle selectors.",
+  "area": "conversion",
+  "risk": "medium",
+  "status": "claimed",
+  "acceptanceCriteria": "Homepage promo CTAs have consistent UTMs and stable data-* hooks without changing the visible UI.",
+  "testPlan": "Load homepage; verify attributes exist; QA: PASS 200 https://starmapco.com",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T15:46:10.903Z",
+  "createdAt": "2026-04-21T15:14:40.168Z",
+  "updatedAt": "2026-04-21T15:46:10.903Z"
+}

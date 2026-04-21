@@ -1,3 +1,4 @@
+import { HOMEPAGE_PROMO_SOURCE } from "@/lib/homepagePromoCapture";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
 
 type PromotionSignupProps = {
@@ -15,7 +16,10 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
     : `You're on the list. Watch your inbox for your 50% off ${promotionOfferName}.`;
 
   return (
-    <div className="cosmic-panel-enhanced cosmic-panel w-full rounded-[28px] border border-amber-200/65 bg-gradient-to-br from-white/90 to-amber-50/95 p-6 shadow-2xl shadow-black/30 sm:p-10">
+    <div
+      className="cosmic-panel-enhanced cosmic-panel w-full rounded-[28px] border border-amber-200/65 bg-gradient-to-br from-white/90 to-amber-50/95 p-6 shadow-2xl shadow-black/30 sm:p-10"
+      data-promo-capture="homepage"
+    >
       <div className="space-y-3 text-midnight">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">Lower-cost first order</p>
         <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold leading-tight text-midnight sm:text-4xl">
@@ -32,6 +36,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
           className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
           method="POST"
           action="/api/promotions/subscribe?redirect=editor"
+          data-promo-slot="inline_signup"
         >
           <label className="sr-only" htmlFor="promo-email">
             Email address
@@ -45,7 +50,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
             autoComplete="email"
             className="w-full rounded-lg border border-amber-300/70 bg-white/95 px-3 py-2 text-sm text-midnight placeholder:text-slate-500 shadow-inner shadow-black/5 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400/35"
           />
-          <input type="hidden" name="source" value="promotion_signup_static" />
+          <input type="hidden" name="source" value={HOMEPAGE_PROMO_SOURCE} />
           <input
             type="text"
             name="website"
@@ -56,6 +61,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
           />
           <button
             type="submit"
+            data-promo-cta="inline_submit"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-amber-50"
           >
             {`Get ${promotionOfferName}`}
