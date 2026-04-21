@@ -121,6 +121,9 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
         )}% relative to the previous step.`
       : null;
 
+  const promoCaptureSourceEmpty =
+    promotionSubscribers.active === 0 || promotionSubscribers.activeWithAttributedSource === 0;
+
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10 text-white">
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
@@ -231,6 +234,79 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 : "none"}
             </p>
           </div>
+        </div>
+        <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
+          <h2 className="text-sm font-semibold text-white">Promo list capture sources</h2>
+          <p className="mt-1 text-xs text-neutral-400">
+            Counts by <code className="rounded bg-black/20 px-1 py-0.5 text-[11px] text-neutral-200">lastSource</code> on
+            active promo subscribers (set on each successful{" "}
+            <code className="rounded bg-black/20 px-1 py-0.5 text-[11px] text-neutral-200">POST /api/promotions/subscribe</code>
+            ).
+          </p>
+          {promoCaptureSourceEmpty ? (
+            <div className="mt-4 rounded-lg border border-amber-400/35 bg-amber-950/50 p-4">
+              <p className="text-sm font-semibold text-amber-100">No capture-source breakdown yet</p>
+              <p className="mt-2 text-sm text-neutral-300">
+                {promotionSubscribers.active === 0
+                  ? "The promo list has no active subscribers in this KV window, so there is nothing to attribute."
+                  : `${promotionSubscribers.active.toLocaleString()} active subscriber${
+                      promotionSubscribers.active === 1 ? "" : "s"
+                    } either pre-date source tracking or have no stored source. New signups record a source automatically.`}
+              </p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                How to populate capture sources
+              </p>
+              <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-neutral-200">
+                <li>
+                  <span className="text-white/90">Homepage insiders block</span> (below the homepage offers): visitors
+                  submit email; signups use the{" "}
+                  <code className="rounded bg-black/25 px-1 py-0.5 text-[11px]">promotion_signup_static</code> tag and
+                  continue into the editor on success.
+                </li>
+                <li>
+                  <span className="text-white/90">New placements:</span> send{" "}
+                  <code className="rounded bg-black/25 px-1 py-0.5 text-[11px]">POST /api/promotions/subscribe</code> with
+                  JSON{" "}
+                  <code className="rounded bg-black/25 px-1 py-0.5 text-[11px]">
+                    {`{ "email": "you@example.com", "source": "campaign_name" }`}
+                  </code>{" "}
+                  (or a form field <code className="rounded bg-black/25 px-1 py-0.5 text-[11px]">source</code>). Use a
+                  distinct value per surface or campaign (max 48 chars).
+                </li>
+                <li>
+                  <span className="text-white/90">Per-email audit:</span> operator export{" "}
+                  <code className="rounded bg-black/25 px-1 py-0.5 text-[11px]">GET /api/promotions/subscribers</code> with
+                  the print admin token lists <code className="rounded bg-black/25 px-1 py-0.5 text-[11px]">lastSource</code>{" "}
+                  per row.
+                </li>
+              </ol>
+            </div>
+          ) : null}
+          {!promoCaptureSourceEmpty && promotionSubscribers.captureSources.length > 0 ? (
+            <div className="mt-4 overflow-x-auto rounded-lg border border-white/10">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-white/5 text-neutral-200">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">Source</th>
+                    <th className="px-3 py-2 font-semibold">Active subscribers</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promotionSubscribers.captureSources.map((row) => (
+                    <tr key={row.source} className="border-t border-white/10">
+                      <td className="px-3 py-2 font-mono text-xs text-neutral-100">{row.source}</td>
+                      <td className="px-3 py-2">{row.count.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {!promotionSubscribers.listComplete ? (
+            <p className="mt-3 text-xs text-amber-200/90">
+              Partial KV list (limit 500): totals may be incomplete; extend the list query if you need a full rollup.
+            </p>
+          ) : null}
         </div>
         {referralDashboard.topReferrers.length > 0 ? (
           <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">

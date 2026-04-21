@@ -99,6 +99,10 @@ export type PromotionSubscriberSummary = {
   active: number;
   unsubscribed: number;
   listComplete: boolean;
+  /** Active subscribers whose last signup carried a non-empty `source` (KV `lastSource`). */
+  activeWithAttributedSource: number;
+  /** Counts by `lastSource` among active subscribers; omitted sources roll into `not_set`. */
+  captureSources: { source: string; count: number }[];
 };
 
 export async function getPromotionSubscriberSummary(limit = 500): Promise<PromotionSubscriberSummary> {
@@ -107,21 +111,37 @@ export async function getPromotionSubscriberSummary(limit = 500): Promise<Promot
     listed.keys.map((key) => kv.get<PromotionEmailState>(key)),
   );
 
+  const bySource = new Map<string, number>();
   let active = 0;
   let unsubscribed = 0;
+  let activeWithAttributedSource = 0;
   for (const state of states) {
     if (!state) continue;
     if (state.unsubscribedAt) {
       unsubscribed += 1;
+      continue;
+    }
+    active += 1;
+    const raw = state.lastSource?.trim();
+    if (raw) {
+      activeWithAttributedSource += 1;
+      bySource.set(raw, (bySource.get(raw) ?? 0) + 1);
     } else {
-      active += 1;
+      const key = "not_set";
+      bySource.set(key, (bySource.get(key) ?? 0) + 1);
     }
   }
+
+  const captureSources = Array.from(bySource.entries())
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count);
 
   return {
     total: listed.keys.length,
     active,
     unsubscribed,
     listComplete: listed.listComplete,
+    activeWithAttributedSource,
+    captureSources,
   };
 }

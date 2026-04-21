@@ -1,0 +1,14 @@
+{
+  "id": "2dcf2a92-bc95-4e4c-9c36-7a5038581df6",
+  "title": "Measurement: add empty-state + how-to-populate for capture source reporting",
+  "description": "Make capture/source attribution actionable even when baseline is near-zero.",
+  "area": "measurement",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "Ops/reporting surfaces a clear empty-state plus steps to populate capture-source data.",
+  "testPlan": "Load the page(s) or doc(s) referenced; confirm message is explicit.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T15:36:22.467Z",
+  "createdAt": "2026-04-21T15:14:05.523Z",
+  "updatedAt": "2026-04-21T15:36:22.467Z"
+}
