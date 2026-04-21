@@ -116,3 +116,57 @@ Required env:
 
 - `GOOGLE_MERCHANT_ACCOUNT_ID`
 - `GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSON_PATH` or `GOOGLE_APPLICATION_CREDENTIALS`
+
+## 8) `merchant:products:status` — read the traffic lights
+
+Run from `star-map-app-final/` (needs Merchant API credentials like `merchant:api:verify`):
+
+```bash
+npm run merchant:products:status
+npm run merchant:products:status -- --json
+```
+
+Writes `reports/merchant-products-status.json`.
+
+The script prints `[PASS]`, `[WARN]`, `[FAIL]`, and `[INFO]`. Treat them as **green / yellow / red / neutral context**:
+
+| Prefix | Color | Meaning |
+| --- | --- | --- |
+| `PASS` | Green | Requirement met for that line. |
+| `WARN` | Yellow | Not ideal or still in transition; read the detail before ignoring. |
+| `FAIL` | Red | Blocking for a “clean” Merchant Center; fix or escalate before promos depend on it. |
+| `INFO` | — | Numbers, account id, or extra context; not a pass/fail by itself. |
+
+**Exit code:** `0` only when there are **no `FAIL` lines**. Any `FAIL` makes the command exit `1` even if some lines are green.
+
+### What each check means and what to do next
+
+**`Program state: free-listings` / `Program state: shopping-ads`**
+
+- **PASS** — State is `ENABLED`: the program is on for this account.
+- **WARN** — State is `ELIGIBLE`: Google considers the account eligible but the program is not fully enabled yet. In Merchant Center, open the program and complete enablement, or wait if a review is in flight. Re-run after changes.
+- **FAIL** — Program missing from the API response, or state is neither `ENABLED` nor `ELIGIBLE`. Open Merchant Center → Growth / programs (or equivalent) and finish onboarding or resolve account-level issues.
+
+**`Program unmet requirements: …` (INFO)**
+
+- Lists Google’s requirement titles. Use them as the checklist in the Merchant Center UI for that program (policy, billing, region, etc.). Not a colored status by itself.
+
+**`Offer present in standard listings: print_poster_unframed` / `… framed`**
+
+- **PASS** — At least one standard (non-local) product record exists for that offer id.
+- **FAIL** — No standard record: confirm the live feed is fetched (`Products > Data sources` → fetch), `https://starmapco.com/merchant-feed.xml` includes the SKU, and recent deploys are live. Use sections 1–4 of this playbook.
+
+**`Offer present in local listings: …`**
+
+- **PASS** — Local record present (if you use local surfaces).
+- **WARN** — No local record: often acceptable when standard listings and approvals are green; investigate only if you rely on local inventory or GMC calls it out.
+
+**`… approved countries for FREE_LISTINGS` / `… for SHOPPING_ADS`**
+
+- **PASS** — Every **target** country (from feed/shipping config the script uses) appears in that program’s approved countries for the offer.
+- **FAIL** — One or more target countries missing: align **shipping services**, **shipping labels** (`print_framed` / `print_unframed`), and **feed** country lists with `docs/merchant-shipping-reference.csv` / `docs/merchant-shipping-groups.md`, then re-fetch the feed and re-check diagnostics.
+
+**Summary line**
+
+- If it says the account has both print offers present and approved in target countries, and nothing is `FAIL`, you are in good shape for routine checks.
+- If it says to fix failed checks first, work through each **`FAIL`** line top to bottom before treating Merchant Center as ready for dependent work (for example promotions).

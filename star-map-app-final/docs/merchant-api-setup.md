@@ -113,3 +113,11 @@ The scripts write reports under `reports/`:
 - `merchant-shipping-settings.current.json`
 - `merchant-shipping-settings.preview.json`
 - `merchant-shipping-settings.applied.json`
+
+Product and program status (see `docs/merchant-center-fix-playbook.md`, section 8, for PASS/WARN/FAIL meaning):
+
+```bash
+npm run merchant:products:status
+```
+
+- `merchant-products-status.json`

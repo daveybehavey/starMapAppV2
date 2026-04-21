@@ -1,0 +1,14 @@
+{
+  "id": "0ecdfbf3-99e8-49b0-a4e2-f334f3c3b69e",
+  "title": "Ops: merchant status checks interpretation (green/yellow/red)",
+  "description": "Make merchant:products:status actionable for operators.",
+  "area": "ops",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "Docs explain what each merchant status check outcome means and the next action.",
+  "testPlan": "Read-through; no code deploy required.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T16:42:19.875Z",
+  "createdAt": "2026-04-21T15:16:07.171Z",
+  "updatedAt": "2026-04-21T16:42:19.875Z"
+}

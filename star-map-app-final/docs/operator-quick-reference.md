@@ -213,6 +213,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - Generate grouped shipping rates for faster setup:
   - `npm run merchant:shipping-groups`
   - output: `docs/merchant-shipping-groups.md`
+- Merchant API product + program snapshot (PASS = green, WARN = yellow, FAIL = red):
+  - `npm run merchant:products:status`
+  - `npm run merchant:products:status -- --json` (machine-readable)
+  - How to read each line and what to do next: `docs/merchant-center-fix-playbook.md` (section 8, “`merchant:products:status` — read the traffic lights”)
 - Full fix workflow:
   - `docs/merchant-center-fix-playbook.md`
 
