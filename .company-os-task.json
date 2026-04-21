@@ -1,0 +1,14 @@
+{
+  "id": "1a82db54-3994-4a85-9dea-f6a9685811b2",
+  "title": "Conversion: add daily ratio sanity check (preview→session→paid)",
+  "description": "Make checkout-quality monitoring routine and lightweight.",
+  "area": "conversion",
+  "risk": "medium",
+  "status": "claimed",
+  "acceptanceCriteria": "A repeatable daily check exists that prints preview→session→paid ratios for 24h + 7d.",
+  "testPlan": "Run the check once; finishes <10s; QA: PASS 200 https://starmapco.com",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T15:55:17.523Z",
+  "createdAt": "2026-04-21T15:15:00.909Z",
+  "updatedAt": "2026-04-21T15:55:17.523Z"
+}
