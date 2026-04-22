@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <title>Star Map Co</title>
+    <style>
+      /* Minimal hero styles to make the CTA obvious above the fold */
+      .hero-cta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 28px;
+        gap: 10px;
+        background: linear-gradient(180deg, #0b1220 0%, #071021 100%);
+        color: #fff;
+      }
+      .hero-cta h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        line-height: 1.2;
+        font-weight: 700;
+      }
+      .hero-cta p.trust {
+        margin: 0;
+        font-size: 0.95rem;
+        color: rgba(255,255,255,0.85);
+      }
+      .primary-cta {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 12px 18px;
+        background: #ffb400;
+        color: #0b1220;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 700;
+      }
+      /* Ensure hero stays above other content */
+      header { position: relative; z-index: 1000; }
+    </style>
+  </head>
+  <body>
+    <!-- Primary hero CTA inserted above the app root to make the first action obvious -->
+    <header>
+      <div class="hero-cta" role="region" aria-label="Get started hero">
+        <h1>Create a beautiful, personalized star map of any date.</h1>
+        <p class="trust">Trusted by thousands of stargazers worldwide.</p>
+        <a id="start-your-star-map" class="primary-cta" href="/start">Start Your Star Map</a>
+      </div>
+    </header>
+
+    <!-- App root (kept for single-page apps) -->
