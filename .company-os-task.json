@@ -1,0 +1,14 @@
+{
+  "id": "b790266a-1c26-477c-9110-6bdc3a939c81",
+  "title": "Publish a static funnel probe URL manifest JSON for repeatable GET smoke checks",
+  "description": "Roadmap measurement lane: with low volume, attribution noise breaks easily unless every change is tied to a repeatable, versioned list of URLs to probe. Add a small public JSON file (checked into the repo) listing the canonical funnel URLs/steps the team agrees to monitor (e.g., key landings + editor entry + any always-on reporting pages), so headless tests do not drift or depend on tribal knowledge.\n\n— proposed by briefing agent on 2026-04-21T23:57:36.841Z",
+  "area": "measurement",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "HTTP GET https://starmapco.com/funnel-probe-urls.json returns 200 with Content-Type application/json (or text/plain containing JSON) and a JSON object that includes the keys landings (array of string paths), editorEntry (string path), and generatedAt (ISO-8601 string), where every path begins with \"/\".",
+  "testPlan": "GET the JSON URL, JSON.parse the body, and assert required keys/types; optionally GET each listed path and expect 200 (excluding any intentionally gated routes if excluded from the manifest).",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-22T00:01:32.329Z",
+  "createdAt": "2026-04-21T23:57:36.850Z",
+  "updatedAt": "2026-04-22T00:01:32.329Z"
+}
