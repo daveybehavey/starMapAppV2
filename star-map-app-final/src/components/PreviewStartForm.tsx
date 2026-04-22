@@ -22,6 +22,8 @@ type PreviewStartFormProps = {
   buttonLabel?: string;
   source?: string;
   intentOptions?: PreviewStartIntent[];
+  /** "subdued" for a secondary-styled submit when a separate primary editor link is shown above. */
+  buttonTone?: "default" | "subdued";
 };
 
 function buildEditorAction(source: string, checkout?: "print", printVariant?: PrintVariant): string {
@@ -46,6 +48,7 @@ export default function PreviewStartForm({
   buttonLabel = "Preview your map",
   source,
   intentOptions,
+  buttonTone = "default",
 }: PreviewStartFormProps) {
   const resolvedSource = source?.trim() || "preview-start-form";
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
@@ -148,7 +151,11 @@ export default function PreviewStartForm({
             formAction={buildEditorAction(resolvedSource)}
             data-source={resolvedSource}
             data-plan="preview"
-            className="mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className={
+              buttonTone === "subdued"
+                ? "mt-4 w-full rounded-full border-2 border-amber-300/80 bg-white px-5 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-50/80 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+                : "mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            }
           >
             {buttonLabel}
           </button>

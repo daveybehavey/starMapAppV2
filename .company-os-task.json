@@ -1,0 +1,14 @@
+{
+  "id": "40b67bcb-0bd8-42c8-8630-bb1122e5d428",
+  "title": "Tighten /custom-night-sky-map hero into one primary editor CTA with a stable selector",
+  "description": "Roadmap conversion lane: GA4 shows sessions concentrated on / with zero conversions over 28 days, and Search Console shows /custom-night-sky-map with meaningful impressions but weak average position—often a symptom of unclear next-step intent. Refactor only the above-the-fold hero so there is exactly one obvious primary CTA to the map editor flow, and tag it with a stable data attribute for measurement consistency.\n\n— proposed by briefing agent on 2026-04-21T23:57:36.634Z",
+  "area": "conversion",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "HTTP GET https://starmapco.com/custom-night-sky-map returns 200 and the response body includes a single element matching a[data-lp-primary-cta=\"editor\"] whose href starts with /editor (or absolute https://starmapco.com/editor).",
+  "testPlan": "GET the page and parse HTML (or simple string checks) to confirm exactly one matching anchor exists in the first screenful/hero region if the template makes that easy to bound.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-21T23:59:16.233Z",
+  "createdAt": "2026-04-21T23:57:36.645Z",
+  "updatedAt": "2026-04-21T23:59:16.233Z"
+}

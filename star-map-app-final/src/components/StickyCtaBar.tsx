@@ -11,6 +11,8 @@ type StickyCtaBarProps = {
   secondaryHref?: string;
   secondaryPlan?: string;
   className?: string;
+  /** "quiet" when a stronger primary CTA is shown higher on the page. */
+  ctaEmphasis?: "primary" | "quiet";
 };
 
 export default function StickyCtaBar({
@@ -22,6 +24,7 @@ export default function StickyCtaBar({
   secondaryHref,
   secondaryPlan = "print_intent",
   className = "",
+  ctaEmphasis = "primary",
 }: StickyCtaBarProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
@@ -66,7 +69,11 @@ export default function StickyCtaBar({
               track("sticky_preview_click", { source: resolvedSource });
               trackFunnelStep("hero_plan_click", { source: resolvedSource, plan: "preview" });
             }}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
+            className={
+              ctaEmphasis === "quiet"
+                ? "inline-flex items-center justify-center rounded-full border border-amber-300/80 bg-white px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-50/80"
+                : "inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
+            }
           >
             {buttonLabel}
           </a>

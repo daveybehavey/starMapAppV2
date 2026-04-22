@@ -44,45 +44,25 @@ export default function CustomNightSkyMapPage() {
           Design a custom night sky map that reflects the exact stars above you on a meaningful date. Start with a free
           preview, then choose framed print, unframed print, or HD digital delivery from the same design.
         </p>
+        <div className="pt-2">
+          <Link
+            href="/editor?mode=quick&source=custom-night-sky-map-hero"
+            data-lp-primary-cta="editor"
+            className="inline-flex min-h-[2.75rem] items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200/80 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0a1628]"
+          >
+            Open the map editor
+          </Link>
+        </div>
       </header>
 
       <PreviewStartForm
         source="custom-night-sky-map"
-        title="Start your custom night-sky preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best if you want the finished piece to arrive ready to display.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you want the physical print with a lower total.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Keep the editor neutral until the wording, layout, and style are right.",
-          },
-        ]}
+        title="Add date and place first (optional)"
+        description="We will carry these into the editor with your preview, or you can enter them in the editor after you open it."
+        buttonLabel="Continue with date and place"
+        buttonTone="subdued"
       />
-      <StickyCtaBar
-        source="sticky-custom-night-sky-map"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-custom-night-sky-map-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
-      />
+      <StickyCtaBar source="sticky-custom-night-sky-map" ctaEmphasis="quiet" />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">A night sky map that matches your moment</h2>
