@@ -3,113 +3,182 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Constellation Creator — Starmap Co.</title>
-  <meta name="description" content="Create a personalized constellation map in minutes. Perfect for gifts, milestones, and decor." />
+  <title>Constellation Creator — Design Your Personalized Star Map | Starmap Co.</title>
+  <meta name="description" content="Create a beautiful, personalized star map in minutes. The Constellation Creator makes it easy to turn moments into keepsakes—perfect for gifts, weddings, anniversaries, and special milestones." />
   <style>
     :root {
-      --bg: #0b1220;
-      --card: #071021;
-      --accent: #ffd166;
-      --muted: #9aa7b2;
-      --white: #ffffff;
-      --max-width: 980px;
+      --bg: #0b1020;
+      --card: #0f1724;
+      --accent: #ffd24d;
+      --muted: #9aa6bf;
+      --glass: rgba(255, 255, 255, 0.04);
     }
-    html,body {
+    html, body {
       height: 100%;
+    }
+    body {
       margin: 0;
       font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: linear-gradient(180deg, #020617 0%, #071226 50%, #051220 100%);
-      color: var(--white);
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
+      background: linear-gradient(180deg, #071022 0%, #07121a 60%);
+      color: #e6eef8;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
     .container {
-      max-width: var(--max-width);
-      margin: 48px auto;
-      padding: 32px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      max-width: 980px;
+      margin: 40px auto;
+      padding: 28px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
       border-radius: 12px;
-      box-shadow: 0 6px 30px rgba(2,6,23,0.7);
+      box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
     }
     header {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 24px;
-      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
     }
-    .branding {
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-    .logo {
-      width:48px;
-      height:48px;
-      border-radius:8px;
-      background: radial-gradient(circle at 30% 30%, var(--accent), #ff9f1c 40%, #7fbfff 100%);
-      box-shadow: 0 4px 18px rgba(0,0,0,0.6), inset 0 -6px 20px rgba(0,0,0,0.15);
+    header img {
+      width: 56px;
+      height: 56px;
+      border-radius: 8px;
+      object-fit: cover;
     }
     h1 {
-      margin:0;
+      margin: 0;
       font-size: 28px;
-      line-height:1.05;
+      line-height: 1.05;
     }
     p.lead {
-      margin: 8px 0 0 0;
       color: var(--muted);
-      font-size: 15px;
+      margin: 12px 0 20px;
+      max-width: 68%;
     }
     .hero {
-      display:flex;
+      display: flex;
       gap: 28px;
-      align-items:center;
+      align-items: flex-start;
+    }
+    .panel {
+      flex: 1;
+      background: var(--card);
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .cta-row {
+      display: flex;
+      gap: 12px;
       margin-top: 18px;
-      flex-wrap:wrap;
+      flex-wrap: wrap;
     }
-    .left {
-      flex: 1 1 420px;
-      min-width: 260px;
+    .btn {
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      color: #07121a;
+      background: var(--accent);
+      text-decoration: none;
     }
-    .right {
-      width: 320px;
-      min-width: 260px;
+    .btn.secondary {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--accent);
     }
     .features {
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-      margin-top:16px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 18px;
     }
     .feature {
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      color:var(--muted);
-      font-size:14px;
+      background: var(--glass);
+      padding: 12px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 14px;
     }
-    .cta {
-      margin-top: 20px;
-      display:flex;
-      gap:12px;
-      align-items:center;
+    .steps {
+      display: flex;
+      gap: 12px;
+      margin-top: 18px;
     }
-    .cta .primary {
-      background: linear-gradient(90deg, var(--accent), #ff9f1c);
-      color: #06121a;
-      border: none;
-      padding: 14px 20px;
-      font-weight: 700;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 8px 30px rgba(255,160,50,0.18), 0 1px 0 rgba(255,255,255,0.04) inset;
-      font-size:16px;
+    .step {
+      flex: 1;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 8px;
+      text-align: center;
     }
-    .cta .secondary {
-      background:transparent;
-      border: 1px solid rgba(255,255,255,0.06);
-      color:var(--white);
-      padding: 12px 16px;
-      border-radius: 10px;
-      cursor:pointer;
-      font-size:14px;
+    .step h3 {
+      margin: 6px 0;
+      color: var(--accent);
+      font-size: 16px;
+    }
+    .testimonial {
+      margin-top: 18px;
+      padding: 14px;
+      border-left: 4px solid rgba(255, 210, 77, 0.16);
+      background: transparent;
+      border-radius: 6px;
+      color: var(--muted);
+    }
+    footer {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 860px) {
+      .hero {
+        flex-direction: column;
+      }
+      .lead {
+        max-width: 100%;
+      }
+      .features {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 520px) {
+      .features {
+        grid-template-columns: 1fr;
+      }
+      .container {
+        margin: 20px;
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container" role="main">
+    <header>
+      <img src="/assets/logo-square.png" alt="Starmap Co. logo" onerror="this.style.display='none'"/>
+      <div>
+        <h1>Constellation Creator — Turn any moment into a timeless star map</h1>
+        <p class="lead">Easily design a stunning personalized star map for gifts, milestones, and memories. Fast creation, museum-quality printing, and guaranteed satisfaction — no design skills required.</p>
+      </div>
+    </header>
+
+    <section class="hero" aria-labelledby="create-cta">
+      <div class="panel" id="create-cta">
+        <h2 style="margin-top:0">Create your star map in 3 simple steps</h2>
+        <div class="steps" aria-hidden="false">
+          <div class="step">
+            <div style="font-size:20px;font-weight:700;color:#fff">1</div>
+            <h3>Pick a moment</h3>
+            <div style="color:var(--muted)">Choose a date, time, and place — the sky at that instant will be captured.</div>
+          </div>
+          <div class="step">
+            <div style="font-size:20px;font-weight:700;color:#fff">2</div>
+            <h3>Customize your look</h3>
+            <div style="color:var(--muted)">Colors, labels, constellations, and dedication text — preview live before you buy.</div>
+          </div>
+          <div class="step">
+            <div style="font-size:20px;font-weight:700;color:#fff">3</div>
+            <h3>Order or download</h3>
+            <div style="color:var(--muted)">Get a high-res digital file or a museum-quality print ready to display.</div>
+          </div>
+        </div>
+
+        <div class="cta-row" role="group" aria-label="Primary calls to action">
+          <a class="btn" href="/create">Start creating — it's free</a>
