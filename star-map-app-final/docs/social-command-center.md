@@ -157,6 +157,33 @@ Use for:
 - measuring watch time, clicks, preview starts, purchases
 - deciding what to remake
 
+#### Posted vs scheduled (traffic logging)
+
+Use the same words every time so rows in the tracker stay comparable.
+
+- **Scheduled** — The post is queued in the platform or a third-party scheduler with a future publish time. It is not publicly visible yet.
+- **Posted** — The post is live for the intended audience (public or standard visibility). Drafts, private tests, and “saved but not published” are not posted.
+
+Checklist:
+
+- **While scheduled**
+  - [ ] `status` is `scheduled` (use `planned` only if not queued yet).
+  - [ ] `date_posted` stays empty until the post is actually live.
+- **When posted**
+  - [ ] `status` is `posted`.
+  - [ ] `date_posted` is the date the post went live (local date is fine; stay consistent week to week).
+  - [ ] You can open a normal viewer link or see the asset on the profile without special access.
+
+#### Metric capture template
+
+After a snapshot window (often 24–48 hours), fill the metric columns on the same row so funnels stay comparable. Use the [Social Content Tracker](./social-content-tracker.csv) headers:
+
+`views` → `avg_watch_time_seconds` → `avg_watch_percent` → `retention_2s_percent` → `completion_rate_percent` → `likes` → `comments` → `shares` → `saves` → `profile_visits` → `link_clicks` → `preview_starts` → `checkout_starts` → `purchases` → `spend_usd` (if boosted) → `win_loss_notes` → `next_iteration`.
+
+One-line copy template for notes or chat logs (field names match the tracker header row):
+
+`platform= | content_id= | hook_version= | views= | avg_watch_time_seconds= | avg_watch_percent= | retention_2s_percent= | completion_rate_percent= | likes= | comments= | shares= | saves= | profile_visits= | link_clicks= | preview_starts= | checkout_starts= | purchases= | spend_usd= | win_loss_notes=`
+
 ### Pinterest Tracker
 
 - [Pinterest Content Tracker](./pinterest-content-tracker.csv)
