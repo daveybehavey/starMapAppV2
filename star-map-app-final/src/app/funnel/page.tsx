@@ -194,6 +194,29 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
             </p>
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Top promo capture source</p>
+            <p className="text-2xl font-bold">
+              {promotionSubscribers.active > 0 && promotionSubscribers.topCaptureSource
+                ? promotionSubscribers.topCaptureSource.source
+                : "—"}
+            </p>
+            <p className="text-sm text-neutral-400">
+              {promotionSubscribers.active > 0 && promotionSubscribers.topCaptureSource
+                ? `${promotionSubscribers.topCaptureSource.count.toLocaleString()} active with this source`
+                : "No active promo subscribers in KV sample"}
+              {promotionSubscribers.listComplete ? "" : " • partial list (increase limit)"}
+            </p>
+            {promotionSubscribers.captureSources.length > 1 ? (
+              <p className="mt-2 text-xs text-neutral-500">
+                Also:{" "}
+                {promotionSubscribers.captureSources
+                  .slice(1, 4)
+                  .map((row) => `${row.source} (${row.count})`)
+                  .join(" · ")}
+              </p>
+            ) : null}
+          </div>
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Referral conversions</p>
             <p className="text-2xl font-bold">{referralDashboard.lastNDays.conversions.toLocaleString()}</p>
             <p className="text-sm text-neutral-400">
