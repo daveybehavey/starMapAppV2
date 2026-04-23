@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>City Star Map — Create Your Personalized Night Sky | StarmapCo</title>
+  <meta name="description" content="Capture the exact night sky of a special place and date. Create a personalized City Star Map — perfect for gifts, anniversaries, and keepsakes." />
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:#0f1724;
+      --accent:#ffd166;
+      --muted:#bfc8d9;
+      --btn:#ff7b7b;
+      --glass: rgba(255,255,255,0.04);
+      --radius:12px;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#071022 0%, #081226 60%);
+      color:var(--muted);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px;
+    }
+    .container{
+      max-width:980px;
+      width:100%;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:16px;
+      padding:28px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+    .hero{
+      display:flex;
+      gap:28px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .left{flex:1 1 420px}
+    h1{
+      margin:0 0 10px 0;
+      color:#fff;
+      font-size:28px;
+      line-height:1.05;
+    }
+    p.lead{
+      margin:0 0 18px 0;
+      color:var(--muted);
+      font-size:15px;
+    }
+    .cta-row{display:flex;gap:12px;flex-wrap:wrap}
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:12px 18px;
+      border-radius:10px;
+      font-weight:600;
+      cursor:pointer;
+      border:0;
+    }
+    .btn-primary{
+      background:linear-gradient(90deg,var(--btn),#ffb4b4);
+      color:#111;
+      box-shadow:0 6px 18px rgba(255,123,123,0.18);
+    }
+    .btn-ghost{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.06);
+      color:var(--muted);
+    }
+    .card{
+      background:var(--card);
+      padding:14px;
+      border-radius:12px;
+      min-width:260px;
+      color:var(--muted);
+      border:1px solid rgba(255,255,255,0.02);
+    }
+    .preview{
+      width:320px;
+      height:320px;
+      border-radius:12px;
+      background:
+        radial-gradient(ellipse at center, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.00) 60%),
+        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%23081a2b"/></svg>');
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:13px;
+      text-align:center;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.6);
+    }
+    .features{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+    .feature{background:var(--glass);padding:10px;border-radius:10px;font-size:13px;color:var(--muted)}
+    form.lead-form{display:flex;gap:8px;margin-top:16px}
+    input[type="email"]{
+      padding:12px 12px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:#061022;
+      color:#fff;
+      outline:none;
+      flex:1;
+    }
+    .small{font-size:13px;color:#9fb0d1}
+    .trust{margin-top:14px;font-size:13px;color:#9fb0d1;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .badge{background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:8px;font-weight:600;color:#fff}
+    .success{display:none;padding:12px;margin-top:10px;background:#0b3d26;color:#bff6d2;border-radius:10px}
+    @media(max-width:720px){
+      .hero{flex-direction:column}
+      .preview{width:100%;height:260px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="main" aria-labelledby="heading">
+    <div class="hero">
+      <div class="left">
+        <h1 id="heading">City Star Map — The Night Sky of Your Memories</h1>
+        <p class="lead">Create a beautiful, customizable map of the sky as it appeared over any city on any date. Perfect for anniversaries, birthdays, weddings, or to remember a special moment.</p>
+
+        <div class="cta-row" aria-hidden="false">
+          <button class="btn btn-primary" id="primary-cta">Get Your City Star Map</button>
+          <a class="btn btn-ghost" href="#how-it-works">How it works</a>
+        </div>
+
+        <form class="lead-form" id="leadForm" onsubmit="return handleLeadSubmit(event)" aria-label="Sign up for an offer">
+          <input type="email" id="email" name="email" placeholder="Enter your email for 10% off" aria-label="Email address" required />
+          <button class="btn btn-primary" type="submit">Get 10% Off</button>
+        </form>
+
+        <div class="success" id="successMsg" role="status" aria-live="polite">Thanks — check your inbox! We'll send a special discount and a quick guide to creating the perfect city star map.</div>
+
+        <div class="trust">
+          <span class="badge">Free shipping over $50</span>
+          <span class="badge">Handmade prints</span>
+          <span class="badge">30-day returns</span>
+        </div>
+
+        <div id="how-it-works" style="margin-top:18px">
+          <h3 style="color:#fff;margin:12px 0 8px 0;font-size:16px">How it works</h3>
+          <div class="features">
+            <div class="feature">1. Enter a location & date</div>
+            <div class="feature">2. Choose style & size</div>
+            <div class="feature">3. Preview & order in minutes</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" aria-hidden="false">
+        <div class="preview" aria-hidden="true">
+          <div>
+            <div style="font-weight:700;color:#fff;margin-bottom:8px">Preview</div>
+            <div class="small">Customize colors, labels, and frames</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:700;color:#fff">Personalized prints</div>
+              <div class="small">Start from $29 — framed options available</div>
+            </div>
+            <button class="btn btn-ghost" id="previewNow">Customize</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.02)">
+      <h3 style="color:#fff;margin:0 0 8px 0">Why customers love City Star Map</h3>
+      <p class="small" style="max-width:780px">Our maps show the stars and constellations exactly as they appeared above your chosen city and date. Each map is rendered with precise astronomy data and printed with archival inks on premium paper.</p>
+      <ul style="margin:12px 0 0 20px;color:var(--muted)">
+        <li>Accurate sky data — great for meaningful gifts</li>
+        <li>Multiple customization styles and sizes</li>
+        <li>Fast processing & worldwide shipping</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    // Minimal interactivity to increase engagement without backend changes.
+    function scrollToCustomize(){
+      document.querySelector('.preview').scrollIntoView({behavior:'smooth', block:'center'});
+    }
+    document.getElementById('primary-cta').addEventListener('click', function(){
+      // Primary CTA takes users to the preview area; if site has a shop route, they'll be able to proceed.
+      scrollToCustomize();
+      // show highlight
+      const card = document.querySelector('.card');
+      card.animate([{boxShadow:'0 8px 30px rgba(255,123,123,0.06)'},{boxShadow:'0 10px 30px rgba(2,6,23,0.6)'}],{duration:500});
+    });
+    document.getElementById('previewNow').addEventListener('click', function(){
+      // If the site has a builder, we'd link there. For now, we nudge user to email capture.
+      document.getElementById('email').focus();
+    });
+
