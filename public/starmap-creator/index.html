@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Create Your Personalized Star Map — StarmapCo</title>
+    <meta name="description" content="Design a beautiful, one-of-a-kind star map for any moment — births, anniversaries, proposals, or milestones. Fast preview, satisfaction guarantee." />
+    <style>
+      :root {
+        --bg: #0b1020;
+        --card: #0f1724;
+        --accent: #ffd369;
+        --muted: #9aa4b2;
+        --white: #ffffff;
+        --maxw: 980px;
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: radial-gradient(ellipse at top left, rgba(255,211,105,0.06), transparent 20%), var(--bg);
+        color: var(--white);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        line-height: 1.4;
+      }
+      .wrap { max-width: var(--maxw); margin: 48px auto; padding: 32px; }
+      .hero {
+        display: flex;
+        gap: 32px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .left { flex: 1; min-width: 280px; }
+      h1 { font-size: 36px; margin: 0 0 12px 0; line-height: 1.05; color: var(--white); }
+      p.lead { color: var(--muted); margin: 0 0 20px 0; font-size: 18px; }
+      .cta-row { display: flex; gap: 12px; align-items: center; margin-top: 14px; }
+      .btn {
+        display: inline-block;
+        padding: 12px 18px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        color: #0b1020;
+        background: var(--accent);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+      }
+      .btn.secondary {
+        background: transparent;
+        color: var(--white);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 10px 16px;
+      }
+      .features { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+      .feature {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+        padding: 12px 14px;
+        border-radius: 10px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .right { width: 360px; flex-shrink: 0; display: flex; justify-content: center; }
+      .preview {
+        width: 360px;
+        height: 360px;
+        border-radius: 12px;
+        background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.03), transparent 10%), linear-gradient(180deg, #071025, #02111f);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+      }
+      .preview .title { font-weight: 700; color: var(--accent); font-size: 13px; margin-bottom: 8px; }
+      .preview .stars {
+        width: 100%;
+        height: 220px;
+        background: radial-gradient(circle at 10% 20%, #fff 0.8px, transparent 0),
+          radial-gradient(circle at 80% 40%, #fff 0.8px, transparent 0),
+          radial-gradient(circle at 40% 70%, #fff 0.8px, transparent 0),
+          radial-gradient(circle at 60% 20%, #fff 0.8px, transparent 0);
+        background-size: 100% 100%;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        opacity: 0.95;
+      }
+      .preview small { color: var(--muted); }
+      .social-proof {
+        margin-top: 28px;
+        padding: 18px;
+        border-radius: 10px;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), transparent);
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .badge {
+        background: rgba(255, 255, 255, 0.06);
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-weight: 700;
+        color: var(--white);
+      }
+      .trust { color: var(--muted); font-size: 13px; }
+      .testimonials {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .testimonial {
+        background: var(--card);
+        padding: 14px;
+        border-radius: 10px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      footer {
+        margin-top: 42px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+      @media (max-width: 880px) {
+        .hero { flex-direction: column-reverse; align-items: stretch; }
+        .right { width: 100%; }
+        h1 { font-size: 28px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap" role="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="left">
+          <h1 id="hero-title">Create your personalized star map — capture any moment in the sky</h1>
+          <p class="lead">Design a museum-quality star map for the night you choose: anniversaries, births, proposals, graduations, or "just because." Instant preview, fast shipping, and a satisfaction guarantee.</p>
+
+          <div class="cta-row" role="region" aria-label="Primary actions">
+            <a class="btn" href="/create-starmap?utm_source=landing&utm_campaign=creator">Get a free preview</a>
+            <a class="btn secondary" href="/examples">See real designs</a>
+          </div>
+
+          <div class="features" aria-hidden="false">
+            <div class="feature">Fast preview: upload or pick a date and see your map instantly</div>
+            <div class="feature">Flexible sizes: posters, framed prints, and digital downloads</div>
+            <div class="feature">Trusted: 20,000+ orders with 4.8/5 average rating</div>
+          </div>
+
+          <div class="social-proof" role="contentinfo">
+            <div class="badge">20k+</div>
+            <div>
+              <div style="font-weight: 700">Loved by thousands</div>
+              <div class="trust">Over 10,000 five-star reviews and a 30-day satisfaction guarantee</div>
+            </div>
+          </div>
+
+          <div class="testimonials" aria-live="polite">
+            <div class="testimonial">
+              "Ordered a custom star map for our anniversary — the detail and quality were incredible. The preview made it perfect." — Jamie L.
+            </div>
+            <div class="testimonial">
+              "Fast shipping and my partner cried when they saw it. Highly recommend for gifts." — Marco P.
+            </div>
+            <div class="testimonial">
+              "Easy editor, beautiful prints. I was able to get a digital file instantly." — Anika R.
