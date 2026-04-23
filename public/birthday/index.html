@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Birthday Star Map — Starmap Co</title>
+  <meta name="description" content="Celebrate a birthday with a custom star map showing the exact sky from a special moment. Fast shipping, beautiful framing options, and a satisfaction guarantee." />
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f1724;
+      --accent:#ffcc33;
+      --muted:#9aa6b2;
+      --white:#ffffff;
+      --maxw:920px;
+      --radius:12px;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      background:linear-gradient(180deg,#061022 0%, #071426 60%);
+      color:var(--white);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:40px 20px;
+    }
+    .container{
+      width:100%;
+      max-width:var(--maxw);
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:var(--radius);
+      box-shadow:0 10px 30px rgba(2,6,23,0.6);
+      overflow:hidden;
+      display:grid;
+      grid-template-columns:1fr 360px;
+      gap:28px;
+      padding:36px;
+    }
+    .hero{
+      padding:4px 8px;
+    }
+    h1{
+      margin:6px 0 12px;
+      font-size:2rem;
+      line-height:1.02;
+      letter-spacing:-0.02em;
+    }
+    p.lead{
+      margin:0 0 18px;
+      color:var(--muted);
+      font-size:1rem;
+    }
+    .features{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin:18px 0 24px;
+    }
+    .feature{
+      background:rgba(255,255,255,0.03);
+      padding:10px 12px;
+      border-radius:10px;
+      color:var(--muted);
+      font-size:0.92rem;
+    }
+    .cta{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-top:8px;
+    }
+    .btn-primary{
+      background:linear-gradient(90deg,var(--accent),#ffb84d);
+      color:#071426;
+      border:none;
+      padding:14px 18px;
+      border-radius:10px;
+      font-weight:700;
+      cursor:pointer;
+      text-decoration:none;
+      box-shadow:0 6px 18px rgba(255,204,51,0.14), inset 0 -2px 0 rgba(0,0,0,0.06);
+      display:inline-block;
+    }
+    .btn-secondary{
+      background:transparent;
+      color:var(--white);
+      border:1px solid rgba(255,255,255,0.06);
+      padding:12px 14px;
+      border-radius:10px;
+      text-decoration:none;
+      font-weight:600;
+      font-size:0.95rem;
+    }
+    .aside{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:10px;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      align-items:stretch;
+      justify-content:flex-start;
+    }
+    .mock{
+      height:220px;
+      border-radius:8px;
+      background:linear-gradient(180deg,#071226 0%, #05101a 100%);
+      border:1px solid rgba(255,255,255,0.03);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:0.95rem;
+    }
+    .small{
+      color:var(--muted);
+      font-size:0.88rem;
+    }
+    .badge{
+      display:inline-block;
+      background:rgba(255,255,255,0.04);
+      color:var(--accent);
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:700;
+      font-size:0.85rem;
+    }
+    .testimonials{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .testimonial{
+      background:rgba(255,255,255,0.02);
+      padding:10px;
+      border-radius:8px;
+      font-size:0.9rem;
+      color:var(--muted);
+    }
+    footer{
+      margin-top:18px;
+      color:var(--muted);
+      font-size:0.85rem;
+    }
+    @media (max-width:880px){
+      .container{grid-template-columns:1fr; padding:20px;}
+      .aside{order:-1}
+    }
+  </style>
