@@ -71,6 +71,7 @@ function buildScorecard(digest) {
   const activeSubscribers = Number(digest?.promotionSubscribers?.active || 0);
   const unsubscribedSubscribers = Number(digest?.promotionSubscribers?.unsubscribed || 0);
   const totalSubscribers = Number(digest?.promotionSubscribers?.total || 0);
+  const topPromoCaptureSource = digest?.promotionSubscribers?.topCaptureSource;
   const clientBlockers = Array.isArray(digest?.checkoutDiagnostics)
     ? digest.checkoutDiagnostics.filter((row) => String(row?.reason || "").startsWith("client_"))
     : [];
@@ -106,6 +107,13 @@ function buildScorecard(digest) {
         activeSubscribers,
         unsubscribedSubscribers,
         totalSubscribers,
+        topCaptureSource:
+          topPromoCaptureSource && activeSubscribers > 0
+            ? {
+                source: String(topPromoCaptureSource.source ?? "unknown"),
+                count: Number(topPromoCaptureSource.count || 0),
+              }
+            : null,
         checkoutStarted,
         paidSessions,
         paidPerActiveSubscriberPct: Number(percent(paidSessions, activeSubscribers).toFixed(2)),
@@ -156,6 +164,12 @@ function printHumanScorecard(scorecard) {
   console.log("Loop 3 · Promo lifecycle");
   console.log(`Active subscribers: ${scorecard.loops.promoLifecycle.activeSubscribers}`);
   console.log(`Unsubscribed: ${scorecard.loops.promoLifecycle.unsubscribedSubscribers}`);
+  if (scorecard.loops.promoLifecycle.topCaptureSource) {
+    const t = scorecard.loops.promoLifecycle.topCaptureSource;
+    console.log(`Top capture source: ${t.source} (${t.count} active)`);
+  } else {
+    console.log("Top capture source: —");
+  }
   console.log(`Subscriber -> paid proxy: ${scorecard.loops.promoLifecycle.paidPerActiveSubscriberPct.toFixed(2)}%`);
   console.log("");
 

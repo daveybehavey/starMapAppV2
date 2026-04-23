@@ -94,12 +94,25 @@ export function getPromotionUnsubscribeUrl(email: string) {
   return `${siteUrl}/unsubscribe?${params.toString()}`;
 }
 
+export type PromotionSubscriberSourceRow = {
+  source: string;
+  count: number;
+};
+
 export type PromotionSubscriberSummary = {
   total: number;
   active: number;
   unsubscribed: number;
   listComplete: boolean;
+  /** Active subscribers only, largest count first */
+  captureSources: PromotionSubscriberSourceRow[];
+  topCaptureSource: PromotionSubscriberSourceRow | null;
 };
+
+function bucketCaptureSource(raw: string | undefined): string {
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  return trimmed.length > 0 ? trimmed : "unknown";
+}
 
 export async function getPromotionSubscriberSummary(limit = 500): Promise<PromotionSubscriberSummary> {
   const listed = await kv.list({ prefix: EMAIL_STATE_PREFIX, limit });
@@ -109,19 +122,28 @@ export async function getPromotionSubscriberSummary(limit = 500): Promise<Promot
 
   let active = 0;
   let unsubscribed = 0;
+  const sourceCounts = new Map<string, number>();
   for (const state of states) {
     if (!state) continue;
     if (state.unsubscribedAt) {
       unsubscribed += 1;
     } else {
       active += 1;
+      const label = bucketCaptureSource(state.lastSource);
+      sourceCounts.set(label, (sourceCounts.get(label) ?? 0) + 1);
     }
   }
+
+  const captureSources = [...sourceCounts.entries()]
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count);
 
   return {
     total: listed.keys.length,
     active,
     unsubscribed,
     listComplete: listed.listComplete,
+    captureSources,
+    topCaptureSource: captureSources[0] ?? null,
   };
 }
