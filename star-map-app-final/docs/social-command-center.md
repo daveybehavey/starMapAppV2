@@ -122,6 +122,14 @@ By the end of the week, you should have:
 - create one FAQ video from real comments
 - decide whether anything is strong enough for paid testing
 
+### Days 15-21 (post-sprint week)
+
+Lightweight scaffold only: assign specifics from your sprint review and seasonal calendar before filming.
+
+- log posts in [Social Content Tracker](./social-content-tracker.csv) under **week `4`**, **day** `1` through `7`
+- start from documented winners and remakes, then keep strong gift angles in rotation (for example graduation and wedding season)
+- add `date_posted` and metrics only after each post is live (do not invent numbers)
+
 ## 7. Use These Files In This Order
 
 ### Strategy
@@ -156,6 +164,7 @@ Use for:
 - tracking each post
 - measuring watch time, clicks, preview starts, purchases
 - deciding what to remake
+- week `4` rows: post-sprint scaffold for days 15-21 (see [Days 15-21](#days-15-21-post-sprint-week))
 
 #### Posted vs scheduled (traffic logging)
 
