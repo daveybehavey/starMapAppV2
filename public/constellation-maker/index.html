@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Constellation Maker — Create Your Star Map | Starmap Co.</title>
+  <meta name="description" content="Create a personalized constellation map in minutes. Perfect for gifts, memorials, and commemorations. Fast shipping, satisfaction guaranteed." />
+  <style>
+    :root{
+      --bg:#070617;
+      --card:#0f1224;
+      --accent:#8ee0ff;
+      --accent-2:#9b7cff;
+      --muted:rgba(255,255,255,0.7);
+      --glass: rgba(255,255,255,0.03);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg) 0%, #05050a 100%);color:#fff}
+    .container{max-width:1100px;margin:32px auto;padding:28px}
+    .hero{
+      display:flex;
+      gap:28px;
+      align-items:center;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px;padding:28px;
+      box-shadow:0 8px 30px rgba(2,6,23,0.6);
+    }
+    .hero-left{flex:1;min-width:320px}
+    h1{font-size:clamp(26px,4vw,44px);margin:0 0 12px 0;line-height:1.04}
+    p.lead{color:var(--muted);margin:0 0 20px 0;font-size:15px}
+    .cta-row{display:flex;gap:12px;align-items:center}
+    .btn{
+      display:inline-flex;align-items:center;gap:10px;
+      padding:12px 18px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      color:#031028;font-weight:600;text-decoration:none;font-size:15px;box-shadow:0 6px 18px rgba(139,187,255,0.12);
+    }
+    .btn.secondary{
+      background:transparent;border:1px solid rgba(255,255,255,0.08);color:var(--muted);padding:10px 14px;font-weight:600;
+    }
+    .visual{
+      width:420px;height:300px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+    }
+    .visual svg{width:100%;height:100%;display:block}
+    .features{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap}
+    .feature{background:var(--glass);border-radius:10px;padding:10px 12px;color:var(--muted);font-size:13px}
+    .social-proof{margin-top:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .trust{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:13px}
+    .testimonial{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));padding:14px;border-radius:10px;color:var(--muted);font-size:14px;max-width:320px}
+    .kpi{font-weight:700;color:var(--accent);font-size:20px}
+    footer{margin-top:20px;color:rgba(255,255,255,0.06);font-size:12px}
+    @media (max-width:880px){
+      .hero{flex-direction:column}
+      .visual{width:100%;height:220px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <div class="hero" aria-labelledby="hero-title">
+      <div class="hero-left">
+        <h1 id="hero-title">Build a personalized constellation — easy, fast, and beautiful.</h1>
+        <p class="lead">Turn a moment into a star map. Select a date and location, customize the look, and get a premium print shipped to your door.</p>
+
+        <div class="cta-row" style="margin-bottom:10px">
+          <a class="btn" href="/create?from=landing" id="primary-cta">Create Your Constellation →</a>
+          <a class="btn secondary" href="#how-it-works" id="secondary-cta">How it works</a>
+        </div>
+
+        <div class="features" aria-hidden="false">
+          <div class="feature">Fast setup — personalize in under 2 minutes</div>
+          <div class="feature">Satisfaction guarantee & free revisions</div>
+          <div class="feature">Premium archival prints & framing</div>
+        </div>
+
+        <div class="social-proof" aria-label="Customer proof">
+          <div class="trust">
+            <span class="kpi">125k+</span>
+            <span style="opacity:0.8">constellations created</span>
+          </div>
+          <div class="trust">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 4.41 2.86 8.15 6.84 9.45.5.09.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.6-3.37-1.19-3.37-1.19-.45-1.16-1.1-1.48-1.1-1.48-.9-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.64-1.33-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.26.1-2.63 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0112 6.8c.85.004 1.7.115 2.5.338 1.9-1.29 2.74-1.02 2.74-1.02.55 1.37.2 2.38.1 2.63.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85 0 1.33-.01 2.4-.01 2.73 0 .27.18.59.69.49A10 10 0 0022 12c0-5.52-4.48-10-10-10z" fill="rgba(255,255,255,0.7)"/>
+            </svg>
+            <span style="opacity:0.8">Rated 4.9/5 by customers</span>
+          </div>
+          <div class="testimonial" aria-hidden="false">
+            "A thoughtful, one-of-a-kind gift. The print quality and packaging were top-notch." — Maya R.
+          </div>
+        </div>
+      </div>
+
+      <div class="visual" aria-hidden="false" role="img" aria-label="Preview of constellation print">
+        <!-- Decorative SVG showing a stylized constellation and spotlight -->
+        <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="presentation">
+          <defs>
+            <radialGradient id="g1" cx="30%" cy="25%">
+              <stop offset="0%" stop-color="#1b2a66" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#05030a" stop-opacity="0.0"/>
+            </radialGradient>
+            <linearGradient id="g2" x1="0" x2="1">
+              <stop offset="0%" stop-color="#8ee0ff" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#9b7cff" stop-opacity="0.9"/>
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#g1)"/>
+          <!-- stars -->
+          <g fill="#fff">
+            <circle cx="120" cy="80" r="1.8" opacity="0.95"/>
+            <circle cx="210" cy="140" r="2.6" opacity="0.95"/>
+            <circle cx="410" cy="60" r="1.4" opacity="0.9"/>
+            <circle cx="520" cy="190" r="2.2" opacity="0.95"/>
+            <circle cx="320" cy="220" r="1.6" opacity="0.9"/>
+            <circle cx="600" cy="90" r="2.4" opacity="0.95"/>
+          </g>
+          <!-- constellation lines -->
+          <g stroke="url(#g2)" stroke-width="2.4" stroke-linecap="round" fill="none" opacity="0.95">
+            <path d="M120 80 L210 140 L320 220 L410 60 L520 190" stroke-linejoin="round"/>
+          </g>
+          <!-- highlight star -->
+          <g transform="translate(210,140)">
+            <circle r="12" fill="url(#g2)" opacity="0.15"/>
+            <circle r="4" fill="#fff"/>
+          </g>
+          <!-- subtle grid / axis -->
+          <g stroke="rgba(255,255,255,0.02)" stroke-width="1">
+            <path d="M0 300 L800 300 M400 0 L400 600"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <section id="how-it-works" style="margin-top:22px">
+      <h2 style="margin:0 0 10px 0;font-size:18px">How it works</h2>
+      <ol style="color:var(--muted);padding-left:20px;margin:0;font-size:14px;line-height:1.6">
+        <li>Pick a date, time, and place to capture the sky.</li>
+        <li>Customize style: constellation lines, background, text, and framing options.</li>
+        <li>Approve a preview and receive a museum-grade print shipped securely.</li>
+      </ol>
+      <div style="margin-top:12px">
+        <a class="btn" href="/create?from=how-it-works">Start your constellation</a>
+      </div>
