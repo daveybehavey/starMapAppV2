@@ -1,0 +1,28 @@
+{
+  "manifest_version": 1,
+  "generated_at": "2026-04-23T04:56:07Z",
+  "week_start": "2026-04-20",
+  "week_end": "2026-04-26",
+  "summary": {
+    "total_visits": 125430,
+    "total_conversions": 3421,
+    "sitewide_conversion_rate": 0.0273
+  },
+  "initiatives": [
+    {
+      "id": "email-nurture",
+      "name": "Email Nurture Series",
+      "visits": 34210,
+      "conversions": 1280,
+      "conversion_rate": 0.0374,
+      "status": "active"
+    },
+    {
+      "id": "paid-search-q2",
+      "name": "Paid Search Q2 Promo",
+      "visits": 50150,
+      "conversions": 1520,
+      "conversion_rate": 0.0303,
+      "status": "active"
+    },
+    {
