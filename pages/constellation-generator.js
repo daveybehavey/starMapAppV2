@@ -1,27 +1,30 @@
-import Head from 'next/head';
+import Head from "next/head";
 
 export default function ConstellationGenerator() {
   return (
     <>
       <Head>
-        <title>Constellation Generator — Create Custom Star Maps | StarMap Co</title>
+        <title>Constellation Map — Personalize Your Star Map | StarMapCo</title>
         <meta
           name="description"
-          content="Create custom constellations and printable star maps with our Constellation Generator. Perfect for gifts, wall art, astronomy projects, and memorable moments. Customize date, location, style, and download high-resolution images or order prints."
+          content="Explore constellations on a personalized star map. Customize date, location, and style, then export a high-resolution download or order a print."
         />
         <meta name="robots" content="index,follow" />
-        <link rel="canonical" href="https://starmapco.com/constellation-generator" />
-        <meta name="keywords" content="constellation generator, custom star map, star map generator, printable star map, personalized constellation, starmap" />
+        <link rel="canonical" href="https://starmapco.com/constellation-map" />
+        <meta
+          name="keywords"
+          content="constellation map, constellation chart, star map generator, personalized star map, printable star map, constellations"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebPage",
-              "name": "Constellation Generator",
+              "name": "Constellation Map",
               "description":
-                "Design your own constellation and download a high-resolution star map. Customize colors, labels, date, and location to create a meaningful gift or piece of wall art.",
-              "url": "https://starmapco.com/constellation-generator"
+                "Preview constellations on a personalized star map, then customize labels, style, and export or order a print.",
+              "url": "https://starmapco.com/constellation-map"
             })
           }}
         />
@@ -29,19 +32,18 @@ export default function ConstellationGenerator() {
 
       <main>
         <header>
-          <h1>Constellation Generator</h1>
+          <h1>Constellation Map</h1>
           <p className="lede">
-            Design beautiful, accurate star maps and unique constellations in seconds.
-            Customize date, location, colors, labels and download high-resolution files
-            or order a print delivered to your door.
+            Preview constellations on a star map for any date and location, then customize style and labels.
+            Export a high-resolution file or order a print.
           </p>
         </header>
 
         <section aria-labelledby="why-use">
-          <h2 id="why-use">Why use our Constellation Generator?</h2>
+          <h2 id="why-use">Why use a constellation map?</h2>
           <ul>
-            <li>Generate realistic constellations and full star maps based on date, time, and location.</li>
-            <li>Fine-tune style: background, color palettes, label fonts, and constellation lines.</li>
+            <li>See recognizable constellations for the sky from your chosen date and place.</li>
+            <li>Choose style: background, palettes, label fonts, and constellation lines.</li>
             <li>High-resolution downloads optimized for printing; framing-ready file exports.</li>
             <li>Perfect for gifting—anniversaries, birthdays, weddings, memorials, and home decor.</li>
           </ul>
@@ -59,11 +61,10 @@ export default function ConstellationGenerator() {
         <section aria-labelledby="get-started">
           <h2 id="get-started">Get started</h2>
           <p>
-            Ready to create your constellation? Start now to capture a moment in the sky —
-            whether it’s a first date, birthday, or a special milestone.
+            Start with a preview, then decide on labels, layout, and whether you want a download or a print.
           </p>
           <p>
-            <a className="btn" href="/create-constellation">Open the Constellation Generator</a>
+            <a className="btn" href="/constellation-map">Open the constellation map</a>
           </p>
         </section>
 

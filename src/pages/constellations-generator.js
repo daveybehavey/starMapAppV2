@@ -1,20 +1,26 @@
-import React from 'react';
+import React from "react";
 
-const ConstellationsGenerator = () => {
+export default function ConstellationsGenerator() {
   return (
-    <div>
-      <h1>Constellations Generator</h1>
+    <main
+      style={{
+        maxWidth: 760,
+        margin: "48px auto",
+        padding: "0 16px",
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        lineHeight: 1.6,
+        color: "#0b1726",
+      }}
+    >
+      <h1>Constellations on your star map</h1>
       <p>
-        Welcome to the Constellations Generator! This tool allows you to create stunning
-        visual representations of constellations. With our easy-to-use interface, you can
-        explore different star patterns and generate unique designs based on your preferences.
+        Constellations are recognizable star patterns. On StarMapCo, you can include constellation lines and labels on a
+        personalized star map for a date and location.
       </p>
       <p>
-        The Constellations Generator helps you understand the beauty and complexity of the night sky.
-        You can customize various parameters to create your own constellations and share them with
-        friends and family.
+        <a href="/constellation-map">Preview a constellation map</a>
       </p>
-      <p>
-        Start generating your own constellations today and unlock the secrets of the universe!
-      </p>
-    </div>
+    </main>
+  );
+}
+
