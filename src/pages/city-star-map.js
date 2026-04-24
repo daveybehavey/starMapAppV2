@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CityStarMap = () => {
+const CityStarMap = () => { 
   return (
     <div>
       <h1>Explore the City Star Map</h1>
