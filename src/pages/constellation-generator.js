@@ -1,20 +1,30 @@
-import React from 'react';
+import React from "react";
 
-const ConstellationGenerator = () => {
+/**
+ * Minimal informational page.
+ * Avoid claiming an interactive generator that isn't implemented here.
+ */
+export default function ConstellationGenerator() {
   return (
-    <div>
-      <h1>Welcome to the Constellation Generator!</h1>
+    <main
+      style={{
+        maxWidth: 760,
+        margin: "48px auto",
+        padding: "0 16px",
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        lineHeight: 1.6,
+        color: "#0b1726",
+      }}
+    >
+      <h1>Constellation Map</h1>
       <p>
-        Explore the night sky like never before with our state-of-the-art constellation generator. 
-        Discover unique star patterns, learn about their mythology, and even create custom constellations 
-        that tell your story. Whether you're an astronomy enthusiast or just starting your celestial journey, 
-        our tool provides an engaging way to interact with the cosmos.
+        Use a constellation map to recognize familiar star patterns on a personalized star map for a specific date and
+        location.
       </p>
-      <h2>How It Works</h2>
       <p>
-        Simply input your preferences, and our generator will produce a stunning visual representation of 
-        your personalized constellation. You can save and share your creations with friends and family!
+        <a href="/constellation-map">Open the constellation map</a>
       </p>
-      <h2>Why Use Our Tool?</h2>
-      <p>
-        Our constellation generator is designed for both education and entertainment. Gain insights into
+    </main>
+  );
+}
+
