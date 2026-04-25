@@ -6,6 +6,7 @@ import { Playfair_Display } from "next/font/google";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
+import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -39,6 +40,7 @@ const footerLinks = [
   { label: "Gift Formats", href: "/star-map-gift-formats" },
   { label: "Blog", href: "/blog" },
   { label: "My Downloads", href: "/my-downloads" },
+  ...(isBulkOrdersEnabled() ? [{ label: "Bulk & Event Orders", href: "/bulk-event-orders" }] : []),
   { label: "Contact", href: "/contact" },
   { label: "Terms", href: "/terms" },
   { label: "Shipping Policy", href: "/shipping" },
