@@ -286,6 +286,14 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                   <p className="mt-1 text-xs text-neutral-400">
                     {row.lastNDays.toLocaleString()} last {days}d • {row.total.toLocaleString()} lifetime
                   </p>
+                  {row.topSources && row.topSources.length > 0 ? (
+                    <p className="mt-1 text-[11px] text-neutral-500">
+                      Top sources:{" "}
+                      {row.topSources
+                        .map((entry) => `${entry.source} (${entry.lastNDays.toLocaleString()})`)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>

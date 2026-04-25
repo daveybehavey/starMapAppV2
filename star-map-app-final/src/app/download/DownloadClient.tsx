@@ -308,6 +308,7 @@ export default function DownloadClient() {
   const [recoveryStatus, setRecoveryStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [printCheckoutLoading, setPrintCheckoutLoading] = useState(false);
+  const printCheckoutInFlightRef = useRef(false);
   const [printCheckoutError, setPrintCheckoutError] = useState<string | null>(null);
   const printUpsellRef = useRef<HTMLDivElement | null>(null);
   const printUpsellFocusedRef = useRef(false);
@@ -948,11 +949,12 @@ export default function DownloadClient() {
 
   const handlePrintCheckout = useCallback(
     async (variant: PrintVariant) => {
-      if (printCheckoutLoading) return;
+      if (printCheckoutInFlightRef.current) return;
       if (!printCheckoutEnabled) {
         setPrintCheckoutError("Print checkout is not live yet.");
         return;
       }
+      printCheckoutInFlightRef.current = true;
       trackSelectItem({
         itemListId: "download_print_upsell",
         itemListName: "Download print upsell",
@@ -1114,10 +1116,11 @@ export default function DownloadClient() {
                   ? "Print checkout is not live yet."
                   : "Print checkout is unavailable right now. Please try again.";
         setPrintCheckoutError(messageByReason);
+        printCheckoutInFlightRef.current = false;
         setPrintCheckoutLoading(false);
       }
     },
-    [mapIdFromUrl, printCheckoutLoading, printShippingCountry, recipe, resolveShapeAndRatio],
+    [mapIdFromUrl, printShippingCountry, recipe, resolveShapeAndRatio],
   );
 
   const loadReferralStatus = useCallback(async () => {

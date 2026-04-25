@@ -511,12 +511,12 @@ export function SimplifiedEditor() {
   // Handle HD download - redirects to checkout if not paid
   const handleHdDownload = useCallback(async () => {
     if (hdExportInFlightRef.current) return;
+    hdExportInFlightRef.current = true;
+    setHdExporting(true);
     setExportError(null);
 
     if (paid) {
       // User has paid - do direct HD export
-      hdExportInFlightRef.current = true;
-      setHdExporting(true);
       try {
         await exportImage("hd", true);
       } catch (err) {
@@ -530,8 +530,6 @@ export function SimplifiedEditor() {
     }
 
     // User hasn't paid - save recipe and redirect to checkout
-    hdExportInFlightRef.current = true;
-    setHdExporting(true);
     let checkoutApiResponseReceived = false;
     try {
       // Save the recipe first
@@ -632,7 +630,7 @@ export function SimplifiedEditor() {
       } else {
         setExportError("Unable to start checkout. Please try again.");
       }
-      // Reset state on error
+      // Reset state on error (success path redirects before this runs)
       hdExportInFlightRef.current = false;
       setHdExporting(false);
     }
