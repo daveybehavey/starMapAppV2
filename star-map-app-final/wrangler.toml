@@ -23,6 +23,9 @@ NEXT_INC_CACHE_R2_PREFIX = "incremental-cache"
 # Site Configuration
 NEXT_PUBLIC_SITE_URL = "https://starmapco.com"
 
+# Feature flags
+BULK_EVENT_ORDERS_ENABLED = "true"
+
 # Analytics
 NEXT_PUBLIC_POSTHOG_KEY = "phc_s1dorhk13RhnCG0tHFiHLiMyamlm9UN06T7N3uSvRhY"
 NEXT_PUBLIC_POSTHOG_HOST = "https://app.posthog.com"

@@ -65,6 +65,12 @@ function main() {
   const sitemapFile = readFile("src/app/sitemap.ts");
   const packageJson = JSON.parse(readFile("package.json"));
 
+  const robotsPublic = /robots:\s*\{\s*index:\s*true,\s*follow:\s*true\s*\}/.test(bulkPage);
+  const robotsSoft = /robots:\s*\{\s*index:\s*false,\s*follow:\s*false\s*\}/.test(bulkPage);
+  /** Sitemap lists bulk only when `bulkEnabled` is true (matches runtime flag). */
+  const sitemapConditionalBulk =
+    sitemapFile.includes("bulkEnabled") && sitemapFile.includes("bulk-event-orders");
+
   pushCheck(
     checks,
     "info",
@@ -86,19 +92,24 @@ function main() {
     "api/bulk-quotes/route.ts",
   );
 
-  pushCheck(
-    checks,
-    bulkPage.includes("robots: { index: false, follow: false }") ? "pass" : "fail",
-    "Page stays noindex for soft launch",
-    "robots metadata check",
-  );
-
-  pushCheck(
-    checks,
-    !sitemapFile.includes("/bulk-event-orders") ? "pass" : "fail",
-    "Route is omitted from sitemap",
-    "sitemap.ts check",
-  );
+  /** Current product default: public launch (index + sitemap when flag on). Legacy soft = noindex + no sitemap ref. */
+  const seoPosture =
+    robotsPublic && sitemapConditionalBulk
+      ? { status: "pass", label: "Bulk SEO posture (public launch)", detail: "indexable + conditional sitemap entry" }
+      : robotsSoft && !sitemapFile.includes("bulk-event-orders")
+        ? { status: "pass", label: "Bulk SEO posture (soft launch)", detail: "noindex + bulk omitted from sitemap source" }
+        : robotsSoft && sitemapConditionalBulk
+          ? {
+              status: "warn",
+              label: "Bulk SEO posture",
+              detail: "noindex page but sitemap still has conditional bulk URL — align robots + sitemap intent",
+            }
+          : {
+              status: "fail",
+              label: "Bulk SEO posture",
+              detail: "set robots to index:true/follow:true with conditional sitemap, or soft launch (noindex + no bulk in sitemap)",
+            };
+  pushCheck(checks, seoPosture.status, seoPosture.label, seoPosture.detail);
 
   pushCheck(
     checks,
@@ -133,8 +144,8 @@ function main() {
   const summary = launchReady
     ? routeEnabled
       ? "Bulk lane is enabled and operationally ready."
-      : "Bulk lane is dark and ready for a soft launch when you choose."
-    : "Bulk lane is not ready to enable. Fix failed checks first.";
+      : "Bulk lane is off in env; code and ops checks look good for when you enable it."
+    : "Bulk lane is not ready. Fix failed checks first.";
 
   if (args.json) {
     process.stdout.write(JSON.stringify({

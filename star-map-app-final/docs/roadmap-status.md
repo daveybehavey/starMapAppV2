@@ -1,6 +1,6 @@
 # StarMapCo Roadmap Status
 
-Updated: 2026-04-12
+Updated: 2026-04-24
 
 This is the canonical operating roadmap for StarMapCo.
 
@@ -37,7 +37,7 @@ Everything else stays queued unless it directly improves one of those lanes.
 
 - Product path is live: preview, digital checkout, print route, recovery, referral, lifecycle, ops
 - Core measurement is live: funnel reports, commerce digest, loop scorecard, promo-source reporting
-- Bulk lane exists but is intentionally dark
+- Bulk lane is **feature-flagged** (`BULK_EVENT_ORDERS_ENABLED`): when on, route is public, linked from footer + contact, indexable, and listed in `sitemap.xml`; when off, route 404s and robots disallow apply
 - Merchant feed exists and the Merchant API confirms both print offers are present and approved
 - Traffic execution docs are ready, but posting has not started
 - Real buyer volume is still low, so proof and lifecycle optimization are underpowered
@@ -98,13 +98,13 @@ Why now:
 
 Current assets:
 - manual email workflow
-- dark bulk quote route
+- `/bulk-event-orders` quote page (gated by env; footer + `/contact` links when enabled)
 - bulk quote intake API
-- alerting and ops reporting
+- alerting and ops reporting (`ops:bulk-quotes`, `qa:bulk-launch-readiness`)
 
 Definition of done:
 - B2B inbound is handled cleanly
-- the dark bulk lane is operationally ready to enable when needed
+- production has `BULK_EVENT_ORDERS_ENABLED=true` (e.g. Wrangler `[vars]` + deploy) and **one real quote** processed end to end (form → storage → alert → ops follow-up)
 
 ## Next Up
 
@@ -119,22 +119,17 @@ Definition of done:
 - `PRINT10` can be run as the first US print promotion
 - operator workflow is explicit enough that GMC is not a guess-based lane
 
-### 6. Bulk lane soft launch
+### 6. Bulk lane (shipped; operational follow-through)
 
-Why next:
-- already built
-- strong reuse of the existing product
-- manual quoting preserves control and margin
+Status:
+- Route, SEO, and light discovery are aligned with “on when flag is true” (see §4).
 
-Launch posture:
-- enable route with `BULK_EVENT_ORDERS_ENABLED=true`
-- keep `noindex`
-- keep it out of navigation at first
-- use it as a selective sales tool, not a homepage pitch
+Remaining focus:
+- prove alerting + operator workflow on **production** data
+- avoid homepage takeover: bulk stays out of hero; footer + contact + direct URL are enough for now
 
 Definition of done:
-- route is enabled intentionally
-- alerting works
+- route is enabled in prod with verified alerting
 - one real request is processed end to end
 
 ### 7. Proof and trust publishing

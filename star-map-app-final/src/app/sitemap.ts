@@ -9,16 +9,35 @@ import {
 } from "@/data/seoIndexing";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
+const bulkEnabled = /^(1|true|yes)$/i.test((process.env.BULK_EVENT_ORDERS_ENABLED || "").trim());
+
+/** Slugs that redirect to another blog URL (`next.config.mjs`); omit from sitemap to avoid crawl hops. */
+const BLOG_SITEMAP_EXCLUDED_SLUGS = new Set(["most-meaningful-valentines-day-gift-custom-star-map"]);
+
+/**
+ * Blog posts implemented as `src/app/blog/<slug>/page.tsx` but not listed under that slug in `blogPosts`
+ * (canonical URL should still appear in the sitemap once).
+ */
+const STATIC_INDEXABLE_BLOG_ROUTES: MetadataRoute.Sitemap = [
+  {
+    url: `${baseUrl}/blog/valentines-day-star-map`,
+    lastModified: "2025-02-01",
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  },
+];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date().toISOString();
 
-  const blogEntries: MetadataRoute.Sitemap = blogPosts.map((post) => ({
-    url: `${baseUrl}/blog/${post.slug}`,
-    lastModified: post.date,
-    changeFrequency: "monthly",
-    priority: 0.6,
-  }));
+  const blogEntries: MetadataRoute.Sitemap = blogPosts
+    .filter((post) => !BLOG_SITEMAP_EXCLUDED_SLUGS.has(post.slug))
+    .map((post) => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: post.date,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }));
 
   const staticEntries: MetadataRoute.Sitemap = [
     {
@@ -165,6 +184,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.7,
     },
+    ...(bulkEnabled
+      ? [
+          {
+            url: `${baseUrl}/bulk-event-orders`,
+            lastModified: now,
+            changeFrequency: "monthly" as const,
+            priority: 0.4,
+          },
+        ]
+      : []),
   ];
 
   const locationEntries: MetadataRoute.Sitemap = seoLocations
@@ -186,5 +215,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     }));
 
-  return [...staticEntries, ...locationEntries, ...occasionEntries, ...blogEntries];
+  return [...staticEntries, ...locationEntries, ...occasionEntries, ...STATIC_INDEXABLE_BLOG_ROUTES, ...blogEntries];
 }

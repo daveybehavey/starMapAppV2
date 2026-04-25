@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description:
     "Manual quote lane for bulk star map orders for corporate events, memorials, weddings, and milestone gifting.",
   alternates: { canonical: `${siteUrl}/bulk-event-orders` },
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
   openGraph: {
     title: "Bulk & Event Orders | StarMapCo",
     description:

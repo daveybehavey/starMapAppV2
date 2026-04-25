@@ -27,6 +27,25 @@ alwaysApply: true
 - The `company-os/` directory is **gitignored**; it is for local agent / automation scaffolding only.
 - When the user asks for autonomy, workflows, approvals, or ops automation, follow `.cursor/rules/company-os.mdc` and prefer working there instead of touching `star-map-app-final/` unless they say otherwise.
 
+## Roadmap / tasks from this chat (company-os)
+
+When the user brainstorms work, wants to **add to the roadmap**, **capture a task**, or **queue something for agents**, **run the CLI yourself** (do not ask them to paste `COMPANY_OS_AUTOMATION_KEY`; it lives in `company-os/.env.local`).
+
+- **Requires** company-os API up: `cd company-os && npm run dev` (default `http://localhost:3010`), unless they use `--base-url`.
+- **Add one task:**
+
+```powershell
+cd C:\Users\david\dev\starMapAppV2\company-os
+npm run roadmap:add -- "Short title"
+npm run roadmap:add -- "Title" -d "Longer brainstorm / notes…"
+```
+
+- **Paste-friendly (stdin):** write a temp file or pipe heredoc on Unix; on Windows PowerShell you can use `@' ... '@ | node scripts/roadmap-add.mjs --stdin` with first line = title and rest = description, or pipe JSON `{"title":"…","description":"…"}`.
+
+After success, tell them the printed **task id** and link to **`/tasks`** on the company-os server.
+
+- **Live / preview QA:** `company-os` supports a **tester runner** (`scripts/tester-runner.mjs`) + `POST /api/tasks/:id/qa-report` to gate PRs before merge. See `company-os/automations/README.md` → *Tester AI / live site checks*.
+
 ## Prettier / formatting gate
 
 - `npm run format:check` currently reports **many** pre-existing formatting differences across `src/`. Do **not** run repo-wide `npm run format` as a drive-by; treat full formatting as its own intentional PR.

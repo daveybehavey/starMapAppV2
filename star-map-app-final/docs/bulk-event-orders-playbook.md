@@ -2,13 +2,13 @@
 
 ## Status
 - Route: `/bulk-event-orders`
-- Launch state: dark
+- Launch state: **public when flag is on** (still off by default in env until you set it)
 - Public gate: `BULK_EVENT_ORDERS_ENABLED=true`
-- Current safety posture:
-  - route 404s unless the env flag is enabled
-  - page metadata is `noindex, nofollow`
-  - route is not linked in navigation
-  - route is not added to `sitemap.ts`
+- Current posture when enabled:
+  - route returns 200; `notFound()` when flag is off
+  - page metadata is **indexable** (robots allow + canonical)
+  - **footer + `/contact`** include a link so people can find it
+  - route is included in **`sitemap.ts`** when the flag is on
 
 ## Offer
 Use one clear lane:
@@ -128,5 +128,6 @@ Before enabling the route:
 - confirm `BULK_QUOTE_ALERT_FROM` and `BULK_QUOTE_ALERT_TO`
 - confirm Resend or SendGrid is configured
 - test one request in a non-production environment
-- decide whether to keep `noindex` for soft launch or remove it for full launch
-- add navigation or CTA entry only when ready
+- **Public launch (current default):** `robots` indexable + `sitemap.ts` includes `/bulk-event-orders` when `bulkEnabled` — script checks this path
+- **Soft launch (optional):** `noindex` and omit bulk from `sitemap.ts` source entirely if you want zero discovery
+- footer + `/contact` links appear when the flag is on (see `src/app/layout.tsx`, `src/app/contact/page.tsx`)
