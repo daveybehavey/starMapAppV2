@@ -1,0 +1,71 @@
+---
+description: StarMapCo repo layout, deploy defaults, and safety for agents
+alwaysApply: true
+---
+
+# StarMapCo — agent ops defaults
+
+## Owner preferences (keep in sync with user)
+
+- **Canonical Cursor folder:** `C:\Users\david\dev\starMapAppV2` — use this path for all terminal work unless the user says otherwise.
+- **Autonomy:** When the user asks to ship, fix prod, or “do the deploy loop,” prefer **running commands yourself** (`git pull`, `npm ci`, `npm run deploy:verify`, `wrangler rollback`, `qa:*`) instead of handing long checklists back. Stop only on a **hard blocker** (missing admin for WSL, Wrangler not logged in, merge conflicts).
+- **Do not** ask the user to paste secrets; never echo `.env` contents.
+
+## Cursor: keep chat / workspace stable
+
+- **Do not use “Open Folder” on a bare path** if chat keeps disappearing when you switch machines or paths.
+- **Preferred:** **File → Open Workspace from File…** → choose **`StarMapAppV2.code-workspace`** in the repo root (`C:\Users\david\dev\starMapAppV2`). Cursor binds history more reliably to a **`.code-workspace`** than to a raw folder.
+- **Optional shortcut:** on the Desktop, double‑click **`Open-StarMapAppV2-dev.code-workspace`** (points at this repo). Always use the **same** launcher so the same chat/history slot is reused.
+
+## Canonical workspace (Windows)
+
+- Prefer opening **`C:\Users\david\dev\starMapAppV2`** in Cursor (not under OneDrive). OneDrive + `node_modules` causes flaky `npm ci` / extract errors.
+- App root for commands: **`star-map-app-final`** (e.g. `cd star-map-app-final` from repo root).
+
+## Local `company-os/` (automation workspace)
+
+- The `company-os/` directory is **gitignored**; it is for local agent / automation scaffolding only.
+- When the user asks for autonomy, workflows, approvals, or ops automation, follow `.cursor/rules/company-os.mdc` and prefer working there instead of touching `star-map-app-final/` unless they say otherwise.
+
+## Roadmap / tasks from this chat (company-os)
+
+When the user brainstorms work, wants to **add to the roadmap**, **capture a task**, or **queue something for agents**, **run the CLI yourself** (do not ask them to paste `COMPANY_OS_AUTOMATION_KEY`; it lives in `company-os/.env.local`).
+
+- **Requires** company-os API up: `cd company-os && npm run dev` (default `http://localhost:3010`), unless they use `--base-url`.
+- **Add one task:**
+
+```powershell
+cd C:\Users\david\dev\starMapAppV2\company-os
+npm run roadmap:add -- "Short title"
+npm run roadmap:add -- "Title" -d "Longer brainstorm / notes…"
+```
+
+- **Paste-friendly (stdin):** write a temp file or pipe heredoc on Unix; on Windows PowerShell you can use `@' ... '@ | node scripts/roadmap-add.mjs --stdin` with first line = title and rest = description, or pipe JSON `{"title":"…","description":"…"}`.
+
+After success, tell them the printed **task id** and link to **`/tasks`** on the company-os server.
+
+- **Live / preview QA:** `company-os` supports a **tester runner** (`scripts/tester-runner.mjs`) + `POST /api/tasks/:id/qa-report` to gate PRs before merge. See `company-os/automations/README.md` → *Tester AI / live site checks*.
+
+## Prettier / formatting gate
+
+- `npm run format:check` currently reports **many** pre-existing formatting differences across `src/`. Do **not** run repo-wide `npm run format` as a drive-by; treat full formatting as its own intentional PR.
+
+## Before builds / deploys
+
+- After `git pull`: run **`npm ci`** inside `star-map-app-final`.
+- Target Node **20 or 22 LTS** when possible. OpenNext warns about Windows; for **production** releases prefer **WSL** (install with `wsl --install` in an elevated terminal, then deploy from Linux path under `/mnt/c/...`).
+
+## Deploy commands
+
+- Default ship path: **`npm run deploy:verify`** (runs OpenNext deploy + **`npm run qa:live-critical`**). Use plain `deploy` only if intentionally skipping the probe.
+- **`npm run deploy:safe`** when OAuth Wrangler is required and API tokens must be stripped from local env files.
+
+## Wrangler / secrets
+
+- Do **not** paste `.env` contents or API keys into chat. Use **`wrangler login`** (OAuth) on the machine that deploys.
+- If production breaks right after deploy: **`npx wrangler deployments list`** then **`npx wrangler rollback <previous-version-id> -y`**.
+
+## Quick verification
+
+- **`npm run qa:live-critical`** — fast GET checks on `/`, `/about`, `/contact`, `/editor`, `/api/premium`.
+- **`npm run qa:promo-links`** — Playwright; needs `npx playwright install chromium` once per machine.

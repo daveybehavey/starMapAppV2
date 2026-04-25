@@ -1,6 +1,31 @@
 .tmp_codex_key
 .tmp_codex_key.pub
 .ssh_config_codex
+.codex
 lighthouse-*.report.*
 lighthouse-*.json
 lighthouse-*.html
+
+# Local-only automation workspace (not part of this repo)
+company-os/
+
+# Git worktrees created by company-os agent-runner (local machine)
+.worktrees/
+
+# Temporary worktrees for manual merge-conflict resolution
+.mergefix/
+
+# company-os Cursor agent scaffolding (never ship in PRs)
+.company-os-task.json
+TODO-NOTE.md
+
+# Node artifacts (never commit)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Accidental root package artifacts (repo uses star-map-app-final/package.json)
+/package.json
+/package-lock.json

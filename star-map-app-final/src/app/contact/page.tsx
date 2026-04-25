@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
+import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -12,6 +14,7 @@ export const metadata: Metadata = {
 export default function ContactPage() {
   const profile = getBusinessProfile();
   const phoneHref = getBusinessPhoneHref();
+  const bulkEnabled = isBulkOrdersEnabled();
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
@@ -52,6 +55,15 @@ export default function ContactPage() {
             StarMapCo handles customer support directly. Include your order details and any screenshots or photos if
             you are contacting us about a print, shipping, or download issue.
           </p>
+          {bulkEnabled ? (
+            <p>
+              Need <strong>25+ maps</strong> for an event, team, memorial, or milestone gift? Use our{" "}
+              <Link className="font-semibold text-midnight underline" href="/bulk-event-orders">
+                Bulk &amp; Event Orders
+              </Link>{" "}
+              quote form.
+            </p>
+          ) : null}
         </div>
       </div>
     </main>

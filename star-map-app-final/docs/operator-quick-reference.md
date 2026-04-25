@@ -34,6 +34,10 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:commerce-digest -- --days 7`
   - `qa:commerce-digest` now includes paid `referral_offer_variant` mix to validate referral offer tests
   - `GET /api/analytics/checkout-diagnostics` is now available behind `PRINT_ADMIN_TOKEN` for checkout blocker counts
+- **Google Search Console (read-only query)**:
+  - CLI (writes `reports/search-console.query.json`): `npm run seo:gsc:query` — defaults to last **28 days** ending today; override with `--start` / `--end` (YYYY-MM-DD). Site URL: `GSC_SITE_URL` or `GOOGLE_SEARCH_CONSOLE_SITE_URL` or `--site`.
+  - Service account: `GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON_PATH` (or `GOOGLE_APPLICATION_CREDENTIALS` / inline JSON env — see `scripts/gsc-query.mjs`).
+  - Admin HTTP: `GET /api/ops/search-console/query?start=...&end=...&dimensions=query,page&limit=250` with `PRINT_ADMIN_TOKEN` as `x-print-admin-token` / `Authorization: Bearer`.
 
 ## 2) Stripe revenue and checkout
 
@@ -193,6 +197,29 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `/download`
   - both now include a non-public-facing proof request card that asks buyers to email a photo + short note with permission before anything is published
   - success-page proof requests now include the Stripe session reference in the email draft for easier support follow-up
+  - review-consent KV keys:
+    - `proof:consent:map:<mapId>`
+    - `proof:consent:session:<sessionId>`
+- **Bulk quote requests**:
+  - manual-sales lane lives at `/bulk-event-orders` and only exists when `BULK_EVENT_ORDERS_ENABLED=true` (footer + contact link when on; see `docs/bulk-event-orders-playbook.md`)
+  - launch-readiness check:
+    - `npm run qa:bulk-launch-readiness`
+    - `npm run qa:bulk-launch-readiness -- --json`
+  - list captured requests:
+    - `npm run ops:bulk-quotes`
+    - `npm run ops:bulk-quotes -- --json`
+    - `npm run ops:bulk-quotes -- --limit 100`
+    - `npm run ops:bulk-quotes -- --status new`
+  - update request status:
+    - `npm run ops:bulk-quotes -- --set-status contacted --id <requestId>`
+    - statuses: `new`, `contacted`, `quoted`, `won`, `lost`, `archived`
+  - request records are stored under:
+    - `bulk:quote:<requestId>`
+  - launch and pricing rules:
+    - `docs/bulk-event-orders-playbook.md`
+    - `docs/bulk-version-template-guide.md`
+  - version sheet:
+    - `https://starmapco.com/templates/starmapco-bulk-versions-template.csv`
 - **Promo signup hardening**:
   - promo emails now include a signed unsubscribe link
   - `/unsubscribe` updates promo signup state server-side

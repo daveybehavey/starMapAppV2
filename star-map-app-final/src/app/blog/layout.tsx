@@ -29,3 +29,10 @@ export default function BlogLayout({ children }: Props) {
           <p style={{ margin: 0 }}>
             Great for gifts — create a{" "}
             <a href="/birthday">Birthday</a> or{" "}
+            <a href="/anniversary">Anniversary</a> map.
+          </p>
+        </aside>
+      </div>
+    </div>
+  );
+}
