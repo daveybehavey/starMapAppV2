@@ -86,6 +86,11 @@ function isPaidCheckoutSession(session) {
   return paymentStatus === "paid" || paymentStatus === "no_payment_required";
 }
 
+function isRealPaidSession(session) {
+  if (!isPaidCheckoutSession(session)) return false;
+  return Number(session.amount_total || 0) > 0;
+}
+
 function classifyOrder(session) {
   const metadata = session.metadata || {};
   const rawOrderType = String(metadata.order_type || metadata.orderType || "").toLowerCase();
@@ -347,6 +352,8 @@ async function buildReport(args) {
   ]);
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session));
+  const realPaidSessions = paidSessions.filter((session) => Number(session.amount_total || 0) > 0);
+  const zeroPaidSessions = paidSessions.length - realPaidSessions.length;
   const digitalPaid = paidSessions.filter((session) => classifyOrder(session) === "digital");
   const printPaid = paidSessions.filter((session) => classifyOrder(session) === "print");
   const paymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, paidSessions);
@@ -454,6 +461,8 @@ async function buildReport(args) {
     stripe: {
       sessionsScanned: sessions.length,
       paidSessions: paidSessions.length,
+      realPaidSessions: realPaidSessions.length,
+      zeroPaidSessions,
       digitalPaidSessions: digitalPaid.length,
       printPaidSessions: printPaid.length,
       digitalRevenueCents,
@@ -480,6 +489,10 @@ function printHumanReport(report) {
 
   console.log("Revenue");
   console.log(`Paid sessions: ${report.stripe.paidSessions}`);
+  console.log(
+    `Real paid sessions (amount_total>0): ${report.stripe.realPaidSessions} ` +
+      `(zero-dollar/test: ${report.stripe.zeroPaidSessions})`,
+  );
   console.log(
     `Revenue: ${formatMoney(report.stripe.totalRevenueCents, report.stripe.currency)} ` +
       `(digital ${formatMoney(report.stripe.digitalRevenueCents, report.stripe.currency)}, ` +
