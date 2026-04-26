@@ -498,6 +498,42 @@ class CheckoutError extends Error {
   }
 }
 
+const CHECKOUT_IDEMPOTENCY_TTL_SECONDS = 2 * 60;
+const CHECKOUT_IDEMPOTENCY_PREFIX = "checkout:idempotency:url:";
+
+function normalizeIdempotencyToken(raw: unknown, maxLen = 64) {
+  if (typeof raw !== "string") return "";
+  const token = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, maxLen);
+  return token;
+}
+
+function checkoutIdempotencyKey(input: {
+  mapId?: string;
+  plan: CheckoutPlan;
+  orderType: CheckoutOrderType;
+  printVariant?: PrintVariant;
+  includeDigitalAddOn?: boolean;
+  shippingCountry?: string | null;
+  promoCode?: string | null;
+  referralCode?: string | null;
+}) {
+  const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
+  if (!mapId) return null;
+  const plan = input.plan;
+  const orderType = input.orderType;
+  const printVariant = input.printVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
+  const includeDigitalAddOn = input.includeDigitalAddOn ? "1" : "0";
+  const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
+  const promo = normalizeIdempotencyToken(input.promoCode, 48);
+  const referral = normalizeIdempotencyToken(input.referralCode, 48);
+  return `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${shipping}:${promo}:${referral}:${mapId}`;
+}
+
 async function createCheckoutSession(
   input: {
     plan: CheckoutPlan;
@@ -516,6 +552,7 @@ async function createCheckoutSession(
     referralAttribution?: ReferralAttribution | null;
     promotionSource?: PromotionSource;
     referralAutoOfferVariant?: ReferralAutoOfferVariant;
+    idempotencyKey?: string;
   },
 ): Promise<CheckoutSessionResult> {
   const {
@@ -535,6 +572,7 @@ async function createCheckoutSession(
     referralAttribution,
     promotionSource = "none",
     referralAutoOfferVariant,
+    idempotencyKey,
   } = input;
   if (!stripe) {
     throw new Error("Stripe not configured");
@@ -820,7 +858,10 @@ async function createCheckoutSession(
   let session: Stripe.Checkout.Session;
   let discountRejected = false;
   try {
-    session = await stripe.checkout.sessions.create(sessionParams);
+    session = await stripe.checkout.sessions.create(
+      sessionParams,
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
   } catch (error) {
     if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error) || !fallbackOnDiscountError) {
       throw error;
@@ -848,7 +889,10 @@ async function createCheckoutSession(
           : undefined,
     };
     discountRejected = true;
-    session = await stripe.checkout.sessions.create(fallbackParams);
+    session = await stripe.checkout.sessions.create(
+      fallbackParams,
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
   }
 
   return { url: session.url ?? null, discountRejected };
@@ -1098,6 +1142,29 @@ export async function POST(req: NextRequest) {
       plan,
     });
 
+    const idempotencyKey = checkoutIdempotencyKey({
+      mapId,
+      plan,
+      orderType,
+      printVariant,
+      includeDigitalAddOn,
+      shippingCountry: shippingCountry ?? null,
+      promoCode: promoCode ?? null,
+      referralCode: referral.code ?? null,
+    });
+    if (idempotencyKey) {
+      const existingUrl = await kv.get<string>(idempotencyKey);
+      if (typeof existingUrl === "string" && existingUrl.trim()) {
+        return NextResponse.json({
+          url: existingUrl,
+          promoApplied: false,
+          referralOfferApplied: false,
+          referralOfferVariant: null,
+          promoLookupFailed: false,
+        });
+      }
+    }
+
     await recordFunnelStep({
       step: "checkout_request_received",
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
@@ -1121,12 +1188,16 @@ export async function POST(req: NextRequest) {
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      idempotencyKey: idempotencyKey ?? undefined,
     });
     if (promoCode && session.discountRejected) {
       return NextResponse.json(
         { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
         { status: 400 },
       );
+    }
+    if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
+      await kv.set(idempotencyKey, session.url.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
     }
     await recordFunnelStep({
       step: "checkout_session_created",
