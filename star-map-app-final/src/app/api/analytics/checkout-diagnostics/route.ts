@@ -68,7 +68,7 @@ function hasAccess(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
-  const rateLimit = await checkRateLimit(`analytics:checkout-diagnostics:get:${ip}`, 20, 60);
+  const rateLimit = await checkRateLimit(`analytics:checkout-diagnostics:get:${ip}`, 60, 60);
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetIn);
 
   if (!hasAccess(req)) {
@@ -82,7 +82,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const rateLimit = await checkRateLimit(`analytics:checkout-diagnostics:post:${ip}`, 20, 60);
+  // Client-side checkout diagnostics can fire multiple times per session (retries, multiple surfaces).
+  // Keep a reasonable ceiling while avoiding false positives in QA/test runs.
+  const rateLimit = await checkRateLimit(`analytics:checkout-diagnostics:post:${ip}`, 120, 60);
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.resetIn);
 
   let body: CheckoutClientDiagnosticPayload | null = null;

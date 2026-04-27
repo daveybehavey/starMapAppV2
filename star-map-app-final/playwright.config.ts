@@ -7,7 +7,7 @@ const webServerCommand = useProdServer
 
 export default defineConfig({
   testDir: "./tests",
-  timeout: 30_000,
+  timeout: 60_000,
   use: {
     baseURL: "http://127.0.0.1:3004",
     headless: true,
