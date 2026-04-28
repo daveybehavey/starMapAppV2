@@ -1,9 +1,14 @@
+import path from "node:path";
 import { defineConfig } from "@playwright/test";
+
+const nextCli = path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
 
 const useProdServer = process.env.PW_USE_PROD === "true";
 const webServerCommand = useProdServer
-  ? "npm run build && npm run start -- -H 127.0.0.1 -p 3004"
-  : "npm run dev -- -H 127.0.0.1 -p 3004";
+  ? `npm run build && node "${nextCli}" start -H 127.0.0.1 -p 3004`
+  : `node "${nextCli}" dev -H 127.0.0.1 -p 3004`;
+
+const forceNewWebServer = ["1", "true", "yes"].includes(String(process.env.PW_FORCE_NEW_SERVER || "").toLowerCase());
 
 export default defineConfig({
   testDir: "./tests",
@@ -17,7 +22,9 @@ export default defineConfig({
   webServer: {
     command: webServerCommand,
     url: "http://127.0.0.1:3004",
-    reuseExistingServer: !process.env.CI,
+    // `CI` is often set locally to match CI behavior, but forcing a brand-new webServer
+    // on every run is painfully slow on Windows. Opt-in with PW_FORCE_NEW_SERVER=true.
+    reuseExistingServer: !forceNewWebServer,
     timeout: 300_000,
     env: {
       ...process.env,

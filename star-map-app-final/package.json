@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20 <23"
+    "node": ">=20 <25"
   },
   "scripts": {
     "dev": "next dev",
@@ -13,7 +13,7 @@
     "lint": "eslint src scripts tests next.config.mjs eslint.config.mjs playwright.config.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
-    "test:ui": "CI=1 playwright test",
+    "test:ui": "node scripts/run-playwright-with-ci.mjs",
     "preview": "node scripts/opennext-cloudflare.mjs preview",
     "deploy": "node scripts/opennext-cloudflare.mjs deploy",
     "deploy:safe": "node scripts/deploy-safe.mjs",
@@ -57,10 +57,10 @@
     "qa:checkout-ratio-sanity": "node scripts/checkout-ratio-sanity.mjs",
     "qa:billing": "npm run qa:smoke:commerce && npm run qa:funnel-reconcile -- --days 14 && npm run qa:print-ops -- --hours 168 --limit 40",
     "qa:go-no-go": "node scripts/qa-go-no-go.mjs",
-    "qa:smoke:ui": "CI=1 playwright test tests/ui-smoke.spec.ts --workers=1",
-    "qa:smoke:render": "CI=1 playwright test tests/export-functionality.spec.ts tests/premium-rendering.spec.ts --workers=1",
-    "qa:smoke:commerce": "CI=1 playwright test tests/checkout-security.spec.ts tests/api-route-regressions.spec.ts --workers=1",
-    "qa:smoke": "CI=1 playwright test tests/ui-smoke.spec.ts tests/export-functionality.spec.ts tests/api-route-regressions.spec.ts tests/checkout-security.spec.ts tests/premium-rendering.spec.ts --workers=1",
+    "qa:smoke:ui": "node scripts/run-playwright-with-ci.mjs tests/ui-smoke.spec.ts --workers=1",
+    "qa:smoke:render": "node scripts/run-playwright-with-ci.mjs tests/export-functionality.spec.ts tests/premium-rendering.spec.ts --workers=1",
+    "qa:smoke:commerce": "node scripts/run-playwright-with-ci.mjs tests/checkout-security.spec.ts tests/api-route-regressions.spec.ts --workers=1",
+    "qa:smoke": "node scripts/run-playwright-with-ci.mjs tests/ui-smoke.spec.ts tests/export-functionality.spec.ts tests/api-route-regressions.spec.ts tests/checkout-security.spec.ts tests/premium-rendering.spec.ts --workers=1",
     "qa:release-gate": "node scripts/qa-release-gate.mjs",
     "qa:release-gate:smoke": "node scripts/qa-release-gate.mjs --smoke",
     "qa:release-gate:live": "node scripts/qa-release-gate.mjs --live --sitemap https://starmapco.com/sitemap.xml",
