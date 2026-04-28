@@ -123,10 +123,30 @@ function renderItem(item) {
   const shippingLines = [];
   if (Array.isArray(item.shipping)) {
     for (const entry of item.shipping) {
+      const minHandlingTime =
+        typeof entry.minHandlingTime === "number" && Number.isFinite(entry.minHandlingTime)
+          ? Math.max(0, Math.floor(entry.minHandlingTime))
+          : null;
+      const maxHandlingTime =
+        typeof entry.maxHandlingTime === "number" && Number.isFinite(entry.maxHandlingTime)
+          ? Math.max(0, Math.floor(entry.maxHandlingTime))
+          : null;
+      const minTransitTime =
+        typeof entry.minTransitTime === "number" && Number.isFinite(entry.minTransitTime)
+          ? Math.max(0, Math.floor(entry.minTransitTime))
+          : null;
+      const maxTransitTime =
+        typeof entry.maxTransitTime === "number" && Number.isFinite(entry.maxTransitTime)
+          ? Math.max(0, Math.floor(entry.maxTransitTime))
+          : null;
       shippingLines.push(
         "<g:shipping>",
         `<g:country>${entry.country}</g:country>`,
         `<g:price>${entry.price}</g:price>`,
+        minHandlingTime !== null ? `<g:min_handling_time>${minHandlingTime}</g:min_handling_time>` : "",
+        maxHandlingTime !== null ? `<g:max_handling_time>${maxHandlingTime}</g:max_handling_time>` : "",
+        minTransitTime !== null ? `<g:min_transit_time>${minTransitTime}</g:min_transit_time>` : "",
+        maxTransitTime !== null ? `<g:max_transit_time>${maxTransitTime}</g:max_transit_time>` : "",
         "</g:shipping>",
       );
     }
@@ -172,7 +192,22 @@ const unframedImageLink = existsSync(unframedMockupPath)
   ? `${SITE_URL}/printproof/unframed-mockup.jpg`
   : usePrintProofImages && existsSync(unframedProofPath)
     ? `${SITE_URL}/printproof/unframed-latest.png`
-    : `${SITE_URL}/examples/example-wedding-aurora-heart.webp`;
+    : `${SITE_URL}/blog/anniversary/framed-star-map.jpg`;
+
+const PRINT_MIN_HANDLING_DAYS = parseIntEnv("MERCHANT_FEED_PRINT_MIN_HANDLING_DAYS", 1);
+const PRINT_MAX_HANDLING_DAYS = parseIntEnv("MERCHANT_FEED_PRINT_MAX_HANDLING_DAYS", 3);
+const PRINT_MIN_TRANSIT_DAYS = parseIntEnv("MERCHANT_FEED_PRINT_MIN_TRANSIT_DAYS", 3);
+const PRINT_MAX_TRANSIT_DAYS = parseIntEnv("MERCHANT_FEED_PRINT_MAX_TRANSIT_DAYS", 9);
+
+function withDeliveryDefaults(shippingEntry) {
+  return {
+    ...shippingEntry,
+    minHandlingTime: PRINT_MIN_HANDLING_DAYS,
+    maxHandlingTime: PRINT_MAX_HANDLING_DAYS,
+    minTransitTime: PRINT_MIN_TRANSIT_DAYS,
+    maxTransitTime: PRINT_MAX_TRANSIT_DAYS,
+  };
+}
 
 const items = [
   ...(includeDigitalInFeed
@@ -208,7 +243,7 @@ const items = [
     description: `${printBaseDescription} Museum-grade unframed poster print.`,
     link: `${SITE_URL}/star-map-poster`,
     imageLink: unframedImageLink,
-    additionalImageLinks: [`${SITE_URL}/custom-star-map-anniversary.png`],
+    additionalImageLinks: [framedImageLink, `${SITE_URL}/blog/anniversary/framed-star-map.jpg`],
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRINT_UNFRAMED_CENTS),
@@ -221,10 +256,10 @@ const items = [
       ? MERCHANT_FEED_COUNTRIES
           .map((country) => {
             const rate = shippingMap.poster_unframed?.[country];
-            return {
+            return withDeliveryDefaults({
               country,
               price: formatShippingPrice(rate),
-            };
+            });
           })
       : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],
   },
@@ -234,7 +269,7 @@ const items = [
     description: `${printBaseDescription} Framed print ready to hang.`,
     link: `${SITE_URL}/star-map-poster`,
     imageLink: framedImageLink,
-    additionalImageLinks: [`${SITE_URL}/custom-star-map-anniversary.png`],
+    additionalImageLinks: [unframedImageLink, `${SITE_URL}/blog/anniversary/framed-star-map.jpg`],
     availability: "in_stock",
     condition: "new",
     price: formatPrice(PRINT_FRAMED_CENTS),
@@ -247,10 +282,10 @@ const items = [
       ? MERCHANT_FEED_COUNTRIES
           .map((country) => {
             const rate = shippingMap.poster_framed?.[country];
-            return {
+            return withDeliveryDefaults({
               country,
               price: formatShippingPrice(rate),
-            };
+            });
           })
       : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],
   },
