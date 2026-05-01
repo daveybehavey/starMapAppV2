@@ -34,6 +34,10 @@ export default function ReturnsContent() {
               order, contact support@starmapco.com within 7 days of delivery with photos and order details. Approved
               cases may be resolved with a replacement or refund.
             </p>
+            <p className="mt-2">
+              Return shipping costs are not covered for change-of-mind returns. For damage/defect claims approved by
+              StarMapCo, we will coordinate the next step (replacement or refund) based on the case details.
+            </p>
           </section>
 
           <section>

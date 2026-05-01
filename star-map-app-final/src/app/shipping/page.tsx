@@ -56,6 +56,8 @@ function buildShippingRows(): ShippingRow[] {
 export default function ShippingPage() {
   const rows = buildShippingRows();
 
+  const PRINTFUL_FULFILLMENT_DAYS = "2–5 business days";
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:py-14">
       <div className="cosmic-panel rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.9)] p-6 shadow-2xl sm:p-8">
@@ -63,6 +65,10 @@ export default function ShippingPage() {
         <p className="mt-4 text-sm text-neutral-900 sm:text-base">
           StarMapCo supports digital delivery worldwide and physical print shipping to the countries listed below.
           Shipping cost is shown at checkout before payment is finalized.
+        </p>
+        <p className="mt-3 text-sm text-neutral-900 sm:text-base">
+          Print orders are made to order. Typical fulfillment time before shipment is {PRINTFUL_FULFILLMENT_DAYS},
+          plus carrier transit time shown below.
         </p>
 
         <section className="mt-6">
@@ -102,9 +108,8 @@ export default function ShippingPage() {
             availability, while StarMapCo handles customer support directly.
           </p>
           <p>
-            Delivery ranges on this page are estimates in business days after order review and production. They are not
-            guaranteed delivery dates and may change due to customs processing, carrier delays, weather, or local
-            disruptions.
+            Delivery ranges on this page are estimates in business days after fulfillment and are not guaranteed
+            delivery dates. They may change due to customs processing, carrier delays, weather, or local disruptions.
           </p>
           <p>
             Local import duties, customs charges, VAT, or brokerage fees may apply in some destinations and are the
