@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import PolicyShell from "@/components/policy/PolicyShell";
+import { getBusinessProfile } from "@/lib/businessProfile";
+import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
+import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
 import { getPrintAllowedCountries } from "@/lib/printCheckoutConfig";
 import { getPrintfulShippingRate, getPrintShippingCountryLabel } from "@/lib/printfulShipping";
 
@@ -55,19 +59,21 @@ function buildShippingRows(): ShippingRow[] {
 
 export default function ShippingPage() {
   const rows = buildShippingRows();
-
-  const PRINTFUL_FULFILLMENT_DAYS = "2–5 business days";
+  const profile = getBusinessProfile();
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:py-14">
-      <div className="cosmic-panel rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.9)] p-6 shadow-2xl sm:p-8">
-        <h1 className="text-3xl font-semibold text-midnight sm:text-4xl">Shipping policy</h1>
-        <p className="mt-4 text-sm text-neutral-900 sm:text-base">
+    <PolicyShell
+      variant="cosmic"
+      title="Shipping policy"
+      lastUpdatedLabel={buildPolicyLastUpdatedLine("shipping")}
+      maxWidthClass="max-w-5xl"
+    >
+        <p className="mt-6 text-sm text-neutral-900 sm:text-base">
           StarMapCo supports digital delivery worldwide and physical print shipping to the countries listed below.
           Shipping cost is shown at checkout before payment is finalized.
         </p>
         <p className="mt-3 text-sm text-neutral-900 sm:text-base">
-          Print orders are made to order. Typical fulfillment time before shipment is {PRINTFUL_FULFILLMENT_DAYS},
+          Print orders are made to order. Typical fulfillment time before shipment is {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS},
           plus carrier transit time shown below.
         </p>
 
@@ -117,13 +123,12 @@ export default function ShippingPage() {
           </p>
           <p>
             If a print arrives damaged or there is a shipping issue, contact{" "}
-            <a href="mailto:support@starmapco.com" className="font-semibold text-midnight underline">
-              support@starmapco.com
+            <a href={`mailto:${profile.email}`} className="font-semibold text-midnight underline">
+              {profile.email}
             </a>{" "}
             within 7 days with your order details and photos.
           </p>
         </section>
-      </div>
-    </main>
+    </PolicyShell>
   );
 }

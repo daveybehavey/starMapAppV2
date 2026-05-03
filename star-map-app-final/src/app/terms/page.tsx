@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import PolicyShell from "@/components/policy/PolicyShell";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
+import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -14,13 +16,13 @@ export default function TermsPage() {
   const phoneHref = getBusinessPhoneHref();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
-      <div className="cosmic-panel rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.9)] p-6 shadow-2xl sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Terms</p>
-        <h1 className="mt-2 text-3xl font-semibold text-midnight sm:text-4xl">Terms of Service</h1>
-        <p className="mt-2 text-sm text-neutral-700">Last Updated: March 16, 2026</p>
-
-        <div className="mt-6 space-y-6 text-neutral-900 sm:text-lg">
+    <PolicyShell
+      variant="cosmic"
+      eyebrow="Terms"
+      title="Terms of Service"
+      lastUpdatedLabel={buildPolicyLastUpdatedLine("terms")}
+    >
+      <div className="mt-6 space-y-6 text-neutral-900 sm:text-lg">
           <section className="space-y-2">
             <h2 className="text-xl font-semibold text-midnight">1. Service Overview</h2>
             <p>
@@ -91,8 +93,7 @@ export default function TermsPage() {
             {profile.hours ? <p>Support hours: {profile.hours}</p> : null}
             {profile.address ? <p>Business address: {profile.address}</p> : null}
           </section>
-        </div>
       </div>
-    </main>
+    </PolicyShell>
   );
 }

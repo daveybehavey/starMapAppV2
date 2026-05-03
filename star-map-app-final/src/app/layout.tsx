@@ -41,6 +41,7 @@ const footerLinks = [
   { label: "Blog", href: "/blog" },
   { label: "My Downloads", href: "/my-downloads" },
   ...(isBulkOrdersEnabled() ? [{ label: "Bulk & Event Orders", href: "/bulk-event-orders" }] : []),
+  { label: "Support", href: "/support" },
   { label: "Contact", href: "/contact" },
   { label: "Terms", href: "/terms" },
   { label: "Shipping Policy", href: "/shipping" },

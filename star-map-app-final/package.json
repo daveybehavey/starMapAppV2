@@ -44,6 +44,7 @@
     "qa:ga4-smoke": "node scripts/ga4-smoke.mjs",
     "qa:sitemap-health": "node scripts/sitemap-health.mjs",
     "qa:links": "node scripts/link-integrity-check.mjs",
+    "qa:policy-smoke": "node scripts/policy-smoke.mjs --site https://starmapco.com",
     "qa:merchant-feed": "node scripts/merchant-feed-health.mjs",
     "qa:merchant-feed:live": "node scripts/merchant-feed-health.mjs --feed https://starmapco.com/merchant-feed.xml",
     "qa:merchant-center": "node scripts/qa-merchant-center.mjs",
