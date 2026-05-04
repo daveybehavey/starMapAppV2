@@ -126,9 +126,19 @@ function parsePortFromRedirectUri(redirectUri) {
   return { port, pathname: u.pathname || "/" };
 }
 
-function openBrowserWindows(url) {
-  // `cmd /c start "" <url>` is the most reliable way to open the default browser on Windows.
-  spawn("cmd.exe", ["/c", "start", "", url], { stdio: "ignore", detached: true, windowsHide: true }).unref();
+function openDefaultBrowser(url) {
+  const opts = { stdio: "ignore", detached: true, windowsHide: true };
+  // Never use `cmd /c start "" <url>` for OAuth URLs: `&` in the query is treated as a command
+  // separator, the URL is truncated, and Google returns "Required parameter is missing: response_type".
+  if (process.platform === "win32") {
+    spawn("rundll32.exe", ["url.dll,FileProtocolHandler", url], opts).unref();
+    return;
+  }
+  if (process.platform === "darwin") {
+    spawn("open", [url], opts).unref();
+    return;
+  }
+  spawn("xdg-open", [url], opts).unref();
 }
 
 async function oauthLoopbackLogin({ clientId, clientSecret, oauthClientJson, tokenPath }) {
@@ -251,7 +261,7 @@ async function oauthLoopbackLogin({ clientId, clientSecret, oauthClientJson, tok
       console.log("\nGoogle Search Console OAuth login required.");
       console.log(`Opening browser to sign in… If it does not open, visit:\n${authUrl.toString()}\n`);
       try {
-        openBrowserWindows(authUrl.toString());
+        openDefaultBrowser(authUrl.toString());
       } catch {
         // If opening the browser fails, the printed URL still works.
       }
