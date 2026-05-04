@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
-import { createSign } from "node:crypto";
+import { createSign, randomBytes } from "node:crypto";
+import { spawn } from "node:child_process";
+import { createServer } from "node:http";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { seedEnv } from "./merchant-shipping-common.mjs";
 
 const SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+const DEFAULT_OAUTH_TOKEN_PATH = path.resolve(process.cwd(), "reports", "gsc-oauth-token.json");
 
 function base64UrlEncode(input) {
   return Buffer.from(input)
@@ -31,14 +34,260 @@ function loadServiceAccountJson() {
   return JSON.parse(readFileSync(configuredPath, "utf8"));
 }
 
+function loadOauthClient() {
+  const inlineJson = process.env.GOOGLE_SEARCH_CONSOLE_OAUTH_CLIENT_JSON?.trim();
+  if (inlineJson) return JSON.parse(inlineJson);
+
+  const configuredPath = process.env.GOOGLE_SEARCH_CONSOLE_OAUTH_CLIENT_JSON_PATH?.trim();
+  if (configuredPath) {
+    return JSON.parse(readFileSync(configuredPath, "utf8"));
+  }
+
+  const clientId = process.env.GOOGLE_SEARCH_CONSOLE_OAUTH_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_SEARCH_CONSOLE_OAUTH_CLIENT_SECRET?.trim();
+  if (clientId) {
+    return { installed: { client_id: clientId, client_secret: clientSecret || "" } };
+  }
+  return null;
+}
+
+function extractInstalledClient(oauthClientJson) {
+  const installed = oauthClientJson?.installed || oauthClientJson?.web || null;
+  const clientId = String(installed?.client_id || "").trim();
+  const clientSecret = String(installed?.client_secret || "").trim();
+  if (!clientId) throw new Error("OAuth client JSON missing client_id");
+  return { clientId, clientSecret };
+}
+
+async function tokenRequest(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  return { response, payload };
+}
+
+function readOauthToken(tokenPath) {
+  try {
+    const raw = readFileSync(tokenPath, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeOauthToken(tokenPath, token) {
+  mkdirSync(path.dirname(tokenPath), { recursive: true });
+  writeFileSync(tokenPath, `${JSON.stringify(token, null, 2)}\n`, "utf8");
+}
+
+async function getAccessTokenViaRefreshToken({ clientId, clientSecret, refreshToken }) {
+  const { response, payload } = await tokenRequest("https://oauth2.googleapis.com/token", {
+    client_id: clientId,
+    ...(clientSecret ? { client_secret: clientSecret } : {}),
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to refresh Google access token: HTTP ${response.status} ${JSON.stringify(payload)}`);
+  }
+  const token = String(payload.access_token || "").trim();
+  if (!token) throw new Error("Google token refresh response missing access_token");
+  const expiresIn = Number(payload.expires_in || 0);
+  return { accessToken: token, expiresIn };
+}
+
+function pickLoopbackRedirectUri(oauthClientJson) {
+  const installed = oauthClientJson?.installed || oauthClientJson?.web || null;
+  const uris = Array.isArray(installed?.redirect_uris) ? installed.redirect_uris.map((u) => String(u || "").trim()) : [];
+  const preferred =
+    uris.find((u) => /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//i.test(u)) ||
+    uris.find((u) => /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(u)) ||
+    "";
+  if (!preferred) {
+    throw new Error(
+      "OAuth client JSON is missing redirect_uris with http://127.0.0.1 or http://localhost.\n" +
+        "Fix: Google Cloud Console → Credentials → your Desktop OAuth client → add Authorized redirect URI like:\n" +
+        "  http://127.0.0.1:8765/\n" +
+        "Then re-download the JSON and update GOOGLE_SEARCH_CONSOLE_OAUTH_CLIENT_JSON_PATH.",
+    );
+  }
+  return preferred;
+}
+
+function parsePortFromRedirectUri(redirectUri) {
+  const u = new URL(redirectUri);
+  // Google sometimes ships Desktop OAuth JSON with `http://localhost` (implicit port 80).
+  // Listening on 80 can fail without admin rights, so we prefer an explicit high port in the JSON.
+  const port = u.port ? Number.parseInt(u.port, 10) : 80;
+  if (!Number.isFinite(port) || port <= 0) throw new Error(`Invalid redirect URI port: ${redirectUri}`);
+  return { port, pathname: u.pathname || "/" };
+}
+
+function openBrowserWindows(url) {
+  // `cmd /c start "" <url>` is the most reliable way to open the default browser on Windows.
+  spawn("cmd.exe", ["/c", "start", "", url], { stdio: "ignore", detached: true, windowsHide: true }).unref();
+}
+
+async function oauthLoopbackLogin({ clientId, clientSecret, oauthClientJson, tokenPath }) {
+  const redirectUri = pickLoopbackRedirectUri(oauthClientJson);
+  const { port, pathname } = parsePortFromRedirectUri(redirectUri);
+
+  const state = randomBytes(16).toString("hex");
+
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.searchParams.set("client_id", clientId);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", SCOPE);
+  authUrl.searchParams.set("access_type", "offline");
+  authUrl.searchParams.set("prompt", "consent");
+  authUrl.searchParams.set("include_granted_scopes", "true");
+  authUrl.searchParams.set("state", state);
+
+  const accessToken = await new Promise((resolve, reject) => {
+    const server = createServer(async (req, res) => {
+      try {
+        if (!req.url) {
+          res.statusCode = 400;
+          res.end("Bad request");
+          return;
+        }
+
+        const requestUrl = new URL(req.url, redirectUri);
+        if (requestUrl.pathname !== pathname) {
+          res.statusCode = 404;
+          res.end("Not found");
+          return;
+        }
+
+        const returnedState = requestUrl.searchParams.get("state") || "";
+        const code = requestUrl.searchParams.get("code") || "";
+        const error = requestUrl.searchParams.get("error") || "";
+
+        if (error) {
+          res.statusCode = 400;
+          res.setHeader("content-type", "text/html; charset=utf-8");
+          res.end(`<html><body><pre>OAuth error: ${error}</pre><p>You can close this tab.</p></body></html>`);
+          reject(new Error(`OAuth error: ${error}`));
+          server.close();
+          return;
+        }
+
+        if (!code || returnedState !== state) {
+          res.statusCode = 400;
+          res.setHeader("content-type", "text/html; charset=utf-8");
+          res.end(`<html><body><pre>Missing code or invalid state</pre></body></html>`);
+          reject(new Error("OAuth callback missing code or invalid state"));
+          server.close();
+          return;
+        }
+
+        const tokenRes = await tokenRequest("https://oauth2.googleapis.com/token", {
+          code,
+          client_id: clientId,
+          ...(clientSecret ? { client_secret: clientSecret } : {}),
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+        });
+
+        if (!tokenRes.response.ok) {
+          res.statusCode = 400;
+          res.setHeader("content-type", "text/html; charset=utf-8");
+          res.end(
+            `<html><body><pre>Token exchange failed: HTTP ${tokenRes.response.status}\n${JSON.stringify(
+              tokenRes.payload,
+              null,
+              2,
+            )}</pre></body></html>`,
+          );
+          reject(new Error(`Token exchange failed: HTTP ${tokenRes.response.status} ${JSON.stringify(tokenRes.payload)}`));
+          server.close();
+          return;
+        }
+
+        const refreshToken = String(tokenRes.payload.refresh_token || "").trim();
+        const at = String(tokenRes.payload.access_token || "").trim();
+        if (!at) {
+          res.statusCode = 500;
+          res.setHeader("content-type", "text/html; charset=utf-8");
+          res.end(`<html><body><pre>Missing access_token in token response</pre></body></html>`);
+          reject(new Error("Missing access_token in token response"));
+          server.close();
+          return;
+        }
+
+        if (refreshToken) {
+          writeOauthToken(tokenPath, {
+            refresh_token: refreshToken,
+            obtained_at: new Date().toISOString(),
+          });
+        }
+
+        res.statusCode = 200;
+        res.setHeader("content-type", "text/html; charset=utf-8");
+        res.end(
+          "<html><body><h3>Signed in</h3><p>You can close this tab and return to the terminal.</p></body></html>",
+        );
+
+        resolve(at);
+        server.close();
+      } catch (err) {
+        try {
+          res.statusCode = 500;
+          res.setHeader("content-type", "text/html; charset=utf-8");
+          res.end("<html><body><pre>Internal error</pre></body></html>");
+        } catch {
+          // ignore
+        }
+        reject(err instanceof Error ? err : new Error(String(err)));
+        server.close();
+      }
+    });
+
+    server.listen(port, "127.0.0.1", () => {
+      console.log("\nGoogle Search Console OAuth login required.");
+      console.log(`Opening browser to sign in… If it does not open, visit:\n${authUrl.toString()}\n`);
+      try {
+        openBrowserWindows(authUrl.toString());
+      } catch {
+        // If opening the browser fails, the printed URL still works.
+      }
+    });
+
+    server.on("error", (err) => {
+      reject(err);
+    });
+  });
+
+  return accessToken;
+}
+
 async function getAccessToken() {
   await seedEnv();
+  const authMode = String(process.env.GSC_AUTH_MODE || "").trim().toLowerCase();
+  const tokenPath = process.env.GOOGLE_SEARCH_CONSOLE_OAUTH_TOKEN_PATH?.trim() || DEFAULT_OAUTH_TOKEN_PATH;
+
+  const oauthClientJson = loadOauthClient();
+  const oauthAllowed = authMode === "oauth" || (authMode !== "service-account" && Boolean(oauthClientJson));
+
+  if (oauthAllowed && oauthClientJson) {
+    const { clientId, clientSecret } = extractInstalledClient(oauthClientJson);
+    const saved = readOauthToken(tokenPath);
+    const refreshToken = String(saved?.refresh_token || "").trim();
+    if (refreshToken) {
+      const refreshed = await getAccessTokenViaRefreshToken({ clientId, clientSecret, refreshToken });
+      return refreshed.accessToken;
+    }
+    return await oauthLoopbackLogin({ clientId, clientSecret, oauthClientJson, tokenPath });
+  }
+
   const serviceAccount = loadServiceAccountJson();
   const clientEmail = String(serviceAccount.client_email || "").trim();
   const privateKey = String(serviceAccount.private_key || "").trim();
-  if (!clientEmail || !privateKey) {
-    throw new Error("Service account JSON is missing client_email or private_key");
-  }
+  if (!clientEmail || !privateKey) throw new Error("Service account JSON is missing client_email or private_key");
 
   const header = { alg: "RS256", typ: "JWT" };
   const issuedAt = Math.floor(Date.now() / 1000);
@@ -117,67 +366,91 @@ function writeReport(relativePath, payload) {
   return outputPath;
 }
 
-const args = parseArgs(process.argv.slice(2));
-await seedEnv();
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.get("help") === "true") {
+    console.log(`Usage:
+  node scripts/gsc-query.mjs [--site <siteUrl>] [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--dimensions query,page] [--limit <n>]
 
-const siteUrl = String(
-  args.get("site") ||
-    process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL ||
-    process.env.GSC_SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "",
-).trim();
-if (!siteUrl) {
-  throw new Error("Missing --site or GOOGLE_SEARCH_CONSOLE_SITE_URL or GSC_SITE_URL");
-}
+Auth modes:
+  - Service account (default): set GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON_PATH (or GOOGLE_APPLICATION_CREDENTIALS)
+  - OAuth (browser / loopback): set GOOGLE_SEARCH_CONSOLE_OAUTH_CLIENT_JSON_PATH (or *_JSON) and optionally GSC_AUTH_MODE=oauth
 
-const endDate = args.get("end") ? requireIsoDate(String(args.get("end")), "--end") : isoTodayUtc();
-const startDate = args.get("start")
-  ? requireIsoDate(String(args.get("start")), "--start")
-  : isoDaysBefore(endDate, 28);
-if (startDate > endDate) {
-  throw new Error("--start must be on or before --end");
-}
-const dimensions = String(args.get("dimensions") || "query,page")
-  .split(",")
-  .map((v) => v.trim())
-  .filter(Boolean);
-const rowLimit = Math.min(25_000, Math.max(1, Number.parseInt(String(args.get("limit") || "250"), 10) || 250));
+OAuth env vars:
+  GOOGLE_SEARCH_CONSOLE_OAUTH_CLIENT_JSON_PATH=<path to OAuth client JSON>
+  GOOGLE_SEARCH_CONSOLE_OAUTH_TOKEN_PATH=<optional token cache path> (default: reports/gsc-oauth-token.json)
+  GSC_AUTH_MODE=oauth
 
-const token = await getAccessToken();
-const response = await fetch(
-  `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
-  {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      accept: "application/json",
-      "content-type": "application/json",
+OAuth client JSON should include redirect_uris for loopback, e.g. http://127.0.0.1:8765/ (recommended).
+If Google only provides http://localhost (port 80), that can work but may require elevated permissions on Windows.
+Add the redirect URI in Google Cloud Console, then re-download JSON.
+`);
+    return;
+  }
+
+  await seedEnv();
+
+  const siteUrl = String(
+    args.get("site") ||
+      process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL ||
+      process.env.GSC_SITE_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "",
+  ).trim();
+  if (!siteUrl) {
+    throw new Error("Missing --site or GOOGLE_SEARCH_CONSOLE_SITE_URL or GSC_SITE_URL");
+  }
+
+  const endDate = args.get("end") ? requireIsoDate(String(args.get("end")), "--end") : isoTodayUtc();
+  const startDate = args.get("start")
+    ? requireIsoDate(String(args.get("start")), "--start")
+    : isoDaysBefore(endDate, 28);
+  if (startDate > endDate) {
+    throw new Error("--start must be on or before --end");
+  }
+  const dimensions = String(args.get("dimensions") || "query,page")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const rowLimit = Math.min(25_000, Math.max(1, Number.parseInt(String(args.get("limit") || "250"), 10) || 250));
+
+  const token = await getAccessToken();
+  const response = await fetch(
+    `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        startDate,
+        endDate,
+        dimensions: dimensions.length ? dimensions : undefined,
+        rowLimit,
+        searchType: "web",
+      }),
     },
-    body: JSON.stringify({
-      startDate,
-      endDate,
-      dimensions: dimensions.length ? dimensions : undefined,
-      rowLimit,
-      searchType: "web",
-    }),
-  },
-);
+  );
 
-const text = await response.text();
-if (!response.ok) {
-  throw new Error(`Search Console API request failed: HTTP ${response.status} ${text || ""}`);
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Search Console API request failed: HTTP ${response.status} ${text || ""}`);
+  }
+
+  const data = text ? JSON.parse(text) : null;
+  const reportPath = writeReport("reports/search-console.query.json", {
+    siteUrl,
+    startDate,
+    endDate,
+    rowLimit,
+    dimensions,
+    data,
+  });
+
+  console.log(`OK. Report written: ${reportPath}`);
 }
 
-const data = text ? JSON.parse(text) : null;
-const reportPath = writeReport("reports/search-console.query.json", {
-  siteUrl,
-  startDate,
-  endDate,
-  rowLimit,
-  dimensions,
-  data,
-});
-
-console.log(`OK. Report written: ${reportPath}`);
+await main();
 
