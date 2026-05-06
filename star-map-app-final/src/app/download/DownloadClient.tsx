@@ -87,6 +87,7 @@ const referralRewardCreditsLabel = `${referralRewardCredits} bonus HD credit${re
 const referralFriendOfferLabel = getReferralFriendOfferLabel();
 const referralShareMessage = getReferralShareMessage();
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
+const downloadArchiveEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_DOWNLOAD_ARCHIVE_ENABLED || "").trim());
 const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
   visits: 0,
   conversions: 0,
@@ -637,6 +638,17 @@ export default function DownloadClient() {
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
+        // Best-effort archival so support can resend the exact paid-for file later.
+        if (downloadArchiveEnabled && token) {
+          void fetch(`/api/download/archive?token=${encodeURIComponent(token)}`, {
+            method: "POST",
+            headers: { "content-type": "image/png" },
+            body: blob,
+          }).catch(() => {
+            // Ignore archival failures (download already succeeded).
+          });
+        }
+
         try {
           localStorage.removeItem(AUTO_EXPORT_KEY);
         } catch {
@@ -666,7 +678,16 @@ export default function DownloadClient() {
         setDownloadInFlight(false);
       }
     },
-    [consumeHdCredit, currentPlan, mapIdFromUrl, recipe, refreshPaidStatus, resolveShapeAndRatio, setPreviewFromCanvas],
+    [
+      consumeHdCredit,
+      currentPlan,
+      mapIdFromUrl,
+      recipe,
+      refreshPaidStatus,
+      resolveShapeAndRatio,
+      setPreviewFromCanvas,
+      token,
+    ],
   );
 
   const renderPreview = useCallback(
@@ -1736,8 +1757,14 @@ export default function DownloadClient() {
                 </div>
                 {printShippingCountryOptions.length > 0 ? (
                   <div className="mt-3 rounded-xl border border-white/10 bg-white/6 p-3">
-                    <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
+                    <label
+                      htmlFor="print-shipping-country"
+                      className="text-[11px] font-semibold text-amber-100/80"
+                    >
+                      Shipping country
+                    </label>
                     <select
+                      id="print-shipping-country"
                       value={printShippingCountry}
                       onChange={(event) => {
                         const next = event.target.value;
