@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { normalizeAccountLiteEmail, getAccountLiteEmailSessions } from "@/lib/accountLite";
@@ -14,6 +15,8 @@ type RequestPayload = {
 };
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
+const R2_BUCKET_BINDING = "NEXT_INC_CACHE_R2_BUCKET";
+const ARCHIVE_PREFIX = "download-archive/hd/";
 
 function requireAdmin(req: NextRequest) {
   const configured = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
@@ -25,6 +28,25 @@ function getSiteUrl(req: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");
   return new URL(req.url).origin;
+}
+
+async function getR2Bucket(): Promise<R2Bucket | null> {
+  const timeoutMs = 120;
+  try {
+    const ctx = await Promise.race([
+      getCloudflareContext({ async: true }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+    const env = (ctx as { env?: unknown } | null)?.env as Record<string, unknown> | undefined;
+    const bucket = env?.[R2_BUCKET_BINDING] as R2Bucket | undefined;
+    return bucket ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function archiveKey(sessionId: string) {
+  return `${ARCHIVE_PREFIX}${sessionId}.png`;
 }
 
 export async function POST(req: NextRequest) {
@@ -90,13 +112,27 @@ export async function POST(req: NextRequest) {
   const token = forceNewToken ? "" : await getOrCreateClaimToken(sessionId, record);
   const finalToken = token || (await getOrCreateClaimToken(sessionId, { ...record, claimToken: "" }));
   const link = `${getSiteUrl(req)}/download?token=${encodeURIComponent(finalToken)}`;
+  const directDownloadLinkCandidate = `${getSiteUrl(req)}/api/download/archive?token=${encodeURIComponent(finalToken)}`;
 
   const targetEmail = email || record.customerEmail?.trim() || "";
   if (!targetEmail) {
     return NextResponse.json({ ok: false, error: "missing_customer_email" }, { status: 409 });
   }
 
-  const result = await sendAccountAccessAlert({ email: targetEmail, link });
+  let directDownloadLink: string | undefined;
+  const bucket = await getR2Bucket();
+  if (bucket) {
+    try {
+      const object = await bucket.head(archiveKey(sessionId));
+      if (object) {
+        directDownloadLink = directDownloadLinkCandidate;
+      }
+    } catch {
+      // ignore archive lookups
+    }
+  }
+
+  const result = await sendAccountAccessAlert({ email: targetEmail, link, ...(directDownloadLink ? { directDownloadLink } : {}) });
   if (!result.delivered) {
     return NextResponse.json(
       { ok: false, error: result.error ?? "account_access_email_failed", provider: result.provider },
@@ -110,6 +146,7 @@ export async function POST(req: NextRequest) {
     provider: result.provider,
     email: targetEmail,
     link,
+    directDownloadLink: directDownloadLink ?? null,
   });
 }
 

@@ -3,6 +3,7 @@ type AccountAccessAlertProvider = "resend" | "sendgrid" | "none";
 export type AccountAccessAlertInput = {
   email: string;
   link: string;
+  directDownloadLink?: string;
 };
 
 export type AccountAccessAlertResult = {
@@ -49,13 +50,21 @@ function getAlertReplyTo() {
   );
 }
 
-function getCopy(link: string) {
+function getCopy(input: { link: string; directDownloadLink?: string }) {
+  const direct = input.directDownloadLink?.trim() || "";
   const subject = "Your StarMapCo download link is ready";
   const text = [
     "Hi,",
     "",
     "Your secure StarMapCo download link is ready:",
-    link,
+    input.link,
+    ...(direct
+      ? [
+          "",
+          "If you have trouble opening the download page, you can download the exact file directly here:",
+          direct,
+        ]
+      : []),
     "",
     "On iPhone, downloads are in Files app -> Browse -> Downloads (not Photos).",
     "",
@@ -72,8 +81,15 @@ function getCopy(link: string) {
         </div>
         <div style="padding: 20px 22px;">
           <p style="margin: 0 0 16px;">
-            <a href="${link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Open your download</a>
+            <a href="${input.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Open your download</a>
           </p>
+          ${
+            direct
+              ? `<p style="margin: 0 0 16px;">
+            <a href="${direct}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #111827; color: #f9fafb; text-decoration: none; font-weight: 700;">Download the exact file</a>
+          </p>`
+              : ""
+          }
           <p style="font-size: 13px; color: #5f6677; margin: 0;">On iPhone, downloads are in <strong>Files → Browse → Downloads</strong> (not Photos).</p>
         </div>
       </div>
@@ -91,7 +107,7 @@ async function sendWithResend(input: AccountAccessAlertInput) {
   }
 
   const replyTo = getAlertReplyTo();
-  const copy = getCopy(input.link);
+  const copy = getCopy({ link: input.link, directDownloadLink: input.directDownloadLink });
   const payload: {
     from: string;
     to: string[];
@@ -139,7 +155,7 @@ async function sendWithSendgrid(input: AccountAccessAlertInput) {
   }
 
   const replyTo = parseEmailAddress(getAlertReplyTo());
-  const copy = getCopy(input.link);
+  const copy = getCopy({ link: input.link, directDownloadLink: input.directDownloadLink });
   const payload = {
     personalizations: [{ to: [{ email: input.email }] }],
     from,

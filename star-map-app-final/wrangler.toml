@@ -113,6 +113,9 @@ NEXT_PUBLIC_PRINT_FRAMED_LABEL = "Framed print (14x14)"
 NEXT_PUBLIC_REFERRAL_REWARD_CREDITS = "1"
 NEXT_PUBLIC_REFERRAL_FRIEND_OFFER_LABEL = "a free HD download"
 
+# Download archive (stores the exact PNG in R2 after download)
+NEXT_PUBLIC_DOWNLOAD_ARCHIVE_ENABLED = "true"
+
 [[services]]
 binding = "WORKER_SELF_REFERENCE"
 service = "star-map-final"
