@@ -6,6 +6,7 @@ dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
 function parseArgs(argv) {
+  const minMarginCents = parseNumberEnv("PRINT_MIN_MARGIN_CENTS", 1000);
   const args = {
     shippingChargeUsd: parseNumberEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399) / 100,
     unframedRetailUsd: parseNumberEnv("PRINT_UNFRAMED_PRICE_CENTS", 4900) / 100,
@@ -13,7 +14,7 @@ function parseArgs(argv) {
     digitalAddOnUsd: parseNumberEnv("PRINT_DIGITAL_ADDON_PRICE_CENTS", 700) / 100,
     stripeRate: 0.029,
     stripeFixedUsd: 0.3,
-    targetProfitUsd: 30,
+    targetProfitUsd: minMarginCents / 100,
     json: false,
   };
 
@@ -69,7 +70,7 @@ Options:
   --digital-addon-usd <n>     Digital add-on price
   --stripe-rate <n>           Stripe percentage fee as decimal (default 0.029)
   --stripe-fixed-usd <n>      Stripe fixed fee in USD (default 0.30)
-  --target-profit-usd <n>     Profit target used for required retail calculations
+  --target-profit-usd <n>     Profit target (USD); defaults from PRINT_MIN_MARGIN_CENTS or 1000 cents ($10)
   --json                      Output machine-readable JSON
 `);
       process.exit(0);

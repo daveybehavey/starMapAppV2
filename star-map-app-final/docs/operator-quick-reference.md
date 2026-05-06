@@ -188,7 +188,8 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - Launch policy: `docs/upsell-rollout-policy.md`
 - **Admin endpoints** (token-protected):
   - `POST /api/print/orders/retry`
-  - `GET /api/print/orders/status?sessionId=...`
+  - `GET /api/print/orders/status?session_id=cs_live_...` (response includes `marginPreview` when shipping is present)
+- **Margin floor**: `PRINT_MIN_MARGIN_CENTS` in `wrangler.toml` — currently \$10 minimum estimated profit after Stripe + Printful estimate (not retail price).
 - **Testimonial intake**:
   - `docs/testimonial-intake-template.md`
   - publish approved quotes only into `src/data/testimonials.ts`
@@ -276,6 +277,7 @@ Run from `star-map-app-final/`:
 
 - Print checkout is visible in production.
 - `PRINT_ORDER_SUBMISSION_ENABLED=true`
+- `PRINT_MIN_MARGIN_CENTS=1000` (matches `wrangler.toml` after deploy)
 - `PRINTFUL_AUTO_CONFIRM=false`
 - Meaning: paid print orders can submit into Printful, but remain in manual-approval mode until you approve them in Printful.
 - Current marketing promo:

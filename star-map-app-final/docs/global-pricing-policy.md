@@ -1,6 +1,6 @@
 # Global Pricing and Margin Policy
 
-Updated: 2026-03-12
+Updated: 2026-05-06
 
 ## Current operating defaults
 
@@ -8,7 +8,7 @@ Updated: 2026-03-12
 - Shipping is country-based (`PRINT_DYNAMIC_SHIPPING=true`) using `data/printful-shipping.json`.
 - Print margin guard is enabled:
   - `PRINT_MARGIN_GUARD_ENABLED=true`
-  - `PRINT_MIN_MARGIN_CENTS=3000`
+  - `PRINT_MIN_MARGIN_CENTS=1000` (~\$10 minimum estimated profit; source of truth: `wrangler.toml` `[vars]`)
   - Stripe cost assumptions: `2.9% + 30c`
 - Merchant feed targeting is controlled separately from checkout targeting:
   - `MERCHANT_FEED_COUNTRIES` (optional explicit include list)

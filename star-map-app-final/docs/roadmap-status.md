@@ -119,7 +119,7 @@ Updated: 2026-03-23
   - Margin-protective defaults are now explicit in production config:
     - `PRINT_DYNAMIC_SHIPPING=true`
     - `PRINT_MARGIN_GUARD_ENABLED=true`
-    - `PRINT_MIN_MARGIN_CENTS=3000`
+    - `PRINT_MIN_MARGIN_CENTS=1000` (deployed default in `wrangler.toml`; tune per market)
     - `PRINT_MARGIN_STRIPE_PERCENT=0.029`
     - `PRINT_MARGIN_STRIPE_FIXED_CENTS=30`
 - Shipping policy clarity and compliance:
