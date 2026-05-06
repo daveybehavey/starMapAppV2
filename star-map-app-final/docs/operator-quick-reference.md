@@ -264,6 +264,8 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 
 Run from `star-map-app-final/`:
 
+- `npm run qa:go-no-go` warns when `.env` / `.env.local` disagree with `wrangler.toml` on print flags (submission, margin cents, archive toggle, etc.).
+- `npm run qa:go-no-go:strict` fails the script if those disagree (use in CI before deploy).
 - `npx next typegen`
 - `npx tsc --noEmit`
 - `npm run qa:links`
