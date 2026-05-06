@@ -1,10 +1,71 @@
+import fs from "node:fs";
+import path from "node:path";
 import dotenv from "dotenv";
 import { readWranglerVars } from "./wrangler-vars.mjs";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+function parseCli(argv) {
+  const out = { strictWranglerParity: false };
+  for (const token of argv) {
+    if (token === "--strict-wrangler-parity") {
+      out.strictWranglerParity = true;
+      continue;
+    }
+    if (token === "-h" || token === "--help") {
+      console.log(`Usage: node scripts/qa-go-no-go.mjs [options]
 
-const wranglerVars = await readWranglerVars(process.cwd());
+Loads .env then .env.local (local overrides), merges missing keys from wrangler.toml [vars],
+then validates print/commerce configuration.
+
+Options:
+  --strict-wrangler-parity   Exit non-zero when merged .env/.env.local differs from wrangler [vars]
+                             for tracked parity keys (behavior flags + margin cents).
+  -h, --help                 Show this message.
+`);
+      process.exit(0);
+    }
+    console.error(`Unknown arg: ${token} (try --help)`);
+    process.exit(2);
+  }
+  return out;
+}
+
+const cli = parseCli(process.argv.slice(2));
+
+const appRoot = process.cwd();
+
+/** Keys where drift between developer env files and wrangler [vars] causes real prod surprises. */
+const WRANGLER_PARITY_KEYS = [
+  "PRINT_CHECKOUT_ENABLED",
+  "NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED",
+  "PRINT_ORDER_SUBMISSION_ENABLED",
+  "PRINTFUL_AUTO_CONFIRM",
+  "PRINT_MARGIN_GUARD_ENABLED",
+  "PRINT_MIN_MARGIN_CENTS",
+  "PRINT_MIN_CHARGE_CENTS",
+  "PRINT_DYNAMIC_SHIPPING",
+  "NEXT_PUBLIC_DOWNLOAD_ARCHIVE_ENABLED",
+  "GEO_DIGITAL_SINGLE_PRICING_ENABLED",
+];
+
+function parseEnvFile(filename) {
+  const full = path.join(appRoot, filename);
+  try {
+    const content = fs.readFileSync(full, "utf8");
+    return dotenv.parse(content);
+  } catch {
+    return {};
+  }
+}
+
+const mergedEnvFiles = {
+  ...parseEnvFile(".env"),
+  ...parseEnvFile(".env.local"),
+};
+
+dotenv.config({ path: path.join(appRoot, ".env") });
+dotenv.config({ path: path.join(appRoot, ".env.local") });
+
+const wranglerVars = await readWranglerVars(appRoot);
 for (const [key, value] of Object.entries(wranglerVars)) {
   if (process.env[key] === undefined) {
     process.env[key] = value;
@@ -13,6 +74,67 @@ for (const [key, value] of Object.entries(wranglerVars)) {
 
 const issues = [];
 const warnings = [];
+
+function parseBoolLoose(raw, fallback = false) {
+  if (!raw || !String(raw).trim()) return fallback;
+  const value = String(raw).trim().toLowerCase();
+  if (["1", "true", "yes"].includes(value)) return true;
+  if (["0", "false", "no"].includes(value)) return false;
+  return fallback;
+}
+
+const BOOL_PARITY_KEYS = new Set([
+  "PRINT_CHECKOUT_ENABLED",
+  "NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED",
+  "PRINT_ORDER_SUBMISSION_ENABLED",
+  "PRINTFUL_AUTO_CONFIRM",
+  "PRINT_MARGIN_GUARD_ENABLED",
+  "PRINT_DYNAMIC_SHIPPING",
+  "NEXT_PUBLIC_DOWNLOAD_ARCHIVE_ENABLED",
+  "GEO_DIGITAL_SINGLE_PRICING_ENABLED",
+]);
+
+function comparableScalar(key, raw) {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  if (BOOL_PARITY_KEYS.has(key)) {
+    return `bool:${parseBoolLoose(raw, false)}`;
+  }
+
+  if (key.endsWith("_CENTS") || key.endsWith("_PERCENT")) {
+    const n = Number.parseInt(s, 10);
+    if (Number.isFinite(n)) return `int:${n}`;
+    return null;
+  }
+
+  return `str:${s}`;
+}
+
+const parityMismatches = [];
+const parityLocalOnly = [];
+
+for (const key of WRANGLER_PARITY_KEYS) {
+  const localRaw = mergedEnvFiles[key];
+  const wranglerRaw = wranglerVars[key];
+
+  if (localRaw !== undefined && wranglerRaw === undefined) {
+    parityLocalOnly.push(key);
+    continue;
+  }
+  if (localRaw === undefined || wranglerRaw === undefined) continue;
+
+  const ca = comparableScalar(key, localRaw);
+  const cw = comparableScalar(key, wranglerRaw);
+  if (ca !== null && cw !== null && ca !== cw) {
+    parityMismatches.push({
+      key,
+      local: String(localRaw).trim(),
+      wrangler: String(wranglerRaw).trim(),
+    });
+  }
+}
 
 const hasValue = (key) => Boolean(process.env[key]?.trim());
 
@@ -178,19 +300,13 @@ if (
 }
 
 const mode = getMode(printCheckoutEnabled, publicPrintCheckoutEnabled, printSubmissionEnabled, fulfillmentConfigured);
-const wranglerPrintCheckoutEnabled = parseBool(
-  wranglerVars.PRINT_CHECKOUT_ENABLED,
-  "wrangler:PRINT_CHECKOUT_ENABLED",
-  printCheckoutEnabled,
-);
-const wranglerPublicPrintCheckoutEnabled = parseBool(
+const wranglerPrintCheckoutEnabled = parseBoolLoose(wranglerVars.PRINT_CHECKOUT_ENABLED, printCheckoutEnabled);
+const wranglerPublicPrintCheckoutEnabled = parseBoolLoose(
   wranglerVars.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED,
-  "wrangler:NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED",
   publicPrintCheckoutEnabled,
 );
-const wranglerPrintSubmissionEnabled = parseBool(
+const wranglerPrintSubmissionEnabled = parseBoolLoose(
   wranglerVars.PRINT_ORDER_SUBMISSION_ENABLED,
-  "wrangler:PRINT_ORDER_SUBMISSION_ENABLED",
   printSubmissionEnabled,
 );
 const wranglerMode = getMode(
@@ -213,8 +329,18 @@ console.log(`- GEO_DIGITAL_SINGLE_PRICING_ENABLED=${String(geoPricingEnabled)}`)
 if (hasPrintful) console.log("- Fulfillment path: Printful");
 if (!hasPrintful && hasWebhookFulfillment) console.log("- Fulfillment path: Custom webhook");
 
+if (parityMismatches.length || parityLocalOnly.length) {
+  console.log("\nWrangler parity (.env + .env.local vs wrangler.toml [vars]):");
+  for (const row of parityMismatches) {
+    console.log(`- ${row.key}: env files "${row.local}" ≠ wrangler "${row.wrangler}"`);
+  }
+  for (const key of parityLocalOnly) {
+    console.log(`- ${key}: set in env files but missing from wrangler [vars] (won't apply in prod)`);
+  }
+}
+
 if (mode !== wranglerMode) {
-  console.log("\nNote: local env differs from wrangler production vars.");
+  console.log("\nNote: merged runtime env mode differs from raw wrangler production vars.");
   console.log(`- Wrangler mode: ${wranglerMode}`);
   console.log(`- Wrangler PRINT_CHECKOUT_ENABLED=${String(wranglerPrintCheckoutEnabled)}`);
   console.log(`- Wrangler NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=${String(wranglerPublicPrintCheckoutEnabled)}`);
@@ -237,9 +363,12 @@ if (issues.length) {
 }
 
 if (mode === "CHECKOUT_ONLY") {
-  console.log(
-    "\nNO-GO for live customers: checkout is enabled but fulfillment submission is disabled.",
-  );
+  console.log("\nNO-GO for live customers: checkout is enabled but fulfillment submission is disabled.");
+  process.exit(1);
+}
+
+if (cli.strictWranglerParity && (parityMismatches.length || parityLocalOnly.length)) {
+  console.log("\nNO-GO: --strict-wrangler-parity failed (fix env files or wrangler.toml).");
   process.exit(1);
 }
 

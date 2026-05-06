@@ -42,6 +42,8 @@ Default checks:
   - npm run build
   - npm run qa:go-no-go
 
+Optional CI hardening (wrangler.toml vs .env parity): npm run qa:go-no-go:strict
+
 Smoke mode (--smoke) also runs:
   - npm run qa:smoke
 
