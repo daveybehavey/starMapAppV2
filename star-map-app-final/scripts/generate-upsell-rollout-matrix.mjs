@@ -2,10 +2,9 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+loadDotenv();
 
 const PRINTFUL_API_BASE = (process.env.PRINTFUL_API_BASE_URL || "https://api.printful.com").trim();
 

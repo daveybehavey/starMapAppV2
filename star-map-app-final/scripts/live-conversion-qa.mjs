@@ -4,10 +4,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Stripe from "stripe";
 import { chromium } from "playwright";
-import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config();
+loadDotenv();
 
 const DEFAULT_SITE = "https://starmapco.com";
 const PAYWALL_HEADING = /Buy this map in HD or print|Buy this map in HD|Unlock HD exports in seconds|Download your print-ready star map/i;

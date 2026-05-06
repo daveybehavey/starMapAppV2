@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
 import Stripe from "stripe";
-import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+loadDotenv();
 
 const wranglerVars = await readWranglerVars(process.cwd());
 for (const [key, value] of Object.entries(wranglerVars)) {

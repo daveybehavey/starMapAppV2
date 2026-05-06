@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
-import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+loadDotenv();
 
 function parseArgs(argv) {
   const minMarginCents = parseNumberEnv("PRINT_MIN_MARGIN_CENTS", 1000);

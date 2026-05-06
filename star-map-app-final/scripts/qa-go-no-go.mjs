@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
 
 function parseCli(argv) {
@@ -13,7 +14,7 @@ function parseCli(argv) {
     if (token === "-h" || token === "--help") {
       console.log(`Usage: node scripts/qa-go-no-go.mjs [options]
 
-Loads .env then .env.local (local overrides), merges missing keys from wrangler.toml [vars],
+Loads .env then .env.local (same rule as scripts/load-dotenv.mjs), merges missing keys from wrangler.toml [vars],
 then validates print/commerce configuration.
 
 Options:
@@ -62,8 +63,7 @@ const mergedEnvFiles = {
   ...parseEnvFile(".env.local"),
 };
 
-dotenv.config({ path: path.join(appRoot, ".env") });
-dotenv.config({ path: path.join(appRoot, ".env.local") });
+loadDotenv(appRoot);
 
 const wranglerVars = await readWranglerVars(appRoot);
 for (const [key, value] of Object.entries(wranglerVars)) {

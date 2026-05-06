@@ -3,9 +3,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 
-dotenv.config({ path: ".env.local" });
+loadDotenv();
 
 const cwd = process.cwd();
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 import Stripe from "stripe";
-import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+loadDotenv();
 
 function parseArgs(argv) {
   const args = {

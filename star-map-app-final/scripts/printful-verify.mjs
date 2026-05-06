@@ -1,7 +1,6 @@
-import dotenv from "dotenv";
+import { loadDotenv } from "./load-dotenv.mjs";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+loadDotenv();
 
 const token = process.env.PRINTFUL_API_TOKEN?.trim() || "";
 const storeId = process.env.PRINTFUL_STORE_ID?.trim() || "";
