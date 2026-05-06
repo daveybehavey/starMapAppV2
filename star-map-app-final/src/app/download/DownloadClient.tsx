@@ -639,8 +639,8 @@ export default function DownloadClient() {
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
         // Best-effort archival so support can resend the exact paid-for file later.
-        if (downloadArchiveEnabled && token) {
-          void fetch(`/api/download/archive?token=${encodeURIComponent(token)}`, {
+        if (downloadArchiveEnabled && tokenFromUrl) {
+          void fetch(`/api/download/archive?token=${encodeURIComponent(tokenFromUrl)}`, {
             method: "POST",
             headers: { "content-type": "image/png" },
             body: blob,
@@ -686,7 +686,7 @@ export default function DownloadClient() {
       refreshPaidStatus,
       resolveShapeAndRatio,
       setPreviewFromCanvas,
-      token,
+      tokenFromUrl,
     ],
   );
 
