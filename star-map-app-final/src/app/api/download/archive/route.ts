@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
   }
 
   const filenameBase = session.mapId ? `starmapco-${session.mapId}` : `starmapco-${session.sessionId}`;
-  const body = bodyBytes.buffer.slice(bodyBytes.byteOffset, bodyBytes.byteOffset + bodyBytes.byteLength);
+  const body = new Blob([bodyBytes], { type: "image/png" });
   return new NextResponse(body, {
     status: 200,
     headers: {
