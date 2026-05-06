@@ -795,10 +795,16 @@ async function createCheckoutSession(
       discountAmountCents: estimatedPromotionDiscountCents,
     });
     if (!marginCheck.allowed) {
+      const floorDollars = marginCheck.minMarginCents > 0 ? (marginCheck.minMarginCents / 100).toFixed(2) : "";
+      const marginHint = floorDollars ? ` (min profit $${floorDollars})` : "";
+      const baseMessage =
+        marginCheck.code === "margin_estimate_unavailable"
+          ? "We can't calculate shipping for this print order yet. Please choose a shipping country (or try again in a moment)."
+          : "This print option isn't available at that price for the selected shipping country right now.";
       throw new CheckoutError(
         promotionCodeId
-          ? "That promo code is not available for this print route right now."
-          : "This print option is not available for the selected shipping country right now. Please pick a different country or format.",
+          ? `That promo code makes this print order unprofitable${marginHint}. Please remove the code or choose a different format.`
+          : `${baseMessage}${marginHint} Please pick a different country or format.`,
         promotionCodeId ? "print_promotion_margin_blocked" : "print_margin_guard_blocked",
         400,
       );
