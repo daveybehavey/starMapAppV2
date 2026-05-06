@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
+import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
+  getPrintRecipient,
   isValidPrintCheckoutSessionId,
   printOrderKey,
   type PrintOrderRecord,
@@ -30,5 +32,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, order });
+  const recipient = getPrintRecipient(order);
+  const marginPreview = recipient
+    ? evaluatePrintMarginForPaidOrder({
+        variant: order.printVariant,
+        shippingCountry: recipient.country_code,
+        amountTotalCents: order.amountTotal ?? null,
+      })
+    : null;
+
+  return NextResponse.json({ ok: true, order, marginPreview });
 }
