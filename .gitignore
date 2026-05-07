@@ -29,3 +29,6 @@ pnpm-debug.log*
 # Accidental root package artifacts (repo uses star-map-app-final/package.json)
 /package.json
 /package-lock.json
+
+# Local Search Console / Google tooling dumps (never commit secrets)
+gsc.json
