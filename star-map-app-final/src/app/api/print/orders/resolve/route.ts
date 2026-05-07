@@ -30,19 +30,21 @@ function parseProvider(raw: unknown): "manual_printful" | "manual_other" | null 
   return null;
 }
 
+type ResolvePayload = {
+  sessionId?: unknown;
+  printfulOrderId?: unknown;
+  provider?: unknown;
+  note?: unknown;
+};
+
 export async function POST(req: NextRequest) {
   if (!requireAdmin(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  let payload: {
-    sessionId?: unknown;
-    printfulOrderId?: unknown;
-    provider?: unknown;
-    note?: unknown;
-  } | null = null;
+  let payload: ResolvePayload | null = null;
   try {
-    payload = (await req.json()) as typeof payload;
+    payload = (await req.json()) as ResolvePayload;
   } catch {
     payload = null;
   }
