@@ -64,6 +64,9 @@ async function main() {
   }
 
   const env = await buildEnvWithWranglerVars(process.cwd());
+  // Turbopack's google font bundling can be brittle in headless deploy environments when
+  // fonts.gstatic.com fetches intermittently fail. Prefer stable webpack builds for deploys.
+  env.NEXT_DISABLE_TURBOPACK = env.NEXT_DISABLE_TURBOPACK || "1";
   run("node", ["scripts/generate-merchant-feed.mjs"], env);
 
   if (mode === "build") {
