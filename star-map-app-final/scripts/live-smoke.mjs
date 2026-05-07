@@ -283,6 +283,22 @@ async function main() {
       printRetryAdminRes.status === 401,
       `status=${printRetryAdminRes.status}`,
     );
+
+    const printResolveAdminRes = await fetchWithTimeout(
+      `${site}/api/print/orders/resolve`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: "test" }),
+        cache: "no-store",
+      },
+      args.timeoutMs,
+    );
+    runCheck(
+      "Print admin resolve endpoint requires auth",
+      printResolveAdminRes.status === 401,
+      `status=${printResolveAdminRes.status}`,
+    );
   } catch (error) {
     failed = true;
     runCheck("Print admin endpoint checks", false, error instanceof Error ? error.message : String(error));
