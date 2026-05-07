@@ -60,6 +60,8 @@ STRIPE_PAYMENT_METHOD_CONFIGURATION_ID = "pmc_1TBlq4LWqD0o98657GwX3SZM"
 # Print checkout (feature-gated; keep disabled until fulfillment is verified)
 PRINT_CHECKOUT_ENABLED = "true"
 NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED = "true"
+# Optional merch landing + nav tab (/shop). Uses roadmap SKUs + NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON for partner links.
+NEXT_PUBLIC_SHOP_TAB_ENABLED = "true"
 PRINT_UNFRAMED_PRICE_CENTS = "4900"
 PRINT_FRAMED_PRICE_CENTS = "9900"
 PRINT_DIGITAL_ADDON_PRICE_CENTS = "700"

@@ -10,6 +10,7 @@ import {
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
 const bulkEnabled = /^(1|true|yes)$/i.test((process.env.BULK_EVENT_ORDERS_ENABLED || "").trim());
+const shopNavEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_SHOP_TAB_ENABLED || "").trim());
 
 /** Slugs that redirect to another blog URL (`next.config.mjs`); omit from sitemap to avoid crawl hops. */
 const BLOG_SITEMAP_EXCLUDED_SLUGS = new Set(["most-meaningful-valentines-day-gift-custom-star-map"]);
@@ -46,6 +47,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 1,
     },
+    ...(shopNavEnabled
+      ? [
+          {
+            url: `${baseUrl}/shop`,
+            lastModified: now,
+            changeFrequency: "weekly" as const,
+            priority: 0.85,
+          },
+        ]
+      : []),
     {
       url: `${baseUrl}/anniversary`,
       lastModified: now,

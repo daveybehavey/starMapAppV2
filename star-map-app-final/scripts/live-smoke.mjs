@@ -149,6 +149,20 @@ async function main() {
   }
 
   try {
+    const shopRes = await fetchWithTimeout(`${site}/shop`, { cache: "no-store" }, args.timeoutMs);
+    const shopHtml = await shopRes.text();
+    runCheck("Shop page responds 200", shopRes.status === 200, `status=${shopRes.status}`);
+    runCheck(
+      "Shop page surfaces fulfillment messaging",
+      /Printful/i.test(shopHtml) && /checkout/i.test(shopHtml),
+      "merch copy",
+    );
+  } catch (error) {
+    failed = true;
+    runCheck("Shop page checks", false, error instanceof Error ? error.message : String(error));
+  }
+
+  try {
     const personalizedRes = await fetchWithTimeout(`${site}/personalized-star-map`, { cache: "no-store" }, args.timeoutMs);
     const personalizedHtml = await personalizedRes.text();
     runCheck("Personalized page responds 200", personalizedRes.status === 200, `status=${personalizedRes.status}`);

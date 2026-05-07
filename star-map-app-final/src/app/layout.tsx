@@ -5,8 +5,10 @@ import "./globals.css";
 import { Playfair_Display } from "next/font/google";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
+import SiteTopNav from "@/components/SiteTopNav";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
 import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
+import { isShopTabEnabled } from "@/lib/shopTab";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -33,21 +35,25 @@ const defaultSocialLinks: SocialLink[] = [
   { label: "TikTok", href: "https://www.tiktok.com/@starmapco" },
 ];
 
-const footerLinks = [
-  { label: "About", href: "/about" },
-  { label: "Gallery", href: "/star-map-gallery" },
-  { label: "Gift Ideas", href: "/star-map-gift-ideas" },
-  { label: "Gift Formats", href: "/star-map-gift-formats" },
-  { label: "Blog", href: "/blog" },
-  { label: "My Downloads", href: "/my-downloads" },
-  ...(isBulkOrdersEnabled() ? [{ label: "Bulk & Event Orders", href: "/bulk-event-orders" }] : []),
-  { label: "Support", href: "/support" },
-  { label: "Contact", href: "/contact" },
-  { label: "Terms", href: "/terms" },
-  { label: "Shipping Policy", href: "/shipping" },
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Returns & Refunds", href: "/returns" },
-] as const;
+function buildFooterLinks(): ReadonlyArray<{ label: string; href: string }> {
+  const shopEnabled = isShopTabEnabled();
+  return [
+    { label: "About", href: "/about" },
+    { label: "Gallery", href: "/star-map-gallery" },
+    ...(shopEnabled ? [{ label: "Shop", href: "/shop" }] : []),
+    { label: "Gift Ideas", href: "/star-map-gift-ideas" },
+    { label: "Gift Formats", href: "/star-map-gift-formats" },
+    { label: "Blog", href: "/blog" },
+    { label: "My Downloads", href: "/my-downloads" },
+    ...(isBulkOrdersEnabled() ? [{ label: "Bulk & Event Orders", href: "/bulk-event-orders" }] : []),
+    { label: "Support", href: "/support" },
+    { label: "Contact", href: "/contact" },
+    { label: "Terms", href: "/terms" },
+    { label: "Shipping Policy", href: "/shipping" },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Returns & Refunds", href: "/returns" },
+  ];
+}
 
 function inferSocialLabel(url: string): string {
   try {
@@ -200,6 +206,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const footerLinks = buildFooterLinks();
   return (
     <html lang="en">
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable}`}>
@@ -208,6 +215,7 @@ export default function RootLayout({
         </Suspense>
         <AnalyticsConsentManager />
         <div className="cosmic-backdrop">
+          <SiteTopNav />
           {children}
         </div>
         <footer className="relative overflow-hidden border-t border-[#b5934f]/45 bg-[linear-gradient(140deg,rgba(4,10,31,0.98),rgba(8,24,61,0.97),rgba(10,34,80,0.94))] text-[#f7f0e2] shadow-[0_-14px_36px_rgba(0,0,0,0.45)]">
