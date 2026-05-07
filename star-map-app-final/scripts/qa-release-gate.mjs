@@ -116,6 +116,10 @@ function main() {
   ];
 
   if (args.smoke) {
+    // Playwright defaults to reusing an existing dev server on Windows for speed, but that can
+    // accidentally keep an old server alive across runs and produce confusing 404s for new routes.
+    // Force a fresh server for release-gate smoke runs.
+    process.env.PW_FORCE_NEW_SERVER = "true";
     steps.push(["Playwright smoke suite", npmCmd, ["run", "qa:smoke"]]);
   }
 
