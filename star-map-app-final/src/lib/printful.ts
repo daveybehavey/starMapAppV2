@@ -85,63 +85,98 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
 
   const autoConfirmRaw = (process.env.PRINTFUL_AUTO_CONFIRM ?? "true").trim().toLowerCase();
   const autoConfirm = !(autoConfirmRaw === "0" || autoConfirmRaw === "false" || autoConfirmRaw === "no");
-  const query = new URLSearchParams();
-  if (storeId) {
-    query.set("store_id", storeId);
-  }
-  // `update_existing=1` keeps retries idempotent when an external_id already exists.
-  query.set("update_existing", "1");
-  if (autoConfirm) {
-    // Explicitly confirm API-created orders for fulfillment.
-    query.set("confirm", "1");
-  }
-  const ordersUrl = `${baseUrl}/orders?${query.toString()}`;
+
+  const buildOrdersUrl = (options: { updateExisting: boolean }) => {
+    const query = new URLSearchParams();
+    if (storeId) {
+      query.set("store_id", storeId);
+    }
+    query.set("update_existing", options.updateExisting ? "1" : "0");
+    if (autoConfirm) {
+      // Explicitly confirm API-created orders for fulfillment.
+      query.set("confirm", "1");
+    }
+    return `${baseUrl}/orders?${query.toString()}`;
+  };
+
+  const parseErrorMessage = (raw: string, parsed: unknown) => {
+    if (parsed && typeof parsed === "object") {
+      const record = parsed as {
+        result?: unknown;
+        error?: { reason?: unknown; message?: unknown; api_error_code?: unknown };
+      };
+      const msg =
+        (typeof record.error?.message === "string" && record.error.message.trim()) ||
+        (typeof record.error?.reason === "string" && record.error.reason.trim()) ||
+        (typeof record.result === "string" && record.result.trim()) ||
+        "";
+      const apiCode = typeof record.error?.api_error_code === "string" ? record.error.api_error_code.trim() : "";
+      return apiCode ? `${msg} (${apiCode})`.trim() : msg;
+    }
+    return raw.trim() ? raw.slice(0, 240) : "printful_order_failed";
+  };
+
+  const isNonEditableOrderError = (parsed: unknown) => {
+    if (!parsed || typeof parsed !== "object") return false;
+    const record = parsed as { error?: { api_error_code?: unknown; message?: unknown }; result?: unknown };
+    const apiCode = typeof record.error?.api_error_code === "string" ? record.error.api_error_code.trim() : "";
+    if (apiCode === "OR-1") return true;
+    const msg = typeof record.error?.message === "string" ? record.error.message.toLowerCase() : "";
+    const resultMsg = typeof record.result === "string" ? record.result.toLowerCase() : "";
+    return msg.includes("no longer editable") || resultMsg.includes("no longer editable");
+  };
 
   try {
-    const response = await fetch(ordersUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-    const raw = await response.text();
-    let parsed: unknown = null;
-    try {
-      parsed = raw ? JSON.parse(raw) : null;
-    } catch {
-      parsed = null;
-    }
-
-    if (!response.ok) {
-      let errorMessage = "printful_order_failed";
-      if (parsed && typeof parsed === "object") {
-        const record = parsed as {
-          error?: {
-            reason?: unknown;
-          };
-        };
-        if (record.error && typeof record.error.reason === "string" && record.error.reason.trim()) {
-          errorMessage = record.error.reason.trim();
-        }
-      } else if (raw.trim()) {
-        errorMessage = raw.slice(0, 240);
+    const attempt = async (options: { updateExisting: boolean; externalId: string }) => {
+      const response = await fetch(buildOrdersUrl({ updateExisting: options.updateExisting }), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ...body, external_id: normalizeExternalId(options.externalId) }),
+      });
+      const raw = await response.text();
+      let parsed: unknown = null;
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = null;
       }
+      return { response, raw, parsed };
+    };
+
+    // First try: idempotent update_existing=1 keyed off the session ID.
+    const first = await attempt({ updateExisting: true, externalId: input.externalId });
+    if (!first.response.ok) {
+      // If the external_id exists but cannot be edited, create a new draft order instead.
+      if (first.response.status === 400 && isNonEditableOrderError(first.parsed)) {
+        const retryExternalId = `${input.externalId}#${Date.now()}`;
+        const second = await attempt({ updateExisting: false, externalId: retryExternalId });
+        if (!second.response.ok) {
+          return {
+            ok: false,
+            status: second.response.status,
+            error: parseErrorMessage(second.raw, second.parsed) || "printful_order_failed",
+          };
+        }
+        const result =
+          second.parsed && typeof second.parsed === "object" && "result" in second.parsed
+            ? (second.parsed as { result?: { id?: string | number } }).result
+            : null;
+        return { ok: true, status: second.response.status, orderId: result?.id };
+      }
+
       return {
         ok: false,
-        status: response.status,
-        error: errorMessage,
+        status: first.response.status,
+        error: parseErrorMessage(first.raw, first.parsed) || "printful_order_failed",
       };
     }
 
     const result =
-      parsed && typeof parsed === "object" && "result" in parsed
-        ? (parsed as { result?: { id?: string | number } }).result
+      first.parsed && typeof first.parsed === "object" && "result" in first.parsed
+        ? (first.parsed as { result?: { id?: string | number } }).result
         : null;
 
-    return {
-      ok: true,
-      status: response.status,
-      orderId: result?.id,
-    };
+    return { ok: true, status: first.response.status, orderId: result?.id };
   } catch (error) {
     return {
       ok: false,
