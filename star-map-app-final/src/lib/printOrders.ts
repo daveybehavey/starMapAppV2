@@ -24,6 +24,9 @@ export type PrintOrderRecord = {
   operatorFailureAlertedAt?: number;
   operatorFailureAlertProvider?: string;
   operatorFailureAlertError?: string;
+  operatorResolvedAt?: number;
+  operatorResolvedProvider?: "manual_printful" | "manual_other";
+  operatorResolvedNote?: string;
   error?: string;
   createdAt: number;
 };
