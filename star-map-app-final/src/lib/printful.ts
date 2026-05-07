@@ -69,9 +69,6 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
-  if (storeId) {
-    headers["X-PF-Store-Id"] = storeId;
-  }
 
   const body = {
     external_id: normalizeExternalId(input.externalId),
