@@ -47,8 +47,23 @@ if (!token) {
   process.exit(1);
 }
 
-const url = `${args.site}/api/print/orders/retry`;
-const res = await fetch(url, {
+async function fetchStatus() {
+  const statusUrl = `${args.site}/api/print/orders/status?session_id=${encodeURIComponent(args.sessionId)}`;
+  const res = await fetch(statusUrl, {
+    headers: {
+      "x-print-admin-token": token,
+    },
+  });
+  const text = await res.text().catch(() => "");
+  return { status: res.status, text };
+}
+
+const before = await fetchStatus();
+console.log(`Before retry: HTTP ${before.status}`);
+console.log(before.text.slice(0, 1200));
+
+const retryUrl = `${args.site}/api/print/orders/retry`;
+const res = await fetch(retryUrl, {
   method: "POST",
   headers: {
     "content-type": "application/json",
@@ -66,4 +81,8 @@ if (!res.ok) {
 
 console.log(`OK: HTTP ${res.status}`);
 console.log(text.slice(0, 2000));
+
+const after = await fetchStatus();
+console.log(`After retry: HTTP ${after.status}`);
+console.log(after.text.slice(0, 1200));
 
