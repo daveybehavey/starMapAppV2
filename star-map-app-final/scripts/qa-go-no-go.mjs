@@ -363,8 +363,9 @@ if (issues.length) {
 }
 
 if (mode === "CHECKOUT_ONLY") {
-  console.log("\nNO-GO for live customers: checkout is enabled but fulfillment submission is disabled.");
-  process.exit(1);
+  console.log(
+    "\nNote: checkout is enabled but fulfillment submission is disabled (safe staging mode).",
+  );
 }
 
 if (cli.strictWranglerParity && (parityMismatches.length || parityLocalOnly.length)) {

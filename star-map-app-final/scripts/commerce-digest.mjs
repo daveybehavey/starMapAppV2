@@ -85,11 +85,6 @@ function isPaidCheckoutSession(session) {
   return paymentStatus === "paid" || paymentStatus === "no_payment_required";
 }
 
-function isRealPaidSession(session) {
-  if (!isPaidCheckoutSession(session)) return false;
-  return Number(session.amount_total || 0) > 0;
-}
-
 function classifyOrder(session) {
   const metadata = session.metadata || {};
   const rawOrderType = String(metadata.order_type || metadata.orderType || "").toLowerCase();

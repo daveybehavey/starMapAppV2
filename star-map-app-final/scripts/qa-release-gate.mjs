@@ -2,6 +2,9 @@
 
 import { spawnSync } from "node:child_process";
 
+const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+
 function parseArgs(argv) {
   const args = {
     live: false,
@@ -68,9 +71,12 @@ function runStep(step, command, args) {
   console.log(`$ ${command} ${args.join(" ")}`.trim());
   const result = spawnSync(command, args, {
     stdio: "inherit",
-    shell: false,
+    shell: process.platform === "win32",
     env: process.env,
   });
+  if (result.error) {
+    throw new Error(`Step failed: ${step} (${result.error.message})`);
+  }
   if (result.status !== 0) {
     throw new Error(`Step failed: ${step}`);
   }
@@ -98,43 +104,43 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
 
   const steps = [
-    ["Env check", "npm", ["run", "check:env"]],
-    ["Static homepage sync check", "npm", ["run", "check:static-home"]],
-    ["Static homepage asset check", "npm", ["run", "check:static-assets"]],
-    ["Internal link integrity", "npm", ["run", "qa:links"]],
-    ["Lint", "npm", ["run", "lint"]],
-    ["Typegen", "npx", ["next", "typegen"]],
-    ["Typecheck", "npx", ["tsc", "--noEmit"]],
-    ["Build", "npm", ["run", "build"]],
-    ["Go/No-Go", "npm", ["run", "qa:go-no-go"]],
+    ["Env check", npmCmd, ["run", "check:env"]],
+    ["Static homepage sync check", npmCmd, ["run", "check:static-home"]],
+    ["Static homepage asset check", npmCmd, ["run", "check:static-assets"]],
+    ["Internal link integrity", npmCmd, ["run", "qa:links"]],
+    ["Lint", npmCmd, ["run", "lint"]],
+    ["Typegen", npxCmd, ["next", "typegen"]],
+    ["Typecheck", npxCmd, ["tsc", "--noEmit"]],
+    ["Build", npmCmd, ["run", "build"]],
+    ["Go/No-Go", npmCmd, ["run", "qa:go-no-go"]],
   ];
 
   if (args.smoke) {
-    steps.push(["Playwright smoke suite", "npm", ["run", "qa:smoke"]]);
+    steps.push(["Playwright smoke suite", npmCmd, ["run", "qa:smoke"]]);
   }
 
   if (args.live) {
     const merchantFeedUrl = merchantFeedUrlFromSitemap(args.sitemap);
     const siteOrigin = siteOriginFromSitemap(args.sitemap);
-    steps.push(["Printful verify", "npm", ["run", "qa:printful"]]);
+    steps.push(["Printful verify", npmCmd, ["run", "qa:printful"]]);
     steps.push([
       "Print ops anomaly check",
-      "npm",
+      npmCmd,
       ["run", "qa:print-ops", "--", "--hours", "72", "--strict"],
     ]);
     steps.push([
       "Live content consistency",
-      "npm",
+      npmCmd,
       ["run", "qa:content-consistency", "--", "--site", siteOrigin],
     ]);
     steps.push([
       "Merchant feed health",
-      "npm",
+      npmCmd,
       ["run", "qa:merchant-feed", "--", "--feed", merchantFeedUrl],
     ]);
     steps.push([
       "Live sitemap health",
-      "npm",
+      npmCmd,
       [
         "run",
         "qa:sitemap-health",
@@ -150,7 +156,7 @@ function main() {
     if ((process.env.STRIPE_SECRET_KEY || "").trim()) {
       steps.push([
         "Funnel vs Stripe reconciliation",
-        "npm",
+        npmCmd,
         ["run", "qa:funnel-reconcile", "--", "--days", "14"],
       ]);
     } else {
