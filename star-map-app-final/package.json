@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/generate-merchant-feed.mjs",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint src scripts tests next.config.mjs eslint.config.mjs playwright.config.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",

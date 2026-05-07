@@ -66,6 +66,7 @@ function parseArgs(argv) {
 
 Reports recent print checkout sessions from Stripe and cross-checks print order status through:
   GET /api/print/orders/status?session_id=...
+Manual fulfillment (KV): POST /api/print/orders/resolve with admin token.
 
 Required env vars:
   STRIPE_SECRET_KEY
