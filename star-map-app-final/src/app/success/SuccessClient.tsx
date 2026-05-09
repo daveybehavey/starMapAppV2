@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
@@ -28,7 +29,9 @@ import {
 } from "@/lib/referralShare";
 import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
-import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
+import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
+import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
+import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -55,6 +58,7 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
 };
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
+const merchSuccessEditorHref = getDefaultMerchEditorHref("success-merch-teaser");
 const referralFriendOfferLabel = getReferralFriendOfferLabel();
 const referralShareMessage = getReferralShareMessage();
 const referralRewardCredits = (() => {
@@ -109,15 +113,14 @@ export default function SuccessClient() {
   const printUpsellTrackedRef = useRef(false);
   const accessPanelTrackedRef = useRef(false);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
-  const printPriceLabels = {
-    framedName: getPrintPricingTiers().poster_framed.label,
-    unframedName: getPrintPricingTiers().poster_unframed.label,
-    framed: formatPrice(getPrintPricingTiers().poster_framed.amountCents, getPrintPricingTiers().poster_framed.currency),
-    unframed: formatPrice(
-      getPrintPricingTiers().poster_unframed.amountCents,
-      getPrintPricingTiers().poster_unframed.currency,
-    ),
-  };
+  const printTiers = useMemo(() => getPrintPricingTiers(), []);
+  const successPrintUpsellCards = useMemo(() => {
+    return listDownloadPrintUpsellCards().map((card) => ({
+      ...card,
+      label: printTiers[card.variant].label,
+      priceLine: `${formatPrice(printTiers[card.variant].amountCents, printTiers[card.variant].currency)} + shipping shown at checkout`,
+    }));
+  }, [printTiers]);
 
   const pauseRedirect = useCallback(() => {
     autoRedirectRef.current = false;
@@ -309,7 +312,7 @@ export default function SuccessClient() {
           plan: "single",
           orderType: "print",
           printVariant: variant,
-          index: variant === "poster_framed" ? 0 : 1,
+          index: PAYWALL_PRINT_VARIANT_ORDER.indexOf(variant),
         },
       });
       const params = new URLSearchParams();
@@ -532,9 +535,7 @@ export default function SuccessClient() {
             const verifiedPlan =
               data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null;
             const verifiedOrderType = data.orderType === "print" ? "print" : "digital";
-            const verifiedPrintVariant = data.printVariant === "poster_framed" || data.printVariant === "poster_unframed"
-              ? data.printVariant
-              : null;
+            const verifiedPrintVariant = isPrintVariant(data.printVariant) ? data.printVariant : null;
             const hasDigitalEntitlement =
               verifiedPlan === "subscription" ||
               (typeof data.creditsRemaining === "number" ? data.creditsRemaining > 0 : Boolean(verifiedPlan));
@@ -637,10 +638,12 @@ export default function SuccessClient() {
     trackViewItemList({
       itemListId: "success_print_upsell",
       itemListName: "Success print upsell",
-      items: [
-        { plan: "single", orderType: "print", printVariant: "poster_framed", index: 0 },
-        { plan: "single", orderType: "print", printVariant: "poster_unframed", index: 1 },
-      ],
+      items: PAYWALL_PRINT_VARIANT_ORDER.map((variant, index) => ({
+        plan: "single",
+        orderType: "print" as const,
+        printVariant: variant,
+        index,
+      })),
     });
   }, [hasDigitalEntitlement, isPrintOrder, status]);
 
@@ -925,36 +928,9 @@ export default function SuccessClient() {
                         Framed recommended
                       </span>
                     </div>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      {[
-                        {
-                          key: "poster_framed",
-                          label: printPriceLabels.framedName,
-                          sceneLabel: "Wall-ready proof",
-                          badge: "Best gift",
-                          detail: "Ready-to-hang presentation with the strongest gift feel.",
-                          bestFor: "Best for premium gifting",
-                          price: `${printPriceLabels.framed} + shipping shown at checkout`,
-                          imageSrc: PRINT_PROOF_IMAGE_PATHS.framed.src,
-                          fallbackSrc: PRINT_PROOF_IMAGE_PATHS.framed.fallback,
-                          sceneClass: "proof-wall-stage proof-wall-stage--gallery",
-                          imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
-                        },
-                        {
-                          key: "poster_unframed",
-                          label: printPriceLabels.unframedName,
-                          sceneLabel: "Tabletop proof",
-                          badge: "Lower total",
-                          detail: "Same map, lower entry price, ideal if they already have a frame plan.",
-                          bestFor: "Best for lower-cost physical delivery",
-                          price: `${printPriceLabels.unframed} + shipping shown at checkout`,
-                          imageSrc: PRINT_PROOF_IMAGE_PATHS.unframed.src,
-                          fallbackSrc: PRINT_PROOF_IMAGE_PATHS.unframed.fallback,
-                          sceneClass: "proof-wall-stage proof-wall-stage--tabletop",
-                          imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
-                        },
-                      ].map((option) => (
-                        <div key={option.key} className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {successPrintUpsellCards.map((option) => (
+                        <div key={option.variant} className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
                           <div className="p-3 pb-0">
                             <div className="relative aspect-[4/3] overflow-hidden rounded-[1.35rem]">
                               <div className={option.sceneClass}>
@@ -963,7 +939,7 @@ export default function SuccessClient() {
                                   fallbackSrc={option.fallbackSrc}
                                   alt={option.label}
                                   fill
-                                  sizes="(max-width: 768px) 100vw, 50vw"
+                                  sizes="(max-width: 768px) 100vw, 33vw"
                                   className={option.imageClass}
                                 />
                               </div>
@@ -981,32 +957,70 @@ export default function SuccessClient() {
                             </div>
                             <p className="text-[11px] text-amber-100/80">{option.detail}</p>
                             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/75">{option.bestFor}</p>
-                            <p className="text-[11px] font-semibold text-amber-100">{option.price}</p>
+                            <p className="text-[11px] font-semibold text-amber-100">{option.priceLine}</p>
                           </div>
                         </div>
                       ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPrintUpsell("poster_framed")}
-                        className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
-                      >
-                        Add {printPriceLabels.framedName.toLowerCase()} ({printPriceLabels.framed} + shipping)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPrintUpsell("poster_unframed")}
-                        className="rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
-                      >
-                        {printPriceLabels.unframedName} ({printPriceLabels.unframed} + shipping)
-                      </button>
+                      {PAYWALL_PRINT_VARIANT_ORDER.map((variant, idx) => (
+                        <button
+                          key={variant}
+                          type="button"
+                          onClick={() => handleOpenPrintUpsell(variant)}
+                          className={
+                            idx === 0
+                              ? "rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
+                              : "rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
+                          }
+                        >
+                          {idx === 0 ? "Add " : ""}
+                          {printTiers[variant].label} (
+                          {formatPrice(printTiers[variant].amountCents, printTiers[variant].currency)} + shipping)
+                        </button>
+                      ))}
                     </div>
                     <p className="mt-2 text-[11px] text-amber-100/70">
                       Physical orders are reviewed before production begins, but your digital file stays available right away. {printShippingDisclosure}
                     </p>
                   </div>
                 )}
+                {status === "success" && merchSuccessEditorHref ? (
+                  <div className="mt-4 rounded-xl border border-violet-200/35 bg-violet-500/15 p-3 text-left">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-violet-100/90">
+                        Want stickers or apparel too?
+                      </p>
+                      <span className="rounded-full border border-violet-200/40 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                        Merch beta
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-violet-100/85">
+                      Turn this sky into kiss-cut stickers, magnets, pins, or DTG apparel — options ship like prints through
+                      Printful.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          track("success_merch_teaser_clicked", { destination: "editor" });
+                          router.replace(merchSuccessEditorHref);
+                        }}
+                        className="rounded-full bg-violet-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:bg-violet-300"
+                      >
+                        Open editor with merch
+                      </button>
+                      <Link
+                        href="/shop#merch-beta"
+                        prefetch={false}
+                        onClick={() => track("success_merch_teaser_clicked", { destination: "shop" })}
+                        className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-[11px] font-semibold text-white transition hover:border-white/50 hover:bg-white/10"
+                      >
+                        Browse shop merch
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
                 {hasDigitalEntitlement && (
                   <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
                     <div className="flex items-center justify-between gap-2">

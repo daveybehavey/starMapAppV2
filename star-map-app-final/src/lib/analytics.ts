@@ -73,9 +73,15 @@ const DEFAULT_CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY || "usd").trim().toUp
 const DIGITAL_SINGLE_CENTS = getPublicNumber("NEXT_PUBLIC_PRICE_SINGLE_CENTS", 900);
 const DIGITAL_PACK3_CENTS = getPublicNumber("NEXT_PUBLIC_PACK3_PRICE_CENTS", 1000);
 const DIGITAL_SUBSCRIPTION_CENTS = getPublicNumber("NEXT_PUBLIC_SUBSCRIPTION_PRICE_CENTS", 1900);
-const PRINT_UNFRAMED_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", 4900);
-const PRINT_FRAMED_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", 9900);
 const PRINT_DIGITAL_ADDON_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS", 700);
+
+const PRINT_VARIANT_BASE_CENTS: Record<PrintVariant, number> = {
+  poster_unframed: getPublicNumber("NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", 4900),
+  poster_framed: getPublicNumber("NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", 9900),
+  canvas_wrap: getPublicNumber("NEXT_PUBLIC_PRINT_CANVAS_WRAP_PRICE_CENTS", 5900),
+  mug_11oz: getPublicNumber("NEXT_PUBLIC_PRINT_MUG_11OZ_PRICE_CENTS", 3900),
+  card_4x6: getPublicNumber("NEXT_PUBLIC_PRINT_CARD_4X6_PRICE_CENTS", 1900),
+};
 
 function canTrackFunnelCounters() {
   if (typeof window === "undefined") return false;
@@ -124,7 +130,8 @@ export function track(event: string, props?: EventProps) {
 
 function getCheckoutItemId(input: CheckoutAnalyticsInput) {
   if (input.orderType === "print") {
-    return input.printVariant === "poster_framed" ? "print_poster_framed" : "print_poster_unframed";
+    const v = input.printVariant ?? "poster_unframed";
+    return `print_${v}`;
   }
   if (input.plan === "pack3") return "digital_pack3";
   if (input.plan === "subscription") return "digital_subscription";
@@ -133,8 +140,16 @@ function getCheckoutItemId(input: CheckoutAnalyticsInput) {
 
 function getCheckoutItemName(input: CheckoutAnalyticsInput) {
   if (input.orderType === "print") {
-    const label = input.printVariant === "poster_framed" ? "Custom Framed Star Map Print" : "Custom Star Map Print";
-    return input.includeDigitalAddOn ? `${label} + HD Download` : label;
+    const v = input.printVariant ?? "poster_unframed";
+    const names: Record<PrintVariant, string> = {
+      poster_framed: "Custom Framed Star Map Print",
+      poster_unframed: "Custom Star Map Print",
+      canvas_wrap: "Canvas Gallery Wrap Star Map",
+      mug_11oz: "Star Map Mug (11 oz)",
+      card_4x6: "Star Map Greeting Card",
+    };
+    const label = names[v];
+    return input.includeDigitalAddOn && v === "poster_framed" ? `${label} + HD Download` : label;
   }
   if (input.plan === "pack3") return "HD Digital Export Credits (3)";
   if (input.plan === "subscription") return "Unlimited HD Monthly";
@@ -144,8 +159,11 @@ function getCheckoutItemName(input: CheckoutAnalyticsInput) {
 function estimateCheckoutValue(input: CheckoutAnalyticsInput) {
   if (typeof input.value === "number" && Number.isFinite(input.value)) return input.value;
   if (input.orderType === "print") {
-    const base = input.printVariant === "poster_framed" ? PRINT_FRAMED_CENTS : PRINT_UNFRAMED_CENTS;
-    const total = base + (input.includeDigitalAddOn ? PRINT_DIGITAL_ADDON_CENTS : 0);
+    const variant = input.printVariant ?? "poster_unframed";
+    const base = PRINT_VARIANT_BASE_CENTS[variant] ?? PRINT_VARIANT_BASE_CENTS.poster_unframed;
+    const addon =
+      input.includeDigitalAddOn && variant === "poster_framed" ? PRINT_DIGITAL_ADDON_CENTS : 0;
+    const total = base + addon;
     return total / 100;
   }
   if (input.plan === "pack3") return DIGITAL_PACK3_CENTS / 100;
@@ -374,7 +392,7 @@ export function trackCheckoutClientDiagnostic(input: {
       source: typeof payload.source === "string" ? payload.source : undefined,
       plan: typeof payload.plan === "string" ? payload.plan : undefined,
       orderType: payload.orderType === "print" ? "print" : payload.orderType === "digital" ? "digital" : undefined,
-      printVariant: payload.printVariant === "poster_unframed" ? "poster_unframed" : payload.printVariant,
+      printVariant: payload.printVariant,
       includeDigitalAddOn:
         typeof payload.includeDigitalAddOn === "boolean" ? payload.includeDigitalAddOn : undefined,
     });

@@ -24,6 +24,10 @@ import {
   type PrintVariant,
 } from "@/lib/pricing";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { isPrintVariant, PAYWALL_PRINT_VARIANT_ORDER } from "@/lib/printCatalog";
+import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
+import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
+import { formatPosterShippingFootnote } from "@/lib/paywallPrintCheckout";
 import {
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
@@ -39,7 +43,6 @@ import {
 import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
-import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -77,6 +80,7 @@ const PREVIEW_MAX_DPR = 2;
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
+const merchDownloadEditorHref = getDefaultMerchEditorHref("download-merch-teaser");
 const referralRewardCredits = (() => {
   const raw = process.env.NEXT_PUBLIC_REFERRAL_REWARD_CREDITS?.trim();
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
@@ -278,10 +282,8 @@ export default function DownloadClient() {
   const printUpsellTrackedRef = useRef(false);
   const mapIdFromUrl = searchParams.get("map_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
-  const upsellIntent =
-    searchParams.get("upsell") === "poster_framed" || searchParams.get("upsell") === "poster_unframed"
-      ? searchParams.get("upsell")
-      : null;
+  const upsellRaw = searchParams.get("upsell")?.trim();
+  const upsellIntent = isPrintVariant(upsellRaw) ? upsellRaw : null;
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessLinkStatus, setAccessLinkStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const accessLinkStatusRef = useRef<"idle" | "loading" | "ready" | "error">("idle");
@@ -329,23 +331,19 @@ export default function DownloadClient() {
     printShippingCountryOptions[0]?.code ?? "US",
   );
 
-  const printPriceLabels = useMemo(() => {
-    const printTiers = getPrintPricingTiers();
-    return {
-      unframedName: printTiers.poster_unframed.label,
-      framedName: printTiers.poster_framed.label,
-      unframed: formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
-      framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
-    };
-  }, []);
-  const framedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
-    [printShippingCountry],
-  );
-  const unframedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
-    [printShippingCountry],
-  );
+  const printTiers = useMemo(() => getPrintPricingTiers(), []);
+  const posterShippingFootnote = useMemo(() => formatPosterShippingFootnote(printShippingCountry), [printShippingCountry]);
+  const downloadPrintOptions = useMemo(() => {
+    return listDownloadPrintUpsellCards().map((card) => {
+      const tier = printTiers[card.variant];
+      const ship = formatPrintShippingEstimate(card.variant, printShippingCountry, "shipping");
+      return {
+        ...card,
+        label: tier.label,
+        priceLine: `${formatPrice(tier.amountCents, tier.currency)} + ${ship}`,
+      };
+    });
+  }, [printShippingCountry, printTiers]);
   const shippingCountryLabel = useMemo(
     () => getPrintShippingCountryLabel(printShippingCountry),
     [printShippingCountry],
@@ -381,10 +379,12 @@ export default function DownloadClient() {
       trackViewItemList({
         itemListId: "download_print_upsell",
         itemListName: "Download print upsell",
-        items: [
-          { plan: "single", orderType: "print", printVariant: "poster_framed", index: 0 },
-          { plan: "single", orderType: "print", printVariant: "poster_unframed", index: 1 },
-        ],
+        items: PAYWALL_PRINT_VARIANT_ORDER.map((variant, index) => ({
+          plan: "single",
+          orderType: "print" as const,
+          printVariant: variant,
+          index,
+        })),
       });
     }
     if (!upsellIntent || printUpsellFocusedRef.current) return;
@@ -983,7 +983,7 @@ export default function DownloadClient() {
           plan: "single",
           orderType: "print",
           printVariant: variant,
-          index: variant === "poster_framed" ? 0 : 1,
+          index: PAYWALL_PRINT_VARIANT_ORDER.indexOf(variant),
         },
       });
       setPrintCheckoutLoading(true);
@@ -1677,7 +1677,11 @@ export default function DownloadClient() {
                     {upsellIntent ? "Your map is ready for print checkout" : "Want a physical print shipped to you?"}
                   </h4>
                   <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                    {upsellIntent === "poster_framed" ? "Framed recommended" : "Print add-on"}
+                    {upsellIntent === "poster_framed"
+                      ? "Framed recommended"
+                      : upsellIntent
+                        ? printTiers[upsellIntent].label
+                        : "Print add-on"}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-neutral-200">
@@ -1685,41 +1689,12 @@ export default function DownloadClient() {
                     ? `Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish. ${printShippingDisclosure}`
                     : `Start print checkout with your current map already attached. ${printShippingDisclosure}`}
                 </p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {[
-                    {
-                      key: "poster_framed",
-                      label: printPriceLabels.framedName,
-                      sceneLabel: "Wall-ready proof",
-                      badge: "Best gift",
-                      detail: "Ready-to-hang presentation that already feels like the finished gift.",
-                      bestFor: "Best for premium gifting",
-                      price: `${printPriceLabels.framed} + ${framedShippingLabel}`,
-                      imageSrc: PRINT_PROOF_IMAGE_PATHS.framed.src,
-                      fallbackSrc: PRINT_PROOF_IMAGE_PATHS.framed.fallback,
-                      selected: upsellIntent === "poster_framed",
-                      sceneClass: "proof-wall-stage proof-wall-stage--gallery",
-                      imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
-                    },
-                    {
-                      key: "poster_unframed",
-                      label: printPriceLabels.unframedName,
-                      sceneLabel: "Tabletop proof",
-                      badge: "Lower total",
-                      detail: "Professional print route if you already know how you want to frame it.",
-                      bestFor: "Best for lower-cost physical delivery",
-                      price: `${printPriceLabels.unframed} + ${unframedShippingLabel}`,
-                      imageSrc: PRINT_PROOF_IMAGE_PATHS.unframed.src,
-                      fallbackSrc: PRINT_PROOF_IMAGE_PATHS.unframed.fallback,
-                      selected: upsellIntent === "poster_unframed",
-                      sceneClass: "proof-wall-stage proof-wall-stage--tabletop",
-                      imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
-                    },
-                  ].map((option) => (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {downloadPrintOptions.map((option) => (
                     <div
-                      key={option.key}
+                      key={option.variant}
                       className={`overflow-hidden rounded-2xl border ${
-                        option.selected
+                        upsellIntent === option.variant
                           ? "border-amber-200/70 bg-white/10 shadow-[0_0_0_1px_rgba(251,191,36,0.18)]"
                           : "border-white/10 bg-white/5"
                       }`}
@@ -1732,7 +1707,7 @@ export default function DownloadClient() {
                               fallbackSrc={option.fallbackSrc}
                               alt={option.label}
                               fill
-                              sizes="(max-width: 640px) 100vw, 50vw"
+                              sizes="(max-width: 640px) 100vw, 33vw"
                               className={option.imageClass}
                             />
                           </div>
@@ -1750,7 +1725,7 @@ export default function DownloadClient() {
                         </div>
                         <p className="text-[11px] text-neutral-300">{option.detail}</p>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/85">{option.bestFor}</p>
-                        <p className="text-[11px] font-semibold text-amber-100">{option.price}</p>
+                        <p className="text-[11px] font-semibold text-amber-100">{option.priceLine}</p>
                       </div>
                     </div>
                   ))}
@@ -1785,37 +1760,38 @@ export default function DownloadClient() {
                         </option>
                       ))}
                     </select>
-                    <p className="mt-2 text-[11px] text-neutral-300">
-                      Estimated shipping to {shippingCountryLabel}: framed {framedShippingLabel} · unframed{" "}
-                      {unframedShippingLabel}
-                    </p>
+                    {posterShippingFootnote ? (
+                      <p className="mt-2 text-[11px] text-neutral-300">
+                        Estimated shipping to {shippingCountryLabel}: {posterShippingFootnote}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => void handlePrintCheckout("poster_framed")}
-                    disabled={printCheckoutLoading}
-                    className={`rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${
-                      upsellIntent === "poster_framed"
-                        ? "border-amber-100 bg-amber-300 text-midnight shadow-lg hover:bg-amber-200"
-                        : "border-amber-200/60 bg-amber-400/20 text-amber-50 hover:border-amber-200 hover:bg-amber-400/30"
-                    }`}
-                  >
-                    {printPriceLabels.framedName} (recommended) • {printPriceLabels.framed} + {framedShippingLabel}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePrintCheckout("poster_unframed")}
-                    disabled={printCheckoutLoading}
-                    className={`rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${
-                      upsellIntent === "poster_unframed"
-                        ? "border-white/50 bg-white text-midnight shadow-lg hover:bg-white/90"
-                        : "border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15"
-                    }`}
-                  >
-                    {printPriceLabels.unframedName} • {printPriceLabels.unframed} + {unframedShippingLabel}
-                  </button>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {downloadPrintOptions.map((option) => {
+                    const selected = upsellIntent === option.variant;
+                    const primary = option.variant === "poster_framed";
+                    return (
+                      <button
+                        key={`btn-${option.variant}`}
+                        type="button"
+                        onClick={() => void handlePrintCheckout(option.variant)}
+                        disabled={printCheckoutLoading}
+                        className={`rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${
+                          selected
+                            ? primary
+                              ? "border-amber-100 bg-amber-300 text-midnight shadow-lg hover:bg-amber-200"
+                              : "border-white/50 bg-white text-midnight shadow-lg hover:bg-white/90"
+                            : primary
+                              ? "border-amber-200/60 bg-amber-400/20 text-amber-50 hover:border-amber-200 hover:bg-amber-400/30"
+                              : "border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15"
+                        }`}
+                      >
+                        {option.label}
+                        {primary ? " (recommended)" : ""} • {option.priceLine}
+                      </button>
+                    );
+                  })}
                 </div>
                 {upsellIntent ? (
                   <p className="mt-2 text-[11px] text-amber-100/75">
@@ -1823,6 +1799,38 @@ export default function DownloadClient() {
                   </p>
                 ) : null}
                 {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}
+              </div>
+            ) : null}
+            {merchDownloadEditorHref && paid && status === "ready" ? (
+              <div className="mt-4 rounded-2xl border border-violet-200/35 bg-violet-950/35 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-sm font-semibold text-white">Stickers & apparel (beta)</h4>
+                  <span className="rounded-full border border-violet-200/45 bg-violet-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                    New
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-neutral-200">
+                  Ship the same constellation art on stickers, magnets, pins, or DTG shirts — customize sizes and colors in
+                  the editor before checkout.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    href={merchDownloadEditorHref}
+                    prefetch={false}
+                    onClick={() => track("download_merch_teaser_clicked", { destination: "editor" })}
+                    className="inline-flex rounded-full bg-violet-400 px-4 py-2 text-xs font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:bg-violet-300"
+                  >
+                    Customize merch
+                  </Link>
+                  <Link
+                    href="/shop#merch-beta"
+                    prefetch={false}
+                    onClick={() => track("download_merch_teaser_clicked", { destination: "shop" })}
+                    className="inline-flex items-center rounded-full border border-white/25 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/45 hover:bg-white/10"
+                  >
+                    View shop
+                  </Link>
+                </div>
               </div>
             ) : null}
             {paid ? (

@@ -12,6 +12,10 @@ const forceNewWebServer = ["1", "true", "yes"].includes(String(process.env.PW_FO
 
 export default defineConfig({
   testDir: "./tests",
+  /** Root `tsconfig.json` uses Next's TS plugin; Playwright transforms specs with this isolated config */
+  tsconfig: "./tests/tsconfig.playwright.json",
+  /** Windows / nested-repo setups: discover specs even if git-metadata tooling skips paths */
+  respectGitIgnore: false,
   timeout: 60_000,
   use: {
     baseURL: "http://127.0.0.1:3004",

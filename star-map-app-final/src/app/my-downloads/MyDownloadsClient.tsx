@@ -5,13 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EditorFontShell from "@/components/EditorFontShell";
 import { track } from "@/lib/analytics";
+import type { PrintVariant } from "@/lib/pricing";
+import { getPrintPricingTiers } from "@/lib/pricing";
 
 type AccountSessionItem = {
   sessionId: string;
   createdAt: number;
   label: string;
   orderType: "digital" | "print";
-  printVariant: "poster_framed" | "poster_unframed" | null;
+  printVariant: PrintVariant | null;
   plan: "single" | "pack3" | "subscription" | null;
   hasMapId: boolean;
   downloadUrl: string | null;
@@ -37,8 +39,9 @@ function formatDate(epochMs: number) {
 
 function planLabel(item: AccountSessionItem) {
   if (item.orderType === "print") {
-    if (item.printVariant === "poster_framed") return "Framed print";
-    if (item.printVariant === "poster_unframed") return "Unframed print";
+    if (item.printVariant) {
+      return getPrintPricingTiers()[item.printVariant].label;
+    }
     return "Print order";
   }
   if (item.plan === "pack3") return "3 HD credits";

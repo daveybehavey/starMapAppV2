@@ -20,7 +20,7 @@ export default function SiteTopNav() {
   const shopOn = isShopTabEnabled();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(5,9,21,0.88)] backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-gradient-to-b from-[rgba(7,17,42,0.82)] to-[rgba(5,9,21,0.66)] text-[#f7f0e2] backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <Link
           href="/"
@@ -31,7 +31,7 @@ export default function SiteTopNav() {
         </Link>
         <nav
           aria-label="Primary"
-          className="flex max-w-[min(72vw,28rem)] flex-nowrap items-center justify-end gap-0.5 overflow-x-auto text-[13px] font-semibold sm:max-w-none sm:gap-1 sm:text-sm"
+          className="flex max-w-[min(72vw,28rem)] flex-nowrap items-center justify-end gap-0.5 overflow-x-auto text-[13px] font-semibold text-[#f7f0e2] sm:max-w-none sm:gap-1 sm:text-sm"
         >
           {shopOn ? (
             <Link

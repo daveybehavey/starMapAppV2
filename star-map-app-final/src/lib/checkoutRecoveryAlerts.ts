@@ -1,3 +1,6 @@
+import type { PrintVariant } from "@/lib/pricing";
+import { getPrintPricingTiers } from "@/lib/pricing";
+
 type CheckoutRecoveryAlertProvider = "resend" | "sendgrid" | "none";
 
 export type CheckoutRecoveryAlertInput = {
@@ -6,7 +9,7 @@ export type CheckoutRecoveryAlertInput = {
   recoveryUrl: string;
   orderType: "digital" | "print";
   plan?: string;
-  printVariant?: "poster_unframed" | "poster_framed";
+  printVariant?: PrintVariant;
   includesDigitalAddOn?: boolean;
   amountTotal?: number | null;
   currency?: string | null;
@@ -79,7 +82,8 @@ function formatAmount(amountTotal: number | null | undefined, currency: string |
 
 function getOfferLabel(input: CheckoutRecoveryAlertInput) {
   if (input.orderType === "print") {
-    const printLabel = input.printVariant === "poster_framed" ? "framed print" : "unframed print";
+    const tiers = getPrintPricingTiers();
+    const printLabel = input.printVariant ? tiers[input.printVariant].label.toLowerCase() : "print";
     return input.includesDigitalAddOn ? `${printLabel} + HD download` : printLabel;
   }
   if (input.plan === "pack3") return "3 HD export credits";
@@ -89,9 +93,16 @@ function getOfferLabel(input: CheckoutRecoveryAlertInput) {
 
 function getSubject(input: CheckoutRecoveryAlertInput) {
   if (input.orderType === "print") {
-    return input.printVariant === "poster_framed"
-      ? "Your framed StarMapCo order is still waiting"
-      : "Your StarMapCo print order is still waiting";
+    if (input.printVariant === "poster_framed") {
+      return "Your framed StarMapCo order is still waiting";
+    }
+    if (input.printVariant === "poster_unframed") {
+      return "Your StarMapCo print order is still waiting";
+    }
+    if (input.printVariant) {
+      return `Your ${getPrintPricingTiers()[input.printVariant].label} order is still waiting`;
+    }
+    return "Your StarMapCo print order is still waiting";
   }
   return "Complete your StarMapCo order";
 }

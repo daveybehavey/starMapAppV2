@@ -9,6 +9,12 @@ import {
 } from "@/lib/printCheckoutConfig";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import { parseShopExternalOffers } from "@/lib/shopExternalOffers";
+import {
+  getMerchPublicDisplayLabel,
+  getMerchPublicDisplayPriceCents,
+  listMerchFamiliesEnabledForPublicUi,
+  type MerchFamilyId,
+} from "@/lib/merchCatalog";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -23,15 +29,32 @@ type UpsellCandidate = {
 
 const upsellRows = upsellCandidates as UpsellCandidate[];
 
+function merchShopTeaser(id: MerchFamilyId): string {
+  switch (id) {
+    case "sticker_kisscut":
+      return "Weatherproof kiss-cut stickers — laptops, bottles, and gift bundles.";
+    case "magnet_diecut":
+      return "Flexible fridge magnets with crisp constellation detail.";
+    case "pins_set":
+      return "Pin-back buttons with metallic fronts.";
+    case "tee_unisex_bc3001":
+      return "DTG-printed staple tee; curated sizes and colors.";
+    case "hoodie_unisex_g18500":
+      return "Midweight hoodie with front print placement.";
+    default:
+      return "Printed merch fulfilled via Printful.";
+  }
+}
+
 export const metadata: Metadata = {
   title: "Shop prints & gifts | StarMapCo",
   description:
-    "Browse museum-grade star map posters, framed prints, and HD digital delivery. Fulfillment via Printful — customize every map in the editor before checkout.",
+    "Browse museum-grade star map posters, framed prints, optional stickers and apparel, plus HD digital delivery. Fulfillment via Printful — customize every map in the editor before checkout.",
   alternates: { canonical: `${siteUrl}/shop` },
   openGraph: {
     title: "Shop prints & gifts | StarMapCo",
     description:
-    "Browse museum-grade star map posters, framed prints, and HD digital delivery. Customize every map in the editor before checkout.",
+    "Browse museum-grade star map posters, framed prints, optional stickers and apparel, plus HD digital delivery. Customize every map in the editor before checkout.",
     url: `${siteUrl}/shop`,
     type: "website",
   },
@@ -69,6 +92,7 @@ export default function ShopPage() {
 
   const roadmapSkus = upsellRows.filter((row) => row.phase !== "core");
   const partnerOffers = parseShopExternalOffers(process.env.NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON);
+  const merchFamilies = listMerchFamiliesEnabledForPublicUi();
 
   return (
     <main className="mx-auto min-h-[60vh] w-full max-w-5xl px-4 py-10 text-neutral-900 sm:px-6 lg:py-14">
@@ -161,6 +185,41 @@ export default function ShopPage() {
           </div>
         </section>
 
+        {merchFamilies.length ? (
+          <section id="merch-beta" className="mt-14 border-t border-neutral-200 pt-10">
+            <h2 className="text-xl font-semibold text-midnight">Wearables & small merch (beta)</h2>
+            <p className="mt-2 text-sm text-neutral-700">
+              Same editor artwork — pick product options after your preview. Shipping appears in Stripe before payment.
+              Fulfillment via Printful with manual review on physical orders.
+            </p>
+            <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {merchFamilies.map((family) => {
+                const cents = getMerchPublicDisplayPriceCents(family);
+                const label = getMerchPublicDisplayLabel(family);
+                const priceLine = formatPrice(cents, "USD");
+                return (
+                  <li
+                    key={family.id}
+                    className="flex flex-col rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-white p-4 shadow-sm"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">Merch beta</p>
+                    <p className="mt-2 text-lg font-semibold text-midnight">{label}</p>
+                    <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-700">{merchShopTeaser(family.id)}</p>
+                    <p className="mt-3 text-base font-semibold text-violet-900">{priceLine}+ shipping at checkout</p>
+                    <Link
+                      href={`/editor?mode=quick&source=shop-merch&merch_family=${encodeURIComponent(family.id)}`}
+                      prefetch={false}
+                      className="mt-4 inline-flex justify-center rounded-full bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800"
+                    >
+                      Customize in editor
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
+
         {roadmapSkus.length ? (
           <section className="mt-14 border-t border-neutral-200 pt-10">
             <h2 className="text-xl font-semibold text-midnight">More Printful formats on the roadmap</h2>
@@ -220,7 +279,9 @@ export default function ShopPage() {
             Poster and framed SKUs map directly to your configured Printful variants (
             <span className="whitespace-nowrap">unframed {printproofManifest.catalog?.unframed?.variantId ?? "—"}</span>,{" "}
             <span className="whitespace-nowrap">framed {printproofManifest.catalog?.framed?.variantId ?? "—"}</span>
-            ). Adding canvas, mugs, or cards requires Stripe prices, margin guards, and fulfillment QA — we ship those once they graduate from roadmap demand.
+            ). Beta merch (stickers, magnets, pins, apparel) uses Printful catalog variants per selected options. Broader
+            roadmap formats (canvas, mugs, cards) still need Stripe prices, margin guards, and fulfillment QA before they
+            ship.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/how-to-print-star-map" prefetch={false} className="font-semibold text-amber-800 underline">

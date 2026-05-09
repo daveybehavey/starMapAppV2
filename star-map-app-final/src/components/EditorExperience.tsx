@@ -13,15 +13,7 @@ import {
   trackExperimentExposure,
   trackFunnelStep,
 } from "@/lib/analytics";
-import {
-  formatPrice,
-  getPricingTiers,
-  getPrintDigitalAddOnPrice,
-  getPrintPricingTiers,
-  type CheckoutOrderType,
-  type CheckoutPlan,
-  type PrintVariant,
-} from "@/lib/pricing";
+import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
@@ -36,12 +28,23 @@ import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
-  formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
+import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
+import {
+  formatPosterShippingFootnote,
+  getPaywallPrintCheckoutPresentation,
+  paywallPrintSkuButtonClassesEditorPanel,
+} from "@/lib/paywallPrintCheckout";
+import {
+  getMerchFamily,
+  isMerchFamilyId,
+  listMerchFamiliesEnabledForPublicUi,
+  type MerchFamilyId,
+} from "@/lib/merchCatalog";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
@@ -146,8 +149,7 @@ function parseDateParamToIso(dateParam: string) {
 function parsePrintVariantParam(raw: string | null | undefined): PrintVariant | null {
   if (!raw) return null;
   const trimmed = raw.trim();
-  if (trimmed === "poster_framed" || trimmed === "poster_unframed") return trimmed;
-  return null;
+  return isPrintVariant(trimmed) ? trimmed : null;
 }
 
 function parseShippingCountryParam(raw: string | null | undefined): string | null {
@@ -261,23 +263,12 @@ export function EditorExperience({
   const [currentPlan, setCurrentPlan] = useState<CheckoutPlan | null>(null);
 
   // Compute pricing labels once (never change during session)
-  const { priceLabels, printPriceLabels } = useMemo(() => {
+  const priceLabels = useMemo(() => {
     const tiers = getPricingTiers();
-    const printTiers = getPrintPricingTiers();
-    const printAddOn = getPrintDigitalAddOnPrice();
     return {
-      priceLabels: {
-        single: formatPrice(tiers.single.amountCents, tiers.single.currency),
-        pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
-        subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
-      },
-      printPriceLabels: {
-        unframedName: printTiers.poster_unframed.label,
-        framedName: printTiers.poster_framed.label,
-        unframed: formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
-        framed: formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
-        digitalAddOn: formatPrice(printAddOn.amountCents, printAddOn.currency),
-      },
+      single: formatPrice(tiers.single.amountCents, tiers.single.currency),
+      pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
+      subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
     };
   }, []);
   const paywallVariant = useMemo<PaywallCopyVariant>(() => getPaywallCopyVariant(), []);
@@ -314,6 +305,11 @@ export function EditorExperience({
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
   const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
+  const enabledMerchFamilies = useMemo(() => listMerchFamiliesEnabledForPublicUi(), []);
+  const defaultMerchFamily = (enabledMerchFamilies[0]?.id ?? "sticker_kisscut") as MerchFamilyId;
+  const [selectedMerchFamily, setSelectedMerchFamily] = useState<MerchFamilyId>(defaultMerchFamily);
+  const [selectedMerchSize, setSelectedMerchSize] = useState<string>("");
+  const [selectedMerchColor, setSelectedMerchColor] = useState<string>("");
   const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
@@ -340,6 +336,7 @@ export function EditorExperience({
   const printIntentHandledRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
+  const merchFamilyFromQuery = searchParams.get("merch_family");
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
   const setPrintShippingCountryValue = useCallback(
@@ -367,6 +364,18 @@ export function EditorExperience({
       setPrintShippingCountryValue(printShippingCountries[0], "initial");
     }
   }, [printShippingCountries, setPrintShippingCountryValue]);
+
+  useEffect(() => {
+    if (!merchFamilyFromQuery?.trim()) return;
+    const id = merchFamilyFromQuery.trim();
+    if (!isMerchFamilyId(id)) return;
+    if (!enabledMerchFamilies.some((f) => f.id === id)) return;
+    setSelectedMerchFamily(id);
+    const fam = getMerchFamily(id);
+    setSelectedMerchSize(fam.options.size?.[0] ?? "");
+    setSelectedMerchColor(fam.options.color?.[0] ?? "");
+  }, [merchFamilyFromQuery, enabledMerchFamilies]);
+
   const readStoredPromoCode = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -437,12 +446,12 @@ export function EditorExperience({
 
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
   const shippingDisclosure = getPrintShippingDisclosure();
-  const framedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
+  const posterShippingFootnote = useMemo(
+    () => formatPosterShippingFootnote(printShippingCountry),
     [printShippingCountry],
   );
-  const unframedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
+  const printCheckoutRows = useMemo(
+    () => getPaywallPrintCheckoutPresentation(printShippingCountry),
     [printShippingCountry],
   );
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
@@ -1084,6 +1093,8 @@ export function EditorExperience({
       options?: {
         orderType?: CheckoutOrderType;
         printVariant?: PrintVariant;
+        merchFamily?: MerchFamilyId;
+        merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
       },
     ) => {
@@ -1092,7 +1103,18 @@ export function EditorExperience({
       const promoCode = getCheckoutPromoCode();
       const referralCode = getCheckoutReferralCode();
       const orderType = options?.orderType === "print" ? "print" : "digital";
-      const printVariant = options?.printVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
+      const merchFamily = typeof options?.merchFamily === "string" ? options.merchFamily : undefined;
+      const merchOptions =
+        options?.merchOptions && typeof options.merchOptions === "object"
+          ? {
+              size: typeof options.merchOptions.size === "string" ? options.merchOptions.size : undefined,
+              color: typeof options.merchOptions.color === "string" ? options.merchOptions.color : undefined,
+            }
+          : undefined;
+      const printVariant = parsePrintVariant(
+        orderType === "print" ? options?.printVariant : undefined,
+        "poster_framed",
+      );
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
       const recipeForCheckout = buildRecipeFromState({
         dateTime,
@@ -1151,6 +1173,8 @@ export function EditorExperience({
           promoCode?: string;
           orderType?: CheckoutOrderType;
           printVariant?: PrintVariant;
+          merchFamily?: MerchFamilyId;
+          merchOptions?: { size?: string; color?: string };
           includeDigitalAddOn?: boolean;
           printAssetId?: string;
           shippingCountry?: string;
@@ -1162,6 +1186,10 @@ export function EditorExperience({
         if (orderType === "print") {
           if (!printShippingCountry) {
             throw new Error("missing_shipping_country");
+          }
+          if (merchFamily) {
+            checkoutPayload.merchFamily = merchFamily;
+            if (merchOptions) checkoutPayload.merchOptions = merchOptions;
           }
           if (typeof document !== "undefined" && document.fonts) {
             await document.fonts.ready;
@@ -1442,6 +1470,26 @@ export function EditorExperience({
         orderType: "print",
         printVariant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
+      });
+    },
+    [startCheckout],
+  );
+
+  const startMerchCheckout = useCallback(
+    (options: { family: MerchFamilyId; size?: string; color?: string }) => {
+      track("print_option_clicked", {
+        source: "editor_merch_panel",
+        family: options.family,
+        size: options.size,
+        color: options.color,
+      });
+      void startCheckout("single", {
+        orderType: "print",
+        // keep a stable printVariant for legacy paths; backend switches to merch via merchFamily.
+        printVariant: "poster_framed",
+        includeDigitalAddOn: false,
+        merchFamily: options.family,
+        merchOptions: { size: options.size, color: options.color },
       });
     },
     [startCheckout],
@@ -2734,83 +2782,38 @@ export function EditorExperience({
                                   </option>
                                 ))}
                               </select>
-                              {printShippingCountry && (
+                              {printShippingCountry && posterShippingFootnote ? (
                                 <p className="mt-1 text-[10px] text-amber-100/80">
-                                  Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
-                                  {framedShippingLabel} · unframed {unframedShippingLabel}
+                                  Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}:{" "}
+                                  {posterShippingFootnote}
                                 </p>
-                              )}
+                              ) : null}
                             </div>
-                            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startPrintCheckout({
-                                    source: "editor_print_panel",
-                                    variant: "poster_framed",
-                                    includeDigitalAddOn: true,
-                                  })
-                                }
-                                disabled={checkoutInFlight || !printShippingCountry}
-                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-300/35 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-300/45 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                              >
-                                {checkoutInFlight ? (
-                                  "Opening secure checkout..."
-                                ) : (
-                                  <span className="text-center leading-tight">
-                                    <span className="block text-[11px] font-semibold">Framed + HD (recommended)</span>
-                                    <span className="block text-[10px] text-amber-100/95">
-                                      {printPriceLabels.framed} + {framedShippingLabel} + {printPriceLabels.digitalAddOn}
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {printCheckoutRows.map((row) => (
+                                <button
+                                  key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                                  type="button"
+                                  onClick={() =>
+                                    startPrintCheckout({
+                                      source: "editor_print_panel",
+                                      variant: row.variant,
+                                      includeDigitalAddOn: row.includeDigitalAddOn,
+                                    })
+                                  }
+                                  disabled={checkoutInFlight || !printShippingCountry}
+                                  className={paywallPrintSkuButtonClassesEditorPanel(row, preferredPrintVariant)}
+                                >
+                                  {checkoutInFlight ? (
+                                    "Opening secure checkout..."
+                                  ) : (
+                                    <span className="text-center leading-tight">
+                                      <span className="block text-[11px] font-semibold">{row.headline}</span>
+                                      <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
                                     </span>
-                                  </span>
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startPrintCheckout({
-                                    source: "editor_print_panel",
-                                    variant: "poster_framed",
-                                    includeDigitalAddOn: false,
-                                  })
-                                }
-                                disabled={checkoutInFlight || !printShippingCountry}
-                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-200/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-200/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                              >
-                                {checkoutInFlight ? (
-                                  "Opening secure checkout..."
-                                ) : (
-                                  <span className="text-center leading-tight">
-                                    <span className="block text-[11px] font-semibold">Framed print</span>
-                                    <span className="block text-[10px] text-amber-100/90">
-                                      {printPriceLabels.framed} + {framedShippingLabel}
-                                    </span>
-                                  </span>
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startPrintCheckout({
-                                    source: "editor_print_panel",
-                                    variant: "poster_unframed",
-                                    includeDigitalAddOn: false,
-                                  })
-                                }
-                                disabled={checkoutInFlight || !printShippingCountry}
-                                className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-amber-100/20 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-100/30 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                              >
-                                {checkoutInFlight ? (
-                                  "Opening secure checkout..."
-                                ) : (
-                                  <span className="text-center leading-tight">
-                                    <span className="block text-[11px] font-semibold">Unframed print</span>
-                                    <span className="block text-[10px] text-amber-100/90">
-                                      {printPriceLabels.unframed} + {unframedShippingLabel}
-                                    </span>
-                                  </span>
-                                )}
-                              </button>
+                                  )}
+                                </button>
+                              ))}
                             </div>
                             {!printShippingCountry && (
                               <p className="mt-2 text-[11px] font-semibold text-amber-100/80">
@@ -2831,6 +2834,106 @@ export function EditorExperience({
                                 Shipping details
                               </a>
                             </div>
+                            {enabledMerchFamilies.length ? (
+                              <div className="mt-4 rounded-xl border border-amber-200/25 bg-white/10 p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-[11px] font-semibold text-amber-100">Merch (beta)</p>
+                                  <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                    New
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-[10px] text-amber-100/80">
+                                  Choose a product and options. Shipping is shown in Stripe before payment.
+                                </p>
+                                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                  <div>
+                                    <label className="text-[10px] font-semibold text-amber-100/80">Product</label>
+                                    <select
+                                      value={selectedMerchFamily}
+                                      onChange={(event) => {
+                                        const next = event.target.value as MerchFamilyId;
+                                        setSelectedMerchFamily(next);
+                                        const nextFamily = enabledMerchFamilies.find((f) => f.id === next);
+                                        setSelectedMerchSize(nextFamily?.options.size?.[0] ?? "");
+                                        setSelectedMerchColor(nextFamily?.options.color?.[0] ?? "");
+                                      }}
+                                      className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
+                                      style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                                    >
+                                      {enabledMerchFamilies.map((family) => (
+                                        <option key={family.id} value={family.id}>
+                                          {family.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  {(() => {
+                                    const family = enabledMerchFamilies.find((f) => f.id === selectedMerchFamily);
+                                    if (!family) return null;
+                                    return (
+                                      <>
+                                        {family.options.color?.length ? (
+                                          <div>
+                                            <label className="text-[10px] font-semibold text-amber-100/80">Color</label>
+                                            <select
+                                              value={selectedMerchColor || family.options.color[0] || ""}
+                                              onChange={(event) => setSelectedMerchColor(event.target.value)}
+                                              className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
+                                              style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                                            >
+                                              <option value="">Select…</option>
+                                              {family.options.color.map((c) => (
+                                                <option key={c} value={c}>
+                                                  {c}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        ) : null}
+                                        {family.options.size?.length ? (
+                                          <div className={family.options.color?.length ? "sm:col-span-2" : undefined}>
+                                            <label className="text-[10px] font-semibold text-amber-100/80">Size</label>
+                                            <select
+                                              value={selectedMerchSize || family.options.size[0] || ""}
+                                              onChange={(event) => setSelectedMerchSize(event.target.value)}
+                                              className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
+                                              style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                                            >
+                                              <option value="">Select…</option>
+                                              {family.options.size.map((s) => (
+                                                <option key={s} value={s}>
+                                                  {s}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        ) : null}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    startMerchCheckout({
+                                      family: selectedMerchFamily,
+                                      size:
+                                        selectedMerchSize ||
+                                        enabledMerchFamilies.find((f) => f.id === selectedMerchFamily)?.options.size?.[0] ||
+                                        undefined,
+                                      color:
+                                        selectedMerchColor ||
+                                        enabledMerchFamilies.find((f) => f.id === selectedMerchFamily)?.options.color?.[0] ||
+                                        undefined,
+                                    })
+                                  }
+                                  disabled={checkoutInFlight || !printShippingCountry}
+                                  className="mt-3 w-full rounded-full border border-amber-200/70 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  {checkoutInFlight ? "Opening secure checkout..." : "Checkout selected merch"}
+                                </button>
+                              </div>
+                            ) : null}
                             {checkoutError && (
                               <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
                             )}
@@ -2860,7 +2963,7 @@ export function EditorExperience({
               creditsRemaining={creditsRemaining}
               currentPlan={currentPlan}
               printCheckoutEnabled={printCheckoutEnabled}
-              printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
+              preferredPrintVariant={preferredPrintVariant}
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
               printCheckoutInFlight={checkoutInFlight}
@@ -2888,7 +2991,6 @@ export function EditorExperience({
               checkoutInFlight={checkoutInFlight}
               checkoutError={checkoutError}
               priceLabels={priceLabels}
-              printPriceLabels={printCheckoutEnabled ? printPriceLabels : undefined}
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
               onPrintShippingCountryChange={(country) => {

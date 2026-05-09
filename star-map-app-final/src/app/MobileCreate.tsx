@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type TextBox, type RenderOptions } from "@/lib/store";
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
@@ -18,10 +18,11 @@ import Image from "next/image";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
-  formatPrintShippingEstimate,
-  getPrintShippingCountryLabel,
-  getPrintShippingCountryOptions,
-} from "@/lib/printfulShipping";
+  formatPosterShippingFootnote,
+  getPaywallPrintCheckoutPresentation,
+  paywallPrintSkuButtonClassesMobile,
+} from "@/lib/paywallPrintCheckout";
+import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
@@ -39,11 +40,7 @@ interface MobileCreateProps {
   creditsRemaining?: number | null;
   currentPlan?: CheckoutPlan | null;
   printCheckoutEnabled?: boolean;
-  printPriceLabels?: {
-    unframed: string;
-    framed: string;
-    digitalAddOn: string;
-  };
+  preferredPrintVariant?: PrintVariant;
   printShippingCountry?: string | null;
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
@@ -62,7 +59,7 @@ export function MobileCreate({
   creditsRemaining = null,
   currentPlan = null,
   printCheckoutEnabled = false,
-  printPriceLabels,
+  preferredPrintVariant = "poster_framed",
   printShippingCountry,
   printShippingCountries = [],
   onPrintShippingCountryChange,
@@ -113,8 +110,14 @@ export function MobileCreate({
   } = useEditorLogic({ variant });
   const shippingDisclosure = getPrintShippingDisclosure();
   const printShippingCountryOptions = getPrintShippingCountryOptions(printShippingCountries);
-  const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
-  const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
+  const posterShippingFootnote = useMemo(
+    () => formatPosterShippingFootnote(printShippingCountry),
+    [printShippingCountry],
+  );
+  const printCheckoutRows = useMemo(
+    () => getPaywallPrintCheckoutPresentation(printShippingCountry),
+    [printShippingCountry],
+  );
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -1302,7 +1305,7 @@ export function MobileCreate({
               </span>
             </div>
           )}
-            {printCheckoutEnabled && printPriceLabels && onStartPrintCheckout && (
+            {printCheckoutEnabled && onStartPrintCheckout && (
               <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
                 <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
                 <p className="mt-1 text-[10px] text-amber-100/80">
@@ -1333,66 +1336,40 @@ export function MobileCreate({
                         </option>
                       ))}
                     </select>
-                    {printShippingCountry && (
+                    {printShippingCountry && posterShippingFootnote ? (
                       <p className="mt-1 text-[10px] text-amber-100/80">
-                        Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
-                        {framedShippingLabel} · unframed {unframedShippingLabel}
+                        Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 )}
                 <div className="mt-2 flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: true })}
-                    disabled={!printShippingCountry || printCheckoutInFlight}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200/70 bg-amber-300/36 px-4 py-2 text-xs font-semibold text-amber-50 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/46"
-                  >
-                    {printCheckoutInFlight ? (
-                      "Opening secure checkout..."
-                    ) : (
-                      <span className="text-center leading-tight">
-                        <span className="block text-[11px] font-semibold">🖼️ Framed + HD (recommended)</span>
-                        <span className="block text-[10px] text-amber-100/95">
-                          {printPriceLabels.framed} + {framedShippingLabel} + {printPriceLabels.digitalAddOn}
+                  {printCheckoutRows.map((row) => (
+                    <button
+                      key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                      type="button"
+                      onClick={() =>
+                        onStartPrintCheckout({
+                          variant: row.variant,
+                          includeDigitalAddOn: row.includeDigitalAddOn,
+                        })
+                      }
+                      disabled={!printShippingCountry || printCheckoutInFlight}
+                      className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant)}
+                    >
+                      {printCheckoutInFlight ? (
+                        "Opening secure checkout..."
+                      ) : (
+                        <span className="text-center leading-tight">
+                          <span className="block text-[11px] font-semibold">
+                            {row.recommended ? "🖼️ " : ""}
+                            {row.headline}
+                          </span>
+                          <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
                         </span>
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onStartPrintCheckout({ variant: "poster_framed", includeDigitalAddOn: false })}
-                    disabled={!printShippingCountry || printCheckoutInFlight}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/30"
-                  >
-                    {printCheckoutInFlight ? (
-                      "Opening secure checkout..."
-                    ) : (
-                      <span className="text-center leading-tight">
-                        <span className="block text-[11px] font-semibold">🖼️ Framed print</span>
-                        <span className="block text-[10px] text-amber-100/90">
-                          {printPriceLabels.framed} + {framedShippingLabel}
-                        </span>
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onStartPrintCheckout({ variant: "poster_unframed", includeDigitalAddOn: false })}
-                    disabled={!printShippingCountry || printCheckoutInFlight}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/50 bg-amber-100/20 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-100/30"
-                  >
-                    {printCheckoutInFlight ? (
-                      "Opening secure checkout..."
-                    ) : (
-                      <span className="text-center leading-tight">
-                        <span className="block text-[11px] font-semibold">🖼️ Unframed print</span>
-                        <span className="block text-[10px] text-amber-100/90">
-                          {printPriceLabels.unframed} + {unframedShippingLabel}
-                        </span>
-                      </span>
-                    )}
-                  </button>
+                      )}
+                    </button>
+                  ))}
                 </div>
                 {!printShippingCountry && (
                   <p className="mt-2 text-[10px] font-semibold text-amber-100/85">

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { track, trackViewItemList } from "@/lib/analytics";
+import { PAYWALL_PRINT_VARIANT_ORDER } from "@/lib/printCatalog";
 
 type GiftFormatsTelemetryProps = {
   source: string;
@@ -20,9 +21,13 @@ export default function GiftFormatsTelemetry({ source }: GiftFormatsTelemetryPro
       itemListId: "gift_formats_live_options",
       itemListName: "Gift formats live options",
       items: [
-        { plan: "single", orderType: "digital", index: 0 },
-        { plan: "single", orderType: "print", printVariant: "poster_framed", index: 1 },
-        { plan: "single", orderType: "print", printVariant: "poster_unframed", index: 2 },
+        { plan: "single" as const, orderType: "digital" as const, index: 0 },
+        ...PAYWALL_PRINT_VARIANT_ORDER.map((printVariant, index) => ({
+          plan: "single" as const,
+          orderType: "print" as const,
+          printVariant,
+          index: index + 1,
+        })),
       ],
     });
   }, [source]);

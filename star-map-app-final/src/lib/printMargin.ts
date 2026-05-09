@@ -1,4 +1,6 @@
-import { getPrintDigitalAddOnPrice, getPrintPricingTiers, type PrintVariant } from "@/lib/pricing";
+import { getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
+import type { PrintVariant } from "@/lib/pricing";
+import { getPrintCatalogRow } from "@/lib/printCatalog";
 import { getPrintShippingEstimate } from "@/lib/printfulShipping";
 
 type PrintMarginGuardConfig = {
@@ -6,8 +8,6 @@ type PrintMarginGuardConfig = {
   minMarginCents: number;
   stripePercent: number;
   stripeFixedCents: number;
-  cogsUnframedCents: number;
-  cogsFramedCents: number;
 };
 
 export type PrintMarginEstimate = {
@@ -31,8 +31,6 @@ export type PrintMarginEvaluation = {
 
 const DEFAULT_STRIPE_PERCENT = 0.029;
 const DEFAULT_STRIPE_FIXED_CENTS = 30;
-const DEFAULT_PRINT_COGS_UNFRAMED_CENTS = 1300;
-const DEFAULT_PRINT_COGS_FRAMED_CENTS = 5200;
 
 function parseBool(value: string | undefined, fallback: boolean) {
   if (!value || !value.trim()) return fallback;
@@ -54,8 +52,9 @@ function parseFloatValue(value: string | undefined, fallback: number, minimum = 
   return Math.max(minimum, parsed);
 }
 
-function getVariantProductCostCents(config: PrintMarginGuardConfig, variant: PrintVariant) {
-  return variant === "poster_framed" ? config.cogsFramedCents : config.cogsUnframedCents;
+function getVariantProductCostCents(variant: PrintVariant): number {
+  const row = getPrintCatalogRow(variant);
+  return parseIntValue(process.env[row.cogsEnv], row.defaultCogsCents, 0);
 }
 
 export function getPrintMarginGuardConfig(): PrintMarginGuardConfig {
@@ -64,12 +63,6 @@ export function getPrintMarginGuardConfig(): PrintMarginGuardConfig {
     minMarginCents: parseIntValue(process.env.PRINT_MIN_MARGIN_CENTS, 0, 0),
     stripePercent: parseFloatValue(process.env.PRINT_MARGIN_STRIPE_PERCENT, DEFAULT_STRIPE_PERCENT, 0),
     stripeFixedCents: parseIntValue(process.env.PRINT_MARGIN_STRIPE_FIXED_CENTS, DEFAULT_STRIPE_FIXED_CENTS, 0),
-    cogsUnframedCents: parseIntValue(
-      process.env.PRINT_COGS_POSTER_UNFRAMED_CENTS,
-      DEFAULT_PRINT_COGS_UNFRAMED_CENTS,
-      0,
-    ),
-    cogsFramedCents: parseIntValue(process.env.PRINT_COGS_POSTER_FRAMED_CENTS, DEFAULT_PRINT_COGS_FRAMED_CENTS, 0),
   };
 }
 
@@ -89,7 +82,7 @@ function buildEstimate(input: {
   const shippingEstimate = getPrintShippingEstimate(input.variant, input.shippingCountry);
   if (!shippingEstimate) return null;
 
-  const productCostCents = getVariantProductCostCents(input.config, input.variant);
+  const productCostCents = getVariantProductCostCents(input.variant);
   const shippingCostCents = shippingEstimate.amountCents;
   const fulfillmentCents = productCostCents + shippingCostCents;
   const stripeFeeCents = estimateStripeFeeCents(input.revenueCents, input.config);

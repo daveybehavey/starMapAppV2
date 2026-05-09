@@ -20,7 +20,16 @@ alwaysApply: true
 ## Canonical workspace (Windows)
 
 - Prefer opening **`C:\Users\david\dev\starMapAppV2`** in Cursor (not under OneDrive). OneDrive + `node_modules` causes flaky `npm ci` / extract errors.
+- **Partial OneDrive clones:** if **`star-map-app-final/scripts`** is empty (or very small), the folder is not fully synced—**do not run `npm run qa:*` there**; use Desktop or `dev` path.
+- **Playwright on OneDrive:** cloud-placeholder files can appear as symlinks; the repo uses **`patch-package`** on Playwright so `*.spec.ts` files are still discovered. Prefer a non-OneDrive working copy when possible.
 - App root for commands: **`star-map-app-final`** (e.g. `cd star-map-app-final` from repo root).
+
+## GitHub Actions (CI)
+
+- **CI** (on PRs touching `star-map-app-final`): lint, production build, **`npm run qa:smoke:commerce`**.
+- **Nightly E2E:** schedule + manual **`npm run qa:smoke`**.
+- **Live canary:** schedule + manual **`scripts/live-smoke.mjs`** against production (no `npm ci` in that job).
+- Ops reference: **`star-map-app-final/docs/OPS_RUNBOOK.md`**.
 
 ## Local `company-os/` (automation workspace)
 

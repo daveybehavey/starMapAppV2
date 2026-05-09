@@ -1,0 +1,13 @@
+diff --git a/node_modules/playwright/lib/runner/projectUtils.js b/node_modules/playwright/lib/runner/projectUtils.js
+index 09af3aa..a0ba718 100644
+--- a/node_modules/playwright/lib/runner/projectUtils.js
++++ b/node_modules/playwright/lib/runner/projectUtils.js
+@@ -223,7 +223,7 @@ async function collectFiles(testDir, respectGitIgnore) {
+       const entryStatus = checkIgnores(entryPath, rules, entry.isDirectory(), status);
+       if (entry.isDirectory() && entryStatus !== "ignored")
+         await visit(entryPath, rules, entryStatus);
+-      else if (entry.isFile() && entryStatus === "included")
++      else if ((entry.isFile() || entry.isSymbolicLink()) && !entry.isDirectory() && entryStatus === "included")
+         files.push(entryPath);
+     }
+   };

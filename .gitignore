@@ -32,3 +32,6 @@ pnpm-debug.log*
 
 # Local Search Console / Google tooling dumps (never commit secrets)
 gsc.json
+
+# Local Printful / catalog scan scratch (never commit)
+star-map-app-final/.tmp-*

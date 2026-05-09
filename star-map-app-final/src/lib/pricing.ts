@@ -1,3 +1,6 @@
+import type { PrintVariant } from "@/lib/printCatalog";
+import { PRINT_CATALOG, getPrintCatalogRow } from "@/lib/printCatalog";
+
 type PricingEnv = {
   basePriceCents: number;
   pack3PriceCents: number;
@@ -18,7 +21,7 @@ export type PricingInfo = {
 
 export type CheckoutPlan = "single" | "pack3" | "subscription";
 export type CheckoutOrderType = "digital" | "print";
-export type PrintVariant = "poster_unframed" | "poster_framed";
+export type { PrintVariant } from "@/lib/printCatalog";
 
 export type PricingTier = {
   id: CheckoutPlan;
@@ -37,7 +40,7 @@ export type PrintPricingTier = {
   includesFrame: boolean;
 };
 
-function parseStringEnv(name: string, fallback: string): string {
+function parseIntEnv(name: string, fallback: number): number {
   let raw: string | undefined;
 
   if (typeof window === "undefined") {
@@ -45,37 +48,85 @@ function parseStringEnv(name: string, fallback: string): string {
   }
 
   if (!raw) {
-    if (name === "PRINT_UNFRAMED_LABEL") raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_LABEL;
-    else if (name === "PRINT_FRAMED_LABEL") raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_LABEL;
-  }
-
-  const trimmed = raw?.trim();
-  return trimmed ? trimmed : fallback;
-}
-
-function parseIntEnv(name: string, fallback: number): number {
-  // Next.js requires direct property access for client-side env vars
-  // Dynamic keys like process.env[name] don't work on client side
-  let raw: string | undefined;
-
-  // Check standard env var first (server-side)
-  if (typeof window === 'undefined') {
-    raw = process.env[name];
-  }
-
-  // Fallback to direct NEXT_PUBLIC_ access for client-side
-  if (!raw) {
-    if (name === 'PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PRICE_CENTS;
-    else if (name === 'PRICE_SINGLE_CENTS') raw = process.env.NEXT_PUBLIC_PRICE_SINGLE_CENTS;
-    else if (name === 'PACK3_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PACK3_PRICE_CENTS;
-    else if (name === 'SUBSCRIPTION_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_SUBSCRIPTION_PRICE_CENTS;
-    else if (name === 'PRINT_UNFRAMED_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS;
-    else if (name === 'PRINT_FRAMED_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS;
-    else if (name === 'PRINT_DIGITAL_ADDON_PRICE_CENTS') raw = process.env.NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS;
+    if (name === "PRICE_CENTS") raw = process.env.NEXT_PUBLIC_PRICE_CENTS;
+    else if (name === "PRICE_SINGLE_CENTS") raw = process.env.NEXT_PUBLIC_PRICE_SINGLE_CENTS;
+    else if (name === "PACK3_PRICE_CENTS") raw = process.env.NEXT_PUBLIC_PACK3_PRICE_CENTS;
+    else if (name === "SUBSCRIPTION_PRICE_CENTS") raw = process.env.NEXT_PUBLIC_SUBSCRIPTION_PRICE_CENTS;
+    else if (name === "PRINT_UNFRAMED_PRICE_CENTS") raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS;
+    else if (name === "PRINT_FRAMED_PRICE_CENTS") raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS;
+    else if (name === "PRINT_DIGITAL_ADDON_PRICE_CENTS") raw = process.env.NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS;
   }
 
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parsePrintSkuPriceCents(rowId: PrintVariant): number {
+  const row = getPrintCatalogRow(rowId);
+  let raw: string | undefined;
+
+  if (typeof window === "undefined") {
+    raw = process.env[row.priceEnv];
+  }
+
+  if (!raw) {
+    switch (rowId) {
+      case "poster_unframed":
+        raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS;
+        break;
+      case "poster_framed":
+        raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS;
+        break;
+      case "canvas_wrap":
+        raw = process.env.NEXT_PUBLIC_PRINT_CANVAS_WRAP_PRICE_CENTS;
+        break;
+      case "mug_11oz":
+        raw = process.env.NEXT_PUBLIC_PRINT_MUG_11OZ_PRICE_CENTS;
+        break;
+      case "card_4x6":
+        raw = process.env.NEXT_PUBLIC_PRINT_CARD_4X6_PRICE_CENTS;
+        break;
+      default:
+        raw = undefined;
+    }
+  }
+
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : row.priceFallbackCents;
+}
+
+function parsePrintSkuLabel(rowId: PrintVariant): string {
+  const row = getPrintCatalogRow(rowId);
+  let raw: string | undefined;
+
+  if (typeof window === "undefined") {
+    raw = process.env[row.labelEnv];
+  }
+
+  if (!raw?.trim()) {
+    switch (rowId) {
+      case "poster_unframed":
+        raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_LABEL;
+        break;
+      case "poster_framed":
+        raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_LABEL;
+        break;
+      case "canvas_wrap":
+        raw = process.env.NEXT_PUBLIC_PRINT_CANVAS_WRAP_LABEL;
+        break;
+      case "mug_11oz":
+        raw = process.env.NEXT_PUBLIC_PRINT_MUG_11OZ_LABEL;
+        break;
+      case "card_4x6":
+        raw = process.env.NEXT_PUBLIC_PRINT_CARD_4X6_LABEL;
+        break;
+      default:
+        raw = undefined;
+    }
+  }
+
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : row.labelFallback;
 }
 
 function readEnv(): PricingEnv {
@@ -84,10 +135,10 @@ function readEnv(): PricingEnv {
   const pack3PriceCents = parseIntEnv("PACK3_PRICE_CENTS", 1000);
   const subscriptionPriceCents = parseIntEnv("SUBSCRIPTION_PRICE_CENTS", 1900);
 
-  // Direct access for client-side compatibility
-  const currency = typeof window === 'undefined'
-    ? (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd")
-    : (process.env.NEXT_PUBLIC_CURRENCY ?? "usd");
+  const currency =
+    typeof window === "undefined"
+      ? (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd")
+      : (process.env.NEXT_PUBLIC_CURRENCY ?? "usd");
 
   return {
     basePriceCents,
@@ -143,26 +194,20 @@ export function getPricingTiers(opts?: { now?: Date }): Record<CheckoutPlan, Pri
 
 export function getPrintPricingTiers(): Record<PrintVariant, PrintPricingTier> {
   const env = readEnv();
-  const unframedPriceCents = parseIntEnv("PRINT_UNFRAMED_PRICE_CENTS", 4900);
-  const framedPriceCents = parseIntEnv("PRINT_FRAMED_PRICE_CENTS", 9900);
-  const unframedLabel = parseStringEnv("PRINT_UNFRAMED_LABEL", "Museum-grade poster (18x18)");
-  const framedLabel = parseStringEnv("PRINT_FRAMED_LABEL", "Framed print (14x14)");
-  return {
-    poster_unframed: {
-      id: "poster_unframed",
-      label: unframedLabel,
-      amountCents: unframedPriceCents,
-      currency: env.currency,
-      includesFrame: false,
-    },
-    poster_framed: {
-      id: "poster_framed",
-      label: framedLabel,
-      amountCents: framedPriceCents,
-      currency: env.currency,
-      includesFrame: true,
-    },
-  };
+  const entries = PRINT_CATALOG.map((row) => {
+    const id = row.id;
+    return [
+      id,
+      {
+        id,
+        label: parsePrintSkuLabel(id),
+        amountCents: parsePrintSkuPriceCents(id),
+        currency: env.currency,
+        includesFrame: row.includesFrame,
+      } satisfies PrintPricingTier,
+    ] as const;
+  });
+  return Object.fromEntries(entries) as Record<PrintVariant, PrintPricingTier>;
 }
 
 export function getPrintDigitalAddOnPrice(): { amountCents: number; currency: string } {

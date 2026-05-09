@@ -6,11 +6,14 @@ import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
-  formatPrintShippingEstimate,
-  getPrintShippingCountryLabel,
-  getPrintShippingCountryOptions,
-} from "@/lib/printfulShipping";
+  formatPosterShippingFootnote,
+  getPaywallPrintCheckoutPresentation,
+  isPreferredPaywallPrintRow,
+  type PaywallPrintCheckoutPresentationRow,
+} from "@/lib/paywallPrintCheckout";
 
 type PriceLabels = {
   single: string;
@@ -18,15 +21,24 @@ type PriceLabels = {
   subscription: string;
 };
 
+function paywallPrintSkuButtonClasses(row: PaywallPrintCheckoutPresentationRow, preferredPrintVariant: PrintVariant) {
+  const shared =
+    "w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70";
+
+  if (row.recommended) {
+    return `${shared} border-amber-200/70 bg-amber-400/30 text-amber-50 hover:bg-amber-400/40`;
+  }
+  if (isPreferredPaywallPrintRow(row, preferredPrintVariant)) {
+    return `${shared} border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35`;
+  }
+
+  return `${shared} border-white/20 bg-white/10 text-amber-50 hover:border-white/35 hover:bg-white/15`;
+}
+
 type Props = {
   checkoutInFlight: boolean;
   checkoutError: string | null;
   priceLabels: PriceLabels;
-  printPriceLabels?: {
-    unframed: string;
-    framed: string;
-    digitalAddOn: string;
-  };
   printShippingCountry?: string | null;
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
@@ -72,7 +84,6 @@ export function PaywallModal({
   checkoutInFlight,
   checkoutError,
   priceLabels,
-  printPriceLabels,
   variant,
   purchaseIntent = "digital",
   preferredPrintVariant = "poster_framed",
@@ -85,26 +96,24 @@ export function PaywallModal({
   onClose,
 }: Props) {
   const copy = PAYWALL_COPY[variant];
-  const hasPrintOptions = Boolean(onStartPrintCheckout && printPriceLabels);
+  const hasPrintOptions = Boolean(onStartPrintCheckout);
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
   const [printUpsellHint, setPrintUpsellHint] = useState<string | null>(null);
   const shippingDisclosure = getPrintShippingDisclosure();
-  const preferredVariant = preferredPrintVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
   const viewedListsRef = useRef<Set<string>>(new Set());
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
     [printShippingCountries],
   );
-  const framedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping"),
+  const printRows = useMemo(() => getPaywallPrintCheckoutPresentation(printShippingCountry), [printShippingCountry]);
+
+  const posterShippingFootnote = useMemo(
+    () => formatPosterShippingFootnote(printShippingCountry),
     [printShippingCountry],
   );
-  const unframedShippingLabel = useMemo(
-    () => formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping"),
-    [printShippingCountry],
-  );
+
   const canPrintCheckout = Boolean(printShippingCountry);
 
   useEffect(() => {
@@ -135,7 +144,7 @@ export function PaywallModal({
       viewedListsRef.current.add("paywall_digital_options");
     }
 
-    if (!hasPrintOptions || !printPriceLabels) return;
+    if (!hasPrintOptions) return;
 
     const listId = activeIntent === "print" ? "paywall_print_options" : "paywall_print_upsell";
     if (viewedListsRef.current.has(listId)) return;
@@ -143,21 +152,16 @@ export function PaywallModal({
     trackViewItemList({
       itemListId: listId,
       itemListName: activeIntent === "print" ? "Paywall print options" : "Paywall print upsell",
-      items:
-        activeIntent === "print"
-          ? [
-              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: true, index: 0 },
-              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: false, index: 1 },
-              { plan: "single", orderType: "print", printVariant: "poster_unframed", includeDigitalAddOn: false, index: 2 },
-            ]
-          : [
-              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: true, index: 0 },
-              { plan: "single", orderType: "print", printVariant: "poster_framed", includeDigitalAddOn: false, index: 1 },
-              { plan: "single", orderType: "print", printVariant: "poster_unframed", includeDigitalAddOn: false, index: 2 },
-            ],
+      items: PAYWALL_PRINT_CHECKOUT_ROWS.map((row, index) => ({
+        plan: "single",
+        orderType: "print" as const,
+        printVariant: row.variant,
+        includeDigitalAddOn: row.includeDigitalAddOn,
+        index,
+      })),
     });
     viewedListsRef.current.add(listId);
-  }, [activeIntent, hasPrintOptions, printPriceLabels]);
+  }, [activeIntent, hasPrintOptions]);
 
   const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
     trackSelectItem({
@@ -173,7 +177,7 @@ export function PaywallModal({
   };
 
   const handlePrintCheckoutClick = (
-    options: { variant: PrintVariant; includeDigitalAddOn: boolean },
+    row: PaywallPrintCheckoutPresentationRow,
     listId: "paywall_print_options" | "paywall_print_upsell",
   ) => {
     setPrintUpsellHint(null);
@@ -183,35 +187,45 @@ export function PaywallModal({
       item: {
         plan: "single",
         orderType: "print",
-        printVariant: options.variant,
-        includeDigitalAddOn: options.includeDigitalAddOn,
-        index:
-          options.variant === "poster_framed" && options.includeDigitalAddOn
-            ? 0
-            : options.variant === "poster_framed"
-              ? 1
-              : 2,
+        printVariant: row.variant,
+        includeDigitalAddOn: row.includeDigitalAddOn,
+        index: row.index,
       },
     });
-    onStartPrintCheckout?.(options);
+    onStartPrintCheckout?.({ variant: row.variant, includeDigitalAddOn: row.includeDigitalAddOn });
   };
 
-  const handlePrintUpsellClick = (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => {
+  const handlePrintUpsellClick = (row: PaywallPrintCheckoutPresentationRow) => {
     if (!canPrintCheckout) {
       setActiveIntent("print");
       setPrintUpsellHint("Select your shipping country first so we can show the correct print checkout.");
       return;
     }
-    handlePrintCheckoutClick(options, "paywall_print_upsell");
+    handlePrintCheckoutClick(row, "paywall_print_upsell");
   };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25">
-        <h3 className="text-lg font-semibold text-midnight">{copy.title}</h3>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="paywall-dialog-title"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25"
+      >
+        <h3 id="paywall-dialog-title" className="text-lg font-semibold text-midnight">
+          {copy.title}
+        </h3>
         <p className="mt-2 text-xs text-neutral-700">
           {activeIntent === "print" && hasPrintOptions
-            ? "Choose your print format. Most customers pick Framed + HD for gifting plus instant digital backup."
+            ? "Choose your gift format — framed posters remain our most popular; canvas, mugs, and cards ship from the same print partner."
             : copy.subtitle}
         </p>
         <ul className="mt-3 space-y-1 text-xs text-neutral-700">
@@ -254,10 +268,10 @@ export function PaywallModal({
         )}
 
         <div className="mt-4 grid gap-3 text-sm">
-          {activeIntent === "print" && hasPrintOptions && printPriceLabels && onStartPrintCheckout && (
+          {activeIntent === "print" && hasPrintOptions && onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Printed + framed checkout</p>
+                <p className="text-sm font-semibold">Physical gifts checkout</p>
                 <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                   Physical delivery
                 </span>
@@ -268,8 +282,11 @@ export function PaywallModal({
               </p>
               {printShippingCountries.length > 0 && (
                 <div className="mt-3">
-                  <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
+                  <label htmlFor="paywall-print-country" className="text-[11px] font-semibold text-amber-100/80">
+                    Shipping country
+                  </label>
                   <select
+                    id="paywall-print-country"
                     value={printShippingCountry ?? ""}
                     onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
                     className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
@@ -289,12 +306,11 @@ export function PaywallModal({
                   {!canPrintCheckout && (
                     <p className="mt-1 text-[10px] text-amber-100/80">Select a shipping country to continue.</p>
                   )}
-                  {printShippingCountry && (
+                  {printShippingCountry && posterShippingFootnote ? (
                     <p className="mt-1 text-[10px] text-amber-100/80">
-                      Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: framed{" "}
-                      {framedShippingLabel} · unframed {unframedShippingLabel}
+                      Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               )}
               {printUpsellHint ? (
@@ -303,56 +319,24 @@ export function PaywallModal({
                 </p>
               ) : null}
               <div className="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePrintCheckoutClick(
-                      { variant: "poster_framed", includeDigitalAddOn: true },
-                      "paywall_print_options",
+                {printRows.map((row) => (
+                  <button
+                    key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                    type="button"
+                    onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
+                    disabled={checkoutInFlight || !canPrintCheckout}
+                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant)}
+                  >
+                    {checkoutInFlight ? (
+                      "Opening secure checkout..."
+                    ) : (
+                      <>
+                        <span className="block font-semibold">{row.headline}</span>
+                        <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">{row.secondaryLine}</span>
+                      </>
                     )}
-                  disabled={checkoutInFlight || !canPrintCheckout}
-                  className="w-full rounded-full border border-amber-200/70 bg-amber-400/30 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/40 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {checkoutInFlight
-                    ? "Opening secure checkout..."
-                    : `Framed + HD file (recommended) • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePrintCheckoutClick(
-                      { variant: "poster_framed", includeDigitalAddOn: false },
-                      "paywall_print_options",
-                    )}
-                  disabled={checkoutInFlight || !canPrintCheckout}
-                  className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
-                    preferredVariant === "poster_framed"
-                      ? "border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35"
-                      : "border-white/20 bg-white/10 text-amber-50 hover:border-white/35 hover:bg-white/15"
-                  }`}
-                >
-                  {checkoutInFlight
-                    ? "Opening secure checkout..."
-                    : `Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}`}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePrintCheckoutClick(
-                      { variant: "poster_unframed", includeDigitalAddOn: false },
-                      "paywall_print_options",
-                    )}
-                  disabled={checkoutInFlight || !canPrintCheckout}
-                  className={`w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 ${
-                    preferredVariant === "poster_unframed"
-                      ? "border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35"
-                      : "border-white/20 bg-white/10 text-amber-50 hover:border-white/35 hover:bg-white/15"
-                  }`}
-                >
-                  {checkoutInFlight
-                    ? "Opening secure checkout..."
-                    : `Unframed poster • ${printPriceLabels.unframed} + ${unframedShippingLabel}`}
-                </button>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -389,9 +373,7 @@ export function PaywallModal({
                 <p className="text-sm font-semibold text-midnight">3-credit pack</p>
                 <p className="text-xs text-neutral-600">Use when you plan to make more maps, revisions, or gifts</p>
               </div>
-              <div className="text-right text-sm font-semibold text-amber-800">
-                {priceLabels.pack3}
-              </div>
+              <div className="text-right text-sm font-semibold text-amber-800">{priceLabels.pack3}</div>
             </div>
             <button
               type="button"
@@ -430,51 +412,41 @@ export function PaywallModal({
             </button>
           </div>
 
-          {activeIntent !== "print" && onStartPrintCheckout && printPriceLabels && (
+          {activeIntent !== "print" && onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">Prefer a physical print?</p>
                 <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                  New
+                  Gifts
                 </span>
               </div>
-              <p className="mt-1 text-xs text-amber-100/80">
-                Ships to your address. Add digital access now or later.
-              </p>
+              <p className="mt-1 text-xs text-amber-100/80">Ships to your address. Add digital access now or later.</p>
               {!canPrintCheckout && (
                 <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
                   Choose your shipping country on the print tab first so checkout uses the correct route and shipping price.
                 </p>
               )}
               <div className="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => handlePrintUpsellClick({ variant: "poster_framed", includeDigitalAddOn: true })}
-                  disabled={checkoutInFlight}
-                  className="w-full rounded-full border border-amber-200/60 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {canPrintCheckout
-                    ? `Framed + HD file • ${printPriceLabels.framed} + ${framedShippingLabel} + ${printPriceLabels.digitalAddOn}`
-                    : "See framed + HD print route"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePrintUpsellClick({ variant: "poster_framed", includeDigitalAddOn: false })}
-                  disabled={checkoutInFlight}
-                  className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {canPrintCheckout ? `Framed print • ${printPriceLabels.framed} + ${framedShippingLabel}` : "See framed print route"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePrintUpsellClick({ variant: "poster_unframed", includeDigitalAddOn: false })}
-                  disabled={checkoutInFlight}
-                  className="w-full rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:border-white/35 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {canPrintCheckout
-                    ? `Unframed print • ${printPriceLabels.unframed} + ${unframedShippingLabel}`
-                    : "See unframed print route"}
-                </button>
+                {printRows.map((row) => (
+                  <button
+                    key={`upsell-${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                    type="button"
+                    onClick={() => handlePrintUpsellClick(row)}
+                    disabled={checkoutInFlight}
+                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant)}
+                  >
+                    {checkoutInFlight ? (
+                      "Opening secure checkout..."
+                    ) : (
+                      <>
+                        <span className="block font-semibold">{row.headline}</span>
+                        <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">
+                          {canPrintCheckout ? row.secondaryLine : "Open print tab to finish"}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -495,6 +467,7 @@ export function PaywallModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close purchase options"
             className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
           >
             Cancel

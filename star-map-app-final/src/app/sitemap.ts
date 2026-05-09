@@ -28,6 +28,7 @@ const STATIC_INDEXABLE_BLOG_ROUTES: MetadataRoute.Sitemap = [
   },
 ];
 
+/** Regenerates on deploy; new indexable routes belong in `blogPosts`, SEO datasets, or explicit static entries below. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date().toISOString();
 

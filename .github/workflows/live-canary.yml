@@ -1,0 +1,36 @@
+# Production HTTP canary: homepage, editor, /api/premium, checkout sanity, sitemap.
+# No npm install (script uses Node built-in fetch only).
+name: Live canary
+
+on:
+  schedule:
+    - cron: "30 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Base URL (no trailing slash)"
+        type: string
+        required: false
+        default: "https://starmapco.com"
+
+jobs:
+  live-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run live-smoke
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SITE="${{ inputs.site }}"
+          else
+            SITE="https://starmapco.com"
+          fi
+          if [ -z "$SITE" ]; then SITE="https://starmapco.com"; fi
+          node star-map-app-final/scripts/live-smoke.mjs --site "$SITE"

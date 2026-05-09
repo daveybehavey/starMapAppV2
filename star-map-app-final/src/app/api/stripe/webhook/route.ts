@@ -29,6 +29,19 @@ import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/ac
 
 export const runtime = "nodejs";
 
+/** JSON lines for log drains / alerts; grep `stripe_webhook`. */
+function logWebhook(
+  level: "info" | "warn" | "error",
+  message: string,
+  extra?: Record<string, string | number | boolean | undefined | null>,
+) {
+  const payload = { scope: "stripe_webhook", level, message, ...extra };
+  const line = JSON.stringify(payload);
+  if (level === "error") console.error(line);
+  else if (level === "warn") console.warn(line);
+  else console.log(line);
+}
+
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const printFulfillmentWebhookUrl = process.env.PRINT_FULFILLMENT_WEBHOOK_URL?.trim() || "";
@@ -316,7 +329,9 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
         }
       }
     } catch (err) {
-      console.warn("Stripe payment intent lookup failed", err);
+      logWebhook("warn", "payment_intent_lookup_failed", {
+        detail: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   if (subscriptionId) {
@@ -393,7 +408,9 @@ async function resolvePaymentIntentIdFromCharge(chargeId?: string | null) {
     const charge = await stripe.charges.retrieve(chargeId);
     return typeof charge.payment_intent === "string" ? charge.payment_intent : null;
   } catch (err) {
-    console.warn("Stripe charge lookup failed", err);
+    logWebhook("warn", "charge_lookup_failed", {
+      detail: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
@@ -784,7 +801,9 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       await kv.set(printOrderKey(session.id), payload);
       recipient = getPrintRecipient(payload);
     } catch (error) {
-      console.warn("Print order recipient refresh failed", error);
+      logWebhook("warn", "print_order_recipient_refresh_failed", {
+        detail: error instanceof Error ? error.message : String(error),
+      });
     }
   }
   if (!recipient) {
@@ -933,7 +952,9 @@ async function hydrateExpiredSession(session: Stripe.Checkout.Session) {
   try {
     return await stripe.checkout.sessions.retrieve(session.id);
   } catch (error) {
-    console.warn("Stripe expired session refresh failed", error);
+    logWebhook("warn", "expired_session_refresh_failed", {
+      detail: error instanceof Error ? error.message : String(error),
+    });
     return session;
   }
 }
@@ -1025,9 +1046,13 @@ export async function POST(req: Request) {
     const payload = await req.text();
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (err) {
-    console.error("Stripe webhook signature verification failed", err);
+    logWebhook("error", "signature_verification_failed", {
+      detail: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
+
+  logWebhook("info", "event_received", { eventType: event.type, eventId: event.id });
 
   switch (event.type) {
     case "checkout.session.completed": {

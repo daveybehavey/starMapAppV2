@@ -36,11 +36,15 @@ const stripePriceIds = {
   pack3: process.env.STRIPE_PRICE_ID_PACK3,
   subscription: process.env.STRIPE_PRICE_ID_SUBSCRIPTION,
 } as const;
-const stripePrintPriceIds = {
+/** Stripe Price IDs per print SKU (fallback to price_data when unset). */
+const stripePrintVariantPriceIds: Partial<Record<PrintVariant, string | undefined>> = {
   poster_unframed: process.env.STRIPE_PRICE_ID_PRINT_UNFRAMED,
   poster_framed: process.env.STRIPE_PRICE_ID_PRINT_FRAMED,
-  digital_addon: process.env.STRIPE_PRICE_ID_PRINT_DIGITAL_ADDON,
-} as const;
+  canvas_wrap: process.env.STRIPE_PRICE_ID_PRINT_CANVAS_WRAP,
+  mug_11oz: process.env.STRIPE_PRICE_ID_PRINT_MUG_11OZ,
+  card_4x6: process.env.STRIPE_PRICE_ID_PRINT_CARD_4X6,
+};
+const stripePrintDigitalAddOnPriceId = process.env.STRIPE_PRICE_ID_PRINT_DIGITAL_ADDON;
 const configuredPromoCode = process.env.PROMOTION_COUPON_CODE?.trim().toUpperCase() ?? "";
 const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim() ?? "";
 const configuredReferralPromotionCodeId = process.env.STRIPE_REFERRAL_PROMO_CODE_ID?.trim() ?? "";
@@ -673,7 +677,7 @@ async function createCheckoutSession(
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   const promotionEstimateLineItems: Array<{ amountCents: number; priceId?: string | null }> = [];
   if (isPrintOrder) {
-    const printPriceId = stripePrintPriceIds[normalizedPrintVariant]?.trim();
+    const printPriceId = stripePrintVariantPriceIds[normalizedPrintVariant]?.trim();
     lineItems.push({
       ...(printPriceId
         ? { price: printPriceId }
@@ -697,7 +701,7 @@ async function createCheckoutSession(
       priceId: printPriceId || null,
     });
     if (includeDigitalAddOn) {
-      const digitalAddOnPriceId = stripePrintPriceIds.digital_addon?.trim();
+      const digitalAddOnPriceId = stripePrintDigitalAddOnPriceId?.trim();
       lineItems.push({
         ...(digitalAddOnPriceId
           ? { price: digitalAddOnPriceId }

@@ -1,4 +1,6 @@
 import shippingMap from "../../data/printful-shipping.json";
+import type { PrintVariant } from "@/lib/printCatalog";
+import { getPrintShippingProfile } from "@/lib/printCatalog";
 import { formatPrice } from "@/lib/pricing";
 
 export type PrintfulShippingRate = {
@@ -58,16 +60,17 @@ export function getPrintfulShippingCountries() {
   return Array.isArray(map?.countries) && map.countries.length ? map.countries : ["US"];
 }
 
-export function getPrintfulShippingRate(variant: "poster_unframed" | "poster_framed", country: string) {
+export function getPrintfulShippingRate(variant: PrintVariant, country: string) {
   const code = country.trim().toUpperCase();
-  if (variant === "poster_framed") {
+  const profile = getPrintShippingProfile(variant);
+  if (profile === "poster_framed") {
     return map.poster_framed?.[code] ?? null;
   }
   return map.poster_unframed?.[code] ?? null;
 }
 
 export function getPrintShippingEstimate(
-  variant: "poster_unframed" | "poster_framed",
+  variant: PrintVariant,
   country: string | null | undefined,
 ): PrintShippingEstimate | null {
   if (!country) return null;
@@ -82,7 +85,7 @@ export function getPrintShippingEstimate(
 }
 
 export function formatPrintShippingEstimate(
-  variant: "poster_unframed" | "poster_framed",
+  variant: PrintVariant,
   country: string | null | undefined,
   fallback = "shipping",
 ) {
@@ -118,13 +121,12 @@ export function getPrintShippingCountryLabel(countryCode: string) {
   if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
     try {
       const display = new Intl.DisplayNames(["en"], { type: "region" }).of(code);
-      if (display && display.trim()) label = display;
+      if (display) label = display;
     } catch {
-      // fallback label remains in use
+      // ignore Intl failures
     }
   }
-
-  return label === code ? code : `${label} (${code})`;
+  return label;
 }
 
 export function getPrintShippingCountryOptions(countries: string[]) {

@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { PrintVariant } from "@/lib/pricing";
+import { getPrintCatalogRow, PRINT_CATALOG } from "@/lib/printCatalog";
 
 type PrintfulOrderRecipient = {
   name: string;
@@ -32,10 +33,12 @@ function parseVariantId(raw: string | undefined): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function getVariantId(variant: PrintVariant) {
-  const unframed = parseVariantId(process.env.PRINTFUL_VARIANT_ID_POSTER_UNFRAMED);
-  const framed = parseVariantId(process.env.PRINTFUL_VARIANT_ID_POSTER_FRAMED);
-  return variant === "poster_framed" ? framed : unframed;
+function getVariantId(variant: PrintVariant): number | null {
+  const row = getPrintCatalogRow(variant);
+  const envRaw = process.env[row.printfulVariantEnv]?.trim();
+  const fromEnv = parseVariantId(envRaw);
+  if (fromEnv) return fromEnv;
+  return Number.isFinite(row.printfulVariantId) && row.printfulVariantId > 0 ? row.printfulVariantId : null;
 }
 
 function normalizeExternalId(raw: string) {
@@ -47,9 +50,8 @@ function normalizeExternalId(raw: string) {
 
 export function isPrintfulConfigured() {
   const token = process.env.PRINTFUL_API_TOKEN?.trim();
-  const unframed = parseVariantId(process.env.PRINTFUL_VARIANT_ID_POSTER_UNFRAMED);
-  const framed = parseVariantId(process.env.PRINTFUL_VARIANT_ID_POSTER_FRAMED);
-  return Boolean(token && unframed && framed);
+  if (!token) return false;
+  return PRINT_CATALOG.every((row) => getVariantId(row.id) !== null);
 }
 
 export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Promise<SubmitPrintfulOrderResult> {

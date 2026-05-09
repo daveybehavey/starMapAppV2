@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/businessProfile";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { getPrintPricingTiers } from "@/lib/pricing";
+import { isPrintVariant } from "@/lib/printCatalog";
 
 type PostPurchaseProofRequestProps = {
   source: "success" | "download";
@@ -14,9 +16,8 @@ type PostPurchaseProofRequestProps = {
 };
 
 function formatPrintVariant(printVariant?: PrintVariant | null) {
-  if (printVariant === "poster_unframed") return "unframed poster";
-  if (printVariant === "poster_framed") return "framed print";
-  return null;
+  if (!printVariant || !isPrintVariant(printVariant)) return null;
+  return getPrintPricingTiers()[printVariant].label;
 }
 
 function buildEmailDraft(input: {

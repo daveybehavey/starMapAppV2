@@ -1,6 +1,7 @@
 import { kv } from "@/lib/kv";
 import { PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { getPrintPricingTiers } from "@/lib/pricing";
 
 const CLAIM_TOKEN_TTL_SECONDS = PREMIUM_COOKIE_TTL_SECONDS;
 
@@ -39,7 +40,10 @@ export function hasRecoverableAccess(record: AccountAccessSessionRecord) {
 
 export function getOfferLabel(record: AccountAccessSessionRecord, fallbackPlan: CheckoutPlan | undefined) {
   if (record.orderType === "print") {
-    const printLabel = record.printVariant === "poster_framed" ? "Framed print order" : "Unframed print order";
+    const tiers = getPrintPricingTiers();
+    const printLabel = record.printVariant
+      ? `${tiers[record.printVariant].label} order`
+      : "Print order";
     return record.includesDigitalAddOn ? `${printLabel} + HD add-on` : printLabel;
   }
   const plan = record.plan ?? fallbackPlan;

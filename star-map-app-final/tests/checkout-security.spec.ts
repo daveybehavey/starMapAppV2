@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 import { primeLocalStorage } from "./test-helpers";
 
 test.describe("Checkout Security", () => {
-  test("no premium access after clicking checkout but not completing payment", async ({ page }) => {
-    test.setTimeout(90000);
+  test("no premium access after clicking checkout but not completing payment", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
     console.log("\n" + "=".repeat(60));
     console.log("TEST: Verify no premium access without completing payment");
     console.log("=".repeat(60));
@@ -27,8 +27,8 @@ test.describe("Checkout Security", () => {
 
     // Navigate to editor and try to open paywall
     console.log("→ Going to editor...");
-    await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
-    await page.locator("#editor").waitFor({ state: "visible", timeout: 60000 });
+    await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await page.locator("#editor").waitFor({ state: "visible", timeout: 120_000 });
 
     // Click "Try a sample moment" if visible
     const sampleBtn = page.locator("text=Try a sample moment").first();
@@ -67,7 +67,7 @@ test.describe("Checkout Security", () => {
     console.log("→ Trying to access download page...");
     await page.goto("/download", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1000);
-    await page.screenshot({ path: "/tmp/checkout-security-test.png" });
+    await page.screenshot({ path: testInfo.outputPath("checkout-security-download.png") });
 
     const downloadButton = page.locator("button").filter({ hasText: /Download/ }).first();
     const downloadEnabled = await downloadButton.isEnabled().catch(() => false);

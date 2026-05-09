@@ -1,17 +1,28 @@
 import type Stripe from "stripe";
 import type { PrintVariant } from "@/lib/pricing";
+import type { MerchFamilyId } from "@/lib/merchCatalog";
 
 export type PrintOrderRecord = {
   status: "pending" | "sent" | "failed";
   sessionId: string;
   mapId?: string;
   printVariant: PrintVariant;
+  /**
+   * Optional merch fulfillment fields (Printful v2 catalog orders).
+   * When present, the physical item is resolved via catalog_variant_id, not legacy Printful variant_id.
+   */
+  merchFamily?: MerchFamilyId;
+  merchCatalogVariantId?: number;
+  merchSize?: string;
+  merchColor?: string;
   includesDigitalAddOn: boolean;
   amountTotal?: number | null;
   currency?: string | null;
   customerEmail?: string | null;
   customerName?: string | null;
   shippingDetails?: Stripe.Checkout.Session.ShippingDetails | null;
+  /** Captured at checkout creation for margin guard + ops. */
+  shippingChargeCents?: number | null;
   printAssetId?: string;
   printAssetUrl?: string;
   printfulOrderId?: string | number;
