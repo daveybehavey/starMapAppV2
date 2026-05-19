@@ -11,6 +11,10 @@ This is the production launch checklist for StarMapCo physical prints.
 
 These flags should be aligned before launch.
 
+### Local vs production parity
+
+`npm run qa:go-no-go` compares `.env` / `.env.local` with `wrangler.toml` `[vars]`. A **mismatch is normal in development** (for example `PRINT_ORDER_SUBMISSION_ENABLED=false` locally while production Wrangler has `true`). Before deploy, set the **Cloudflare** dashboard / Wrangler production values to the mode you intend — do not assume `.env.local` alone controls live behavior.
+
 ## Safe Modes
 
 ### 1) Fully Off (default-safe)
