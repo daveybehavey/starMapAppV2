@@ -7,6 +7,7 @@ import GiftFormatRoadmapModule from "@/components/GiftFormatRoadmapModule";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
+import PreviewMoneyPageTrustStrip from "@/components/PreviewMoneyPageTrustStrip";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -60,6 +61,8 @@ export default function StarMapGiftPage() {
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
       </header>
+
+      <PreviewMoneyPageTrustStrip />
 
       <PreviewStartForm
         source="star-map-gift"

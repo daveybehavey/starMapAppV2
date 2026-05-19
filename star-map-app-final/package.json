@@ -75,6 +75,7 @@
     "qa:smoke:commerce": "node scripts/run-playwright-with-ci.mjs tests/checkout-security.spec.ts tests/api-route-regressions.spec.ts --workers=1",
     "qa:smoke": "node scripts/run-playwright-with-ci.mjs tests/ui-smoke.spec.ts tests/export-functionality.spec.ts tests/api-route-regressions.spec.ts tests/checkout-security.spec.ts tests/premium-rendering.spec.ts --workers=1",
     "ci:pr": "npm run lint && npm run build && npm run qa:smoke:commerce",
+    "growth:weekly": "node scripts/weekly-growth-reminder.mjs",
     "qa:release-gate": "node scripts/qa-release-gate.mjs",
     "qa:release-gate:smoke": "node scripts/qa-release-gate.mjs --smoke",
     "qa:release-gate:live": "node scripts/qa-release-gate.mjs --live --sitemap https://starmapco.com/sitemap.xml",
