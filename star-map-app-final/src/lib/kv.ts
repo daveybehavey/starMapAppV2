@@ -8,6 +8,7 @@ type KvListOptions = { prefix?: string; cursor?: string; limit?: number };
 type CloudflareKvNamespace = {
   get<T>(key: string, type: "json"): Promise<T | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
   list(options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{
     keys: Array<{ name: string }>;
     list_complete: boolean;
@@ -155,5 +156,22 @@ export const kv = {
       listComplete: nextCursor === null,
       cursor: nextCursor,
     };
+  },
+  async del(key: string): Promise<void> {
+    const cfKv = await getCloudflareKv();
+    if (cfKv) {
+      try {
+        await cfKv.delete(key);
+      } catch {
+        // Fall through to local cleanup.
+      }
+    }
+    memoryStore.delete(key);
+    const filePath = fallbackFilePathForKey(key);
+    try {
+      await fs.unlink(filePath);
+    } catch {
+      // ignore missing file
+    }
   },
 };

@@ -46,6 +46,7 @@
     "qa:live-critical": "node scripts/live-smoke.mjs --site https://starmapco.com --timeout-ms 12000",
     "qa:merch-marketing-smoke": "node scripts/merch-marketing-smoke.mjs --site http://localhost:3001",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node --test scripts/unit/*.test.mjs",
     "qa:content-consistency": "node scripts/content-consistency-sweep.mjs --site https://starmapco.com",
     "qa:ga4-smoke": "node scripts/ga4-smoke.mjs",
     "qa:sitemap-health": "node scripts/sitemap-health.mjs",
@@ -109,7 +110,7 @@
     "prettier-plugin-tailwindcss": "^0.6.9",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wrangler": "^4.53.0"
+    "wrangler": "^4.90.1"
   },
   "overrides": {
     "preact": "^10.28.2",

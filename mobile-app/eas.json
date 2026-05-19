@@ -1,0 +1,45 @@
+{
+  "cli": {
+    "version": ">= 10.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "screenshots": {
+      "extends": "preview",
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SKIP_REVENUECAT_STARTUP": "1"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "play-store-local": {
+      "extends": "production",
+      "credentialsSource": "local"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

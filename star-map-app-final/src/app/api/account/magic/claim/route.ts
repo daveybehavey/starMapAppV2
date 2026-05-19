@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import {
   ACCOUNT_LITE_SESSION_COOKIE,
   ACCOUNT_LITE_SESSION_TTL_SECONDS,
-  accountLiteMagicKey,
-  accountLiteSessionKey,
-  type AccountLiteAuthSession,
 } from "@/lib/accountLiteAuth";
+import { executeAccountLiteMagicClaim } from "@/lib/accountLiteMagicClaimCore";
 
 export const runtime = "nodejs";
 
 type ClaimPayload = {
   token?: unknown;
-};
-
-type MagicLinkRecord = {
-  email?: string;
-  emailHash?: string;
-  createdAt?: number;
-  usedAt?: number;
 };
 
 export async function POST(req: NextRequest) {
@@ -41,25 +31,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "token required" }, { status: 400 });
   }
 
-  const magic = await kv.get<MagicLinkRecord>(accountLiteMagicKey(token));
-  if (!magic?.email || !magic?.emailHash || magic.usedAt) {
+  const result = await executeAccountLiteMagicClaim(token);
+  if (!result.ok) {
     return NextResponse.json({ ok: false, error: "invalid_token" }, { status: 404 });
   }
 
-  const sessionToken = crypto.randomUUID();
-  const authSession: AccountLiteAuthSession = {
-    email: magic.email,
-    emailHash: magic.emailHash,
-    createdAt: Date.now(),
-  };
-  await kv.set(accountLiteSessionKey(sessionToken), authSession, { ex: ACCOUNT_LITE_SESSION_TTL_SECONDS });
-  await kv.set(accountLiteMagicKey(token), {
-    ...magic,
-    usedAt: Date.now(),
-  });
-
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(ACCOUNT_LITE_SESSION_COOKIE, sessionToken, {
+  response.cookies.set(ACCOUNT_LITE_SESSION_COOKIE, result.sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

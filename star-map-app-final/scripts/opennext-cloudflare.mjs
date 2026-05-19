@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { buildEnvWithWranglerVars } from "./wrangler-vars.mjs";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.join(scriptDir, "..");
+/** Avoid `npx` — on Windows, `spawnSync("npx", …)` often gets ENOENT (not on PATH for child processes). */
+const opennextCli = path.join(appRoot, "node_modules", "@opennextjs", "cloudflare", "dist", "cli", "index.js");
+const wranglerCli = path.join(appRoot, "node_modules", "wrangler", "bin", "wrangler.js");
 
 function writeCaptured(result) {
   if (result.stdout) process.stdout.write(result.stdout);
@@ -15,7 +23,10 @@ function run(command, args, env) {
     env,
   });
   if (result.status !== 0) {
-    throw new Error(`Command failed: ${command} ${args.join(" ")}`);
+    const errMsg = result.error ? ` (${result.error.message})` : "";
+    throw new Error(
+      `Command failed: ${command} ${args.join(" ")} (exit ${result.status ?? "unknown"}${errMsg})`,
+    );
   }
 }
 
@@ -38,11 +49,11 @@ function deployWorkerDirect(env) {
   console.warn(
     "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
   );
-  run("npx", ["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
+  run(process.execPath, [wranglerCli, "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
 }
 
 function deployBuilt(env) {
-  const result = runCapture("npx", ["opennextjs-cloudflare", "deploy"], env);
+  const result = runCapture(process.execPath, [opennextCli, "deploy"], env);
   writeCaptured(result);
 
   if (result.status === 0) return;
@@ -53,7 +64,7 @@ function deployBuilt(env) {
     return;
   }
 
-  throw new Error(`Command failed: npx opennextjs-cloudflare deploy`);
+  throw new Error(`Command failed: opennextjs-cloudflare deploy`);
 }
 
 async function main() {
@@ -68,12 +79,12 @@ async function main() {
   run("node", ["scripts/generate-merchant-feed.mjs"], env);
 
   if (mode === "build") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
+    run(process.execPath, [opennextCli, "build"], env);
     return;
   }
 
   if (mode === "deploy") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
+    run(process.execPath, [opennextCli, "build"], env);
     deployBuilt(env);
     return;
   }
@@ -83,8 +94,8 @@ async function main() {
     return;
   }
 
-  run("npx", ["opennextjs-cloudflare", "build"], env);
-  run("npx", ["opennextjs-cloudflare", "preview"], env);
+  run(process.execPath, [opennextCli, "build"], env);
+  run(process.execPath, [opennextCli, "preview"], env);
 }
 
 main().catch((error) => {

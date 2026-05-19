@@ -48,6 +48,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 build.last.log
+opennext-build-log.txt
 
 # env files (can opt-in for committing if needed)
 .env*

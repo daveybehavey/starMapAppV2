@@ -1,0 +1,9 @@
+{
+  "name": "starmapappv2-root",
+  "private": true,
+  "description": "Thin scripts so npm commands can be run from the repo root; app code lives in mobile-app/ and star-map-app-final/.",
+  "scripts": {
+    "download:aab": "npm run download:aab --prefix mobile-app",
+    "download:play-aab": "npm run download:play-aab --prefix mobile-app"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "mobile-app",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "start:clear": "expo start -c",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "preflight": "node scripts/preflight.mjs",
+    "eas:env:sync": "node scripts/sync-eas-env-from-local.cjs",
+    "download:aab": "node scripts/download-latest-android-archive.mjs --profile=preview",
+    "download:play-aab": "node scripts/download-latest-android-archive.mjs --profile=production",
+    "build:dev": "npx eas build --platform android --profile development",
+    "build:preview": "npx eas build --platform android --profile preview",
+    "build:screenshots": "npx eas build --platform android --profile screenshots --non-interactive",
+    "build:play-store": "npx eas build --platform android --profile production --non-interactive",
+    "build:play-store:local": "npx eas build --platform android --profile play-store-local --non-interactive",
+    "build:production": "npx eas build --platform android --profile production --non-interactive",
+    "eas:inspect-archive": "npx eas build:inspect --platform android --stage archive --output inspect-archive-out --profile preview",
+    "generate:brand-assets": "node scripts/generate-brand-assets.mjs",
+    "screenshots:store": "node scripts/run-store-screenshots.mjs",
+    "adb:sdk-reset": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/adb-use-sdk.ps1"
+  },
+  "engines": {
+    "node": ">=20 <25"
+  },
+  "dependencies": {
+    "@react-native-google-signin/google-signin": "^16.1.2",
+    "@tanstack/react-query": "^5.100.9",
+    "expo": "~54.0.33",
+    "expo-application": "~7.0.8",
+    "expo-constants": "~18.0.13",
+    "expo-dev-client": "~6.0.21",
+    "expo-secure-store": "~15.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-purchases": "^10.1.1",
+    "react-native-purchases-ui": "^10.1.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "babel-plugin-module-resolver": "^5.0.3",
+    "babel-preset-expo": "^55.0.21",
+    "eas-cli": "^18.11.0",
+    "eslint": "^9.39.4",
+    "eslint-config-expo": "^55.0.0",
+    "sharp": "^0.34.5",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}

@@ -1,0 +1,52 @@
+# Play Store listing captures — run on a device/emulator with the dev or preview build installed.
+# From mobile-app/: npm run screenshots:store
+#
+# Prerequisites: Maestro CLI, Android SDK platform-tools (adb), app installed (appId below).
+
+appId: app.starmapco.com
+---
+- launchApp
+# Stable hero copy (matches HomeScreen). Use an internal build with
+# EXPO_PUBLIC_SKIP_REVENUECAT_STARTUP=1 on emulator — otherwise RevenueCat test keys block the UI.
+- extendedWaitUntil:
+    visible: "Android-first app foundation is live"
+    timeout: 180000
+- takeScreenshot:
+    path: play-phone-01-generate-tab
+# RN ScrollView: Maestro's scrollUntilVisible can miss nested scrollers — swipe until tab labels appear.
+- repeat:
+    times: 18
+    while:
+      notVisible: "Upgrade"
+    commands:
+      - swipe:
+          start: "50%, 72%"
+          end: "50%, 28%"
+          duration: 450
+- tapOn: "Upgrade"
+- extendedWaitUntil:
+    visible: "RevenueCat status"
+    timeout: 30000
+- takeScreenshot:
+    path: play-phone-02-upgrade-tab
+- tapOn: "Account"
+- extendedWaitUntil:
+    visible: "API health check"
+    timeout: 30000
+- takeScreenshot:
+    path: play-phone-03-account-tab
+- repeat:
+    times: 18
+    while:
+      notVisible: "Generate"
+    commands:
+      - swipe:
+          start: "50%, 35%"
+          end: "50%, 72%"
+          duration: 450
+- tapOn: "Generate"
+- extendedWaitUntil:
+    visible: "Android-first app foundation is live"
+    timeout: 30000
+- takeScreenshot:
+    path: play-phone-04-generate-tab-return

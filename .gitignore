@@ -26,12 +26,14 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Accidental root package artifacts (repo uses star-map-app-final/package.json)
-/package.json
-/package-lock.json
+# Root `package.json` is intentional (thin scripts, e.g. `download:aab` → mobile-app).
+# Do not add a competing app `package.json` at repo root without updating this policy.
 
 # Local Search Console / Google tooling dumps (never commit secrets)
 gsc.json
 
 # Local Printful / catalog scan scratch (never commit)
 star-map-app-final/.tmp-*
+
+# Local-only drafts (PowerShell helpers, etc.; may contain secrets)
+/drafts/

@@ -1,0 +1,97 @@
+# =============================================================================
+# EAS Build — upload ignore at GIT REPO ROOT
+#
+# When this file exists, EAS does NOT read any .gitignore files; duplicate
+# critical ignore rules here. See https://expo.fyi/eas-build-archive
+#
+# This monorepo runs `eas build` from mobile-app/, but the archive is still
+# rooted here — without these lines, the whole tree (e.g. star-map-app-final/)
+# is compressed/uploaded (~hundreds of MB) and uploads look "stuck" at 0%.
+# =============================================================================
+
+# --- copied from repo root .gitignore ---
+.tmp_codex_key
+.tmp_codex_key.pub
+.ssh_config_codex
+.codex
+lighthouse-*.report.*
+lighthouse-*.json
+lighthouse-*.html
+
+company-os/
+.worktrees/
+.mergefix/
+.company-os-task.json
+TODO-NOTE.md
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+gsc.json
+star-map-app-final/.tmp-*
+/drafts/
+
+# --- env & secrets (normally also in nested .gitignore; must list here) ---
+.env
+.env.*
+**/.env
+**/.env.*
+**/.env*.local
+*.pem
+**/*.pem
+**/*.jks
+**/*.p12
+**/*.p8
+**/*.key
+**/*.mobileprovision
+**/*service-account*.json
+**/google-merchant-*.json
+**/secrets/
+
+# --- large / generated (web + mobile) ---
+**/.next/
+**/.next-playwright/
+**/.next-export-examples/
+**/.next.bak-*/
+**/.open-next/
+**/out/
+**/build/
+**/coverage/
+**/playwright-report/
+**/test-results/
+**/reports/
+**/data/gsc/
+**/.vercel/
+**/.wrangler/
+**/.pnpm-debug.log*
+**/*.tsbuildinfo
+**/.kotlin/
+**/*.orig.*
+.DS_Store
+**/.expo/
+**/web-build/
+**/dist-export/
+
+# --- Monorepo: not needed for Expo mobile native build (major upload shrink) ---
+star-map-app-final/
+
+# Legacy static site at repo root (not used by mobile-app)
+public/
+pages/
+src/
+
+docs/
+.cursor/
+
+# Mobile local artifacts & inspect scratch
+mobile-app/dist/
+mobile-app/inspect-archive-out/
+mobile-app/dist-export-test/
+mobile-app/.tools/
+
+# Never ship local signing material to EAS
+mobile-app/credentials.json
+mobile-app/secrets/

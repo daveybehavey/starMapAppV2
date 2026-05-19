@@ -1,0 +1,18 @@
+# NOTE: In this monorepo, EAS reads `.easignore` only at the GIT REPO ROOT
+# (`../.easignore`). Rules here apply only if you use EAS_NO_VCS=1 from mobile-app.
+# See https://expo.fyi/eas-build-archive
+#
+# Keep EAS upload small (see https://expo.fyi/eas-build-archive)
+node_modules/
+.expo/
+dist/
+.tools/
+dist-export-test/
+web-build/
+android/
+ios/
+.git/
+**/__tests__/
+coverage/
+*.log
+.DS_Store

@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { kv } from "@/lib/kv";
 import { hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -67,7 +68,19 @@ async function writeLocalObject(key: string, bytes: Uint8Array) {
   await fs.writeFile(filePath, bytes);
 }
 
+async function enforceArchiveRateLimit(req: NextRequest, action: "get" | "post") {
+  const ip = getClientIp(req);
+  const rateLimit = await checkRateLimit(`download:archive:${action}:${ip}`, action === "get" ? 40 : 10, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
+  const limited = await enforceArchiveRateLimit(req, "get");
+  if (limited) return limited;
+
   const token = req.nextUrl.searchParams.get("token")?.trim() || "";
   if (!token) {
     return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
@@ -109,6 +122,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceArchiveRateLimit(req, "post");
+  if (limited) return limited;
+
   const token = req.nextUrl.searchParams.get("token")?.trim() || "";
   if (!token) {
     return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });

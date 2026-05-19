@@ -105,6 +105,10 @@ npm run deploy
 
 Configure environment variables in the Cloudflare dashboard.
 
+## Monorepo engineering docs
+
+Cross-cutting architecture, audits, and refactor plans for this repo (web + mobile) live in **`../docs/engineering/README.md`** (start with `PROJECT_OVERVIEW.md` and `SYSTEM_MAP.md`). Deploy, rollback, and live checks: **`docs/OPS_RUNBOOK.md`**.
+
 ## Architecture Notes
 
 ### State Management
