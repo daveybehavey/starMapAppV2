@@ -32,6 +32,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
   - `npm run qa:commerce-digest -- --days 7`
+- **Funnel vs Stripe health**: reconcile is healthy when `Delta (Stripe - Funnel): 0`. Weekly: `npm run qa:funnel-reconcile -- --days 14` then `npm run qa:commerce-digest -- --days 14`. If delta is not zero, run `npm run qa:funnel-reconcile -- --days 14 --repair` (requires `PRINT_ADMIN_TOKEN`).
   - `qa:commerce-digest` now includes paid `referral_offer_variant` mix to validate referral offer tests
   - `GET /api/analytics/checkout-diagnostics` is now available behind `PRINT_ADMIN_TOKEN` for checkout blocker counts
 - **Google Search Console (read-only query)**:
