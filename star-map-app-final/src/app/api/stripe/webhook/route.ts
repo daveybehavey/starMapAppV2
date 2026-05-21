@@ -328,6 +328,18 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
       sessionId: session.id,
       source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",
       plan: plan ?? undefined,
+      ga4Purchase: {
+        transactionId: session.id,
+        plan: plan ?? null,
+        orderType,
+        printVariant,
+        includeDigitalAddOn: hasDigitalAddOn,
+        value:
+          typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+            ? session.amount_total / 100
+            : undefined,
+        currency: typeof session.currency === "string" ? session.currency : undefined,
+      },
     });
   }
 

@@ -1,4 +1,5 @@
 import { kv } from "./kv";
+import { type Ga4PurchaseInput, recordGa4PurchaseOnce } from "./ga4MeasurementProtocol";
 import { FUNNEL_STEPS, type FunnelStep } from "./funnelSteps";
 
 export type FunnelRecordInput = {
@@ -147,6 +148,7 @@ export async function recordPaymentVerifiedOnce(input: {
   experiment?: string;
   variant?: string;
   occurredAt?: string | number | Date;
+  ga4Purchase?: Ga4PurchaseInput;
 }): Promise<void> {
   const sessionId = input.sessionId.trim();
   if (!sessionId) return;
@@ -160,6 +162,9 @@ export async function recordPaymentVerifiedOnce(input: {
     variant: input.variant,
     occurredAt: input.occurredAt,
   });
+  if (input.ga4Purchase) {
+    void recordGa4PurchaseOnce(input.ga4Purchase);
+  }
 }
 
 export async function recordCheckoutExpiredOnce(input: {
