@@ -18,6 +18,7 @@
     "test:ui": "node scripts/run-playwright-with-ci.mjs",
     "preview": "node scripts/opennext-cloudflare.mjs preview",
     "deploy": "node scripts/opennext-cloudflare.mjs deploy",
+    "deploy:verify": "npm run deploy && npm run qa:live-critical",
     "deploy:safe": "node scripts/deploy-safe.mjs",
     "assets:examples": "node scripts/export-examples.mjs",
     "assets:printproof:drafts": "node scripts/create-printful-proof-drafts.mjs",
