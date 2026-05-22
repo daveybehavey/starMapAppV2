@@ -4,6 +4,7 @@ import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 export type EventProps = Record<string, string | number | boolean | undefined | null>;
 
 export const ANALYTICS_STORAGE_KEY = "analytics-consent";
+export const PENDING_GA4_PURCHASE_KEY = "ga4:pending-purchase";
 
 let posthogPromise: Promise<typeof import("posthog-js").default> | null = null;
 
@@ -221,13 +222,65 @@ export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: st
   });
 }
 
+function persistPendingGa4Purchase(input: PurchaseAnalyticsInput) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(PENDING_GA4_PURCHASE_KEY, JSON.stringify(input));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function ga4ServerPurchaseTrackingEnabled() {
+  return process.env.NEXT_PUBLIC_GA4_SERVER_PURCHASES === "true";
+}
+
 export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
+  if (ga4ServerPurchaseTrackingEnabled()) {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
+      } catch {
+        // Ignore storage failures.
+      }
+    }
+    return;
+  }
+  if (!canTrackAnalytics()) {
+    persistPendingGa4Purchase(input);
+    return;
+  }
   sendGaEvent("purchase", {
     transaction_id: input.transactionId,
     currency: getCheckoutCurrency(input),
     value: estimateCheckoutValue(input),
     items: [buildGaItem(input)],
   });
+  try {
+    sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+/** Fire a purchase saved on /success when the user grants analytics consent afterward. */
+export function flushPendingGa4Purchase() {
+  if (ga4ServerPurchaseTrackingEnabled() || !canTrackAnalytics() || typeof window === "undefined") return;
+  try {
+    const raw = sessionStorage.getItem(PENDING_GA4_PURCHASE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as PurchaseAnalyticsInput;
+    if (!parsed?.transactionId) return;
+    const dedupeKey = `ga4:purchase:${parsed.transactionId}`;
+    if (sessionStorage.getItem(dedupeKey) === "true") {
+      sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
+      return;
+    }
+    trackPurchaseCompleted(parsed);
+    sessionStorage.setItem(dedupeKey, "true");
+  } catch {
+    // Ignore parse/storage failures.
+  }
 }
 
 export function trackPageView(input?: {

@@ -13,6 +13,7 @@ import {
   hasRecoverableAccess,
   type AccountAccessSessionRecord,
 } from "@/lib/accountAccessLinks";
+import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,7 @@ type SessionListItem = {
   subscriptionActive: boolean;
 };
 
-const stripeSessionKey = (id: string) => `stripe:session:${id}`;
+const stripeSessionKey = ENTITLEMENT_KV.stripeSession;
 
 function unauthorizedResponse() {
   const response = NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });

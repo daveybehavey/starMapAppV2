@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import PosthogProvider from "@/components/PosthogProvider";
-import { ANALYTICS_STORAGE_KEY, trackPageView } from "@/lib/analytics";
+import { ANALYTICS_STORAGE_KEY, flushPendingGa4Purchase, trackPageView } from "@/lib/analytics";
 
 type ConsentState = "granted" | "denied" | "unset";
 
@@ -76,6 +76,7 @@ export default function AnalyticsConsentManager() {
     if (!gaId) return;
     if (consent === "granted") {
       ensureGaBootstrap(gaId);
+      flushPendingGa4Purchase();
       return;
     }
     disableGa(gaId);

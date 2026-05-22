@@ -888,7 +888,7 @@ export default function DownloadClient() {
         throw new Error(payload?.error ?? "request_failed");
       }
       setAccessEmailStatus("sent");
-      setAccessEmailMessage("Sent. Check your inbox for the secure access link.");
+      setAccessEmailMessage("Sent. Check your email to open all downloads in My Downloads.");
       track("access_link_email_requested", { source: "download", outcome: "sent" });
     } catch {
       setAccessEmailStatus("error");

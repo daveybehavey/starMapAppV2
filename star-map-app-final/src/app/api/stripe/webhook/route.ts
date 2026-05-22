@@ -24,23 +24,15 @@ import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/p
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
-import { getOrCreateClaimToken, hasRecoverableAccess } from "@/lib/accountAccessLinks";
-import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/accountAccessAlerts";
+import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
+import { hasRecoverableAccess } from "@/lib/accountAccessLinks";
+import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
+import {
+  ENTITLEMENT_KV,
+  refreshEntitledMapRecipeTtl,
+} from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
-
-/** JSON lines for log drains / alerts; grep `stripe_webhook`. */
-function logWebhook(
-  level: "info" | "warn" | "error",
-  message: string,
-  extra?: Record<string, string | number | boolean | undefined | null>,
-) {
-  const payload = { scope: "stripe_webhook", level, message, ...extra };
-  const line = JSON.stringify(payload);
-  if (level === "error") console.error(line);
-  else if (level === "warn") console.warn(line);
-  else console.log(line);
-}
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -142,8 +134,9 @@ const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
 const recoveryEmailKey = (id: string) => `stripe:checkout_recovery:email:${id}`;
 const RECOVERY_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
-const accessEmailKey = (id: string) => `stripe:access_link:email:${id}`;
+const accessEmailKey = (id: string) => ENTITLEMENT_KV.accessEmailDedupe(id);
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
+const WEBHOOK_EVENT_DEDUPE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -329,9 +322,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
         }
       }
     } catch (err) {
-      logWebhook("warn", "payment_intent_lookup_failed", {
-        detail: err instanceof Error ? err.message : String(err),
-      });
+      console.warn("Stripe payment intent lookup failed", err);
     }
   }
   if (subscriptionId) {
@@ -343,7 +334,24 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
       sessionId: session.id,
       source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",
       plan: plan ?? undefined,
+      ga4Purchase: {
+        transactionId: session.id,
+        plan: plan ?? null,
+        orderType,
+        printVariant,
+        includeDigitalAddOn: hasDigitalAddOn,
+        value:
+          typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+            ? session.amount_total / 100
+            : undefined,
+        currency: typeof session.currency === "string" ? session.currency : undefined,
+      },
     });
+  }
+
+  const mapId = getMapId(session);
+  if (mapId) {
+    await refreshEntitledMapRecipeTtl(mapId);
   }
 
   if (!alreadyPaid && customerEmail && hasDigitalEntitlementCandidate && isAccountAccessEmailConfigured()) {
@@ -351,11 +359,11 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     if (shouldSend === 1) {
       const current = await kv.get<SessionRecord>(sessionKey(session.id));
       if (current && hasRecoverableAccess(current)) {
-        const token = await getOrCreateClaimToken(session.id, current);
-        const link = `${siteUrl}/download?token=${encodeURIComponent(token)}`;
-        const alertResult = await sendAccountAccessAlert({
+        const alertResult = await sendPostPurchaseAccessEmail({
+          siteOrigin: siteUrl,
           email: customerEmail,
-          link,
+          sessionId: session.id,
+          record: current,
         });
         await kv.set(sessionKey(session.id), {
           ...current,
@@ -408,9 +416,7 @@ async function resolvePaymentIntentIdFromCharge(chargeId?: string | null) {
     const charge = await stripe.charges.retrieve(chargeId);
     return typeof charge.payment_intent === "string" ? charge.payment_intent : null;
   } catch (err) {
-    logWebhook("warn", "charge_lookup_failed", {
-      detail: err instanceof Error ? err.message : String(err),
-    });
+    console.warn("Stripe charge lookup failed", err);
     return null;
   }
 }
@@ -801,9 +807,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       await kv.set(printOrderKey(session.id), payload);
       recipient = getPrintRecipient(payload);
     } catch (error) {
-      logWebhook("warn", "print_order_recipient_refresh_failed", {
-        detail: error instanceof Error ? error.message : String(error),
-      });
+      console.warn("Print order recipient refresh failed", error);
     }
   }
   if (!recipient) {
@@ -952,9 +956,7 @@ async function hydrateExpiredSession(session: Stripe.Checkout.Session) {
   try {
     return await stripe.checkout.sessions.retrieve(session.id);
   } catch (error) {
-    logWebhook("warn", "expired_session_refresh_failed", {
-      detail: error instanceof Error ? error.message : String(error),
-    });
+    console.warn("Stripe expired session refresh failed", error);
     return session;
   }
 }
@@ -1046,13 +1048,16 @@ export async function POST(req: Request) {
     const payload = await req.text();
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (err) {
-    logWebhook("error", "signature_verification_failed", {
-      detail: err instanceof Error ? err.message : String(err),
-    });
+    console.error("Stripe webhook signature verification failed", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  logWebhook("info", "event_received", { eventType: event.type, eventId: event.id });
+  const dedupeCount = await kv.incr(ENTITLEMENT_KV.stripeWebhookEvent(event.id), 1, {
+    ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
+  });
+  if (dedupeCount > 1) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
 
   switch (event.type) {
     case "checkout.session.completed": {

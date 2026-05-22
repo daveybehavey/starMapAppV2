@@ -210,6 +210,18 @@ export async function GET(req: NextRequest) {
         sessionId,
         source: orderType === "print" ? "stripe_verify_print" : "stripe_verify_digital",
         plan: plan ?? undefined,
+        ga4Purchase: {
+          transactionId: sessionId,
+          plan: plan ?? null,
+          orderType,
+          printVariant,
+          includeDigitalAddOn: hasDigitalAddOn,
+          value:
+            typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+              ? session.amount_total / 100
+              : undefined,
+          currency: typeof session.currency === "string" ? session.currency : undefined,
+        },
       });
     }
     if (paymentIntentId) {

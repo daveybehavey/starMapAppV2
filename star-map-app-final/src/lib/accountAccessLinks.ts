@@ -1,49 +1,23 @@
 import { kv } from "@/lib/kv";
-import { PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
-import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
-import { getPrintPricingTiers } from "@/lib/pricing";
+import {
+  ENTITLEMENT_KV,
+  evaluateDigitalAccess,
+  NEW_CLAIM_TOKEN_TTL_SECONDS,
+  type ClaimTokenRecord,
+  type StripeSessionEntitlement,
+} from "@/lib/entitlementsStore";
+import type { CheckoutPlan } from "@/lib/pricing";
 
-const CLAIM_TOKEN_TTL_SECONDS = PREMIUM_COOKIE_TTL_SECONDS;
+export type AccountAccessSessionRecord = StripeSessionEntitlement;
 
-type ClaimRecord = {
-  sessionId: string;
-  mapId?: string;
-  createdAt: number;
-};
+export { evaluateDigitalAccess as hasRecoverableAccess };
 
-export type AccountAccessSessionRecord = {
-  paid?: boolean;
-  revoked?: boolean;
-  created?: number;
-  mapId?: string;
-  plan?: CheckoutPlan;
-  creditsRemaining?: number;
-  subscriptionActive?: boolean;
-  orderType?: CheckoutOrderType;
-  printVariant?: PrintVariant;
-  includesDigitalAddOn?: boolean;
-  customerEmail?: string | null;
-  claimToken?: string;
-};
-
-const sessionKey = (id: string) => `stripe:session:${id}`;
-const claimKey = (token: string) => `claim:${token}`;
-
-export function hasRecoverableAccess(record: AccountAccessSessionRecord) {
-  if (record.revoked) return false;
-  const isPrintOnly = record.orderType === "print" && !record.includesDigitalAddOn;
-  if (isPrintOnly) return false;
-  if (record.plan === "subscription") return Boolean(record.subscriptionActive);
-  const creditsRemaining = typeof record.creditsRemaining === "number" ? record.creditsRemaining : 0;
-  return creditsRemaining > 0 || Boolean(record.paid);
-}
+const sessionKey = ENTITLEMENT_KV.stripeSession;
+const claimKey = ENTITLEMENT_KV.claim;
 
 export function getOfferLabel(record: AccountAccessSessionRecord, fallbackPlan: CheckoutPlan | undefined) {
   if (record.orderType === "print") {
-    const tiers = getPrintPricingTiers();
-    const printLabel = record.printVariant
-      ? `${tiers[record.printVariant].label} order`
-      : "Print order";
+    const printLabel = record.printVariant === "poster_framed" ? "Framed print order" : "Unframed print order";
     return record.includesDigitalAddOn ? `${printLabel} + HD add-on` : printLabel;
   }
   const plan = record.plan ?? fallbackPlan;
@@ -55,7 +29,7 @@ export function getOfferLabel(record: AccountAccessSessionRecord, fallbackPlan: 
 export async function getOrCreateClaimToken(sessionId: string, record: AccountAccessSessionRecord) {
   let token = record.claimToken?.trim() || "";
   if (token) {
-    const existing = await kv.get<ClaimRecord>(claimKey(token));
+    const existing = await kv.get<ClaimTokenRecord>(claimKey(token));
     if (!existing || existing.sessionId !== sessionId) {
       token = "";
     }
@@ -63,12 +37,12 @@ export async function getOrCreateClaimToken(sessionId: string, record: AccountAc
 
   if (!token) {
     token = crypto.randomUUID();
-    const claim: ClaimRecord = {
+    const claim: ClaimTokenRecord = {
       sessionId,
       mapId: record.mapId,
       createdAt: Date.now(),
     };
-    await kv.set(claimKey(token), claim, { ex: CLAIM_TOKEN_TTL_SECONDS });
+    await kv.set(claimKey(token), claim, { ex: NEW_CLAIM_TOKEN_TTL_SECONDS });
     await kv.set(sessionKey(sessionId), {
       ...record,
       claimToken: token,
