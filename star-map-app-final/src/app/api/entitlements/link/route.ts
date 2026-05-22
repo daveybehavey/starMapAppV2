@@ -1,31 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  ENTITLEMENT_KV,
+  evaluateDigitalAccess,
+  NEW_CLAIM_TOKEN_TTL_SECONDS,
+  type ClaimTokenRecord,
+  type StripeSessionEntitlement,
+} from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
-import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
-import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
-
-const CLAIM_TOKEN_TTL_SECONDS = PREMIUM_COOKIE_TTL_SECONDS;
-
-type SessionRecord = {
-  paid?: boolean;
-  revoked?: boolean;
-  mapId?: string;
-  plan?: CheckoutPlan;
-  creditsRemaining?: number;
-  subscriptionActive?: boolean;
-  orderType?: CheckoutOrderType;
-  includesDigitalAddOn?: boolean;
-  claimToken?: string;
-};
-
-type ClaimRecord = {
-  sessionId: string;
-  mapId?: string;
-  createdAt: number;
-};
-
-const sessionKey = (id: string) => `stripe:session:${id}`;
-const claimKey = (token: string) => `claim:${token}`;
+import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
@@ -47,25 +30,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Missing entitlement" }, { status: 401 });
   }
 
-  const record = await kv.get<SessionRecord>(sessionKey(sessionId));
+  const record = await kv.get<StripeSessionEntitlement>(ENTITLEMENT_KV.stripeSession(sessionId));
   if (!record || record.revoked) {
     return NextResponse.json({ ok: false, error: "No active entitlement" }, { status: 403 });
   }
 
-  const subscriptionActive = Boolean(record.subscriptionActive);
-  const creditsRemaining = record.creditsRemaining ?? 0;
-  const isPrintOnly = record.orderType === "print" && !record.includesDigitalAddOn;
-  const hasAccess =
-    !isPrintOnly &&
-    (record.plan === "subscription" ? subscriptionActive : creditsRemaining > 0 || Boolean(record.paid));
-
-  if (!hasAccess) {
+  if (!evaluateDigitalAccess(record)) {
     return NextResponse.json({ ok: false, error: "No active access" }, { status: 402 });
   }
 
   let token = forceNew ? "" : record.claimToken?.trim() || "";
   if (token) {
-    const existing = await kv.get<ClaimRecord>(claimKey(token));
+    const existing = await kv.get<ClaimTokenRecord>(ENTITLEMENT_KV.claim(token));
     if (!existing) {
       token = "";
     }
@@ -73,13 +49,13 @@ export async function POST(req: NextRequest) {
 
   if (!token) {
     token = crypto.randomUUID();
-    const payload: ClaimRecord = {
+    const payload: ClaimTokenRecord = {
       sessionId,
       mapId: record.mapId,
       createdAt: Date.now(),
     };
-    await kv.set(claimKey(token), payload, { ex: CLAIM_TOKEN_TTL_SECONDS });
-    await kv.set(sessionKey(sessionId), { ...record, claimToken: token });
+    await kv.set(ENTITLEMENT_KV.claim(token), payload, { ex: NEW_CLAIM_TOKEN_TTL_SECONDS });
+    await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), { ...record, claimToken: token });
   }
 
   const origin = new URL(req.url).origin;

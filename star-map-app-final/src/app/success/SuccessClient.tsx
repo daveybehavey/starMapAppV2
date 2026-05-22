@@ -193,7 +193,7 @@ export default function SuccessClient() {
         throw new Error(payload?.error ?? "request_failed");
       }
       setAccessEmailStatus("sent");
-      setAccessEmailMessage("Sent. Check your email for the secure access link.");
+      setAccessEmailMessage("Sent. Check your email to open all downloads in My Downloads.");
       track("access_link_email_requested", { source: "success", outcome: "sent" });
     } catch {
       setAccessEmailStatus("error");

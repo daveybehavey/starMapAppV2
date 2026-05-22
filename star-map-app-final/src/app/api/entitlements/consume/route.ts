@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ENTITLEMENT_KV, isPrintOnlyOrder, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
-import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
-
-type SessionRecord = {
-  paid?: boolean;
-  revoked?: boolean;
-  plan?: CheckoutPlan;
-  creditsRemaining?: number;
-  subscriptionActive?: boolean;
-  orderType?: CheckoutOrderType;
-  includesDigitalAddOn?: boolean;
-  lastConsumeToken?: string;
-  lastConsumeRemaining?: number;
-};
-
-const sessionKey = (id: string) => `stripe:session:${id}`;
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
@@ -30,11 +16,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Missing entitlement" }, { status: 401 });
   }
 
-  const record = await kv.get<SessionRecord>(sessionKey(sessionId));
+  const record = await kv.get<StripeSessionEntitlement>(ENTITLEMENT_KV.stripeSession(sessionId));
   if (!record || record.revoked) {
     return NextResponse.json({ ok: false, error: "No active entitlement" }, { status: 403 });
   }
-  if (record.orderType === "print" && !record.includesDigitalAddOn) {
+  if (isPrintOnlyOrder(record)) {
     return NextResponse.json({ ok: false, error: "No digital entitlement" }, { status: 402 });
   }
 
@@ -48,11 +34,14 @@ export async function POST(req: NextRequest) {
     // ignore non-JSON bodies
   }
 
-  if (consumeToken && record.lastConsumeToken === consumeToken) {
+  const lastConsumeToken = (record as StripeSessionEntitlement & { lastConsumeToken?: string }).lastConsumeToken;
+  const lastConsumeRemaining = (record as StripeSessionEntitlement & { lastConsumeRemaining?: number }).lastConsumeRemaining;
+
+  if (consumeToken && lastConsumeToken === consumeToken) {
     return NextResponse.json({
       ok: true,
       plan: record.plan ?? "single",
-      creditsRemaining: typeof record.lastConsumeRemaining === "number" ? record.lastConsumeRemaining : null,
+      creditsRemaining: typeof lastConsumeRemaining === "number" ? lastConsumeRemaining : null,
     });
   }
 
@@ -69,12 +58,11 @@ export async function POST(req: NextRequest) {
   }
 
   const nextRemaining = Math.max(0, creditsRemaining - 1);
-  await kv.set(sessionKey(sessionId), {
+  await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), {
     ...record,
     creditsRemaining: nextRemaining,
-    // Keep paid=true - user paid, even if credits are depleted
     paid: true,
-    lastConsumeToken: consumeToken ?? record.lastConsumeToken,
+    lastConsumeToken: consumeToken ?? lastConsumeToken,
     lastConsumeRemaining: nextRemaining,
   });
 

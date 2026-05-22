@@ -213,7 +213,21 @@ function persistPendingGa4Purchase(input: PurchaseAnalyticsInput) {
   }
 }
 
+function ga4ServerPurchaseTrackingEnabled() {
+  return process.env.NEXT_PUBLIC_GA4_SERVER_PURCHASES === "true";
+}
+
 export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
+  if (ga4ServerPurchaseTrackingEnabled()) {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
+      } catch {
+        // Ignore storage failures.
+      }
+    }
+    return;
+  }
   if (!canTrackAnalytics()) {
     persistPendingGa4Purchase(input);
     return;
@@ -233,7 +247,7 @@ export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
 
 /** Fire a purchase saved on /success when the user grants analytics consent afterward. */
 export function flushPendingGa4Purchase() {
-  if (!canTrackAnalytics() || typeof window === "undefined") return;
+  if (ga4ServerPurchaseTrackingEnabled() || !canTrackAnalytics() || typeof window === "undefined") return;
   try {
     const raw = sessionStorage.getItem(PENDING_GA4_PURCHASE_KEY);
     if (!raw) return;

@@ -16,9 +16,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  let payload: { sessionId?: unknown; printfulOrderId?: unknown; note?: unknown } | null = null;
+  type ResolvePayload = { sessionId?: unknown; printfulOrderId?: unknown; note?: unknown };
+  let payload: ResolvePayload | null = null;
   try {
-    payload = (await req.json()) as typeof payload;
+    payload = (await req.json()) as ResolvePayload;
   } catch {
     payload = null;
   }

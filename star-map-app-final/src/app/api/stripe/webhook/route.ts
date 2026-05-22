@@ -24,8 +24,13 @@ import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/p
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
-import { getOrCreateClaimToken, hasRecoverableAccess } from "@/lib/accountAccessLinks";
-import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/accountAccessAlerts";
+import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
+import { hasRecoverableAccess } from "@/lib/accountAccessLinks";
+import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
+import {
+  ENTITLEMENT_KV,
+  refreshEntitledMapRecipeTtl,
+} from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -129,8 +134,9 @@ const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
 const recoveryEmailKey = (id: string) => `stripe:checkout_recovery:email:${id}`;
 const RECOVERY_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
-const accessEmailKey = (id: string) => `stripe:access_link:email:${id}`;
+const accessEmailKey = (id: string) => ENTITLEMENT_KV.accessEmailDedupe(id);
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
+const WEBHOOK_EVENT_DEDUPE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -343,16 +349,21 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     });
   }
 
+  const mapId = getMapId(session);
+  if (mapId) {
+    await refreshEntitledMapRecipeTtl(mapId);
+  }
+
   if (!alreadyPaid && customerEmail && hasDigitalEntitlementCandidate && isAccountAccessEmailConfigured()) {
     const shouldSend = await kv.incr(accessEmailKey(session.id), 1, { ex: ACCESS_EMAIL_TTL_SECONDS });
     if (shouldSend === 1) {
       const current = await kv.get<SessionRecord>(sessionKey(session.id));
       if (current && hasRecoverableAccess(current)) {
-        const token = await getOrCreateClaimToken(session.id, current);
-        const link = `${siteUrl}/download?token=${encodeURIComponent(token)}`;
-        const alertResult = await sendAccountAccessAlert({
+        const alertResult = await sendPostPurchaseAccessEmail({
+          siteOrigin: siteUrl,
           email: customerEmail,
-          link,
+          sessionId: session.id,
+          record: current,
         });
         await kv.set(sessionKey(session.id), {
           ...current,
@@ -1039,6 +1050,13 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("Stripe webhook signature verification failed", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  const dedupeCount = await kv.incr(ENTITLEMENT_KV.stripeWebhookEvent(event.id), 1, {
+    ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
+  });
+  if (dedupeCount > 1) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   switch (event.type) {

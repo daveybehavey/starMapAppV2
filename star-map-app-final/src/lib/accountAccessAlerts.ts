@@ -52,41 +52,49 @@ function getAlertReplyTo() {
 
 function getCopy(input: { link: string; directDownloadLink?: string }) {
   const direct = input.directDownloadLink?.trim() || "";
-  const subject = "Your StarMapCo download link is ready";
+  const hubFirst = Boolean(direct);
+  const subject = hubFirst
+    ? "Your StarMapCo downloads are ready"
+    : "Your StarMapCo download link is ready";
   const text = [
     "Hi,",
     "",
-    "Your secure StarMapCo download link is ready:",
+    hubFirst
+      ? "Open My Downloads to see every map tied to this email:"
+      : "Your secure StarMapCo download link is ready:",
     input.link,
     ...(direct
       ? [
           "",
-          "If you have trouble opening the download page, you can download the exact file directly here:",
+          "Prefer a single-order download page? Use this direct link:",
           direct,
         ]
       : []),
     "",
+    hubFirst ? "Check your email if you need to sign in again later." : "",
     "On iPhone, downloads are in Files app -> Browse -> Downloads (not Photos).",
     "",
     "— StarMapCo",
-  ].join("\n");
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
       <div style="border: 1px solid #e6dcc8; border-radius: 20px; overflow: hidden; background: #fbf7ef;">
         <div style="padding: 18px 22px; background: linear-gradient(135deg, #07112b, #11234d); color: #f7f1e6;">
           <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.82;">StarMapCo</div>
-          <p style="font-size: 24px; font-weight: 700; margin: 8px 0 0;">Your download link is ready</p>
-          <p style="margin: 8px 0 0; color: #d9c78d;">Open this secure link on any device to access your HD file.</p>
+          <p style="font-size: 24px; font-weight: 700; margin: 8px 0 0;">${hubFirst ? "Your downloads are ready" : "Your download link is ready"}</p>
+          <p style="margin: 8px 0 0; color: #d9c78d;">${hubFirst ? "Open My Downloads to access every paid map on this email." : "Open this secure link on any device to access your HD file."}</p>
         </div>
         <div style="padding: 20px 22px;">
           <p style="margin: 0 0 16px;">
-            <a href="${input.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Open your download</a>
+            <a href="${input.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">${hubFirst ? "Open My Downloads" : "Open your download"}</a>
           </p>
           ${
             direct
               ? `<p style="margin: 0 0 16px;">
-            <a href="${direct}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #111827; color: #f9fafb; text-decoration: none; font-weight: 700;">Download the exact file</a>
+            <a href="${direct}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #111827; color: #f9fafb; text-decoration: none; font-weight: 700;">Open this order&apos;s download page</a>
           </p>`
               : ""
           }
