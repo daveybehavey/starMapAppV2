@@ -8,6 +8,7 @@ type StyleDefaults = {
 const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
   navyGold: {
     renderOptions: {
+      mapLookTier: "polished",
       visualMode: "enhanced",
       starIntensity: "normal",
       starGlow: true,
@@ -50,6 +51,7 @@ const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
   },
   midnightMinimal: {
     renderOptions: {
+      mapLookTier: "minimal",
       visualMode: "enhanced",
       starIntensity: "bold",
       starGlow: false,

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { MapLookTier } from "./mapLookTiers";
 import type { AspectRatio, Shape } from "./types";
 
 export type StyleId =
@@ -51,8 +52,11 @@ export interface LocationState {
 
 export type VisualMode = "astronomical" | "enhanced" | "illustrated";
 export type ConstellationLines = "off" | "thin" | "thick";
+export type { MapLookTier } from "./mapLookTiers";
 
 export interface RenderOptions {
+  /** Product tier: minimal (flat/clean), polished (signature look), or custom knobs. */
+  mapLookTier?: MapLookTier;
   visualMode: VisualMode;
   starIntensity: "subtle" | "normal" | "bold";
   starGlow: boolean;
@@ -154,6 +158,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   ],
   selectedStyle: "navyGold",
   renderOptions: {
+    mapLookTier: "polished",
     visualMode: "enhanced",
     starIntensity: "normal",
     starGlow: true,

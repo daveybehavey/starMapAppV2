@@ -10,7 +10,8 @@ import EditorFontShell from "@/components/EditorFontShell";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
-import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
+import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
+import { applyMapLookTier, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
@@ -423,15 +424,19 @@ export function MobileCreate({
   const handleStyleChange = useCallback(
     (styleId: typeof selectedStyle) => {
       setStyle(styleId);
+      const tier: MapLookTier =
+        renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
+      const tierOptions = tier === "custom" ? {} : applyMapLookTier(tier, styleId);
       const defaults = applyStyleDefaults(styleId, textBoxes);
-      if (Object.keys(defaults.renderOptions).length) {
-        setRenderOptions(defaults.renderOptions);
+      const mergedOptions = { ...defaults.renderOptions, ...tierOptions };
+      if (Object.keys(mergedOptions).length) {
+        setRenderOptions(mergedOptions);
       }
       if (defaults.textBoxes !== textBoxes) {
         setTextBoxes(defaults.textBoxes);
       }
     },
-    [setRenderOptions, setStyle, setTextBoxes, textBoxes],
+    [renderOptions, selectedStyle, setRenderOptions, setStyle, setTextBoxes, textBoxes],
   );
 
   return (
@@ -896,6 +901,26 @@ export function MobileCreate({
 
             {/* Style */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <h3 className="text-xs font-semibold text-white mb-2">Map look</h3>
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
+                {mapLookTiers.map((tier) => {
+                  const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+                  return (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => setRenderOptions(applyMapLookTier(tier.id, selectedStyle))}
+                      className={`rounded-md border px-2 py-2 text-left transition ${
+                        activeTier === tier.id
+                          ? "!text-midnight border-amber-300 bg-amber-100"
+                          : "border-white/15 bg-white/10 text-white"
+                      }`}
+                    >
+                      <div className="text-[11px] font-semibold">{tier.label}</div>
+                    </button>
+                  );
+                })}
+              </div>
               <h3 className="text-xs font-semibold text-white mb-2">Style</h3>
               <div className="grid grid-cols-2 gap-2">
                 {styles.map((style) => {

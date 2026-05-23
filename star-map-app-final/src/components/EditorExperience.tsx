@@ -17,7 +17,8 @@ import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
-import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale } from "@/lib/config";
+import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale, mapLookTiers } from "@/lib/config";
+import { applyMapLookTier, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -2246,7 +2247,37 @@ export function EditorExperience({
                                       </span>
                                     </button>
                                     {!collapsedCards.style && (
-                                      <div className="mt-2 grid grid-cols-1 gap-2">
+                                      <div className="mt-2 space-y-3">
+                                        <div className="space-y-1">
+                                          <p className="text-[10px] font-semibold tracking-[0.14em] text-neutral-300 uppercase">
+                                            Map look
+                                          </p>
+                                          <div className="grid grid-cols-3 gap-1.5">
+                                            {mapLookTiers.map((tier) => {
+                                              const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+                                              return (
+                                                <button
+                                                  key={tier.id}
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
+                                                  }}
+                                                  className={`rounded-md border px-2 py-2 text-left transition ${
+                                                    activeTier === tier.id
+                                                      ? "!text-midnight border-amber-300 bg-amber-100"
+                                                      : "border-white/15 bg-white/10 text-white hover:border-amber-400/40"
+                                                  }`}
+                                                >
+                                                  <div className="text-[11px] font-semibold">{tier.label}</div>
+                                                  <div className="mt-0.5 text-[9px] leading-snug opacity-80">
+                                                    {tier.description}
+                                                  </div>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2">
                                         {styles.map((style) => {
                                           const styleClasses = {
                                             navyGold:
@@ -2273,9 +2304,19 @@ export function EditorExperience({
                                               type="button"
                                               onClick={() => {
                                                 setStyle(style.id);
+                                                const tier: MapLookTier =
+                                                  renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
+                                                const tierOptions =
+                                                  tier === "custom"
+                                                    ? {}
+                                                    : applyMapLookTier(tier, style.id);
                                                 const defaults = applyStyleDefaults(style.id, textBoxes);
-                                                if (Object.keys(defaults.renderOptions).length) {
-                                                  setRenderOptions(defaults.renderOptions);
+                                                const mergedOptions = {
+                                                  ...defaults.renderOptions,
+                                                  ...tierOptions,
+                                                };
+                                                if (Object.keys(mergedOptions).length) {
+                                                  setRenderOptions(mergedOptions);
                                                 }
                                                 if (defaults.textBoxes !== textBoxes) {
                                                   setTextBoxes(defaults.textBoxes);
@@ -2290,6 +2331,7 @@ export function EditorExperience({
                                             </button>
                                           );
                                         })}
+                                        </div>
                                       </div>
                                     )}
                                   </section>

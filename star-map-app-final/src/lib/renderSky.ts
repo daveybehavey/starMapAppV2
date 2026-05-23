@@ -6,6 +6,7 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
+import { shouldApplyPolishFinish, shouldUseFlatSkyBackground } from "@/lib/mapLookTiers";
 
 export type { AspectRatio, Shape } from "@/lib/types";
 export { formatDateTimeForLocation } from "@/lib/dateTime";
@@ -440,6 +441,7 @@ export function renderStarMap({
     shapeName,
     showFrame,
     recipe.renderOptions?.backgroundColor,
+    recipe.renderOptions,
   );
   if (recipe.selectedStyle === "parchmentScroll") {
     drawPaperTexture(ctx, width, targetHeight, quality);
@@ -457,18 +459,24 @@ export function renderStarMap({
     premium,
     quality,
   );
-  if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
+  const polishFinish = shouldApplyPolishFinish(recipe.renderOptions, recipe.selectedStyle);
+  if (
+    polishFinish &&
+    recipe.selectedStyle !== "midnightMinimal" &&
+    recipe.selectedStyle !== "parchmentScroll"
+  ) {
     drawPremiumVignette(ctx, width, targetHeight, mode);
   }
   ctx.restore();
 
-  // Shape outline using theme accent color
-  if (clipPath && showFrame) {
+  // Shape outline using theme accent color (rectangle already has inset frame in drawBackground)
+  if (clipPath && showFrame && shapeName !== "rectangle") {
     const theme = STYLE_THEME[recipe.selectedStyle];
     const frameColor = mode?.palette?.accent ?? theme.accent;
     ctx.save();
     ctx.strokeStyle = frameColor;
     ctx.lineWidth = 3 * scale;
+    ctx.lineJoin = "round";
     ctx.globalAlpha = 0.8;
     ctx.stroke(clipPath);
     ctx.restore();
@@ -481,7 +489,13 @@ export function renderStarMap({
     textBounds.clear();
   }
   drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
-  if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
+  const allowGrain =
+    premium &&
+    polishFinish &&
+    quality !== "export" &&
+    recipe.selectedStyle !== "midnightMinimal" &&
+    recipe.selectedStyle !== "parchmentScroll";
+  if (allowGrain) {
     drawFilmGrain(ctx, width, targetHeight, mode, quality);
   }
   ctx.restore();
@@ -595,6 +609,7 @@ export function buildRecipeFromState(input: {
     shape: input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
+      mapLookTier: input.renderOptions?.mapLookTier,
       visualMode: input.renderOptions?.visualMode ?? "illustrated",
       starIntensity: input.renderOptions?.starIntensity ?? "normal",
       starGlow: input.renderOptions?.starGlow ?? true,
@@ -626,6 +641,7 @@ function drawBackground(
   shape?: Shape,
   showFrame = true,
   backgroundOverride?: string,
+  renderOptions?: MapRecipe["renderOptions"],
 ) {
   const theme = STYLE_THEME[styleId];
   const resolvedBackground =
@@ -643,7 +659,8 @@ function drawBackground(
   ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, width, height);
 
-  const noGradient = styleId === "midnightMinimal" || styleId === "parchmentScroll";
+  const flatSky = shouldUseFlatSkyBackground(renderOptions, styleId);
+  const noGradient = flatSky;
   if (!noGradient) {
     const gradient = ctx.createRadialGradient(
       width * 0.6,
@@ -970,6 +987,8 @@ function drawSky(
     glow: mode?.palette?.glow ?? theme.glow,
   };
   const lineFactor = mode?.lineWidthFactor ?? 1;
+  const polishFinish = shouldApplyPolishFinish(renderOptions, styleId);
+  const cinematicDetail = premium || polishFinish;
   const premiumStars = premium && (renderOptions?.premiumStars ?? "off") !== "off";
   const premiumPlanets = premium && (renderOptions?.premiumPlanets ?? "off") !== "off";
   const premiumThreshold = (renderOptions?.premiumStars ?? "off") === "realistic" ? 2.2 : 0.6;
@@ -985,10 +1004,10 @@ function drawSky(
     palette,
     lineFactor,
     scale,
-    premium,
+    cinematicDetail,
   );
 
-  if (premium && styleProfile.showMilkyWayBand) {
+  if (cinematicDetail && styleProfile.showMilkyWayBand) {
     const bandColor = resolveBandColor(palette.star);
     drawMilkyWayBand(ctx, width, height, recipe, bandColor, mode);
   }
@@ -1202,6 +1221,31 @@ function resolveBandColor(color: string) {
   return "#ffffff";
 }
 
+/** Keep text centers inside the canvas so exports match editor drag bounds. */
+function resolveTextCenterNormalized(
+  position: { x?: number; y?: number } | undefined,
+  index: number,
+  textWidth: number,
+  textHeight: number,
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  const scale = canvasWidth / BASE_CANVAS_WIDTH;
+  const lineGapNorm = (28 * scale) / canvasHeight;
+  const rawX = clamp(position?.x ?? 0.5, 0, 1);
+  const rawY = clamp(position?.y ?? 0.72 + index * lineGapNorm, 0, 1);
+  const halfWidth = textWidth / (canvasWidth * 2);
+  const halfHeight = textHeight / (canvasHeight * 2);
+  const minX = clamp(halfWidth, 0, 0.5);
+  const maxX = clamp(1 - halfWidth, 0.5, 1);
+  const minY = clamp(halfHeight, 0, 0.5);
+  const maxY = clamp(1 - halfHeight, 0.5, 1);
+  return {
+    x: clamp(rawX, minX, maxX),
+    y: clamp(rawY, minY, maxY),
+  };
+}
+
 function drawText(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -1210,9 +1254,6 @@ function drawText(
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
 ) {
-  const baseY = height * 0.72;
-  const lineGap = 28 * scale;
-
   if (bounds) bounds.clear();
 
   textBoxes.forEach((box, index) => {
@@ -1220,7 +1261,8 @@ function drawText(
     if (!box.text || box.text.trim() === "") return;
 
     const fontSize = Math.max(10, (box.size ?? 28) * scale);
-    ctx.font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    const font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    ctx.font = font;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
       ctx.shadowColor = `${box.color}90`;
@@ -1238,14 +1280,21 @@ function drawText(
     }
     ctx.textAlign = box.align;
     ctx.textBaseline = "middle";
-    const px = clamp(box.position?.x ?? 0.5, 0, 1) * width;
-    const py = clamp(box.position?.y ?? (baseY + index * lineGap) / height, 0, 1) * height;
+    const textWidth = getCachedTextWidth(ctx, box.text, font);
+    const textHeight = fontSize * 1.2;
+    const { x: normX, y: normY } = resolveTextCenterNormalized(
+      box.position,
+      index,
+      textWidth,
+      textHeight,
+      width,
+      height,
+    );
+    const px = normX * width;
+    const py = normY * height;
     ctx.fillText(box.text, px, py);
 
     if (bounds) {
-      const font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
-      const textWidth = getCachedTextWidth(ctx, box.text, font);
-      const textHeight = fontSize * 1.2;
       let left = px;
       if (ctx.textAlign === "center") left = px - textWidth / 2;
       if (ctx.textAlign === "right") left = px - textWidth;
@@ -1884,6 +1933,7 @@ export const __testUtils = {
   toRgba,
   adjustColor,
   toUTCDateFromLocal,
+  resolveTextCenterNormalized,
 };
 
 export { STYLE_THEME, clamp };

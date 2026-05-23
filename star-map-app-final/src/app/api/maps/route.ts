@@ -217,6 +217,7 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     "backgroundColor",
     "constellationColor",
     "constellationLineScale",
+    "mapLookTier",
   ]);
 
   const sanitized: Record<string, unknown> = {};
