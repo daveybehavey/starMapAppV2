@@ -153,15 +153,17 @@ export default function WeddingPage() {
         <div className="grid gap-3 sm:grid-cols-3">
           {featuredRenderExamples.map((item) => (
             <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-              <div className="relative aspect-square">
-                <Image
-                  src={item.src}
-                  alt={item.shortLabel}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="h-full w-full object-cover"
-                />
+              <div className="relative aspect-square proof-wall-panel">
+                <div className="proof-wall-stage proof-wall-stage--gallery h-full w-full">
+                  <Image
+                    src={item.src}
+                    alt={item.shortLabel}
+                    width={900}
+                    height={900}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="h-full w-full object-contain px-4 py-5 proof-wall-image"
+                  />
+                </div>
               </div>
               <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.shortLabel}</div>
             </div>
@@ -215,7 +217,7 @@ export default function WeddingPage() {
       />
       <TestimonialHighlights
         heading="Verified wedding buyer feedback"
-        intro="Real wedding-buyer comments are shown here as they are collected."
+        intro="Real wedding-buyer comments are shown here as they are collected. Sample cards are labeled until permissioned quotes replace them."
         testimonials={testimonialsByPage.wedding}
       />
 

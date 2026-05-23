@@ -22,6 +22,11 @@ export default function TestimonialHighlights({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {testimonials.map((item) => (
           <figure key={`${item.author}|${item.context}`} className="rounded-2xl border border-black/10 bg-white p-4">
+            {item.isSample ? (
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                Sample testimonial
+              </p>
+            ) : null}
             <blockquote className="text-sm text-neutral-800">"{item.quote}"</blockquote>
             <figcaption className="mt-3 text-xs font-semibold text-midnight">
               {item.author} - {item.context}
