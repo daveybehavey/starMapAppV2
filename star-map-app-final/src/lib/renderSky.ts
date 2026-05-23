@@ -6,7 +6,15 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
-import { getStarDensityTuning, resolveMapLookTier, shouldApplyPolishFinish, shouldUseFlatSkyBackground } from "@/lib/mapLookTiers";
+import {
+  getStarDensityTuning,
+  resolveMapLookTier,
+  resolveTransparentMat,
+  shouldApplyPolishFinish,
+  shouldUseFlatSkyBackground,
+  type ExportMatPurpose,
+  type MapLookTier,
+} from "@/lib/mapLookTiers";
 
 export type { AspectRatio, Shape } from "@/lib/types";
 export { formatDateTimeForLocation } from "@/lib/dateTime";
@@ -370,6 +378,7 @@ export function renderStarMap({
   skyOverride,
   skipSkyCompute = false,
   includeText = true,
+  matPurpose = "preview",
 }: {
   recipe: MapRecipe;
   canvas: CanvasLike;
@@ -383,6 +392,8 @@ export function renderStarMap({
   skyOverride?: VisibleSky | null;
   skipSkyCompute?: boolean;
   includeText?: boolean;
+  /** Print forces filled mat; preview/PNG follow tier transparentBackground. */
+  matPurpose?: ExportMatPurpose;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -419,7 +430,8 @@ export function renderStarMap({
     (typeof legacyBg === "string" ? legacyBg.trim() : "") ||
     "#0b0f24";
   const showFrame = recipe.renderOptions?.frameEnabled ?? true;
-  const transparentMat = recipe.renderOptions?.transparentBackground ?? false;
+  const mapLookTier = resolveMapLookTier(recipe.renderOptions, recipe.selectedStyle);
+  const transparentMat = resolveTransparentMat(matPurpose, recipe.renderOptions);
   const clipPath = buildShapeClip(shapeName, width, targetHeight);
 
   ctx.save();
@@ -461,6 +473,7 @@ export function renderStarMap({
     scale,
     premium,
     quality,
+    mapLookTier,
   );
   const polishFinish = shouldApplyPolishFinish(recipe.renderOptions, recipe.selectedStyle);
   if (
@@ -743,6 +756,7 @@ function drawConstellationLayer(
   scale: number,
   premium: boolean,
   styleId: StyleId,
+  mapLookTier: MapLookTier,
 ) {
   if (renderOptions?.constellationLines === "off") return;
 
@@ -776,7 +790,7 @@ function drawConstellationLayer(
     premium,
     styleProfile.lineDashed,
     scale,
-    resolveMapLookTier(renderOptions, styleId),
+    mapLookTier,
   );
 }
 
@@ -992,6 +1006,7 @@ function drawSky(
   scale = 1,
   premium = false,
   quality: RenderQuality = "preview",
+  mapLookTier: MapLookTier = "custom",
 ) {
   if (!sky) return;
   const theme = STYLE_THEME[styleId];
@@ -1022,6 +1037,7 @@ function drawSky(
     scale,
     cinematicDetail,
     styleId,
+    mapLookTier,
   );
 
   if (cinematicDetail && styleProfile.showMilkyWayBand) {
@@ -1029,7 +1045,7 @@ function drawSky(
     drawMilkyWayBand(ctx, width, height, recipe, bandColor, mode);
   }
 
-  const densityTuning = getStarDensityTuning(resolveMapLookTier(renderOptions, styleId));
+  const densityTuning = getStarDensityTuning(mapLookTier);
   drawStarLayer(
     ctx,
     sky,
@@ -1066,8 +1082,8 @@ function drawPremiumVignette(
   height: number,
   mode?: ModeSettings,
 ) {
-  const baseStrength = 0.16 + (mode?.vignetteStrength ?? 1) * 0.08;
-  const strength = clamp(baseStrength, 0.12, 0.38);
+  const baseStrength = 0.14 + (mode?.vignetteStrength ?? 1) * 0.06;
+  const strength = clamp(baseStrength, 0.1, 0.3);
   const gradient = ctx.createRadialGradient(
     width * 0.5,
     height * 0.45,
@@ -1388,7 +1404,7 @@ function drawConstellations(
   premium = false,
   dashed = false,
   scale = 1,
-  mapLookTier: ReturnType<typeof resolveMapLookTier> = "custom",
+  mapLookTier: MapLookTier = "custom",
 ) {
   if (!sky.constellations.length) return;
   const lines = sky.constellations.flatMap((constellation) => constellation.lines);

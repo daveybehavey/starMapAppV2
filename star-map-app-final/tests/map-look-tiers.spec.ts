@@ -2,9 +2,12 @@ import { expect, test } from "@playwright/test";
 import {
   applyMapLookTier,
   applyTierTypography,
+  buildMapLookSnapshotState,
   getStarDensityTuning,
   resolveMapLookTier,
+  resolveTransparentMat,
   shouldApplyPolishFinish,
+  shouldShowTechnicalRing,
   shouldUseFlatSkyBackground,
 } from "../src/lib/mapLookTiers";
 import { getRenderPresetOptions } from "../src/lib/renderPresets";
@@ -102,5 +105,58 @@ test.describe("map look tiers", () => {
     expect(
       shouldApplyPolishFinish({ mapLookTier: "minimal", visualMode: "illustrated" }, "navyGold"),
     ).toBe(false);
+  });
+
+  test("resolveTransparentMat keeps minimal PNG transparent and print filled", () => {
+    const minimal = { mapLookTier: "minimal" as const, transparentBackground: true };
+    expect(resolveTransparentMat("preview", minimal)).toBe(true);
+    expect(resolveTransparentMat("print", minimal)).toBe(false);
+    expect(resolveTransparentMat("print", { mapLookTier: "polished", transparentBackground: false })).toBe(
+      false,
+    );
+  });
+
+  test("custom tier leaves render options untouched except mapLookTier flag", () => {
+    const custom = applyMapLookTier("custom", "navyGold");
+    expect(custom.mapLookTier).toBe("custom");
+    expect(custom.transparentBackground).toBe(false);
+    expect(custom.constellationLines).toBeUndefined();
+  });
+
+  test("applyTierTypography is no-op for custom tier", () => {
+    const customBoxes = applyTierTypography("custom", "navyGold", sampleTextBoxes);
+    expect(customBoxes).toEqual(sampleTextBoxes);
+  });
+
+  test("applyTierTypography covers all bundled styles for minimal tier", () => {
+    const styles = ["navyGold", "midnightMinimal", "vintageEngraving", "parchmentScroll"] as const;
+    for (const styleId of styles) {
+      const boxes = applyTierTypography("minimal", styleId, sampleTextBoxes);
+      expect(boxes[0]?.textGlow).toBeFalsy();
+      expect(boxes[0]?.fontFamily).toBeTruthy();
+    }
+  });
+
+  test("resolveMapLookTier prefers explicit mapLookTier over legacy preset inference", () => {
+    const legacyClean = getRenderPresetOptions("clean", "navyGold") as RenderOptions;
+    expect(resolveMapLookTier({ ...legacyClean, mapLookTier: "custom" }, "navyGold")).toBe("custom");
+  });
+
+  test("shouldShowTechnicalRing follows tier defaults and explicit overrides", () => {
+    expect(shouldShowTechnicalRing(applyMapLookTier("minimal", "navyGold"), "navyGold")).toBe(false);
+    expect(shouldShowTechnicalRing(applyMapLookTier("polished", "navyGold"), "navyGold")).toBe(true);
+    expect(shouldShowTechnicalRing(applyMapLookTier("polished", "midnightMinimal"), "midnightMinimal")).toBe(
+      false,
+    );
+    expect(
+      shouldShowTechnicalRing({ mapLookTier: "polished", showTechnicalRing: true }, "midnightMinimal"),
+    ).toBe(true);
+  });
+
+  test("buildMapLookSnapshotState uses fixed seed fixture", () => {
+    const state = buildMapLookSnapshotState("minimal", "navyGold");
+    expect(state.seed).toBe("map-tier-snapshot-v1");
+    expect(state.location.name).toBe("Santorini, Greece");
+    expect(state.textBoxes.find((box) => box.id === "dedication")?.text).toBe("June 1, 2024");
   });
 });

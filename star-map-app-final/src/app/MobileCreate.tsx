@@ -905,19 +905,42 @@ export function MobileCreate({
 
             {/* Style */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <h3 className="text-xs font-semibold text-white mb-2">Map look</h3>
-              <div className="grid grid-cols-3 gap-1.5 mb-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 id="mobile-map-look-label" className="text-xs font-semibold text-white">
+                  Map look
+                </h3>
+                {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tier = resolveMapLookTier(renderOptions, selectedStyle);
+                      setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
+                    }}
+                    className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90"
+                  >
+                    Reset typography
+                  </button>
+                )}
+              </div>
+              <div
+                role="radiogroup"
+                aria-labelledby="mobile-map-look-label"
+                className="mb-3 grid grid-cols-3 gap-1.5"
+              >
                 {mapLookTiers.map((tier) => {
                   const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
                   return (
                     <button
                       key={tier.id}
                       type="button"
+                      role="radio"
+                      aria-checked={activeTier === tier.id}
+                      aria-label={`${tier.label}: ${tier.description}`}
                       onClick={() => {
                         setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
                         setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
                       }}
-                      className={`rounded-md border px-2 py-2 text-left transition ${
+                      className={`min-h-[2.75rem] rounded-md border px-2 py-2 text-left transition ${
                         activeTier === tier.id
                           ? "!text-midnight border-amber-300 bg-amber-100"
                           : "border-white/15 bg-white/10 text-white"

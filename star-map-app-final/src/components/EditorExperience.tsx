@@ -1227,6 +1227,7 @@ export function EditorExperience({
                 watermark: false,
                 quality: "export",
                 premium: true,
+                matPurpose: "print",
               });
             } catch {
               lastAssetError = "print_render_failed";
@@ -2249,22 +2250,65 @@ export function EditorExperience({
                                     {!collapsedCards.style && (
                                       <div className="mt-2 space-y-3">
                                         <div className="space-y-1">
-                                          <p className="text-[10px] font-semibold tracking-[0.14em] text-neutral-300 uppercase">
-                                            Map look
-                                          </p>
-                                          <div className="grid grid-cols-3 gap-1.5">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <p
+                                              id="map-look-tier-label"
+                                              className="text-[10px] font-semibold tracking-[0.14em] text-neutral-300 uppercase"
+                                            >
+                                              Map look
+                                            </p>
+                                            {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const tier = resolveMapLookTier(renderOptions, selectedStyle);
+                                                  setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
+                                                }}
+                                                className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90 transition hover:border-amber-300/40 hover:bg-white/10"
+                                              >
+                                                Reset typography
+                                              </button>
+                                            )}
+                                          </div>
+                                          <div
+                                            role="radiogroup"
+                                            aria-labelledby="map-look-tier-label"
+                                            className="grid grid-cols-3 gap-1.5"
+                                          >
                                             {mapLookTiers.map((tier) => {
                                               const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
                                               return (
                                                 <button
                                                   key={tier.id}
                                                   type="button"
+                                                  role="radio"
+                                                  aria-checked={activeTier === tier.id}
+                                                  aria-label={`${tier.label}: ${tier.description}`}
                                                   onClick={() => {
                                                     const tierOptions = applyMapLookTier(tier.id, selectedStyle);
                                                     setRenderOptions(tierOptions);
                                                     setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
                                                   }}
-                                                  className={`rounded-md border px-2 py-2 text-left transition ${
+                                                  onKeyDown={(event) => {
+                                                    const tierIndex = mapLookTiers.findIndex((item) => item.id === tier.id);
+                                                    if (tierIndex < 0) return;
+                                                    let nextIndex: number | null = null;
+                                                    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                                                      nextIndex = (tierIndex + 1) % mapLookTiers.length;
+                                                    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                                                      nextIndex = (tierIndex - 1 + mapLookTiers.length) % mapLookTiers.length;
+                                                    }
+                                                    if (nextIndex === null) return;
+                                                    event.preventDefault();
+                                                    const nextTier = mapLookTiers[nextIndex];
+                                                    if (!nextTier) return;
+                                                    const tierOptions = applyMapLookTier(nextTier.id, selectedStyle);
+                                                    setRenderOptions(tierOptions);
+                                                    setTextBoxes(
+                                                      applyTierTypography(nextTier.id, selectedStyle, textBoxes),
+                                                    );
+                                                  }}
+                                                  className={`min-h-[3.25rem] rounded-md border px-2 py-2 text-left transition ${
                                                     activeTier === tier.id
                                                       ? "!text-midnight border-amber-300 bg-amber-100"
                                                       : "border-white/15 bg-white/10 text-white hover:border-amber-400/40"
@@ -2499,6 +2543,8 @@ export function EditorExperience({
                                     selectedStyle={selectedStyle}
                                     renderOptions={renderOptions}
                                     setRenderOptions={setRenderOptions}
+                                    textBoxes={textBoxes}
+                                    setTextBoxes={setTextBoxes}
                                     previewFidelity={previewFidelity}
                                     setPreviewFidelity={setPreviewFidelity}
                                     paid={paid}

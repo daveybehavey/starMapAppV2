@@ -1,4 +1,7 @@
 import { expect, type Page } from "@playwright/test";
+import type { MapLookTier } from "../src/lib/mapLookTiers";
+import { buildMapLookSnapshotState } from "../src/lib/mapLookTiers";
+import type { StyleId } from "../src/lib/store";
 
 const overlaySelectors = [
   'button[aria-label="Close"]',
@@ -129,4 +132,50 @@ export const applySampleMoment = async (page: Page) => {
     await generateButton.click({ timeout: 5000 }).catch(() => undefined);
   }
   await waitForPreview(page);
+};
+
+export async function applyMapLookSnapshotState(
+  page: Page,
+  tier: Exclude<MapLookTier, "custom">,
+  styleId: StyleId,
+) {
+  const snapshot = buildMapLookSnapshotState(tier, styleId);
+  await page.evaluate((state) => {
+    const store = (window as unknown as {
+      __ZUSTAND_STORE__?: {
+        getState: () => {
+          setDateTime: (value: string) => void;
+          setLocation: (value: typeof state.location) => void;
+          setStyle: (value: typeof state.selectedStyle) => void;
+          setRenderOptions: (value: typeof state.renderOptions) => void;
+          setTextBoxes: (value: typeof state.textBoxes) => void;
+          setRevealed: (value: boolean) => void;
+          setPreviewFidelity: (value: "standard" | "high") => void;
+          setAspectRatio: (value: typeof state.aspectRatio) => void;
+          setShape: (value: typeof state.shape) => void;
+        };
+      };
+    }).__ZUSTAND_STORE__;
+    if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+    const api = store.getState();
+    api.setDateTime(state.dateTime);
+    api.setLocation(state.location);
+    api.setStyle(state.selectedStyle);
+    api.setRenderOptions(state.renderOptions);
+    api.setTextBoxes(state.textBoxes);
+    api.setRevealed(state.revealed);
+    api.setPreviewFidelity(state.previewFidelity);
+    api.setAspectRatio(state.aspectRatio);
+    api.setShape(state.shape);
+  }, snapshot);
+  await page.waitForTimeout(1200);
+};
+
+export const waitForMapCanvasReady = async (page: Page) => {
+  const preview = page.getByLabel(/Star map preview/i).first();
+  await expect(preview).toBeVisible({ timeout: 30000 });
+  const canvas = preview.locator("canvas").last();
+  await expect(canvas).toHaveClass(/opacity-100/, { timeout: 30000 });
+  await page.waitForTimeout(400);
+  return preview;
 };

@@ -3,6 +3,9 @@ import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
 
 export type MapLookTier = "minimal" | "polished" | "custom";
 
+/** Preview/PNG respect recipe mat; print always uses a filled mat. */
+export type ExportMatPurpose = "preview" | "print";
+
 export const mapLookTiers: {
   id: MapLookTier;
   label: string;
@@ -291,6 +294,18 @@ export function applyTierTypography(
   });
 }
 
+/**
+ * Whether the outer mat renders transparent (minimal PNG) or filled.
+ * Print exports always use a filled mat so fulfillment files have no alpha holes.
+ */
+export function resolveTransparentMat(
+  purpose: ExportMatPurpose,
+  renderOptions?: Partial<RenderOptions>,
+): boolean {
+  if (purpose === "print") return false;
+  return renderOptions?.transparentBackground ?? false;
+}
+
 export function applyMapLookTier(tier: MapLookTier, styleId: StyleId): Partial<RenderOptions> {
   if (tier === "custom") {
     return { mapLookTier: "custom", transparentBackground: false };
@@ -347,4 +362,79 @@ export function shouldApplyPolishFinish(
   if (tier === "minimal") return false;
   if (tier === "polished") return true;
   return renderOptions?.visualMode === "illustrated";
+}
+
+/** PNG preview/export may use transparent mat on minimal; print always ships with filled mat. */
+export function shouldShowTechnicalRing(
+  renderOptions: Partial<RenderOptions> | undefined,
+  styleId: StyleId,
+): boolean {
+  if (renderOptions?.showTechnicalRing !== undefined) {
+    return renderOptions.showTechnicalRing;
+  }
+  const tier = resolveMapLookTier(renderOptions, styleId);
+  if (tier === "minimal") return false;
+  if (tier === "polished") {
+    return styleId === "navyGold" || styleId === "vintageEngraving";
+  }
+  return false;
+}
+
+/** Fixed seed for visual snapshot tests — Santorini wedding night. */
+export const MAP_TIER_SNAPSHOT_FIXTURE = {
+  dateTime: "2024-06-01T18:00:00.000Z",
+  location: {
+    name: "Santorini, Greece",
+    latitude: 36.3932,
+    longitude: 25.4615,
+    timezone: "Europe/Athens",
+  },
+  aspectRatio: "square" as const,
+  shape: "rectangle" as const,
+  seed: "map-tier-snapshot-v1",
+};
+
+const SNAPSHOT_TEXT_BOXES: TextBox[] = [
+  {
+    id: "title",
+    label: "Title",
+    text: "The Night We Became One",
+    fontFamily: "cinzel",
+    color: "#d7b56c",
+    size: 48,
+    align: "center",
+  },
+  {
+    id: "subtitle",
+    label: "Subtitle",
+    text: "Santorini, Greece",
+    fontFamily: "raleway",
+    color: "#c8a662",
+    size: 28,
+    align: "center",
+  },
+  {
+    id: "dedication",
+    label: "Dedication",
+    text: "June 1, 2024",
+    fontFamily: "script",
+    color: "#b98a3d",
+    size: 26,
+    align: "center",
+  },
+];
+
+export function buildMapLookSnapshotState(
+  tier: Exclude<MapLookTier, "custom">,
+  styleId: StyleId,
+) {
+  const tierOptions = applyMapLookTier(tier, styleId);
+  return {
+    ...MAP_TIER_SNAPSHOT_FIXTURE,
+    selectedStyle: styleId,
+    renderOptions: tierOptions,
+    textBoxes: applyTierTypography(tier, styleId, SNAPSHOT_TEXT_BOXES),
+    revealed: true,
+    previewFidelity: "high" as const,
+  };
 }

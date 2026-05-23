@@ -1,13 +1,16 @@
 "use client";
 
 import { constellationPresets, visualModes } from "@/lib/config";
+import { applyTierTypography, resolveMapLookTier } from "@/lib/mapLookTiers";
 import { getRenderPresetOptions, renderPresets, resolveRenderPreset } from "@/lib/renderPresets";
-import type { RenderOptions, StyleId } from "@/lib/store";
+import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
 
 type AdvancedPanelProps = {
   selectedStyle: StyleId;
   renderOptions: RenderOptions;
   setRenderOptions: (next: Partial<RenderOptions>) => void;
+  textBoxes: TextBox[];
+  setTextBoxes: (value: TextBox[]) => void;
   previewFidelity: "standard" | "high";
   setPreviewFidelity: (next: "standard" | "high") => void;
   paid: boolean;
@@ -18,12 +21,15 @@ export function AdvancedPanel({
   selectedStyle,
   renderOptions,
   setRenderOptions,
+  textBoxes,
+  setTextBoxes,
   previewFidelity,
   setPreviewFidelity,
   paid,
   onPremiumPreview,
 }: AdvancedPanelProps) {
   const activePreset = resolveRenderPreset(renderOptions, selectedStyle);
+  const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
   const applyCustomRenderOptions = (next: Partial<RenderOptions>) => {
     setRenderOptions({ ...next, mapLookTier: "custom" });
   };
@@ -111,6 +117,37 @@ export function AdvancedPanel({
               {preset.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-white/10 bg-white/5 p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-[11px] font-semibold text-neutral-100">Typography & ring</label>
+          {activeTier !== "custom" ? (
+            <button
+              type="button"
+              onClick={() => setTextBoxes(applyTierTypography(activeTier, selectedStyle, textBoxes))}
+              className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold text-white transition hover:border-amber-400/40"
+            >
+              Reset to tier
+            </button>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-neutral-200">Technical ring (date/location arc)</span>
+          <button
+            type="button"
+            onClick={() =>
+              applyCustomRenderOptions({ showTechnicalRing: !renderOptions.showTechnicalRing })
+            }
+            className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+              renderOptions.showTechnicalRing
+                ? "!text-midnight border-amber-300 bg-amber-100"
+                : "border-white/15 bg-white/10 text-white"
+            }`}
+          >
+            {renderOptions.showTechnicalRing ? "On" : "Off"}
+          </button>
         </div>
       </div>
 

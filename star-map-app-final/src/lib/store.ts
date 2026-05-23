@@ -53,7 +53,7 @@ export interface LocationState {
 
 export type VisualMode = "astronomical" | "enhanced" | "illustrated";
 export type ConstellationLines = "off" | "thin" | "thick";
-export type { MapLookTier } from "./mapLookTiers";
+export type { MapLookTier, ExportMatPurpose } from "./mapLookTiers";
 
 export interface RenderOptions {
   /** Product tier: minimal (flat/clean), polished (signature look), or custom knobs. */
