@@ -18,7 +18,7 @@ import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale, mapLookTiers } from "@/lib/config";
-import { applyMapLookTier, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
+import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -2260,7 +2260,9 @@ export function EditorExperience({
                                                   key={tier.id}
                                                   type="button"
                                                   onClick={() => {
-                                                    setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
+                                                    const tierOptions = applyMapLookTier(tier.id, selectedStyle);
+                                                    setRenderOptions(tierOptions);
+                                                    setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
                                                   }}
                                                   className={`rounded-md border px-2 py-2 text-left transition ${
                                                     activeTier === tier.id
@@ -2318,8 +2320,12 @@ export function EditorExperience({
                                                 if (Object.keys(mergedOptions).length) {
                                                   setRenderOptions(mergedOptions);
                                                 }
-                                                if (defaults.textBoxes !== textBoxes) {
-                                                  setTextBoxes(defaults.textBoxes);
+                                                const nextText =
+                                                  tier === "custom"
+                                                    ? defaults.textBoxes
+                                                    : applyTierTypography(tier, style.id, defaults.textBoxes);
+                                                if (nextText !== textBoxes) {
+                                                  setTextBoxes(nextText);
                                                 }
                                               }}
                                               className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${

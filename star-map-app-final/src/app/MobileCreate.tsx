@@ -11,7 +11,7 @@ import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
-import { applyMapLookTier, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
+import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
@@ -432,8 +432,12 @@ export function MobileCreate({
       if (Object.keys(mergedOptions).length) {
         setRenderOptions(mergedOptions);
       }
-      if (defaults.textBoxes !== textBoxes) {
-        setTextBoxes(defaults.textBoxes);
+      const nextText =
+        tier === "custom"
+          ? defaults.textBoxes
+          : applyTierTypography(tier, styleId, defaults.textBoxes);
+      if (nextText !== textBoxes) {
+        setTextBoxes(nextText);
       }
     },
     [renderOptions, selectedStyle, setRenderOptions, setStyle, setTextBoxes, textBoxes],
@@ -909,7 +913,10 @@ export function MobileCreate({
                     <button
                       key={tier.id}
                       type="button"
-                      onClick={() => setRenderOptions(applyMapLookTier(tier.id, selectedStyle))}
+                      onClick={() => {
+                        setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
+                        setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
+                      }}
                       className={`rounded-md border px-2 py-2 text-left transition ${
                         activeTier === tier.id
                           ? "!text-midnight border-amber-300 bg-amber-100"

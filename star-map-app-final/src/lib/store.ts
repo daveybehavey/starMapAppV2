@@ -34,6 +34,7 @@ export interface TextBox {
     | "abrilFatface";
   color: string;
   size: number;
+  fontWeight?: number;
   align: TextAlign;
   textShadow?: boolean;
   textGlow?: boolean;
@@ -74,6 +75,10 @@ export interface RenderOptions {
   backgroundColor?: string;
   constellationColor?: string;
   constellationLineScale?: number;
+  /** Skip outer mat fill on export/preview — sky clip only (minimal tier). */
+  transparentBackground?: boolean;
+  /** Subtle degree ring overlay (polished tier accent). */
+  showTechnicalRing?: boolean;
 }
 
 export interface EditorState {

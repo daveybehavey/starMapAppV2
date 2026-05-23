@@ -1,5 +1,5 @@
 import { getRenderPresetOptions, resolveRenderPreset, type RenderPresetId } from "@/lib/renderPresets";
-import type { RenderOptions, StyleId } from "@/lib/store";
+import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
 
 export type MapLookTier = "minimal" | "polished" | "custom";
 
@@ -30,13 +30,287 @@ const TIER_TO_PRESET: Record<Exclude<MapLookTier, "custom">, RenderPresetId> = {
   polished: "signature",
 };
 
+type KnownTextBoxId = "title" | "subtitle" | "dedication";
+
+/** Bundled title/subtitle/date typography per tier and style. */
+const TIER_TYPOGRAPHY: Record<
+  Exclude<MapLookTier, "custom">,
+  Partial<Record<StyleId, Partial<Record<KnownTextBoxId, Partial<TextBox>>>>>
+> = {
+  minimal: {
+    navyGold: {
+      title: {
+        fontFamily: "bebasNeue",
+        size: 54,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.105 },
+        textGlow: false,
+        textShadow: false,
+        color: "#e4dcc8",
+      },
+      subtitle: {
+        fontFamily: "montserrat",
+        size: 18,
+        fontWeight: 500,
+        position: { x: 0.5, y: 0.158 },
+        textGlow: false,
+        color: "#a89878",
+      },
+      dedication: {
+        fontFamily: "montserrat",
+        size: 15,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.915 },
+        color: "#8a7a62",
+      },
+    },
+    midnightMinimal: {
+      title: {
+        fontFamily: "montserrat",
+        size: 42,
+        fontWeight: 600,
+        position: { x: 0.5, y: 0.1 },
+        textGlow: false,
+        color: "#eef2ff",
+      },
+      subtitle: {
+        fontFamily: "raleway",
+        size: 16,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.152 },
+        color: "#9fb3d2",
+      },
+      dedication: {
+        fontFamily: "raleway",
+        size: 14,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.92 },
+        color: "#7a8ea8",
+      },
+    },
+    vintageEngraving: {
+      title: {
+        fontFamily: "ebGaramond",
+        size: 44,
+        fontWeight: 500,
+        position: { x: 0.5, y: 0.105 },
+        textGlow: false,
+        color: "#e8e2d8",
+      },
+      subtitle: {
+        fontFamily: "crimsonText",
+        size: 18,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.158 },
+        color: "#b8b0a4",
+      },
+      dedication: {
+        fontFamily: "crimsonText",
+        size: 15,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.915 },
+        color: "#9a9288",
+      },
+    },
+    parchmentScroll: {
+      title: {
+        fontFamily: "libreBaskerville",
+        size: 40,
+        fontWeight: 700,
+        position: { x: 0.5, y: 0.1 },
+        textGlow: false,
+        color: "#3f2f1f",
+      },
+      subtitle: {
+        fontFamily: "lora",
+        size: 17,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.152 },
+        color: "#5a4a38",
+      },
+      dedication: {
+        fontFamily: "lora",
+        size: 14,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.92 },
+        color: "#6a5a48",
+      },
+    },
+  },
+  polished: {
+    navyGold: {
+      title: {
+        fontFamily: "cinzel",
+        size: 52,
+        fontWeight: 600,
+        position: { x: 0.5, y: 0.12 },
+        textGlow: true,
+        textShadow: false,
+        color: "#d7b56c",
+      },
+      subtitle: {
+        fontFamily: "cormorant",
+        size: 30,
+        fontWeight: 500,
+        position: { x: 0.5, y: 0.185 },
+        textGlow: false,
+        color: "#c8a662",
+      },
+      dedication: {
+        fontFamily: "script",
+        size: 26,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.9 },
+        color: "#b98a3d",
+      },
+    },
+    midnightMinimal: {
+      title: {
+        fontFamily: "montserrat",
+        size: 46,
+        fontWeight: 600,
+        position: { x: 0.5, y: 0.115 },
+        textGlow: false,
+        color: "#e0e0e0",
+      },
+      subtitle: {
+        fontFamily: "raleway",
+        size: 22,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.175 },
+        color: "#9fb3d2",
+      },
+      dedication: {
+        fontFamily: "script",
+        size: 20,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.905 },
+        color: "#7a8ea8",
+      },
+    },
+    vintageEngraving: {
+      title: {
+        fontFamily: "ebGaramond",
+        size: 48,
+        fontWeight: 600,
+        position: { x: 0.5, y: 0.12 },
+        textGlow: false,
+        color: "#d6d0c4",
+      },
+      subtitle: {
+        fontFamily: "crimsonText",
+        size: 26,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.185 },
+        color: "#b8b0a4",
+      },
+      dedication: {
+        fontFamily: "dancingScript",
+        size: 24,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.9 },
+        color: "#a89888",
+      },
+    },
+    parchmentScroll: {
+      title: {
+        fontFamily: "libreBaskerville",
+        size: 44,
+        fontWeight: 700,
+        position: { x: 0.5, y: 0.115 },
+        textGlow: false,
+        color: "#3f2f1f",
+      },
+      subtitle: {
+        fontFamily: "lora",
+        size: 24,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.178 },
+        color: "#5a4a38",
+      },
+      dedication: {
+        fontFamily: "parisienne",
+        size: 22,
+        fontWeight: 400,
+        position: { x: 0.5, y: 0.905 },
+        color: "#6a5a48",
+      },
+    },
+  },
+};
+
+export type StarDensityTuning = {
+  /** Multiplier on bright-star radius (mag ≤ 2.3). */
+  brightSizeBoost: number;
+  /** Multiplier on bright-star alpha. */
+  brightAlphaBoost: number;
+  /** Scale minimal-drop probabilities (lower = denser field). */
+  minimalDropScale: number;
+  /** Adjust faint-star visibility cutoff. */
+  visibilityCutoffDelta: number;
+};
+
+export function getStarDensityTuning(tier: MapLookTier): StarDensityTuning {
+  switch (tier) {
+    case "minimal":
+      return {
+        brightSizeBoost: 1.14,
+        brightAlphaBoost: 1.18,
+        minimalDropScale: 0.5,
+        visibilityCutoffDelta: -0.025,
+      };
+    case "polished":
+      return {
+        brightSizeBoost: 1.04,
+        brightAlphaBoost: 1.06,
+        minimalDropScale: 0.85,
+        visibilityCutoffDelta: 0,
+      };
+    default:
+      return {
+        brightSizeBoost: 1,
+        brightAlphaBoost: 1,
+        minimalDropScale: 1,
+        visibilityCutoffDelta: 0,
+      };
+  }
+};
+
+export function applyTierTypography(
+  tier: MapLookTier,
+  styleId: StyleId,
+  textBoxes: TextBox[],
+): TextBox[] {
+  if (tier === "custom") return textBoxes;
+  const preset = TIER_TYPOGRAPHY[tier]?.[styleId];
+  if (!preset) return textBoxes;
+  return textBoxes.map((box) => {
+    const patch = preset[box.id as KnownTextBoxId];
+    if (!patch) return box;
+    return { ...box, ...patch };
+  });
+}
+
 export function applyMapLookTier(tier: MapLookTier, styleId: StyleId): Partial<RenderOptions> {
   if (tier === "custom") {
-    return { mapLookTier: "custom" };
+    return { mapLookTier: "custom", transparentBackground: false };
   }
+  const preset = getRenderPresetOptions(TIER_TO_PRESET[tier], styleId);
+  const tierOverrides: Partial<RenderOptions> =
+    tier === "minimal"
+      ? {
+          transparentBackground: true,
+          frameEnabled: false,
+          showTechnicalRing: false,
+        }
+      : {
+          transparentBackground: false,
+          showTechnicalRing: styleId === "navyGold" || styleId === "vintageEngraving",
+        };
   return {
     mapLookTier: tier,
-    ...getRenderPresetOptions(TIER_TO_PRESET[tier], styleId),
+    ...preset,
+    ...tierOverrides,
   };
 }
 
