@@ -92,7 +92,17 @@ PRINT_ORDER_SUBMISSION_ENABLED = "true"
 PRINTFUL_STORE_ID = "17779767"
 PRINTFUL_VARIANT_ID_POSTER_UNFRAMED = "6242"
 PRINTFUL_VARIANT_ID_POSTER_FRAMED = "4654"
+<<<<<<< Updated upstream
 PRINTFUL_VARIANT_ID_CARD_4X6 = "14457"
+=======
+# Pilot SKUs (hidden from paywall until QA); Stripe Price IDs optional — checkout falls back to price_data
+PRINTFUL_VARIANT_ID_CARD_4X6 = "14457"
+PRINT_CARD_4X6_PRICE_CENTS = "1900"
+PRINT_CARD_4X6_LABEL = "Greeting card (4×6)"
+NEXT_PUBLIC_PRINT_CARD_4X6_PRICE_CENTS = "1900"
+NEXT_PUBLIC_PRINT_CARD_4X6_LABEL = "Greeting card (4×6)"
+PRINT_COGS_CARD_4X6_CENTS = "450"
+>>>>>>> Stashed changes
 PRINTFUL_AUTO_CONFIRM = "false"
 # Greeting card SKU (set STRIPE_PRICE_ID_PRINT_CARD_4X6 in dashboard when Stripe product exists)
 PRINT_CARD_4X6_PRICE_CENTS = "1900"

@@ -1,21 +1,34 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isPrintVariant, parsePrintVariant, PRINT_VARIANT_IDS } from "./printCatalogVariant.mjs";
+import {
+  PAYWALL_LIVE_PRINT_VARIANTS,
+  PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS,
+  isPrintVariant,
+  parsePrintVariant,
+} from "../../src/lib/printCatalog.mjs";
 
-test("parsePrintVariant accepts every catalog SKU", () => {
-  for (const id of PRINT_VARIANT_IDS) {
-    assert.equal(parsePrintVariant(id), id);
-    assert.equal(isPrintVariant(id), true);
-  }
-});
-
-test("parsePrintVariant does not coerce card_4x6 to poster_framed", () => {
+test("parsePrintVariant preserves card_4x6 for checkout metadata", () => {
   assert.equal(parsePrintVariant("card_4x6"), "card_4x6");
+  assert.equal(parsePrintVariant("card_4x6", "poster_framed"), "card_4x6");
   assert.notEqual(parsePrintVariant("card_4x6"), "poster_framed");
 });
 
-test("parsePrintVariant falls back for unknown values", () => {
-  assert.equal(parsePrintVariant("greeting_card"), "poster_framed");
+test("parsePrintVariant does not map unknown SKUs to framed poster", () => {
+  assert.equal(parsePrintVariant("not_a_sku"), "poster_framed");
   assert.equal(parsePrintVariant(null, "poster_unframed"), "poster_unframed");
-  assert.equal(isPrintVariant("poster_framed_extra"), false);
+});
+
+test("isPrintVariant accepts all catalog ids", () => {
+  for (const id of ["poster_framed", "poster_unframed", "canvas_wrap", "mug_11oz", "card_4x6"]) {
+    assert.equal(isPrintVariant(id), true);
+  }
+  assert.equal(isPrintVariant("poster"), false);
+});
+
+test("paywall checkout rows hide pilot SKUs until QA", () => {
+  const pilot = ["canvas_wrap", "mug_11oz", "card_4x6"];
+  for (const variant of pilot) {
+    assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes(variant), false);
+  }
+  assert.deepEqual(PAYWALL_LIVE_PRINT_VARIANTS, ["poster_framed", "poster_unframed"]);
 });

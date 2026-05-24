@@ -1,5 +1,5 @@
 import type { PrintVariant } from "@/lib/printCatalog";
-import { PAYWALL_PRINT_VARIANT_ORDER } from "@/lib/printCatalog";
+import { PAYWALL_LIVE_PRINT_VARIANTS } from "@/lib/printCatalog";
 import { PRINT_PROOF_IMAGE_PATHS } from "@/lib/printProofImagePaths";
 
 export type DownloadPrintUpsellCardDefinition = {
@@ -75,7 +75,7 @@ function proofAssets(variant: PrintVariant) {
 }
 
 export function listDownloadPrintUpsellCards(): DownloadPrintUpsellCardDefinition[] {
-  return PAYWALL_PRINT_VARIANT_ORDER.map((variant) => {
+  return PAYWALL_LIVE_PRINT_VARIANTS.map((variant) => {
     const imgs = proofAssets(variant);
     return {
       variant,

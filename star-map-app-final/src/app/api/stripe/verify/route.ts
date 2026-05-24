@@ -4,6 +4,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { isPrintVariant } from "@/lib/printCatalog";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { isPrintVariant } from "@/lib/printCatalog";
 
