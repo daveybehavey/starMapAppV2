@@ -2,6 +2,8 @@
 
 Use this before merging or deploying map-tier / renderSky changes. **Do not deploy** until all gates pass and manual spot checks look good.
 
+**Clone note:** `C:\Code\starMapAppV2` — map-tier feature branch + Playwright snapshots; `C:\Users\david\dev\starMapAppV2` — production deploys, company-os agents, and main-line merges.
+
 ## Pre-merge commands
 
 From `star-map-app-final`:
@@ -15,7 +17,7 @@ npm run build
 ### Map-focused tests
 
 ```powershell
-npx playwright test tests/map-look-tiers.spec.ts tests/render-sky-utils.spec.ts tests/map-tier-editor.spec.ts --workers=1
+npx playwright test tests/map-look-tiers.spec.ts tests/map-tier-editor.spec.ts tests/map-tier-visual.snap.spec.ts --workers=1
 npm run qa:smoke:render
 ```
 
@@ -32,19 +34,19 @@ Run live-critical only when validating a deployed preview URL (not required for 
 
 ## Visual / snapshot updates
 
-This repo does **not** use committed Playwright image snapshots for map tiers. Visual checks are:
+Committed Playwright image snapshots live in `tests/map-tier-visual.snap.spec.ts-snapshots/` (Windows: `*-win32.png`). Additional checks:
 
 1. `tests/map-tier-editor.spec.ts` — screenshot byte-size stability on tier re-select
 2. `tests/premium-rendering.spec.ts` — saves `test-results/star-map-preview.png` for manual review
 3. Manual PNG inspect: Minimal tier free export should show transparency outside the map shape
 
-If you add formal snapshot baselines later, update with:
+Update baselines after intentional tier/style changes:
 
 ```powershell
-npx playwright test tests/<spec>.ts --update-snapshots
+npx playwright test tests/map-tier-visual.snap.spec.ts --update-snapshots
 ```
 
-Commit only intentional visual diffs; note style/tier intent in the PR.
+Commit only intentional visual diffs; note style/tier intent in the PR. Current baselines: `navyGold-minimal`, `navyGold-polished`, `midnightMinimal-minimal`.
 
 ## Manual editor verification
 

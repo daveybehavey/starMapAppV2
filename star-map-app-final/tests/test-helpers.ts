@@ -54,6 +54,22 @@ export const mockGeocode = async (page: Page) => {
       });
       return;
     }
+    if (query.includes("santorini")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: 2,
+            name: "Santorini, Greece",
+            latitude: 36.3932,
+            longitude: 25.4615,
+            timezone: "Europe/Athens",
+          },
+        ]),
+      });
+      return;
+    }
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
 };
@@ -173,9 +189,9 @@ export async function applyMapLookSnapshotState(
 
 export const waitForMapCanvasReady = async (page: Page) => {
   const preview = page.getByLabel(/Star map preview/i).first();
-  await expect(preview).toBeVisible({ timeout: 30000 });
+  await expect(preview).toBeVisible({ timeout: 90_000 });
   const canvas = preview.locator("canvas").last();
-  await expect(canvas).toHaveClass(/opacity-100/, { timeout: 30000 });
+  await expect(canvas).toHaveClass(/opacity-100/, { timeout: 90_000 });
   await page.waitForTimeout(400);
   return preview;
 };

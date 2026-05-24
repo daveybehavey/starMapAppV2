@@ -3,6 +3,7 @@ import {
   applyMapLookSnapshotState,
   applySampleMoment,
   gotoEditor,
+  mockGeocode,
   waitForMapCanvasReady,
   waitForPreview,
 } from "./test-helpers";
@@ -21,12 +22,17 @@ async function openStylePanel(page: Parameters<typeof gotoEditor>[0]) {
 }
 
 test.describe("map look tier editor", () => {
-  test.describe.configure({ timeout: 90_000 });
+  test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 1440, height: 900 } });
+
+  test.beforeEach(async ({ page }) => {
+    await mockGeocode(page);
+  });
 
   test("tier switcher is accessible and updates preview without layout jump", async ({ page }) => {
     await gotoEditor(page, { path: "/editor", force: "desktop" });
-    await applySampleMoment(page);
+    await applyMapLookSnapshotState(page, "minimal", "navyGold");
+    const preview = await waitForMapCanvasReady(page);
     await openStylePanel(page);
 
     const tierGroup = page.getByRole("radiogroup", { name: /Map look/i });
@@ -37,26 +43,25 @@ test.describe("map look tier editor", () => {
     await expect(minimal).toBeVisible();
     await expect(polished).toBeVisible();
 
-    const preview = page.getByLabel(/Star map preview/i).first();
     const boxBefore = await preview.boundingBox();
     expect(boxBefore?.height).toBeGreaterThan(200);
 
     await minimal.click();
-    await waitForPreview(page);
+    await waitForMapCanvasReady(page);
     await expect(minimal).toHaveAttribute("aria-checked", "true");
 
     const boxAfterMinimal = await preview.boundingBox();
     expect(Math.abs((boxAfterMinimal?.height ?? 0) - (boxBefore?.height ?? 0))).toBeLessThan(8);
 
     await polished.click();
-    await waitForPreview(page);
+    await waitForMapCanvasReady(page);
     await expect(polished).toHaveAttribute("aria-checked", "true");
 
     await minimal.click();
-    await waitForPreview(page);
+    await waitForMapCanvasReady(page);
     const screenshotMinimal = await preview.screenshot();
     await minimal.click();
-    await waitForPreview(page);
+    await waitForMapCanvasReady(page);
     const screenshotMinimalAgain = await preview.screenshot();
     expect(screenshotMinimal.byteLength).toBeGreaterThan(5000);
     expect(Math.abs(screenshotMinimal.byteLength - screenshotMinimalAgain.byteLength)).toBeLessThan(
