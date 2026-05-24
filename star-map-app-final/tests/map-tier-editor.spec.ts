@@ -1,5 +1,24 @@
 import { expect, test } from "@playwright/test";
-import { applySampleMoment, gotoEditor, waitForPreview } from "./test-helpers";
+import {
+  applyMapLookSnapshotState,
+  applySampleMoment,
+  gotoEditor,
+  waitForMapCanvasReady,
+  waitForPreview,
+} from "./test-helpers";
+
+async function openStylePanel(page: Parameters<typeof gotoEditor>[0]) {
+  const customizeMore = page.getByRole("button", { name: /Customize more/i }).first();
+  if (await customizeMore.isVisible().catch(() => false)) {
+    await customizeMore.click();
+  }
+
+  const styleToggle = page.getByRole("button", { name: /Style/i }).first();
+  await expect(styleToggle).toBeVisible({ timeout: 15_000 });
+  if ((await styleToggle.getAttribute("aria-expanded")) === "false") {
+    await styleToggle.click();
+  }
+}
 
 test.describe("map look tier editor", () => {
   test.describe.configure({ timeout: 90_000 });
@@ -8,16 +27,7 @@ test.describe("map look tier editor", () => {
   test("tier switcher is accessible and updates preview without layout jump", async ({ page }) => {
     await gotoEditor(page, { path: "/editor", force: "desktop" });
     await applySampleMoment(page);
-
-    const customizeMore = page.getByRole("button", { name: /Customize more/i }).first();
-    if (await customizeMore.isVisible().catch(() => false)) {
-      await customizeMore.click();
-    }
-
-    const styleSection = page.getByRole("button", { name: /^Style$/i }).first();
-    if (await styleSection.isVisible().catch(() => false)) {
-      await styleSection.click();
-    }
+    await openStylePanel(page);
 
     const tierGroup = page.getByRole("radiogroup", { name: /Map look/i });
     await expect(tierGroup).toBeVisible({ timeout: 15_000 });
@@ -42,6 +52,8 @@ test.describe("map look tier editor", () => {
     await waitForPreview(page);
     await expect(polished).toHaveAttribute("aria-checked", "true");
 
+    await minimal.click();
+    await waitForPreview(page);
     const screenshotMinimal = await preview.screenshot();
     await minimal.click();
     await waitForPreview(page);
@@ -55,18 +67,24 @@ test.describe("map look tier editor", () => {
   test("reset typography button appears for preset tiers", async ({ page }) => {
     await gotoEditor(page, { path: "/editor", force: "desktop" });
     await applySampleMoment(page);
-
-    const customizeMore = page.getByRole("button", { name: /Customize more/i }).first();
-    if (await customizeMore.isVisible().catch(() => false)) {
-      await customizeMore.click();
-    }
-
-    const styleSection = page.getByRole("button", { name: /^Style$/i }).first();
-    if (await styleSection.isVisible().catch(() => false)) {
-      await styleSection.click();
-    }
+    await openStylePanel(page);
 
     await page.getByRole("radio", { name: /Polished:/i }).click();
     await expect(page.getByRole("button", { name: /Reset typography/i })).toBeVisible();
+  });
+
+  test("store-driven tier changes keep preview stable", async ({ page }) => {
+    await gotoEditor(page, { path: "/editor", force: "desktop" });
+    await applyMapLookSnapshotState(page, "minimal", "navyGold");
+    const preview = await waitForMapCanvasReady(page);
+    const minimalShot = await preview.screenshot();
+
+    await applyMapLookSnapshotState(page, "polished", "navyGold");
+    await waitForMapCanvasReady(page);
+    const polishedShot = await preview.screenshot();
+
+    expect(minimalShot.byteLength).toBeGreaterThan(5000);
+    expect(polishedShot.byteLength).toBeGreaterThan(5000);
+    expect(Math.abs(minimalShot.byteLength - polishedShot.byteLength)).toBeGreaterThan(1000);
   });
 });
