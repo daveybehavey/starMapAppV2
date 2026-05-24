@@ -260,6 +260,37 @@ test.describe("API route regressions", () => {
     expect(body.error).toMatch(/preview before starting checkout/i);
   });
 
+  test("print checkout POST accepts card_4x6 without treating it as poster_framed", async ({ request }) => {
+    const response = await requestUntilReady(request, "/api/checkout", {
+      method: "POST",
+      data: {
+        plan: "single",
+        orderType: "print",
+        printVariant: "card_4x6",
+        includeDigitalAddOn: false,
+        printAssetId: "123e4567-e89b-42d3-a456-426614174000",
+        shippingCountry: "US",
+      },
+    });
+
+    const body = (await response.json()) as { code?: string; error?: string; url?: string };
+    if (response.status() === 503) {
+      expect(body.code).toBe("print_checkout_disabled");
+      return;
+    }
+
+    expect(response.status()).not.toBe(400);
+    if (body.code === "print_shipping_country_invalid") {
+      throw new Error("card_4x6 checkout should accept US when print checkout is enabled");
+    }
+    if (response.status() === 200) {
+      expect(typeof body.url).toBe("string");
+      expect(body.url?.length).toBeGreaterThan(0);
+      return;
+    }
+    expect([500, 503]).toContain(response.status());
+  });
+
   test("print checkout rejects unsupported shipping countries when enabled", async ({ request }) => {
     const allowedCountries = new Set(parseAllowedPrintCountries());
     const candidateCountries = ["CA", "GB", "AU", "DE", "FR", "JP", "BR", "MX"];

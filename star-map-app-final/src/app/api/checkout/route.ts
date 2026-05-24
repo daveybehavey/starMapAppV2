@@ -23,6 +23,7 @@ import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
+import { parsePrintVariant } from "@/lib/printCatalog";
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
@@ -179,10 +180,6 @@ function getPrintShippingOptionsForCountry(
 
 function parseOrderType(raw: unknown): CheckoutOrderType {
   return raw === "print" ? "print" : "digital";
-}
-
-function parsePrintVariant(raw: unknown): PrintVariant {
-  return raw === "poster_unframed" ? "poster_unframed" : "poster_framed";
 }
 
 function parseBoolean(raw: unknown, fallback = false) {
@@ -530,7 +527,7 @@ function checkoutIdempotencyKey(input: {
   if (!mapId) return null;
   const plan = input.plan;
   const orderType = input.orderType;
-  const printVariant = input.printVariant === "poster_unframed" ? "poster_unframed" : "poster_framed";
+  const printVariant = parsePrintVariant(input.printVariant);
   const includeDigitalAddOn = input.includeDigitalAddOn ? "1" : "0";
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);

@@ -31,6 +31,7 @@ import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
 } from "@/lib/entitlementsStore";
+import { isPrintVariant } from "@/lib/printCatalog";
 
 export const runtime = "nodejs";
 
@@ -157,9 +158,8 @@ function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
 }
 
 function getPrintVariant(session: Stripe.Checkout.Session): PrintVariant | undefined {
-  if (session.metadata?.print_variant === "poster_framed") return "poster_framed";
-  if (session.metadata?.print_variant === "poster_unframed") return "poster_unframed";
-  return undefined;
+  const raw = session.metadata?.print_variant;
+  return isPrintVariant(raw) ? raw : undefined;
 }
 
 function includesDigitalAddOn(session: Stripe.Checkout.Session): boolean {
