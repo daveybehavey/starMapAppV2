@@ -26,8 +26,13 @@ export default function PrivacyPage() {
           <p>
             This Privacy Policy explains how StarMapCo ("we," "us," or "our") collects, uses, discloses, and protects
             information when you visit our website (starmapco.com) or use our custom star map generator service (digital
-            product with optional premium unlock via payment). We collect minimal personal data. No user accounts or
-            logins exist; premium unlocks store locally in your browser.
+            product with optional premium unlock via payment). We collect minimal personal data. There are no traditional
+            accounts or passwords—checkout does not require signup. After purchase, you may use{" "}
+            <a className="font-semibold text-midnight underline" href="/my-downloads">
+              My Downloads
+            </a>{" "}
+            with a one-time magic link sent to your checkout email (optional account-lite browser session, about 30 days).
+            Editor drafts and premium unlock status may also store locally in your browser.
           </p>
 
           <section className="space-y-3">
@@ -50,13 +55,19 @@ export default function PrivacyPage() {
                 store or access full payment data—Stripe handles it securely under their privacy policy.
               </li>
               <li>
-                <strong>Voluntary Email Submissions:</strong> If you submit your email for a discount or updates, we store
+                <strong>Voluntary Email Submissions:</strong> If you submit your email for updates or promotions, we store
                 your email address and send a welcome email plus occasional follow-ups (e.g., printing tips). You can
                 unsubscribe at any time.
               </li>
               <li>
-                <strong>Local Browser Storage:</strong> Draft inputs (localStorage) and premium unlock status (cookie for
-                functionality, e.g., auto-save previews). Stored only on your device; not transmitted to us.
+                <strong>Post-Purchase Access (account-lite):</strong> When you pay, we associate your checkout email with
+                purchase records so you can open My Downloads via magic link or recovery email. We use hashed identifiers in
+                some server records; session cookies for the hub expire automatically. We do not require a password.
+              </li>
+              <li>
+                <strong>Local Browser Storage:</strong> Draft inputs (localStorage) and premium unlock status (cookies for
+                functionality, e.g., auto-save previews and download access). Stored on your device; only transmitted when
+                needed for checkout or download.
               </li>
               <li>
                 <strong>Cookies:</strong> Essential cookies for site function (e.g., premium status, cookie consent
@@ -104,7 +115,10 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-semibold text-midnight">4. Data Storage and Security</h2>
             <ul className="list-disc space-y-2 pl-5">
               <li>Data processed at the edge (Cloudflare Workers) with TLS encryption.</li>
-              <li>No central user database; minimal/no PII stored server-side.</li>
+              <li>
+                Purchase and access records (email-linked sessions, magic-link tokens) are stored in edge KV with TTLs;
+                we do not operate a traditional profile database with passwords.
+              </li>
               <li>LocalStorage/cookies are device-specific.</li>
               <li>Retention: Analytics anonymized/retained as needed for improvement (up to 12 months); payment records per legal requirements.</li>
             </ul>
