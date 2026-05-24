@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -8,7 +7,6 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
-import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
@@ -114,26 +112,6 @@ export default function WeddingPage() {
         </ul>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Make yours in minutes</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>Enter your wedding location (city or venue)</li>
-          <li>Select the wedding date (and time if you want to be exact)</li>
-          <li>Choose a style and add your names or vows</li>
-          <li>Reveal the sky, then choose framed print, unframed print, or HD digital delivery at checkout</li>
-        </ol>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          You can share a preview for free. Once the layout feels right, take the framed route, the unframed route, or instant HD delivery from the same design.
-        </p>
-        <div className="pt-2">
-          <Link
-            href="/editor?mode=quick&source=wedding-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start with framed print preview
-          </Link>
-        </div>
-      </section>
       <AccuracyAuthorityCard source="wedding-accuracy-card" />
 
       <DeliveryFormatModule
@@ -171,23 +149,6 @@ export default function WeddingPage() {
         </div>
       </section>
 
-      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">What makes it special</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Every map uses the same rendering engine for preview and HD export, so what you see is exactly what you receive.
-          You can toggle constellations, glow, labels, and choose fonts to match your wedding aesthetic. The same approved
-          design can stay digital, go unframed, or arrive framed without rebuilding the map.
-        </p>
-        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
-          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
-            Anniversary star maps
-          </Link>
-          <Link href="/birthday" className="text-amber-700 underline hover:text-amber-800">
-            Birthday star maps
-          </Link>
-        </div>
-      </section>
-
       <PurchaseTrustPanel
         heading="Before you buy"
         intro="Preview for free first. Most wedding buyers take the framed route once the layout and wording feel final, while unframed and HD stay available from the same design."
@@ -210,10 +171,6 @@ export default function WeddingPage() {
       <WhatYouReceiveModule
         heading="What your wedding order includes"
         intro="This is the exact handoff from your final preview to a frame-ready HD file."
-      />
-      <RevenueTrustModule
-        heading="Wedding keepsake confidence"
-        intro="Couples usually decide faster when size, frame plan, and final text checks are already settled. Use this block before checkout."
       />
       <TestimonialHighlights
         heading="Verified wedding buyer feedback"

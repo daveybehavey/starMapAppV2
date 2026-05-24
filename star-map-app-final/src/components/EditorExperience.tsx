@@ -278,11 +278,13 @@ export function EditorExperience({
   );
 
   const hdCreditLabel =
-    currentPlan === "subscription"
-      ? "Unlimited HD"
-      : typeof creditsRemaining === "number"
-        ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
-        : null;
+    !paid
+      ? null
+      : currentPlan === "subscription"
+        ? "Unlimited HD"
+        : typeof creditsRemaining === "number" && creditsRemaining > 0
+          ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
+          : null;
 
   useEffect(() => {
     setMounted(true);
@@ -551,7 +553,9 @@ export function EditorExperience({
       };
       const nextPaid = Boolean(data.paid);
       setPaid(nextPaid);
-      setCreditsRemaining(typeof data.creditsRemaining === "number" ? data.creditsRemaining : null);
+      setCreditsRemaining(
+        nextPaid && typeof data.creditsRemaining === "number" ? data.creditsRemaining : null,
+      );
       setCurrentPlan(
         data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null
       );
@@ -2801,13 +2805,13 @@ export function EditorExperience({
                             </button>
                           )}
                         </div>
-                        {(currentPlan === "subscription" || typeof creditsRemaining === "number") && (
+                        {paid &&
+                          (currentPlan === "subscription" ||
+                            (typeof creditsRemaining === "number" && creditsRemaining > 0)) && (
                           <p className="mt-2 text-[11px] text-neutral-300">
                             {currentPlan === "subscription"
                               ? "Unlimited HD exports on your active subscription."
-                              : typeof creditsRemaining === "number"
-                                ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
-                                : "HD export credits available."}
+                              : `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`}
                           </p>
                         )}
                         {currentPlan !== "subscription" && (

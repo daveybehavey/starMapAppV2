@@ -164,11 +164,13 @@ export function MobileCreate({
         ? "Add your place to unlock preview."
         : "Presets optional.";
   const hdCreditLabel =
-    currentPlan === "subscription"
-      ? "Unlimited HD"
-      : typeof creditsRemaining === "number"
-        ? `${creditsRemaining} HD left`
-        : null;
+    !paid
+      ? null
+      : currentPlan === "subscription"
+        ? "Unlimited HD"
+        : typeof creditsRemaining === "number" && creditsRemaining > 0
+          ? `${creditsRemaining} HD left`
+          : null;
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
