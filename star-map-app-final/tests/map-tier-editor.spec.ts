@@ -5,7 +5,6 @@ import {
   gotoEditor,
   mockGeocode,
   waitForMapCanvasReady,
-  waitForPreview,
 } from "./test-helpers";
 
 async function openStylePanel(page: Parameters<typeof gotoEditor>[0]) {
