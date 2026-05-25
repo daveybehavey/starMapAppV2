@@ -204,6 +204,12 @@ export function getMerchPublicDisplayPriceCents(family: MerchFamily): number {
   return family.priceFallbackCents;
 }
 
+/** Shop anchor when the merch-beta section is rendered; null when merch UI is off. */
+export function getMerchShopSectionHref(): string | null {
+  if (!listMerchFamiliesEnabledForPublicUi().length) return null;
+  return "/shop#merch-beta";
+}
+
 /** First enabled family for lightweight CTAs (download/success). Returns null if merch UI is off. */
 export function getDefaultMerchEditorHref(source: string): string | null {
   const families = listMerchFamiliesEnabledForPublicUi();

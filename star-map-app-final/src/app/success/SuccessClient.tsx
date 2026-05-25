@@ -31,7 +31,7 @@ import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
-import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
+import { getDefaultMerchEditorHref, getMerchShopSectionHref } from "@/lib/merchCatalog";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -59,6 +59,7 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
 const merchSuccessEditorHref = getDefaultMerchEditorHref("success-merch-teaser");
+const merchSuccessShopHref = getMerchShopSectionHref();
 const referralFriendOfferLabel = getReferralFriendOfferLabel();
 const referralShareMessage = getReferralShareMessage();
 const referralRewardCredits = (() => {
@@ -1010,14 +1011,16 @@ export default function SuccessClient() {
                       >
                         Open editor with merch
                       </button>
-                      <Link
-                        href="/shop#merch-beta"
-                        prefetch={false}
-                        onClick={() => track("success_merch_teaser_clicked", { destination: "shop" })}
-                        className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-[11px] font-semibold text-white transition hover:border-white/50 hover:bg-white/10"
-                      >
-                        Browse shop merch
-                      </Link>
+                      {merchSuccessShopHref ? (
+                        <Link
+                          href={merchSuccessShopHref}
+                          prefetch={false}
+                          onClick={() => track("success_merch_teaser_clicked", { destination: "shop" })}
+                          className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-[11px] font-semibold text-white transition hover:border-white/50 hover:bg-white/10"
+                        >
+                          Browse shop merch
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}

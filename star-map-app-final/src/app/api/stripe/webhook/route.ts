@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { isPrintVariant } from "@/lib/printCatalog";
 import {
   normalizeReferralCode,
   referralKey,
@@ -31,6 +32,7 @@ import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
 } from "@/lib/entitlementsStore";
+import { isPrintVariant } from "@/lib/printCatalog";
 
 export const runtime = "nodejs";
 
@@ -157,9 +159,8 @@ function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
 }
 
 function getPrintVariant(session: Stripe.Checkout.Session): PrintVariant | undefined {
-  if (session.metadata?.print_variant === "poster_framed") return "poster_framed";
-  if (session.metadata?.print_variant === "poster_unframed") return "poster_unframed";
-  return undefined;
+  const raw = session.metadata?.print_variant;
+  return isPrintVariant(raw) ? raw : undefined;
 }
 
 function includesDigitalAddOn(session: Stripe.Checkout.Session): boolean {
