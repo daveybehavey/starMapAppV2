@@ -5,7 +5,7 @@ import {
   PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS,
   isPrintVariant,
   parsePrintVariant,
-} from "../../src/lib/printCatalog.mjs";
+} from "./printCatalog.harness.mjs";
 
 test("parsePrintVariant preserves card_4x6 for checkout metadata", () => {
   assert.equal(parsePrintVariant("card_4x6"), "card_4x6");
