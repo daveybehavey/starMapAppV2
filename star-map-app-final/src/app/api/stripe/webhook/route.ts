@@ -32,7 +32,6 @@ import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
 } from "@/lib/entitlementsStore";
-import { isPrintVariant } from "@/lib/printCatalog";
 
 export const runtime = "nodejs";
 
