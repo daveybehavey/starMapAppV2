@@ -707,6 +707,16 @@ export function EditorExperience({
     ) {
       setPaywallIntent("print");
     }
+    const fromPrintShop =
+      checkoutParam === "print" ||
+      Boolean(printVariantParam) ||
+      (sourceParam?.startsWith("shop-") && sourceParam.includes("framed")) ||
+      (sourceParam?.startsWith("shop-") && sourceParam.includes("unframed")) ||
+      sourceParam === "home-delivery-print-framed" ||
+      sourceParam === "home-delivery-print-unframed";
+    if (fromPrintShop) {
+      setAspectRatio("square");
+    }
 
     trackFunnelStep("preview_started", {
       source: sourceParam ?? "editor-direct",
@@ -730,6 +740,9 @@ export function EditorExperience({
     setLocation,
     setPrintShippingCountryValue,
     setRevealed,
+    setAspectRatio,
+    setPaywallIntent,
+    setPreferredPrintVariant,
   ]);
 
   useEffect(() => {
@@ -1115,6 +1128,19 @@ export function EditorExperience({
         orderType === "print" ? options?.printVariant : undefined,
         "poster_framed",
       );
+      const isPosterPrint =
+        orderType === "print" &&
+        (printVariant === "poster_framed" || printVariant === "poster_unframed");
+      if (isPosterPrint && aspectRatio !== "square") {
+        const proceed = window.confirm(
+          "Our framed (14×14) and poster (18×18) prints are square SKUs. Your map is not square — edges may crop in production. Continue anyway?",
+        );
+        if (!proceed) {
+          checkoutInFlightRef.current = false;
+          setCheckoutInFlight(false);
+          return;
+        }
+      }
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
       const recipeForCheckout = buildRecipeFromState({
         dateTime,

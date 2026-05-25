@@ -51,14 +51,40 @@ export default function HowToPrintStarMapPage() {
       <StickyCtaBar source="sticky-how-to-print-star-map" />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Recommended print sizes</h2>
+        <h2 className="text-xl font-semibold text-midnight">StarMapCo print SKUs (live today)</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          Choose a size that fits your space. These are the most popular sizes for star map prints:
+          Physical checkout uses square artwork matched to Printful variants. Use a square layout in the editor for the
+          best fit.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>8x10 or 11x14 for desks, shelves, and small frames</li>
-          <li>12x16 or 16x20 for standard wall frames</li>
-          <li>18x24 or 24x36 for statement pieces</li>
+          <li>
+            <strong>Framed print — 14×14 in</strong> (Enhanced Matte, black frame). Gift-ready; ships from Printful.
+          </li>
+          <li>
+            <strong>Unframed poster — 18×18 in</strong> (museum-grade poster). Frame locally or at a print shop.
+          </li>
+          <li>
+            <strong>HD digital — 6000×6000 PNG</strong> for DIY printing when you need a custom size or international
+            delivery without freight.
+          </li>
+        </ul>
+        <p className="text-sm text-neutral-700">
+          <Link href="/shop" className="font-semibold text-amber-800 underline hover:text-amber-950">
+            Browse the shop
+          </Link>{" "}
+          for current pricing and shipping disclosure.
+        </p>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-xl font-semibold text-midnight">Other DIY print sizes</h2>
+        <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+          With the HD digital file you can print at common frame sizes:
+        </p>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
+          <li>8×10 or 11×14 for desks, shelves, and small frames</li>
+          <li>12×16 or 16×20 for standard wall frames</li>
+          <li>18×24 or 24×36 for statement pieces (crop or letterbox as needed)</li>
         </ul>
       </section>
 

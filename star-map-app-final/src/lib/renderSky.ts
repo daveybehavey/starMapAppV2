@@ -440,6 +440,7 @@ export function renderStarMap({
     shapeName,
     showFrame,
     recipe.renderOptions?.backgroundColor,
+    quality,
   );
   if (recipe.selectedStyle === "parchmentScroll") {
     drawPaperTexture(ctx, width, targetHeight, quality);
@@ -626,6 +627,7 @@ function drawBackground(
   shape?: Shape,
   showFrame = true,
   backgroundOverride?: string,
+  quality: RenderQuality = "preview",
 ) {
   const theme = STYLE_THEME[styleId];
   const resolvedBackground =
@@ -692,7 +694,10 @@ function drawBackground(
 
   // Rectangle border using theme accent color
   if (showFrame && (!shape || shape === "rectangle")) {
-    const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
+    const insetFactor = quality === "export" ? 0.04 : 0.03;
+    const insetMin = quality === "export" ? 12 : 8;
+    const insetMax = quality === "export" ? 24 : 16;
+    const inset = Math.max(insetMin, Math.min(insetMax, Math.floor(Math.min(width, height) * insetFactor)));
     ctx.strokeStyle = palette.accent;
     ctx.lineWidth = 3 * scale;
     ctx.globalAlpha = 0.8;
