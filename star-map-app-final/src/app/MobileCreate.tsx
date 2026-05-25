@@ -10,7 +10,8 @@ import EditorFontShell from "@/components/EditorFontShell";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
-import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
+import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
+import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
@@ -163,11 +164,13 @@ export function MobileCreate({
         ? "Add your place to unlock preview."
         : "Presets optional.";
   const hdCreditLabel =
-    currentPlan === "subscription"
-      ? "Unlimited HD"
-      : typeof creditsRemaining === "number"
-        ? `${creditsRemaining} HD left`
-        : null;
+    !paid
+      ? null
+      : currentPlan === "subscription"
+        ? "Unlimited HD"
+        : typeof creditsRemaining === "number" && creditsRemaining > 0
+          ? `${creditsRemaining} HD left`
+          : null;
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -423,15 +426,23 @@ export function MobileCreate({
   const handleStyleChange = useCallback(
     (styleId: typeof selectedStyle) => {
       setStyle(styleId);
+      const tier: MapLookTier =
+        renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
+      const tierOptions = tier === "custom" ? {} : applyMapLookTier(tier, styleId);
       const defaults = applyStyleDefaults(styleId, textBoxes);
-      if (Object.keys(defaults.renderOptions).length) {
-        setRenderOptions(defaults.renderOptions);
+      const mergedOptions = { ...defaults.renderOptions, ...tierOptions };
+      if (Object.keys(mergedOptions).length) {
+        setRenderOptions(mergedOptions);
       }
-      if (defaults.textBoxes !== textBoxes) {
-        setTextBoxes(defaults.textBoxes);
+      const nextText =
+        tier === "custom"
+          ? defaults.textBoxes
+          : applyTierTypography(tier, styleId, defaults.textBoxes);
+      if (nextText !== textBoxes) {
+        setTextBoxes(nextText);
       }
     },
-    [setRenderOptions, setStyle, setTextBoxes, textBoxes],
+    [renderOptions, selectedStyle, setRenderOptions, setStyle, setTextBoxes, textBoxes],
   );
 
   return (
@@ -896,6 +907,52 @@ export function MobileCreate({
 
             {/* Style */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 id="mobile-map-look-label" className="text-xs font-semibold text-white">
+                  Map look
+                </h3>
+                {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tier = resolveMapLookTier(renderOptions, selectedStyle);
+                      setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
+                    }}
+                    className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90"
+                  >
+                    Reset typography
+                  </button>
+                )}
+              </div>
+              <div
+                role="radiogroup"
+                aria-labelledby="mobile-map-look-label"
+                className="mb-3 grid grid-cols-3 gap-1.5"
+              >
+                {mapLookTiers.map((tier) => {
+                  const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+                  return (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={activeTier === tier.id}
+                      aria-label={`${tier.label}: ${tier.description}`}
+                      onClick={() => {
+                        setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
+                        setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
+                      }}
+                      className={`min-h-[2.75rem] rounded-md border px-2 py-2 text-left transition ${
+                        activeTier === tier.id
+                          ? "!text-midnight border-amber-300 bg-amber-100"
+                          : "border-white/15 bg-white/10 text-white"
+                      }`}
+                    >
+                      <div className="text-[11px] font-semibold">{tier.label}</div>
+                    </button>
+                  );
+                })}
+              </div>
               <h3 className="text-xs font-semibold text-white mb-2">Style</h3>
               <div className="grid grid-cols-2 gap-2">
                 {styles.map((style) => {

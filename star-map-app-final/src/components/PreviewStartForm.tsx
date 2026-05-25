@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
@@ -48,10 +48,19 @@ export default function PreviewStartForm({
   intentOptions,
 }: PreviewStartFormProps) {
   const resolvedSource = source?.trim() || "preview-start-form";
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     const formData = new FormData(event.currentTarget);
     const hasDate = String(formData.get("date") ?? "").trim().length > 0;
     const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
+
+    if (!hasDate || !hasLocation) {
+      event.preventDefault();
+      setValidationMessage("Enter date and location first.");
+      return;
+    }
+
+    setValidationMessage(null);
     const nativeSubmitEvent = event.nativeEvent as SubmitEvent | undefined;
     const submitter = nativeSubmitEvent?.submitter instanceof HTMLButtonElement ? nativeSubmitEvent.submitter : null;
     const selectedSource = submitter?.dataset.source?.trim() || resolvedSource;
@@ -106,6 +115,11 @@ export default function PreviewStartForm({
           </div>
         </div>
         <p className="mt-2 text-xs text-neutral-600">{MOBILE_DATE_HELPER_TEXT}</p>
+        {validationMessage ? (
+          <p className="mt-2 text-sm font-semibold text-amber-800" role="alert">
+            {validationMessage}
+          </p>
+        ) : null}
         {intentOptions?.length ? (
           <div className="mt-4 space-y-3">
             <div className="grid gap-2 sm:grid-cols-3">

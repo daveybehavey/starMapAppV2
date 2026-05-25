@@ -16,6 +16,8 @@ export const styles: { id: StyleId; name: string; note: string }[] = [
   { id: "midnightMinimal", name: "Midnight Minimal", note: "Clean noir with subtle glow" },
 ];
 
+export { mapLookTiers } from "./mapLookTiers";
+
 export const visualModes: { id: RenderOptions["visualMode"]; label: string; description: string }[] = [
   { id: "astronomical", label: "Astronomical", description: "Pure star field, minimal embellishment" },
   { id: "enhanced", label: "Enhanced", description: "Balanced glow and detail (default)" },

@@ -1019,6 +1019,7 @@ export default function DownloadClient() {
             watermark: false,
             quality: "export",
             premium: true,
+            matPurpose: "print",
           });
           for (let index = 0; index < uploadQualities.length; index += 1) {
             const quality = uploadQualities[index];

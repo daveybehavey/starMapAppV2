@@ -17,7 +17,8 @@ import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
-import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale } from "@/lib/config";
+import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale, mapLookTiers } from "@/lib/config";
+import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -277,11 +278,13 @@ export function EditorExperience({
   );
 
   const hdCreditLabel =
-    currentPlan === "subscription"
-      ? "Unlimited HD"
-      : typeof creditsRemaining === "number"
-        ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
-        : null;
+    !paid
+      ? null
+      : currentPlan === "subscription"
+        ? "Unlimited HD"
+        : typeof creditsRemaining === "number" && creditsRemaining > 0
+          ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
+          : null;
 
   useEffect(() => {
     setMounted(true);
@@ -454,6 +457,11 @@ export function EditorExperience({
     () => getPaywallPrintCheckoutPresentation(printShippingCountry),
     [printShippingCountry],
   );
+  const activeMapLookTier = useMemo(
+    () => resolveMapLookTier(renderOptions, selectedStyle),
+    [renderOptions, selectedStyle],
+  );
+  const posterAspectMismatch = aspectRatio !== "square";
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const previewRef = useRef<HTMLDivElement>(null);
@@ -550,7 +558,9 @@ export function EditorExperience({
       };
       const nextPaid = Boolean(data.paid);
       setPaid(nextPaid);
-      setCreditsRemaining(typeof data.creditsRemaining === "number" ? data.creditsRemaining : null);
+      setCreditsRemaining(
+        nextPaid && typeof data.creditsRemaining === "number" ? data.creditsRemaining : null,
+      );
       setCurrentPlan(
         data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null
       );
@@ -1226,6 +1236,7 @@ export function EditorExperience({
                 watermark: false,
                 quality: "export",
                 premium: true,
+                matPurpose: "print",
               });
             } catch {
               lastAssetError = "print_render_failed";
@@ -2246,7 +2257,82 @@ export function EditorExperience({
                                       </span>
                                     </button>
                                     {!collapsedCards.style && (
-                                      <div className="mt-2 grid grid-cols-1 gap-2">
+                                      <div className="mt-2 space-y-3">
+                                        <div className="space-y-1">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <p
+                                              id="map-look-tier-label"
+                                              className="text-[10px] font-semibold tracking-[0.14em] text-neutral-300 uppercase"
+                                            >
+                                              Map look
+                                            </p>
+                                            {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const tier = resolveMapLookTier(renderOptions, selectedStyle);
+                                                  setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
+                                                }}
+                                                className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90 transition hover:border-amber-300/40 hover:bg-white/10"
+                                              >
+                                                Reset typography
+                                              </button>
+                                            )}
+                                          </div>
+                                          <div
+                                            role="radiogroup"
+                                            aria-labelledby="map-look-tier-label"
+                                            className="grid grid-cols-3 gap-1.5"
+                                          >
+                                            {mapLookTiers.map((tier) => {
+                                              const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+                                              return (
+                                                <button
+                                                  key={tier.id}
+                                                  type="button"
+                                                  role="radio"
+                                                  aria-checked={activeTier === tier.id}
+                                                  aria-label={`${tier.label}: ${tier.description}`}
+                                                  onClick={() => {
+                                                    const tierOptions = applyMapLookTier(tier.id, selectedStyle);
+                                                    setRenderOptions(tierOptions);
+                                                    setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
+                                                  }}
+                                                  onKeyDown={(event) => {
+                                                    const tierIndex = mapLookTiers.findIndex((item) => item.id === tier.id);
+                                                    if (tierIndex < 0) return;
+                                                    let nextIndex: number | null = null;
+                                                    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                                                      nextIndex = (tierIndex + 1) % mapLookTiers.length;
+                                                    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                                                      nextIndex = (tierIndex - 1 + mapLookTiers.length) % mapLookTiers.length;
+                                                    }
+                                                    if (nextIndex === null) return;
+                                                    event.preventDefault();
+                                                    const nextTier = mapLookTiers[nextIndex];
+                                                    if (!nextTier) return;
+                                                    const tierOptions = applyMapLookTier(nextTier.id, selectedStyle);
+                                                    setRenderOptions(tierOptions);
+                                                    setTextBoxes(
+                                                      applyTierTypography(nextTier.id, selectedStyle, textBoxes),
+                                                    );
+                                                  }}
+                                                  className={`min-h-[3.25rem] rounded-md border px-2 py-2 text-left transition ${
+                                                    activeTier === tier.id
+                                                      ? "!text-midnight border-amber-300 bg-amber-100"
+                                                      : "border-white/15 bg-white/10 text-white hover:border-amber-400/40"
+                                                  }`}
+                                                >
+                                                  <div className="text-[11px] font-semibold">{tier.label}</div>
+                                                  <div className="mt-0.5 text-[9px] leading-snug opacity-80">
+                                                    {tier.description}
+                                                  </div>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2">
                                         {styles.map((style) => {
                                           const styleClasses = {
                                             navyGold:
@@ -2273,12 +2359,26 @@ export function EditorExperience({
                                               type="button"
                                               onClick={() => {
                                                 setStyle(style.id);
+                                                const tier: MapLookTier =
+                                                  renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
+                                                const tierOptions =
+                                                  tier === "custom"
+                                                    ? {}
+                                                    : applyMapLookTier(tier, style.id);
                                                 const defaults = applyStyleDefaults(style.id, textBoxes);
-                                                if (Object.keys(defaults.renderOptions).length) {
-                                                  setRenderOptions(defaults.renderOptions);
+                                                const mergedOptions = {
+                                                  ...defaults.renderOptions,
+                                                  ...tierOptions,
+                                                };
+                                                if (Object.keys(mergedOptions).length) {
+                                                  setRenderOptions(mergedOptions);
                                                 }
-                                                if (defaults.textBoxes !== textBoxes) {
-                                                  setTextBoxes(defaults.textBoxes);
+                                                const nextText =
+                                                  tier === "custom"
+                                                    ? defaults.textBoxes
+                                                    : applyTierTypography(tier, style.id, defaults.textBoxes);
+                                                if (nextText !== textBoxes) {
+                                                  setTextBoxes(nextText);
                                                 }
                                               }}
                                               className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
@@ -2290,6 +2390,7 @@ export function EditorExperience({
                                             </button>
                                           );
                                         })}
+                                        </div>
                                       </div>
                                     )}
                                   </section>
@@ -2451,6 +2552,8 @@ export function EditorExperience({
                                     selectedStyle={selectedStyle}
                                     renderOptions={renderOptions}
                                     setRenderOptions={setRenderOptions}
+                                    textBoxes={textBoxes}
+                                    setTextBoxes={setTextBoxes}
                                     previewFidelity={previewFidelity}
                                     setPreviewFidelity={setPreviewFidelity}
                                     paid={paid}
@@ -2707,13 +2810,13 @@ export function EditorExperience({
                             </button>
                           )}
                         </div>
-                        {(currentPlan === "subscription" || typeof creditsRemaining === "number") && (
+                        {paid &&
+                          (currentPlan === "subscription" ||
+                            (typeof creditsRemaining === "number" && creditsRemaining > 0)) && (
                           <p className="mt-2 text-[11px] text-neutral-300">
                             {currentPlan === "subscription"
                               ? "Unlimited HD exports on your active subscription."
-                              : typeof creditsRemaining === "number"
-                                ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
-                                : "HD export credits available."}
+                              : `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`}
                           </p>
                         )}
                         {currentPlan !== "subscription" && (
@@ -2746,6 +2849,23 @@ export function EditorExperience({
                               created right after payment for manual review. Apple Pay, Google Pay, and Link show when
                               available. {shippingDisclosure}
                             </p>
+                            {activeMapLookTier === "minimal" && (
+                              <p className="mt-2 rounded-lg border border-amber-200/30 bg-black/15 px-3 py-2 text-[11px] text-amber-50/90">
+                                Print preview note: your editor uses a transparent mat on Minimal. The print file adds a
+                                filled border so fulfillment has no transparent edges.
+                              </p>
+                            )}
+                            {posterAspectMismatch && (
+                              <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-[11px] font-semibold text-amber-50">
+                                Poster prints are square (18×18 unframed, 14×14 framed). Your map is{" "}
+                                {aspectRatio === "3:4"
+                                  ? "3:4 portrait"
+                                  : aspectRatio === "2:3"
+                                    ? "2:3 portrait"
+                                    : "4:5 portrait"}
+                                — switch to Square in Advanced before checkout to avoid letterboxing on the print.
+                              </p>
+                            )}
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Fastest</p>

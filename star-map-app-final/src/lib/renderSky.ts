@@ -6,6 +6,16 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
+import {
+  getStarDensityTuning,
+  resolveMapLookTier,
+  resolvePrintSafeInset,
+  resolveTransparentMat,
+  shouldApplyPolishFinish,
+  shouldUseFlatSkyBackground,
+  type ExportMatPurpose,
+  type MapLookTier,
+} from "@/lib/mapLookTiers";
 
 export type { AspectRatio, Shape } from "@/lib/types";
 export { formatDateTimeForLocation } from "@/lib/dateTime";
@@ -115,6 +125,19 @@ export function aspectRatioToNumber(aspect: AspectRatio): number {
     default:
       return 1;
   }
+}
+
+/** Scale sky + typography inward on print exports to keep content inside trim zone. */
+function applyPrintSafeTransform(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  inset: number,
+) {
+  const innerW = Math.max(1, width - inset * 2);
+  const innerH = Math.max(1, height - inset * 2);
+  ctx.translate(inset, inset);
+  ctx.scale(innerW / width, innerH / height);
 }
 
 type CanvasLike = {
@@ -369,6 +392,7 @@ export function renderStarMap({
   skyOverride,
   skipSkyCompute = false,
   includeText = true,
+  matPurpose = "preview",
 }: {
   recipe: MapRecipe;
   canvas: CanvasLike;
@@ -382,6 +406,8 @@ export function renderStarMap({
   skyOverride?: VisibleSky | null;
   skipSkyCompute?: boolean;
   includeText?: boolean;
+  /** Print forces filled mat; preview/PNG follow tier transparentBackground. */
+  matPurpose?: ExportMatPurpose;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -418,18 +444,26 @@ export function renderStarMap({
     (typeof legacyBg === "string" ? legacyBg.trim() : "") ||
     "#0b0f24";
   const showFrame = recipe.renderOptions?.frameEnabled ?? true;
+  const mapLookTier = resolveMapLookTier(recipe.renderOptions, recipe.selectedStyle);
+  const transparentMat = resolveTransparentMat(matPurpose, recipe.renderOptions);
+  const printSafeInset = resolvePrintSafeInset(matPurpose, width, targetHeight);
   const clipPath = buildShapeClip(shapeName, width, targetHeight);
 
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
-  // Layer: frame background
+  // Layer: frame background (transparent mat for minimal tier)
   ctx.clearRect(0, 0, width, targetHeight);
-  ctx.fillStyle = backgroundColor;
-  ctx.fillRect(0, 0, width, targetHeight);
+  if (!transparentMat) {
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, width, targetHeight);
+  }
 
   // Layer: clipped sky
   ctx.save();
   if (clipPath) ctx.clip(clipPath, "nonzero");
+  if (printSafeInset > 0) {
+    applyPrintSafeTransform(ctx, width, targetHeight, printSafeInset);
+  }
   drawBackground(
     ctx,
     width,
@@ -438,8 +472,9 @@ export function renderStarMap({
     mode,
     scale,
     shapeName,
-    showFrame,
+    showFrame && !transparentMat,
     recipe.renderOptions?.backgroundColor,
+    recipe.renderOptions,
   );
   if (recipe.selectedStyle === "parchmentScroll") {
     drawPaperTexture(ctx, width, targetHeight, quality);
@@ -456,19 +491,26 @@ export function renderStarMap({
     scale,
     premium,
     quality,
+    mapLookTier,
   );
-  if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
+  const polishFinish = shouldApplyPolishFinish(recipe.renderOptions, recipe.selectedStyle);
+  if (
+    polishFinish &&
+    recipe.selectedStyle !== "midnightMinimal" &&
+    recipe.selectedStyle !== "parchmentScroll"
+  ) {
     drawPremiumVignette(ctx, width, targetHeight, mode);
   }
   ctx.restore();
 
-  // Shape outline using theme accent color
-  if (clipPath && showFrame) {
+  // Shape outline using theme accent color (rectangle already has inset frame in drawBackground)
+  if (clipPath && showFrame && !transparentMat && shapeName !== "rectangle") {
     const theme = STYLE_THEME[recipe.selectedStyle];
     const frameColor = mode?.palette?.accent ?? theme.accent;
     ctx.save();
     ctx.strokeStyle = frameColor;
     ctx.lineWidth = 3 * scale;
+    ctx.lineJoin = "round";
     ctx.globalAlpha = 0.8;
     ctx.stroke(clipPath);
     ctx.restore();
@@ -476,12 +518,23 @@ export function renderStarMap({
 
   // Overlays
   if (includeText) {
+    ctx.save();
+    if (printSafeInset > 0) {
+      applyPrintSafeTransform(ctx, width, targetHeight, printSafeInset);
+    }
     drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
+    ctx.restore();
   } else if (textBounds) {
     textBounds.clear();
   }
   drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
-  if (premium && recipe.selectedStyle !== "midnightMinimal" && recipe.selectedStyle !== "parchmentScroll") {
+  const allowGrain =
+    premium &&
+    polishFinish &&
+    quality !== "export" &&
+    recipe.selectedStyle !== "midnightMinimal" &&
+    recipe.selectedStyle !== "parchmentScroll";
+  if (allowGrain) {
     drawFilmGrain(ctx, width, targetHeight, mode, quality);
   }
   ctx.restore();
@@ -595,6 +648,7 @@ export function buildRecipeFromState(input: {
     shape: input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
+      mapLookTier: input.renderOptions?.mapLookTier,
       visualMode: input.renderOptions?.visualMode ?? "illustrated",
       starIntensity: input.renderOptions?.starIntensity ?? "normal",
       starGlow: input.renderOptions?.starGlow ?? true,
@@ -612,6 +666,8 @@ export function buildRecipeFromState(input: {
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
       constellationLineScale: input.renderOptions?.constellationLineScale ?? 1.1,
+      transparentBackground: input.renderOptions?.transparentBackground ?? false,
+      showTechnicalRing: input.renderOptions?.showTechnicalRing ?? false,
     },
   };
 }
@@ -626,6 +682,7 @@ function drawBackground(
   shape?: Shape,
   showFrame = true,
   backgroundOverride?: string,
+  renderOptions?: MapRecipe["renderOptions"],
 ) {
   const theme = STYLE_THEME[styleId];
   const resolvedBackground =
@@ -643,7 +700,8 @@ function drawBackground(
   ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, width, height);
 
-  const noGradient = styleId === "midnightMinimal" || styleId === "parchmentScroll";
+  const flatSky = shouldUseFlatSkyBackground(renderOptions, styleId);
+  const noGradient = flatSky;
   if (!noGradient) {
     const gradient = ctx.createRadialGradient(
       width * 0.6,
@@ -720,6 +778,8 @@ function drawConstellationLayer(
   lineFactor: number,
   scale: number,
   premium: boolean,
+  styleId: StyleId,
+  mapLookTier: MapLookTier,
 ) {
   if (renderOptions?.constellationLines === "off") return;
 
@@ -753,6 +813,7 @@ function drawConstellationLayer(
     premium,
     styleProfile.lineDashed,
     scale,
+    mapLookTier,
   );
 }
 
@@ -767,6 +828,7 @@ function drawStarLayer(
   premiumStars: boolean,
   premiumThreshold: number,
   scale: number,
+  densityTuning: ReturnType<typeof getStarDensityTuning>,
 ) {
   const starIntensity = resolveStarIntensity(renderOptions?.starIntensity);
   const intensityFactor = STAR_INTENSITY_FACTORS[starIntensity].size;
@@ -788,24 +850,32 @@ function drawStarLayer(
     if (!Number.isFinite(baseAlpha)) continue;
 
     const alpha = clamp(
-      baseAlpha * (star.opacity ?? 1) * (mode?.starAlpha ?? 1) * intensityAlphaBoost * styleProfile.starAlphaBoost,
+      baseAlpha *
+        (star.opacity ?? 1) *
+        (mode?.starAlpha ?? 1) *
+        intensityAlphaBoost *
+        styleProfile.starAlphaBoost *
+        (star.magnitude <= 2.3 ? densityTuning.brightAlphaBoost : 1),
       styleProfile.starAlphaFloor,
       1,
     );
     if (!Number.isFinite(alpha)) continue;
-    if (styleProfile.starVisibilityCutoff > 0 && alpha < styleProfile.starVisibilityCutoff) continue;
+    if (styleProfile.starVisibilityCutoff > 0 && alpha < styleProfile.starVisibilityCutoff + densityTuning.visibilityCutoffDelta) continue;
 
     const jitter = styleProfile.starJitterMin + randFromSeed((i + 1) * 17) * styleProfile.starJitterRange;
+    const brightBoost = star.magnitude <= 2.3 ? densityTuning.brightSizeBoost : 1;
     const radius =
       starRadiusFromMagnitude(star.magnitude) *
       (mode?.starSizeFactor ?? 1) *
       intensityFactor *
       styleProfile.starSizeBoost *
+      brightBoost *
       jitter *
       scale;
     if (!Number.isFinite(radius) || radius <= 0) continue;
 
-    const dropChance = getMinimalDropChance(star.magnitude, styleProfile.minimalDrop);
+    const dropChance =
+      getMinimalDropChance(star.magnitude, styleProfile.minimalDrop) * densityTuning.minimalDropScale;
     if (dropChance > 0 && randFromSeed((i + 1) * 43.73) < dropChance) continue;
 
     if (premiumStars && star.magnitude <= premiumThreshold) {
@@ -959,6 +1029,7 @@ function drawSky(
   scale = 1,
   premium = false,
   quality: RenderQuality = "preview",
+  mapLookTier: MapLookTier = "custom",
 ) {
   if (!sky) return;
   const theme = STYLE_THEME[styleId];
@@ -970,6 +1041,8 @@ function drawSky(
     glow: mode?.palette?.glow ?? theme.glow,
   };
   const lineFactor = mode?.lineWidthFactor ?? 1;
+  const polishFinish = shouldApplyPolishFinish(renderOptions, styleId);
+  const cinematicDetail = premium || polishFinish;
   const premiumStars = premium && (renderOptions?.premiumStars ?? "off") !== "off";
   const premiumPlanets = premium && (renderOptions?.premiumPlanets ?? "off") !== "off";
   const premiumThreshold = (renderOptions?.premiumStars ?? "off") === "realistic" ? 2.2 : 0.6;
@@ -985,14 +1058,17 @@ function drawSky(
     palette,
     lineFactor,
     scale,
-    premium,
+    cinematicDetail,
+    styleId,
+    mapLookTier,
   );
 
-  if (premium && styleProfile.showMilkyWayBand) {
+  if (cinematicDetail && styleProfile.showMilkyWayBand) {
     const bandColor = resolveBandColor(palette.star);
     drawMilkyWayBand(ctx, width, height, recipe, bandColor, mode);
   }
 
+  const densityTuning = getStarDensityTuning(mapLookTier);
   drawStarLayer(
     ctx,
     sky,
@@ -1004,6 +1080,7 @@ function drawSky(
     premiumStars,
     premiumThreshold,
     scale,
+    densityTuning,
   );
   drawPlanetaryLayer(
     ctx,
@@ -1016,6 +1093,10 @@ function drawSky(
     theme.glow,
     scale,
   );
+
+  if (renderOptions?.showTechnicalRing) {
+    drawTechnicalRing(ctx, width, height, palette.accent, scale);
+  }
 }
 
 function drawPremiumVignette(
@@ -1024,8 +1105,8 @@ function drawPremiumVignette(
   height: number,
   mode?: ModeSettings,
 ) {
-  const baseStrength = 0.16 + (mode?.vignetteStrength ?? 1) * 0.08;
-  const strength = clamp(baseStrength, 0.12, 0.38);
+  const baseStrength = 0.14 + (mode?.vignetteStrength ?? 1) * 0.06;
+  const strength = clamp(baseStrength, 0.1, 0.3);
   const gradient = ctx.createRadialGradient(
     width * 0.5,
     height * 0.45,
@@ -1202,6 +1283,31 @@ function resolveBandColor(color: string) {
   return "#ffffff";
 }
 
+/** Keep text centers inside the canvas so exports match editor drag bounds. */
+function resolveTextCenterNormalized(
+  position: { x?: number; y?: number } | undefined,
+  index: number,
+  textWidth: number,
+  textHeight: number,
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  const scale = canvasWidth / BASE_CANVAS_WIDTH;
+  const lineGapNorm = (28 * scale) / canvasHeight;
+  const rawX = clamp(position?.x ?? 0.5, 0, 1);
+  const rawY = clamp(position?.y ?? 0.72 + index * lineGapNorm, 0, 1);
+  const halfWidth = textWidth / (canvasWidth * 2);
+  const halfHeight = textHeight / (canvasHeight * 2);
+  const minX = clamp(halfWidth, 0, 0.5);
+  const maxX = clamp(1 - halfWidth, 0.5, 1);
+  const minY = clamp(halfHeight, 0, 0.5);
+  const maxY = clamp(1 - halfHeight, 0.5, 1);
+  return {
+    x: clamp(rawX, minX, maxX),
+    y: clamp(rawY, minY, maxY),
+  };
+}
+
 function drawText(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -1210,9 +1316,6 @@ function drawText(
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
 ) {
-  const baseY = height * 0.72;
-  const lineGap = 28 * scale;
-
   if (bounds) bounds.clear();
 
   textBoxes.forEach((box, index) => {
@@ -1220,7 +1323,9 @@ function drawText(
     if (!box.text || box.text.trim() === "") return;
 
     const fontSize = Math.max(10, (box.size ?? 28) * scale);
-    ctx.font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    const weight = box.fontWeight ?? 600;
+    const font = `${weight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    ctx.font = font;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
       ctx.shadowColor = `${box.color}90`;
@@ -1238,14 +1343,21 @@ function drawText(
     }
     ctx.textAlign = box.align;
     ctx.textBaseline = "middle";
-    const px = clamp(box.position?.x ?? 0.5, 0, 1) * width;
-    const py = clamp(box.position?.y ?? (baseY + index * lineGap) / height, 0, 1) * height;
+    const textWidth = getCachedTextWidth(ctx, box.text, font);
+    const textHeight = fontSize * 1.2;
+    const { x: normX, y: normY } = resolveTextCenterNormalized(
+      box.position,
+      index,
+      textWidth,
+      textHeight,
+      width,
+      height,
+    );
+    const px = normX * width;
+    const py = normY * height;
     ctx.fillText(box.text, px, py);
 
     if (bounds) {
-      const font = `600 ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
-      const textWidth = getCachedTextWidth(ctx, box.text, font);
-      const textHeight = fontSize * 1.2;
       let left = px;
       if (ctx.textAlign === "center") left = px - textWidth / 2;
       if (ctx.textAlign === "right") left = px - textWidth;
@@ -1315,6 +1427,7 @@ function drawConstellations(
   premium = false,
   dashed = false,
   scale = 1,
+  mapLookTier: MapLookTier = "custom",
 ) {
   if (!sky.constellations.length) return;
   const lines = sky.constellations.flatMap((constellation) => constellation.lines);
@@ -1372,14 +1485,25 @@ function drawConstellations(
 
   if (!showLabels) return;
 
+  const labelFontSize =
+    mapLookTier === "minimal"
+      ? Math.max(7.5, 8 * scale)
+      : mapLookTier === "polished"
+        ? Math.max(8.5, 9.5 * scale)
+        : Math.max(8, 9 * scale);
+  const labelLetterSpacing =
+    mapLookTier === "minimal" ? 0.2 * scale : mapLookTier === "polished" ? 0.15 * scale : 0.12 * scale;
+  const collisionPadX = mapLookTier === "minimal" ? 6 * scale : 5 * scale;
+  const collisionPadY = mapLookTier === "minimal" ? 5 * scale : 4 * scale;
+
   const placed: Array<{ x: number; y: number; width: number; height: number }> = [];
   const overlaps = (a: { x: number; y: number; width: number; height: number }) =>
     placed.some((b) => {
       const paddedA = {
-        x: a.x - 4 * scale,
-        y: a.y - 3 * scale,
-        width: a.width + 8 * scale,
-        height: a.height + 6 * scale,
+        x: a.x - collisionPadX,
+        y: a.y - collisionPadY,
+        width: a.width + collisionPadX * 2,
+        height: a.height + collisionPadY * 2,
       };
       return !(
         paddedA.x + paddedA.width < b.x ||
@@ -1394,11 +1518,14 @@ function drawConstellations(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = accentColor;
-  ctx.globalAlpha = clamp(lineAlpha + 0.28, 0.35, 0.85);
-  ctx.font = `${Math.max(10, 11 * scale)}px "Cinzel", serif`;
+  ctx.globalAlpha = clamp(lineAlpha + (mapLookTier === "polished" ? 0.26 : 0.22), 0.32, 0.78);
+  ctx.font = `500 ${labelFontSize}px "Montserrat", sans-serif`;
+  if ("letterSpacing" in ctx) {
+    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${labelLetterSpacing}px`;
+  }
   if (premium) {
-    ctx.shadowColor = toRgba(accentColor, 0.5);
-    ctx.shadowBlur = Math.max(2, 5 * scale);
+    ctx.shadowColor = toRgba(accentColor, 0.45);
+    ctx.shadowBlur = Math.max(2, 4 * scale);
   }
 
   for (const constellation of sky.constellations) {
@@ -1428,9 +1555,9 @@ function drawConstellations(
     const metrics = ctx.measureText(label);
     const bounds = {
       x: labelX - metrics.width / 2,
-      y: labelY - 6 * scale,
+      y: labelY - labelFontSize * 0.55,
       width: metrics.width,
-      height: 12 * scale,
+      height: labelFontSize * 1.1,
     };
     if (overlaps(bounds)) continue;
 
@@ -1438,6 +1565,41 @@ function drawConstellations(
     ctx.fillText(label, labelX, labelY);
   }
 
+  ctx.restore();
+}
+
+function drawTechnicalRing(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  accentColor: string,
+  scale: number,
+) {
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = Math.min(width, height) * PROJECTION_RADIUS_FACTOR * 0.98;
+  const tickCount = 12;
+
+  ctx.save();
+  ctx.strokeStyle = toRgba(accentColor, 0.22);
+  ctx.lineWidth = Math.max(0.6, 1 * scale);
+  ctx.setLineDash([4 * scale, 6 * scale]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, TWO_PI);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.lineWidth = Math.max(0.5, 0.75 * scale);
+  ctx.strokeStyle = toRgba(accentColor, 0.18);
+  for (let i = 0; i < tickCount; i += 1) {
+    const angle = (i / tickCount) * TWO_PI - Math.PI / 2;
+    const inner = radius - 6 * scale;
+    const outer = radius + (i % 3 === 0 ? 4 * scale : 2 * scale);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
+    ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -1884,6 +2046,7 @@ export const __testUtils = {
   toRgba,
   adjustColor,
   toUTCDateFromLocal,
+  resolveTextCenterNormalized,
 };
 
 export { STYLE_THEME, clamp };

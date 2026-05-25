@@ -9,12 +9,11 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
-import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { testimonialsByPage } from "@/data/testimonials";
-import { galleryExamples } from "@/lib/galleryExamples";
+import { featuredRenderExamples, galleryExamples } from "@/lib/galleryExamples";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
@@ -233,48 +232,7 @@ export default function WeddingPage() {
         </ul>
       </section>
 
-      <section
-        className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5"
-        aria-labelledby="wedding-how-it-works"
-      >
-        <h2 id="wedding-how-it-works" className="text-lg font-semibold text-midnight">
-          How it works
-        </h2>
-        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { step: "1", title: "Date & place", body: "Wedding city, venue, or coordinates." },
-            { step: "2", title: "Style & words", body: "Names, vows, preset, and frame feel." },
-            { step: "3", title: "Free preview", body: "Share the live map before you pay." },
-            { step: "4", title: "Checkout", body: "Framed, unframed, or HD from the same file." },
-          ].map((item) => (
-            <li key={item.step} className="rounded-2xl border border-amber-200/60 bg-white/90 p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-700">Step {item.step}</p>
-              <p className="mt-1 text-sm font-semibold text-midnight">{item.title}</p>
-              <p className="mt-1 text-sm text-neutral-700">{item.body}</p>
-            </li>
-          ))}
-        </ol>
-        <div className="flex flex-wrap gap-3 pt-1">
-          <Link
-            href="/editor?mode=quick&source=wedding-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Start with framed print preview
-          </Link>
-          <Link
-            href="/editor?mode=quick&source=wedding-cta-preview"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-amber-300/70 bg-white px-5 py-3 text-sm font-semibold text-midnight transition hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
-          >
-            Preview first, choose format later
-          </Link>
-        </div>
-      </section>
-
-      <TestimonialHighlights
-        heading="What couples say about their wedding maps"
-        intro="Short notes from couples who framed or printed the sky from their ceremony night."
-        testimonials={testimonialsByPage.wedding}
-      />
+      <AccuracyAuthorityCard source="wedding-accuracy-card" />
 
       <DeliveryFormatModule
         heading="Pricing & delivery — pick one path after preview"
@@ -292,27 +250,25 @@ export default function WeddingPage() {
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          {galleryExamples.slice(0, 3).map((item) => (
-            <Link
-              key={item.id}
-              href={`/editor?mode=quick&source=wedding-example-${item.id}`}
-              className="group overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gold"
-            >
-              <div className="relative aspect-square">
-                <Image
-                  src={item.src}
-                  alt={item.alt}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                />
+          {featuredRenderExamples.map((item) => (
+            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+              <div className="relative aspect-square proof-wall-panel">
+                <div className="proof-wall-stage proof-wall-stage--gallery h-full w-full">
+                  <Image
+                    src={item.src}
+                    alt={item.shortLabel}
+                    width={900}
+                    height={900}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="h-full w-full object-contain px-4 py-5 proof-wall-image"
+                  />
+                </div>
               </div>
               <div className="border-t border-black/5 px-3 py-2">
                 <p className="text-xs font-semibold text-midnight">{item.shortLabel}</p>
                 <p className="text-[11px] text-neutral-600">{item.caption}</p>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       </section>
@@ -340,9 +296,10 @@ export default function WeddingPage() {
         heading="What your wedding order includes"
         intro="This is the exact handoff from your final preview to a frame-ready HD file."
       />
-      <RevenueTrustModule
-        heading="Wedding keepsake confidence"
-        intro="Couples usually decide faster when size, frame plan, and final text checks are already settled. Use this block before checkout."
+      <TestimonialHighlights
+        heading="Sample couple stories"
+        intro="Illustrative examples until we publish permissioned customer quotes."
+        testimonials={testimonialsByPage.wedding}
       />
 
       <section className="content-visibility-auto mt-6 rounded-3xl border border-amber-200/70 bg-gradient-to-br from-amber-100/90 via-amber-50 to-white p-6 text-center shadow-lg shadow-amber-200/40">
