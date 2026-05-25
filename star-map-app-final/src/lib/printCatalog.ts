@@ -112,10 +112,15 @@ export function getPrintCatalogRow(id: PrintVariant): PrintCatalogRow {
   return row;
 }
 
-/** Stripe Checkout success URLs + analytics ordering */
-export const PAYWALL_PRINT_VARIANT_ORDER: readonly PrintVariant[] = [
+/** Posters only on primary paywall until canvas / mug / card pilots pass QA */
+export const PAYWALL_LIVE_PRINT_VARIANTS: readonly PrintVariant[] = [
   "poster_framed",
   "poster_unframed",
+];
+
+/** Stripe Checkout success URLs + download upsell ordering (live SKUs first) */
+export const PAYWALL_PRINT_VARIANT_ORDER: readonly PrintVariant[] = [
+  ...PAYWALL_LIVE_PRINT_VARIANTS,
   "canvas_wrap",
   "mug_11oz",
   "card_4x6",
@@ -139,9 +144,6 @@ export const PAYWALL_PRINT_CHECKOUT_ROWS: readonly PaywallPrintCheckoutRow[] = [
   },
   { variant: "poster_framed", includeDigitalAddOn: false, headline: "Framed print" },
   { variant: "poster_unframed", includeDigitalAddOn: false, headline: "Unframed poster" },
-  { variant: "canvas_wrap", includeDigitalAddOn: false },
-  { variant: "mug_11oz", includeDigitalAddOn: false },
-  { variant: "card_4x6", includeDigitalAddOn: false },
 ] as const;
 
 export type PrintShippingProfile = "poster_unframed" | "poster_framed";

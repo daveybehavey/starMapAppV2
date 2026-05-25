@@ -4,6 +4,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { isPrintVariant } from "@/lib/printCatalog";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 
 export const runtime = "nodejs";
@@ -53,9 +54,8 @@ function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
 }
 
 function getPrintVariant(session: Stripe.Checkout.Session): PrintVariant | undefined {
-  if (session.metadata?.print_variant === "poster_framed") return "poster_framed";
-  if (session.metadata?.print_variant === "poster_unframed") return "poster_unframed";
-  return undefined;
+  const raw = session.metadata?.print_variant;
+  return isPrintVariant(raw) ? raw : undefined;
 }
 
 function includesDigitalAddOn(session: Stripe.Checkout.Session): boolean {

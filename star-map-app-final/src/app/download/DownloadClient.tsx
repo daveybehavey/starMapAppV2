@@ -26,7 +26,7 @@ import {
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { isPrintVariant, PAYWALL_PRINT_VARIANT_ORDER } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
-import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
+import { getDefaultMerchEditorHref, getMerchShopSectionHref } from "@/lib/merchCatalog";
 import { formatPosterShippingFootnote } from "@/lib/paywallPrintCheckout";
 import {
   formatPrintShippingEstimate,
@@ -81,6 +81,7 @@ const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
 const merchDownloadEditorHref = getDefaultMerchEditorHref("download-merch-teaser");
+const merchDownloadShopHref = getMerchShopSectionHref();
 const referralRewardCredits = (() => {
   const raw = process.env.NEXT_PUBLIC_REFERRAL_REWARD_CREDITS?.trim();
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
@@ -1823,14 +1824,16 @@ export default function DownloadClient() {
                   >
                     Customize merch
                   </Link>
-                  <Link
-                    href="/shop#merch-beta"
-                    prefetch={false}
-                    onClick={() => track("download_merch_teaser_clicked", { destination: "shop" })}
-                    className="inline-flex items-center rounded-full border border-white/25 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/45 hover:bg-white/10"
-                  >
-                    View shop
-                  </Link>
+                  {merchDownloadShopHref ? (
+                    <Link
+                      href={merchDownloadShopHref}
+                      prefetch={false}
+                      onClick={() => track("download_merch_teaser_clicked", { destination: "shop" })}
+                      className="inline-flex items-center rounded-full border border-white/25 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/45 hover:bg-white/10"
+                    >
+                      View shop
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             ) : null}
