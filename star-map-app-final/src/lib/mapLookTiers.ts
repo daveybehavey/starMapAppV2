@@ -6,6 +6,18 @@ export type MapLookTier = "minimal" | "polished" | "custom";
 /** Preview/PNG respect recipe mat; print always uses a filled mat. */
 export type ExportMatPurpose = "preview" | "print";
 
+/** Inner inset on print exports so trim/bleed does not clip stars or typography. */
+export const PRINT_SAFE_MARGIN_RATIO = 0.04;
+
+export function resolvePrintSafeInset(
+  purpose: ExportMatPurpose,
+  width: number,
+  height: number,
+): number {
+  if (purpose !== "print") return 0;
+  return Math.max(16, Math.floor(Math.min(width, height) * PRINT_SAFE_MARGIN_RATIO));
+}
+
 export const mapLookTiers: {
   id: MapLookTier;
   label: string;

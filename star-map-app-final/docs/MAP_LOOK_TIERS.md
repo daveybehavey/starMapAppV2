@@ -21,6 +21,16 @@ Advanced panel → **Reset to tier** restores typography for the active tier wit
 
 Implementation: `renderStarMap({ matPurpose })` in `src/lib/renderSky.ts`.
 
+The editor print panel shows a **Minimal tier hint** when checkout is open: preview stays transparent, but the uploaded print JPEG includes a filled border.
+
+## Print safe margin
+
+Print exports (`matPurpose: "print"`) inset sky and typography by `PRINT_SAFE_MARGIN_RATIO` (4%, minimum 16px) via `resolvePrintSafeInset()` so trim and bleed at the printer do not clip stars or text. Preview and PNG exports are unchanged.
+
+## Poster aspect ratio
+
+Physical poster SKUs are square (18×18 unframed, 14×14 framed). When the map aspect ratio is not `square`, the editor print panel warns before checkout so buyers can switch to Square in Advanced and avoid letterboxing on the print file.
+
 ## Tests
 
 ### Unit (Playwright spec importing tier helpers)
@@ -30,7 +40,7 @@ cd star-map-app-final
 npx playwright test tests/map-look-tiers.spec.ts
 ```
 
-Covers tier presets, typography, transparent mat, technical ring defaults, snapshot fixture seed.
+Covers tier presets, typography, transparent mat, print safe inset, technical ring defaults, snapshot fixture seed.
 
 ### Visual snapshots (tier × style matrix)
 
@@ -41,6 +51,9 @@ Fixed fixture: Santorini wedding · 2024-06-01 · seed `map-tier-snapshot-v1`.
 | `navyGold-minimal.png` | minimal | navyGold |
 | `navyGold-polished.png` | polished | navyGold |
 | `midnightMinimal-minimal.png` | minimal | midnightMinimal |
+| `midnightMinimal-polished.png` *(pending baseline)* | polished | midnightMinimal |
+
+Add the fourth row to `tierStyleMatrix` in `tests/map-tier-visual.snap.spec.ts` and run `--update-snapshots` once Playwright + dev server are up locally or on CI.
 
 ```bash
 cd star-map-app-final
@@ -63,18 +76,19 @@ npm run qa:smoke:render
 3. Style card → pick tier (Minimal / Polished / Custom).
 4. Advanced → confirm **Reset to tier** and technical ring toggle.
 5. Free export PNG on minimal → transparent mat; start print checkout → filled mat in uploaded JPEG.
+6. Non-square aspect + print panel → square poster warning; minimal tier → filled-border hint.
 
 ## Ready-to-deploy checklist (sign-off)
 
 - [ ] All three snapshot baselines pass on CI/local (`map-tier-visual.snap.spec.ts`).
-- [ ] `map-look-tiers.spec.ts` green (16+ tests).
+- [ ] `map-look-tiers.spec.ts` green (17+ tests).
 - [ ] `qa:smoke:render` green.
-- [ ] Manual spot-check: navyGold minimal PNG alpha + print JPEG filled mat.
+- [ ] Manual spot-check: navyGold minimal PNG alpha + print JPEG filled mat + safe margin inset.
 - [ ] Wedding page shows sample testimonials with **Sample testimonial** label.
 - [ ] No regressions on existing editor flows (sample moment, HD paywall, print checkout).
 
 ## Remaining gaps
 
-- Snapshot matrix does not yet include polished `midnightMinimal` or parchment/vintage styles.
+- Snapshot matrix does not yet include parchment/vintage styles.
 - Snapshot tests depend on font loading; flaky on first cold render — re-run if needed.
 - Real permissioned testimonials still needed to replace sample wedding cards.

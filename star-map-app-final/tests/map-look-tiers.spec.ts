@@ -5,6 +5,7 @@ import {
   buildMapLookSnapshotState,
   getStarDensityTuning,
   resolveMapLookTier,
+  resolvePrintSafeInset,
   resolveTransparentMat,
   shouldApplyPolishFinish,
   shouldShowTechnicalRing,
@@ -114,6 +115,12 @@ test.describe("map look tiers", () => {
     expect(resolveTransparentMat("print", { mapLookTier: "polished", transparentBackground: false })).toBe(
       false,
     );
+  });
+
+  test("resolvePrintSafeInset applies only on print exports", () => {
+    expect(resolvePrintSafeInset("preview", 6000, 6000)).toBe(0);
+    expect(resolvePrintSafeInset("print", 6000, 6000)).toBe(240);
+    expect(resolvePrintSafeInset("print", 400, 800)).toBe(16);
   });
 
   test("custom tier leaves render options untouched except mapLookTier flag", () => {

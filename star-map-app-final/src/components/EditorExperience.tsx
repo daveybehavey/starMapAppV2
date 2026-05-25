@@ -457,6 +457,11 @@ export function EditorExperience({
     () => getPaywallPrintCheckoutPresentation(printShippingCountry),
     [printShippingCountry],
   );
+  const activeMapLookTier = useMemo(
+    () => resolveMapLookTier(renderOptions, selectedStyle),
+    [renderOptions, selectedStyle],
+  );
+  const posterAspectMismatch = aspectRatio !== "square";
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const previewRef = useRef<HTMLDivElement>(null);
@@ -2844,6 +2849,23 @@ export function EditorExperience({
                               created right after payment for manual review. Apple Pay, Google Pay, and Link show when
                               available. {shippingDisclosure}
                             </p>
+                            {activeMapLookTier === "minimal" && (
+                              <p className="mt-2 rounded-lg border border-amber-200/30 bg-black/15 px-3 py-2 text-[11px] text-amber-50/90">
+                                Print preview note: your editor uses a transparent mat on Minimal. The print file adds a
+                                filled border so fulfillment has no transparent edges.
+                              </p>
+                            )}
+                            {posterAspectMismatch && (
+                              <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-[11px] font-semibold text-amber-50">
+                                Poster prints are square (18×18 unframed, 14×14 framed). Your map is{" "}
+                                {aspectRatio === "3:4"
+                                  ? "3:4 portrait"
+                                  : aspectRatio === "2:3"
+                                    ? "2:3 portrait"
+                                    : "4:5 portrait"}
+                                — switch to Square in Advanced before checkout to avoid letterboxing on the print.
+                              </p>
+                            )}
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Fastest</p>

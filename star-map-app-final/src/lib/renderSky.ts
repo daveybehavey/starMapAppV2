@@ -9,6 +9,7 @@ import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUt
 import {
   getStarDensityTuning,
   resolveMapLookTier,
+  resolvePrintSafeInset,
   resolveTransparentMat,
   shouldApplyPolishFinish,
   shouldUseFlatSkyBackground,
@@ -124,6 +125,19 @@ export function aspectRatioToNumber(aspect: AspectRatio): number {
     default:
       return 1;
   }
+}
+
+/** Scale sky + typography inward on print exports to keep content inside trim zone. */
+function applyPrintSafeTransform(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  inset: number,
+) {
+  const innerW = Math.max(1, width - inset * 2);
+  const innerH = Math.max(1, height - inset * 2);
+  ctx.translate(inset, inset);
+  ctx.scale(innerW / width, innerH / height);
 }
 
 type CanvasLike = {
@@ -432,6 +446,7 @@ export function renderStarMap({
   const showFrame = recipe.renderOptions?.frameEnabled ?? true;
   const mapLookTier = resolveMapLookTier(recipe.renderOptions, recipe.selectedStyle);
   const transparentMat = resolveTransparentMat(matPurpose, recipe.renderOptions);
+  const printSafeInset = resolvePrintSafeInset(matPurpose, width, targetHeight);
   const clipPath = buildShapeClip(shapeName, width, targetHeight);
 
   ctx.save();
@@ -446,6 +461,9 @@ export function renderStarMap({
   // Layer: clipped sky
   ctx.save();
   if (clipPath) ctx.clip(clipPath, "nonzero");
+  if (printSafeInset > 0) {
+    applyPrintSafeTransform(ctx, width, targetHeight, printSafeInset);
+  }
   drawBackground(
     ctx,
     width,
@@ -500,7 +518,12 @@ export function renderStarMap({
 
   // Overlays
   if (includeText) {
+    ctx.save();
+    if (printSafeInset > 0) {
+      applyPrintSafeTransform(ctx, width, targetHeight, printSafeInset);
+    }
     drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
+    ctx.restore();
   } else if (textBounds) {
     textBounds.clear();
   }
