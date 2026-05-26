@@ -152,6 +152,10 @@ export async function recordPaymentVerifiedOnce(input: {
 }): Promise<void> {
   const sessionId = input.sessionId.trim();
   if (!sessionId) return;
+  // GA4 has its own dedupe; run before funnel dedupe so a later verify/webhook can retry MP if needed.
+  if (input.ga4Purchase) {
+    await recordGa4PurchaseOnce(input.ga4Purchase);
+  }
   const seen = await kv.incr(paymentVerifiedSessionKey(sessionId), 1, { ex: SESSION_DEDUPE_TTL_SECONDS });
   if (seen !== 1) return;
   await recordFunnelStep({
@@ -162,9 +166,6 @@ export async function recordPaymentVerifiedOnce(input: {
     variant: input.variant,
     occurredAt: input.occurredAt,
   });
-  if (input.ga4Purchase) {
-    await recordGa4PurchaseOnce(input.ga4Purchase);
-  }
 }
 
 export async function recordCheckoutExpiredOnce(input: {

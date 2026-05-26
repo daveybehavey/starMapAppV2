@@ -489,21 +489,22 @@ async function run() {
         report.steps.push("Accepted checkout terms");
       }
 
+      await page.waitForTimeout(2000);
       const submitCandidates = [
-        "button[data-testid='hosted-payment-submit-button']",
-        "button[data-testid='submit-button']",
-        "button:has-text('Pay')",
-        "button:has-text('Complete')",
-        "button:has-text('Subscribe')",
+        page.getByTestId("hosted-payment-submit-button"),
+        page.getByTestId("submit-button"),
+        page.getByRole("button", { name: /complete order|place order|pay|complete|subscribe|confirm/i }),
+        page.locator("button[type='submit']").first(),
       ];
 
       let submitted = false;
-      for (const selector of submitCandidates) {
-        const btn = page.locator(selector).first();
-        if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await btn.click();
-          submitted = true;
-          break;
+      for (const locator of submitCandidates) {
+        if (await locator.isVisible({ timeout: 3000 }).catch(() => false)) {
+          if (await locator.isEnabled().catch(() => false)) {
+            await locator.click();
+            submitted = true;
+            break;
+          }
         }
       }
       if (!submitted) {
