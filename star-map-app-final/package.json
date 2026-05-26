@@ -43,6 +43,7 @@
     "check:static-assets": "node scripts/check-static-assets.mjs",
     "seo:scoreboard": "node scripts/seo-scoreboard.mjs",
     "qa:live-conversion": "node scripts/live-conversion-qa.mjs",
+    "qa:live-print-conversion": "node scripts/live-print-conversion-qa.mjs",
     "qa:ga4-mp-probe": "node scripts/ga4-mp-probe.mjs",
     "qa:live-smoke": "node scripts/live-smoke.mjs --site https://starmapco.com",
     "qa:live-canary": "node scripts/live-smoke.mjs --site https://starmapco.com",
