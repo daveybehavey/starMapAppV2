@@ -158,7 +158,9 @@ function getCheckoutItemName(input: CheckoutAnalyticsInput) {
 }
 
 function estimateCheckoutValue(input: CheckoutAnalyticsInput) {
-  if (typeof input.value === "number" && Number.isFinite(input.value)) return input.value;
+  if (typeof input.value === "number" && Number.isFinite(input.value) && input.value > 0) {
+    return input.value;
+  }
   if (input.orderType === "print") {
     const variant = input.printVariant ?? "poster_unframed";
     const base = PRINT_VARIANT_BASE_CENTS[variant] ?? PRINT_VARIANT_BASE_CENTS.poster_unframed;
@@ -236,7 +238,12 @@ function ga4ServerPurchaseTrackingEnabled() {
 }
 
 export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
-  if (ga4ServerPurchaseTrackingEnabled()) {
+  const paidTotal =
+    typeof input.value === "number" && Number.isFinite(input.value) ? input.value : null;
+  const serverOnly =
+    ga4ServerPurchaseTrackingEnabled() && (paidTotal === null || paidTotal > 0);
+
+  if (serverOnly) {
     if (typeof window !== "undefined") {
       try {
         sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
@@ -246,15 +253,19 @@ export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
     }
     return;
   }
+
   if (!canTrackAnalytics()) {
     persistPendingGa4Purchase(input);
     return;
   }
+
+  const value = estimateCheckoutValue(input);
   sendGaEvent("purchase", {
     transaction_id: input.transactionId,
     currency: getCheckoutCurrency(input),
-    value: estimateCheckoutValue(input),
-    items: [buildGaItem(input)],
+    value,
+    ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
+    items: [buildGaItem({ ...input, value })],
   });
   try {
     sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);

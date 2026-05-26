@@ -77,8 +77,15 @@ function getCheckoutItemName(input: Ga4PurchaseInput) {
   return "Single HD Digital Download";
 }
 
+/** Stripe `amount_total` in dollars; ignore zero so 100% promos still send a positive GA4 value. */
+function stripePaidValueDollars(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
+  return value;
+}
+
 function estimateCheckoutValue(input: Ga4PurchaseInput) {
-  if (typeof input.value === "number" && Number.isFinite(input.value)) return input.value;
+  const paid = stripePaidValueDollars(input.value);
+  if (paid !== undefined) return paid;
   if (input.orderType === "print") {
     const base = input.printVariant === "poster_framed" ? PRINT_FRAMED_CENTS : PRINT_UNFRAMED_CENTS;
     const total = base + (input.includeDigitalAddOn ? PRINT_DIGITAL_ADDON_CENTS : 0);
@@ -95,10 +102,13 @@ function getCheckoutCurrency(input: Ga4PurchaseInput) {
 
 function buildPurchaseParams(input: Ga4PurchaseInput) {
   const value = estimateCheckoutValue(input);
+  const freeCheckout =
+    typeof input.value === "number" && Number.isFinite(input.value) && input.value <= 0;
   return removeUndefinedValues({
     transaction_id: input.transactionId,
     currency: getCheckoutCurrency(input),
     value,
+    ...(freeCheckout ? { free_checkout: true } : {}),
     items: [
       removeUndefinedValues({
         item_id: getCheckoutItemId(input),
@@ -122,7 +132,10 @@ export async function recordGa4PurchaseOnce(input: Ga4PurchaseInput): Promise<vo
 
   const measurementId = process.env.NEXT_PUBLIC_GA_ID?.trim() || "";
   const apiSecret = process.env.GA4_API_SECRET?.trim() || "";
-  if (!measurementId || !apiSecret) return;
+  if (!measurementId || !apiSecret) {
+    console.warn("GA4 Measurement Protocol skipped: missing NEXT_PUBLIC_GA_ID or GA4_API_SECRET");
+    return;
+  }
 
   const seen = await kv.incr(ga4MpPurchaseKey(transactionId), 1, { ex: GA4_MP_DEDUPE_TTL_SECONDS });
   if (seen !== 1) return;
