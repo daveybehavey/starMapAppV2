@@ -163,7 +163,7 @@ export async function recordPaymentVerifiedOnce(input: {
     occurredAt: input.occurredAt,
   });
   if (input.ga4Purchase) {
-    void recordGa4PurchaseOnce(input.ga4Purchase);
+    await recordGa4PurchaseOnce(input.ga4Purchase);
   }
 }
 

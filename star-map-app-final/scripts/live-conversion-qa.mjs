@@ -356,6 +356,18 @@ async function run() {
   try {
     await page.goto(`${args.site}/`, { waitUntil: "networkidle", timeout: 60_000 });
     report.steps.push("Homepage loaded");
+    await page.evaluate(() => {
+      try {
+        localStorage.setItem("analytics-consent", "true");
+      } catch {
+        // Ignore storage failures in automation.
+      }
+    });
+    const acceptCookies = page.getByRole("button", { name: /accept/i }).first();
+    if (await acceptCookies.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptCookies.click();
+      report.steps.push("Accepted analytics cookies");
+    }
     await captureScreenshot("/tmp/qa-live-01-home.png", "home");
 
     const dateInput = page.locator("input[name='date']").first();

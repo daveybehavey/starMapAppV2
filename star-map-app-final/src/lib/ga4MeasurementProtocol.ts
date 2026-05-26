@@ -137,8 +137,9 @@ export async function recordGa4PurchaseOnce(input: Ga4PurchaseInput): Promise<vo
     return;
   }
 
-  const seen = await kv.incr(ga4MpPurchaseKey(transactionId), 1, { ex: GA4_MP_DEDUPE_TTL_SECONDS });
-  if (seen !== 1) return;
+  const dedupeKey = ga4MpPurchaseKey(transactionId);
+  const prior = await kv.get<number>(dedupeKey);
+  if (typeof prior === "number" && prior > 0) return;
 
   const url = new URL("https://www.google-analytics.com/mp/collect");
   url.searchParams.set("measurement_id", measurementId);
@@ -162,7 +163,9 @@ export async function recordGa4PurchaseOnce(input: Ga4PurchaseInput): Promise<vo
     });
     if (!res.ok) {
       console.warn("GA4 Measurement Protocol purchase failed", res.status);
+      return;
     }
+    await kv.incr(dedupeKey, 1, { ex: GA4_MP_DEDUPE_TTL_SECONDS });
   } catch (err) {
     console.warn("GA4 Measurement Protocol purchase error", err);
   }
