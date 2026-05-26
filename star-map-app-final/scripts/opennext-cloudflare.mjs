@@ -13,6 +13,7 @@ function run(command, args, env) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
     env,
+    shell: process.platform === "win32",
   });
   if (result.status !== 0) {
     throw new Error(`Command failed: ${command} ${args.join(" ")}`);
@@ -45,8 +46,9 @@ function deployWorkerDirect(env, reason) {
 }
 
 function runOpenNextBuild(env) {
-  // Do not pass wrangler.toml [vars] into Next/OpenNext build — large JSON vars break Windows spawn.
-  run("npx", ["opennextjs-cloudflare", "build"], process.env);
+  // NEXT_PUBLIC_* must be present at build time (inlined into client bundles). Merge wrangler [vars]
+  // but keep process.env wins so local .env.local can override for dev-only experiments.
+  run("npx", ["opennextjs-cloudflare", "build"], env);
 }
 
 function deployBuilt(env) {

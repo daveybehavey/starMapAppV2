@@ -1185,7 +1185,8 @@ export async function POST(req: NextRequest) {
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
-      fallbackOnDiscountError: !promoCode,
+      // Always allow retry without auto-applied discount so manual promos cannot hard-fail checkout.
+      fallbackOnDiscountError: true,
       orderType,
       printVariant,
       includeDigitalAddOn,

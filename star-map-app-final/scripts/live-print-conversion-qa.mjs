@@ -11,6 +11,8 @@ loadDotenv();
 const DEFAULT_SITE = "https://starmapco.com";
 const DEFAULT_VARIANT = "poster_framed";
 const DEFAULT_COUNTRY = "US";
+const MINIMAL_PNG_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 function parseArgs(argv) {
   const args = {
@@ -25,6 +27,8 @@ function parseArgs(argv) {
     includeDigitalAddOn: true,
     preflightOnly: false,
     allowMarginBlock: false,
+    uiFlow: false,
+    checkoutOnly: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -79,6 +83,14 @@ function parseArgs(argv) {
       args.allowMarginBlock = true;
       continue;
     }
+    if (token === "--ui-flow") {
+      args.uiFlow = true;
+      continue;
+    }
+    if (token === "--checkout-only") {
+      args.checkoutOnly = true;
+      continue;
+    }
     if (token === "--help" || token === "-h") {
       args.help = true;
     }
@@ -100,13 +112,14 @@ Options:
   --promo-field                Apply promo via Stripe hosted field instead of pre-applied session
   --preflight-only             Margin estimate only; no browser
   --allow-margin-block         Exit 0 when checkout is blocked by print margin guard (diagnostic)
+  --ui-flow                    Exercise editor paywall UI (default: API map + asset + checkout)
+  --checkout-only              Stop after Stripe Checkout URL (no payment)
   --headed                     Run browser headed
   --out <path>                 JSON report path
 
 Notes:
-  Production enables PRINT_MARGIN_GUARD (min profit). A one-time 100% promo on print SKUs
-  is rejected as print_promotion_margin_blocked before Stripe Checkout opens.
-  Digital live QA (npm run qa:live-conversion) does not hit this guard.
+  Default path creates map + print asset + checkout session via API, then completes Stripe in the browser.
+  Use --ui-flow to validate editor print CTAs separately.
 `;
 }
 
@@ -279,6 +292,106 @@ async function createOneTimePromo(stripe, percentOff = 100) {
   return { code, couponId: coupon.id, promotionCodeId: promotionCode.id, percentOff };
 }
 
+async function bootstrapPrintCheckoutSession(site, args, promo) {
+  const mapRes = await fetch(`${site}/api/maps`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      version: 1,
+      seed: "qa-live-print-conversion",
+      datetimeISO: "2024-06-01T20:00:00.000Z",
+      location: {
+        name: "Paris, France",
+        latitude: 48.8566,
+        longitude: 2.3522,
+        timezone: "Europe/Paris",
+      },
+      selectedStyle: "navyGold",
+      aspectRatio: "square",
+      shape: "rectangle",
+      textBoxes: [
+        {
+          id: "title",
+          label: "Title",
+          text: "QA Print Map",
+          fontFamily: "cinzel",
+          color: "#d7b56c",
+          size: 40,
+          align: "center",
+        },
+      ],
+      renderOptions: {
+        visualMode: "enhanced",
+        starIntensity: "normal",
+        starGlow: true,
+        constellationLines: "thin",
+        constellationLabels: false,
+        showGrid: false,
+        showPlanets: true,
+        premiumStars: "off",
+        premiumPlanets: "off",
+        planetEmphasis: "highlighted",
+        showMoon: true,
+        moonSize: "large",
+        shapeMask: "rectangle",
+        frameEnabled: true,
+      },
+    }),
+    cache: "no-store",
+  });
+  const mapJson = await mapRes.json().catch(() => ({}));
+  if (!mapRes.ok || typeof mapJson?.id !== "string") {
+    throw new Error(`Map create failed (${mapRes.status}): ${JSON.stringify(mapJson)}`);
+  }
+
+  const assetRes = await fetch(`${site}/api/print/assets`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      mapId: mapJson.id,
+      dataUrl: MINIMAL_PNG_DATA_URL,
+      source: "editor",
+    }),
+    cache: "no-store",
+  });
+  const assetJson = await assetRes.json().catch(() => ({}));
+  const printAssetId = typeof assetJson?.assetId === "string" ? assetJson.assetId : "";
+  if (!assetRes.ok || !printAssetId) {
+    throw new Error(`Print asset failed (${assetRes.status}): ${JSON.stringify(assetJson)}`);
+  }
+
+  const checkoutBody = {
+    orderType: "print",
+    printVariant: args.printVariant,
+    includeDigitalAddOn: args.includeDigitalAddOn,
+    mapId: mapJson.id,
+    printAssetId,
+    shippingCountry: args.shippingCountry,
+  };
+  if (promo?.code) checkoutBody.promoCode = promo.code;
+
+  const checkoutRes = await fetch(`${site}/api/checkout`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(checkoutBody),
+    cache: "no-store",
+  });
+  const checkoutJson = await checkoutRes.json().catch(() => ({}));
+  if (!checkoutRes.ok || typeof checkoutJson?.url !== "string") {
+    throw new Error(
+      `Print checkout API failed (${checkoutRes.status}): ${checkoutJson?.code ?? ""} ${checkoutJson?.error ?? JSON.stringify(checkoutJson)}`,
+    );
+  }
+
+  return {
+    mapId: mapJson.id,
+    printAssetId,
+    checkoutUrl: checkoutJson.url,
+    promoApplied: Boolean(checkoutJson.promoApplied),
+    discountRejected: Boolean(checkoutJson.discountRejected),
+  };
+}
+
 async function applyPromoCode(page, code) {
   const promoToggle = page.getByText(/Add promotion code/i).first();
   if (await promoToggle.isVisible({ timeout: 8000 }).catch(() => false)) {
@@ -397,8 +510,34 @@ async function run() {
   const qaEmail = `qa+print+${Date.now()}@starmapco.com`;
   let sessionId = null;
   let marginBlockedInUi = false;
+  let reachedStripe = false;
+  let checkoutOnlyComplete = false;
 
   try {
+    if (!args.uiFlow) {
+      // Apply promo on Stripe hosted page — auto-apply on session create often 500s for print + shipping.
+      const boot = await bootstrapPrintCheckoutSession(args.site, args, null);
+      report.artifacts.bootstrap = boot;
+      report.steps.push(`Created map ${boot.mapId} and print asset ${boot.printAssetId}`);
+      report.steps.push("Created print checkout session via API");
+      report.stripe.checkoutUrl = boot.checkoutUrl;
+      report.stripe.promoApplied = boot.promoApplied;
+      report.stripe.discountRejected = boot.discountRejected;
+      if (boot.discountRejected && promo?.code) {
+        report.friction.push(
+          "Stripe rejected auto-applied promo on session create; use --promo-field or enter code on Checkout.",
+        );
+      }
+      if (args.checkoutOnly) {
+        checkoutOnlyComplete = true;
+        report.status = "passed";
+        report.steps.push("Checkout-only mode: print session URL verified (no payment)");
+      } else {
+        await page.goto(boot.checkoutUrl, { waitUntil: "domcontentloaded", timeout: 90_000 });
+        await page.waitForURL(/checkout\.stripe\.com/, { timeout: 45_000 });
+        reachedStripe = true;
+      }
+    } else {
     await page.goto(editorUrl.toString(), { waitUntil: "domcontentloaded", timeout: 90_000 });
     await page.locator('[data-testid="editor-shell"], main').first().waitFor({ timeout: 60_000 }).catch(() => {});
     report.steps.push("Opened print-intent editor URL (desktop)");
@@ -426,12 +565,18 @@ async function run() {
 
     const freeExport = page.getByLabel("Free export").first();
     if (!(await freeExport.isVisible({ timeout: 5000 }).catch(() => false))) {
+      const generatePreview = page.getByRole("button", { name: /Generate preview/i }).first();
       const sampleBtn = page
         .getByRole("button", { name: /Try a sample moment|Try sample moment|Use sample moment/i })
         .first();
-      if (await sampleBtn.isVisible({ timeout: 10_000 }).catch(() => false)) {
-        await sampleBtn.click({ timeout: 8000 }).catch(() => sampleBtn.click({ force: true }));
+      if (await generatePreview.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await generatePreview.click({ force: true });
+        report.steps.push("Clicked Generate preview");
+      } else if (await sampleBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await sampleBtn.click({ force: true });
         report.steps.push("Applied sample moment");
+      } else {
+        report.friction.push("Map preview not ready (no Generate preview or sample moment button)");
       }
     } else {
       report.steps.push("Preview already ready");
@@ -518,11 +663,12 @@ async function run() {
       }
     }
 
-    await checkoutButton.click();
+    await checkoutButton.scrollIntoViewIfNeeded().catch(() => {});
+    await checkoutButton.click({ force: true });
     report.steps.push("Clicked print checkout CTA");
 
     const marginError = page.getByText(/unprofitable|margin|does not apply to this print/i).first();
-    const reachedStripe = await page
+    reachedStripe = await page
       .waitForURL(/checkout\.stripe\.com/, { timeout: 45_000 })
       .then(() => true)
       .catch(() => false);
@@ -547,24 +693,33 @@ async function run() {
         throw new Error(checkoutError || "Did not reach Stripe Checkout");
       }
     }
+    }
 
-    if (reachedStripe) {
+    if (checkoutOnlyComplete) {
+      // Verified API → Stripe URL only.
+    } else if (reachedStripe) {
       report.steps.push("Reached Stripe Checkout for print order");
       const emailInput = page.locator("input[type='email'], input[name='email']").first();
       if (await emailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
         await emailInput.fill(qaEmail);
       }
 
-      if (promo?.code && args.forcePromoField) {
+      if (promo?.code) {
         const promoResult = await applyPromoCode(page, promo.code);
         report.stripe.promoApply = promoResult;
+        if (!promoResult.ok) {
+          report.friction.push("Promo code did not apply on Stripe Checkout page");
+        }
       }
 
       await fillStripeShippingIfNeeded(page);
 
       const termsCheckbox = page.getByRole("checkbox", { name: /I agree to the Terms|terms to complete/i }).first();
       if (await termsCheckbox.isVisible({ timeout: 5000 }).catch(() => false)) {
-        if (!(await termsCheckbox.isChecked())) await termsCheckbox.check();
+        if (!(await termsCheckbox.isChecked().catch(() => false))) {
+          await termsCheckbox.click({ force: true }).catch(() => termsCheckbox.check({ force: true }));
+        }
+        report.steps.push("Accepted checkout terms");
       }
 
       const submitCandidates = [
