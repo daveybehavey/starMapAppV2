@@ -25,14 +25,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Star Map | StarMapCo",
+  title: "Best Personalized Star Map Gift | StarMapCo",
   description:
-    "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Looking for the best personalized star map gift? Capture any date and place with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
-    title: "Personalized Star Map | StarMapCo",
+    title: "Best Personalized Star Map Gift | StarMapCo",
     description:
-      "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "A personalized star map gift with names, dates, and locations. Free preview, then framed print, unframed print, or HD digital.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -48,9 +48,9 @@ export default function PersonalizedStarMapPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Star Map</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Best Personalized Star Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Personalize a star map with names, a date, and a location to capture the exact night sky from a meaningful moment.
+          A personalized star map gift with names, a date, and a location—the exact night sky from a moment worth framing.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>

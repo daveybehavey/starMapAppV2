@@ -105,6 +105,10 @@ export default function WeddingPage() {
             Enter your ceremony date and place to preview the exact sky overhead. Most couples choose a gift-ready framed
             print; unframed and instant HD stay on the same design.
           </p>
+          <p className="text-xs text-amber-100/80 sm:text-sm">
+            Free preview first—checkout only when you are ready for framed print, unframed print, or HD digital from the
+            same approved design.
+          </p>
           <ul className="mx-auto flex max-w-md flex-col gap-2 text-left text-sm text-amber-50/95 sm:text-base lg:mx-0">
             <li className="flex gap-2">
               <span className="mt-0.5 text-amber-300" aria-hidden="true">

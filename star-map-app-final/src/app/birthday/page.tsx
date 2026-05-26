@@ -22,14 +22,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Birthday Star Map | StarMapCo",
+  title: "Birthday Star Map Generator | StarMapCo",
   description:
-    "Celebrate a birthday with a personalized star map showing the exact night sky from their special date and place. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
-    title: "Personalized Birthday Star Map | StarMapCo",
+    title: "Birthday Star Map Generator | StarMapCo",
     description:
-      "Capture the night sky from their birthday with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Create a birthday star map from their birth date and location. Free preview, then framed print, unframed print, or HD digital.",
     url: `${siteUrl}/birthday`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -45,9 +45,9 @@ export default function BirthdayPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Birthday Star Map</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Birthday Star Map Generator</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
-          Mark a birthday with a birthday star map gift showing the exact night sky from their birth date and location. A
+          Use our birthday star map generator to capture the exact night sky from their birth date and location—a
           keepsake that feels personal, timeless, and ready to frame.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">

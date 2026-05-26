@@ -158,11 +158,22 @@ export default function ValentinesStarMapPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Real love, real proof</h2>
-          <blockquote className="rounded-2xl border-l-4 border-amber-300/80 bg-white/5 p-4 text-sm text-neutral-200">
-            “We sent a star map for Valentine’s and she cried—said it looked like the exact night the fireworks
-            burst. The print still hangs in our kitchen.” — Jordan & Alex
-          </blockquote>
+          <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Share your real Valentine&apos;s story</h2>
+          <p className="text-neutral-200">
+            We only feature real customer photos and quotes—with written permission. If your StarMapCo map made
+            Valentine&apos;s Day special, email{" "}
+            <a
+              href="mailto:support@starmapco.com?subject=StarMapCo%20Valentine%27s%20proof"
+              className="font-semibold text-amber-200 underline-offset-4 hover:underline"
+            >
+              support@starmapco.com
+            </a>{" "}
+            with a photo, a short note about the moment, and whether we may publish it later. After checkout, the success
+            and download pages include a ready-made email draft for the same request.
+          </p>
+          <p className="text-sm text-neutral-400">
+            This guide does not use placeholder testimonials—we update it when verified submissions are approved.
+          </p>
         </section>
 
         <BlogPostConversionLinks source="valentines-day-star-map" />

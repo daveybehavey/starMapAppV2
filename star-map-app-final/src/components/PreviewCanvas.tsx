@@ -335,6 +335,23 @@ export default function PreviewCanvas({
       if (hit) {
         // Prevent the page from scrolling when dragging on touch devices.
         event.preventDefault();
+        if (event.detail >= 2) {
+          setActiveBox(hit.id);
+          const rect = textBoundsRef.current.get(hit.id);
+          if (rect) setBoxRect(rect);
+          dragRef.current = null;
+          pendingDragRef.current = null;
+          dragBoundsRef.current = null;
+          dragActiveRef.current = false;
+          setIsDragging(false);
+          setDragPreviewPosition(null);
+          setSnapGuides({ vertical: false, horizontal: false });
+          requestAnimationFrame(() => {
+            directEditInputRef.current?.focus();
+            directEditInputRef.current?.select();
+          });
+          return;
+        }
         dragRef.current = {
           id: hit.id,
           offsetX: x - hit.centerX,
@@ -663,7 +680,7 @@ export default function PreviewCanvas({
               />
             </div>
             <p className="text-[10px] leading-relaxed text-neutral-400">
-              Drag to move · Arrow keys to nudge · Enter to edit
+              Drag to move · Arrow keys to nudge · Double-click or Enter to edit
             </p>
             <div className="grid grid-cols-3 gap-2">
               <div />
