@@ -1217,27 +1217,32 @@ export function EditorExperience({
         });
         let mapId: string | null = null;
         let mapSaveError: string | null = null;
-        try {
-          const mapRes = await fetch("/api/maps", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(recipeForCheckout),
-          });
-          if (mapRes.ok) {
-            const data = (await mapRes.json()) as { id?: string };
-            if (typeof data.id === "string" && data.id.trim()) {
-              mapId = data.id.trim();
-              try {
-                localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
-              } catch {
-                // ignore storage errors (e.g. private browsing)
+        for (let attempt = 0; attempt < 2 && !mapId; attempt += 1) {
+          try {
+            const mapRes = await fetch("/api/maps", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(recipeForCheckout),
+            });
+            if (mapRes.ok) {
+              const data = (await mapRes.json()) as { id?: string };
+              if (typeof data.id === "string" && data.id.trim()) {
+                mapId = data.id.trim();
+                try {
+                  localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+                } catch {
+                  // ignore storage errors (e.g. private browsing)
+                }
               }
+            } else {
+              mapSaveError = `save_failed_${mapRes.status}`;
             }
-          } else {
-            mapSaveError = `save_failed_${mapRes.status}`;
+          } catch {
+            mapSaveError = "save_failed_network";
           }
-        } catch {
-          mapSaveError = "save_failed_network";
+          if (!mapId && attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
         }
         if (!mapId) {
           throw new Error(mapSaveError ?? "map_save_failed");

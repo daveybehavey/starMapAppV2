@@ -60,9 +60,20 @@ function parseEmailAddress(value?: string): ParsedEmailAddress | null {
   return { email: trimmed };
 }
 
+function editorPromoUrl(source: string) {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
+  return `${siteUrl}/editor?mode=quick&source=${encodeURIComponent(source)}`;
+}
+
+function weddingPromoUrl(source: string) {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
+  return `${siteUrl}/wedding?source=${encodeURIComponent(source)}`;
+}
+
 function getPromotionCopy(email: string, couponCode: string): EmailCopy {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
-  const checkoutUrl = `${siteUrl}/`;
+  const checkoutUrl = editorPromoUrl("promo-welcome");
+  const weddingUrl = weddingPromoUrl("promo-welcome");
   const subject = promotionSubject;
   const unsubscribeUrl = getPromotionUnsubscribeUrl(email) ?? null;
   const text = [
@@ -70,7 +81,8 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
     "",
     `Here is your ${promotionPercentLabel} off code for ${promotionTargetLabel}: ${couponCode}`,
     "",
-    `Use it at checkout here: ${checkoutUrl}`,
+    `Start your free preview: ${checkoutUrl}`,
+    `Wedding gift path: ${weddingUrl}`,
     "",
     `This one-time offer applies to ${promotionTargetLabel}.`,
     "Framed and unframed prints remain available separately after preview.",
@@ -90,6 +102,7 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
       <p style="font-size: 28px; font-weight: 700; margin: 0 0 18px; letter-spacing: 1px; color: #b07d1b;">${couponCode}</p>
       <p>Use it at checkout:</p>
       <p><a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Create your star map</a></p>
+      <p style="font-size: 13px; color: #3f485b; margin-top: 10px;">Shopping for a wedding gift? <a href="${weddingUrl}" style="color: #b07d1b; font-weight: 600;">Preview the wedding sky</a>.</p>
       <p style="font-size: 13px; color: #3f485b;">This one-time offer applies to ${promotionTargetLabel}.</p>
       <p style="font-size: 13px; color: #3f485b;">Framed and unframed print routes still stay available after preview.</p>
       <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
@@ -103,7 +116,8 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
 
 function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
-  const checkoutUrl = `${siteUrl}/`;
+  const checkoutUrl = editorPromoUrl("promo-followup");
+  const weddingUrl = weddingPromoUrl("promo-followup");
   const printGuideUrl = `${siteUrl}/how-to-print-star-map`;
   const galleryUrl = `${siteUrl}/star-map-gallery`;
   const subject = promotionFollowupSubject;
@@ -139,7 +153,10 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
       <p><a href="${printGuideUrl}" style="color: #b07d1b; font-weight: 700; text-decoration: none;">Read the full print guide</a></p>
       <p style="margin-top: 18px;">Your ${promotionPercentLabel} off ${promotionOfferName} still works:</p>
       <p style="font-size: 24px; font-weight: 700; margin: 0 0 14px; letter-spacing: 1px; color: #b07d1b;">${couponCode}</p>
-      <p><a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Continue your map</a></p>
+      <p>
+        <a href="${checkoutUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Continue your map</a>
+        <a href="${weddingUrl}" style="display: inline-block; margin-left: 8px; padding: 10px 16px; border-radius: 999px; border: 1px solid #d4d4d8; color: #141414; text-decoration: none; font-weight: 700;">Wedding gift path</a>
+      </p>
       <p style="font-size: 13px; color: #3f485b; margin-top: 14px;">
         Need inspiration? Browse the <a href="${galleryUrl}" style="color: #b07d1b; text-decoration: none;">star map gallery</a>.
       </p>
@@ -152,7 +169,11 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
   return { subject, text, html };
 }
 
-async function sendWithResend(email: string, copy: EmailCopy): Promise<PromotionAutomationResult> {
+async function sendWithResend(
+  email: string,
+  copy: EmailCopy,
+  scheduledAtIso?: string,
+): Promise<PromotionAutomationResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey || !promotionFromEmail) {
     return { delivered: false, provider: "none" };
@@ -165,6 +186,7 @@ async function sendWithResend(email: string, copy: EmailCopy): Promise<Promotion
     text: string;
     html: string;
     reply_to?: string;
+    scheduled_at?: string;
   } = {
     from: promotionFromEmail,
     to: [email],
@@ -172,6 +194,10 @@ async function sendWithResend(email: string, copy: EmailCopy): Promise<Promotion
     text: copy.text,
     html: copy.html,
   };
+
+  if (scheduledAtIso) {
+    payload.scheduled_at = scheduledAtIso;
+  }
 
   if (promotionReplyTo) {
     payload.reply_to = promotionReplyTo;
@@ -308,8 +334,9 @@ export async function runPromotionFollowup(
   try {
     const copy = getPromotionFollowupCopy(email, couponCode);
     const sendAt = Math.floor(Date.now() / 1000) + promotionFollowupDelaySeconds;
+    const resendScheduledAt = new Date(sendAt * 1000).toISOString();
 
-    const resendResult = await sendWithResend(email, copy);
+    const resendResult = await sendWithResend(email, copy, resendScheduledAt);
     if (resendResult.provider !== "none") return resendResult;
 
     const sendgridResult = await sendWithSendgrid(email, copy, sendAt);
