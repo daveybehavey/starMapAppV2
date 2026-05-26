@@ -33,13 +33,19 @@ We never publish without that confirmation.
 1. Save permission email/thread (internal only).
 2. Add approved quote to `src/data/testimonials.ts` per the template.
 3. Add buyer photo under `public/testimonials/` only if image usage was approved.
-4. Optionally refresh money-page proof modules when you have **permissioned** assets (never placeholder quotes).
+4. Optionally add **permissioned buyer photos** to `public/testimonials/` or dedicated proof slots (never placeholder quotes).
+
+## Marketing proof (no permission needed)
+
+- **Printful catalog mockups**, **draft-order preview PNGs**, and synced files under `public/printproof/` are the default money-page proof (`FramedProofSection`, shop, homepage offer stack).
+- Label them honestly (“mockup”, “preview render”) — this is preferred until permissioned customer photos exist.
+- Refresh after catalog or artwork changes: `npm run assets:printproof` (requires Printful API env).
 
 ## Do not
 
 - Fabricate quotes or attribute stories without permission.
 - Publish full addresses, tracking numbers, or payment details from proof emails.
-- Use $60 Printful sample photos as “customer proof” on marketing pages.
+- Present Printful mockups or draft previews as **customer-submitted** or “verified buyer” photos.
 
 ## Related
 

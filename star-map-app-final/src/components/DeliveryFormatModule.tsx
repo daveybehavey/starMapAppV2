@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
@@ -22,6 +23,7 @@ export default function DeliveryFormatModule({
     framed: formatPrintPriceWithShipping(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
   };
   const shippingDisclosure = getPrintShippingDisclosure();
+  const baselineDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", "US");
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -54,6 +56,7 @@ export default function DeliveryFormatModule({
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Museum-quality poster stock</li>
               <li>{shippingDisclosure}</li>
+              {baselineDeliveryDisclosure ? <li>{baselineDeliveryDisclosure}</li> : null}
               <li>Starts at {printLabels.unframed}</li>
             </ul>
             <Link
@@ -77,6 +80,7 @@ export default function DeliveryFormatModule({
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Gift-ready framed presentation</li>
               <li>{shippingDisclosure}</li>
+              {baselineDeliveryDisclosure ? <li>{baselineDeliveryDisclosure}</li> : null}
               <li>Starts at {printLabels.framed}</li>
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">

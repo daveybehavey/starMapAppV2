@@ -156,7 +156,7 @@ export default function NightSkyMapGiftPage() {
       />
       <PhysicalProductGallerySection
         heading="Compare the framed and unframed physical finish"
-        intro="Use these real proof assets to judge the premium framed route against the lower-cost unframed poster before you leave the page."
+        intro="Compare Printful mockups for the framed and unframed routes before you leave the page—same artwork pipeline as production."
         sourcePrefix="night-sky-gift-physical-proof"
       />
       <PurchaseTrustPanel

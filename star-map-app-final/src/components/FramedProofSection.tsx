@@ -5,6 +5,7 @@ import {
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { formatPrintShippingEstimateWithDelivery } from "@/lib/printfulShipping";
 import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
@@ -34,6 +35,17 @@ export default function FramedProofSection({
   const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
   const framedProofImage = getFramedProofImage();
   const unframedProofImage = getUnframedProofImage();
+  const proofShippingCountry = "US";
+  const framedShippingDetail = formatPrintShippingEstimateWithDelivery(
+    "poster_framed",
+    proofShippingCountry,
+    "shipping",
+  );
+  const unframedShippingDetail = formatPrintShippingEstimateWithDelivery(
+    "poster_unframed",
+    proofShippingCountry,
+    "shipping",
+  );
 
   return (
     <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
@@ -104,12 +116,14 @@ export default function FramedProofSection({
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Recommended</p>
               <h3 className="mt-2 text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{framedPrice}</p>
+              <p className="mt-1 text-xs text-neutral-600">Est. to U.S.: {framedShippingDetail}</p>
               <p className="mt-2 text-xs text-neutral-700">Ready-to-hang gift route with the frame already handled.</p>
             </div>
             <div className="brand-light-card rounded-2xl px-4 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Lower total</p>
               <h3 className="mt-2 text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{unframedPrice}</p>
+              <p className="mt-1 text-xs text-neutral-600">Est. to U.S.: {unframedShippingDetail}</p>
               <p className="mt-2 text-xs text-neutral-700">Best if you already know how you want to frame it yourself.</p>
             </div>
             <div className="brand-light-card rounded-2xl px-4 py-4">

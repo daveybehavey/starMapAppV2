@@ -1,7 +1,8 @@
 import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import ResilientImage from "@/components/ResilientImage";
 import {
-  formatPrintShippingEstimate,
+  formatPrintDeliveryDisclosure,
+  formatPrintShippingEstimateWithDelivery,
   getPrintShippingCountryLabel,
 } from "@/lib/printfulShipping";
 
@@ -28,8 +29,9 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
   const shippingDisclosure = getPrintShippingDisclosure();
   const printShippingCountry = "US";
   const printShippingCountries = getPrintAllowedCountries();
-  const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
-  const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
+  const framedShippingLabel = formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry, "shipping");
+  const unframedShippingLabel = formatPrintShippingEstimateWithDelivery("poster_unframed", printShippingCountry, "shipping");
+  const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", printShippingCountry);
   const shippingCountryLabel = getPrintShippingCountryLabel(printShippingCountry);
   const shippingCoverageLabel = (() => {
     const count = printShippingCountries.length;
@@ -140,6 +142,7 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
               <li>Most buyers pair this with the HD add-on</li>
               <li>Best-looking premium option for special occasions</li>
               <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
+              {framedDeliveryDisclosure ? <li>{framedDeliveryDisclosure}</li> : null}
               <li>{printLabels.framed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-amber-300/35 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">

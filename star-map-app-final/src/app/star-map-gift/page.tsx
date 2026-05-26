@@ -25,12 +25,12 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Gift | StarMapCo",
+  title: "Personalized Star Map Gift Ideas | StarMapCo",
   description:
-    "Give a personalized star map gift that recreates the exact night sky from a special date. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Star map gift ideas for any occasion—wedding, anniversary, birthday, and more. Free preview, then framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/star-map-gift` },
   openGraph: {
-    title: "Star Map Gift | StarMapCo",
+    title: "Personalized Star Map Gift Ideas | StarMapCo",
     description:
       "Give a personalized star map gift that recreates the exact night sky from a special date. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
     url: `${siteUrl}/star-map-gift`,

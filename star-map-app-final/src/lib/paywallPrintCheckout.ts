@@ -2,7 +2,10 @@ import type { PaywallPrintCheckoutRow } from "@/lib/printCatalog";
 import type { PrintVariant } from "@/lib/printCatalog";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
-import { formatPrintShippingEstimate } from "@/lib/printfulShipping";
+import {
+  formatPrintDeliveryDisclosure,
+  formatPrintShippingEstimateWithDelivery,
+} from "@/lib/printfulShipping";
 
 export type PaywallPrintCheckoutPresentationRow = PaywallPrintCheckoutRow & {
   index: number;
@@ -21,7 +24,7 @@ export function getPaywallPrintCheckoutPresentation(
     const tier = tiers[row.variant];
     const headline = row.headline ?? tier.label;
     const productPrice = formatPrice(tier.amountCents, tier.currency);
-    const shippingLabel = formatPrintShippingEstimate(row.variant, printShippingCountry ?? null, "shipping");
+    const shippingLabel = formatPrintShippingEstimateWithDelivery(row.variant, printShippingCountry ?? null, "shipping");
     const secondaryLine = row.includeDigitalAddOn
       ? `${productPrice} + ${shippingLabel} + ${digitalAddonLabel}`
       : `${productPrice} + ${shippingLabel}`;
@@ -48,9 +51,11 @@ export function isPreferredPaywallPrintRow(
 
 export function formatPosterShippingFootnote(printShippingCountry: string | null | undefined): string | null {
   if (!printShippingCountry) return null;
-  const framed = formatPrintShippingEstimate("poster_framed", printShippingCountry);
-  const unframed = formatPrintShippingEstimate("poster_unframed", printShippingCountry);
-  return `Poster tiers — framed ${framed}, unframed ${unframed}. Canvas uses framed-tier postage; mugs & cards use unframed-tier (estimate).`;
+  const framed = formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry);
+  const unframed = formatPrintShippingEstimateWithDelivery("poster_unframed", printShippingCountry);
+  const deliveryNote = formatPrintDeliveryDisclosure("poster_framed", printShippingCountry);
+  const base = `Poster tiers — framed ${framed}, unframed ${unframed}. Canvas uses framed-tier postage; mugs & cards use unframed-tier (estimate).`;
+  return deliveryNote ? `${base} ${deliveryNote}.` : base;
 }
 
 /** Desktop editor print panel — multi-column grid */

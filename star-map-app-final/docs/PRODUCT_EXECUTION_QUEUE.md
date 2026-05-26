@@ -48,7 +48,7 @@ Updated from product planning session. Ads work is **paused** until you relaunch
 
 - [ ] Real testimonials on money pages when permissioned quotes exist (`docs/testimonial-intake-template.md`) — no placeholder quotes live
 
-- [ ] Replace weak proof photos with fulfilled print samples (1 shipment done — use when photos arrive)
+- [x] Money-page proof uses **Printful mockups + draft order previews** (labeled “mockup”; sync via `npm run assets:printproof` when tokens available)
 
 - [x] Trust + CTA pass (no fake testimonials): `/wedding`, `/personalized-star-map`, `/star-map-gift`, `/night-sky-map-gift`, `/anniversary`
 
@@ -136,9 +136,9 @@ npm run data:doctor
 
 - Permissioned testimonials for money pages (no fabricated quotes)
 
-- Real fulfilled-print photos for proof sections (not Printful $60 sample shots)
+- Permissioned **customer** photos on marketing (Printful mockups/drafts are fine; never label them as buyer photos)
 
-- Ads relaunch to `/wedding` with UTMs after live checkout smoke on production
+- ~~Ads relaunch to `/wedding` with UTMs~~ — live (`Search - Wedding Gift 2026`); weekly `data:pull` + `ads:optimize`
 
 - Mobile app + RevenueCat (was bundled in PR #125; track separately if desired)
 

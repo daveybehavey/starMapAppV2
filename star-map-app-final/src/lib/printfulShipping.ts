@@ -84,6 +84,27 @@ export function getPrintShippingEstimate(
   };
 }
 
+export function formatPrintDeliveryWindow(
+  estimate: Pick<PrintShippingEstimate, "minDeliveryDays" | "maxDeliveryDays"> | null | undefined,
+): string | null {
+  if (!estimate) return null;
+  const { minDeliveryDays: min, maxDeliveryDays: max } = estimate;
+  if (typeof min === "number" && typeof max === "number") {
+    if (min === max) return `${min} business day${min === 1 ? "" : "s"}`;
+    return `${min}–${max} business days`;
+  }
+  if (typeof min === "number") return `${min}+ business days`;
+  if (typeof max === "number") return `up to ${max} business days`;
+  return null;
+}
+
+export function formatPrintDeliveryEstimate(
+  variant: PrintVariant,
+  country: string | null | undefined,
+): string | null {
+  return formatPrintDeliveryWindow(getPrintShippingEstimate(variant, country));
+}
+
 export function formatPrintShippingEstimate(
   variant: PrintVariant,
   country: string | null | undefined,
@@ -92,6 +113,26 @@ export function formatPrintShippingEstimate(
   const estimate = getPrintShippingEstimate(variant, country);
   if (!estimate) return fallback;
   return `${formatPrice(estimate.amountCents, estimate.currency)} shipping`;
+}
+
+export function formatPrintShippingEstimateWithDelivery(
+  variant: PrintVariant,
+  country: string | null | undefined,
+  fallback = "shipping",
+) {
+  const shipping = formatPrintShippingEstimate(variant, country, fallback);
+  const delivery = formatPrintDeliveryEstimate(variant, country);
+  if (delivery) return `${shipping} · ${delivery} transit`;
+  return shipping;
+}
+
+export function formatPrintDeliveryDisclosure(
+  variant: PrintVariant,
+  country: string | null | undefined = "US",
+): string | null {
+  const delivery = formatPrintDeliveryEstimate(variant, country);
+  if (!delivery || !country) return null;
+  return `Typical transit to ${getPrintShippingCountryLabel(country)}: ${delivery} after fulfillment`;
 }
 
 export function readStoredPrintShippingCountry() {

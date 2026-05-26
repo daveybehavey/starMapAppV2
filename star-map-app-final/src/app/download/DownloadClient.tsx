@@ -29,7 +29,7 @@ import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
 import { getDefaultMerchEditorHref, getMerchShopSectionHref } from "@/lib/merchCatalog";
 import { formatPosterShippingFootnote } from "@/lib/paywallPrintCheckout";
 import {
-  formatPrintShippingEstimate,
+  formatPrintShippingEstimateWithDelivery,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
@@ -337,7 +337,7 @@ export default function DownloadClient() {
   const downloadPrintOptions = useMemo(() => {
     return listDownloadPrintUpsellCards().map((card) => {
       const tier = printTiers[card.variant];
-      const ship = formatPrintShippingEstimate(card.variant, printShippingCountry, "shipping");
+      const ship = formatPrintShippingEstimateWithDelivery(card.variant, printShippingCountry, "shipping");
       return {
         ...card,
         label: tier.label,
