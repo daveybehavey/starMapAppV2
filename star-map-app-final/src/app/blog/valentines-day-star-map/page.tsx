@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 
 const title = "Valentine's Day Star Map Gift Guide";
 const description =
@@ -163,6 +164,8 @@ export default function ValentinesStarMapPage() {
             burst. The print still hangs in our kitchen.” — Jordan & Alex
           </blockquote>
         </section>
+
+        <BlogPostConversionLinks source="valentines-day-star-map" />
 
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Your Valentine’s Day, elevated</h2>

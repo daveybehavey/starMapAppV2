@@ -75,6 +75,9 @@ export default function PurchaseTrustPanel({
         <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
           {guideLabel}
         </Link>
+        <Link href="/how-accurate-are-star-maps" className="text-amber-700 underline hover:text-amber-800">
+          Star map accuracy
+        </Link>
         <Link href="/shipping" className="text-amber-700 underline hover:text-amber-800">
           {shippingLabel}
         </Link>

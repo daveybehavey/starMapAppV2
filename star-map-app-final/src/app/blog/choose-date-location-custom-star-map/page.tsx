@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 
 const title = "Choose Date and Location for a Custom Star Map";
 const description =
@@ -183,6 +184,8 @@ export default function ChooseDateLocationPost() {
               moments into eternal art.
             </p>
           </section>
+
+          <BlogPostConversionLinks source="choose-date-location" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

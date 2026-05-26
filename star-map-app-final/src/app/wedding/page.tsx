@@ -10,9 +10,7 @@ import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import { testimonialsByPage } from "@/data/testimonials";
 import { featuredRenderExamples, galleryExamples } from "@/lib/galleryExamples";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
@@ -240,7 +238,6 @@ export default function WeddingPage() {
         sourcePrefix="wedding-format"
       />
       <FramedProofSection sourcePrefix="wedding-proof" />
-      <AccuracyAuthorityCard source="wedding-accuracy-card" />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
@@ -288,6 +285,7 @@ export default function WeddingPage() {
           "Designed for frame-ready printing",
           shippingDisclosure,
           "Physical orders stay in manual review before production starts",
+          "Shipping, returns, and refund details linked below",
           "Help available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"
@@ -296,12 +294,6 @@ export default function WeddingPage() {
         heading="What your wedding order includes"
         intro="This is the exact handoff from your final preview to a frame-ready HD file."
       />
-      <TestimonialHighlights
-        heading="Sample couple stories"
-        intro="Illustrative examples until we publish permissioned customer quotes."
-        testimonials={testimonialsByPage.wedding}
-      />
-
       <section className="content-visibility-auto mt-6 rounded-3xl border border-amber-200/70 bg-gradient-to-br from-amber-100/90 via-amber-50 to-white p-6 text-center shadow-lg shadow-amber-200/40">
         <h2 className="text-lg font-semibold text-midnight">Ready to see your wedding sky?</h2>
         <p className="mx-auto mt-2 max-w-lg text-sm text-neutral-800 sm:text-base">

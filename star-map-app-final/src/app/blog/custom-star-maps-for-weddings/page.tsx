@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 
 const title = "Custom Star Maps for Weddings Guide";
 const description =
@@ -204,6 +205,8 @@ export default function WeddingsPostPage() {
               in minutes.
             </p>
           </section>
+
+          <BlogPostConversionLinks source="custom-star-maps-weddings" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

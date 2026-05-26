@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 import Link from "next/link";
 
 const title = "Custom Star Map for Anniversary Ideas";
@@ -328,6 +329,8 @@ export default function AnniversaryPostPage() {
               for high-impact ideas you can personalize quickly.
             </p>
           </section>
+
+          <BlogPostConversionLinks source="custom-star-map-anniversary" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-3">

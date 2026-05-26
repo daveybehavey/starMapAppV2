@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 import Link from "next/link";
 
 const title = "Personalized Birthday Star Map Gift Guide";
@@ -256,6 +257,8 @@ export default function PersonalizedBirthdayPost() {
               story. Perfect for creating lasting memories.
             </p>
           </section>
+
+          <BlogPostConversionLinks source="birthday-star-map-gift" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

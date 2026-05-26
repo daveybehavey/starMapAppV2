@@ -20,3 +20,8 @@ export function getRevealProgressPercent(stageIndex: number) {
   const clamped = Math.max(0, Math.min(REVEAL_STAGES.length - 1, stageIndex));
   return `${Math.round(((clamped + 1) / REVEAL_STAGES.length) * 100)}%`;
 }
+
+/** Minimum overlay time so stages feel intentional; canvas may finish earlier or later. */
+export const REVEAL_MIN_VISIBLE_MS = 700;
+/** Never block the user longer than this if rendering is slow. */
+export const REVEAL_MAX_WAIT_MS = 8000;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
@@ -10,9 +11,7 @@ import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySe
 import PreviewStartForm from "@/components/PreviewStartForm";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import { testimonialsByPage } from "@/data/testimonials";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -58,6 +57,20 @@ export default function StarMapGiftPage() {
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href="/editor?mode=quick&source=star-map-gift-hero-framed&checkout=print&print_variant=poster_framed"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Preview framed gift print
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=star-map-gift-hero-preview"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Start free preview
+          </Link>
         </div>
       </header>
 
@@ -132,6 +145,8 @@ export default function StarMapGiftPage() {
         </div>
       </section>
 
+      <AccuracyAuthorityCard source="gift-accuracy-card" />
+
       <DeliveryFormatModule
         heading="Choose the gift format after preview"
         intro="Most gift buyers decide between the ready-to-display framed route and the lower-total unframed route. HD digital stays available when you need same-day delivery or local printing."
@@ -165,11 +180,6 @@ export default function StarMapGiftPage() {
       <RevenueTrustModule
         heading="Gift-buyer confidence pack"
         intro="If this is a gift, use this section to remove last-minute uncertainty around quality, shipping, and final review before purchase."
-      />
-      <TestimonialHighlights
-        heading="Verified gift-buyer feedback"
-        intro="Real comments from gift buyers are shown here as they are collected."
-        testimonials={testimonialsByPage.gift}
       />
       <PhysicalProductGallerySection
         heading="See the physical gift before you buy"

@@ -69,14 +69,16 @@ export default function ShopPage() {
   const printTiers = getPrintPricingTiers();
   const digitals = getPricingTiers();
 
+  const proofImage = (entry?: { localPath?: string; sourceUrl?: string }) =>
+    entry?.localPath?.trim() || entry?.sourceUrl?.trim() || "";
   const framedImg =
-    printproofManifest.catalog?.framed?.sourceUrl ||
-    printproofManifest.mockups?.framed?.sourceUrl ||
-    "";
+    proofImage(printproofManifest.catalog?.framed) ||
+    proofImage(printproofManifest.mockups?.framed) ||
+    proofImage(printproofManifest.framed);
   const unframedImg =
-    printproofManifest.catalog?.unframed?.sourceUrl ||
-    printproofManifest.mockups?.unframed?.sourceUrl ||
-    "";
+    proofImage(printproofManifest.catalog?.unframed) ||
+    proofImage(printproofManifest.mockups?.unframed) ||
+    proofImage(printproofManifest.unframed);
   const framedAlt = printproofManifest.catalog?.framed?.label || "Framed star map print preview";
   const unframedAlt = printproofManifest.catalog?.unframed?.label || "Unframed star map poster preview";
 

@@ -1,14 +1,15 @@
 import Link from "next/link";
+import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import TestimonialHighlights from "@/components/TestimonialHighlights";
-import { testimonialsByPage } from "@/data/testimonials";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -37,6 +38,8 @@ export const metadata: Metadata = {
 };
 
 export default function NightSkyMapGiftPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -47,6 +50,25 @@ export default function NightSkyMapGiftPage() {
           A night sky map gift captures the exact stars from a meaningful date and place. Start with a free preview, then
           choose the framed gift route, the lower-total unframed route, or HD digital delivery.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href="/editor?mode=quick&source=night-sky-map-gift-hero-framed&checkout=print&print_variant=poster_framed"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Preview framed print
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=night-sky-map-gift-hero-preview"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Start free preview
+          </Link>
+        </div>
       </header>
 
       <PreviewStartForm
@@ -119,6 +141,8 @@ export default function NightSkyMapGiftPage() {
         </div>
       </section>
 
+      <AccuracyAuthorityCard source="night-sky-gift-accuracy-card" />
+
       <DeliveryFormatModule
         heading="Choose the format after you preview the night sky"
         intro="Night sky gift buyers usually decide between the presentation-ready framed route and the lower-total unframed route. HD digital stays available for same-day delivery."
@@ -135,10 +159,23 @@ export default function NightSkyMapGiftPage() {
         intro="Use these real proof assets to judge the premium framed route against the lower-cost unframed poster before you leave the page."
         sourcePrefix="night-sky-gift-physical-proof"
       />
-      <TestimonialHighlights
-        heading="Verified night-sky gift feedback"
-        intro="Real night-sky gift buyer comments are shown here as they are collected."
-        testimonials={testimonialsByPage.nightSkyGift}
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Pay when the night-sky layout, wording, and delivery route feel right."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD unlock after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Framed and unframed print paths after preview",
+          shippingDisclosure,
+          "Physical orders stay in manual review before production starts",
+          "Shipping, returns, and refund details linked below",
+        ]}
+        guideLabel="Print and frame guide"
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import { Playfair_Display } from "next/font/google";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
+import UtmAttributionClient from "@/components/UtmAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
 import SiteTopNav from "@/components/SiteTopNav";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
@@ -212,6 +213,7 @@ export default function RootLayout({
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable}`}>
         <Suspense fallback={null}>
           <ReferralAttributionClient />
+          <UtmAttributionClient />
         </Suspense>
         <AnalyticsConsentManager />
         <div className="cosmic-backdrop">

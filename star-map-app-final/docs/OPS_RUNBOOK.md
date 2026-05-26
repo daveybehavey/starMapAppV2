@@ -12,6 +12,7 @@ Concise reference for incidents, deploys, and money-path monitoring. **Do not pa
 - **Happy path:** `npm ci` then `npm run deploy:verify` (OpenNext deploy + **`npm run qa:live-critical`** against production).
 - **OAuth / token hygiene:** `npm run deploy:safe` when Wrangler must use OAuth and local env must not leak tokens.
 - **Rollback after a bad deploy:** `npx wrangler deployments list` then `npx wrangler rollback <previous-version-id> -y`.
+- **Windows:** `opennext-cloudflare.mjs` builds without injecting `wrangler.toml` vars (avoids env-size failures) and falls back to `npx wrangler deploy` when OpenNext hits `resvg.wasm?module` (needs **wrangler >= 4.94** in `package.json`). Manual fallback: `npx opennextjs-cloudflare build` then `npx wrangler deploy`.
 
 ## Quick verification (local / CI)
 
@@ -55,6 +56,18 @@ GitHub Actions: **CI** (PR) runs lint + build + commerce smoke; **Nightly E2E** 
 ## SEO / sitemap
 
 - **`src/app/sitemap.ts`** builds the sitemap from blog posts, SEO data, and flags. After adding routes or blog content, run **`npm run qa:sitemap-health`** / release-gate live checks as appropriate.
+
+## WSL Playwright (local E2E)
+
+If **`qa:smoke:*`** fails with **`libnspr4.so: cannot open shared object file`** (or Chromium exits 127), install browser OS deps once in WSL:
+
+```bash
+cd star-map-app-final
+npx playwright install chromium
+sudo npx playwright install-deps chromium
+```
+
+Prefer **`~/starmap-deploy-git`** or **`/mnt/c/Users/david/dev/starMapAppV2`** for full trees; partial OneDrive clones often break **`npm ci`**.
 
 ## Known dev noise
 

@@ -46,7 +46,8 @@
     "qa:live-smoke": "node scripts/live-smoke.mjs --site https://starmapco.com",
     "qa:live-canary": "node scripts/live-smoke.mjs --site https://starmapco.com",
     "qa:live-critical": "node scripts/live-smoke.mjs --site https://starmapco.com --timeout-ms 12000",
-    "qa:merch-marketing-smoke": "node scripts/merch-marketing-smoke.mjs --site http://localhost:3001",    "qa:content-consistency": "node scripts/content-consistency-sweep.mjs --site https://starmapco.com",
+    "qa:merch-marketing-smoke": "node scripts/merch-marketing-smoke.mjs --site http://localhost:3001",
+    "qa:content-consistency": "node scripts/content-consistency-sweep.mjs --site https://starmapco.com",
     "qa:ga4-smoke": "node scripts/ga4-smoke.mjs",
     "qa:sitemap-health": "node scripts/sitemap-health.mjs",
     "qa:links": "node scripts/link-integrity-check.mjs",
@@ -61,6 +62,7 @@
     "qa:stripe-payment-methods": "node scripts/stripe-payment-method-audit.mjs",
     "qa:upsell-matrix": "node scripts/generate-upsell-rollout-matrix.mjs",
     "qa:loop-scorecard": "node scripts/loop-scorecard.mjs",
+    "qa:stripe-pmc": "node scripts/check-stripe-payment-methods.mjs",
     "qa:funnel-reconcile": "node scripts/funnel-reconcile.mjs",
     "qa:funnel-post-release": "npm run qa:funnel-reconcile -- --days 14",
     "qa:commerce-digest": "node scripts/commerce-digest.mjs",
@@ -109,7 +111,7 @@
     "prettier-plugin-tailwindcss": "^0.6.9",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wrangler": "^4.53.0"
+    "wrangler": "^4.94.0"
   },
   "overrides": {
     "preact": "^10.28.2",

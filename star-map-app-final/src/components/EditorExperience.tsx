@@ -46,7 +46,12 @@ import {
   listMerchFamiliesEnabledForPublicUi,
   type MerchFamilyId,
 } from "@/lib/merchCatalog";
-import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
+import {
+  getRevealProgressPercent,
+  REVEAL_MAX_WAIT_MS,
+  REVEAL_MIN_VISIBLE_MS,
+  REVEAL_STAGES,
+} from "@/lib/revealExperience";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -97,7 +102,7 @@ const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const PROMO_CODE_KEY = "star-map-promo-code";
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
-const REVEAL_ANIMATION_MS = 900;
+const REVEAL_STAGE_TICK_MS = 280;
 const DEFAULT_TITLE_TEXT = "our night sky";
 
 function isLikelyLowMemoryDevice() {
@@ -198,6 +203,8 @@ export function EditorExperience({
   // Loading state callback for visual options
   const [isUpdating, setIsUpdating] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
+  const [showPostRevealCheckoutNudge, setShowPostRevealCheckoutNudge] = useState(false);
+  const postRevealCheckoutNudgeShownRef = useRef(false);
 
   const onVisualOptionsApplied = useCallback(() => {
     setIsUpdating(true);
@@ -329,6 +336,7 @@ export function EditorExperience({
   const [revealStageIndex, setRevealStageIndex] = useState(0);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const revealTimerRef = useRef<number | null>(null);
+  const revealStartedAtRef = useRef(0);
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
   const consumePromiseRef = useRef<Promise<boolean> | null>(null);
@@ -717,6 +725,16 @@ export function EditorExperience({
     ) {
       setPaywallIntent("print");
     }
+    const fromPrintShop =
+      checkoutParam === "print" ||
+      Boolean(printVariantParam) ||
+      (sourceParam?.startsWith("shop-") && sourceParam.includes("framed")) ||
+      (sourceParam?.startsWith("shop-") && sourceParam.includes("unframed")) ||
+      sourceParam === "home-delivery-print-framed" ||
+      sourceParam === "home-delivery-print-unframed";
+    if (fromPrintShop) {
+      setAspectRatio("square");
+    }
 
     trackFunnelStep("preview_started", {
       source: sourceParam ?? "editor-direct",
@@ -740,6 +758,9 @@ export function EditorExperience({
     setLocation,
     setPrintShippingCountryValue,
     setRevealed,
+    setAspectRatio,
+    setPaywallIntent,
+    setPreferredPrintVariant,
   ]);
 
   useEffect(() => {
@@ -815,56 +836,81 @@ export function EditorExperience({
   const setCardState = (updates: Record<string, boolean>) =>
     setCollapsedCards((prev) => ({ ...prev, ...updates }));
 
+  const finishReveal = useCallback(() => {
+    if (!isRevealing) return;
+    if (typeof window !== "undefined" && revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+    const startedAt = revealStartedAtRef.current || Date.now();
+    setIsRevealing(false);
+    setRevealStageIndex(0);
+    setCollapsedCards((prev) => ({
+      ...prev,
+      dateLocation: true,
+      textStyling: true,
+      style: true,
+      shape: true,
+      frame: true,
+      advanced: true,
+    }));
+    track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
+    track("preview_reveal_animation_completed", {
+      source: getPreviewSource() ?? "editor",
+      durationMs: Math.max(0, Date.now() - startedAt),
+      canvasReady,
+    });
+    trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
+    if (!paid && !postRevealCheckoutNudgeShownRef.current) {
+      postRevealCheckoutNudgeShownRef.current = true;
+      setShowPostRevealCheckoutNudge(true);
+      trackFunnelStep("preview_checkout_nudge_shown", { source: getPreviewSource() ?? "editor" });
+    }
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(REVEALED_FLAG, "true");
+      } catch {
+        // ignore storage errors (e.g. private browsing)
+      }
+    }
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [canvasReady, getPreviewSource, isRevealing, paid, renderOptions.visualMode]);
+
   const handleReveal = useCallback(() => {
     if (isRevealing) return;
     if (!canReveal || !hasDate) {
       inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    const revealStartedAt = Date.now();
+    revealStartedAtRef.current = Date.now();
     setRevealStageIndex(0);
+    setCanvasReady(false);
+    setIsUpdating(true);
+    setRevealed(true);
     setIsRevealing(true);
     track("preview_reveal_animation_started", {
       source: getPreviewSource() ?? "editor",
       visualMode: renderOptions.visualMode,
     });
-    if (typeof window !== "undefined" && revealTimerRef.current) {
-      window.clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = null;
-    }
-    revealTimerRef.current = window.setTimeout(() => {
-      setRevealed(true);
-      setIsRevealing(false);
-      setRevealStageIndex(0);
-      revealTimerRef.current = null;
-      // Shift into edit mode with a compact default panel state.
-      setCollapsedCards((prev) => ({
-        ...prev,
-        dateLocation: true,
-        textStyling: true,
-        style: true,
-        shape: true,
-        frame: true,
-        advanced: true,
-      }));
-      track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
-      track("preview_reveal_animation_completed", {
-        source: getPreviewSource() ?? "editor",
-        durationMs: Math.max(0, Date.now() - revealStartedAt),
-      });
-      trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem(REVEALED_FLAG, "true");
-        } catch {
-          // ignore storage errors (e.g. private browsing)
-        }
+    if (typeof window !== "undefined") {
+      if (revealTimerRef.current) {
+        window.clearTimeout(revealTimerRef.current);
       }
-      requestAnimationFrame(() => {
-        previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }, REVEAL_ANIMATION_MS);
-  }, [canReveal, getPreviewSource, hasDate, isRevealing, paid, renderOptions.visualMode, setRevealed]);
+      revealTimerRef.current = window.setTimeout(() => {
+        finishReveal();
+      }, REVEAL_MAX_WAIT_MS);
+    }
+  }, [canReveal, finishReveal, getPreviewSource, hasDate, isRevealing, renderOptions.visualMode, setRevealed]);
+
+  useEffect(() => {
+    if (!isRevealing || !revealed) return;
+    const elapsed = Date.now() - (revealStartedAtRef.current || Date.now());
+    if (canvasReady && elapsed >= REVEAL_MIN_VISIBLE_MS) {
+      finishReveal();
+    }
+  }, [canvasReady, finishReveal, isRevealing, revealed]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -880,7 +926,7 @@ export function EditorExperience({
       if (nextStage >= REVEAL_STAGES.length - 1) {
         window.clearInterval(stageInterval);
       }
-    }, Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length)));
+    }, REVEAL_STAGE_TICK_MS);
     return () => window.clearInterval(stageInterval);
   }, [isRevealing]);
 
@@ -2701,7 +2747,38 @@ export function EditorExperience({
                                 setIsUpdating(false);
                               }}
                             />
-                            {(isUpdating || !canvasReady) && (
+                            {isRevealing && (
+                              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-[#070b1f]/72 px-4 backdrop-blur-sm">
+                                <div className="reveal-loader-card w-full max-w-[320px] rounded-xl px-4 py-3 text-center">
+                                  <div className="reveal-glow reveal-glow-left" aria-hidden="true" />
+                                  <div className="reveal-glow reveal-glow-right" aria-hidden="true" />
+                                  <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-100/75">
+                                    <span>Free preview</span>
+                                    <span>{revealProgress}</span>
+                                  </div>
+                                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
+                                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
+                                  </div>
+                                  <p className="text-[10px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
+                                    {canvasReady ? "Opening your map" : "Revealing your sky"}
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-amber-50">{revealStage.title}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-neutral-200">{revealStage.description}</p>
+                                  <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                    <div
+                                      className="reveal-progress-fill h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
+                                      style={{ width: revealProgress }}
+                                    />
+                                  </div>
+                                  <p className="mt-2 text-[10px] text-neutral-300">
+                                    {canvasReady
+                                      ? "Your preview is ready — one moment."
+                                      : "Plotting stars for your date and place…"}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            {(isUpdating || !canvasReady) && !isRevealing && (
                               <div className="absolute inset-0 z-10 rounded-xl bg-gradient-to-b from-white/5 to-white/0 transition-opacity duration-300">
                                 <div className="absolute top-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase shadow-sm backdrop-blur">
                                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
@@ -2791,6 +2868,75 @@ export function EditorExperience({
                           >
                             🔗 Share
                           </button>
+                          {showPostRevealCheckoutNudge && (
+                            <div className="mt-3 w-full rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-3 text-left">
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-xs font-semibold text-amber-50">Your preview is ready</p>
+                                  <p className="mt-1 text-[11px] text-amber-100/85">
+                                    Keep this map in HD from {priceLabels.single}
+                                    {printCheckoutEnabled ? " — or order a printed gift with shipping at checkout." : "."}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPostRevealCheckoutNudge(false)}
+                                  className="text-[10px] font-semibold uppercase tracking-wide text-amber-100/70 hover:text-amber-50"
+                                  aria-label="Dismiss checkout reminder"
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPaywallIntent("digital");
+                                    setPaywallOpen(true);
+                                    setCheckoutError(null);
+                                    trackFunnelStep("preview_checkout_nudge_clicked", {
+                                      source: getPreviewSource() ?? "editor",
+                                      intent: "digital",
+                                    });
+                                    track("paywall_opened", {
+                                      visualMode: renderOptions.visualMode,
+                                      experiment: PAYWALL_COPY_EXPERIMENT,
+                                      variant: paywallVariant,
+                                      intent: "digital",
+                                      trigger: "post_reveal_nudge",
+                                    });
+                                  }}
+                                  className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                                >
+                                  Get HD ({priceLabels.single})
+                                </button>
+                                {printCheckoutEnabled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPaywallIntent("print");
+                                      setPaywallOpen(true);
+                                      setCheckoutError(null);
+                                      trackFunnelStep("preview_checkout_nudge_clicked", {
+                                        source: getPreviewSource() ?? "editor",
+                                        intent: "print",
+                                      });
+                                      track("paywall_opened", {
+                                        visualMode: renderOptions.visualMode,
+                                        experiment: PAYWALL_COPY_EXPERIMENT,
+                                        variant: paywallVariant,
+                                        intent: "print",
+                                        trigger: "post_reveal_nudge",
+                                      });
+                                    }}
+                                    className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/60 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:bg-white/15 focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                                  >
+                                    See print options
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           {showEditor && (
                             <button
                               type="button"

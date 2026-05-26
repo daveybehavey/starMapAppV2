@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -200,6 +201,8 @@ export default function AstronomyBehindStarMaps() {
               stars themselves.
             </p>
           </section>
+
+          <BlogPostConversionLinks source="astronomy-behind-star-maps" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

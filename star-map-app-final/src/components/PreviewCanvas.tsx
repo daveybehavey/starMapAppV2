@@ -662,6 +662,9 @@ export default function PreviewCanvas({
                 className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
               />
             </div>
+            <p className="text-[10px] leading-relaxed text-neutral-400">
+              Drag to move · Arrow keys to nudge · Enter to edit
+            </p>
             <div className="grid grid-cols-3 gap-2">
               <div />
               <button

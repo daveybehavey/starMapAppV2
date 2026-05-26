@@ -34,11 +34,19 @@ function isRecoverableR2DeployFailure(output) {
   );
 }
 
-function deployWorkerDirect(env) {
-  console.warn(
-    "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
-  );
+function isRecoverableWindowsWasmDeployFailure(output) {
+  return process.platform === "win32" && /\.wasm\?module/i.test(output);
+}
+
+function deployWorkerDirect(env, reason) {
+  console.warn(reason);
+  // Use the project's wrangler (>= 4.94) — OpenNext may invoke an older nested wrangler on Windows.
   run("npx", ["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
+}
+
+function runOpenNextBuild(env) {
+  // Do not pass wrangler.toml [vars] into Next/OpenNext build — large JSON vars break Windows spawn.
+  run("npx", ["opennextjs-cloudflare", "build"], process.env);
 }
 
 function deployBuilt(env) {
@@ -49,7 +57,17 @@ function deployBuilt(env) {
 
   const combined = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (isRecoverableR2DeployFailure(combined)) {
-    deployWorkerDirect(env);
+    deployWorkerDirect(
+      env,
+      "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
+    );
+    return;
+  }
+  if (isRecoverableWindowsWasmDeployFailure(combined)) {
+    deployWorkerDirect(
+      env,
+      "OpenNext deploy hit a Windows wrangler WASM path issue. Falling back to direct Worker deploy (use wrangler >= 4.94).",
+    );
     return;
   }
 
@@ -68,12 +86,12 @@ async function main() {
   run("node", ["scripts/generate-merchant-feed.mjs"], env);
 
   if (mode === "build") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
+    runOpenNextBuild(env);
     return;
   }
 
   if (mode === "deploy") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
+    runOpenNextBuild(env);
     deployBuilt(env);
     return;
   }
@@ -83,8 +101,8 @@ async function main() {
     return;
   }
 
-  run("npx", ["opennextjs-cloudflare", "build"], env);
-  run("npx", ["opennextjs-cloudflare", "preview"], env);
+  runOpenNextBuild(env);
+  run("npx", ["opennextjs-cloudflare", "preview"], process.env);
 }
 
 main().catch((error) => {

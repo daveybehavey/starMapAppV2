@@ -16,7 +16,7 @@ import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
-import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { formatPrice, getPricingTiers, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   formatPosterShippingFootnote,
@@ -24,10 +24,15 @@ import {
   paywallPrintSkuButtonClassesMobile,
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
-import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
+import {
+  getRevealProgressPercent,
+  REVEAL_MAX_WAIT_MS,
+  REVEAL_MIN_VISIBLE_MS,
+  REVEAL_STAGES,
+} from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
-const REVEAL_ANIMATION_MS = 900;
+const REVEAL_STAGE_TICK_MS = 280;
 const DEFAULT_TITLE_TEXT = "our night sky";
 
 interface MobileCreateProps {
@@ -126,7 +131,18 @@ export function MobileCreate({
   const [showProPresets, setShowProPresets] = useState(() => !isQuick);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
+  const [canvasReady, setCanvasReady] = useState(false);
+  const [showPostRevealCheckoutNudge, setShowPostRevealCheckoutNudge] = useState(false);
   const revealTimerRef = useRef<number | null>(null);
+  const revealStartedAtRef = useRef(0);
+  const postRevealCheckoutNudgeShownRef = useRef(false);
+  const mobilePrintCheckoutRef = useRef<HTMLDivElement | null>(null);
+  const priceLabels = useMemo(() => {
+    const tiers = getPricingTiers();
+    return {
+      single: formatPrice(tiers.single.amountCents, tiers.single.currency),
+    };
+  }, []);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
@@ -319,34 +335,62 @@ export function MobileCreate({
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [applyPreset, setRevealed]);
 
-  const handleReveal = useCallback(() => {
-    if (!canReveal || isRevealing) return;
-    const revealStartedAt = Date.now();
-    setRevealStageIndex(0);
-    setIsRevealing(true);
-    track("preview_reveal_animation_started", { source: "mobile" });
+  const finishReveal = useCallback(() => {
+    if (!isRevealing) return;
     if (typeof window !== "undefined" && revealTimerRef.current) {
       window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = null;
     }
-    revealTimerRef.current = window.setTimeout(() => {
-      setRevealed(true);
-      setIsRevealing(false);
-      setRevealStageIndex(0);
-      revealTimerRef.current = null;
-      track("preview_revealed", { source: "mobile" });
-      track("preview_reveal_animation_completed", {
-        source: "mobile",
-        durationMs: Math.max(0, Date.now() - revealStartedAt),
-      });
-      trackFunnelStep("editor_reveal", { source: "mobile" });
-      setTimeout(() => {
-        document.getElementById("mobile-preview")?.scrollIntoView({
-          behavior: "smooth",
-        });
-      }, 100);
-    }, REVEAL_ANIMATION_MS);
-  }, [canReveal, isRevealing, setRevealed]);
+    const startedAt = revealStartedAtRef.current || Date.now();
+    setIsRevealing(false);
+    setRevealStageIndex(0);
+    track("preview_revealed", { source: "mobile" });
+    track("preview_reveal_animation_completed", {
+      source: "mobile",
+      durationMs: Math.max(0, Date.now() - startedAt),
+      canvasReady,
+    });
+    trackFunnelStep("editor_reveal", { source: "mobile" });
+    if (!paid && !postRevealCheckoutNudgeShownRef.current) {
+      postRevealCheckoutNudgeShownRef.current = true;
+      setShowPostRevealCheckoutNudge(true);
+      trackFunnelStep("preview_checkout_nudge_shown", { source: "mobile" });
+    }
+    setTimeout(() => {
+      document.getElementById("mobile-preview")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  }, [canvasReady, isRevealing, paid]);
+
+  const handleReveal = useCallback(() => {
+    if (!canReveal || isRevealing) return;
+    revealStartedAtRef.current = Date.now();
+    setRevealStageIndex(0);
+    setCanvasReady(false);
+    setRevealed(true);
+    setIsRevealing(true);
+    track("preview_reveal_animation_started", { source: "mobile" });
+    if (typeof window !== "undefined") {
+      if (revealTimerRef.current) {
+        window.clearTimeout(revealTimerRef.current);
+      }
+      revealTimerRef.current = window.setTimeout(() => {
+        finishReveal();
+      }, REVEAL_MAX_WAIT_MS);
+    }
+  }, [canReveal, finishReveal, isRevealing, setRevealed]);
+
+  const handleCanvasRendered = useCallback(() => {
+    onCanvasReady?.();
+    setCanvasReady(true);
+  }, [onCanvasReady]);
+
+  useEffect(() => {
+    if (!isRevealing || !revealed) return;
+    const elapsed = Date.now() - (revealStartedAtRef.current || Date.now());
+    if (canvasReady && elapsed >= REVEAL_MIN_VISIBLE_MS) {
+      finishReveal();
+    }
+  }, [canvasReady, finishReveal, isRevealing, revealed]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -362,7 +406,7 @@ export function MobileCreate({
       if (nextStage >= REVEAL_STAGES.length - 1) {
         window.clearInterval(stageInterval);
       }
-    }, Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length)));
+    }, REVEAL_STAGE_TICK_MS);
     return () => window.clearInterval(stageInterval);
   }, [isRevealing]);
 
@@ -1246,17 +1290,44 @@ export function MobileCreate({
             )}
           </div>
           <div className="relative mx-auto overflow-hidden" style={{ width: "100%", maxWidth: "600px", aspectRatio: `${aspectRatioToNumber(aspectRatio)} / 1` }}>
-            {!revealed && (
+            {!revealed && !isRevealing && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <div className="space-y-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-semibold text-neutral-200 shadow-sm backdrop-blur text-center">
-                  <p>
-                    {isRevealing
-                      ? "Locking in your sky details..."
-                      : "Add date + location to reveal your sky. Presets optional."}
-                  </p>
+                  <p>Add date + location to reveal your sky. Presets optional.</p>
                   {canReveal ? (
-                    isRevealing ? (
-                      <div className="reveal-loader-card rounded-xl px-3 py-3 text-center">
+                    <button
+                      type="button"
+                      onClick={handleReveal}
+                      aria-label="Generate preview"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition"
+                    >
+                      Generate preview
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleReveal}
+                      disabled
+                      aria-label="Generate preview"
+                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
+                    >
+                      Generate preview
+                    </button>
+                  )}
+                  <p className="text-[10px] text-neutral-300">Free preview, HD optional.</p>
+                  {printCheckoutEnabled && (
+                    <p className="text-[10px] text-amber-100/90">
+                      Printed and framed options unlock after preview.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            {revealed && <PreviewCanvas onRendered={handleCanvasRendered} />}
+            {isRevealing && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-[#070b1f]/75 px-3 backdrop-blur-sm">
+                <div className="space-y-2 text-center">
+                  <div className="reveal-loader-card rounded-xl px-3 py-3 text-center">
                         <div className="reveal-glow reveal-glow-left" aria-hidden="true" />
                         <div className="reveal-glow reveal-glow-right" aria-hidden="true" />
                         <div className="mb-2 flex items-center justify-between gap-3 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-100/75">
@@ -1267,7 +1338,7 @@ export function MobileCreate({
                           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
                         </div>
                         <p className="text-[9px] font-semibold tracking-[0.22em] text-amber-100/80 uppercase">
-                          Revealing your sky
+                          {canvasReady ? "Opening your map" : "Revealing your sky"}
                         </p>
                         <p className="mt-1 text-xs font-semibold text-amber-50">{revealStage.title}</p>
                         <p className="mt-1 text-[10px] leading-4 text-neutral-200">{revealStage.description}</p>
@@ -1297,41 +1368,15 @@ export function MobileCreate({
                             style={{ width: revealProgress }}
                           />
                         </div>
-                        <p className="mt-2 text-[10px] text-neutral-300">Usually takes about a second. No charge yet.</p>
+                        <p className="mt-2 text-[10px] text-neutral-300">
+                          {canvasReady
+                            ? "Your preview is ready — one moment."
+                            : "Plotting stars for your date and place…"}
+                        </p>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleReveal}
-                        aria-label="Generate preview"
-                        className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition"
-                      >
-                        Generate preview
-                      </button>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleReveal}
-                      disabled
-                      aria-label="Generate preview"
-                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
-                    >
-                      Generate preview
-                    </button>
-                  )}
-                  <p className="text-[10px] text-neutral-300">
-                    {isRevealing ? "This usually takes about a second." : "Free preview, HD optional."}
-                  </p>
-                  {printCheckoutEnabled && (
-                    <p className="text-[10px] text-amber-100/90">
-                      Printed and framed options unlock after preview.
-                    </p>
-                  )}
                 </div>
               </div>
             )}
-            {revealed && <PreviewCanvas onRendered={onCanvasReady} />}
           </div>
         </div>
 
@@ -1355,6 +1400,50 @@ export function MobileCreate({
               {paid ? "HD download" : "Unlock HD"}
             </button>
           </div>
+          {showPostRevealCheckoutNudge && !paid && (
+            <div className="mt-3 rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-semibold text-amber-50">Love the preview?</p>
+                <button
+                  type="button"
+                  onClick={() => setShowPostRevealCheckoutNudge(false)}
+                  className="text-[10px] font-semibold uppercase tracking-wide text-amber-100/70"
+                  aria-label="Dismiss checkout reminder"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-amber-100/85">
+                HD from {priceLabels.single}
+                {printCheckoutEnabled ? " · printed gifts with shipping at checkout" : "."}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackFunnelStep("preview_checkout_nudge_clicked", { source: "mobile", intent: "digital" });
+                    void onExport("hd");
+                  }}
+                  className="flex-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow"
+                >
+                  Get HD ({priceLabels.single})
+                </button>
+                {printCheckoutEnabled && onStartPrintCheckout && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      trackFunnelStep("preview_checkout_nudge_clicked", { source: "mobile", intent: "print" });
+                      setShowPostRevealCheckoutNudge(false);
+                      mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="flex-1 rounded-full border border-amber-200/60 bg-white/10 px-3 py-2 text-xs font-semibold text-amber-50"
+                  >
+                    Print options
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {hdCreditLabel && (
             <div className="mt-2 flex justify-end">
               <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
@@ -1363,7 +1452,7 @@ export function MobileCreate({
             </div>
           )}
             {printCheckoutEnabled && onStartPrintCheckout && (
-              <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
+              <div ref={mobilePrintCheckoutRef} className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
                 <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
                 <p className="mt-1 text-[10px] text-amber-100/80">
                   Secure checkout collects shipping details, shows shipping before payment, and creates your print
