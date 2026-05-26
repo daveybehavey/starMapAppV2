@@ -896,9 +896,11 @@ async function createCheckoutSession(
           : undefined,
     };
     discountRejected = true;
+    // Stripe idempotency keys must match request params — use a distinct key for the no-discount retry.
+    const fallbackIdempotencyKey = idempotencyKey ? `${idempotencyKey}:no-discount` : undefined;
     session = await stripe.checkout.sessions.create(
       fallbackParams,
-      idempotencyKey ? { idempotencyKey } : undefined,
+      fallbackIdempotencyKey ? { idempotencyKey: fallbackIdempotencyKey } : undefined,
     );
   }
 
@@ -1199,10 +1201,24 @@ export async function POST(req: NextRequest) {
       idempotencyKey: idempotencyKey ?? undefined,
     });
     if (promoCode && session.discountRejected) {
-      return NextResponse.json(
-        { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
-        { status: 400 },
-      );
+      // Stripe rejected auto-apply (common on print + shipping). Still return checkout so the
+      // customer can enter the code on the hosted page when allow_promotion_codes is enabled.
+      if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
+        await kv.set(idempotencyKey, session.url.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
+      }
+      await recordFunnelStep({
+        step: "checkout_session_created",
+        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+        plan: orderType === "print" ? printVariant : plan,
+      });
+      return NextResponse.json({
+        url: session.url,
+        promoApplied: false,
+        discountRejected: true,
+        referralOfferApplied: false,
+        referralOfferVariant: null,
+        promoLookupFailed: promotion.lookupFailed,
+      });
     }
     if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
       await kv.set(idempotencyKey, session.url.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });

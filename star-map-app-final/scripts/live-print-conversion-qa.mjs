@@ -515,8 +515,7 @@ async function run() {
 
   try {
     if (!args.uiFlow) {
-      // Apply promo on Stripe hosted page — auto-apply on session create often 500s for print + shipping.
-      const boot = await bootstrapPrintCheckoutSession(args.site, args, null);
+      const boot = await bootstrapPrintCheckoutSession(args.site, args, promo);
       report.artifacts.bootstrap = boot;
       report.steps.push(`Created map ${boot.mapId} and print asset ${boot.printAssetId}`);
       report.steps.push("Created print checkout session via API");
@@ -525,7 +524,7 @@ async function run() {
       report.stripe.discountRejected = boot.discountRejected;
       if (boot.discountRejected && promo?.code) {
         report.friction.push(
-          "Stripe rejected auto-applied promo on session create; use --promo-field or enter code on Checkout.",
+          "Promo was not auto-applied; Stripe Checkout should still allow entering the code on the page.",
         );
       }
       if (args.checkoutOnly) {
