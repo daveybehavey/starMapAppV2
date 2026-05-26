@@ -16,14 +16,19 @@ import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
-import { formatPrice, getPricingTiers, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatPrice, getPricingTiers, getPrintPricingTiers, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
+import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { isWeddingPrintLandingSource, isWeddingTrafficSource } from "@/lib/previewSourceHints";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
   paywallPrintSkuButtonClassesMobile,
 } from "@/lib/paywallPrintCheckout";
-import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import {
+  formatPrintShippingEstimateWithDelivery,
+  getPrintShippingCountryLabel,
+  getPrintShippingCountryOptions,
+} from "@/lib/printfulShipping";
 import {
   getRevealProgressPercent,
   REVEAL_MAX_WAIT_MS,
@@ -137,10 +142,23 @@ export function MobileCreate({
   const revealStartedAtRef = useRef(0);
   const postRevealCheckoutNudgeShownRef = useRef(false);
   const mobilePrintCheckoutRef = useRef<HTMLDivElement | null>(null);
+  const readPreviewSource = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return sessionStorage.getItem("preview_source")?.trim() || null;
+    } catch {
+      return null;
+    }
+  }, []);
   const priceLabels = useMemo(() => {
     const tiers = getPricingTiers();
+    const printTiers = getPrintPricingTiers();
     return {
       single: formatPrice(tiers.single.amountCents, tiers.single.currency),
+      framed: formatPrintPriceWithShipping(
+        printTiers.poster_framed.amountCents,
+        printTiers.poster_framed.currency,
+      ),
     };
   }, []);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
@@ -344,22 +362,32 @@ export function MobileCreate({
     const startedAt = revealStartedAtRef.current || Date.now();
     setIsRevealing(false);
     setRevealStageIndex(0);
-    track("preview_revealed", { source: "mobile" });
+    const previewSource = readPreviewSource() ?? "mobile";
+    track("preview_revealed", { source: previewSource });
     track("preview_reveal_animation_completed", {
-      source: "mobile",
+      source: previewSource,
       durationMs: Math.max(0, Date.now() - startedAt),
       canvasReady,
     });
-    trackFunnelStep("editor_reveal", { source: "mobile" });
+    trackFunnelStep("editor_reveal", { source: previewSource });
     if (!paid && !postRevealCheckoutNudgeShownRef.current) {
       postRevealCheckoutNudgeShownRef.current = true;
       setShowPostRevealCheckoutNudge(true);
-      trackFunnelStep("preview_checkout_nudge_shown", { source: "mobile" });
+      trackFunnelStep("preview_checkout_nudge_shown", { source: previewSource });
     }
     setTimeout(() => {
       document.getElementById("mobile-preview")?.scrollIntoView({ behavior: "smooth" });
+      if (
+        isWeddingPrintLandingSource(previewSource) &&
+        printCheckoutEnabled &&
+        mobilePrintCheckoutRef.current
+      ) {
+        setTimeout(() => {
+          mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 500);
+      }
     }, 100);
-  }, [canvasReady, isRevealing, paid]);
+  }, [canvasReady, isRevealing, paid, printCheckoutEnabled, readPreviewSource]);
 
   const handleReveal = useCallback(() => {
     if (!canReveal || isRevealing) return;
@@ -1403,7 +1431,11 @@ export function MobileCreate({
           {showPostRevealCheckoutNudge && !paid && (
             <div className="mt-3 rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-semibold text-amber-50">Love the preview?</p>
+                <p className="text-xs font-semibold text-amber-50">
+                  {isWeddingTrafficSource(readPreviewSource())
+                    ? "Your wedding sky is ready"
+                    : "Love the preview?"}
+                </p>
                 <button
                   type="button"
                   onClick={() => setShowPostRevealCheckoutNudge(false)}
@@ -1414,33 +1446,69 @@ export function MobileCreate({
                 </button>
               </div>
               <p className="mt-1 text-[11px] text-amber-100/85">
-                HD from {priceLabels.single}
-                {printCheckoutEnabled ? " · printed gifts with shipping at checkout" : "."}
+                {isWeddingTrafficSource(readPreviewSource()) && printCheckoutEnabled ? (
+                  <>
+                    Framed gifts from {priceLabels.framed}
+                    {printShippingCountry
+                      ? ` · est. ${formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry, "shipping")}`
+                      : ""}
+                    . HD from {priceLabels.single} too.
+                  </>
+                ) : (
+                  <>
+                    HD from {priceLabels.single}
+                    {printCheckoutEnabled ? " · printed gifts with shipping at checkout" : "."}
+                  </>
+                )}
               </p>
               <div className="mt-2 flex gap-2">
+                {printCheckoutEnabled &&
+                  onStartPrintCheckout &&
+                  isWeddingTrafficSource(readPreviewSource()) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const source = readPreviewSource() ?? "mobile";
+                        trackFunnelStep("preview_checkout_nudge_clicked", { source, intent: "print" });
+                        setShowPostRevealCheckoutNudge(false);
+                        mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      className="flex-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow"
+                    >
+                      Order framed print
+                    </button>
+                  )}
                 <button
                   type="button"
                   onClick={() => {
-                    trackFunnelStep("preview_checkout_nudge_clicked", { source: "mobile", intent: "digital" });
+                    const source = readPreviewSource() ?? "mobile";
+                    trackFunnelStep("preview_checkout_nudge_clicked", { source, intent: "digital" });
                     void onExport("hd");
                   }}
-                  className="flex-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow"
+                  className={
+                    printCheckoutEnabled && isWeddingTrafficSource(readPreviewSource())
+                      ? "flex-1 rounded-full border border-amber-200/60 bg-white/10 px-3 py-2 text-xs font-semibold text-amber-50"
+                      : "flex-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow"
+                  }
                 >
                   Get HD ({priceLabels.single})
                 </button>
-                {printCheckoutEnabled && onStartPrintCheckout && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      trackFunnelStep("preview_checkout_nudge_clicked", { source: "mobile", intent: "print" });
-                      setShowPostRevealCheckoutNudge(false);
-                      mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
-                    className="flex-1 rounded-full border border-amber-200/60 bg-white/10 px-3 py-2 text-xs font-semibold text-amber-50"
-                  >
-                    Print options
-                  </button>
-                )}
+                {printCheckoutEnabled &&
+                  onStartPrintCheckout &&
+                  !isWeddingTrafficSource(readPreviewSource()) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const source = readPreviewSource() ?? "mobile";
+                        trackFunnelStep("preview_checkout_nudge_clicked", { source, intent: "print" });
+                        setShowPostRevealCheckoutNudge(false);
+                        mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      className="flex-1 rounded-full border border-amber-200/60 bg-white/10 px-3 py-2 text-xs font-semibold text-amber-50"
+                    >
+                      Print options
+                    </button>
+                  )}
               </div>
             </div>
           )}
