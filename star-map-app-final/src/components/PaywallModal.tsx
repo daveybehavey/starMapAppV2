@@ -242,28 +242,35 @@ export function PaywallModal({
 
         {hasPrintOptions && (
           <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-amber-200/70 bg-white/70 p-1">
-            <button
-              type="button"
-              onClick={() => setActiveIntent("digital")}
-              className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                activeIntent === "digital"
-                  ? "bg-amber-400 text-midnight shadow-sm"
-                  : "text-neutral-700 hover:bg-white/80"
-              }`}
-            >
-              Digital HD
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveIntent("print")}
-              className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                activeIntent === "print"
-                  ? "bg-[#0b1433] text-amber-100 shadow-sm"
-                  : "text-neutral-700 hover:bg-white/80"
-              }`}
-            >
-              Printed gift
-            </button>
+            {(purchaseIntent === "print"
+              ? (
+                  [
+                    { id: "print" as const, label: "Printed gift" },
+                    { id: "digital" as const, label: "Digital HD" },
+                  ]
+                )
+              : (
+                  [
+                    { id: "digital" as const, label: "Digital HD" },
+                    { id: "print" as const, label: "Printed gift" },
+                  ]
+                )
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveIntent(tab.id)}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                  activeIntent === tab.id
+                    ? tab.id === "print"
+                      ? "bg-[#0b1433] text-amber-100 shadow-sm"
+                      : "bg-amber-400 text-midnight shadow-sm"
+                    : "text-neutral-700 hover:bg-white/80"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         )}
 

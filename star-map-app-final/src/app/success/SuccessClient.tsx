@@ -918,11 +918,11 @@ export default function SuccessClient() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                          Print this map next
+                          Print this exact map
                         </p>
                         <p className="mt-1 text-xs text-amber-100/80">
-                          Turn this download into a premium gift. Your map stays attached and framed is the
-                          best-looking option. {printShippingDisclosure}
+                          Ship the design you just unlocked — same artwork, no rebuild. Framed is the strongest
+                          ready-to-gift finish; unframed works if you already have a frame. {printShippingDisclosure}
                         </p>
                       </div>
                       <span className="rounded-full border border-amber-200/40 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">

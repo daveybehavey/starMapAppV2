@@ -46,7 +46,11 @@ import {
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
-import { isWeddingPrintLandingSource, isWeddingTrafficSource } from "@/lib/previewSourceHints";
+import {
+  isWeddingCommerceContext,
+  shouldAutoOpenEditorPrintPaywall,
+  shouldDefaultEditorPaywallToPrint,
+} from "@/lib/previewSourceHints";
 import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
@@ -736,12 +740,7 @@ export function EditorExperience({
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
       setPrintShippingCountryValue(shippingCountryParam, "query-param");
     }
-    if (
-      checkoutParam === "print" ||
-      sourceParam === "home-delivery-print-framed" ||
-      sourceParam === "home-delivery-print-unframed" ||
-      isWeddingPrintLandingSource(sourceParam)
-    ) {
+    if (shouldDefaultEditorPaywallToPrint(sourceParam, checkoutParam)) {
       setPaywallIntent("print");
     }
     const fromPrintShop =
@@ -786,12 +785,7 @@ export function EditorExperience({
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
     const checkoutParam = searchParams.get("checkout");
     const sourceParam = searchParams.get("source");
-    if (
-      checkoutParam !== "print" &&
-      sourceParam !== "home-delivery-print-framed" &&
-      sourceParam !== "home-delivery-print-unframed" &&
-      !isWeddingPrintLandingSource(sourceParam)
-    ) {
+    if (!shouldAutoOpenEditorPrintPaywall(sourceParam, checkoutParam)) {
       return;
     }
 
@@ -806,6 +800,13 @@ export function EditorExperience({
       intent: "print",
     });
   }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams]);
+
+  useEffect(() => {
+    if (!restored || paid) return;
+    if (shouldDefaultEditorPaywallToPrint(getPreviewSource(), searchParams.get("checkout"))) {
+      setPaywallIntent("print");
+    }
+  }, [getPreviewSource, paid, restored, searchParams]);
 
   useEffect(() => {
     if (!autoExportPending || paid) return;
@@ -2898,12 +2899,12 @@ export function EditorExperience({
                               <div className="flex flex-wrap items-start justify-between gap-2">
                                 <div>
                                   <p className="text-xs font-semibold text-amber-50">
-                                    {isWeddingTrafficSource(getPreviewSource())
+                                    {isWeddingCommerceContext(getPreviewSource())
                                       ? "Your wedding sky is ready"
                                       : "Your preview is ready"}
                                   </p>
                                   <p className="mt-1 text-[11px] text-amber-100/85">
-                                    {isWeddingTrafficSource(getPreviewSource()) && printCheckoutEnabled ? (
+                                    {isWeddingCommerceContext(getPreviewSource()) && printCheckoutEnabled ? (
                                       <>
                                         Framed wedding gifts from {priceLabels.framed}
                                         {printShippingCountry
@@ -2932,7 +2933,7 @@ export function EditorExperience({
                               </div>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {printCheckoutEnabled &&
-                                  isWeddingTrafficSource(getPreviewSource()) && (
+                                  isWeddingCommerceContext(getPreviewSource()) && (
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -2975,7 +2976,7 @@ export function EditorExperience({
                                     });
                                   }}
                                   className={
-                                    printCheckoutEnabled && isWeddingTrafficSource(getPreviewSource())
+                                    printCheckoutEnabled && isWeddingCommerceContext(getPreviewSource())
                                       ? "focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/60 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:bg-white/15 focus:ring-2 focus:ring-offset-2 focus:outline-none"
                                       : "text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
                                   }
@@ -2983,7 +2984,7 @@ export function EditorExperience({
                                   Get HD ({priceLabels.single})
                                 </button>
                                 {printCheckoutEnabled &&
-                                  !isWeddingTrafficSource(getPreviewSource()) && (
+                                  !isWeddingCommerceContext(getPreviewSource()) && (
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -3082,7 +3083,7 @@ export function EditorExperience({
                                   : aspectRatio === "2:3"
                                     ? "2:3 portrait"
                                     : "4:5 portrait"}
-                                — switch to Square in Advanced before checkout to avoid letterboxing on the print.
+                                — switch to Square in Advanced before checkout so the print matches what you see (no letterboxing).
                               </p>
                             )}
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">

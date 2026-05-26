@@ -12,6 +12,7 @@ import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -52,6 +53,7 @@ export default function PersonalizedStarMapPage() {
         <p className="text-sm text-white/90 sm:text-base">
           A personalized star map gift with names, a date, and a location—the exact night sky from a moment worth framing.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>

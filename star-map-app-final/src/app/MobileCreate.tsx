@@ -18,7 +18,11 @@ import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
 import { formatPrice, getPricingTiers, getPrintPricingTiers, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
-import { isWeddingPrintLandingSource, isWeddingTrafficSource } from "@/lib/previewSourceHints";
+import {
+  isWeddingCommerceContext,
+  isWeddingPrintLandingSource,
+  isWeddingTrafficSource,
+} from "@/lib/previewSourceHints";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
@@ -378,7 +382,7 @@ export function MobileCreate({
     setTimeout(() => {
       document.getElementById("mobile-preview")?.scrollIntoView({ behavior: "smooth" });
       if (
-        isWeddingPrintLandingSource(previewSource) &&
+        (isWeddingPrintLandingSource(previewSource) || isWeddingCommerceContext(previewSource)) &&
         printCheckoutEnabled &&
         mobilePrintCheckoutRef.current
       ) {

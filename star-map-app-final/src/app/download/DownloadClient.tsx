@@ -1676,7 +1676,7 @@ export default function DownloadClient() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <h4 className="text-sm font-semibold text-white">
-                    {upsellIntent ? "Your map is ready for print checkout" : "Want a physical print shipped to you?"}
+                    {upsellIntent ? "Print this map — checkout is ready" : "Print this map for the wall"}
                   </h4>
                   <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                     {upsellIntent === "poster_framed"
@@ -1688,8 +1688,8 @@ export default function DownloadClient() {
                 </div>
                 <p className="mt-1 text-xs text-neutral-200">
                   {upsellIntent
-                    ? `Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish. ${printShippingDisclosure}`
-                    : `Start print checkout with your current map already attached. ${printShippingDisclosure}`}
+                    ? `Your approved design stays attached — pick framed for a finished gift or unframed to save. ${printShippingDisclosure}`
+                    : `Turn this HD file into a shipped keepsake. Your current map is attached automatically. ${printShippingDisclosure}`}
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {downloadPrintOptions.map((option) => (

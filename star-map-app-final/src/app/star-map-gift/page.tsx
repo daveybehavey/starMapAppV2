@@ -12,6 +12,7 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -53,6 +54,7 @@ export default function StarMapGiftPage() {
           A personalized star map gift captures the exact sky from a meaningful moment. Start with a free preview, then
           choose the ready-to-display framed route, the lower-total unframed route, or HD digital delivery.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>

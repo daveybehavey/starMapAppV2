@@ -2,7 +2,9 @@
 
 
 
-Updated from product planning session. Ads work is **paused** until you relaunch spend.
+Updated from product planning session. **Big moves (sequenced):** `docs/BIG_MOVES_ROADMAP.md`.
+
+Ads: **Search - Wedding Gift 2026** live; weekly `data:pull` + `ads:optimize`.
 
 
 
@@ -56,29 +58,45 @@ Updated from product planning session. Ads work is **paused** until you relaunch
 
 
 
-## 4. Print (1 order shipped — refine before catalog expansion)
+## 4. Print & big moves
 
 
 
 **Live checkout SKUs:** `poster_framed`, `poster_unframed` only (`PAYWALL_LIVE_PRINT_VARIANTS`).
 
-
-
-**Before adding canvas / mug / card:**
-
-
-
-1. Run internal print matrix (`docs/print-launch-checklist.md`)
-
-2. `npm run qa:print-margin` for each candidate SKU
-
-3. Proof images + merchant feed refresh (`npm run assets:commerce-refresh`)
-
-4. Enable SKU in `printCatalog.ts` + Stripe price envs + `PAYWALL_LIVE_PRINT_VARIANTS`
+**Infra (2026-05):** margin guard off in prod; print UI on; promo fallback + checkout URL when Stripe rejects auto-apply; `npm run qa:live-print-conversion`.
 
 
 
-**Ops:** `npm run qa:print-ops` (2026-05-25: 1 session in 168h window, unpaid/abandoned — sent=0 pending=0).
+**Phase A (prove machine)** — see `docs/BIG_MOVES_ROADMAP.md`
+
+
+
+- [ ] One **fulfilled** print order in prod (Printful `sent` or ops resolved)
+
+- [ ] Wedding → print polish (money pages + paywall default for wedding traffic)
+
+- [ ] Weekly growth loop (`docs/GROWTH_OPS_WEEKLY.md`)
+
+
+
+**Phase C (next SKU pilots)** — order: `card_4x6` → `canvas_wrap` → `mug_11oz`
+
+
+
+- [ ] C1 greeting card: margin + proof + paywall row + test order
+
+- [ ] C2 canvas wrap (after C1 or parallel if A done)
+
+- [ ] C3 mug (shop/merch only)
+
+
+
+**Catalog checklist (each SKU):** `docs/print-launch-checklist.md` + `npm run qa:print-margin` + `PAYWALL_LIVE_PRINT_VARIANTS` + `assets:commerce-refresh`.
+
+
+
+**Ops:** `npm run qa:print-ops` — confirm sent orders after first live print.
 
 
 

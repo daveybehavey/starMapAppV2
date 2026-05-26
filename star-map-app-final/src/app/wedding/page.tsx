@@ -12,8 +12,8 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples, galleryExamples } from "@/lib/galleryExamples";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
-import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -77,17 +77,6 @@ const weddingFaqItems = [
 
 export default function WeddingPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
-  const printTiers = getPrintPricingTiers();
-  const pricing = getPricingInfo();
-  const digitalPrice = formatPrice(pricing.activeAmountCents, pricing.currency);
-  const framedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency,
-  );
-  const unframedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_unframed.amountCents,
-    printTiers.poster_unframed.currency,
-  );
   const framedFaqAnswer = `${weddingFaqItems[5].answer} ${shippingDisclosure}`;
 
   return (
@@ -109,7 +98,8 @@ export default function WeddingPage() {
             Free preview first—checkout only when you are ready for framed print, unframed print, or HD digital from the
             same approved design.
           </p>
-          <ul className="mx-auto flex max-w-md flex-col gap-2 text-left text-sm text-amber-50/95 sm:text-base lg:mx-0">
+          <MoneyPagePriceAtGlance className="mx-auto max-w-md lg:mx-0" weddingTone />
+          <ul className="mx-auto mt-3 flex max-w-md flex-col gap-2 text-left text-sm text-amber-50/95 sm:text-base lg:mx-0">
             <li className="flex gap-2">
               <span className="mt-0.5 text-amber-300" aria-hidden="true">
                 ✓
@@ -121,14 +111,6 @@ export default function WeddingPage() {
                 ✓
               </span>
               <span>Astronomically accurate for your date, time, and location</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-0.5 text-amber-300" aria-hidden="true">
-                ✓
-              </span>
-              <span>
-                HD from {digitalPrice} · unframed from {unframedPrice} · framed from {framedPrice}
-              </span>
             </li>
           </ul>
           <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
@@ -238,7 +220,7 @@ export default function WeddingPage() {
 
       <DeliveryFormatModule
         heading="Pricing & delivery — pick one path after preview"
-        intro={`Most wedding buyers choose framed (${framedPrice}) for a ready-to-hang gift. Unframed (${unframedPrice}) lowers the total if you already have a frame. HD (${digitalPrice}) is fastest when you need same-day delivery.`}
+        intro="Most wedding buyers choose the framed gift path for a ready-to-hang keepsake. Unframed lowers the total if you already have a frame. HD digital is fastest when you need same-day delivery."
         sourcePrefix="wedding-format"
       />
       <FramedProofSection sourcePrefix="wedding-proof" />
