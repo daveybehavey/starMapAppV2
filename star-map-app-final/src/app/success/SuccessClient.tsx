@@ -32,6 +32,11 @@ import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
 import { getDefaultMerchEditorHref, getMerchShopSectionHref } from "@/lib/merchCatalog";
+import {
+  checkoutUrlErrorMessage,
+  createCheckoutFetchSignal,
+  redirectToStripeCheckout,
+} from "@/lib/stripeCheckoutNavigation";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -249,15 +254,22 @@ export default function SuccessClient() {
       if (!checkoutMapId) {
         throw new Error("map_required");
       }
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan: "single",
-          orderType: "digital",
-          mapId: checkoutMapId,
-        }),
-      });
+      const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
+      let res: Response;
+      try {
+        res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            plan: "single",
+            orderType: "digital",
+            mapId: checkoutMapId,
+          }),
+          signal,
+        });
+      } finally {
+        clearCheckoutFetchTimeout();
+      }
       checkoutApiResponseReceived = true;
       const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
       if (!res.ok || !data?.url) {
@@ -276,9 +288,14 @@ export default function SuccessClient() {
         plan: "single",
         orderType: "digital",
       });
-      window.location.assign(data.url);
+      redirectToStripeCheckout(data.url);
     } catch (error) {
-      const reason = error instanceof Error ? error.message : "checkout_failed";
+      const reason =
+        error instanceof Error && error.name === "AbortError"
+          ? "checkout_timeout"
+          : error instanceof Error
+            ? error.message
+            : "checkout_failed";
       if (!checkoutApiResponseReceived) {
         trackCheckoutClientDiagnostic({
           reason,
@@ -287,7 +304,10 @@ export default function SuccessClient() {
           orderType: "digital",
         });
       }
-      if (reason === "map_required") {
+      const urlMessage = checkoutUrlErrorMessage(reason);
+      if (urlMessage) {
+        setMessage(urlMessage);
+      } else if (reason === "map_required") {
         setMessage("Open the editor, generate your map preview, then retry digital checkout.");
       } else if (reason === "map_not_found") {
         setMessage("We couldn't find that map anymore. Open the editor and regenerate preview, then retry.");

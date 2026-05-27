@@ -69,6 +69,11 @@ import {
   REVEAL_MIN_VISIBLE_MS,
   REVEAL_STAGES,
 } from "@/lib/revealExperience";
+import {
+  checkoutUrlErrorMessage,
+  createCheckoutFetchSignal,
+  redirectToStripeCheckout,
+} from "@/lib/stripeCheckoutNavigation";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -1401,7 +1406,13 @@ export function EditorExperience({
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
         });
 
-        const res = await fetch("/api/checkout", checkoutInit);
+        const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
+        let res: Response;
+        try {
+          res = await fetch("/api/checkout", { ...checkoutInit, signal });
+        } finally {
+          clearCheckoutFetchTimeout();
+        }
         checkoutApiResponseReceived = true;
         const data = (await res.json().catch(() => null)) as {
           url?: string;
@@ -1457,13 +1468,16 @@ export function EditorExperience({
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
-          window.location.href = data.url;
+          redirectToStripeCheckout(data.url);
           return;
         }
         throw new Error("no url");
       } catch (err) {
         console.error(err);
-        const reason = (err as Error)?.message ?? "unknown";
+        const reason =
+          err instanceof Error && err.name === "AbortError"
+            ? "checkout_timeout"
+            : (err as Error)?.message ?? "unknown";
         if (!checkoutApiResponseReceived) {
           trackCheckoutClientDiagnostic({
             reason,
@@ -1475,7 +1489,8 @@ export function EditorExperience({
           });
         }
         const checkoutErrorMessage =
-          reason === "invalid_promotion_code"
+          checkoutUrlErrorMessage(reason) ??
+          (reason === "invalid_promotion_code"
             ? "That promo code is invalid or expired. Try another code."
             : reason === "promotion_not_applicable"
               ? "That promo code does not apply to this order."
@@ -1503,7 +1518,7 @@ export function EditorExperience({
                   ? "We couldn't find that map. Refresh preview and try checkout again."
                 : reason.startsWith("save_failed_") || reason === "map_save_failed"
                   ? "We couldn't save this map yet. Please retry in a moment."
-              : "Checkout is unavailable right now. Please try again shortly.";
+              : "Checkout is unavailable right now. Please try again shortly.");
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {
           source: previewSource,

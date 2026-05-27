@@ -31,6 +31,7 @@ import {
   toISODate,
 } from "@/lib/dateInput";
 import { trackCheckoutClientDiagnostic, trackFunnelStep } from "@/lib/analytics";
+import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -599,20 +600,18 @@ export function SimplifiedEditor() {
 
       const data = (await res.json()) as { url?: string };
       if (data.url) {
-        try {
-          const nextUrl = new URL(data.url);
-          if (nextUrl.protocol.startsWith("http")) {
-            window.location.href = nextUrl.toString();
-            return;
-          }
-        } catch {
-          // fall through to error
-        }
+        redirectToStripeCheckout(data.url);
+        return;
       }
       throw new Error("No checkout URL");
     } catch (err) {
       console.error("Checkout error:", err);
-      const reason = err instanceof Error ? err.message : "checkout_failed";
+      const reason =
+        err instanceof Error && err.name === "AbortError"
+          ? "checkout_timeout"
+          : err instanceof Error
+            ? err.message
+            : "checkout_failed";
       if (!checkoutApiResponseReceived) {
         trackCheckoutClientDiagnostic({
           reason,
@@ -621,7 +620,10 @@ export function SimplifiedEditor() {
           orderType: "digital",
         });
       }
-      if (reason === "map_required") {
+      const urlMessage = checkoutUrlErrorMessage(reason);
+      if (urlMessage) {
+        setExportError(urlMessage);
+      } else if (reason === "map_required") {
         setExportError("Generate a preview before checkout.");
       } else if (reason === "map_not_found") {
         setExportError("We couldn't find your saved map. Refresh and try again.");

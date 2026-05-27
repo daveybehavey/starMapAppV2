@@ -43,6 +43,11 @@ import {
 import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
+import {
+  checkoutUrlErrorMessage,
+  createCheckoutFetchSignal,
+  redirectToStripeCheckout,
+} from "@/lib/stripeCheckoutNavigation";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -1065,19 +1070,26 @@ export default function DownloadClient() {
           plan: variant,
         });
         checkoutStartedTracked = true;
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            plan: "single",
-            orderType: "print",
-            printVariant: variant,
-            includeDigitalAddOn: false,
-            printAssetId: uploadedAssetId,
-            mapId: mapId ?? undefined,
-            shippingCountry,
-          }),
-        });
+        const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
+        let res: Response;
+        try {
+          res = await fetch("/api/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              plan: "single",
+              orderType: "print",
+              printVariant: variant,
+              includeDigitalAddOn: false,
+              printAssetId: uploadedAssetId,
+              mapId: mapId ?? undefined,
+              shippingCountry,
+            }),
+            signal,
+          });
+        } finally {
+          clearCheckoutFetchTimeout();
+        }
         checkoutApiResponseReceived = true;
         const data = (await res.json().catch(() => null)) as
           | { url?: string; error?: string; code?: string }
@@ -1109,9 +1121,14 @@ export default function DownloadClient() {
           printVariant: variant,
           includeDigitalAddOn: false,
         });
-        window.location.assign(data.url);
+        redirectToStripeCheckout(data.url);
       } catch (error) {
-        const reason = error instanceof Error ? error.message : "checkout_failed";
+        const reason =
+          error instanceof Error && error.name === "AbortError"
+            ? "checkout_timeout"
+            : error instanceof Error
+              ? error.message
+              : "checkout_failed";
         if (checkoutStartedTracked && !checkoutApiResponseReceived) {
           trackCheckoutClientDiagnostic({
             reason,
@@ -1123,7 +1140,8 @@ export default function DownloadClient() {
           });
         }
         const messageByReason =
-          reason === "missing_recipe"
+          checkoutUrlErrorMessage(reason) ??
+          (reason === "missing_recipe"
             ? "We couldn't find your saved map. Open the editor once, then try print checkout again."
             : reason === "asset_upload_failed"
               ? "We couldn't prepare your print file. Please try again."
@@ -1137,7 +1155,7 @@ export default function DownloadClient() {
                 ? "Could not attach your print file. Please retry print checkout."
                 : reason === "print_checkout_disabled"
                   ? "Print checkout is not live yet."
-                  : "Print checkout is unavailable right now. Please try again.";
+                  : "Print checkout is unavailable right now. Please try again.");
         setPrintCheckoutError(messageByReason);
         printCheckoutInFlightRef.current = false;
         setPrintCheckoutLoading(false);

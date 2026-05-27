@@ -27,6 +27,10 @@ import { parsePrintVariant } from "@/lib/printCatalog";
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
+import {
+  isValidStripeCheckoutUrl,
+  stripeCheckoutHtmlRedirectBody,
+} from "@/lib/stripeCheckoutNavigation";
 
 export const runtime = "nodejs";
 
@@ -904,7 +908,15 @@ async function createCheckoutSession(
     );
   }
 
-  return { url: session.url ?? null, discountRejected };
+  const checkoutUrl = session.url?.trim() ?? "";
+  if (checkoutUrl && !isValidStripeCheckoutUrl(checkoutUrl)) {
+    console.error("Stripe returned checkout URL without required fragment", {
+      sessionId: session.id,
+      urlLength: checkoutUrl.length,
+    });
+    throw new Error("invalid_stripe_checkout_url");
+  }
+  return { url: checkoutUrl || null, discountRejected };
 }
 
 export async function GET(req: NextRequest) {
@@ -1019,7 +1031,16 @@ export async function GET(req: NextRequest) {
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
-    return NextResponse.redirect(sessionUrl, { status: 303 });
+    if (!isValidStripeCheckoutUrl(sessionUrl)) {
+      return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    }
+    return new NextResponse(stripeCheckoutHtmlRedirectBody(sessionUrl), {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (err) {
     if (err instanceof CheckoutError) {
       await recordCheckoutFailure({
@@ -1163,9 +1184,9 @@ export async function POST(req: NextRequest) {
     });
     if (idempotencyKey) {
       const existingUrl = await kv.get<string>(idempotencyKey);
-      if (typeof existingUrl === "string" && existingUrl.trim()) {
+      if (typeof existingUrl === "string" && isValidStripeCheckoutUrl(existingUrl.trim())) {
         return NextResponse.json({
-          url: existingUrl,
+          url: existingUrl.trim(),
           promoApplied: false,
           referralOfferApplied: false,
           referralOfferVariant: null,
