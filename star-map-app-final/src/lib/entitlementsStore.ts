@@ -29,6 +29,11 @@ export type StripeSessionEntitlement = {
   printVariant?: PrintVariant;
   includesDigitalAddOn?: boolean;
   claimToken?: string;
+  accessEmailSentAt?: number;
+  accessEmailHadArchive?: boolean;
+  accessEmailProvider?: string;
+  accessEmailError?: string;
+  hdArchiveEmailSentAt?: number;
 };
 
 export type ClaimTokenRecord = {
@@ -54,6 +59,7 @@ export const ENTITLEMENT_KV = {
   stripeSubscription: (subId: string) => `stripe:sub:${subId}`,
   stripeWebhookEvent: (eventId: string) => `stripe:event:${eventId}`,
   accessEmailDedupe: (sessionId: string) => `stripe:access_link:email:${sessionId}`,
+  hdArchiveEmailDedupe: (sessionId: string) => `stripe:hd_archive:email:${sessionId}`,
   mapRecipe: (mapId: string) => `map:${mapId}`,
 } as const;
 

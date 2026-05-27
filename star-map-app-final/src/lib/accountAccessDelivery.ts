@@ -1,12 +1,13 @@
-import { getOrCreateClaimToken, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
-import { sendAccountAccessAlert, type AccountAccessAlertResult } from "@/lib/accountAccessAlerts";
+import type { AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
 import {
-  buildDownloadClaimUrl,
-  buildMyDownloadsMagicUrl,
-  issueAccountMagicLinkToken,
-} from "@/lib/accountMagicLinkIssue";
+  dispatchHdPurchaseDownloadEmail,
+  trySendInitialHdPurchaseEmail,
+  type HdDownloadEmailDispatchResult,
+} from "@/lib/hdDownloadEmailDispatch";
 
-/** Hub-first post-purchase email: magic link to My Downloads + optional direct download claim URL. */
+export type { HdDownloadEmailDispatchResult as AccountAccessAlertResult };
+
+/** Post-purchase HD download email (direct PNG when archived, else secure download page). No magic links. */
 export async function sendPostPurchaseAccessEmail(input: {
   siteOrigin: string;
   email: string;
@@ -14,16 +15,15 @@ export async function sendPostPurchaseAccessEmail(input: {
   record: AccountAccessSessionRecord;
   /** Optional override (e.g. archived PNG API URL from ops resend). */
   directDownloadLinkOverride?: string;
-}): Promise<AccountAccessAlertResult> {
-  const claimToken = await getOrCreateClaimToken(input.sessionId, input.record);
-  const claimDownloadLink = buildDownloadClaimUrl(input.siteOrigin, claimToken);
-  const directDownloadLink = input.directDownloadLinkOverride?.trim() || claimDownloadLink;
-  const magicToken = await issueAccountMagicLinkToken(input.email);
-  const hubLink = magicToken ? buildMyDownloadsMagicUrl(input.siteOrigin, magicToken) : directDownloadLink;
-
-  return sendAccountAccessAlert({
+}): Promise<HdDownloadEmailDispatchResult> {
+  return dispatchHdPurchaseDownloadEmail({
+    siteOrigin: input.siteOrigin,
     email: input.email,
-    link: hubLink,
-    directDownloadLink: magicToken ? directDownloadLink : undefined,
+    sessionId: input.sessionId,
+    record: input.record,
+    directDownloadLinkOverride: input.directDownloadLinkOverride,
+    variant: "initial",
   });
 }
+
+export { trySendInitialHdPurchaseEmail, trySendHdArchiveReadyEmail } from "@/lib/hdDownloadEmailDispatch";

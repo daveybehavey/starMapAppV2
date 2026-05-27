@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { normalizeAccountLiteEmail, getAccountLiteEmailSessions } from "@/lib/accountLite";
 import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
+import { buildHdArchiveDownloadUrl, hdArchiveObjectExists } from "@/lib/downloadArchiveStorage";
 import { getOrCreateClaimToken, hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
 import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
 import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
@@ -17,8 +17,6 @@ type RequestPayload = {
 };
 
 const sessionKey = ENTITLEMENT_KV.stripeSession;
-const R2_BUCKET_BINDING = "NEXT_INC_CACHE_R2_BUCKET";
-const ARCHIVE_PREFIX = "download-archive/hd/";
 
 function requireAdmin(req: NextRequest) {
   const configured = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
@@ -30,25 +28,6 @@ function getSiteUrl(req: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");
   return new URL(req.url).origin;
-}
-
-async function getR2Bucket(): Promise<R2Bucket | null> {
-  const timeoutMs = 120;
-  try {
-    const ctx = await Promise.race([
-      getCloudflareContext({ async: true }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-    ]);
-    const env = (ctx as { env?: unknown } | null)?.env as Record<string, unknown> | undefined;
-    const bucket = env?.[R2_BUCKET_BINDING] as R2Bucket | undefined;
-    return bucket ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function archiveKey(sessionId: string) {
-  return `${ARCHIVE_PREFIX}${sessionId}.png`;
 }
 
 export async function POST(req: NextRequest) {
@@ -117,28 +96,20 @@ export async function POST(req: NextRequest) {
   }
   const finalToken = await getOrCreateClaimToken(sessionId, workingRecord);
   const claimPageLink = `${getSiteUrl(req)}/download?token=${encodeURIComponent(finalToken)}`;
-  const directDownloadLinkCandidate = `${getSiteUrl(req)}/api/download/archive?token=${encodeURIComponent(finalToken)}`;
+  const siteOrigin = getSiteUrl(req);
+  const directDownloadLinkCandidate = buildHdArchiveDownloadUrl(siteOrigin, finalToken);
 
   const targetEmail = email || record.customerEmail?.trim() || "";
   if (!targetEmail) {
     return NextResponse.json({ ok: false, error: "missing_customer_email" }, { status: 409 });
   }
 
-  let directDownloadLinkOverride: string | undefined;
-  const bucket = await getR2Bucket();
-  if (bucket) {
-    try {
-      const object = await bucket.head(archiveKey(sessionId));
-      if (object) {
-        directDownloadLinkOverride = directDownloadLinkCandidate;
-      }
-    } catch {
-      // ignore archive lookups
-    }
-  }
+  const directDownloadLinkOverride = (await hdArchiveObjectExists(sessionId))
+    ? directDownloadLinkCandidate
+    : undefined;
 
   const result = await sendPostPurchaseAccessEmail({
-    siteOrigin: getSiteUrl(req),
+    siteOrigin,
     email: targetEmail,
     sessionId,
     record: workingRecord,

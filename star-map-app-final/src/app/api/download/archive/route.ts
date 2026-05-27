@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { trySendHdArchiveReadyEmail } from "@/lib/accountAccessDelivery";
+import { getDownloadArchiveR2Bucket } from "@/lib/downloadArchiveStorage";
 import {
   ENTITLEMENT_KV,
   ENTITLEMENT_R2,
@@ -13,24 +14,9 @@ import { kv } from "@/lib/kv";
 
 export const runtime = "nodejs";
 
-const BUCKET_BINDING = "NEXT_INC_CACHE_R2_BUCKET";
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const LOCAL_FALLBACK_DIR = process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR?.trim() || path.join(process.cwd(), ".tmp", "download-archive");
-
-async function getR2Bucket(): Promise<R2Bucket | null> {
-  const timeoutMs = 120;
-  try {
-    const ctx = await Promise.race([
-      getCloudflareContext({ async: true }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-    ]);
-    const env = (ctx as { env?: unknown } | null)?.env as Record<string, unknown> | undefined;
-    const bucket = env?.[BUCKET_BINDING] as R2Bucket | undefined;
-    return bucket ?? null;
-  } catch {
-    return null;
-  }
-}
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 
 async function requireEntitledSession(token: string) {
   const claim = await kv.get<ClaimTokenRecord>(ENTITLEMENT_KV.claim(token));
@@ -71,7 +57,7 @@ export async function GET(req: NextRequest) {
   }
 
   const key = ENTITLEMENT_R2.hdArchiveKey(session.sessionId);
-  const bucket = await getR2Bucket();
+  const bucket = await getDownloadArchiveR2Bucket();
   let bodyBytes: Uint8Array | null = null;
 
   if (bucket) {
@@ -122,7 +108,7 @@ export async function POST(req: NextRequest) {
   }
 
   const key = ENTITLEMENT_R2.hdArchiveKey(session.sessionId);
-  const bucket = await getR2Bucket();
+  const bucket = await getDownloadArchiveR2Bucket();
 
   if (bucket) {
     await bucket.put(key, bytes, {
@@ -137,6 +123,13 @@ export async function POST(req: NextRequest) {
   } else {
     await writeLocalObject(key, bytes);
   }
+
+  void trySendHdArchiveReadyEmail({
+    siteOrigin: siteUrl,
+    sessionId: session.sessionId,
+  }).catch((err) => {
+    console.warn("HD archive ready email failed", err);
+  });
 
   return NextResponse.json({ ok: true, sessionId: session.sessionId, bytes: bytes.length });
 }

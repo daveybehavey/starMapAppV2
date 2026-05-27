@@ -77,6 +77,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    message: "Check your email to open all downloads in My Downloads.",
+    message: "Check your email for your HD download link.",
   });
 }

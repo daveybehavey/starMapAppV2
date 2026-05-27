@@ -91,14 +91,16 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - Claim sign-in link: `POST /api/account/magic/claim` with `{ "token": "..." }`
   - List recent sessions for signed-in email: `GET /api/account/my-sessions`
   - Sign out and clear account cookie: `POST /api/account/magic/logout`
-- **One-click access-link email resend**:
+- **One-click HD download email resend**:
   - Authenticated endpoint: `POST /api/account/access-email`
-  - Used by success/download UI button `Email me link`.
+  - Used by success/download UI button `Resend download email`.
   - Requires active premium cookie and customer email on the Stripe session record.
   - Returns `401/403` when access is not currently verified on that device.
-- **Automatic post-payment access email**:
-  - On first paid webhook verification (digital entitlement only), StarMapCo now auto-sends one secure `/download?token=...` link email.
-  - Delivery metadata is stored on the session record (`accessEmailSentAt`, provider/error fields).
+- **Automatic post-payment HD email**:
+  - On first paid webhook (digital entitlement only), sends **Your StarMapCo HD download** with a direct PNG link when archived in R2, otherwise `/download?token=...`.
+  - When the customer exports on the download page, the PNG is archived to R2 and a follow-up **HD file is ready** email is sent once (if the first email did not already include the archive link).
+  - Delivery metadata: `accessEmailSentAt`, `accessEmailHadArchive`, `hdArchiveEmailSentAt`, provider/error fields.
+  - Magic links remain optional on `/my-downloads` (phase 2 deprecation).
 - **Two-sided referral offer controls**:
   - `STRIPE_REFERRAL_PROMO_CODE_ID` = promo code auto-applied for referred buyers
   - `REFERRAL_REWARD_CREDITS` = HD credits granted to the referrer per qualified conversion

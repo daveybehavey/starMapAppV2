@@ -13,6 +13,10 @@ function hashEmail(normalizedEmail: string) {
   return createHash("sha256").update(normalizedEmail).digest("base64url").slice(0, 40);
 }
 
+/**
+ * Magic links remain for optional /my-downloads sign-in (phase 2: remove when hub uses email-only recovery).
+ * Post-purchase HD delivery no longer embeds magic links — see hdDownloadEmailDispatch.ts.
+ */
 /** Create a one-time magic link token for hub sign-in. Returns null when email is invalid. */
 export async function issueAccountMagicLinkToken(email: string): Promise<string | null> {
   const normalized = normalizeAccountLiteEmail(email);

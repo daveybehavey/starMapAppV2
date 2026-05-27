@@ -1011,7 +1011,7 @@ export default function DownloadClient() {
         throw new Error(payload?.error ?? "request_failed");
       }
       setAccessEmailStatus("sent");
-      setAccessEmailMessage("Sent. Check your email to open all downloads in My Downloads.");
+      setAccessEmailMessage("Sent. Check your email for your HD download link.");
       track("access_link_email_requested", { source: "download", outcome: "sent" });
     } catch {
       setAccessEmailStatus("error");
@@ -2165,7 +2165,7 @@ export default function DownloadClient() {
                       disabled={accessEmailStatus === "sending"}
                       className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
                     >
-                      {accessEmailStatus === "sending" ? "Sending..." : "Email me link"}
+                      {accessEmailStatus === "sending" ? "Sending..." : "Resend download email"}
                     </button>
                   )}
                   {accessLink && accessLinkStatus === "ready" && (
