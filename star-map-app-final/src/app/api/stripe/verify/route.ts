@@ -6,6 +6,10 @@ import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { isPrintVariant } from "@/lib/printCatalog";
 import { resolveCheckoutMapIdFromStripeSession } from "@/lib/checkoutMapId";
+import {
+  buildGa4PurchaseFromStripeSession,
+  isQaStripeSession,
+} from "@/lib/commerceAnalytics";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 
 export const runtime = "nodejs";
@@ -199,22 +203,13 @@ export async function GET(req: NextRequest) {
       includesDigitalAddOn: hasDigitalAddOn,
     });
     if (!alreadyPaid) {
+      const skipProductionAnalytics = isQaStripeSession(session);
       await recordPaymentVerifiedOnce({
         sessionId,
         source: orderType === "print" ? "stripe_verify_print" : "stripe_verify_digital",
         plan: plan ?? undefined,
-        ga4Purchase: {
-          transactionId: sessionId,
-          plan: plan ?? null,
-          orderType,
-          printVariant,
-          includeDigitalAddOn: hasDigitalAddOn,
-          value:
-            typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
-              ? session.amount_total / 100
-              : undefined,
-          currency: typeof session.currency === "string" ? session.currency : undefined,
-        },
+        skipProductionAnalytics,
+        ga4Purchase: buildGa4PurchaseFromStripeSession(session),
       });
     }
     if (paymentIntentId) {
@@ -247,6 +242,7 @@ export async function GET(req: NextRequest) {
         orderType,
         printVariant: printVariant ?? null,
         includesDigitalAddOn: hasDigitalAddOn,
+        isQa: isQaStripeSession(session),
       },
       { headers: { "Cache-Control": "no-store" } },
     );

@@ -553,6 +553,7 @@ export default function SuccessClient() {
             mapId?: string;
             amountTotal?: number | null;
             currency?: string | null;
+            isQa?: boolean;
             plan?: CheckoutPlan | null;
             creditsRemaining?: number | null;
             orderType?: CheckoutOrderType;
@@ -574,18 +575,21 @@ export default function SuccessClient() {
               try {
                 const purchaseKey = `ga4:purchase:${sessionId}`;
                 if (sessionStorage.getItem(purchaseKey) !== "true") {
-                  trackPurchaseCompleted({
-                    transactionId: sessionId,
-                    plan: verifiedPlan,
-                    orderType: verifiedOrderType,
-                    printVariant: verifiedPrintVariant,
-                    includeDigitalAddOn: Boolean(data.includesDigitalAddOn),
-                    value:
-                      typeof data.amountTotal === "number" && Number.isFinite(data.amountTotal)
-                        ? data.amountTotal / 100
-                        : undefined,
-                    currency: typeof data.currency === "string" ? data.currency : undefined,
-                  });
+                  trackPurchaseCompleted(
+                    {
+                      transactionId: sessionId,
+                      plan: verifiedPlan,
+                      orderType: verifiedOrderType,
+                      printVariant: verifiedPrintVariant,
+                      includeDigitalAddOn: Boolean(data.includesDigitalAddOn),
+                      value:
+                        typeof data.amountTotal === "number" && Number.isFinite(data.amountTotal)
+                          ? data.amountTotal / 100
+                          : undefined,
+                      currency: typeof data.currency === "string" ? data.currency : undefined,
+                    },
+                    { skipAnalytics: data.isQa === true },
+                  );
                   sessionStorage.setItem(purchaseKey, "true");
                 }
               } catch {

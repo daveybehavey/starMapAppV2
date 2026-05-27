@@ -30,6 +30,10 @@ import { hasRecoverableAccess } from "@/lib/accountAccessLinks";
 import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
 import { resolveCheckoutMapIdFromStripeSession } from "@/lib/checkoutMapId";
 import {
+  buildGa4PurchaseFromStripeSession,
+  isQaStripeSession,
+} from "@/lib/commerceAnalytics";
+import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
 } from "@/lib/entitlementsStore";
@@ -323,22 +327,13 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   }
 
   if (!alreadyPaid) {
+    const skipProductionAnalytics = isQaStripeSession(session);
     await recordPaymentVerifiedOnce({
       sessionId: session.id,
       source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",
       plan: plan ?? undefined,
-      ga4Purchase: {
-        transactionId: session.id,
-        plan: plan ?? null,
-        orderType,
-        printVariant,
-        includeDigitalAddOn: hasDigitalAddOn,
-        value:
-          typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
-            ? session.amount_total / 100
-            : undefined,
-        currency: typeof session.currency === "string" ? session.currency : undefined,
-      },
+      skipProductionAnalytics,
+      ga4Purchase: buildGa4PurchaseFromStripeSession(session),
     });
   }
 

@@ -25,7 +25,20 @@
 | Live QA placeholder map ids | Fixed | `readCheckoutMapId` + discounted session metadata |
 | Entitlement verify polling vs premium cookie | Improved | Shared `stripeVerifyClient`; download re-init on recovery |
 
+## Analytics (2026-05-26)
+
+See **`docs/PURCHASE_ANALYTICS.md`** for GA4 / PostHog / QA exclusion / attribution.
+
+| Issue | Status | Notes |
+| --- | --- | --- |
+| QA live conversion counted in GA4 / funnel | Fixed | `isQaStripeSession` skips MP, `payment_verified`, client purchase |
+| PostHog missing `revenue` / `transaction_id` on purchase | Fixed | `purchase` event on success with revenue props |
+| `begin_checkout` GA4-only (no PostHog) | Fixed | `trackBeginCheckout` also sends `checkout_started` |
+| UTM cookie only on referral checkouts | Fixed | `marketing_*` metadata on all Stripe sessions |
+| GA4 MP wrong item for mug/canvas print | Fixed | Aligned print variant catalog with client analytics |
+
 ## Retest
 
 1. Editor → HD single → $0 promo checkout → success → download (unlocked, draft or saved map).
 2. Print upsell from download with promo: checkout opens; if auto-apply fails, message + manual code on Stripe.
+3. GA4 Realtime `purchase` on paid test; PostHog `purchase` with `transaction_id`; `npm run qa:live-conversion` does **not** spike production purchases.

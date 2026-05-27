@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import {
+  buildGa4PurchaseFromStripeSession,
+  isQaStripeSession,
+} from "@/lib/commerceAnalytics";
+import {
   hasPaymentVerifiedRecord,
   recordPaymentVerifiedOnce,
   syncPaymentVerifiedWindow,
@@ -146,11 +150,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (!dryRun) {
+      const skipProductionAnalytics = isQaStripeSession(session);
       await recordPaymentVerifiedOnce({
         sessionId: session.id,
         source: classifyOrder(session) === "print" ? "stripe_reconcile_print" : "stripe_reconcile_digital",
         plan: resolvePlan(session),
         occurredAt,
+        skipProductionAnalytics,
+        ga4Purchase: skipProductionAnalytics ? undefined : buildGa4PurchaseFromStripeSession(session),
       });
     }
 

@@ -111,6 +111,21 @@ export function runWhenIdle(task: () => void, timeout = 1200) {
   }
 }
 
+function capturePosthog(event: string, props?: EventProps) {
+  if (!canTrackAnalytics()) return;
+  const payload = removeUndefinedValues({
+    ...props,
+    route: window.location.pathname,
+  });
+  try {
+    void loadPosthogClient().then((posthog) => {
+      posthog.capture?.(event, payload);
+    });
+  } catch {
+    // silently ignore tracking errors
+  }
+}
+
 export function track(event: string, props?: EventProps) {
   if (!canTrackAnalytics()) return;
   const payload = removeUndefinedValues({
@@ -216,10 +231,22 @@ export function trackSelectItem(input: ItemSelectionAnalyticsInput) {
 }
 
 export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: string }) {
+  const value = estimateCheckoutValue(input);
+  const currency = getCheckoutCurrency(input);
+  const items = [buildGaItem(input)];
   sendGaEvent("begin_checkout", {
-    currency: getCheckoutCurrency(input),
-    value: estimateCheckoutValue(input),
-    items: [buildGaItem(input)],
+    currency,
+    value,
+    items,
+    source: input.source,
+  });
+  track("checkout_started", {
+    currency,
+    value,
+    order_type: input.orderType ?? "digital",
+    plan: input.plan ?? undefined,
+    print_variant: input.printVariant ?? undefined,
+    include_digital_add_on: input.includeDigitalAddOn ?? undefined,
     source: input.source,
   });
 }
@@ -237,7 +264,12 @@ function ga4ServerPurchaseTrackingEnabled() {
   return process.env.NEXT_PUBLIC_GA4_SERVER_PURCHASES === "true";
 }
 
-export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
+export function trackPurchaseCompleted(
+  input: PurchaseAnalyticsInput,
+  options?: { skipAnalytics?: boolean },
+) {
+  if (options?.skipAnalytics) return;
+
   const paidTotal =
     typeof input.value === "number" && Number.isFinite(input.value) ? input.value : null;
   const serverOnly =
@@ -251,6 +283,22 @@ export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
         // Ignore storage failures.
       }
     }
+    // PostHog revenue still fires client-side when consent is granted (server has no PostHog secret).
+    if (canTrackAnalytics()) {
+      const value = estimateCheckoutValue(input);
+      capturePosthog("purchase", {
+        transaction_id: input.transactionId,
+        revenue: value,
+        currency: getCheckoutCurrency(input),
+        value,
+        order_type: input.orderType ?? "digital",
+        plan: input.plan ?? undefined,
+        print_variant: input.printVariant ?? undefined,
+        include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+        ga4_server_primary: true,
+        ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
+      });
+    }
     return;
   }
 
@@ -260,12 +308,25 @@ export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
   }
 
   const value = estimateCheckoutValue(input);
+  const currency = getCheckoutCurrency(input);
+  const items = [buildGaItem({ ...input, value })];
   sendGaEvent("purchase", {
     transaction_id: input.transactionId,
-    currency: getCheckoutCurrency(input),
+    currency,
     value,
     ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
-    items: [buildGaItem({ ...input, value })],
+    items,
+  });
+  track("purchase", {
+    transaction_id: input.transactionId,
+    revenue: value,
+    currency,
+    value,
+    order_type: input.orderType ?? "digital",
+    plan: input.plan ?? undefined,
+    print_variant: input.printVariant ?? undefined,
+    include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+    ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
   });
   try {
     sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);

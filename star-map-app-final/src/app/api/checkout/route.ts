@@ -25,6 +25,7 @@ import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { parsePrintVariant } from "@/lib/printCatalog";
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
+import { applyMarketingAttributionMetadata } from "@/lib/commerceAnalytics";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
 import {
@@ -661,6 +662,7 @@ async function createCheckoutSession(
   if (referralCode && referralAttribution?.medium) metadata.referral_medium = referralAttribution.medium;
   if (referralCode && referralAttribution?.campaign) metadata.referral_campaign = referralAttribution.campaign;
   if (referralCode && referralAttribution?.content) metadata.referral_content = referralAttribution.content;
+  applyMarketingAttributionMetadata(metadata, referralAttribution ?? null);
   if (geoDigitalSingle) {
     metadata.geo_pricing_country = geoDigitalSingle.country;
     metadata.geo_pricing_amount_cents = String(geoDigitalSingle.amountCents);
