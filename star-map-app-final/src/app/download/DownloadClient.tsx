@@ -926,23 +926,36 @@ export default function DownloadClient() {
   useEffect(() => {
     if (status !== "not-paid" || !sessionIdFromUrl) return;
     let active = true;
+    let recoveryRound = 0;
+    const maxRecoveryRounds = 4;
+    const scheduleMs = [2000, 4000, 6000, 8000];
     const poll = async () => {
+      recoveryRound += 1;
       const verifyResult = await verifyStripeCheckoutSession(sessionIdFromUrl, { maxAttempts: 6 });
-      if (!active || !verifyResult.paid) return;
-      applyVerifyEntitlement(verifyResult);
-      if (verifyResult.mapId && isValidMapId(verifyResult.mapId)) {
-        try {
-          localStorage.setItem(CHECKOUT_MAP_KEY, verifyResult.mapId);
-        } catch {
-          // ignore storage errors
+      if (!active) return;
+      if (verifyResult.paid) {
+        applyVerifyEntitlement(verifyResult);
+        if (verifyResult.mapId && isValidMapId(verifyResult.mapId)) {
+          try {
+            localStorage.setItem(CHECKOUT_MAP_KEY, verifyResult.mapId);
+          } catch {
+            // ignore storage errors
+          }
         }
+        initCompletedRef.current = false;
+        setAccessSetupGeneration((value) => value + 1);
+        return;
       }
-      initCompletedRef.current = false;
-      setAccessSetupGeneration((value) => value + 1);
+      if (recoveryRound < maxRecoveryRounds && active) {
+        const delay = scheduleMs[recoveryRound] ?? 8000;
+        window.setTimeout(() => {
+          if (active) void poll();
+        }, delay);
+      }
     };
     const timer = window.setTimeout(() => {
       void poll();
-    }, 2000);
+    }, scheduleMs[0]);
     return () => {
       active = false;
       window.clearTimeout(timer);
@@ -1187,6 +1200,13 @@ export default function DownloadClient() {
           source: "download",
           plan: variant,
         });
+        trackBeginCheckout({
+          source: "download",
+          plan: "single",
+          orderType: "print",
+          printVariant: variant,
+          includeDigitalAddOn: false,
+        });
         checkoutStartedTracked = true;
         setPrintCheckoutPhase("checkout");
         const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
@@ -1237,13 +1257,6 @@ export default function DownloadClient() {
           source: "download",
           variant,
           hasMapId: Boolean(mapId),
-        });
-        trackBeginCheckout({
-          source: "download",
-          plan: "single",
-          orderType: "print",
-          printVariant: variant,
-          includeDigitalAddOn: false,
         });
         redirectToStripeCheckout(data.url);
       } catch (error) {

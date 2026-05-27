@@ -261,6 +261,11 @@ export default function SuccessClient() {
       if (!checkoutMapId) {
         throw new Error("map_required");
       }
+      trackBeginCheckout({
+        source: "success",
+        plan: "single",
+        orderType: "digital",
+      });
       const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
       let res: Response;
       try {
@@ -289,11 +294,6 @@ export default function SuccessClient() {
         source: "success",
         orderType,
         printVariant,
-      });
-      trackBeginCheckout({
-        source: "success",
-        plan: "single",
-        orderType: "digital",
       });
       redirectToStripeCheckout(data.url);
     } catch (error) {

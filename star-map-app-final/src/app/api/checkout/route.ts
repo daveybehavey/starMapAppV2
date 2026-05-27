@@ -1234,8 +1234,15 @@ export async function POST(req: NextRequest) {
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
         plan: orderType === "print" ? printVariant : plan,
       });
+      const rejectedUrl = session.url?.trim() ?? "";
+      if (!rejectedUrl || !isValidStripeCheckoutUrl(rejectedUrl)) {
+        return NextResponse.json(
+          { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
+          { status: 500 },
+        );
+      }
       return NextResponse.json({
-        url: session.url,
+        url: rejectedUrl,
         promoApplied: false,
         discountRejected: true,
         referralOfferApplied: false,
@@ -1258,8 +1265,21 @@ export async function POST(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
 
+    const checkoutUrl = session.url?.trim() ?? "";
+    if (!checkoutUrl || !isValidStripeCheckoutUrl(checkoutUrl)) {
+      await recordCheckoutFailure({
+        reason: "invalid_checkout_url",
+        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+        plan: orderType === "print" ? printVariant : plan,
+      });
+      return NextResponse.json(
+        { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json({
-      url: session.url,
+      url: checkoutUrl,
       promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
       referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
       referralOfferVariant:

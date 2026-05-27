@@ -23,7 +23,9 @@
 | --- | --- | --- |
 | `client_reference_id` non-UUID treated as map | Fixed | `resolveCheckoutMapIdFromStripeSession` |
 | Live QA placeholder map ids | Fixed | `readCheckoutMapId` + discounted session metadata |
-| Entitlement verify polling vs premium cookie | Improved | Shared `stripeVerifyClient`; download re-init on recovery |
+| Entitlement verify polling vs premium cookie | Improved | Shared `stripeVerifyClient`; download re-init on recovery (multi-round poll when `session_id` on `/download`) |
+| `begin_checkout` fired after Stripe URL returned (download/success print) | Fixed | `trackBeginCheckout` before `/api/checkout` handoff |
+| POST `/api/checkout` could return URL without `#fid` fragment | Fixed | Reject with `invalid_checkout_url` before JSON response |
 
 ## Analytics (2026-05-26)
 
