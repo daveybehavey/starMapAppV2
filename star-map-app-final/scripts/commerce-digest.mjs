@@ -349,7 +349,9 @@ async function buildReport(args) {
   const realPaidSessions = paidSessions.filter((session) => Number(session.amount_total || 0) > 0);
   const zeroPaidSessions = paidSessions.length - realPaidSessions.length;
   const digitalPaid = paidSessions.filter((session) => classifyOrder(session) === "digital");
-  const printPaid = paidSessions.filter((session) => classifyOrder(session) === "print");
+  const printSessions = sessions.filter((session) => classifyOrder(session) === "print");
+  const printPaid = printSessions.filter((session) => isPaidCheckoutSession(session));
+  const printUnpaidSessions = printSessions.length - printPaid.length;
   const paymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, paidSessions);
 
   const digitalPlanCounts = new Map();
@@ -458,7 +460,9 @@ async function buildReport(args) {
       realPaidSessions: realPaidSessions.length,
       zeroPaidSessions,
       digitalPaidSessions: digitalPaid.length,
+      printSessionsTotal: printSessions.length,
       printPaidSessions: printPaid.length,
+      printUnpaidSessions,
       digitalRevenueCents,
       printRevenueCents,
       totalRevenueCents: digitalRevenueCents + printRevenueCents,
@@ -495,6 +499,20 @@ function printHumanReport(report) {
   console.log(
     `Mix: digital=${report.stripe.digitalPaidSessions} print=${report.stripe.printPaidSessions} scanned=${report.stripe.sessionsScanned}`,
   );
+  if (report.stripe.printSessionsTotal > 0) {
+    const paidPct =
+      report.stripe.printSessionsTotal > 0
+        ? ((report.stripe.printPaidSessions / report.stripe.printSessionsTotal) * 100).toFixed(1)
+        : "0.0";
+    console.log(
+      `Print checkout (Stripe): opened=${report.stripe.printSessionsTotal} paid=${report.stripe.printPaidSessions} (${paidPct}%) unpaid=${report.stripe.printUnpaidSessions}`,
+    );
+    if (report.stripe.printPaidSessions === 0 && report.stripe.printUnpaidSessions >= 3) {
+      console.log(
+        "  ⚠ Phase A2 blocked: no paid print in window — expect abandon at Stripe until one real order completes.",
+      );
+    }
+  }
 
   console.log("");
   console.log("Top digital plans");
