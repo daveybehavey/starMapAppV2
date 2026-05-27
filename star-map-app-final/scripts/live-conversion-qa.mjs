@@ -129,18 +129,31 @@ async function createOneTimePromo(stripe) {
   return { code, couponId: coupon.id, promotionCodeId: promotionCode.id };
 }
 
-async function createDiscountedCheckoutSession(stripe, site, promotionCodeId) {
+async function readCheckoutMapId(page) {
+  return page.evaluate(() => {
+    try {
+      const value =
+        localStorage.getItem("star-map-checkout-id") || localStorage.getItem("checkout-map-id");
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    } catch {
+      return null;
+    }
+  });
+}
+
+async function createDiscountedCheckoutSession(stripe, site, promotionCodeId, mapId) {
   const singlePriceId = (process.env.STRIPE_PRICE_ID_SINGLE || "").trim();
   const paymentMethodConfigurationId = (process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID || "").trim();
   if (!singlePriceId) {
     throw new Error("STRIPE_PRICE_ID_SINGLE is required for discounted checkout fallback");
   }
   const normalizedSite = site.replace(/\/+$/, "");
+  const mapQuery = mapId ? `&map_id=${encodeURIComponent(mapId)}` : "";
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    success_url: `${normalizedSite}/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${normalizedSite}/success?session_id={CHECKOUT_SESSION_ID}${mapQuery}`,
     cancel_url: `${normalizedSite}/`,
-    client_reference_id: "qa-live-conversion",
+    ...(mapId ? { client_reference_id: mapId } : {}),
     line_items: [{ price: singlePriceId, quantity: 1 }],
     discounts: [{ promotion_code: promotionCodeId }],
     billing_address_collection: "auto",
@@ -150,8 +163,10 @@ async function createDiscountedCheckoutSession(stripe, site, promotionCodeId) {
     metadata: {
       plan: "single",
       order_type: "digital",
+      credits: "1",
       qa_run: "true",
       qa_source: "live_conversion_qa",
+      ...(mapId ? { map_id: mapId } : {}),
     },
   });
   if (!session.url) {
@@ -441,12 +456,21 @@ async function run() {
         report.steps.push("Entered checkout email");
       }
 
+      const checkoutMapId = await readCheckoutMapId(page);
+      if (checkoutMapId) {
+        report.stripe.checkoutMapId = checkoutMapId;
+        report.steps.push("Using editor map id for checkout metadata");
+      } else {
+        report.friction.push("No star-map-checkout-id in localStorage before checkout (download may rely on draft only)");
+      }
+
       if (promo?.code) {
         if (promo.promotionCodeId && !args.forcePromoField) {
           const discountedSession = await createDiscountedCheckoutSession(
             stripe,
             args.site,
             promo.promotionCodeId,
+            checkoutMapId,
           );
           report.steps.push("Opened pre-discounted checkout session");
           report.stripe.discountedCheckoutSessionId = discountedSession.id;
@@ -467,6 +491,7 @@ async function run() {
               stripe,
               args.site,
               promo.promotionCodeId,
+              checkoutMapId,
             );
             report.steps.push("Promo field failed; switched to discounted fallback checkout session");
             report.stripe.fallbackCheckoutSessionId = fallbackSession.id;

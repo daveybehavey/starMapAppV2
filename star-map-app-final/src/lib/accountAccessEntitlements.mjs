@@ -53,3 +53,16 @@ export function isValidMapId(id) {
     trimmed,
   );
 }
+
+/** Prefer metadata.map_id; only accept client_reference_id when it is a real map UUID. */
+export function resolveCheckoutMapIdFromStripeSession(session) {
+  const fromMetadata =
+    typeof session?.metadata?.map_id === "string" ? session.metadata.map_id.trim() : "";
+  if (isValidMapId(fromMetadata)) return fromMetadata;
+
+  const fromReference =
+    typeof session?.client_reference_id === "string" ? session.client_reference_id.trim() : "";
+  if (isValidMapId(fromReference)) return fromReference;
+
+  return undefined;
+}

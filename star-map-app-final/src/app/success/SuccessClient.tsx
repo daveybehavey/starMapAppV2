@@ -32,11 +32,13 @@ import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
 import { getDefaultMerchEditorHref, getMerchShopSectionHref } from "@/lib/merchCatalog";
+import { isValidMapId } from "@/lib/accountAccessEntitlements.mjs";
 import {
   checkoutUrlErrorMessage,
   createCheckoutFetchSignal,
   redirectToStripeCheckout,
 } from "@/lib/stripeCheckoutNavigation";
+import { buildDownloadPath } from "@/lib/stripeVerifyClient";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -75,6 +77,11 @@ const referralRewardCredits = (() => {
 })();
 const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
+
+function normalizeMapId(id: string | null | undefined) {
+  const trimmed = typeof id === "string" ? id.trim() : "";
+  return trimmed && isValidMapId(trimmed) ? trimmed : null;
+}
 
 function readStoredMapId() {
   if (typeof window === "undefined") return null;
@@ -509,7 +516,7 @@ export default function SuccessClient() {
     let active = true;
     redirectTimerRef.current = null;
     const sessionId = searchParams.get("session_id");
-    const mapIdParam = searchParams.get("map_id")?.trim() || null;
+    const mapIdParam = normalizeMapId(searchParams.get("map_id"));
     if (!sessionId) {
       setStatus("error");
       setMessage("Missing payment session. Please contact support.");
@@ -589,7 +596,7 @@ export default function SuccessClient() {
             setCurrentPlan(verifiedPlan);
             setOrderType(verifiedOrderType);
             setPrintVariant(verifiedPrintVariant);
-            const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
+            const resolvedMapId = mapIdParam || normalizeMapId(typeof data.mapId === "string" ? data.mapId : null);
             setResolvedMapId(resolvedMapId);
             if (hasDigitalEntitlement) {
               void createAccessLink();
@@ -610,11 +617,13 @@ export default function SuccessClient() {
             if (hasDigitalEntitlement) {
               redirectTimerRef.current = setTimeout(() => {
                 if (!autoRedirectRef.current) return;
-                const nextUrl = resolvedMapId
-                  ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                  : "/download";
-                router.replace(nextUrl);
-              }, 3500);
+                router.replace(
+                  buildDownloadPath({
+                    sessionId,
+                    mapId: resolvedMapId,
+                  }),
+                );
+              }, 4500);
             }
             return;
           }
@@ -876,10 +885,12 @@ export default function SuccessClient() {
                       onClick={() => {
                         pauseRedirect();
                         track("success_recovery_action", { action: "go_to_download_now" });
-                        const nextUrl = resolvedMapId
-                          ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                          : "/download";
-                        router.replace(nextUrl);
+                        router.replace(
+                          buildDownloadPath({
+                            sessionId: searchParams.get("session_id"),
+                            mapId: resolvedMapId,
+                          }),
+                        );
                       }}
                       className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
                     >

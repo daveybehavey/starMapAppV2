@@ -4,6 +4,7 @@ import {
   isValidStripeCheckoutUrl,
   stripeCheckoutHtmlRedirectBody,
 } from "../../src/lib/stripeCheckoutNavigation.ts";
+import { buildDownloadPath } from "../../src/lib/stripeVerifyClient.ts";
 
 test("isValidStripeCheckoutUrl requires checkout.stripe.com path and hash fragment", () => {
   const valid =
@@ -19,4 +20,14 @@ test("stripeCheckoutHtmlRedirectBody embeds full URL for client navigation", () 
   const html = stripeCheckoutHtmlRedirectBody(url);
   assert.match(html, /location\.replace/);
   assert.match(html, /fidfragment/);
+});
+
+test("buildDownloadPath includes session_id and map_id when provided", () => {
+  const path = buildDownloadPath({
+    sessionId: "cs_test_abc",
+    mapId: "11111111-1111-4111-8111-111111111111",
+  });
+  assert.match(path, /^\/download\?/);
+  assert.match(path, /session_id=cs_test_abc/);
+  assert.match(path, /map_id=11111111-1111-4111-8111-111111111111/);
 });

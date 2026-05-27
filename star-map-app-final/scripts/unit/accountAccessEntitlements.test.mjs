@@ -4,6 +4,7 @@ import {
   evaluateClaimPaid,
   hasRecoverableAccess,
   isValidMapId,
+  resolveCheckoutMapIdFromStripeSession,
 } from "../../src/lib/accountAccessEntitlements.mjs";
 
 test("hasRecoverableAccess denies revoked and print-only", () => {
@@ -63,4 +64,22 @@ test("isValidMapId accepts UUIDs and rejects junk", () => {
   assert.equal(isValidMapId("123e4567-e89b-42d3-a456-426614174000"), true);
   assert.equal(isValidMapId("not-a-map"), false);
   assert.equal(isValidMapId(""), false);
+});
+
+test("resolveCheckoutMapIdFromStripeSession ignores non-UUID client_reference_id", () => {
+  const mapId = "123e4567-e89b-42d3-a456-426614174000";
+  assert.equal(
+    resolveCheckoutMapIdFromStripeSession({
+      metadata: { map_id: mapId },
+      client_reference_id: "qa-live-conversion",
+    }),
+    mapId,
+  );
+  assert.equal(
+    resolveCheckoutMapIdFromStripeSession({
+      metadata: {},
+      client_reference_id: "qa-live-conversion",
+    }),
+    undefined,
+  );
 });

@@ -43,11 +43,13 @@ import {
 import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
+import { isValidMapId } from "@/lib/accountAccessEntitlements.mjs";
 import {
   checkoutUrlErrorMessage,
   createCheckoutFetchSignal,
   redirectToStripeCheckout,
 } from "@/lib/stripeCheckoutNavigation";
+import { verifyStripeCheckoutSession, type StripeVerifyResult } from "@/lib/stripeVerifyClient";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -286,8 +288,13 @@ export default function DownloadClient() {
   const previewGeneratedRef = useRef(false);
   const paidRef = useRef(false);
   const printUpsellTrackedRef = useRef(false);
-  const mapIdFromUrl = searchParams.get("map_id")?.trim() || null;
+  const mapIdFromUrl = (() => {
+    const raw = searchParams.get("map_id")?.trim() || null;
+    return raw && isValidMapId(raw) ? raw : null;
+  })();
+  const sessionIdFromUrl = searchParams.get("session_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
+  const [accessSetupGeneration, setAccessSetupGeneration] = useState(0);
   const upsellRaw = searchParams.get("upsell")?.trim();
   const upsellIntent = isPrintVariant(upsellRaw) ? upsellRaw : null;
   const [accessLink, setAccessLink] = useState<string | null>(null);
@@ -317,6 +324,7 @@ export default function DownloadClient() {
   const [recoveryStatus, setRecoveryStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [printCheckoutLoading, setPrintCheckoutLoading] = useState(false);
+  const [printCheckoutPhase, setPrintCheckoutPhase] = useState<"idle" | "preparing" | "checkout">("idle");
   const printCheckoutInFlightRef = useRef(false);
   const [printCheckoutError, setPrintCheckoutError] = useState<string | null>(null);
   const printUpsellRef = useRef<HTMLDivElement | null>(null);
@@ -405,10 +413,69 @@ export default function DownloadClient() {
     setPaid(value);
   }, []);
 
+  const applyVerifyEntitlement = useCallback(
+    (result: StripeVerifyResult) => {
+      if (!result.paid) return false;
+      setPaidState(true);
+      setCreditsRemaining(
+        typeof result.creditsRemaining === "number" ? result.creditsRemaining : null,
+      );
+      setCurrentPlan(
+        result.plan === "single" || result.plan === "pack3" || result.plan === "subscription"
+          ? result.plan
+          : null,
+      );
+      return true;
+    },
+    [setPaidState],
+  );
+
   const refreshPaidStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/premium", { cache: "no-store" });
-      if (!res.ok) return { paid: false };
+      if (res.status === 429) {
+        const retryAfterRaw = res.headers.get("Retry-After");
+        const retryAfterSeconds = retryAfterRaw ? Number.parseInt(retryAfterRaw, 10) : NaN;
+        const waitMs = Number.isFinite(retryAfterSeconds) ? Math.min(15_000, retryAfterSeconds * 1000) : 2000;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        const retry = await fetch("/api/premium", { cache: "no-store" });
+        if (!retry.ok) {
+          setPaidState(false);
+          setCreditsRemaining(null);
+          return { paid: false };
+        }
+        const retryData = (await retry.json()) as {
+          paid?: boolean;
+          creditsRemaining?: number | null;
+          plan?: CheckoutPlan | null;
+        };
+        const nextPaid =
+          Boolean(retryData.paid) ||
+          (typeof retryData.creditsRemaining === "number" && retryData.creditsRemaining > 0);
+        setPaidState(nextPaid);
+        setCreditsRemaining(
+          typeof retryData.creditsRemaining === "number" ? retryData.creditsRemaining : null,
+        );
+        setCurrentPlan(
+          retryData.plan === "single" || retryData.plan === "pack3" || retryData.plan === "subscription"
+            ? retryData.plan
+            : null,
+        );
+        return {
+          paid: nextPaid,
+          creditsRemaining:
+            typeof retryData.creditsRemaining === "number" ? retryData.creditsRemaining : null,
+          plan:
+            retryData.plan === "single" || retryData.plan === "pack3" || retryData.plan === "subscription"
+              ? retryData.plan
+              : null,
+        };
+      }
+      if (!res.ok) {
+        setPaidState(false);
+        setCreditsRemaining(null);
+        return { paid: false };
+      }
       const data = (await res.json()) as {
         paid?: boolean;
         creditsRemaining?: number | null;
@@ -428,6 +495,8 @@ export default function DownloadClient() {
           data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null,
       };
     } catch {
+      setPaidState(false);
+      setCreditsRemaining(null);
       return { paid: false };
     }
   }, [setPaidState]);
@@ -757,16 +826,35 @@ export default function DownloadClient() {
           }
         }
       }
+      let verifiedMapId: string | null = null;
+      if (sessionIdFromUrl) {
+        const verifyResult = await verifyStripeCheckoutSession(sessionIdFromUrl, { maxAttempts: 8 });
+        if (!active) return;
+        if (verifyResult.paid) {
+          applyVerifyEntitlement(verifyResult);
+          verifiedMapId =
+            verifyResult.mapId && isValidMapId(verifyResult.mapId) ? verifyResult.mapId : null;
+          if (verifiedMapId) {
+            try {
+              localStorage.setItem(CHECKOUT_MAP_KEY, verifiedMapId);
+            } catch {
+              // ignore storage errors
+            }
+          }
+        }
+      }
       const paidResult = await refreshPaidStatus();
       if (!active) return;
-      if (!paidResult.paid) {
+      if (!paidResult.paid && !paidRef.current) {
         setStatus("not-paid");
         setMessage(
           tokenInvalid
             ? "This access link has expired or was replaced. Open your original device to generate a new link."
-            : typeof paidResult.creditsRemaining === "number"
+            : typeof paidResult.creditsRemaining === "number" && paidResult.creditsRemaining <= 0
             ? "You have no HD export credits remaining. Choose a new pack or subscription to continue."
-            : "Payment verification is still pending. Please refresh in a moment.",
+            : sessionIdFromUrl
+              ? "Payment verification is still pending. We're confirming your checkout — this usually takes a few seconds."
+              : "Payment verification is still pending. Reopen your secure success link or refresh in a moment.",
         );
         return;
       }
@@ -780,7 +868,7 @@ export default function DownloadClient() {
       }
 
       let draft = readDraft();
-      const fallbackMapId = mapIdFromUrl || claimedMapId || readStoredMapId();
+      const fallbackMapId = mapIdFromUrl || verifiedMapId || claimedMapId || readStoredMapId();
       if (!draft && fallbackMapId) {
         const fetched = await fetchMapRecipe(fallbackMapId);
         if (fetched) {
@@ -822,15 +910,44 @@ export default function DownloadClient() {
       active = false;
     };
   }, [
+    accessSetupGeneration,
+    applyVerifyEntitlement,
     claimAccessToken,
     createAccessLink,
     fetchMapRecipe,
     mapIdFromUrl,
     refreshPaidStatus,
+    sessionIdFromUrl,
     startDownload,
     tokenFromUrl,
     updatePreviewAspect,
   ]);
+
+  useEffect(() => {
+    if (status !== "not-paid" || !sessionIdFromUrl) return;
+    let active = true;
+    const poll = async () => {
+      const verifyResult = await verifyStripeCheckoutSession(sessionIdFromUrl, { maxAttempts: 6 });
+      if (!active || !verifyResult.paid) return;
+      applyVerifyEntitlement(verifyResult);
+      if (verifyResult.mapId && isValidMapId(verifyResult.mapId)) {
+        try {
+          localStorage.setItem(CHECKOUT_MAP_KEY, verifyResult.mapId);
+        } catch {
+          // ignore storage errors
+        }
+      }
+      initCompletedRef.current = false;
+      setAccessSetupGeneration((value) => value + 1);
+    };
+    const timer = window.setTimeout(() => {
+      void poll();
+    }, 2000);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [applyVerifyEntitlement, sessionIdFromUrl, status]);
 
   useEffect(() => {
     if (!recipe || !paid) return;
@@ -993,6 +1110,7 @@ export default function DownloadClient() {
         },
       });
       setPrintCheckoutLoading(true);
+      setPrintCheckoutPhase("preparing");
       setPrintCheckoutError(null);
       let checkoutApiResponseReceived = false;
       let checkoutStartedTracked = false;
@@ -1070,6 +1188,7 @@ export default function DownloadClient() {
           plan: variant,
         });
         checkoutStartedTracked = true;
+        setPrintCheckoutPhase("checkout");
         const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
         let res: Response;
         try {
@@ -1092,7 +1211,7 @@ export default function DownloadClient() {
         }
         checkoutApiResponseReceived = true;
         const data = (await res.json().catch(() => null)) as
-          | { url?: string; error?: string; code?: string }
+          | { url?: string; error?: string; code?: string; discountRejected?: boolean }
           | null;
         if (!res.ok || !data?.url) {
           if (data?.code === "print_checkout_disabled") {
@@ -1108,6 +1227,11 @@ export default function DownloadClient() {
             throw new Error("missing_shipping_country");
           }
           throw new Error(data?.error ?? "checkout_failed");
+        }
+        if (data.discountRejected) {
+          setPrintCheckoutError(
+            "Your promo could not be auto-applied for print. Enter it on the Stripe checkout page if eligible.",
+          );
         }
         track("print_checkout_started", {
           source: "download",
@@ -1159,6 +1283,7 @@ export default function DownloadClient() {
         setPrintCheckoutError(messageByReason);
         printCheckoutInFlightRef.current = false;
         setPrintCheckoutLoading(false);
+        setPrintCheckoutPhase("idle");
       }
     },
     [mapIdFromUrl, printShippingCountry, recipe, resolveShapeAndRatio],
@@ -1432,7 +1557,11 @@ export default function DownloadClient() {
                       : typeof creditsRemaining === "number"
                         ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
                         : "HD export access is active."
-                    : "Payment verification pending."}
+                    : status === "not-paid"
+                      ? "Payment verification pending."
+                      : typeof creditsRemaining === "number"
+                        ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
+                        : "Payment verification pending."}
                 </div>
                 <div
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
@@ -1816,6 +1945,13 @@ export default function DownloadClient() {
                 {upsellIntent ? (
                   <p className="mt-2 text-[11px] text-amber-100/75">
                     You can still keep the digital file only. This simply carries the same approved map into print checkout.
+                  </p>
+                ) : null}
+                {printCheckoutLoading ? (
+                  <p className="mt-2 text-xs text-amber-100/85">
+                    {printCheckoutPhase === "preparing"
+                      ? "Preparing your print file…"
+                      : "Opening secure checkout…"}
                   </p>
                 ) : null}
                 {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}

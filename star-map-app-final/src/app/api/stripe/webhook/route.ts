@@ -28,6 +28,7 @@ import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
 import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
 import { hasRecoverableAccess } from "@/lib/accountAccessLinks";
 import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
+import { resolveCheckoutMapIdFromStripeSession } from "@/lib/checkoutMapId";
 import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
@@ -145,14 +146,6 @@ function normalizeEmail(raw: unknown) {
   return trimmed || null;
 }
 
-function getMapId(session: Stripe.Checkout.Session) {
-  return (
-    (typeof session.metadata?.map_id === "string" && session.metadata.map_id.trim()) ||
-    (typeof session.client_reference_id === "string" && session.client_reference_id.trim()) ||
-    undefined
-  );
-}
-
 function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
   return session.metadata?.order_type === "print" ? "print" : "digital";
 }
@@ -268,7 +261,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     paid: true,
     created: Date.now(),
     revoked: false,
-    mapId: getMapId(session),
+    mapId: resolveCheckoutMapIdFromStripeSession(session),
     paymentIntentId,
     amountTotal: session.amount_total ?? null,
     currency: session.currency ?? null,
@@ -297,7 +290,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
       session: {
         sessionId: session.id,
         createdAt: typeof session.created === "number" ? session.created * 1000 : Date.now(),
-        mapId: getMapId(session),
+        mapId: resolveCheckoutMapIdFromStripeSession(session),
         plan,
         orderType,
         printVariant,
@@ -349,7 +342,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     });
   }
 
-  const mapId = getMapId(session);
+  const mapId = resolveCheckoutMapIdFromStripeSession(session);
   if (mapId) {
     await refreshEntitledMapRecipeTtl(mapId);
   }
@@ -764,7 +757,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   let payload: PrintOrderRecord = {
     status: "pending",
     sessionId: session.id,
-    mapId: getMapId(session),
+    mapId: resolveCheckoutMapIdFromStripeSession(session),
     printVariant: getPrintVariant(session) ?? "poster_framed",
     includesDigitalAddOn: includesDigitalAddOn(session),
     printAssetId: getPrintAssetId(session),

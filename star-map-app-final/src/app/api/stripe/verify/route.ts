@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit"
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { isPrintVariant } from "@/lib/printCatalog";
+import { resolveCheckoutMapIdFromStripeSession } from "@/lib/checkoutMapId";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 
 export const runtime = "nodejs";
@@ -40,14 +41,6 @@ const sessionKey = (id: string) => `stripe:session:${id}`;
 const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
-
-function getMapId(session: Stripe.Checkout.Session) {
-  return (
-    (typeof session.metadata?.map_id === "string" && session.metadata.map_id.trim()) ||
-    (typeof session.client_reference_id === "string" && session.client_reference_id.trim()) ||
-    undefined
-  );
-}
 
 function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
   return session.metadata?.order_type === "print" ? "print" : "digital";
@@ -187,7 +180,7 @@ export async function GET(req: NextRequest) {
         );
       }
     }
-    const mapId = getMapId(session);
+    const mapId = resolveCheckoutMapIdFromStripeSession(session);
     await kv.set(sessionKey(sessionId), {
       paid: true,
       mapId,
