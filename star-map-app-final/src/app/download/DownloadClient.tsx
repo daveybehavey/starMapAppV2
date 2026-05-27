@@ -294,6 +294,9 @@ export default function DownloadClient() {
   })();
   const sessionIdFromUrl = searchParams.get("session_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
+  const autoExportFromUrl = searchParams.get("auto_export") === "1";
+  const claimTokenForArchiveRef = useRef<string | null>(null);
+  const autoExportStartedRef = useRef(false);
   const [accessSetupGeneration, setAccessSetupGeneration] = useState(0);
   const upsellRaw = searchParams.get("upsell")?.trim();
   const upsellIntent = isPrintVariant(upsellRaw) ? upsellRaw : null;
@@ -325,6 +328,7 @@ export default function DownloadClient() {
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [printCheckoutLoading, setPrintCheckoutLoading] = useState(false);
   const [printCheckoutPhase, setPrintCheckoutPhase] = useState<"idle" | "preparing" | "checkout">("idle");
+  const [printPrepSlowHint, setPrintPrepSlowHint] = useState(false);
   const printCheckoutInFlightRef = useRef(false);
   const [printCheckoutError, setPrintCheckoutError] = useState<string | null>(null);
   const printUpsellRef = useRef<HTMLDivElement | null>(null);
@@ -575,15 +579,24 @@ export default function DownloadClient() {
       if (!res.ok) throw new Error("link failed");
       const data = (await res.json()) as { url?: string };
       if (typeof data.url === "string" && data.url.trim()) {
-        setAccessLink(data.url.trim());
+        const url = data.url.trim();
+        setAccessLink(url);
+        try {
+          const parsed = new URL(url, window.location.origin);
+          const token = parsed.searchParams.get("token")?.trim();
+          if (token) claimTokenForArchiveRef.current = token;
+        } catch {
+          // ignore malformed URLs
+        }
         accessLinkStatusRef.current = "ready";
         setAccessLinkStatus("ready");
-        return;
+        return url;
       }
       throw new Error("missing url");
     } catch {
       accessLinkStatusRef.current = "error";
       setAccessLinkStatus("error");
+      return undefined;
     }
   }, []);
 
@@ -714,8 +727,9 @@ export default function DownloadClient() {
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
         // Best-effort archival so support can resend the exact paid-for file later.
-        if (downloadArchiveEnabled && tokenFromUrl) {
-          void fetch(`/api/download/archive?token=${encodeURIComponent(tokenFromUrl)}`, {
+        const archiveToken = tokenFromUrl || claimTokenForArchiveRef.current;
+        if (downloadArchiveEnabled && archiveToken) {
+          void fetch(`/api/download/archive?token=${encodeURIComponent(archiveToken)}`, {
             method: "POST",
             headers: { "content-type": "image/png" },
             body: blob,
@@ -902,7 +916,6 @@ export default function DownloadClient() {
         void createAccessLink();
       }
 
-      // Do not auto-download; let the user click the button for the download.
     };
 
     void init();
@@ -922,6 +935,32 @@ export default function DownloadClient() {
     tokenFromUrl,
     updatePreviewAspect,
   ]);
+
+  useEffect(() => {
+    if (!autoExportFromUrl || autoExportStartedRef.current) return;
+    if (status !== "ready" || !paid || !recipe) return;
+    autoExportStartedRef.current = true;
+    const run = async () => {
+      if (!tokenFromUrl && !claimTokenForArchiveRef.current) {
+        const linkUrl = await createAccessLink();
+        if (!linkUrl && !claimTokenForArchiveRef.current) {
+          autoExportStartedRef.current = false;
+          return;
+        }
+      }
+      void startDownload(recipe, "auto");
+    };
+    void run();
+  }, [autoExportFromUrl, createAccessLink, paid, recipe, startDownload, status, tokenFromUrl]);
+
+  useEffect(() => {
+    if (!printCheckoutLoading || printCheckoutPhase !== "preparing") {
+      setPrintPrepSlowHint(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setPrintPrepSlowHint(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, [printCheckoutLoading, printCheckoutPhase]);
 
   useEffect(() => {
     if (status !== "not-paid" || !sessionIdFromUrl) return;
@@ -1963,7 +2002,9 @@ export default function DownloadClient() {
                 {printCheckoutLoading ? (
                   <p className="mt-2 text-xs text-amber-100/85">
                     {printCheckoutPhase === "preparing"
-                      ? "Preparing your print file…"
+                      ? printPrepSlowHint
+                        ? "Still preparing your print file — large maps can take up to 30 seconds on mobile. Please keep this tab open."
+                        : "Preparing your print file…"
                       : "Opening secure checkout…"}
                   </p>
                 ) : null}

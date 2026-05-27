@@ -26,6 +26,13 @@
 | Entitlement verify polling vs premium cookie | Improved | Shared `stripeVerifyClient`; download re-init on recovery (multi-round poll when `session_id` on `/download`) |
 | `begin_checkout` fired after Stripe URL returned (download/success print) | Fixed | `trackBeginCheckout` before `/api/checkout` handoff |
 | POST `/api/checkout` could return URL without `#fid` fragment | Fixed | Reject with `invalid_checkout_url` before JSON response |
+| `/api/premium` 429 during `qa:live-critical` | Fixed | `StarMapCo-LiveSmoke/1.0` bypasses rate limit |
+| HD archive only when `token` in URL | Fixed | Claim token from `/api/entitlements/link` used for archive upload |
+| No auto-export after digital success | Fixed | `auto_export=1` on success → download auto-starts HD export |
+| Misleading success copy for digital HD | Fixed | Copy mentions HD unlock, not print prep |
+| PostHog/GA4 purchase missed when consent declined at checkout | Mitigated | `/success` nudge replays deferred purchase after “Allow analytics” |
+| Slow print file prep on mobile | Mitigated | After 8s, copy warns large exports can take ~30s |
+| “Go to download now” skipped auto-export | Fixed | Success recovery CTA uses `auto_export=1` |
 
 ## Analytics (2026-05-26)
 

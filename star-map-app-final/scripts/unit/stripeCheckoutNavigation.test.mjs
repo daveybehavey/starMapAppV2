@@ -31,3 +31,12 @@ test("buildDownloadPath includes session_id and map_id when provided", () => {
   assert.match(path, /session_id=cs_test_abc/);
   assert.match(path, /map_id=11111111-1111-4111-8111-111111111111/);
 });
+
+test("buildDownloadPath can request auto_export after digital checkout", () => {
+  const path = buildDownloadPath({
+    sessionId: "cs_test_abc",
+    mapId: "11111111-1111-4111-8111-111111111111",
+    autoExport: true,
+  });
+  assert.match(path, /auto_export=1/);
+});

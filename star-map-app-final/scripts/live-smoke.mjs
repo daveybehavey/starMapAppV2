@@ -6,6 +6,8 @@ import path from "node:path";
 const DEFAULT_SITE = "https://starmapco.com";
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_REPORT_PATH = "reports/live-smoke.json";
+/** Matches `isInternalMonitoringRequest` — exempt from tight /api/premium rate limits. */
+const LIVE_SMOKE_USER_AGENT = "StarMapCo-LiveSmoke/1.0";
 
 function parseArgs(argv) {
   const args = {
@@ -58,8 +60,12 @@ function createAbortSignal(timeoutMs) {
 
 async function fetchWithTimeout(url, init, timeoutMs) {
   const { signal, cleanup } = createAbortSignal(timeoutMs);
+  const headers = new Headers(init?.headers ?? {});
+  if (!headers.has("user-agent")) {
+    headers.set("User-Agent", LIVE_SMOKE_USER_AGENT);
+  }
   try {
-    return await fetch(url, { ...init, signal });
+    return await fetch(url, { ...init, headers, signal });
   } finally {
     cleanup();
   }

@@ -72,7 +72,23 @@ Missing GA4/PostHog keys: checkout and webhooks **still succeed**; analytics cal
 1. `npm run qa:live-critical`
 2. Real or staging purchase with consent → GA4 Realtime `purchase` + PostHog `purchase` with `transaction_id` = Stripe `cs_…`
 3. `npm run qa:live-conversion` → confirm **no** production `purchase` spike (QA excluded)
-4. `npm run qa:ga4-mp-probe` — optional MP smoke
+4. `npm run qa:ga4-mp-probe` — optional MP smoke (also in `qa:growth-weekly` via `ga4-mp-probe-optional`)
+
+## Success-page consent nudge
+
+If the customer completes checkout before choosing **Allow** on the cookie banner, `trackPurchaseCompleted` stores the payload in `sessionStorage` (`ga4:pending-purchase`). On `/success`, a short inline prompt offers **Allow analytics** (fires `flushPendingGa4Purchase` and enables PostHog) or **No thanks**. Server Measurement Protocol still records paid orders when `GA4_API_SECRET` is set — the nudge mainly helps browser GA4/PostHog alignment.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| Internal funnel shows paid, GA4 shows 0–1 `purchase` | Missing/wrong `GA4_API_SECRET` on Worker | `npx wrangler secret list`; set secret; `npm run qa:ga4-mp-probe` locally |
+| GA4 Realtime empty after $0 promo | Browser `purchase` only with **analytics consent** | Accept cookies on site; or rely on server MP (uses catalog value when total is $0) |
+| `npm run qa:live-conversion` but no GA4 spike | Expected — `qa_run` metadata excludes QA | Use **manual** checkout to validate Realtime |
+| PostHog has no `purchase` | Consent off | `localStorage.setItem('analytics-consent','true')` or accept banner |
+| Ads shows clicks, GA4 shows 0 `google/cpc` purchases | Import/linking/UTM | `docs/ADS_RELAUNCH_SETUP.md`, `docs/TIER0_VALIDATION.md` |
+
+Server MP logs `GA4 Measurement Protocol skipped: missing NEXT_PUBLIC_GA_ID or GA4_API_SECRET` when misconfigured — checkout still completes.
 
 ## Related
 

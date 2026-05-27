@@ -24,7 +24,9 @@ cd C:\Users\david\dev\starMapAppV2\star-map-app-final
 npm run qa:growth-weekly
 ```
 
-Covers loop scorecard, live-critical, print margin, funnel reconcile (14d), commerce digest.
+Covers loop scorecard, live-critical, print margin, optional GA4 MP probe (local secrets), funnel reconcile (14d), commerce digest.
+
+Full Tier 0 checklist (manual checkout + print proof): `docs/TIER0_VALIDATION.md`.
 
 Optional SEO diff (needs CSV exports):
 
@@ -47,6 +49,6 @@ Uses draft-order previews + mockups; money pages label them as mockups (see `doc
 
 ## When to pause ads
 
-- `qa:live-critical` fails
-- GA4 `purchase` broken (run `qa:live-conversion` + verify KV `ga4:mp:purchase:*`)
+- `qa:live-critical` fails (includes `/api/premium` — if 429, re-run once; smoke uses monitoring UA)
+- GA4 `purchase` broken on **manual** checkout with consent (see `docs/PURCHASE_ANALYTICS.md` troubleshooting)
 - Zero purchases with rising spend after 2+ weeks — fix landing/offer before scaling

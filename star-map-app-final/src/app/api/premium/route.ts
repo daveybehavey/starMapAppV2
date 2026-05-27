@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENTITLEMENT_KV, evaluatePremiumAccess, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
-import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
+import { checkRateLimit, getClientIp, isInternalMonitoringRequest, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 
 export async function GET(req: NextRequest) {
-  const ip = getClientIp(req);
-  const rateLimit = await checkRateLimit(`premium:check:${ip}`, 30, 60);
-  if (!rateLimit.allowed) {
-    return rateLimitResponse(rateLimit.resetIn);
+  if (!isInternalMonitoringRequest(req)) {
+    const ip = getClientIp(req);
+    const rateLimit = await checkRateLimit(`premium:check:${ip}`, 30, 60);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.resetIn);
+    }
   }
 
   const sessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;

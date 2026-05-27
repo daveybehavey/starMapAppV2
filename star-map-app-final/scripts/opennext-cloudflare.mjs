@@ -73,6 +73,14 @@ function deployBuilt(env) {
     return;
   }
 
+  if (process.platform === "win32") {
+    deployWorkerDirect(
+      env,
+      "OpenNext deploy failed on Windows (often empty CLI output). Falling back to direct Worker deploy after build.",
+    );
+    return;
+  }
+
   throw new Error(`Command failed: npx opennextjs-cloudflare deploy`);
 }
 

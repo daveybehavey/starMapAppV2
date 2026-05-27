@@ -561,3 +561,34 @@ export function hasAnalyticsConsent() {
     return false;
   }
 }
+
+export function isAnalyticsConsentUnset() {
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = localStorage.getItem(ANALYTICS_STORAGE_KEY);
+    return stored !== "true" && stored !== "false";
+  } catch {
+    return true;
+  }
+}
+
+export function hasPendingGa4Purchase() {
+  if (typeof window === "undefined") return false;
+  try {
+    return Boolean(sessionStorage.getItem(PENDING_GA4_PURCHASE_KEY));
+  } catch {
+    return false;
+  }
+}
+
+/** Grant consent from an inline nudge (e.g. /success) and replay any deferred purchase event. */
+export function grantAnalyticsConsentFromUi() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ANALYTICS_STORAGE_KEY, "true");
+  } catch {
+    // Ignore storage failures.
+  }
+  window.dispatchEvent(new CustomEvent("starmap:analytics-consent"));
+  flushPendingGa4Purchase();
+}

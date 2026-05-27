@@ -34,7 +34,23 @@ npm run qa:sitemap-health -- --sitemap https://starmapco.com/sitemap.xml --concu
 
 # Print order visibility (Stripe sessions + KV status)
 npm run qa:print-ops -- --hours 168 --limit 40
+```
 
+## First production print proof (Phase A2)
+
+Human step — required before expanding SKUs (`docs/BIG_MOVES_ROADMAP.md` Phase C).
+
+1. Place one **paid** framed or unframed order on https://starmapco.com (wedding path or editor print checkout).
+2. Confirm Stripe `checkout.session.completed` and Printful receives the order.
+3. Run:
+
+```bash
+npm run qa:print-ops -- --hours 168 --limit 50
+```
+
+4. Exit criteria: at least one row with Printful status **sent** (or documented ops fix if stuck in pending/failed).
+
+```bash
 # Refresh proof images from recent Printful test orders
 npm run assets:printproof
 ```

@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
+  ANALYTICS_STORAGE_KEY,
+  grantAnalyticsConsentFromUi,
+  hasAnalyticsConsent,
+  hasPendingGa4Purchase,
+  isAnalyticsConsentUnset,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -118,6 +123,7 @@ export default function SuccessClient() {
   const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
+  const [showPurchaseAnalyticsNudge, setShowPurchaseAnalyticsNudge] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
   const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
@@ -625,6 +631,7 @@ export default function SuccessClient() {
                   buildDownloadPath({
                     sessionId,
                     mapId: resolvedMapId,
+                    autoExport: true,
                   }),
                 );
               }, 1200);
@@ -692,6 +699,18 @@ export default function SuccessClient() {
     });
   }, [currentPlan, hasDigitalEntitlement, orderType, resolvedMapId, status]);
 
+  useEffect(() => {
+    if (status !== "success" || !hasDigitalEntitlement) {
+      setShowPurchaseAnalyticsNudge(false);
+      return;
+    }
+    if (hasAnalyticsConsent()) {
+      setShowPurchaseAnalyticsNudge(false);
+      return;
+    }
+    setShowPurchaseAnalyticsNudge(hasPendingGa4Purchase() || isAnalyticsConsentUnset());
+  }, [hasDigitalEntitlement, status]);
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
       {/* Celebration stars animation */}
@@ -739,7 +758,7 @@ export default function SuccessClient() {
                 ? hasDigitalEntitlement
                   ? "Your print order is placed and your HD file is unlocked."
                   : "Your print order is placed. We'll review it and email updates before production begins."
-                : "We are preparing your print-ready star map. This will only take a moment."
+                : "Your HD download is unlocking — we'll open your file in a moment."
               : "Confirming your payment with Stripe. This can take up to 45 seconds."}
         </p>
         {status !== "error" && (
@@ -769,6 +788,42 @@ export default function SuccessClient() {
                       : "1 HD export credit unlocked."}
               </p>
             )}
+            {showPurchaseAnalyticsNudge ? (
+              <div className="relative mt-3 rounded-xl border border-amber-200/35 bg-amber-950/40 px-3 py-2 text-left">
+                <p className="text-xs text-amber-100/90">
+                  Optional: allow analytics so we can record this purchase in GA4/PostHog (helps ad reporting). Your download
+                  works either way.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      grantAnalyticsConsentFromUi();
+                      setShowPurchaseAnalyticsNudge(false);
+                      track("success_analytics_consent_granted", { source: "success_nudge" });
+                    }}
+                    className="rounded-full bg-amber-400 px-3 py-1.5 text-[11px] font-semibold text-midnight shadow-sm transition hover:bg-amber-300"
+                  >
+                    Allow analytics
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        localStorage.setItem(ANALYTICS_STORAGE_KEY, "false");
+                      } catch {
+                        // ignore
+                      }
+                      setShowPurchaseAnalyticsNudge(false);
+                      track("success_analytics_consent_declined", { source: "success_nudge" });
+                    }}
+                    className="rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-semibold text-amber-100/85 transition hover:border-white/40"
+                  >
+                    No thanks
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <p className="relative mt-3 text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
               {status === "success"
                 ? hasDigitalEntitlement
@@ -893,6 +948,7 @@ export default function SuccessClient() {
                           buildDownloadPath({
                             sessionId: searchParams.get("session_id"),
                             mapId: resolvedMapId,
+                            autoExport: true,
                           }),
                         );
                       }}

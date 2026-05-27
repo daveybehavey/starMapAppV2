@@ -66,7 +66,7 @@
     "qa:upsell-matrix": "node scripts/generate-upsell-rollout-matrix.mjs",
     "qa:loop-scorecard": "node scripts/loop-scorecard.mjs",
     "qa:weekly-product": "npm run qa:loop-scorecard -- --days 14 && npm run qa:live-critical && npm run qa:print-margin",
-    "qa:growth-weekly": "npm run qa:loop-scorecard -- --days 14 && npm run qa:live-critical && npm run qa:print-margin && npm run qa:funnel-reconcile -- --days 14 && npm run qa:commerce-digest",
+    "qa:growth-weekly": "npm run qa:loop-scorecard -- --days 14 && npm run qa:live-critical && npm run qa:print-margin && node scripts/ga4-mp-probe-optional.mjs && npm run qa:funnel-reconcile -- --days 14 && npm run qa:commerce-digest",
     "qa:stripe-pmc": "node scripts/check-stripe-payment-methods.mjs",
     "qa:funnel-reconcile": "node scripts/funnel-reconcile.mjs",
     "qa:funnel-post-release": "npm run qa:funnel-reconcile -- --days 14",

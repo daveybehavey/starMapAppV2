@@ -70,6 +70,9 @@ export default function AnalyticsConsentManager() {
 
   useEffect(() => {
     setConsent(readConsentState());
+    const onExternalGrant = () => setConsent(readConsentState());
+    window.addEventListener("starmap:analytics-consent", onExternalGrant);
+    return () => window.removeEventListener("starmap:analytics-consent", onExternalGrant);
   }, []);
 
   useEffect(() => {

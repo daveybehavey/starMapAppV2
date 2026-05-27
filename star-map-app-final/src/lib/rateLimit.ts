@@ -77,6 +77,12 @@ export function getClientIp(request: Request): string {
   return `anon-${Math.abs(hash).toString(36)}`;
 }
 
+/** Live smoke / deploy QA — bypass per-IP buckets that false-fail after parallel probes. */
+export function isInternalMonitoringRequest(request: Request): boolean {
+  const ua = request.headers.get("user-agent")?.trim() ?? "";
+  return ua.startsWith("StarMapCo-LiveSmoke/");
+}
+
 /**
  * Generate rate limit response headers.
  */
