@@ -1,4 +1,3 @@
-import { isValidMapId } from "@/lib/accountAccessEntitlements.mjs";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 
 export type StripeVerifyResult = {
@@ -87,15 +86,4 @@ export async function verifyStripeCheckoutSession(
     await delay(delayForAttempt(attempt));
   }
   return { paid: false };
-}
-
-export function buildDownloadPath(opts: { sessionId?: string | null; mapId?: string | null }) {
-  const params = new URLSearchParams();
-  const sessionId = opts.sessionId?.trim();
-  const mapIdRaw = opts.mapId?.trim();
-  const mapId = mapIdRaw && isValidMapId(mapIdRaw) ? mapIdRaw : null;
-  if (sessionId) params.set("session_id", sessionId);
-  if (mapId) params.set("map_id", mapId);
-  const query = params.toString();
-  return query ? `/download?${query}` : "/download";
 }

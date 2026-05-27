@@ -4,7 +4,7 @@ import {
   isValidStripeCheckoutUrl,
   stripeCheckoutHtmlRedirectBody,
 } from "../../src/lib/stripeCheckoutNavigation.ts";
-import { buildDownloadPath } from "../../src/lib/stripeVerifyClient.ts";
+import { buildDownloadPath } from "../../src/lib/stripeCheckoutNavigation.ts";
 
 test("isValidStripeCheckoutUrl requires checkout.stripe.com path and hash fragment", () => {
   const valid =

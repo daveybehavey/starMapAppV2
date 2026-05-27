@@ -1420,6 +1420,7 @@ export function EditorExperience({
           code?: string;
           promoApplied?: boolean;
           referralOfferApplied?: boolean;
+          discountRejected?: boolean;
         } | null;
         if (!res.ok) {
           if (data?.code === "invalid_promotion_code") {
@@ -1457,6 +1458,11 @@ export function EditorExperience({
         if (data?.url) {
           const promoApplied = Boolean(data.promoApplied);
           const referralOfferApplied = Boolean(data.referralOfferApplied);
+          if (data.discountRejected && promoCode) {
+            setCheckoutError(
+              "We couldn't auto-apply your promo for this order. You can still enter it on the secure Stripe checkout page.",
+            );
+          }
           track("checkout_redirected", {
             source: previewSource,
             plan,

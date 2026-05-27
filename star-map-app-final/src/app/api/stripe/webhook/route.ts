@@ -977,7 +977,7 @@ async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, ev
     created:
       existing?.created ??
       (typeof hydrated.created === "number" && Number.isFinite(hydrated.created) ? hydrated.created * 1000 : Date.now()),
-    mapId: getMapId(hydrated),
+    mapId: resolveCheckoutMapIdFromStripeSession(hydrated),
     paymentIntentId: typeof hydrated.payment_intent === "string" ? hydrated.payment_intent : existing?.paymentIntentId,
     amountTotal: hydrated.amount_total ?? existing?.amountTotal ?? null,
     currency: hydrated.currency ?? existing?.currency ?? null,

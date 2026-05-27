@@ -38,7 +38,7 @@ import {
   createCheckoutFetchSignal,
   redirectToStripeCheckout,
 } from "@/lib/stripeCheckoutNavigation";
-import { buildDownloadPath } from "@/lib/stripeVerifyClient";
+import { buildDownloadPath } from "@/lib/stripeCheckoutNavigation";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -623,7 +623,7 @@ export default function SuccessClient() {
                     mapId: resolvedMapId,
                   }),
                 );
-              }, 4500);
+              }, 1200);
             }
             return;
           }

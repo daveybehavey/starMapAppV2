@@ -52,6 +52,20 @@ export function stripeCheckoutHtmlRedirectBody(url: string): string {
 </html>`;
 }
 
+const MAP_ID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function buildDownloadPath(opts: { sessionId?: string | null; mapId?: string | null }) {
+  const params = new URLSearchParams();
+  const sessionId = opts.sessionId?.trim();
+  const mapIdRaw = opts.mapId?.trim();
+  const mapId = mapIdRaw && MAP_ID_REGEX.test(mapIdRaw) ? mapIdRaw : null;
+  if (sessionId) params.set("session_id", sessionId);
+  if (mapId) params.set("map_id", mapId);
+  const query = params.toString();
+  return query ? `/download?${query}` : "/download";
+}
+
 export function checkoutUrlErrorMessage(reason: string): string | null {
   if (reason === "invalid_checkout_url") {
     return "Checkout could not start securely. Please try again — do not copy the browser address bar from a previous attempt.";
