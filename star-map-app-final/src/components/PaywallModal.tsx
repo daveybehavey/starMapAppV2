@@ -225,7 +225,7 @@ export function PaywallModal({
         </h3>
         <p className="mt-2 text-xs text-neutral-700">
           {activeIntent === "print" && hasPrintOptions
-            ? "Choose your gift format — framed posters remain our most popular; canvas, mugs, and cards ship from the same print partner."
+            ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
             : copy.subtitle}
         </p>
         <ul className="mt-3 space-y-1 text-xs text-neutral-700">
@@ -278,14 +278,13 @@ export function PaywallModal({
           {activeIntent === "print" && hasPrintOptions && onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Physical gifts checkout</p>
+              <p className="text-sm font-semibold">Printed gift checkout</p>
                 <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                   Physical delivery
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-                Your current map is attached automatically. Shipping is shown in Stripe checkout and the order is
-                created for manual review. {shippingDisclosure}
+              Your current map is attached automatically. Shipping shows before payment, and the order is created for review after checkout. {shippingDisclosure}
               </p>
               {printShippingCountries.length > 0 && (
                 <div className="mt-3">

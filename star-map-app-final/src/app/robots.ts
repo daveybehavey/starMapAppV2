@@ -17,6 +17,8 @@ export default function robots(): MetadataRoute.Robots {
           "/media-kit",
           "/simple-test",
           "/m/",
+          "/index.html",
+          "/landing.html",
           ...(bulkEnabled
             ? []
             : [

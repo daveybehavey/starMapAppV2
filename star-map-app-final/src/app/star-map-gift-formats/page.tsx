@@ -34,12 +34,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Star Map Gift Formats | StarMapCo",
   description:
-    "Compare StarMapCo gift formats in one place: HD digital, framed print, unframed poster, and upcoming pilot products.",
+    "Compare StarMapCo gift formats in one place: HD digital, framed print, and unframed poster.",
   alternates: { canonical: `${siteUrl}/star-map-gift-formats` },
   openGraph: {
     title: "Star Map Gift Formats | StarMapCo",
     description:
-      "Compare StarMapCo gift formats in one place: HD digital, framed print, unframed poster, and upcoming pilot products.",
+      "Compare StarMapCo gift formats in one place: HD digital, framed print, and unframed poster.",
     url: `${siteUrl}/star-map-gift-formats`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -118,14 +118,6 @@ export default function StarMapGiftFormatsPage() {
     },
   ] as const;
 
-  const plannedFormats = [
-    { name: "Canvas wall art", status: "Pilot queue", note: "Premium upsell candidate if margin gates hold." },
-    { name: "Mug gift add-on", status: "Pilot queue", note: "Low-friction add-on for birthdays and holidays." },
-    { name: "Greeting card bundle", status: "Bundle only", note: "Ships as add-on only to keep checkout simple." },
-    { name: "Gift-pack bundles", status: "Design stage", note: "Print + digital + card combinations for AOV growth." },
-    { name: "Apparel and accessories", status: "Research", note: "Only launched if quality and support risk stay low." },
-  ] as const;
-
   return (
     <main className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:pt-14">
       <GiftFormatsTelemetry source="gift-formats-page" />
@@ -134,7 +126,7 @@ export default function StarMapGiftFormatsPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star map gift formats</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Start with one preview, then choose your delivery format. This page shows what is live now and what is next.
+          Start with one preview, then choose your delivery format. This page focuses on the live checkout options.
         </p>
       </header>
 
@@ -196,32 +188,6 @@ export default function StarMapGiftFormatsPage() {
             </article>
           ))}
         </div>
-      </section>
-
-      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-amber-200 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-xl font-semibold text-midnight">Format expansion queue</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          These are the next candidate products. We only launch a format when it passes margin, quality, and support-risk checks.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {plannedFormats.map((item) => (
-            <article key={item.name} className="rounded-2xl border border-black/10 bg-white/80 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold text-midnight">{item.name}</h3>
-                <span className="rounded-full border border-amber-300/70 bg-amber-200/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-800">
-                  {item.status}
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-neutral-700">{item.note}</p>
-            </article>
-          ))}
-        </div>
-        <a
-          href="mailto:support@starmapco.com?subject=Gift%20format%20pilot%20interest"
-          className="inline-flex rounded-full border border-amber-300/70 bg-white px-4 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
-        >
-          Join format pilot list
-        </a>
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

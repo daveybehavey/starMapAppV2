@@ -6,16 +6,25 @@ import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrint
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a custom star map or constellation map of any date and location. Start with a free live preview, then choose framed print, unframed poster, or HD digital delivery at StarMapCo.";
+  "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed poster, or HD digital delivery. Seasonal guides cover Canada Day and July 4th gift ideas.";
 
 export const metadata: Metadata = {
   title: "Custom Star Map & Constellation Map | StarMapCo",
   description: homepageDescription,
+  keywords: [
+    "custom star map",
+    "star map gift",
+    "constellation map",
+    "Canada Day star map",
+    "July 4th star map",
+    "seasonal gift ideas",
+  ],
   alternates: { canonical: `${siteUrl}/` },
   openGraph: {
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description: homepageDescription,
     url: `${siteUrl}/`,
+    siteName: "StarMapCo",
     images: [
       {
         url: `${siteUrl}/custom-star-map-anniversary.png`,

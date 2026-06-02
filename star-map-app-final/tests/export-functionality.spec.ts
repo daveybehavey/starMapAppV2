@@ -14,6 +14,13 @@ const setTextBoxValues = async (
   page: Parameters<typeof gotoEditor>[0],
   values: Partial<Record<"title" | "subtitle" | "dedication", string>>,
 ) => {
+  // Editor UI can render before the Zustand store handle is attached.
+  // Wait explicitly for deterministic access.
+  await page.waitForFunction(() => {
+    const store = (window as unknown as { __ZUSTAND_STORE__?: { getState?: unknown } }).__ZUSTAND_STORE__;
+    return Boolean(store?.getState);
+  }, { timeout: 45_000 });
+
   await page.evaluate((textValues) => {
     type TextBox = {
       id: string;

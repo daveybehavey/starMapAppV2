@@ -58,8 +58,13 @@ export async function readWranglerVars(rootDir = process.cwd()) {
 
 export async function buildEnvWithWranglerVars(rootDir = process.cwd()) {
   const wranglerVars = await readWranglerVars(rootDir);
+  // Node's spawn (and some tooling) may look specifically for `env.PATH`.
+  // On Windows, environment variables can come through with casing like `Path`,
+  // which can break executable resolution when we pass an explicit `env` object.
+  const pathValue = process.env.PATH ?? process.env.Path;
   return {
     ...process.env,
     ...wranglerVars,
+    PATH: pathValue,
   };
 }

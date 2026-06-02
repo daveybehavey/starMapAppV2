@@ -220,9 +220,14 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       const preset = occasionPresets.find((item) => item.id === id);
       if (!preset) return;
 
-      const shouldAutofill = !locationName || !hasDate;
+      // Only autofill when the user hasn't provided date/location yet.
+      // If the user is actively editing (customOccasion), we should not overwrite
+      // the current location/date even if derived store flags lag briefly.
+      const shouldAutofill = !customOccasion && (!locationName || !hasDate);
       setSelectedOccasion(id);
-      setCustomOccasion(false);
+      // If we are not autofilling, keep the "custom" state so the UI preserves
+      // the user's manual inputs (and doesn't clear the location text field).
+      setCustomOccasion(shouldAutofill ? false : true);
       track("occasion_selected", { preset: id, autofill: shouldAutofill });
 
       // Always apply style, shape, textBoxes, and render options from preset
@@ -266,6 +271,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
     },
     [
       applyVisualOptions,
+      customOccasion,
       hasDate,
       locationName,
       setDateTime,

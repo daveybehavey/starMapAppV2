@@ -33,6 +33,16 @@ const seasonalIdeas = [
     href: "/star-map-for/fathers-day",
   },
   {
+    title: "Canada Day",
+    description: "Turn July 1 into a keepsake with a summer celebration sky.",
+    href: "/blog/canada-day-star-map-gift-ideas",
+  },
+  {
+    title: "July 4th",
+    description: "Preserve fireworks night with a personalized holiday star map.",
+    href: "/blog/july-4th-star-map-gift-ideas",
+  },
+  {
     title: "Graduation",
     description: "Mark the night they finished the journey with a bold, celebratory map.",
     href: "/star-map-for/graduation",

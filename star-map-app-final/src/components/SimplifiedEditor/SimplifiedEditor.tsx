@@ -595,7 +595,7 @@ export function SimplifiedEditor() {
         const payload = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
         if (payload?.code === "map_required") throw new Error("map_required");
         if (payload?.code === "map_not_found") throw new Error("map_not_found");
-        throw new Error(payload?.error ?? "checkout_failed");
+        throw new Error(payload?.code ?? payload?.error ?? "checkout_failed");
       }
 
       const data = (await res.json()) as { url?: string };

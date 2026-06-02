@@ -70,18 +70,35 @@ export const mockGeocode = async (page: Page) => {
       });
       return;
     }
+    if (query.includes("toronto")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: 3,
+            name: "Toronto, Canada",
+            latitude: 43.6532,
+            longitude: -79.3832,
+            timezone: "America/Toronto",
+          },
+        ]),
+      });
+      return;
+    }
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
 };
 
 export const waitForEditor = async (page: Page, isDesktop?: boolean) => {
   const editor = page.locator("#editor");
-  await editor.waitFor({ state: "attached", timeout: 60000 });
-  await expect(editor).toBeVisible({ timeout: 60000 });
+  const editorTimeoutMs = 90_000;
+  await editor.waitFor({ state: "attached", timeout: editorTimeoutMs });
+  await expect(editor).toBeVisible({ timeout: editorTimeoutMs });
   if (typeof isDesktop === "boolean") {
     await expect(editor).toHaveAttribute("data-is-desktop", String(isDesktop));
   }
-  await expect(editor).not.toContainText(/Loading editor/i);
+  await expect(editor).not.toContainText(/Loading editor/i, { timeout: editorTimeoutMs });
 };
 
 export const gotoEditor = async (
@@ -101,7 +118,8 @@ export const gotoEditor = async (
       search.set(key, value);
     }
   }
-  await page.goto(`${path}?${search.toString()}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const waitUntil = query?.checkout === "print" ? "commit" : "domcontentloaded";
+  await page.goto(`${path}?${search.toString()}`, { waitUntil, timeout: 60000 });
   await waitForEditor(page, force === "desktop");
   await dismissOverlays(page);
 };

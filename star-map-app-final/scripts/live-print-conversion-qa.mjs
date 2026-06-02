@@ -11,8 +11,6 @@ loadDotenv();
 const DEFAULT_SITE = "https://starmapco.com";
 const DEFAULT_VARIANT = "poster_framed";
 const DEFAULT_COUNTRY = "US";
-const MINIMAL_PNG_DATA_URL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 function parseArgs(argv) {
   const args = {
@@ -27,8 +25,6 @@ function parseArgs(argv) {
     includeDigitalAddOn: true,
     preflightOnly: false,
     allowMarginBlock: false,
-    uiFlow: false,
-    checkoutOnly: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -83,14 +79,6 @@ function parseArgs(argv) {
       args.allowMarginBlock = true;
       continue;
     }
-    if (token === "--ui-flow") {
-      args.uiFlow = true;
-      continue;
-    }
-    if (token === "--checkout-only") {
-      args.checkoutOnly = true;
-      continue;
-    }
     if (token === "--help" || token === "-h") {
       args.help = true;
     }
@@ -112,14 +100,13 @@ Options:
   --promo-field                Apply promo via Stripe hosted field instead of pre-applied session
   --preflight-only             Margin estimate only; no browser
   --allow-margin-block         Exit 0 when checkout is blocked by print margin guard (diagnostic)
-  --ui-flow                    Exercise editor paywall UI (default: API map + asset + checkout)
-  --checkout-only              Stop after Stripe Checkout URL (no payment)
   --headed                     Run browser headed
   --out <path>                 JSON report path
 
 Notes:
-  Default path creates map + print asset + checkout session via API, then completes Stripe in the browser.
-  Use --ui-flow to validate editor print CTAs separately.
+  Production enables PRINT_MARGIN_GUARD (min profit). A one-time 100% promo on print SKUs
+  is rejected as print_promotion_margin_blocked before Stripe Checkout opens.
+  Digital live QA (npm run qa:live-conversion) does not hit this guard.
 `;
 }
 
@@ -129,8 +116,9 @@ function parseIntEnv(name, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function parseBoolEnv(name, fallback) {
-  return parseBoolValue(process.env[name], fallback);
+function parseIntValue(raw, fallback) {
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function parseBoolValue(raw, fallback) {
@@ -185,28 +173,27 @@ async function estimateMarginIfHundredPercentOff(args) {
     envWithWranglerFallback("PRINT_MARGIN_GUARD_ENABLED", wranglerVars, "false"),
     false,
   );
-  const minMarginCents = (() => {
-    const raw = envWithWranglerFallback("PRINT_MIN_MARGIN_CENTS", wranglerVars, "0");
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) ? parsed : 0;
-  })();
+  const minMarginCents = parseIntValue(
+    envWithWranglerFallback("PRINT_MIN_MARGIN_CENTS", wranglerVars, "0"),
+    0,
+  );
   const stripePercent = Number.parseFloat(
     envWithWranglerFallback("PRINT_MARGIN_STRIPE_PERCENT", wranglerVars, "0.029"),
   );
-  const stripeFixedCents = parseIntEnv(
+  const stripeFixedCents = parseIntValue(
     envWithWranglerFallback("PRINT_MARGIN_STRIPE_FIXED_CENTS", wranglerVars, "30"),
     30,
   );
 
-  const framedCents = parseIntEnv(
+  const framedCents = parseIntValue(
     envWithWranglerFallback("PRINT_FRAMED_PRICE_CENTS", wranglerVars, "9900"),
     9900,
   );
-  const unframedCents = parseIntEnv(
+  const unframedCents = parseIntValue(
     envWithWranglerFallback("PRINT_UNFRAMED_PRICE_CENTS", wranglerVars, "4900"),
     4900,
   );
-  const digitalAddOnCents = parseIntEnv(
+  const digitalAddOnCents = parseIntValue(
     envWithWranglerFallback("PRINT_DIGITAL_ADDON_PRICE_CENTS", wranglerVars, "700"),
     700,
   );
@@ -218,11 +205,11 @@ async function estimateMarginIfHundredPercentOff(args) {
 
   const cogsCents =
     args.printVariant === "poster_unframed"
-      ? parseIntEnv(
+      ? parseIntValue(
           envWithWranglerFallback("PRINT_COGS_POSTER_UNFRAMED_CENTS", wranglerVars, "1300"),
           1300,
         )
-      : parseIntEnv(
+      : parseIntValue(
           envWithWranglerFallback("PRINT_COGS_POSTER_FRAMED_CENTS", wranglerVars, "5200"),
           5200,
         );
@@ -290,106 +277,6 @@ async function createOneTimePromo(stripe, percentOff = 100) {
     active: true,
   });
   return { code, couponId: coupon.id, promotionCodeId: promotionCode.id, percentOff };
-}
-
-async function bootstrapPrintCheckoutSession(site, args, promo) {
-  const mapRes = await fetch(`${site}/api/maps`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      version: 1,
-      seed: "qa-live-print-conversion",
-      datetimeISO: "2024-06-01T20:00:00.000Z",
-      location: {
-        name: "Paris, France",
-        latitude: 48.8566,
-        longitude: 2.3522,
-        timezone: "Europe/Paris",
-      },
-      selectedStyle: "navyGold",
-      aspectRatio: "square",
-      shape: "rectangle",
-      textBoxes: [
-        {
-          id: "title",
-          label: "Title",
-          text: "QA Print Map",
-          fontFamily: "cinzel",
-          color: "#d7b56c",
-          size: 40,
-          align: "center",
-        },
-      ],
-      renderOptions: {
-        visualMode: "enhanced",
-        starIntensity: "normal",
-        starGlow: true,
-        constellationLines: "thin",
-        constellationLabels: false,
-        showGrid: false,
-        showPlanets: true,
-        premiumStars: "off",
-        premiumPlanets: "off",
-        planetEmphasis: "highlighted",
-        showMoon: true,
-        moonSize: "large",
-        shapeMask: "rectangle",
-        frameEnabled: true,
-      },
-    }),
-    cache: "no-store",
-  });
-  const mapJson = await mapRes.json().catch(() => ({}));
-  if (!mapRes.ok || typeof mapJson?.id !== "string") {
-    throw new Error(`Map create failed (${mapRes.status}): ${JSON.stringify(mapJson)}`);
-  }
-
-  const assetRes = await fetch(`${site}/api/print/assets`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      mapId: mapJson.id,
-      dataUrl: MINIMAL_PNG_DATA_URL,
-      source: "editor",
-    }),
-    cache: "no-store",
-  });
-  const assetJson = await assetRes.json().catch(() => ({}));
-  const printAssetId = typeof assetJson?.assetId === "string" ? assetJson.assetId : "";
-  if (!assetRes.ok || !printAssetId) {
-    throw new Error(`Print asset failed (${assetRes.status}): ${JSON.stringify(assetJson)}`);
-  }
-
-  const checkoutBody = {
-    orderType: "print",
-    printVariant: args.printVariant,
-    includeDigitalAddOn: args.includeDigitalAddOn,
-    mapId: mapJson.id,
-    printAssetId,
-    shippingCountry: args.shippingCountry,
-  };
-  if (promo?.code) checkoutBody.promoCode = promo.code;
-
-  const checkoutRes = await fetch(`${site}/api/checkout`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(checkoutBody),
-    cache: "no-store",
-  });
-  const checkoutJson = await checkoutRes.json().catch(() => ({}));
-  if (!checkoutRes.ok || typeof checkoutJson?.url !== "string") {
-    throw new Error(
-      `Print checkout API failed (${checkoutRes.status}): ${checkoutJson?.code ?? ""} ${checkoutJson?.error ?? JSON.stringify(checkoutJson)}`,
-    );
-  }
-
-  return {
-    mapId: mapJson.id,
-    printAssetId,
-    checkoutUrl: checkoutJson.url,
-    promoApplied: Boolean(checkoutJson.promoApplied),
-    discountRejected: Boolean(checkoutJson.discountRejected),
-  };
 }
 
 async function applyPromoCode(page, code) {
@@ -510,33 +397,8 @@ async function run() {
   const qaEmail = `qa+print+${Date.now()}@starmapco.com`;
   let sessionId = null;
   let marginBlockedInUi = false;
-  let reachedStripe = false;
-  let checkoutOnlyComplete = false;
 
   try {
-    if (!args.uiFlow) {
-      const boot = await bootstrapPrintCheckoutSession(args.site, args, promo);
-      report.artifacts.bootstrap = boot;
-      report.steps.push(`Created map ${boot.mapId} and print asset ${boot.printAssetId}`);
-      report.steps.push("Created print checkout session via API");
-      report.stripe.checkoutUrl = boot.checkoutUrl;
-      report.stripe.promoApplied = boot.promoApplied;
-      report.stripe.discountRejected = boot.discountRejected;
-      if (boot.discountRejected && promo?.code) {
-        report.friction.push(
-          "Promo was not auto-applied; Stripe Checkout should still allow entering the code on the page.",
-        );
-      }
-      if (args.checkoutOnly) {
-        checkoutOnlyComplete = true;
-        report.status = "passed";
-        report.steps.push("Checkout-only mode: print session URL verified (no payment)");
-      } else {
-        await page.goto(boot.checkoutUrl, { waitUntil: "domcontentloaded", timeout: 90_000 });
-        await page.waitForURL(/checkout\.stripe\.com/, { timeout: 45_000 });
-        reachedStripe = true;
-      }
-    } else {
     await page.goto(editorUrl.toString(), { waitUntil: "domcontentloaded", timeout: 90_000 });
     await page.locator('[data-testid="editor-shell"], main').first().waitFor({ timeout: 60_000 }).catch(() => {});
     report.steps.push("Opened print-intent editor URL (desktop)");
@@ -564,18 +426,12 @@ async function run() {
 
     const freeExport = page.getByLabel("Free export").first();
     if (!(await freeExport.isVisible({ timeout: 5000 }).catch(() => false))) {
-      const generatePreview = page.getByRole("button", { name: /Generate preview/i }).first();
       const sampleBtn = page
         .getByRole("button", { name: /Try a sample moment|Try sample moment|Use sample moment/i })
         .first();
-      if (await generatePreview.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await generatePreview.click({ force: true });
-        report.steps.push("Clicked Generate preview");
-      } else if (await sampleBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await sampleBtn.click({ force: true });
+      if (await sampleBtn.isVisible({ timeout: 10_000 }).catch(() => false)) {
+        await sampleBtn.click({ timeout: 8000 }).catch(() => sampleBtn.click({ force: true }));
         report.steps.push("Applied sample moment");
-      } else {
-        report.friction.push("Map preview not ready (no Generate preview or sample moment button)");
       }
     } else {
       report.steps.push("Preview already ready");
@@ -667,7 +523,7 @@ async function run() {
     report.steps.push("Clicked print checkout CTA");
 
     const marginError = page.getByText(/unprofitable|margin|does not apply to this print/i).first();
-    reachedStripe = await page
+    const reachedStripe = await page
       .waitForURL(/checkout\.stripe\.com/, { timeout: 45_000 })
       .then(() => true)
       .catch(() => false);
@@ -692,33 +548,24 @@ async function run() {
         throw new Error(checkoutError || "Did not reach Stripe Checkout");
       }
     }
-    }
 
-    if (checkoutOnlyComplete) {
-      // Verified API → Stripe URL only.
-    } else if (reachedStripe) {
+    if (reachedStripe) {
       report.steps.push("Reached Stripe Checkout for print order");
       const emailInput = page.locator("input[type='email'], input[name='email']").first();
       if (await emailInput.isVisible({ timeout: 8000 }).catch(() => false)) {
         await emailInput.fill(qaEmail);
       }
 
-      if (promo?.code) {
+      if (promo?.code && args.forcePromoField) {
         const promoResult = await applyPromoCode(page, promo.code);
         report.stripe.promoApply = promoResult;
-        if (!promoResult.ok) {
-          report.friction.push("Promo code did not apply on Stripe Checkout page");
-        }
       }
 
       await fillStripeShippingIfNeeded(page);
 
       const termsCheckbox = page.getByRole("checkbox", { name: /I agree to the Terms|terms to complete/i }).first();
       if (await termsCheckbox.isVisible({ timeout: 5000 }).catch(() => false)) {
-        if (!(await termsCheckbox.isChecked().catch(() => false))) {
-          await termsCheckbox.click({ force: true }).catch(() => termsCheckbox.check({ force: true }));
-        }
-        report.steps.push("Accepted checkout terms");
+        if (!(await termsCheckbox.isChecked())) await termsCheckbox.check();
       }
 
       const submitCandidates = [

@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-03-15T17:12:21.230Z",
+  "generatedAt": "2026-06-02T21:24:15.438Z",
   "framed": {
-    "orderId": "150098219",
-    "created": 1773513329,
-    "sourceUrl": "https://files.cdn.printful.com/files/835/8356e9d24b839b9148d44a99814b575c_preview.png",
+    "orderId": "160067183",
+    "created": 1779898643,
+    "sourceUrl": "https://files.cdn.printful.com/files/689/6899f9c6df79a5661860ac43c2fc9764_preview.png",
     "localPath": "/printproof/framed-latest.png"
   },
   "unframed": {
-    "orderId": "150098223",
-    "created": 1773513331,
+    "orderId": "150176377",
+    "created": 1773547957,
     "sourceUrl": "https://files.cdn.printful.com/files/f73/f7327aa614ea9b5c52b0bf94b65ef35b_preview.png",
     "localPath": "/printproof/unframed-latest.png"
   },
@@ -24,18 +24,6 @@
       "label": "Enhanced Matte Paper Poster 18″×18″",
       "sourceUrl": "https://files.cdn.printful.com/products/1/6242_1527678943.jpg",
       "localPath": "/printproof/unframed-catalog.jpg"
-    }
-  },
-  "mockups": {
-    "framed": {
-      "orderId": "150097038",
-      "localPath": "/printproof/framed-mockup.jpg",
-      "sourceUrl": "https://printful-upload.s3-accelerate.amazonaws.com/tmp/c6217d46ae31278884946a117ed8764c/enhanced-matte-paper-framed-poster-(in)-black-14x14-front-69b6e8683bf8d.jpg"
-    },
-    "unframed": {
-      "orderId": "150097061",
-      "localPath": "/printproof/unframed-mockup.jpg",
-      "sourceUrl": "https://printful-upload.s3-accelerate.amazonaws.com/tmp/9418d8cc9a9fce7a5aa6fe02841c551a/enhanced-matte-paper-poster-(in)-18x18-front-69b6e86f75a17.jpg"
     }
   }
 }

@@ -1,13 +1,9 @@
 type AccountAccessAlertProvider = "resend" | "sendgrid" | "none";
 
-export type AccountAccessEmailMode = "hub" | "hd" | "hd_archive_ready";
-
 export type AccountAccessAlertInput = {
   email: string;
   link: string;
   directDownloadLink?: string;
-  mode?: AccountAccessEmailMode;
-  supportEmail?: string;
 };
 
 export type AccountAccessAlertResult = {
@@ -54,115 +50,98 @@ function getAlertReplyTo() {
   );
 }
 
-function getSupportFooter(supportEmail: string) {
-  return [
-    "",
-    `Questions? Contact ${supportEmail} — we respond to transactional messages about your order.`,
-    "",
-    "— StarMapCo",
-  ].join("\n");
-}
-
-function getCopy(input: {
-  link: string;
-  directDownloadLink?: string;
-  mode?: AccountAccessEmailMode;
-  supportEmail?: string;
-}) {
+function getCopy(input: { link: string; directDownloadLink?: string }) {
   const direct = input.directDownloadLink?.trim() || "";
-  const supportEmail = input.supportEmail?.trim() || "support@starmapco.com";
-  const mode = input.mode ?? "hub";
-  const hubFirst = mode === "hub" && Boolean(direct);
-  const hdMode = mode === "hd" || mode === "hd_archive_ready";
-  const archiveReady = mode === "hd_archive_ready";
+  const hubFirst = Boolean(direct);
+  const escapeHtml = (value: string) =>
+    value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
 
-  const subject = archiveReady
-    ? "Your StarMapCo HD file is ready"
-    : hdMode
-      ? "Your StarMapCo HD download"
-      : hubFirst
-        ? "Your StarMapCo downloads are ready"
-        : "Your StarMapCo download link is ready";
+  const escapeHtmlAttr = (value: string) => escapeHtml(value);
 
-  const headline = archiveReady
-    ? "Your HD file is ready"
-    : hdMode
-      ? "Your HD download is ready"
-      : hubFirst
-        ? "Your downloads are ready"
-        : "Your download link is ready";
-
-  const intro = archiveReady
-    ? "Your saved HD star map PNG is ready to download:"
-    : hdMode
-      ? "Use this secure link to download your HD star map:"
-      : hubFirst
-        ? "Open My Downloads to see every map tied to this email:"
-        : "Your secure StarMapCo download link is ready:";
-
-  const primaryCta = archiveReady
-    ? "Download your HD file"
-    : hdMode
-      ? "Download your HD file"
-      : hubFirst
-        ? "Open My Downloads"
-        : "Open your download";
-
-  const secondaryCta = hdMode ? "Open download page" : "Open this order's download page";
-
+  const safeLinkHref = escapeHtmlAttr(input.link);
+  const safeDirectHref = direct ? escapeHtmlAttr(direct) : "";
+  const subject = hubFirst
+    ? "Your StarMapCo downloads are ready"
+    : "Your StarMapCo download link is ready";
   const text = [
     "Hi,",
     "",
-    intro,
+    hubFirst
+      ? "Open My Downloads to see every map tied to this email:"
+      : "Your secure StarMapCo download link is ready:",
     input.link,
     ...(direct
       ? [
           "",
-          hdMode
-            ? "Need the full download page (preview, print add-ons, or another device)?"
-            : "Prefer a single-order download page? Use this link:",
+          "Prefer a single-order download page? Use this direct link:",
           direct,
         ]
       : []),
     "",
+    hubFirst ? "Check your email if you need to sign in again later." : "",
     "On iPhone, downloads are in Files app -> Browse -> Downloads (not Photos).",
-    getSupportFooter(supportEmail),
+    "",
+    "— StarMapCo",
   ]
     .filter((line) => line !== "")
     .join("\n");
 
-  const subhead = archiveReady
-    ? "Your archived PNG is attached to this order — use the button below on any device."
-    : hdMode
-      ? "This link opens your paid HD export. Keep it private."
-      : hubFirst
-        ? "Open My Downloads to access every paid map on this email."
-        : "Open this secure link on any device to access your HD file.";
-
   const html = `
-    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
-      <div style="border: 1px solid #e6dcc8; border-radius: 20px; overflow: hidden; background: #fbf7ef;">
-        <div style="padding: 18px 22px; background: linear-gradient(135deg, #07112b, #11234d); color: #f7f1e6;">
-          <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.82;">StarMapCo</div>
-          <p style="font-size: 24px; font-weight: 700; margin: 8px 0 0;">${headline}</p>
-          <p style="margin: 8px 0 0; color: #d9c78d;">${subhead}</p>
-        </div>
-        <div style="padding: 20px 22px;">
-          <p style="margin: 0 0 16px;">
-            <a href="${input.link}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">${primaryCta}</a>
-          </p>
-          ${
-            direct
-              ? `<p style="margin: 0 0 16px;">
-            <a href="${direct}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #111827; color: #f9fafb; text-decoration: none; font-weight: 700;">${secondaryCta}</a>
-          </p>`
-              : ""
-          }
-          <p style="font-size: 13px; color: #5f6677; margin: 0 0 12px;">On iPhone, downloads are in <strong>Files → Browse → Downloads</strong> (not Photos).</p>
-          <p style="font-size: 12px; color: #5f6677; margin: 0;">Questions? <a href="mailto:${supportEmail}" style="color: #11234d;">${supportEmail}</a></p>
-        </div>
-      </div>
-    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fbf7ef; margin:0; padding:0;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="width:100%; max-width:560px; border:1px solid #e6dcc8; border-radius:16px; overflow:hidden;">
+            <tr>
+              <td style="padding:22px; background:linear-gradient(135deg, #07112b, #11234d); color:#f7f1e6;">
+                <div style="font-size:11px; letter-spacing:0.22em; text-transform:uppercase; opacity:0.82; margin-bottom:8px;">StarMapCo</div>
+                <div style="font-family: Georgia, 'Times New Roman', serif; font-size:26px; font-weight:700; line-height:1.25;">
+                  ${hubFirst ? "Your downloads are ready" : "Your download link is ready"}
+                </div>
+                <div style="margin-top:10px; color:#d9c78d; font-size:14px; line-height:1.6;">
+                  ${hubFirst ? "Open My Downloads to access every paid map tied to this email." : "Open this secure link on any device to access your HD file."}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 16px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#f4c74e" style="border-radius:999px;">
+                      <a href="${safeLinkHref}" style="display:inline-block; padding:12px 18px; border-radius:999px; background:#f4c74e; color:#141414; text-decoration:none; font-weight:700; font-family:Arial, Helvetica, sans-serif;">
+                        ${hubFirst ? "Open My Downloads" : "Open your download"}
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                ${
+                  direct
+                    ? `<div style="margin:0 0 16px 0;">
+                      <table role="presentation" cellspacing="0" cellpadding="0">
+                        <tr>
+                          <td align="center" bgcolor="#111827" style="border-radius:999px;">
+                            <a href="${safeDirectHref}" style="display:inline-block; padding:12px 18px; border-radius:999px; background:#111827; color:#f9fafb; text-decoration:none; font-weight:700; font-family:Arial, Helvetica, sans-serif;">
+                              Open this order&apos;s download page
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>`
+                    : ""
+                }
+                <div style="font-size:13px; color:#5f6677; line-height:1.6; font-family:Arial, Helvetica, sans-serif;">
+                  On iPhone, downloads are in <strong>Files → Browse → Downloads</strong> (not Photos).
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `;
 
   return { subject, text, html };
@@ -176,12 +155,7 @@ async function sendWithResend(input: AccountAccessAlertInput) {
   }
 
   const replyTo = getAlertReplyTo();
-  const copy = getCopy({
-    link: input.link,
-    directDownloadLink: input.directDownloadLink,
-    mode: input.mode,
-    supportEmail: input.supportEmail,
-  });
+  const copy = getCopy({ link: input.link, directDownloadLink: input.directDownloadLink });
   const payload: {
     from: string;
     to: string[];
@@ -229,12 +203,7 @@ async function sendWithSendgrid(input: AccountAccessAlertInput) {
   }
 
   const replyTo = parseEmailAddress(getAlertReplyTo());
-  const copy = getCopy({
-    link: input.link,
-    directDownloadLink: input.directDownloadLink,
-    mode: input.mode,
-    supportEmail: input.supportEmail,
-  });
+  const copy = getCopy({ link: input.link, directDownloadLink: input.directDownloadLink });
   const payload = {
     personalizations: [{ to: [{ email: input.email }] }],
     from,

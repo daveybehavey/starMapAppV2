@@ -6,17 +6,20 @@
     <title>Custom Star Map & Constellation Map | StarMapCo</title>
     <meta
       name="description"
-      content="Create a custom star map or constellation map of any date and location. Start with a free preview, then choose framed print, unframed poster, or HD digital delivery at StarMapCo."
+      content="Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed poster, or HD digital delivery. Seasonal guides cover Canada Day and July 4th gift ideas."
     />
+    <meta name="keywords" content="custom star map, star map gift, constellation map, Canada Day star map, July 4th star map, seasonal gift ideas" />
     <meta name="p:domain_verify" content="789a8db329c08fe1a0a43fb579bf8611" />
     <link rel="canonical" href="https://starmapco.com/" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
     <meta property="og:title" content="Custom Star Map & Constellation Map | StarMapCo" />
     <meta
       property="og:description"
-      content="Create a custom star map or constellation map of any date and location. Start with a free preview, then choose framed print, unframed poster, or HD digital delivery."
+      content="Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed poster, or HD digital delivery."
     />
     <meta property="og:url" content="https://starmapco.com/" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="StarMapCo" />
     <meta property="og:image" content="https://starmapco.com/custom-star-map-anniversary.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -25,8 +28,9 @@
     <meta name="twitter:title" content="Custom Star Map & Constellation Map | StarMapCo" />
     <meta
       name="twitter:description"
-      content="Create a custom star map or constellation map of any date and location. Start with a free preview, then choose framed print, unframed poster, or HD digital delivery."
+      content="Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed poster, or HD digital delivery. Seasonal guides cover Canada Day and July 4th gift ideas."
     />
+    <meta name="twitter:site" content="@StarMapCo" />
     <meta name="twitter:image" content="https://starmapco.com/custom-star-map-anniversary.png" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/favicon.ico" />
@@ -134,6 +138,90 @@
         color: var(--accent-ink);
         background: linear-gradient(90deg, var(--amber-strong), #f4cf87);
         border-color: transparent;
+      }
+      .nav-toggle {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid var(--line-accent);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(240, 246, 255, 0.92);
+        padding: 8px 12px;
+        font-weight: 800;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .site-header-cta {
+        border-radius: 999px;
+        padding: 6px 14px;
+        border: 1px solid var(--line-accent);
+        color: #ffe3a6;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .site-header-cta:hover {
+        color: var(--accent-ink);
+        background: linear-gradient(90deg, var(--amber-strong), #f4cf87);
+        border-color: transparent;
+      }
+      .site-drawer {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        z-index: 100;
+      }
+      .site-drawer.open {
+        display: block;
+      }
+      .site-drawer-inner {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: min(92vw, 360px);
+        height: 100%;
+        background: linear-gradient(180deg, #050a19, #0b1430);
+        border-left: 1px solid rgba(241, 194, 125, 0.35);
+        padding: 18px 16px;
+        overflow-y: auto;
+        box-shadow: -16px 0 40px rgba(0, 0, 0, 0.35);
+      }
+      .site-drawer-close {
+        width: 100%;
+        border-radius: 999px;
+        border: 1px solid rgba(241, 194, 125, 0.55);
+        background: transparent;
+        color: rgba(240, 246, 255, 0.95);
+        padding: 10px 12px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .site-drawer-links {
+        margin-top: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .site-drawer-links a {
+        display: block;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(240, 246, 255, 0.92);
+        font-weight: 700;
+      }
+      .site-drawer-links a:hover {
+        background: rgba(255, 255, 255, 0.09);
+      }
+      .site-drawer-links a.cta {
+        border-color: var(--line-accent);
+        background: rgba(247, 194, 74, 0.14);
+        color: #ffe3a6;
+      }
+      .site-drawer-links a.cta:hover {
+        background: rgba(247, 194, 74, 0.22);
       }
       .hero {
         padding: 72px 0 56px;
@@ -1141,8 +1229,14 @@
           padding: 20px 16px 16px;
         }
         .site-header {
-          flex-direction: column;
-          align-items: flex-start;
+          flex-direction: row;
+          align-items: center;
+        }
+        .site-nav {
+          display: none;
+        }
+        .nav-toggle {
+          display: inline-flex;
         }
         .site-footer .container {
           padding: 22px 0 16px;
@@ -1268,6 +1362,21 @@
     <main class="container">
       <header class="site-header">
         <div class="brand">StarMapCo</div>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Open menu"
+          aria-expanded="false"
+          aria-controls="site-drawer"
+          data-drawer-toggle
+        >Menu</button>
+        <a
+          class="site-header-cta"
+          href="/editor?mode=quick&source=home-static-nav-cta"
+          data-funnel-step="hero_plan_click"
+          data-funnel-source="home_static_nav"
+          data-funnel-plan="start_now"
+        >Start now</a>
         <nav class="site-nav">
           <a href="/shop">Shop</a>
           <a href="/star-map-gallery">Gallery</a>
@@ -1277,15 +1386,36 @@
           <a href="/constellation-map">Constellation</a>
           <a href="/star-map-gift">Gifts</a>
           <a href="/blog">Blog</a>
-          <a
-            class="cta-link"
-            href="/editor?mode=quick&source=home-static-nav-cta"
-            data-funnel-step="hero_plan_click"
-            data-funnel-source="home_static_nav"
-            data-funnel-plan="start_now"
-          >Start now</a>
         </nav>
       </header>
+      <div
+        id="site-drawer"
+        class="site-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+      >
+        <div class="site-drawer-inner">
+          <button type="button" class="site-drawer-close" data-drawer-close aria-label="Close menu">Close</button>
+          <div class="site-drawer-links">
+            <a href="/shop">Shop</a>
+            <a href="/star-map-gallery">Gallery</a>
+            <a href="/star-map-gift-formats">Gift formats</a>
+            <a href="/how-to-print-star-map">Print guide</a>
+            <a href="/star-map-generator">Generator</a>
+            <a href="/constellation-map">Constellation</a>
+            <a href="/star-map-gift">Gifts</a>
+            <a href="/blog">Blog</a>
+            <a
+              class="cta"
+              href="/editor?mode=quick&source=home-static-nav-cta"
+              data-funnel-step="hero_plan_click"
+              data-funnel-source="home_static_nav"
+              data-funnel-plan="start_now"
+            >Start now</a>
+          </div>
+        </div>
+      </div>
       <section class="hero">
         <h1>Create a custom star map of the night sky</h1>
         <p>See the exact sky from your wedding, birthday, or meaningful moment — personalized in seconds. Start with a free preview, then choose gift-ready framed print, unframed poster, or HD digital delivery.</p>
@@ -2245,6 +2375,54 @@
             isRealIsoDate(normalized) ? "" : "Use a real date in YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY format."
           );
         });
+
+        // Mobile header nav (hamburger drawer)
+        (function () {
+          var toggle = document.querySelector("[data-drawer-toggle]");
+          var drawer = document.getElementById("site-drawer");
+          if (!toggle || !(drawer instanceof HTMLElement)) return;
+
+          var closeButton = drawer.querySelector("[data-drawer-close]");
+          function setOpen(open) {
+            if (!(drawer instanceof HTMLElement)) return;
+            if (open) {
+              drawer.classList.add("open");
+              drawer.setAttribute("aria-hidden", "false");
+              toggle.setAttribute("aria-expanded", "true");
+              try {
+                document.body.style.overflow = "hidden";
+              } catch (_) {}
+              if (closeButton instanceof HTMLElement) closeButton.focus();
+            } else {
+              drawer.classList.remove("open");
+              drawer.setAttribute("aria-hidden", "true");
+              toggle.setAttribute("aria-expanded", "false");
+              try {
+                document.body.style.overflow = "";
+              } catch (_) {}
+            }
+          }
+
+          toggle.addEventListener("click", function () {
+            var expanded = toggle.getAttribute("aria-expanded") === "true";
+            setOpen(!expanded);
+          });
+
+          if (closeButton instanceof HTMLElement) {
+            closeButton.addEventListener("click", function () {
+              setOpen(false);
+            });
+          }
+
+          drawer.addEventListener("click", function (event) {
+            if (!(event.target instanceof Element)) return;
+            if (event.target === drawer) setOpen(false);
+          });
+
+          document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape") setOpen(false);
+          });
+        })();
       })();
     </script>
   </body>

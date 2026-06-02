@@ -4,6 +4,11 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { buildEnvWithWranglerVars } from "./wrangler-vars.mjs";
 
+function psSingleQuote(value) {
+  // PowerShell single-quote escaping: ' becomes '' inside a single-quoted string.
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 function writeCaptured(result) {
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
@@ -13,7 +18,6 @@ function run(command, args, env) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
     env,
-    shell: process.platform === "win32",
   });
   if (result.status !== 0) {
     throw new Error(`Command failed: ${command} ${args.join(" ")}`);
@@ -28,6 +32,25 @@ function runCapture(command, args, env) {
   });
 }
 
+function runNpx(npxArgs, env) {
+  // On some Windows setups, `npx` is exposed primarily as `npx.ps1`.
+  // `spawnSync('npx', ...)` can fail with ENOENT; invoking through PowerShell works.
+  if (process.platform === "win32") {
+    const psCommand = `npx ${npxArgs.map(psSingleQuote).join(" ")}`;
+    run("powershell", ["-NoProfile", "-Command", psCommand], env);
+    return;
+  }
+  run("npx", npxArgs, env);
+}
+
+function runNpxCapture(npxArgs, env) {
+  if (process.platform === "win32") {
+    const psCommand = `npx ${npxArgs.map(psSingleQuote).join(" ")}`;
+    return runCapture("powershell", ["-NoProfile", "-Command", psCommand], env);
+  }
+  return runCapture("npx", npxArgs, env);
+}
+
 function isRecoverableR2DeployFailure(output) {
   return (
     /Populating R2 incremental cache/i.test(output) &&
@@ -35,49 +58,22 @@ function isRecoverableR2DeployFailure(output) {
   );
 }
 
-function isRecoverableWindowsWasmDeployFailure(output) {
-  return process.platform === "win32" && /\.wasm\?module/i.test(output);
-}
-
-function deployWorkerDirect(env, reason) {
-  console.warn(reason);
-  // Use the project's wrangler (>= 4.94) — OpenNext may invoke an older nested wrangler on Windows.
-  run("npx", ["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
-}
-
-function runOpenNextBuild(env) {
-  // NEXT_PUBLIC_* must be present at build time (inlined into client bundles). Merge wrangler [vars]
-  // but keep process.env wins so local .env.local can override for dev-only experiments.
-  run("npx", ["opennextjs-cloudflare", "build"], env);
+function deployWorkerDirect(env) {
+  console.warn(
+    "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
+  );
+  runNpx(["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
 }
 
 function deployBuilt(env) {
-  const result = runCapture("npx", ["opennextjs-cloudflare", "deploy"], env);
+  const result = runNpxCapture(["opennextjs-cloudflare", "deploy"], env);
   writeCaptured(result);
 
   if (result.status === 0) return;
 
   const combined = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (isRecoverableR2DeployFailure(combined)) {
-    deployWorkerDirect(
-      env,
-      "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
-    );
-    return;
-  }
-  if (isRecoverableWindowsWasmDeployFailure(combined)) {
-    deployWorkerDirect(
-      env,
-      "OpenNext deploy hit a Windows wrangler WASM path issue. Falling back to direct Worker deploy (use wrangler >= 4.94).",
-    );
-    return;
-  }
-
-  if (process.platform === "win32") {
-    deployWorkerDirect(
-      env,
-      "OpenNext deploy failed on Windows (often empty CLI output). Falling back to direct Worker deploy after build.",
-    );
+    deployWorkerDirect(env);
     return;
   }
 
@@ -96,12 +92,12 @@ async function main() {
   run("node", ["scripts/generate-merchant-feed.mjs"], env);
 
   if (mode === "build") {
-    runOpenNextBuild(env);
+    runNpx(["opennextjs-cloudflare", "build"], env);
     return;
   }
 
   if (mode === "deploy") {
-    runOpenNextBuild(env);
+    runNpx(["opennextjs-cloudflare", "build"], env);
     deployBuilt(env);
     return;
   }
@@ -111,8 +107,8 @@ async function main() {
     return;
   }
 
-  runOpenNextBuild(env);
-  run("npx", ["opennextjs-cloudflare", "preview"], process.env);
+  runNpx(["opennextjs-cloudflare", "build"], env);
+  runNpx(["opennextjs-cloudflare", "preview"], env);
 }
 
 main().catch((error) => {

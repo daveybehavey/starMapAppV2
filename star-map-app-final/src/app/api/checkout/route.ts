@@ -1058,7 +1058,7 @@ export async function GET(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
     console.error("Stripe checkout error", err);
-    return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: 500 });
   }
 }
 
@@ -1301,6 +1301,6 @@ export async function POST(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
     console.error("Stripe checkout error", err);
-    return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: 500 });
   }
 }

@@ -16,32 +16,18 @@ import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
-import { formatPrice, getPricingTiers, getPrintPricingTiers, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
-import {
-  isWeddingCommerceContext,
-  isWeddingPrintLandingSource,
-  isWeddingTrafficSource,
-} from "@/lib/previewSourceHints";
+import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
   paywallPrintSkuButtonClassesMobile,
 } from "@/lib/paywallPrintCheckout";
-import {
-  formatPrintShippingEstimateWithDelivery,
-  getPrintShippingCountryLabel,
-  getPrintShippingCountryOptions,
-} from "@/lib/printfulShipping";
-import {
-  getRevealProgressPercent,
-  REVEAL_MAX_WAIT_MS,
-  REVEAL_MIN_VISIBLE_MS,
-  REVEAL_STAGES,
-} from "@/lib/revealExperience";
+import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
-const REVEAL_STAGE_TICK_MS = 280;
+const REVEAL_ANIMATION_MS = 900;
 const DEFAULT_TITLE_TEXT = "our night sky";
 
 interface MobileCreateProps {
@@ -133,6 +119,14 @@ export function MobileCreate({
     () => getPaywallPrintCheckoutPresentation(printShippingCountry),
     [printShippingCountry],
   );
+  const primaryPrintRow = useMemo(
+    () => printCheckoutRows.find((row) => row.recommended) ?? printCheckoutRows[0] ?? null,
+    [printCheckoutRows],
+  );
+  const alternatePrintRows = useMemo(
+    () => (primaryPrintRow ? printCheckoutRows.filter((row) => row !== primaryPrintRow) : printCheckoutRows),
+    [printCheckoutRows, primaryPrintRow],
+  );
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -140,31 +134,7 @@ export function MobileCreate({
   const [showProPresets, setShowProPresets] = useState(() => !isQuick);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
-  const [canvasReady, setCanvasReady] = useState(false);
-  const [showPostRevealCheckoutNudge, setShowPostRevealCheckoutNudge] = useState(false);
   const revealTimerRef = useRef<number | null>(null);
-  const revealStartedAtRef = useRef(0);
-  const postRevealCheckoutNudgeShownRef = useRef(false);
-  const mobilePrintCheckoutRef = useRef<HTMLDivElement | null>(null);
-  const readPreviewSource = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      return sessionStorage.getItem("preview_source")?.trim() || null;
-    } catch {
-      return null;
-    }
-  }, []);
-  const priceLabels = useMemo(() => {
-    const tiers = getPricingTiers();
-    const printTiers = getPrintPricingTiers();
-    return {
-      single: formatPrice(tiers.single.amountCents, tiers.single.currency),
-      framed: formatPrintPriceWithShipping(
-        printTiers.poster_framed.amountCents,
-        printTiers.poster_framed.currency,
-      ),
-    };
-  }, []);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const [collapsedTextBoxes, setCollapsedTextBoxes] = useState<Record<string, boolean>>(() => ({
@@ -357,72 +327,34 @@ export function MobileCreate({
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [applyPreset, setRevealed]);
 
-  const finishReveal = useCallback(() => {
-    if (!isRevealing) return;
+  const handleReveal = useCallback(() => {
+    if (!canReveal || isRevealing) return;
+    const revealStartedAt = Date.now();
+    setRevealStageIndex(0);
+    setIsRevealing(true);
+    track("preview_reveal_animation_started", { source: "mobile" });
     if (typeof window !== "undefined" && revealTimerRef.current) {
       window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = null;
     }
-    const startedAt = revealStartedAtRef.current || Date.now();
-    setIsRevealing(false);
-    setRevealStageIndex(0);
-    const previewSource = readPreviewSource() ?? "mobile";
-    track("preview_revealed", { source: previewSource });
-    track("preview_reveal_animation_completed", {
-      source: previewSource,
-      durationMs: Math.max(0, Date.now() - startedAt),
-      canvasReady,
-    });
-    trackFunnelStep("editor_reveal", { source: previewSource });
-    if (!paid && !postRevealCheckoutNudgeShownRef.current) {
-      postRevealCheckoutNudgeShownRef.current = true;
-      setShowPostRevealCheckoutNudge(true);
-      trackFunnelStep("preview_checkout_nudge_shown", { source: previewSource });
-    }
-    setTimeout(() => {
-      document.getElementById("mobile-preview")?.scrollIntoView({ behavior: "smooth" });
-      if (
-        (isWeddingPrintLandingSource(previewSource) || isWeddingCommerceContext(previewSource)) &&
-        printCheckoutEnabled &&
-        mobilePrintCheckoutRef.current
-      ) {
-        setTimeout(() => {
-          mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 500);
-      }
-    }, 100);
-  }, [canvasReady, isRevealing, paid, printCheckoutEnabled, readPreviewSource]);
-
-  const handleReveal = useCallback(() => {
-    if (!canReveal || isRevealing) return;
-    revealStartedAtRef.current = Date.now();
-    setRevealStageIndex(0);
-    setCanvasReady(false);
-    setRevealed(true);
-    setIsRevealing(true);
-    track("preview_reveal_animation_started", { source: "mobile" });
-    if (typeof window !== "undefined") {
-      if (revealTimerRef.current) {
-        window.clearTimeout(revealTimerRef.current);
-      }
-      revealTimerRef.current = window.setTimeout(() => {
-        finishReveal();
-      }, REVEAL_MAX_WAIT_MS);
-    }
-  }, [canReveal, finishReveal, isRevealing, setRevealed]);
-
-  const handleCanvasRendered = useCallback(() => {
-    onCanvasReady?.();
-    setCanvasReady(true);
-  }, [onCanvasReady]);
-
-  useEffect(() => {
-    if (!isRevealing || !revealed) return;
-    const elapsed = Date.now() - (revealStartedAtRef.current || Date.now());
-    if (canvasReady && elapsed >= REVEAL_MIN_VISIBLE_MS) {
-      finishReveal();
-    }
-  }, [canvasReady, finishReveal, isRevealing, revealed]);
+    revealTimerRef.current = window.setTimeout(() => {
+      setRevealed(true);
+      setIsRevealing(false);
+      setRevealStageIndex(0);
+      revealTimerRef.current = null;
+      track("preview_revealed", { source: "mobile" });
+      track("preview_reveal_animation_completed", {
+        source: "mobile",
+        durationMs: Math.max(0, Date.now() - revealStartedAt),
+      });
+      trackFunnelStep("editor_reveal", { source: "mobile" });
+      setTimeout(() => {
+        document.getElementById("mobile-preview")?.scrollIntoView({
+          behavior: "smooth",
+        });
+      }, 100);
+    }, REVEAL_ANIMATION_MS);
+  }, [canReveal, isRevealing, setRevealed]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -438,7 +370,7 @@ export function MobileCreate({
       if (nextStage >= REVEAL_STAGES.length - 1) {
         window.clearInterval(stageInterval);
       }
-    }, REVEAL_STAGE_TICK_MS);
+    }, Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length)));
     return () => window.clearInterval(stageInterval);
   }, [isRevealing]);
 
@@ -551,25 +483,25 @@ export function MobileCreate({
               </span>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
             <button
               type="button"
               onClick={applySampleMoment}
-              className="rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
+              className="w-full rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md sm:w-auto"
             >
               Try a sample moment
             </button>
             <button
               type="button"
               onClick={handleStartPreset}
-              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
+              className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10 sm:w-auto"
             >
               Browse occasion presets
             </button>
             <button
               type="button"
               onClick={handleStartScratch}
-              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
+              className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10 sm:w-auto"
             >
               Start empty
             </button>
@@ -858,7 +790,7 @@ export function MobileCreate({
                                 [box.id]: !isCollapsed,
                               }))
                             }
-                            aria-expanded={!isCollapsed}
+                            aria-expanded={isCollapsed ? "false" : "true"}
                             aria-controls={`text-style-${box.id}`}
                             className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
                           >
@@ -948,7 +880,7 @@ export function MobileCreate({
                                   : "border-white/15 bg-white/10 text-white"
                               }`}
                               aria-label={`Toggle shadow for ${box.label}`}
-                              aria-pressed={box.textShadow}
+                            aria-pressed={box.textShadow ? "true" : "false"}
                             >
                               Shadow
                             </button>
@@ -961,7 +893,7 @@ export function MobileCreate({
                                   : "border-white/15 bg-white/10 text-white"
                               }`}
                               aria-label={`Toggle glow for ${box.label}`}
-                              aria-pressed={box.textGlow}
+                            aria-pressed={box.textGlow ? "true" : "false"}
                             >
                               Glow
                             </button>
@@ -1012,7 +944,7 @@ export function MobileCreate({
                       key={tier.id}
                       type="button"
                       role="radio"
-                      aria-checked={activeTier === tier.id}
+                      aria-checked={activeTier === tier.id ? "true" : "false"}
                       aria-label={`${tier.label}: ${tier.description}`}
                       onClick={() => {
                         setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
@@ -1170,6 +1102,8 @@ export function MobileCreate({
                         type="color"
                         value={renderOptions.constellationColor || "#ffffff"}
                         onChange={(e) => setRenderOptions({ constellationColor: e.target.value })}
+                        aria-label="Constellation line color"
+                        title="Constellation line color"
                         className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
                       />
                     </div>
@@ -1322,44 +1256,17 @@ export function MobileCreate({
             )}
           </div>
           <div className="relative mx-auto overflow-hidden" style={{ width: "100%", maxWidth: "600px", aspectRatio: `${aspectRatioToNumber(aspectRatio)} / 1` }}>
-            {!revealed && !isRevealing && (
+            {!revealed && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <div className="space-y-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-semibold text-neutral-200 shadow-sm backdrop-blur text-center">
-                  <p>Add date + location to reveal your sky. Presets optional.</p>
+                  <p>
+                    {isRevealing
+                      ? "Locking in your sky details..."
+                      : "Add date + location to reveal your sky. Presets optional."}
+                  </p>
                   {canReveal ? (
-                    <button
-                      type="button"
-                      onClick={handleReveal}
-                      aria-label="Generate preview"
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition"
-                    >
-                      Generate preview
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleReveal}
-                      disabled
-                      aria-label="Generate preview"
-                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
-                    >
-                      Generate preview
-                    </button>
-                  )}
-                  <p className="text-[10px] text-neutral-300">Free preview, HD optional.</p>
-                  {printCheckoutEnabled && (
-                    <p className="text-[10px] text-amber-100/90">
-                      Printed and framed options unlock after preview.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-            {revealed && <PreviewCanvas onRendered={handleCanvasRendered} />}
-            {isRevealing && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-[#070b1f]/75 px-3 backdrop-blur-sm">
-                <div className="space-y-2 text-center">
-                  <div className="reveal-loader-card rounded-xl px-3 py-3 text-center">
+                    isRevealing ? (
+                      <div className="reveal-loader-card rounded-xl px-3 py-3 text-center">
                         <div className="reveal-glow reveal-glow-left" aria-hidden="true" />
                         <div className="reveal-glow reveal-glow-right" aria-hidden="true" />
                         <div className="mb-2 flex items-center justify-between gap-3 text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-100/75">
@@ -1370,7 +1277,7 @@ export function MobileCreate({
                           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
                         </div>
                         <p className="text-[9px] font-semibold tracking-[0.22em] text-amber-100/80 uppercase">
-                          {canvasReady ? "Opening your map" : "Revealing your sky"}
+                          Revealing your sky
                         </p>
                         <p className="mt-1 text-xs font-semibold text-amber-50">{revealStage.title}</p>
                         <p className="mt-1 text-[10px] leading-4 text-neutral-200">{revealStage.description}</p>
@@ -1400,15 +1307,41 @@ export function MobileCreate({
                             style={{ width: revealProgress }}
                           />
                         </div>
-                        <p className="mt-2 text-[10px] text-neutral-300">
-                          {canvasReady
-                            ? "Your preview is ready — one moment."
-                            : "Plotting stars for your date and place…"}
-                        </p>
+                        <p className="mt-2 text-[10px] text-neutral-300">Usually takes about a second. No charge yet.</p>
                       </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleReveal}
+                        aria-label="Generate preview"
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition"
+                      >
+                        Generate preview
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleReveal}
+                      disabled
+                      aria-label="Generate preview"
+                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
+                    >
+                      Generate preview
+                    </button>
+                  )}
+                  <p className="text-[10px] text-neutral-300">
+                    {isRevealing ? "This usually takes about a second." : "Free preview, HD optional."}
+                  </p>
+                  {printCheckoutEnabled && (
+                    <p className="text-[10px] text-amber-100/90">
+                      Printed and framed options unlock after preview.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
+            {revealed && <PreviewCanvas onRendered={onCanvasReady} />}
           </div>
         </div>
 
@@ -1432,90 +1365,6 @@ export function MobileCreate({
               {paid ? "HD download" : "Unlock HD"}
             </button>
           </div>
-          {showPostRevealCheckoutNudge && !paid && (
-            <div className="mt-3 rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-3">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-semibold text-amber-50">
-                  {isWeddingTrafficSource(readPreviewSource())
-                    ? "Your wedding sky is ready"
-                    : "Love the preview?"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowPostRevealCheckoutNudge(false)}
-                  className="text-[10px] font-semibold uppercase tracking-wide text-amber-100/70"
-                  aria-label="Dismiss checkout reminder"
-                >
-                  Dismiss
-                </button>
-              </div>
-              <p className="mt-1 text-[11px] text-amber-100/85">
-                {isWeddingTrafficSource(readPreviewSource()) && printCheckoutEnabled ? (
-                  <>
-                    Framed gifts from {priceLabels.framed}
-                    {printShippingCountry
-                      ? ` · est. ${formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry, "shipping")}`
-                      : ""}
-                    . HD from {priceLabels.single} too.
-                  </>
-                ) : (
-                  <>
-                    HD from {priceLabels.single}
-                    {printCheckoutEnabled ? " · printed gifts with shipping at checkout" : "."}
-                  </>
-                )}
-              </p>
-              <div className="mt-2 flex gap-2">
-                {printCheckoutEnabled &&
-                  onStartPrintCheckout &&
-                  isWeddingTrafficSource(readPreviewSource()) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const source = readPreviewSource() ?? "mobile";
-                        trackFunnelStep("preview_checkout_nudge_clicked", { source, intent: "print" });
-                        setShowPostRevealCheckoutNudge(false);
-                        mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }}
-                      className="flex-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow"
-                    >
-                      Order framed print
-                    </button>
-                  )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const source = readPreviewSource() ?? "mobile";
-                    trackFunnelStep("preview_checkout_nudge_clicked", { source, intent: "digital" });
-                    void onExport("hd");
-                  }}
-                  className={
-                    printCheckoutEnabled && isWeddingTrafficSource(readPreviewSource())
-                      ? "flex-1 rounded-full border border-amber-200/60 bg-white/10 px-3 py-2 text-xs font-semibold text-amber-50"
-                      : "flex-1 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2 text-xs font-semibold text-midnight shadow"
-                  }
-                >
-                  Get HD ({priceLabels.single})
-                </button>
-                {printCheckoutEnabled &&
-                  onStartPrintCheckout &&
-                  !isWeddingTrafficSource(readPreviewSource()) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const source = readPreviewSource() ?? "mobile";
-                        trackFunnelStep("preview_checkout_nudge_clicked", { source, intent: "print" });
-                        setShowPostRevealCheckoutNudge(false);
-                        mobilePrintCheckoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }}
-                      className="flex-1 rounded-full border border-amber-200/60 bg-white/10 px-3 py-2 text-xs font-semibold text-amber-50"
-                    >
-                      Print options
-                    </button>
-                  )}
-              </div>
-            </div>
-          )}
           {hdCreditLabel && (
             <div className="mt-2 flex justify-end">
               <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
@@ -1524,22 +1373,28 @@ export function MobileCreate({
             </div>
           )}
             {printCheckoutEnabled && onStartPrintCheckout && (
-              <div ref={mobilePrintCheckoutRef} className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
-                <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
-                <p className="mt-1 text-[10px] text-amber-100/80">
-                  Secure checkout collects shipping details, shows shipping before payment, and creates your print
-                  order right after payment. {shippingDisclosure}
-                </p>
-                <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
-                  <span className="font-semibold text-amber-100">Best gift:</span> framed print.{" "}
-                  <span className="font-semibold text-amber-100">Lower total:</span> unframed poster.
+              <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] font-semibold text-amber-100">Buy a physical gift from this exact preview</p>
+                  <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-100">
+                    Framed + HD recommended
+                  </span>
                 </div>
+                <p className="mt-1 text-[10px] text-amber-100/80">
+                  Start with the framed gift-ready path. Shipping shows before payment, and your print order is created
+                  right after checkout. {shippingDisclosure}
+                </p>
                 {printShippingCountries.length > 0 && (
                   <div className="mt-2">
-                    <label className="text-[10px] font-semibold text-amber-100/80">Shipping country</label>
+                    <label htmlFor="mobile-print-shipping-country" className="text-[10px] font-semibold text-amber-100/80">
+                      Shipping country
+                    </label>
                     <select
+                      id="mobile-print-shipping-country"
                       value={printShippingCountry ?? ""}
                       onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                      aria-label="Shipping country"
+                      title="Shipping country"
                       className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
                       style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
@@ -1561,37 +1416,69 @@ export function MobileCreate({
                     ) : null}
                   </div>
                 )}
-                <div className="mt-2 flex flex-col gap-2">
-                  {printCheckoutRows.map((row) => (
-                    <button
-                      key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
-                      type="button"
-                      onClick={() =>
-                        onStartPrintCheckout({
-                          variant: row.variant,
-                          includeDigitalAddOn: row.includeDigitalAddOn,
-                        })
-                      }
-                      disabled={!printShippingCountry || printCheckoutInFlight}
-                      className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant)}
-                    >
-                      {printCheckoutInFlight ? (
-                        "Opening secure checkout..."
-                      ) : (
-                        <span className="text-center leading-tight">
-                          <span className="block text-[11px] font-semibold">
-                            {row.recommended ? "🖼️ " : ""}
-                            {row.headline}
-                          </span>
-                          <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
+                {primaryPrintRow && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onStartPrintCheckout({
+                        variant: primaryPrintRow.variant,
+                        includeDigitalAddOn: primaryPrintRow.includeDigitalAddOn,
+                      })
+                    }
+                    disabled={!printShippingCountry || printCheckoutInFlight}
+                    className={`${paywallPrintSkuButtonClassesMobile(primaryPrintRow, preferredPrintVariant)} mt-2 w-full`}
+                  >
+                    {printCheckoutInFlight ? (
+                      "Opening secure checkout..."
+                    ) : (
+                      <span className="text-center leading-tight">
+                        <span className="block text-[11px] font-semibold">
+                          {primaryPrintRow.recommended ? "🖼️ " : ""}
+                          {primaryPrintRow.headline}
                         </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                        <span className="block text-[10px] text-amber-100/95">{primaryPrintRow.secondaryLine}</span>
+                      </span>
+                    )}
+                  </button>
+                )}
+                {alternatePrintRows.length > 0 && (
+                  <details className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2">
+                    <summary className="cursor-pointer list-none text-[10px] font-semibold text-amber-100">
+                      Other print options
+                    </summary>
+                    <div className="mt-2 flex flex-col gap-2">
+                      {alternatePrintRows.map((row) => (
+                        <button
+                          key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                          type="button"
+                          onClick={() =>
+                            onStartPrintCheckout({
+                              variant: row.variant,
+                              includeDigitalAddOn: row.includeDigitalAddOn,
+                            })
+                          }
+                          disabled={!printShippingCountry || printCheckoutInFlight}
+                          className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant)}
+                        >
+                          {printCheckoutInFlight ? (
+                            "Opening secure checkout..."
+                          ) : (
+                            <span className="text-center leading-tight">
+                              <span className="block text-[11px] font-semibold">
+                                {row.recommended ? "🖼️ " : ""}
+                                {row.headline}
+                              </span>
+                              <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                )}
                 {!printShippingCountry && (
                   <p className="mt-2 text-[10px] font-semibold text-amber-100/85">
-                    Choose your shipping country to unlock print checkout buttons.
+                    Choose your shipping country to show shipping pricing and unlock print checkout.
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
@@ -1635,7 +1522,7 @@ export function MobileCreate({
               <button
                 type="button"
                 onClick={handleCustomizeMore}
-                aria-expanded={showEditor}
+                aria-expanded={showEditor ? "true" : "false"}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95"
               >
                 {showEditor ? "Less options" : "Customize more"}

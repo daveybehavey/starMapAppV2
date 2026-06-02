@@ -21,12 +21,18 @@ export const metadata: Metadata = {
     "graduation star map gift ideas",
     "anniversary star map ideas",
     "wedding star map tips",
+    "Canada Day star map ideas",
+    "July 4th star map ideas",
+    "summer gift ideas",
   ],
   alternates: { canonical: `${siteUrl}/blog` },
   openGraph: {
     title: "Blog: Custom Star Map Guides",
     description:
-      "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
+      "Read our blog for ideas on Valentine's Day, anniversary, birthday, wedding, Canada Day, and July 4th star maps, plus astronomy tips.",
+    url: `${siteUrl}/blog`,
+    siteName: "StarMapCo",
+    type: "website",
     images: [
       {
         url: `${siteUrl}/custom-star-map-anniversary.webp`,
@@ -39,7 +45,7 @@ export const metadata: Metadata = {
   twitter: {
     title: "Blog: Custom Star Map Guides",
     description:
-      "Read our blog for ideas on Valentine's Day, anniversary, birthday, and wedding star maps, plus astronomy tips.",
+      "Read our blog for ideas on Valentine's Day, anniversary, birthday, wedding, Canada Day, and July 4th star maps, plus astronomy tips.",
     images: [`${siteUrl}/custom-star-map-anniversary.webp`],
     card: "summary_large_image",
   },
@@ -103,7 +109,7 @@ export default function BlogIndex() {
 
       <section className="mx-auto max-w-5xl">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {indexPosts.map((post) => (
+          {indexPosts.map((post, index) => (
             <article
               key={post.slug + post.title}
               className="text-midnight flex h-full flex-col overflow-hidden rounded-2xl border border-amber-200/60 bg-[rgba(247,241,227,0.9)] shadow-lg transition hover:-translate-y-[2px] hover:shadow-2xl"
@@ -114,7 +120,8 @@ export default function BlogIndex() {
                   alt={post.alt}
                   fill
                   className="object-cover"
-                  loading="lazy"
+                  priority={index === 0}
+                  loading={index === 0 ? "eager" : "lazy"}
                   sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                 />
               </div>

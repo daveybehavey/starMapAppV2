@@ -13,14 +13,7 @@ import {
   trackExperimentExposure,
   trackFunnelStep,
 } from "@/lib/analytics";
-import {
-  formatPrice,
-  getPricingTiers,
-  getPrintPricingTiers,
-  type CheckoutOrderType,
-  type CheckoutPlan,
-  type PrintVariant,
-} from "@/lib/pricing";
+import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
@@ -34,23 +27,13 @@ import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
+import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
-  formatPrintPriceWithShipping,
-  getPrintAllowedCountries,
-  getPrintShippingDisclosure,
-} from "@/lib/printCheckoutConfig";
-import {
-  formatPrintShippingEstimateWithDelivery,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
-import {
-  isWeddingCommerceContext,
-  shouldAutoOpenEditorPrintPaywall,
-  shouldDefaultEditorPaywallToPrint,
-} from "@/lib/previewSourceHints";
 import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
@@ -63,17 +46,7 @@ import {
   listMerchFamiliesEnabledForPublicUi,
   type MerchFamilyId,
 } from "@/lib/merchCatalog";
-import {
-  getRevealProgressPercent,
-  REVEAL_MAX_WAIT_MS,
-  REVEAL_MIN_VISIBLE_MS,
-  REVEAL_STAGES,
-} from "@/lib/revealExperience";
-import {
-  checkoutUrlErrorMessage,
-  createCheckoutFetchSignal,
-  redirectToStripeCheckout,
-} from "@/lib/stripeCheckoutNavigation";
+import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -124,7 +97,7 @@ const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const PROMO_CODE_KEY = "star-map-promo-code";
 const MAX_PRINT_ASSET_BYTES = 16 * 1024 * 1024;
-const REVEAL_STAGE_TICK_MS = 280;
+const REVEAL_ANIMATION_MS = 900;
 const DEFAULT_TITLE_TEXT = "our night sky";
 
 function isLikelyLowMemoryDevice() {
@@ -225,8 +198,6 @@ export function EditorExperience({
   // Loading state callback for visual options
   const [isUpdating, setIsUpdating] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
-  const [showPostRevealCheckoutNudge, setShowPostRevealCheckoutNudge] = useState(false);
-  const postRevealCheckoutNudgeShownRef = useRef(false);
 
   const onVisualOptionsApplied = useCallback(() => {
     setIsUpdating(true);
@@ -295,15 +266,10 @@ export function EditorExperience({
   // Compute pricing labels once (never change during session)
   const priceLabels = useMemo(() => {
     const tiers = getPricingTiers();
-    const printTiers = getPrintPricingTiers();
     return {
       single: formatPrice(tiers.single.amountCents, tiers.single.currency),
       pack3: formatPrice(tiers.pack3.amountCents, tiers.pack3.currency),
       subscription: formatPrice(tiers.subscription.amountCents, tiers.subscription.currency),
-      framed: formatPrintPriceWithShipping(
-        printTiers.poster_framed.amountCents,
-        printTiers.poster_framed.currency,
-      ),
     };
   }, []);
   const paywallVariant = useMemo<PaywallCopyVariant>(() => getPaywallCopyVariant(), []);
@@ -336,8 +302,8 @@ export function EditorExperience({
     subtitle: true,
     dedication: true,
   }));
-  const [showOccasionPresets, setShowOccasionPresets] = useState(() => !isQuick);
-  const [showProPresets, setShowProPresets] = useState(() => !isQuick);
+  const [showOccasionPresets, setShowOccasionPresets] = useState(false);
+  const [showProPresets, setShowProPresets] = useState(false);
   const [restored, setRestored] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
@@ -363,7 +329,6 @@ export function EditorExperience({
   const [revealStageIndex, setRevealStageIndex] = useState(0);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const revealTimerRef = useRef<number | null>(null);
-  const revealStartedAtRef = useRef(0);
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
   const consumePromiseRef = useRef<Promise<boolean> | null>(null);
@@ -745,18 +710,12 @@ export function EditorExperience({
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
       setPrintShippingCountryValue(shippingCountryParam, "query-param");
     }
-    if (shouldDefaultEditorPaywallToPrint(sourceParam, checkoutParam)) {
-      setPaywallIntent("print");
-    }
-    const fromPrintShop =
+    if (
       checkoutParam === "print" ||
-      Boolean(printVariantParam) ||
-      (sourceParam?.startsWith("shop-") && sourceParam.includes("framed")) ||
-      (sourceParam?.startsWith("shop-") && sourceParam.includes("unframed")) ||
       sourceParam === "home-delivery-print-framed" ||
-      sourceParam === "home-delivery-print-unframed";
-    if (fromPrintShop) {
-      setAspectRatio("square");
+      sourceParam === "home-delivery-print-unframed"
+    ) {
+      setPaywallIntent("print");
     }
 
     trackFunnelStep("preview_started", {
@@ -781,16 +740,17 @@ export function EditorExperience({
     setLocation,
     setPrintShippingCountryValue,
     setRevealed,
-    setAspectRatio,
-    setPaywallIntent,
-    setPreferredPrintVariant,
   ]);
 
   useEffect(() => {
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
     const checkoutParam = searchParams.get("checkout");
     const sourceParam = searchParams.get("source");
-    if (!shouldAutoOpenEditorPrintPaywall(sourceParam, checkoutParam)) {
+    if (
+      checkoutParam !== "print" &&
+      sourceParam !== "home-delivery-print-framed" &&
+      sourceParam !== "home-delivery-print-unframed"
+    ) {
       return;
     }
 
@@ -805,13 +765,6 @@ export function EditorExperience({
       intent: "print",
     });
   }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams]);
-
-  useEffect(() => {
-    if (!restored || paid) return;
-    if (shouldDefaultEditorPaywallToPrint(getPreviewSource(), searchParams.get("checkout"))) {
-      setPaywallIntent("print");
-    }
-  }, [getPreviewSource, paid, restored, searchParams]);
 
   useEffect(() => {
     if (!autoExportPending || paid) return;
@@ -862,81 +815,56 @@ export function EditorExperience({
   const setCardState = (updates: Record<string, boolean>) =>
     setCollapsedCards((prev) => ({ ...prev, ...updates }));
 
-  const finishReveal = useCallback(() => {
-    if (!isRevealing) return;
-    if (typeof window !== "undefined" && revealTimerRef.current) {
-      window.clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = null;
-    }
-    const startedAt = revealStartedAtRef.current || Date.now();
-    setIsRevealing(false);
-    setRevealStageIndex(0);
-    setCollapsedCards((prev) => ({
-      ...prev,
-      dateLocation: true,
-      textStyling: true,
-      style: true,
-      shape: true,
-      frame: true,
-      advanced: true,
-    }));
-    track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
-    track("preview_reveal_animation_completed", {
-      source: getPreviewSource() ?? "editor",
-      durationMs: Math.max(0, Date.now() - startedAt),
-      canvasReady,
-    });
-    trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
-    if (!paid && !postRevealCheckoutNudgeShownRef.current) {
-      postRevealCheckoutNudgeShownRef.current = true;
-      setShowPostRevealCheckoutNudge(true);
-      trackFunnelStep("preview_checkout_nudge_shown", { source: getPreviewSource() ?? "editor" });
-    }
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(REVEALED_FLAG, "true");
-      } catch {
-        // ignore storage errors (e.g. private browsing)
-      }
-    }
-    requestAnimationFrame(() => {
-      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [canvasReady, getPreviewSource, isRevealing, paid, renderOptions.visualMode]);
-
   const handleReveal = useCallback(() => {
     if (isRevealing) return;
     if (!canReveal || !hasDate) {
       inputsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    revealStartedAtRef.current = Date.now();
+    const revealStartedAt = Date.now();
     setRevealStageIndex(0);
-    setCanvasReady(false);
-    setIsUpdating(true);
-    setRevealed(true);
     setIsRevealing(true);
     track("preview_reveal_animation_started", {
       source: getPreviewSource() ?? "editor",
       visualMode: renderOptions.visualMode,
     });
-    if (typeof window !== "undefined") {
-      if (revealTimerRef.current) {
-        window.clearTimeout(revealTimerRef.current);
+    if (typeof window !== "undefined" && revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+    revealTimerRef.current = window.setTimeout(() => {
+      setRevealed(true);
+      setIsRevealing(false);
+      setRevealStageIndex(0);
+      revealTimerRef.current = null;
+      // Shift into edit mode with a compact default panel state.
+      setCollapsedCards((prev) => ({
+        ...prev,
+        dateLocation: true,
+        textStyling: true,
+        style: true,
+        shape: true,
+        frame: true,
+        advanced: true,
+      }));
+      track("reveal_map", { visualMode: renderOptions.visualMode, isPaid: paid });
+      track("preview_reveal_animation_completed", {
+        source: getPreviewSource() ?? "editor",
+        durationMs: Math.max(0, Date.now() - revealStartedAt),
+      });
+      trackFunnelStep("editor_reveal", { source: getPreviewSource() ?? "editor" });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(REVEALED_FLAG, "true");
+        } catch {
+          // ignore storage errors (e.g. private browsing)
+        }
       }
-      revealTimerRef.current = window.setTimeout(() => {
-        finishReveal();
-      }, REVEAL_MAX_WAIT_MS);
-    }
-  }, [canReveal, finishReveal, getPreviewSource, hasDate, isRevealing, renderOptions.visualMode, setRevealed]);
-
-  useEffect(() => {
-    if (!isRevealing || !revealed) return;
-    const elapsed = Date.now() - (revealStartedAtRef.current || Date.now());
-    if (canvasReady && elapsed >= REVEAL_MIN_VISIBLE_MS) {
-      finishReveal();
-    }
-  }, [canvasReady, finishReveal, isRevealing, revealed]);
+      requestAnimationFrame(() => {
+        previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }, REVEAL_ANIMATION_MS);
+  }, [canReveal, getPreviewSource, hasDate, isRevealing, paid, renderOptions.visualMode, setRevealed]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -952,7 +880,7 @@ export function EditorExperience({
       if (nextStage >= REVEAL_STAGES.length - 1) {
         window.clearInterval(stageInterval);
       }
-    }, REVEAL_STAGE_TICK_MS);
+    }, Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length)));
     return () => window.clearInterval(stageInterval);
   }, [isRevealing]);
 
@@ -1223,32 +1151,27 @@ export function EditorExperience({
         });
         let mapId: string | null = null;
         let mapSaveError: string | null = null;
-        for (let attempt = 0; attempt < 2 && !mapId; attempt += 1) {
-          try {
-            const mapRes = await fetch("/api/maps", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(recipeForCheckout),
-            });
-            if (mapRes.ok) {
-              const data = (await mapRes.json()) as { id?: string };
-              if (typeof data.id === "string" && data.id.trim()) {
-                mapId = data.id.trim();
-                try {
-                  localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
-                } catch {
-                  // ignore storage errors (e.g. private browsing)
-                }
+        try {
+          const mapRes = await fetch("/api/maps", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(recipeForCheckout),
+          });
+          if (mapRes.ok) {
+            const data = (await mapRes.json()) as { id?: string };
+            if (typeof data.id === "string" && data.id.trim()) {
+              mapId = data.id.trim();
+              try {
+                localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+              } catch {
+                // ignore storage errors (e.g. private browsing)
               }
-            } else {
-              mapSaveError = `save_failed_${mapRes.status}`;
             }
-          } catch {
-            mapSaveError = "save_failed_network";
+          } else {
+            mapSaveError = `save_failed_${mapRes.status}`;
           }
-          if (!mapId && attempt === 0) {
-            await new Promise((resolve) => setTimeout(resolve, 400));
-          }
+        } catch {
+          mapSaveError = "save_failed_network";
         }
         if (!mapId) {
           throw new Error(mapSaveError ?? "map_save_failed");
@@ -1406,13 +1329,7 @@ export function EditorExperience({
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
         });
 
-        const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
-        let res: Response;
-        try {
-          res = await fetch("/api/checkout", { ...checkoutInit, signal });
-        } finally {
-          clearCheckoutFetchTimeout();
-        }
+        const res = await fetch("/api/checkout", checkoutInit);
         checkoutApiResponseReceived = true;
         const data = (await res.json().catch(() => null)) as {
           url?: string;
@@ -1420,7 +1337,6 @@ export function EditorExperience({
           code?: string;
           promoApplied?: boolean;
           referralOfferApplied?: boolean;
-          discountRejected?: boolean;
         } | null;
         if (!res.ok) {
           if (data?.code === "invalid_promotion_code") {
@@ -1453,16 +1369,11 @@ export function EditorExperience({
           if (data?.code === "map_not_found") {
             throw new Error("map_not_found");
           }
-          throw new Error(data?.error ?? "checkout failed");
+          throw new Error(data?.code ?? data?.error ?? "checkout_failed");
         }
         if (data?.url) {
           const promoApplied = Boolean(data.promoApplied);
           const referralOfferApplied = Boolean(data.referralOfferApplied);
-          if (data.discountRejected && promoCode) {
-            setCheckoutError(
-              "We couldn't auto-apply your promo for this order. You can still enter it on the secure Stripe checkout page.",
-            );
-          }
           track("checkout_redirected", {
             source: previewSource,
             plan,
@@ -1474,16 +1385,13 @@ export function EditorExperience({
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
-          redirectToStripeCheckout(data.url);
+          window.location.href = data.url;
           return;
         }
         throw new Error("no url");
       } catch (err) {
         console.error(err);
-        const reason =
-          err instanceof Error && err.name === "AbortError"
-            ? "checkout_timeout"
-            : (err as Error)?.message ?? "unknown";
+        const reason = (err as Error)?.message ?? "unknown";
         if (!checkoutApiResponseReceived) {
           trackCheckoutClientDiagnostic({
             reason,
@@ -1495,8 +1403,7 @@ export function EditorExperience({
           });
         }
         const checkoutErrorMessage =
-          checkoutUrlErrorMessage(reason) ??
-          (reason === "invalid_promotion_code"
+          reason === "invalid_promotion_code"
             ? "That promo code is invalid or expired. Try another code."
             : reason === "promotion_not_applicable"
               ? "That promo code does not apply to this order."
@@ -1524,7 +1431,9 @@ export function EditorExperience({
                   ? "We couldn't find that map. Refresh preview and try checkout again."
                 : reason.startsWith("save_failed_") || reason === "map_save_failed"
                   ? "We couldn't save this map yet. Please retry in a moment."
-              : "Checkout is unavailable right now. Please try again shortly.");
+              : reason === "unknown_error"
+                ? "We couldn't start checkout right now. Please try again shortly."
+              : "Checkout is unavailable right now. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {
           source: previewSource,
@@ -1708,7 +1617,7 @@ export function EditorExperience({
     });
   }, [allowAdvanced]);
 
-  const showGuidedForm = !revealed || !showAdvanced;
+  const showGuidedForm = !revealed;
   const showEditor = revealed && showAdvanced;
   const showSetupPanels = !revealed || showEditor;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
@@ -1742,10 +1651,11 @@ export function EditorExperience({
                           Create your star map
                         </p>
                         <h2 className="text-3xl font-[var(--font-playfair)] font-semibold tracking-tight text-white sm:text-4xl">
-                          Build your map in 3 quick steps
+                          Start with the moment, then preview
                         </h2>
                         <p className="text-base text-neutral-200 sm:text-lg">
-                          Enter date and place, add your title, then generate a free preview.
+                          Add the date, location, and words that matter, then generate a free preview before opening
+                          any extra controls.
                         </p>
                         <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-300">
                           {setupSteps.map((step, index) => (
@@ -1785,7 +1695,9 @@ export function EditorExperience({
                             Start empty
                           </button>
                         </div>
-                        <p className="text-xs text-neutral-300">Need deeper control? Use “Customize more” after preview.</p>
+                        <p className="text-xs text-neutral-300">
+                          Advanced controls stay tucked away until you want them.
+                        </p>
                         <p className="text-[11px] text-neutral-400">
                           {lastDraftSavedAt
                             ? `Draft autosaved on this device at ${lastDraftSavedAt}.`
@@ -1807,7 +1719,7 @@ export function EditorExperience({
                               onClick={handleLessOptions}
                               className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
                             >
-                              Less options
+                              Back to preview
                             </button>
                           ) : null}
                           <button
@@ -2794,38 +2706,7 @@ export function EditorExperience({
                                 setIsUpdating(false);
                               }}
                             />
-                            {isRevealing && (
-                              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-[#070b1f]/72 px-4 backdrop-blur-sm">
-                                <div className="reveal-loader-card w-full max-w-[320px] rounded-xl px-4 py-3 text-center">
-                                  <div className="reveal-glow reveal-glow-left" aria-hidden="true" />
-                                  <div className="reveal-glow reveal-glow-right" aria-hidden="true" />
-                                  <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-100/75">
-                                    <span>Free preview</span>
-                                    <span>{revealProgress}</span>
-                                  </div>
-                                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/60 bg-amber-100/10">
-                                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-amber-200/70 border-t-transparent" />
-                                  </div>
-                                  <p className="text-[10px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
-                                    {canvasReady ? "Opening your map" : "Revealing your sky"}
-                                  </p>
-                                  <p className="mt-1 text-sm font-semibold text-amber-50">{revealStage.title}</p>
-                                  <p className="mt-1 text-[11px] leading-5 text-neutral-200">{revealStage.description}</p>
-                                  <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                                    <div
-                                      className="reveal-progress-fill h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-100 to-amber-300 transition-[width] duration-200"
-                                      style={{ width: revealProgress }}
-                                    />
-                                  </div>
-                                  <p className="mt-2 text-[10px] text-neutral-300">
-                                    {canvasReady
-                                      ? "Your preview is ready — one moment."
-                                      : "Plotting stars for your date and place…"}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {(isUpdating || !canvasReady) && !isRevealing && (
+                            {(isUpdating || !canvasReady) && (
                               <div className="absolute inset-0 z-10 rounded-xl bg-gradient-to-b from-white/5 to-white/0 transition-opacity duration-300">
                                 <div className="absolute top-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase shadow-sm backdrop-blur">
                                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
@@ -2903,6 +2784,15 @@ export function EditorExperience({
                               Print & frame
                             </button>
                           )}
+                          {!showEditor && (
+                            <button
+                              type="button"
+                              onClick={handleCustomizeMore}
+                              className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                            >
+                              Customize more
+                            </button>
+                          )}
                           {hdCreditLabel && (
                             <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
                               {hdCreditLabel}
@@ -2915,123 +2805,6 @@ export function EditorExperience({
                           >
                             🔗 Share
                           </button>
-                          {showPostRevealCheckoutNudge && (
-                            <div className="mt-3 w-full rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-3 text-left">
-                              <div className="flex flex-wrap items-start justify-between gap-2">
-                                <div>
-                                  <p className="text-xs font-semibold text-amber-50">
-                                    {isWeddingCommerceContext(getPreviewSource())
-                                      ? "Your wedding sky is ready"
-                                      : "Your preview is ready"}
-                                  </p>
-                                  <p className="mt-1 text-[11px] text-amber-100/85">
-                                    {isWeddingCommerceContext(getPreviewSource()) && printCheckoutEnabled ? (
-                                      <>
-                                        Framed wedding gifts from {priceLabels.framed}
-                                        {printShippingCountry
-                                          ? ` · est. ${formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry, "shipping")}`
-                                          : " · shipping at checkout"}
-                                        . HD backup from {priceLabels.single} too.
-                                      </>
-                                    ) : (
-                                      <>
-                                        Keep this map in HD from {priceLabels.single}
-                                        {printCheckoutEnabled
-                                          ? " — or order a printed gift with shipping at checkout."
-                                          : "."}
-                                      </>
-                                    )}
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowPostRevealCheckoutNudge(false)}
-                                  className="text-[10px] font-semibold uppercase tracking-wide text-amber-100/70 hover:text-amber-50"
-                                  aria-label="Dismiss checkout reminder"
-                                >
-                                  Dismiss
-                                </button>
-                              </div>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {printCheckoutEnabled &&
-                                  isWeddingCommerceContext(getPreviewSource()) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setPaywallIntent("print");
-                                        setPaywallOpen(true);
-                                        setCheckoutError(null);
-                                        trackFunnelStep("preview_checkout_nudge_clicked", {
-                                          source: getPreviewSource() ?? "editor",
-                                          intent: "print",
-                                        });
-                                        track("paywall_opened", {
-                                          visualMode: renderOptions.visualMode,
-                                          experiment: PAYWALL_COPY_EXPERIMENT,
-                                          variant: paywallVariant,
-                                          intent: "print",
-                                          trigger: "post_reveal_nudge",
-                                        });
-                                      }}
-                                      className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                                    >
-                                      Order framed print
-                                    </button>
-                                  )}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPaywallIntent("digital");
-                                    setPaywallOpen(true);
-                                    setCheckoutError(null);
-                                    trackFunnelStep("preview_checkout_nudge_clicked", {
-                                      source: getPreviewSource() ?? "editor",
-                                      intent: "digital",
-                                    });
-                                    track("paywall_opened", {
-                                      visualMode: renderOptions.visualMode,
-                                      experiment: PAYWALL_COPY_EXPERIMENT,
-                                      variant: paywallVariant,
-                                      intent: "digital",
-                                      trigger: "post_reveal_nudge",
-                                    });
-                                  }}
-                                  className={
-                                    printCheckoutEnabled && isWeddingCommerceContext(getPreviewSource())
-                                      ? "focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/60 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:bg-white/15 focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                                      : "text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                                  }
-                                >
-                                  Get HD ({priceLabels.single})
-                                </button>
-                                {printCheckoutEnabled &&
-                                  !isWeddingCommerceContext(getPreviewSource()) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setPaywallIntent("print");
-                                        setPaywallOpen(true);
-                                        setCheckoutError(null);
-                                        trackFunnelStep("preview_checkout_nudge_clicked", {
-                                          source: getPreviewSource() ?? "editor",
-                                          intent: "print",
-                                        });
-                                        track("paywall_opened", {
-                                          visualMode: renderOptions.visualMode,
-                                          experiment: PAYWALL_COPY_EXPERIMENT,
-                                          variant: paywallVariant,
-                                          intent: "print",
-                                          trigger: "post_reveal_nudge",
-                                        });
-                                      }}
-                                      className="focus:ring-gold inline-flex items-center justify-center rounded-full border border-amber-200/60 bg-white/10 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:bg-white/15 focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                                    >
-                                      See print options
-                                    </button>
-                                  )}
-                              </div>
-                            </div>
-                          )}
                           {showEditor && (
                             <button
                               type="button"
@@ -3039,15 +2812,6 @@ export function EditorExperience({
                               className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                             >
                               💾 Save & Remix
-                            </button>
-                          )}
-                          {!showEditor && (
-                            <button
-                              type="button"
-                              onClick={handleCustomizeMore}
-                              className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                            >
-                              Customize more
                             </button>
                           )}
                         </div>
@@ -3104,7 +2868,7 @@ export function EditorExperience({
                                   : aspectRatio === "2:3"
                                     ? "2:3 portrait"
                                     : "4:5 portrait"}
-                                — switch to Square in Advanced before checkout so the print matches what you see (no letterboxing).
+                                — switch to Square in Advanced before checkout to avoid letterboxing on the print.
                               </p>
                             )}
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">

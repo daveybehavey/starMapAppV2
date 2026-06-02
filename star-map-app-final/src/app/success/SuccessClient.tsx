@@ -1,15 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
-  ANALYTICS_STORAGE_KEY,
-  grantAnalyticsConsentFromUi,
-  hasAnalyticsConsent,
-  hasPendingGa4Purchase,
-  isAnalyticsConsentUnset,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -36,14 +30,7 @@ import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
-import { getDefaultMerchEditorHref, getMerchShopSectionHref } from "@/lib/merchCatalog";
-import { isValidMapId } from "@/lib/accountAccessEntitlements.mjs";
-import {
-  checkoutUrlErrorMessage,
-  createCheckoutFetchSignal,
-  redirectToStripeCheckout,
-} from "@/lib/stripeCheckoutNavigation";
-import { buildDownloadPath } from "@/lib/stripeCheckoutNavigation";
+import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -71,7 +58,6 @@ const DEFAULT_REFERRAL_SUMMARY: ReferralSummary = {
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim());
 const printShippingDisclosure = getPrintShippingDisclosure();
 const merchSuccessEditorHref = getDefaultMerchEditorHref("success-merch-teaser");
-const merchSuccessShopHref = getMerchShopSectionHref();
 const referralFriendOfferLabel = getReferralFriendOfferLabel();
 const referralShareMessage = getReferralShareMessage();
 const referralRewardCredits = (() => {
@@ -82,11 +68,6 @@ const referralRewardCredits = (() => {
 })();
 const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
-
-function normalizeMapId(id: string | null | undefined) {
-  const trimmed = typeof id === "string" ? id.trim() : "";
-  return trimmed && isValidMapId(trimmed) ? trimmed : null;
-}
 
 function readStoredMapId() {
   if (typeof window === "undefined") return null;
@@ -123,7 +104,6 @@ export default function SuccessClient() {
   const [referralStatus, setReferralStatus] = useState<ReferralStatus>("idle");
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
-  const [showPurchaseAnalyticsNudge, setShowPurchaseAnalyticsNudge] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
   const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
@@ -140,6 +120,17 @@ export default function SuccessClient() {
       priceLine: `${formatPrice(printTiers[card.variant].amountCents, printTiers[card.variant].currency)} + shipping shown at checkout`,
     }));
   }, [printTiers]);
+  const successPrintRecommendedCard = useMemo(
+    () => successPrintUpsellCards.find((card) => card.variant === "poster_framed") ?? successPrintUpsellCards[0] ?? null,
+    [successPrintUpsellCards],
+  );
+  const successPrintSecondaryCards = useMemo(
+    () =>
+      successPrintRecommendedCard
+        ? successPrintUpsellCards.filter((card) => card.variant !== successPrintRecommendedCard.variant)
+        : successPrintUpsellCards,
+    [successPrintRecommendedCard, successPrintUpsellCards],
+  );
 
   const pauseRedirect = useCallback(() => {
     autoRedirectRef.current = false;
@@ -224,13 +215,6 @@ export default function SuccessClient() {
     }
   }, [pauseRedirect]);
 
-  const handleOpenAccessLink = useCallback(() => {
-    if (!accessLink) return;
-    pauseRedirect();
-    track("success_recovery_action", { action: "open_access_link" });
-    window.open(accessLink, "_blank", "noopener,noreferrer");
-  }, [accessLink, pauseRedirect]);
-
   const handleManageBilling = useCallback(async () => {
     if (portalLoading) return;
     pauseRedirect();
@@ -267,48 +251,36 @@ export default function SuccessClient() {
       if (!checkoutMapId) {
         throw new Error("map_required");
       }
-      trackBeginCheckout({
-        source: "success",
-        plan: "single",
-        orderType: "digital",
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: "single",
+          orderType: "digital",
+          mapId: checkoutMapId,
+        }),
       });
-      const { signal, clear: clearCheckoutFetchTimeout } = createCheckoutFetchSignal();
-      let res: Response;
-      try {
-        res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            plan: "single",
-            orderType: "digital",
-            mapId: checkoutMapId,
-          }),
-          signal,
-        });
-      } finally {
-        clearCheckoutFetchTimeout();
-      }
       checkoutApiResponseReceived = true;
       const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
       if (!res.ok || !data?.url) {
         const code = (data as { code?: string } | null)?.code;
         if (code === "map_required") throw new Error("map_required");
         if (code === "map_not_found") throw new Error("map_not_found");
-        throw new Error(data?.error ?? "checkout_failed");
+        throw new Error(code ?? data?.error ?? "checkout_failed");
       }
       track("digital_addon_started", {
         source: "success",
         orderType,
         printVariant,
       });
-      redirectToStripeCheckout(data.url);
+      trackBeginCheckout({
+        source: "success",
+        plan: "single",
+        orderType: "digital",
+      });
+      window.location.assign(data.url);
     } catch (error) {
-      const reason =
-        error instanceof Error && error.name === "AbortError"
-          ? "checkout_timeout"
-          : error instanceof Error
-            ? error.message
-            : "checkout_failed";
+      const reason = error instanceof Error ? error.message : "checkout_failed";
       if (!checkoutApiResponseReceived) {
         trackCheckoutClientDiagnostic({
           reason,
@@ -317,10 +289,7 @@ export default function SuccessClient() {
           orderType: "digital",
         });
       }
-      const urlMessage = checkoutUrlErrorMessage(reason);
-      if (urlMessage) {
-        setMessage(urlMessage);
-      } else if (reason === "map_required") {
+      if (reason === "map_required") {
         setMessage("Open the editor, generate your map preview, then retry digital checkout.");
       } else if (reason === "map_not_found") {
         setMessage("We couldn't find that map anymore. Open the editor and regenerate preview, then retry.");
@@ -522,7 +491,7 @@ export default function SuccessClient() {
     let active = true;
     redirectTimerRef.current = null;
     const sessionId = searchParams.get("session_id");
-    const mapIdParam = normalizeMapId(searchParams.get("map_id"));
+    const mapIdParam = searchParams.get("map_id")?.trim() || null;
     if (!sessionId) {
       setStatus("error");
       setMessage("Missing payment session. Please contact support.");
@@ -559,7 +528,6 @@ export default function SuccessClient() {
             mapId?: string;
             amountTotal?: number | null;
             currency?: string | null;
-            isQa?: boolean;
             plan?: CheckoutPlan | null;
             creditsRemaining?: number | null;
             orderType?: CheckoutOrderType;
@@ -581,21 +549,18 @@ export default function SuccessClient() {
               try {
                 const purchaseKey = `ga4:purchase:${sessionId}`;
                 if (sessionStorage.getItem(purchaseKey) !== "true") {
-                  trackPurchaseCompleted(
-                    {
-                      transactionId: sessionId,
-                      plan: verifiedPlan,
-                      orderType: verifiedOrderType,
-                      printVariant: verifiedPrintVariant,
-                      includeDigitalAddOn: Boolean(data.includesDigitalAddOn),
-                      value:
-                        typeof data.amountTotal === "number" && Number.isFinite(data.amountTotal)
-                          ? data.amountTotal / 100
-                          : undefined,
-                      currency: typeof data.currency === "string" ? data.currency : undefined,
-                    },
-                    { skipAnalytics: data.isQa === true },
-                  );
+                  trackPurchaseCompleted({
+                    transactionId: sessionId,
+                    plan: verifiedPlan,
+                    orderType: verifiedOrderType,
+                    printVariant: verifiedPrintVariant,
+                    includeDigitalAddOn: Boolean(data.includesDigitalAddOn),
+                    value:
+                      typeof data.amountTotal === "number" && Number.isFinite(data.amountTotal)
+                        ? data.amountTotal / 100
+                        : undefined,
+                    currency: typeof data.currency === "string" ? data.currency : undefined,
+                  });
                   sessionStorage.setItem(purchaseKey, "true");
                 }
               } catch {
@@ -606,7 +571,7 @@ export default function SuccessClient() {
             setCurrentPlan(verifiedPlan);
             setOrderType(verifiedOrderType);
             setPrintVariant(verifiedPrintVariant);
-            const resolvedMapId = mapIdParam || normalizeMapId(typeof data.mapId === "string" ? data.mapId : null);
+            const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
             setResolvedMapId(resolvedMapId);
             if (hasDigitalEntitlement) {
               void createAccessLink();
@@ -627,14 +592,11 @@ export default function SuccessClient() {
             if (hasDigitalEntitlement) {
               redirectTimerRef.current = setTimeout(() => {
                 if (!autoRedirectRef.current) return;
-                router.replace(
-                  buildDownloadPath({
-                    sessionId,
-                    mapId: resolvedMapId,
-                    autoExport: true,
-                  }),
-                );
-              }, 1200);
+                const nextUrl = resolvedMapId
+                  ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
+                  : "/download";
+                router.replace(nextUrl);
+              }, 3500);
             }
             return;
           }
@@ -699,18 +661,6 @@ export default function SuccessClient() {
     });
   }, [currentPlan, hasDigitalEntitlement, orderType, resolvedMapId, status]);
 
-  useEffect(() => {
-    if (status !== "success" || !hasDigitalEntitlement) {
-      setShowPurchaseAnalyticsNudge(false);
-      return;
-    }
-    if (hasAnalyticsConsent()) {
-      setShowPurchaseAnalyticsNudge(false);
-      return;
-    }
-    setShowPurchaseAnalyticsNudge(hasPendingGa4Purchase() || isAnalyticsConsentUnset());
-  }, [hasDigitalEntitlement, status]);
-
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#0b1433] via-[#0b1a30] to-[#0b1433] px-4 text-amber-50">
       {/* Celebration stars animation */}
@@ -758,7 +708,7 @@ export default function SuccessClient() {
                 ? hasDigitalEntitlement
                   ? "Your print order is placed and your HD file is unlocked."
                   : "Your print order is placed. We'll review it and email updates before production begins."
-                : "Your HD download is unlocking — we'll open your file in a moment."
+                : "We are preparing your print-ready star map. This will only take a moment."
               : "Confirming your payment with Stripe. This can take up to 45 seconds."}
         </p>
         {status !== "error" && (
@@ -788,42 +738,6 @@ export default function SuccessClient() {
                       : "1 HD export credit unlocked."}
               </p>
             )}
-            {showPurchaseAnalyticsNudge ? (
-              <div className="relative mt-3 rounded-xl border border-amber-200/35 bg-amber-950/40 px-3 py-2 text-left">
-                <p className="text-xs text-amber-100/90">
-                  Optional: allow analytics so we can record this purchase in GA4/PostHog (helps ad reporting). Your download
-                  works either way.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      grantAnalyticsConsentFromUi();
-                      setShowPurchaseAnalyticsNudge(false);
-                      track("success_analytics_consent_granted", { source: "success_nudge" });
-                    }}
-                    className="rounded-full bg-amber-400 px-3 py-1.5 text-[11px] font-semibold text-midnight shadow-sm transition hover:bg-amber-300"
-                  >
-                    Allow analytics
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        localStorage.setItem(ANALYTICS_STORAGE_KEY, "false");
-                      } catch {
-                        // ignore
-                      }
-                      setShowPurchaseAnalyticsNudge(false);
-                      track("success_analytics_consent_declined", { source: "success_nudge" });
-                    }}
-                    className="rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-semibold text-amber-100/85 transition hover:border-white/40"
-                  >
-                    No thanks
-                  </button>
-                </div>
-              </div>
-            ) : null}
             <p className="relative mt-3 text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
               {status === "success"
                 ? hasDigitalEntitlement
@@ -845,7 +759,7 @@ export default function SuccessClient() {
                     </p>
                   </div>
                   {hasDigitalEntitlement ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={handleCopyAccessLink}
@@ -868,28 +782,6 @@ export default function SuccessClient() {
                           {accessEmailStatus === "sending" ? "Sending..." : "Email me link"}
                         </button>
                       )}
-                      {accessLink && accessLinkStatus === "ready" && (
-                        <button
-                          type="button"
-                          onClick={handleOpenAccessLink}
-                          className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
-                        >
-                          Open link
-                        </button>
-                      )}
-                      {accessLink && accessLinkStatus === "ready" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            pauseRedirect();
-                            track("success_recovery_action", { action: "new_access_link" });
-                            void createAccessLink(true);
-                          }}
-                          className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
-                        >
-                          New link
-                        </button>
-                      )}
                     </div>
                   ) : (
                     <button
@@ -905,22 +797,14 @@ export default function SuccessClient() {
                 {hasDigitalEntitlement ? (
                   <>
                     <p className="mt-2 text-[11px] text-amber-100/70">
-                      Keep this link private — anyone with it can access your downloads.
-                    </p>
-                    {accessLink && accessLinkStatus === "ready" && (
-                      <p className="mt-1 break-all text-[11px] text-amber-100/85">{accessLink}</p>
-                    )}
-                    <p className="mt-1 text-[11px] text-amber-100/70">
-                      Mobile tip: on iPhone, downloaded files are in <strong>Files → Downloads</strong> (not Photos).
+                      Keep this link private — anyone with it can access your downloads, and My Downloads can reopen it later.
                     </p>
                     <p className="mt-1 text-[11px] text-amber-100/70">
-                      If your download page says map not found, open the editor once to create/load the map, then return to
-                      download.
+                      If you need the file on another device, copy or email the access link above.
                     </p>
                     {currentPlan === "pack3" && (
                       <p className="mt-1 text-[11px] text-amber-100/70">
-                        3-credit pack reminder: each HD export is for one map at a time. To use all 3 credits, edit/create
-                        your next map between downloads.
+                        3-credit pack: each HD export is for one map at a time.
                       </p>
                     )}
                     {accessLinkStatus === "error" && (
@@ -944,13 +828,10 @@ export default function SuccessClient() {
                       onClick={() => {
                         pauseRedirect();
                         track("success_recovery_action", { action: "go_to_download_now" });
-                        router.replace(
-                          buildDownloadPath({
-                            sessionId: searchParams.get("session_id"),
-                            mapId: resolvedMapId,
-                            autoExport: true,
-                          }),
-                        );
+                        const nextUrl = resolvedMapId
+                          ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
+                          : "/download";
+                        router.replace(nextUrl);
                       }}
                       className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
                     >
@@ -1009,71 +890,91 @@ export default function SuccessClient() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                          Print this exact map
+                          Print this map next
                         </p>
                         <p className="mt-1 text-xs text-amber-100/80">
-                          Ship the design you just unlocked — same artwork, no rebuild. Framed is the strongest
-                          ready-to-gift finish; unframed works if you already have a frame. {printShippingDisclosure}
+                          Turn this download into a premium gift. Framed is the cleanest gift-ready finish. {printShippingDisclosure}
                         </p>
                       </div>
                       <span className="rounded-full border border-amber-200/40 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                         Framed recommended
                       </span>
                     </div>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {successPrintUpsellCards.map((option) => (
-                        <div key={option.variant} className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                          <div className="p-3 pb-0">
+                    {successPrintRecommendedCard && (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                        <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+                          <div className="p-3 pb-0 lg:p-4 lg:pr-0 lg:pb-4">
                             <div className="relative aspect-[4/3] overflow-hidden rounded-[1.35rem]">
-                              <div className={option.sceneClass}>
+                              <div className={successPrintRecommendedCard.sceneClass}>
                                 <ResilientImage
-                                  src={option.imageSrc}
-                                  fallbackSrc={option.fallbackSrc}
-                                  alt={option.label}
+                                  src={successPrintRecommendedCard.imageSrc}
+                                  fallbackSrc={successPrintRecommendedCard.fallbackSrc}
+                                  alt={successPrintRecommendedCard.label}
                                   fill
-                                  sizes="(max-width: 768px) 100vw, 33vw"
-                                  className={option.imageClass}
+                                  sizes="(max-width: 768px) 100vw, 42vw"
+                                  className={successPrintRecommendedCard.imageClass}
                                 />
                               </div>
                               <span className="absolute left-4 top-4 rounded-full border border-black/10 bg-white/88 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-midnight shadow-sm">
-                                {option.sceneLabel}
+                                {successPrintRecommendedCard.sceneLabel}
                               </span>
                             </div>
                           </div>
-                          <div className="space-y-1 p-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-white">{option.label}</p>
-                              <span className="rounded-full border border-amber-200/35 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                                {option.badge}
-                              </span>
+                          <div className="flex flex-col justify-between gap-4 p-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                  Recommended
+                                </span>
+                                <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/80">
+                                  Gift-ready
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                <h5 className="text-base font-semibold text-white">{successPrintRecommendedCard.label}</h5>
+                                <p className="text-xs text-neutral-200">{successPrintRecommendedCard.detail}</p>
+                              </div>
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/85">
+                                {successPrintRecommendedCard.bestFor}
+                              </p>
+                              <p className="text-sm font-semibold text-amber-100">{successPrintRecommendedCard.priceLine}</p>
                             </div>
-                            <p className="text-[11px] text-amber-100/80">{option.detail}</p>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/75">{option.bestFor}</p>
-                            <p className="text-[11px] font-semibold text-amber-100">{option.priceLine}</p>
+                            <button
+                              type="button"
+                              onClick={() => void handleOpenPrintUpsell(successPrintRecommendedCard.variant)}
+                              className="inline-flex w-full items-center justify-center rounded-full border border-amber-100 bg-amber-300 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:bg-amber-200"
+                            >
+                              Start framed checkout
+                            </button>
                           </div>
                         </div>
-                      ))}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {PAYWALL_PRINT_VARIANT_ORDER.map((variant, idx) => (
-                        <button
-                          key={variant}
-                          type="button"
-                          onClick={() => handleOpenPrintUpsell(variant)}
-                          className={
-                            idx === 0
-                              ? "rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
-                              : "rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
-                          }
-                        >
-                          {idx === 0 ? "Add " : ""}
-                          {printTiers[variant].label} (
-                          {formatPrice(printTiers[variant].amountCents, printTiers[variant].currency)} + shipping)
-                        </button>
-                      ))}
-                    </div>
+                    )}
+                    {successPrintSecondaryCards.length > 0 && (
+                      <details className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-semibold text-white/90">Other print formats</summary>
+                        <div className="mt-3 grid gap-2">
+                          {successPrintSecondaryCards.map((option) => (
+                            <button
+                              key={option.variant}
+                              type="button"
+                              onClick={() => void handleOpenPrintUpsell(option.variant)}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/5 px-3 py-2 text-left text-xs transition hover:-translate-y-[1px] hover:border-white/25 hover:bg-white/8"
+                            >
+                              <div className="min-w-0">
+                                <p className="font-semibold text-white">{option.label}</p>
+                                <p className="mt-0.5 text-[11px] text-neutral-300">{option.bestFor}</p>
+                              </div>
+                              <span className="shrink-0 rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                {option.priceLine}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                     <p className="mt-2 text-[11px] text-amber-100/70">
-                      Physical orders are reviewed before production begins, but your digital file stays available right away. {printShippingDisclosure}
+                      Physical orders are reviewed before production begins, but your digital file stays available right away.
                     </p>
                   </div>
                 )}
@@ -1081,11 +982,8 @@ export default function SuccessClient() {
                   <div className="mt-4 rounded-xl border border-violet-200/35 bg-violet-500/15 p-3 text-left">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-violet-100/90">
-                        Want stickers or apparel too?
+                        Stickers & apparel
                       </p>
-                      <span className="rounded-full border border-violet-200/40 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
-                        Merch beta
-                      </span>
                     </div>
                     <p className="mt-1 text-xs text-violet-100/85">
                       Turn this sky into kiss-cut stickers, magnets, pins, or DTG apparel — options ship like prints through
@@ -1102,47 +1000,21 @@ export default function SuccessClient() {
                       >
                         Open editor with merch
                       </button>
-                      {merchSuccessShopHref ? (
-                        <Link
-                          href={merchSuccessShopHref}
-                          prefetch={false}
-                          onClick={() => track("success_merch_teaser_clicked", { destination: "shop" })}
-                          className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-[11px] font-semibold text-white transition hover:border-white/50 hover:bg-white/10"
-                        >
-                          Browse shop merch
-                        </Link>
-                      ) : null}
                     </div>
                   </div>
                 ) : null}
                 {hasDigitalEntitlement && (
-                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                        Referral bonus
-                      </p>
-                      <p className="text-[11px] text-amber-100/70">
-                        {referralSummary.rewardsGranted} bonus credit{referralSummary.rewardsGranted === 1 ? "" : "s"}
-                      </p>
-                    </div>
-                    <p className="mt-1 text-xs text-amber-100/80">
+                  <details className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
+                      Referral bonus
+                    </summary>
+                    <p className="mt-2 text-xs text-amber-100/80">
                       Share your link on social. Friends get {referralFriendOfferLabel} and each paid checkout adds{" "}
                       {referralRewardCreditsLabel}.
                     </p>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
-                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-                        <p className="text-amber-100/60">Visits</p>
-                        <p className="font-semibold text-white">{referralSummary.visits}</p>
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-                        <p className="text-amber-100/60">Sales</p>
-                        <p className="font-semibold text-white">{referralSummary.conversions}</p>
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-                        <p className="text-amber-100/60">Rewards</p>
-                        <p className="font-semibold text-white">{referralSummary.rewardsGranted}</p>
-                      </div>
-                    </div>
+                    <p className="mt-2 text-[11px] text-amber-100/70">
+                      Referral credits earned so far: {referralSummary.rewardsGranted}.
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -1175,56 +1047,10 @@ export default function SuccessClient() {
                           >
                             Share link
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("x")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share X
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("facebook")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share Facebook
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("pinterest")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share Pinterest
-                          </button>
                         </>
                       )}
                     </div>
-                    {referralSummary.lastConvertedAt ? (
-                      <p className="mt-2 text-[11px] text-amber-100/70">
-                        Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
-                      </p>
-                    ) : null}
-                    {referralSummary.topVisitSources.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Top social traffic:{" "}
-                        {referralSummary.topVisitSources
-                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {referralSummary.topConversionSources.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Top referral sales:{" "}
-                        {referralSummary.topConversionSources
-                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {referralLink ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Suggested social caption: {referralShareMessage}
-                      </p>
-                    ) : null}
+                    {referralLink ? <p className="mt-1 text-[11px] text-amber-100/70">Share the link from any device.</p> : null}
                     {referralStatus === "loading" && (
                       <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
                     )}
@@ -1232,7 +1058,7 @@ export default function SuccessClient() {
                       <p className="mt-2 text-[11px] text-rose-200">Couldn&apos;t load referral stats right now.</p>
                     )}
                     {referralError && <p className="mt-2 text-[11px] text-rose-200">{referralError}</p>}
-                  </div>
+                  </details>
                 )}
                 <PostPurchaseProofRequest
                   source="success"

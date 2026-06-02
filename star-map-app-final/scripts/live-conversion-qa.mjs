@@ -129,31 +129,18 @@ async function createOneTimePromo(stripe) {
   return { code, couponId: coupon.id, promotionCodeId: promotionCode.id };
 }
 
-async function readCheckoutMapId(page) {
-  return page.evaluate(() => {
-    try {
-      const value =
-        localStorage.getItem("star-map-checkout-id") || localStorage.getItem("checkout-map-id");
-      return typeof value === "string" && value.trim() ? value.trim() : null;
-    } catch {
-      return null;
-    }
-  });
-}
-
-async function createDiscountedCheckoutSession(stripe, site, promotionCodeId, mapId) {
+async function createDiscountedCheckoutSession(stripe, site, promotionCodeId) {
   const singlePriceId = (process.env.STRIPE_PRICE_ID_SINGLE || "").trim();
   const paymentMethodConfigurationId = (process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID || "").trim();
   if (!singlePriceId) {
     throw new Error("STRIPE_PRICE_ID_SINGLE is required for discounted checkout fallback");
   }
   const normalizedSite = site.replace(/\/+$/, "");
-  const mapQuery = mapId ? `&map_id=${encodeURIComponent(mapId)}` : "";
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    success_url: `${normalizedSite}/success?session_id={CHECKOUT_SESSION_ID}${mapQuery}`,
+    success_url: `${normalizedSite}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${normalizedSite}/`,
-    ...(mapId ? { client_reference_id: mapId } : {}),
+    client_reference_id: "qa-live-conversion",
     line_items: [{ price: singlePriceId, quantity: 1 }],
     discounts: [{ promotion_code: promotionCodeId }],
     billing_address_collection: "auto",
@@ -163,10 +150,8 @@ async function createDiscountedCheckoutSession(stripe, site, promotionCodeId, ma
     metadata: {
       plan: "single",
       order_type: "digital",
-      credits: "1",
       qa_run: "true",
       qa_source: "live_conversion_qa",
-      ...(mapId ? { map_id: mapId } : {}),
     },
   });
   if (!session.url) {
@@ -371,18 +356,6 @@ async function run() {
   try {
     await page.goto(`${args.site}/`, { waitUntil: "networkidle", timeout: 60_000 });
     report.steps.push("Homepage loaded");
-    await page.evaluate(() => {
-      try {
-        localStorage.setItem("analytics-consent", "true");
-      } catch {
-        // Ignore storage failures in automation.
-      }
-    });
-    const acceptCookies = page.getByRole("button", { name: /accept/i }).first();
-    if (await acceptCookies.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await acceptCookies.click();
-      report.steps.push("Accepted analytics cookies");
-    }
     await captureScreenshot("/tmp/qa-live-01-home.png", "home");
 
     const dateInput = page.locator("input[name='date']").first();
@@ -456,21 +429,12 @@ async function run() {
         report.steps.push("Entered checkout email");
       }
 
-      const checkoutMapId = await readCheckoutMapId(page);
-      if (checkoutMapId) {
-        report.stripe.checkoutMapId = checkoutMapId;
-        report.steps.push("Using editor map id for checkout metadata");
-      } else {
-        report.friction.push("No star-map-checkout-id in localStorage before checkout (download may rely on draft only)");
-      }
-
       if (promo?.code) {
         if (promo.promotionCodeId && !args.forcePromoField) {
           const discountedSession = await createDiscountedCheckoutSession(
             stripe,
             args.site,
             promo.promotionCodeId,
-            checkoutMapId,
           );
           report.steps.push("Opened pre-discounted checkout session");
           report.stripe.discountedCheckoutSessionId = discountedSession.id;
@@ -491,7 +455,6 @@ async function run() {
               stripe,
               args.site,
               promo.promotionCodeId,
-              checkoutMapId,
             );
             report.steps.push("Promo field failed; switched to discounted fallback checkout session");
             report.stripe.fallbackCheckoutSessionId = fallbackSession.id;
@@ -514,22 +477,32 @@ async function run() {
         report.steps.push("Accepted checkout terms");
       }
 
-      await page.waitForTimeout(2000);
       const submitCandidates = [
-        page.getByTestId("hosted-payment-submit-button"),
-        page.getByTestId("submit-button"),
-        page.getByRole("button", { name: /complete order|place order|pay|complete|subscribe|confirm/i }),
-        page.locator("button[type='submit']").first(),
+        "button[data-testid='hosted-payment-submit-button']",
+        "button[data-testid='submit-button']",
+        "button[type='submit']",
+        "button:has-text('Pay')",
+        "button:has-text('Pay now')",
+        "button:has-text('Complete')",
+        "button:has-text('Place order')",
+        "button:has-text('Subscribe')",
+        "button[aria-label*='Pay' i]",
       ];
 
       let submitted = false;
-      for (const locator of submitCandidates) {
-        if (await locator.isVisible({ timeout: 3000 }).catch(() => false)) {
-          if (await locator.isEnabled().catch(() => false)) {
-            await locator.click();
+      for (const selector of submitCandidates) {
+        const btn = page.locator(selector).first();
+        try {
+          // Stripe Checkout can take a bit to finish rendering the hosted payment button.
+          await btn.waitFor({ state: "visible", timeout: 12_000 });
+          const isEnabled = await btn.isEnabled().catch(() => false);
+          if (isEnabled) {
+            await btn.click();
             submitted = true;
             break;
           }
+        } catch {
+          // Try next selector.
         }
       }
       if (!submitted) {

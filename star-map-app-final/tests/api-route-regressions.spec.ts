@@ -55,6 +55,31 @@ async function requestUntilReady(
   );
 }
 
+async function postWithRetryOnNetworkError(
+  request: APIRequestContext,
+  path: string,
+  init: Parameters<APIRequestContext["post"]>[1],
+  options: { tries?: number; backoffMs?: number } = {},
+) {
+  const tries = options.tries ?? 4;
+  const backoffMs = options.backoffMs ?? 250;
+  let lastErr: unknown = null;
+
+  for (let attempt = 1; attempt <= tries; attempt += 1) {
+    try {
+      return await request.post(path, init);
+    } catch (err) {
+      lastErr = err;
+      const message = String(err);
+      const isNetworkReset = /ECONNRESET|fetch failed|socket hang up|read ECONNRESET/i.test(message);
+      if (!isNetworkReset || attempt === tries) break;
+      await new Promise((resolve) => setTimeout(resolve, backoffMs * attempt));
+    }
+  }
+
+  throw lastErr ?? new Error(`POST ${path} failed`);
+}
+
 test.describe("API route regressions", () => {
   test.describe.configure({ timeout: 240_000 });
 
@@ -163,13 +188,13 @@ test.describe("API route regressions", () => {
   });
 
   test("referral visit endpoint validates payload", async ({ request }) => {
-    const invalidResponse = await request.post("/api/referrals/visit", {
+    const invalidResponse = await postWithRetryOnNetworkError(request, "/api/referrals/visit", {
       headers: { "x-forwarded-for": randomIp() },
       data: { code: "bad code!" },
     });
     expect(invalidResponse.status()).toBe(400);
 
-    const missingRecordResponse = await request.post("/api/referrals/visit", {
+    const missingRecordResponse = await postWithRetryOnNetworkError(request, "/api/referrals/visit", {
       headers: { "x-forwarded-for": randomIp() },
       data: { code: "ABCD1234" },
     });
@@ -177,13 +202,13 @@ test.describe("API route regressions", () => {
   });
 
   test("referral attribution endpoint validates payload", async ({ request }) => {
-    const invalidResponse = await request.post("/api/referrals/attribution", {
+    const invalidResponse = await postWithRetryOnNetworkError(request, "/api/referrals/attribution", {
       headers: { "x-forwarded-for": randomIp() },
       data: { code: "bad code!" },
     });
     expect(invalidResponse.status()).toBe(400);
 
-    const missingRecordResponse = await request.post("/api/referrals/attribution", {
+    const missingRecordResponse = await postWithRetryOnNetworkError(request, "/api/referrals/attribution", {
       headers: { "x-forwarded-for": randomIp() },
       data: { code: "ABCD1234" },
     });

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import printproofManifest from "../../../public/printproof/manifest.json";
-import upsellCandidates from "../../../data/upsell-candidates.json";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
@@ -17,17 +16,6 @@ import {
 } from "@/lib/merchCatalog";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-
-type UpsellCandidate = {
-  id: string;
-  label: string;
-  variantId: number;
-  phase: string;
-  bundleOnly?: boolean;
-  notes?: string;
-};
-
-const upsellRows = upsellCandidates as UpsellCandidate[];
 
 function merchShopTeaser(id: MerchFamilyId): string {
   switch (id) {
@@ -92,7 +80,6 @@ export default function ShopPage() {
   );
   const digitalPrice = formatPrice(digitals.single.amountCents, (digitals.single.currency || "USD").toUpperCase());
 
-  const roadmapSkus = upsellRows.filter((row) => row.phase !== "core");
   const partnerOffers = parseShopExternalOffers(process.env.NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON);
   const merchFamilies = listMerchFamiliesEnabledForPublicUi();
 
@@ -188,8 +175,8 @@ export default function ShopPage() {
         </section>
 
         {merchFamilies.length ? (
-          <section id="merch-beta" className="mt-14 border-t border-neutral-200 pt-10">
-            <h2 className="text-xl font-semibold text-midnight">Wearables & small merch (beta)</h2>
+          <section id="merch-addons" className="mt-14 border-t border-neutral-200 pt-10">
+            <h2 className="text-xl font-semibold text-midnight">Wearables & small merch</h2>
             <p className="mt-2 text-sm text-neutral-700">
               Same editor artwork — pick product options after your preview. Shipping appears in Stripe before payment.
               Fulfillment via Printful with manual review on physical orders.
@@ -204,7 +191,6 @@ export default function ShopPage() {
                     key={family.id}
                     className="flex flex-col rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-white p-4 shadow-sm"
                   >
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">Merch beta</p>
                     <p className="mt-2 text-lg font-semibold text-midnight">{label}</p>
                     <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-700">{merchShopTeaser(family.id)}</p>
                     <p className="mt-3 text-base font-semibold text-violet-900">{priceLine}+ shipping at checkout</p>
@@ -218,34 +204,6 @@ export default function ShopPage() {
                   </li>
                 );
               })}
-            </ul>
-          </section>
-        ) : null}
-
-        {roadmapSkus.length ? (
-          <section className="mt-14 border-t border-neutral-200 pt-10">
-            <h2 className="text-xl font-semibold text-midnight">More Printful formats on the roadmap</h2>
-            <p className="mt-2 text-sm text-neutral-700">
-              These SKUs are tracked internally but are not wired into Stripe checkout yet — tell us what you want next.
-            </p>
-            <ul className="mt-6 grid gap-4 sm:grid-cols-2">
-              {roadmapSkus.map((row) => (
-                <li key={row.id} className="rounded-2xl border border-dashed border-amber-300/70 bg-amber-50/40 p-4">
-                  <p className="font-semibold text-midnight">{row.label}</p>
-                  <p className="mt-1 text-xs font-medium tracking-wide text-neutral-500">
-                    {row.phase.startsWith("phase-") ? `Phase ${row.phase.replace(/^phase-/i, "")}` : row.phase} · Variant{" "}
-                    {row.variantId}
-                  </p>
-                  {row.notes ? <p className="mt-2 text-sm text-neutral-700">{row.notes}</p> : null}
-                  <Link
-                    href={`/contact?topic=shop-roadmap&sku=${encodeURIComponent(row.id)}`}
-                    prefetch={false}
-                    className="mt-3 inline-flex text-sm font-semibold text-amber-800 underline hover:text-amber-950"
-                  >
-                    Request this format
-                  </Link>
-                </li>
-              ))}
             </ul>
           </section>
         ) : null}
@@ -281,9 +239,7 @@ export default function ShopPage() {
             Poster and framed SKUs map directly to your configured Printful variants (
             <span className="whitespace-nowrap">unframed {printproofManifest.catalog?.unframed?.variantId ?? "—"}</span>,{" "}
             <span className="whitespace-nowrap">framed {printproofManifest.catalog?.framed?.variantId ?? "—"}</span>
-            ). Beta merch (stickers, magnets, pins, apparel) uses Printful catalog variants per selected options. Broader
-            roadmap formats (canvas, mugs, cards) still need Stripe prices, margin guards, and fulfillment QA before they
-            ship.
+            ). Merch add-ons (stickers, magnets, pins, apparel) use Printful catalog variants per selected options.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/how-to-print-star-map" prefetch={false} className="font-semibold text-amber-800 underline">
