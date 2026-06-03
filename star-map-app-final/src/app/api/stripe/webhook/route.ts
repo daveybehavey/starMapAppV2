@@ -330,6 +330,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     const skipProductionAnalytics = isQaStripeSession(session);
     await recordPaymentVerifiedOnce({
       sessionId: session.id,
+      amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
       source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",
       plan: plan ?? undefined,
       skipProductionAnalytics,

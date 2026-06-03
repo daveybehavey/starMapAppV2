@@ -143,6 +143,7 @@ export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> 
 
 export async function recordPaymentVerifiedOnce(input: {
   sessionId: string;
+  amountTotal?: number | null;
   source?: string;
   plan?: string;
   experiment?: string;
@@ -155,6 +156,11 @@ export async function recordPaymentVerifiedOnce(input: {
   const sessionId = input.sessionId.trim();
   if (!sessionId) return;
   const skipProduction = input.skipProductionAnalytics === true;
+  const amountTotal =
+    typeof input.amountTotal === "number" && Number.isFinite(input.amountTotal) ? input.amountTotal : null;
+  // For KPI purposes, only treat real revenue sessions as "payment_verified".
+  // Entitlements may still be granted for $0 / no_payment_required flows elsewhere.
+  if (amountTotal !== null && amountTotal <= 0) return;
   // GA4 has its own dedupe; run before funnel dedupe so a later verify/webhook can retry MP if needed.
   if (input.ga4Purchase && !skipProduction) {
     await recordGa4PurchaseOnce(input.ga4Purchase);

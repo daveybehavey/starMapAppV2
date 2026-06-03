@@ -60,7 +60,8 @@ Optional env vars:
 
 function isPaidCheckoutSession(session) {
   const paymentStatus = String(session.payment_status || "");
-  return paymentStatus === "paid" || paymentStatus === "no_payment_required";
+  const amountTotal = typeof session.amount_total === "number" ? session.amount_total : 0;
+  return (paymentStatus === "paid" || paymentStatus === "no_payment_required") && amountTotal > 0;
 }
 
 function belongsToStarMap(session) {

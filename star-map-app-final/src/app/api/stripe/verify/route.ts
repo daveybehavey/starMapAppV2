@@ -206,6 +206,7 @@ export async function GET(req: NextRequest) {
       const skipProductionAnalytics = isQaStripeSession(session);
       await recordPaymentVerifiedOnce({
         sessionId,
+        amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
         source: orderType === "print" ? "stripe_verify_print" : "stripe_verify_digital",
         plan: plan ?? undefined,
         skipProductionAnalytics,
