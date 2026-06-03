@@ -1535,9 +1535,9 @@ export function MobileCreate({
         <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 rounded-2xl border border-amber-200/40 bg-[#0b0f24]/95 px-4 py-3 shadow-xl shadow-black/30 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold text-white">Ready to reveal your sky?</p>
+              <p className="text-xs font-semibold text-white">Preview is ready</p>
               <p className="text-[10px] text-neutral-300">
-                {isRevealing ? "Rendering your reveal..." : "Free preview, HD optional."}
+                {isRevealing ? "Rendering your reveal..." : "Free preview. HD export is optional."}
               </p>
             </div>
             <button
@@ -1551,7 +1551,7 @@ export function MobileCreate({
                   : "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:-translate-y-[1px] hover:shadow-lg"
               }`}
             >
-              {isRevealing ? "Revealing..." : "Generate preview"}
+              {isRevealing ? "Revealing..." : "Reveal preview"}
             </button>
           </div>
         </div>
