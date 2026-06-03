@@ -346,6 +346,13 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
   const trimmed = promoCode?.trim();
   if (!trimmed) return { invalid: false, lookupFailed: false };
 
+  // Profit safety: only allow the explicitly configured promotion code to be applied.
+  // This prevents accidental/legacy QA one-time promo codes (which can be 100% off)
+  // from being auto-applied and producing $0 `no_payment_required` sessions.
+  if (configuredPromoCode && trimmed.toUpperCase() !== configuredPromoCode) {
+    return { invalid: false, lookupFailed: false };
+  }
+
   if (configuredPromoCode && configuredStripePromotionCodeId && trimmed.toUpperCase() === configuredPromoCode) {
     const configuredPromotion = await fetchPromotionCodeById(configuredStripePromotionCodeId);
     if (configuredPromotion) {
