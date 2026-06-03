@@ -210,7 +210,11 @@ async function mapExists(mapId: string): Promise<boolean> {
   return Boolean(record);
 }
 
-async function assertDigitalCheckoutMap(mapId: string | undefined) {
+async function assertDigitalCheckoutMap(mapId: string | undefined, plan: CheckoutPlan) {
+  // Subscription checkout doesn't require a map preview to start payment,
+  // so don't block on missing map_id for that plan.
+  if (plan === "subscription") return;
+
   if (!mapId) {
     throw new CheckoutError(
       "Create your map preview before starting checkout.",
@@ -983,7 +987,7 @@ export async function GET(req: NextRequest) {
   }
   if (orderType !== "print") {
     try {
-      await assertDigitalCheckoutMap(mapId);
+      await assertDigitalCheckoutMap(mapId, plan);
     } catch (error) {
       if (error instanceof CheckoutError) {
         await recordCheckoutFailure({
@@ -1147,7 +1151,7 @@ export async function POST(req: NextRequest) {
       );
     }
     if (orderType !== "print") {
-      await assertDigitalCheckoutMap(mapId);
+        await assertDigitalCheckoutMap(mapId, plan);
     }
     const promotion = orderType === "digital" && plan === "subscription"
       ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
