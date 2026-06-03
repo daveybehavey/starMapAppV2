@@ -508,6 +508,37 @@ class CheckoutError extends Error {
   }
 }
 
+function normalizeNonCheckoutError(err: unknown): {
+  reason: string;
+  code: string;
+  status: number;
+} {
+  const fallbackStatus = 500;
+
+  const message = err instanceof Error ? err.message : "";
+  if (message.toLowerCase().includes("stripe not configured")) {
+    return { reason: "stripe_not_configured", code: "stripe_not_configured", status: 503 };
+  }
+
+  if (!err || typeof err !== "object") {
+    return { reason: "unknown_error", code: "unknown_error", status: fallbackStatus };
+  }
+
+  const anyErr = err as Record<string, unknown>;
+  const codeCandidate =
+    (typeof anyErr.code === "string" ? anyErr.code : null) ??
+    (typeof anyErr.raw?.code === "string" ? String(anyErr.raw.code) : null) ??
+    (typeof anyErr.type === "string" ? String(anyErr.type) : null);
+
+  const statusCandidate =
+    (typeof anyErr.statusCode === "number" ? anyErr.statusCode : null) ??
+    (typeof anyErr.status === "number" ? anyErr.status : null);
+
+  const status = typeof statusCandidate === "number" && Number.isFinite(statusCandidate) ? statusCandidate : fallbackStatus;
+  const base = codeCandidate ? `stripe_${codeCandidate}` : "stripe_error";
+  return { reason: base, code: base, status };
+}
+
 const CHECKOUT_IDEMPOTENCY_TTL_SECONDS = 2 * 60;
 const CHECKOUT_IDEMPOTENCY_PREFIX = "checkout:idempotency:url:";
 
@@ -1056,13 +1087,15 @@ export async function GET(req: NextRequest) {
       });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
+
+    const normalized = normalizeNonCheckoutError(err);
     await recordCheckoutFailure({
-      reason: "unknown_error",
+      reason: normalized.reason,
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
     });
     console.error("Stripe checkout error", err);
-    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: 500 });
+    return NextResponse.json({ error: "Checkout failed", code: normalized.code }, { status: normalized.status });
   }
 }
 
@@ -1299,12 +1332,14 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
+
+    const normalized = normalizeNonCheckoutError(err);
     await recordCheckoutFailure({
-      reason: "unknown_error",
+      reason: normalized.reason,
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
     });
     console.error("Stripe checkout error", err);
-    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: 500 });
+    return NextResponse.json({ error: "Checkout failed", code: normalized.code }, { status: normalized.status });
   }
 }
