@@ -525,9 +525,12 @@ function normalizeNonCheckoutError(err: unknown): {
   }
 
   const anyErr = err as Record<string, unknown>;
+  const rawErr = anyErr.raw as unknown;
   const codeCandidate =
     (typeof anyErr.code === "string" ? anyErr.code : null) ??
-    (typeof anyErr.raw?.code === "string" ? String(anyErr.raw.code) : null) ??
+    (typeof (rawErr as { code?: unknown } | null)?.code === "string"
+      ? String((rawErr as { code?: unknown }).code)
+      : null) ??
     (typeof anyErr.type === "string" ? String(anyErr.type) : null);
 
   const statusCandidate =
