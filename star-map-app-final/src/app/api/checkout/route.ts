@@ -509,23 +509,23 @@ class CheckoutError extends Error {
 }
 
 function normalizeNonCheckoutError(err: unknown): {
-  reason: string;
-  code: string;
+  reason: string; // for checkout diagnostics + dashboards
   status: number;
 } {
   const fallbackStatus = 500;
 
   const message = err instanceof Error ? err.message : "";
   if (message.toLowerCase().includes("stripe not configured")) {
-    return { reason: "stripe_not_configured", code: "stripe_not_configured", status: 503 };
+    return { reason: "stripe_not_configured", status: 503 };
   }
 
   if (!err || typeof err !== "object") {
-    return { reason: "unknown_error", code: "unknown_error", status: fallbackStatus };
+    return { reason: "stripe_error", status: fallbackStatus };
   }
 
   const anyErr = err as Record<string, unknown>;
   const rawErr = anyErr.raw as unknown;
+  const name = typeof anyErr.name === "string" ? anyErr.name : null;
   const codeCandidate =
     (typeof anyErr.code === "string" ? anyErr.code : null) ??
     (typeof (rawErr as { code?: unknown } | null)?.code === "string"
@@ -538,8 +538,12 @@ function normalizeNonCheckoutError(err: unknown): {
     (typeof anyErr.status === "number" ? anyErr.status : null);
 
   const status = typeof statusCandidate === "number" && Number.isFinite(statusCandidate) ? statusCandidate : fallbackStatus;
-  const base = codeCandidate ? `stripe_${codeCandidate}` : "stripe_error";
-  return { reason: base, code: base, status };
+  const base = codeCandidate
+    ? `stripe_${codeCandidate}`
+    : name
+      ? `stripe_${name}`
+      : "stripe_error";
+  return { reason: base, status };
 }
 
 const CHECKOUT_IDEMPOTENCY_TTL_SECONDS = 2 * 60;
@@ -1098,7 +1102,8 @@ export async function GET(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
     console.error("Stripe checkout error", err);
-    return NextResponse.json({ error: "Checkout failed", code: normalized.code }, { status: normalized.status });
+    // Keep response `code` stable for the UI, while analytics use deterministic `reason`.
+    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: normalized.status });
   }
 }
 
@@ -1343,6 +1348,6 @@ export async function POST(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
     console.error("Stripe checkout error", err);
-    return NextResponse.json({ error: "Checkout failed", code: normalized.code }, { status: normalized.status });
+    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: normalized.status });
   }
 }
