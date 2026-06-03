@@ -481,13 +481,17 @@ export function EditorExperience({
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
-  const revealBlockedMessage = !hasDate && !hasLocation
-    ? "Add your date and place to unlock preview."
+  const previewLockedMessage = !hasDate && !hasLocation
+    ? "Add your date and place to unlock preview. Presets optional."
     : !hasDate
-      ? "Add your date to unlock preview."
-      : !hasLocation
-        ? "Add your place to unlock preview."
-        : "Presets optional.";
+      ? "Add your date to unlock preview. Presets optional."
+      : "Add your place to unlock preview. Presets optional.";
+  const previewReadyMessage = "Preview is ready. Presets optional.";
+  const previewUnlockButtonLabel = !hasDate && !hasLocation
+    ? "Add date + place to unlock preview"
+    : !hasDate
+      ? "Add your date to unlock preview"
+      : "Add your place to unlock preview";
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(
@@ -1977,14 +1981,24 @@ export function EditorExperience({
                                 type="button"
                                 onClick={handleReveal}
                                 disabled={!canReveal || isRevealing}
-                                aria-label="Generate preview"
+                                aria-label={
+                                  isRevealing
+                                    ? "Revealing your sky"
+                                    : canReveal
+                                      ? "Generate preview"
+                                      : previewUnlockButtonLabel
+                                }
                                 className={`text-midnight focus:ring-gold inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
                                   canReveal && !isRevealing
                                     ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                                     : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
                                 }`}
                               >
-                                {isRevealing ? "Revealing your sky..." : "Generate preview"}
+                                {isRevealing
+                                  ? "Revealing your sky..."
+                                  : canReveal
+                                    ? "Generate preview"
+                                    : previewUnlockButtonLabel}
                               </button>
                             )}
                             {!revealed && (
@@ -1992,9 +2006,15 @@ export function EditorExperience({
                                 <p>
                                   {isRevealing
                                     ? "Aligning constellations for your selected moment..."
-                                    : revealBlockedMessage}
+                                    : canReveal
+                                      ? previewReadyMessage
+                                      : previewLockedMessage}
                                 </p>
-                                <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
+                                <p className="text-[11px] text-neutral-500">
+                                  {canReveal
+                                    ? "Free preview, HD optional."
+                                    : "Free preview, HD optional after you add date + place."}
+                                </p>
                               </div>
                             )}
                           </div>
@@ -2680,7 +2700,7 @@ export function EditorExperience({
                                 )
                               ) : (
                                 <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-neutral-200 shadow-sm backdrop-blur">
-                                  {revealBlockedMessage}
+                                  {previewLockedMessage}
                                 </div>
                               )}
                               {canReveal && (

@@ -17,6 +17,15 @@ import {
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
+type PrintproofManifestWithOptionalMockups = typeof printproofManifest & {
+  mockups?: {
+    framed?: { localPath?: string; sourceUrl?: string } | null;
+    unframed?: { localPath?: string; sourceUrl?: string } | null;
+  };
+};
+
+const manifest = printproofManifest as PrintproofManifestWithOptionalMockups;
+
 function merchShopTeaser(id: MerchFamilyId): string {
   switch (id) {
     case "sticker_kisscut":
@@ -57,18 +66,18 @@ export default function ShopPage() {
   const printTiers = getPrintPricingTiers();
   const digitals = getPricingTiers();
 
-  const proofImage = (entry?: { localPath?: string; sourceUrl?: string }) =>
-    entry?.localPath?.trim() || entry?.sourceUrl?.trim() || "";
   const framedImg =
-    proofImage(printproofManifest.catalog?.framed) ||
-    proofImage(printproofManifest.mockups?.framed) ||
-    proofImage(printproofManifest.framed);
+    manifest.catalog?.framed?.sourceUrl ||
+    manifest.mockups?.framed?.localPath ||
+    manifest.mockups?.framed?.sourceUrl ||
+    "";
   const unframedImg =
-    proofImage(printproofManifest.catalog?.unframed) ||
-    proofImage(printproofManifest.mockups?.unframed) ||
-    proofImage(printproofManifest.unframed);
-  const framedAlt = printproofManifest.catalog?.framed?.label || "Framed star map print preview";
-  const unframedAlt = printproofManifest.catalog?.unframed?.label || "Unframed star map poster preview";
+    manifest.catalog?.unframed?.sourceUrl ||
+    manifest.mockups?.unframed?.localPath ||
+    manifest.mockups?.unframed?.sourceUrl ||
+    "";
+  const framedAlt = manifest.catalog?.framed?.label || "Framed star map print preview";
+  const unframedAlt = manifest.catalog?.unframed?.label || "Unframed star map poster preview";
 
   const framedPrice = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,

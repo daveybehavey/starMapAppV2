@@ -164,13 +164,17 @@ export function MobileCreate({
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
-  const revealBlockedMessage = !hasDate && !hasLocation
-    ? "Add your date and place to unlock preview."
+  const previewLockedMessage = !hasDate && !hasLocation
+    ? "Add your date and place to unlock preview. Presets optional."
     : !hasDate
-      ? "Add your date to unlock preview."
-      : !hasLocation
-        ? "Add your place to unlock preview."
-        : "Presets optional.";
+      ? "Add your date to unlock preview. Presets optional."
+      : "Add your place to unlock preview. Presets optional.";
+  const previewReadyMessage = "Preview is ready. Presets optional.";
+  const previewUnlockButtonLabel = !hasDate && !hasLocation
+    ? "Add date + place to unlock preview"
+    : !hasDate
+      ? "Add your date to unlock preview"
+      : "Add your place to unlock preview";
   const hdCreditLabel =
     !paid
       ? null
@@ -715,22 +719,32 @@ export function MobileCreate({
             type="button"
             onClick={handleReveal}
             disabled={!canReveal || isRevealing}
-            aria-label="Generate preview"
+            aria-label={
+              isRevealing
+                ? "Revealing your sky"
+                : canReveal
+                  ? "Generate preview"
+                  : previewUnlockButtonLabel
+            }
             className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] ${
               canReveal && !isRevealing
                 ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                 : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
             }`}
           >
-            {isRevealing ? "Revealing your sky..." : "Generate preview"}
+            {isRevealing ? "Revealing your sky..." : canReveal ? "Generate preview" : previewUnlockButtonLabel}
           </button>
           <div className="text-xs text-neutral-400">
             <p>
               {isRevealing
                 ? revealStage.description
-                : revealBlockedMessage}
+                : canReveal
+                  ? previewReadyMessage
+                  : previewLockedMessage}
             </p>
-            <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
+            <p className="text-[11px] text-neutral-500">
+              {canReveal ? "Free preview, HD optional." : "Free preview, HD optional after you add date + place."}
+            </p>
           </div>
         </div>
       )}
@@ -1262,7 +1276,9 @@ export function MobileCreate({
                   <p>
                     {isRevealing
                       ? "Locking in your sky details..."
-                      : "Add date + location to reveal your sky. Presets optional."}
+                      : canReveal
+                        ? "Preview is ready. Tap Generate preview to reveal your sky."
+                        : previewLockedMessage}
                   </p>
                   {canReveal ? (
                     isRevealing ? (
@@ -1324,14 +1340,18 @@ export function MobileCreate({
                       type="button"
                       onClick={handleReveal}
                       disabled
-                      aria-label="Generate preview"
+                      aria-label={previewUnlockButtonLabel}
                       className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
                     >
-                      Generate preview
+                      {previewUnlockButtonLabel}
                     </button>
                   )}
                   <p className="text-[10px] text-neutral-300">
-                    {isRevealing ? "This usually takes about a second." : "Free preview, HD optional."}
+                    {isRevealing
+                      ? "This usually takes about a second."
+                      : canReveal
+                        ? "Free preview, HD optional."
+                        : "Free preview, HD optional after you add date + place."}
                   </p>
                   {printCheckoutEnabled && (
                     <p className="text-[10px] text-amber-100/90">
@@ -1537,7 +1557,7 @@ export function MobileCreate({
             <div>
               <p className="text-xs font-semibold text-white">Preview is ready</p>
               <p className="text-[10px] text-neutral-300">
-                {isRevealing ? "Rendering your reveal..." : "Free preview. HD export is optional."}
+                Free preview. HD export is optional.
               </p>
             </div>
             <button
@@ -1545,13 +1565,9 @@ export function MobileCreate({
               onClick={handleReveal}
               data-testid="mobile-sticky-generate"
               disabled={isRevealing}
-              className={`rounded-full px-3 py-2 text-xs font-semibold text-midnight shadow-md transition ${
-                isRevealing
-                  ? "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
-                  : "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:-translate-y-[1px] hover:shadow-lg"
-              }`}
+              className="rounded-full px-3 py-2 text-xs font-semibold text-midnight shadow-md transition bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:-translate-y-[1px] hover:shadow-lg"
             >
-              {isRevealing ? "Revealing..." : "Reveal preview"}
+              Reveal preview
             </button>
           </div>
         </div>
