@@ -84,7 +84,8 @@
     "qa:changed": "node scripts/qa-changed.mjs",
     "support:order-lookup": "node scripts/customer-order-lookup.mjs",
     "support:courtesy-replacement": "node scripts/support-courtesy-replacement.mjs",
-    "seo:gsc:query": "node scripts/gsc-query.mjs"
+    "seo:gsc:query": "node scripts/gsc-query.mjs",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",
@@ -110,6 +111,7 @@
     "patch-package": "^8.0.1",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.9",
+    "react-doctor": "^0.4.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "wrangler": "^4.95.0"

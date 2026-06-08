@@ -573,8 +573,36 @@ export function SimplifiedEditor() {
       }
 
       // Create checkout session
-      const checkoutPayload: { mapId?: string; plan: string } = { plan: "single" };
+      // QA-only knob: allow automated tests to use Stripe TEST mode while
+      // exercising the real UX flow (same behavior as EditorExperience).
+      const stripeMode = (() => {
+        const cookieKey = "starmapco_qa_stripeMode";
+        try {
+          const raw = localStorage.getItem("starmapco:qa:stripeMode");
+          if (raw === "test" || raw === "live") return raw;
+        } catch {
+          // ignore
+        }
+        try {
+          if (typeof document !== "undefined" && typeof document.cookie === "string") {
+            const match = document.cookie
+              .split(";")
+              .map((v) => v.trim())
+              .find((v) => v.startsWith(`${cookieKey}=`));
+            const raw = match ? decodeURIComponent(match.slice(cookieKey.length + 1)) : "";
+            if (raw === "test" || raw === "live") return raw;
+          }
+        } catch {
+          // ignore
+        }
+        return undefined;
+      })() as "test" | "live" | undefined;
+
+      const checkoutPayload: { mapId?: string; plan: string; stripeMode?: "test" | "live" } = {
+        plan: "single",
+      };
       if (mapId) checkoutPayload.mapId = mapId;
+      if (stripeMode) checkoutPayload.stripeMode = stripeMode;
       trackFunnelStep("checkout_started", {
         source: "simplified_editor",
         plan: "single",
