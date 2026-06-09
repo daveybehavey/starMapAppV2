@@ -47,6 +47,7 @@
     "qa:live-smoke": "node scripts/live-smoke.mjs --site https://starmapco.com",
     "qa:live-canary": "node scripts/live-smoke.mjs --site https://starmapco.com",
     "qa:live-critical": "node scripts/live-smoke.mjs --site https://starmapco.com --timeout-ms 12000",
+    "qa:lighthouse:home": "node scripts/lighthouse-home.mjs",
     "qa:merch-marketing-smoke": "node scripts/merch-marketing-smoke.mjs --site http://localhost:3001",
     "qa:content-consistency": "node scripts/content-consistency-sweep.mjs --site https://starmapco.com",
     "qa:ga4-smoke": "node scripts/ga4-smoke.mjs",

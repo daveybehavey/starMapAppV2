@@ -124,8 +124,10 @@ async function main() {
     );
     runCheck(
       "Homepage print CTAs enter print checkout flow",
-      homeHtml.includes('source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed') &&
-        homeHtml.includes('source=home-delivery-print-framed&checkout=print&print_variant=poster_framed'),
+      (homeHtml.includes('source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed') ||
+        homeHtml.includes('source=home-delivery-print-unframed&amp;checkout=print&amp;print_variant=poster_unframed')) &&
+        (homeHtml.includes('source=home-delivery-print-framed&checkout=print&print_variant=poster_framed') ||
+          homeHtml.includes('source=home-delivery-print-framed&amp;checkout=print&amp;print_variant=poster_framed')),
       "checkout=print links present",
     );
   } catch (error) {

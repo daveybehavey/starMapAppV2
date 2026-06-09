@@ -285,6 +285,27 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <>
+      <link
+        rel="preload"
+        as="image"
+        href="/textures/star-map-hero/phone.webp"
+        media="(max-width: 639px)"
+        fetchPriority="high"
+      />
+      <link
+        rel="preload"
+        as="image"
+        href="/textures/star-map-hero/tablet.webp"
+        media="(min-width: 640px) and (max-width: 1023px)"
+        fetchPriority="high"
+      />
+      <link
+        rel="preload"
+        as="image"
+        href="/textures/star-map-hero/desktop.webp"
+        media="(min-width: 1024px)"
+        fetchPriority="high"
+      />
       <script
         id="product-faq-schema"
         type="application/ld+json"

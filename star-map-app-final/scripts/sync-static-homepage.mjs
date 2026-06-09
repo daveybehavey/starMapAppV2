@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
@@ -17,6 +17,15 @@ function normalizeSiteOrigin(html) {
 }
 
 async function main() {
+  const [indexExists, landingExists] = await Promise.all([
+    access(indexPath).then(() => true).catch(() => false),
+    access(landingPath).then(() => true).catch(() => false),
+  ]);
+  if (!indexExists || !landingExists) {
+    console.log("Static homepage files are absent; skipping homepage asset sync.");
+    return;
+  }
+
   const indexHtml = await readFile(indexPath, "utf8");
   const landingHtml = await readFile(landingPath, "utf8");
   const normalizedIndexHtml = normalizeSiteOrigin(indexHtml);
