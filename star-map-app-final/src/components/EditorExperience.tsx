@@ -53,6 +53,7 @@ import {
   type MerchFamilyId,
 } from "@/lib/merchCatalog";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
+import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
