@@ -22,6 +22,8 @@ import {
 } from "@/lib/printOrders";
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
+import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
@@ -748,7 +750,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   };
 
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
-  if (existing?.status === "sent") return;
+  if (existing?.status === "sent") {
+    void sendPrintOrderConfirmation(session.id).catch((error) => {
+      console.warn("Print confirmation email retry on sent order failed", error);
+    });
+    return;
+  }
 
   let payload: PrintOrderRecord = {
     status: "pending",
@@ -895,6 +902,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       }
     }
     await kv.set(printOrderKey(session.id), sentRecord);
+    if (sentRecord.printfulOrderId) {
+      await setPrintFulfillmentIndex(sentRecord.printfulOrderId, session.id);
+    }
+    void sendPrintOrderConfirmation(session.id).catch((error) => {
+      console.warn("Print confirmation email failed", { sessionId: session.id, error });
+    });
   }
 
   if (!printFulfillmentWebhookUrl) return;

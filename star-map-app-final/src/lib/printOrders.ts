@@ -38,6 +38,14 @@ export type PrintOrderRecord = {
   operatorResolvedAt?: number;
   operatorResolvedProvider?: "manual_printful" | "manual_other";
   operatorResolvedNote?: string;
+  printConfirmationSentAt?: number;
+  printConfirmationMessageId?: string;
+  printConfirmationError?: string;
+  shippingNotificationSentAt?: number;
+  shippingNotificationProvider?: "resend";
+  shippingNotificationTrackingNumber?: string;
+  shippingNotificationMessageId?: string;
+  shippingNotificationError?: string;
   error?: string;
   createdAt: number;
 };

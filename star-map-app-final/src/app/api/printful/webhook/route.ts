@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { isValidPrintCheckoutSessionId } from "@/lib/printOrders";
+import {
+  lookupSessionIdByPrintfulOrderId,
+  normalizePrintfulOrderId,
+  resolvePrintfulWebhookSessionId,
+} from "@/lib/printFulfillmentIndex";
 import { sendShippingNotification } from "@/lib/shippingNotifications";
 
 export const runtime = "nodejs";
@@ -14,8 +18,6 @@ export const runtime = "nodejs";
  *
  * Verification: a shared secret passed as `?token=` on the configured URL,
  * compared in constant time against process.env.PRINTFUL_WEBHOOK_SECRET.
- * This matches Printful's V1 webhook recommendation (no built-in HMAC); if you
- * later move to a signed mechanism we can add header verification here.
  */
 
 type PrintfulShipmentEvent = {
@@ -75,21 +77,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, status: "ignored", event: eventType || "unknown" });
   }
 
+  const printfulOrderId = normalizePrintfulOrderId(payload?.data?.order?.id ?? null);
   const externalId = payload?.data?.order?.external_id?.trim() || "";
-  if (!externalId || !isValidPrintCheckoutSessionId(externalId)) {
-    return NextResponse.json(
-      { ok: false, error: "external_id_invalid", value: externalId.slice(0, 64) },
-      { status: 400 },
-    );
+  const indexedSessionId = printfulOrderId ? await lookupSessionIdByPrintfulOrderId(printfulOrderId) : null;
+  const sessionId = resolvePrintfulWebhookSessionId({
+    printfulOrderId,
+    externalId,
+    indexedSessionId,
+  });
+
+  if (!sessionId) {
+    console.warn("Printful package_shipped session unresolved", {
+      printfulOrderId,
+      externalId: externalId.slice(0, 64),
+    });
+    return NextResponse.json({
+      ok: true,
+      status: "ignored",
+      reason: "session_unresolved",
+      printfulOrderId,
+    });
   }
 
   const shipment = payload?.data?.shipment ?? null;
   const trackingNumber = shipment?.tracking_number?.trim() || "";
   if (!trackingNumber) {
-    return NextResponse.json({ ok: false, error: "tracking_number_missing" }, { status: 400 });
+    return NextResponse.json({ ok: true, status: "ignored", reason: "tracking_number_missing" });
   }
 
-  const result = await sendShippingNotification(externalId, {
+  const result = await sendShippingNotification(sessionId, {
     trackingNumber,
     trackingUrl: shipment?.tracking_url ?? null,
     carrier: combineCarrier(shipment?.carrier ?? null, shipment?.service ?? null),
@@ -97,7 +113,8 @@ export async function POST(req: NextRequest) {
 
   if (!result.ok) {
     console.warn("Shipping notification failed", {
-      externalId,
+      sessionId,
+      printfulOrderId,
       reason: result.reason,
       provider: result.provider,
     });
@@ -118,6 +135,7 @@ export async function POST(req: NextRequest) {
     status: result.status,
     provider: result.provider,
     messageId: result.messageId,
+    sessionId,
   });
 }
 

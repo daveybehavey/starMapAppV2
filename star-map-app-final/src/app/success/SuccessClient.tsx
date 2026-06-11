@@ -70,6 +70,21 @@ const referralRewardCredits = (() => {
 const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
 
+type PrintOrderSummary = {
+  kvStatus: "pending" | "sent" | "failed" | null;
+  printfulOrderId: string | number | null;
+  confirmationEmailSent: boolean;
+  shippingNotificationSent: boolean;
+};
+
+const PRINT_FULFILLMENT_STEPS = [
+  "Payment received",
+  "Print order submitted to our production partner",
+  "Manual quality review before production (required for every order)",
+  "Production and shipping after approval",
+  "Tracking email when your order ships",
+] as const;
+
 function readStoredMapId() {
   if (typeof window === "undefined") return null;
   try {
@@ -108,6 +123,8 @@ export default function SuccessClient() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
+  const [printSummary, setPrintSummary] = useState<PrintOrderSummary | null>(null);
+  const [printLinkCopied, setPrintLinkCopied] = useState(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
   const printUpsellTrackedRef = useRef(false);
@@ -534,6 +551,7 @@ export default function SuccessClient() {
             orderType?: CheckoutOrderType;
             printVariant?: PrintVariant | null;
             includesDigitalAddOn?: boolean;
+            printSummary?: PrintOrderSummary | null;
           } | null;
           if (data?.paid) {
             const verifiedPlan =
@@ -572,6 +590,9 @@ export default function SuccessClient() {
             setCurrentPlan(verifiedPlan);
             setOrderType(verifiedOrderType);
             setPrintVariant(verifiedPrintVariant);
+            if (verifiedOrderType === "print" && data.printSummary) {
+              setPrintSummary(data.printSummary);
+            }
             const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
             setResolvedMapId(resolvedMapId);
             if (hasDigitalEntitlement) {
@@ -622,6 +643,64 @@ export default function SuccessClient() {
   const hasDigitalEntitlement =
     currentPlan === "single" || currentPlan === "pack3" || currentPlan === "subscription";
   const isPrintOrder = orderType === "print";
+  const sessionIdParam = searchParams.get("session_id")?.trim() || "";
+  const printProductLabel = useMemo(() => {
+    if (!printVariant) return "Custom star map print";
+    return printTiers[printVariant]?.label ?? "Custom star map print";
+  }, [printTiers, printVariant]);
+  const printOrderReference = useMemo(() => {
+    const sessionSuffix = sessionIdParam.length > 8 ? sessionIdParam.slice(-8) : sessionIdParam;
+    if (printSummary?.printfulOrderId) {
+      return `#${String(printSummary.printfulOrderId)} (···${sessionSuffix})`;
+    }
+    return sessionSuffix ? `···${sessionSuffix}` : null;
+  }, [printSummary?.printfulOrderId, sessionIdParam]);
+
+  const handleCopyPrintConfirmationLink = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    pauseRedirect();
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setPrintLinkCopied(true);
+      window.setTimeout(() => setPrintLinkCopied(false), 2500);
+    } catch {
+      setPrintLinkCopied(false);
+    }
+  }, [pauseRedirect]);
+
+  useEffect(() => {
+    if (status !== "success" || !isPrintOrder || !sessionIdParam) return;
+    if (printSummary?.kvStatus === "sent") return;
+
+    let active = true;
+    let attempts = 0;
+    const poll = async () => {
+      if (!active || attempts >= 3) return;
+      attempts += 1;
+      try {
+        const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionIdParam)}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as { printSummary?: PrintOrderSummary | null } | null;
+        if (data?.printSummary) {
+          setPrintSummary(data.printSummary);
+          if (data.printSummary.kvStatus === "sent") return;
+        }
+      } catch {
+        // ignore transient verify errors during fulfillment polling
+      }
+      if (active && attempts < 3) {
+        window.setTimeout(() => void poll(), 3000);
+      }
+    };
+
+    const timer = window.setTimeout(() => void poll(), 3000);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [isPrintOrder, printSummary?.kvStatus, sessionIdParam, status]);
 
   useEffect(() => {
     if (status !== "success" || !hasDigitalEntitlement) return;
@@ -707,7 +786,7 @@ export default function SuccessClient() {
               ? isPrintOrder
                 ? hasDigitalEntitlement
                   ? "Your print order is placed and your HD file is unlocked."
-                  : "Your print order is placed. We'll review it and email updates before production begins."
+                  : "Payment received. We are preparing your print order now."
                 : "We are preparing your print-ready star map. This will only take a moment."
               : "Confirming your payment with Stripe. This can take up to 45 seconds."}
         </p>
@@ -729,8 +808,10 @@ export default function SuccessClient() {
               <p className="relative mt-2 text-xs text-amber-100/80">
                 {isPrintOrder
                   ? hasDigitalEntitlement
-                  ? "Print order + HD digital add-on unlocked."
-                    : "Print order received. We'll email updates after review."
+                    ? "Print order + HD digital add-on unlocked."
+                    : printSummary?.confirmationEmailSent
+                      ? "Confirmation email sent. Tracking arrives when your order ships."
+                      : "Confirmation email on its way. Tracking arrives when your order ships."
                   : currentPlan === "subscription"
                     ? "Unlimited HD exports unlocked."
                     : currentPlan === "pack3"
@@ -745,6 +826,49 @@ export default function SuccessClient() {
                   : "Order confirmation complete"
                 : "Redirecting once your payment is confirmed"}
             </p>
+            {status === "success" && isPrintOrder && (
+              <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
+                <p className="text-sm font-semibold text-white">What happens next</p>
+                <p className="mt-1 text-xs text-amber-100/80">
+                  {printProductLabel}
+                  {printOrderReference ? ` · Ref ${printOrderReference}` : ""}
+                </p>
+                <ol className="mt-3 space-y-2 text-left text-xs text-amber-100/85">
+                  {PRINT_FULFILLMENT_STEPS.map((step) => (
+                    <li key={step} className="flex gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" aria-hidden />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-3 text-xs text-amber-100/80">
+                  Questions? Email{" "}
+                  <a href={`mailto:${supportEmail}`} className="font-semibold text-amber-200 underline">
+                    {supportEmail}
+                  </a>{" "}
+                  and include the email you used at checkout.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyPrintConfirmationLink()}
+                    className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                  >
+                    {printLinkCopied ? "Link copied" : "Save this page (copy link)"}
+                  </button>
+                  {printSummary?.kvStatus === "sent" && (
+                    <span className="rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+                      Submitted to production
+                    </span>
+                  )}
+                  {printSummary?.shippingNotificationSent && (
+                    <span className="rounded-full border border-sky-300/40 bg-sky-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-100">
+                      Tracking email sent
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             {status === "success" && (
               <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
                 <div className="flex flex-wrap items-center justify-between gap-3">

@@ -14,6 +14,8 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
+import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
 export const runtime = "nodejs";
 
@@ -138,8 +140,14 @@ export async function POST(req: NextRequest) {
         operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
       };
       await kv.set(printOrderKey(sessionId), updated);
+      void sendPrintOrderConfirmation(sessionId).catch((error) => {
+        console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
+      });
       return NextResponse.json({ ok: true, status: "already_sent", order: updated });
     }
+    void sendPrintOrderConfirmation(sessionId).catch((error) => {
+      console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
+    });
     return NextResponse.json({ ok: true, status: "already_sent", order: existing });
   }
 
@@ -241,6 +249,12 @@ export async function POST(req: NextRequest) {
       }
     }
     await kv.set(printOrderKey(sessionId), sent);
+    if (sent.printfulOrderId) {
+      await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
+    }
+    void sendPrintOrderConfirmation(sessionId).catch((error) => {
+      console.warn("Print confirmation email failed after retry", { sessionId, error });
+    });
     return NextResponse.json({ ok: true, status: "sent", order: sent });
   }
 
