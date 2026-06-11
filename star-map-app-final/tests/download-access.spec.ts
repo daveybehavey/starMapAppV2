@@ -68,7 +68,7 @@ test.describe("Download access after checkout", () => {
       waitUntil: "domcontentloaded",
     });
 
-    await expect(page.getByRole("heading", { name: /your download is ready/i })).toBeVisible({
+    await expect(page.getByRole("heading", { name: /your hd star map is ready/i })).toBeVisible({
       timeout: 45_000,
     });
     await expect(page.getByRole("button", { name: /download hd file/i })).toBeVisible({ timeout: 10_000 });
