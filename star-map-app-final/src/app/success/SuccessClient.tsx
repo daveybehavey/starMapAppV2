@@ -30,6 +30,7 @@ import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
+import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
 import { buildDownloadPath } from "@/lib/stripeCheckoutNavigation";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
