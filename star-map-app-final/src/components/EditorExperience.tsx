@@ -26,7 +26,13 @@ import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
-import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
+import {
+  createHdConsumeToken,
+  formatHdExportConsumeFailedMessage,
+  formatHdExportFailedMessage,
+  postHdCreditConsume,
+  triggerBlobDownload,
+} from "@/lib/hdExportFulfillment";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   getPrintShippingCountryLabel,
@@ -574,29 +580,20 @@ export function EditorExperience({
     }
   }, [setPaid]);
 
-  const consumeHdCredit = useCallback(async () => {
+  const consumeHdCredit = useCallback(async (tokenOverride?: string) => {
     if (consumePromiseRef.current) return consumePromiseRef.current;
     const promise = (async () => {
       try {
-        const token =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const res = await fetch("/api/entitlements/consume", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-        if (!res.ok) return false;
-        const data = (await res.json()) as { creditsRemaining?: number | null; plan?: CheckoutPlan | null };
+        const consumeToken = tokenOverride ?? createHdConsumeToken();
+        const data = await postHdCreditConsume(consumeToken);
+        if (!data) return false;
         if (typeof data.creditsRemaining === "number") {
           setCreditsRemaining(data.creditsRemaining);
-          setPaid(data.creditsRemaining > 0);
         } else if (data.plan === "subscription") {
           setCreditsRemaining(null);
           setPaid(true);
         }
-        return true;
+        return data;
       } catch {
         return false;
       } finally {
@@ -953,13 +950,11 @@ export function EditorExperience({
   );
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = filename;
-    link.href = url;
-    link.click();
-    setDownloadHint(getDownloadLocationHint());
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const result = triggerBlobDownload(blob, filename);
+    if (result.ok) {
+      setDownloadHint(getDownloadLocationHint());
+    }
+    return result;
   }, []);
 
   useEffect(() => {
@@ -985,11 +980,19 @@ export function EditorExperience({
       setHdExportInFlight(true);
       renderExportFile("hd", true)
         .then(async (rendered) => {
-          const ok = await consumeHdCredit();
-          if (!ok) return;
-          triggerDownload(rendered.blob, rendered.filename);
+          const triggered = triggerDownload(rendered.blob, rendered.filename);
+          if (!triggered.ok) {
+            setCheckoutError(formatHdExportFailedMessage(true));
+            return;
+          }
+          const consumed = await consumeHdCredit();
+          if (!consumed) {
+            setCheckoutError(formatHdExportConsumeFailedMessage());
+          }
         })
-        .catch(() => {})
+        .catch(() => {
+          setCheckoutError(formatHdExportFailedMessage(true));
+        })
         .finally(() => {
           hdExportInFlightRef.current = false;
           setHdExportInFlight(false);
@@ -1050,12 +1053,14 @@ export function EditorExperience({
       try {
         if (isHd) {
           const rendered = await renderExportFile("hd", true);
+          const triggered = triggerDownload(rendered.blob, rendered.filename);
+          if (!triggered.ok) {
+            setCheckoutError(formatHdExportFailedMessage(true));
+            return;
+          }
           const consumed = await consumeHdCredit();
           if (!consumed) {
-            setPendingExport(mode);
-            setPaywallIntent("digital");
-            setPaywallOpen(true);
-            setCheckoutError("No HD export credits remaining. Choose a new pack or subscription.");
+            setCheckoutError(formatHdExportConsumeFailedMessage());
             return;
           }
           track("export_hd_clicked", {
@@ -1065,7 +1070,6 @@ export function EditorExperience({
           });
           trackFunnelStep("download_started", { source: "editor" });
           track("export_download", { type: "hd" });
-          triggerDownload(rendered.blob, rendered.filename);
           trackFunnelStep("download_completed", { source: "editor" });
           return;
         }
@@ -1080,7 +1084,7 @@ export function EditorExperience({
       } catch (error) {
         console.error("Export failed", error);
         if (isHd) {
-          setCheckoutError("We couldn't generate your HD file. Please try again.");
+          setCheckoutError(formatHdExportFailedMessage(true));
         }
       } finally {
         if (isHd) {

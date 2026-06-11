@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyHdCreditConsume } from "@/lib/entitlementConsume.mjs";
-import { ENTITLEMENT_KV, isPrintOnlyOrder, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
+import { applyHdCreditCompensate } from "@/lib/entitlementConsume.mjs";
+import { ENTITLEMENT_KV, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const rateLimit = await checkRateLimit(`entitlements:consume:${ip}`, 30, 60);
+  const rateLimit = await checkRateLimit(`entitlements:compensate:${ip}`, 20, 60);
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetIn);
   }
@@ -21,23 +21,25 @@ export async function POST(req: NextRequest) {
   if (!record || record.revoked) {
     return NextResponse.json({ ok: false, error: "No active entitlement" }, { status: 403 });
   }
-  if (isPrintOnlyOrder(record)) {
-    return NextResponse.json({ ok: false, error: "No digital entitlement" }, { status: 402 });
-  }
 
-  let consumeToken: string | null = null;
+  let token: string | null = null;
   try {
     const payload = (await req.json()) as { token?: string };
     if (typeof payload?.token === "string" && payload.token.trim()) {
-      consumeToken = payload.token.trim();
+      token = payload.token.trim();
     }
   } catch {
     // ignore non-JSON bodies
   }
 
-  const result = applyHdCreditConsume(record, consumeToken);
+  if (!token) {
+    return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
+  }
+
+  const result = applyHdCreditCompensate(record, token);
   if (!result.ok) {
-    const status = result.error === "no_credits" ? 402 : 403;
+    const status =
+      result.error === "token_mismatch" || result.error === "window_expired" ? 409 : 402;
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 

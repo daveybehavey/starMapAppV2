@@ -29,6 +29,10 @@ export type StripeSessionEntitlement = {
   printVariant?: PrintVariant;
   includesDigitalAddOn?: boolean;
   claimToken?: string;
+  lastConsumeToken?: string;
+  lastConsumeRemaining?: number;
+  lastConsumeAt?: number;
+  lastCompensatedToken?: string;
   accessEmailSentAt?: number;
   accessEmailHadArchive?: boolean;
   accessEmailProvider?: string;

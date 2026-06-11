@@ -30,7 +30,7 @@ import ResilientImage from "@/components/ResilientImage";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
-import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
+import { buildDownloadPath } from "@/lib/stripeCheckoutNavigation";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -592,10 +592,9 @@ export default function SuccessClient() {
             if (hasDigitalEntitlement) {
               redirectTimerRef.current = setTimeout(() => {
                 if (!autoRedirectRef.current) return;
-                const nextUrl = resolvedMapId
-                  ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                  : "/download";
-                router.replace(nextUrl);
+                router.replace(
+                  buildDownloadPath({ sessionId, mapId: resolvedMapId ?? undefined }),
+                );
               }, 3500);
             }
             return;
@@ -828,10 +827,12 @@ export default function SuccessClient() {
                       onClick={() => {
                         pauseRedirect();
                         track("success_recovery_action", { action: "go_to_download_now" });
-                        const nextUrl = resolvedMapId
-                          ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                          : "/download";
-                        router.replace(nextUrl);
+                        router.replace(
+                          buildDownloadPath({
+                            sessionId: searchParams.get("session_id"),
+                            mapId: resolvedMapId,
+                          }),
+                        );
                       }}
                       className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
                     >

@@ -43,6 +43,15 @@ import {
 import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
+import {
+  createHdConsumeToken,
+  formatHdExportConsumeFailedMessage,
+  formatHdExportFailedMessage,
+  postHdCreditCompensate,
+  postHdCreditConsume,
+  triggerBlobDownload,
+  verifyStripeSessionForDownload,
+} from "@/lib/hdExportFulfillment";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -281,6 +290,7 @@ export default function DownloadClient() {
   const paidRef = useRef(false);
   const printUpsellTrackedRef = useRef(false);
   const mapIdFromUrl = searchParams.get("map_id")?.trim() || null;
+  const sessionIdFromUrl = searchParams.get("session_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
   const upsellRaw = searchParams.get("upsell")?.trim();
   const upsellIntent = isPrintVariant(upsellRaw) ? upsellRaw : null;
@@ -293,10 +303,12 @@ export default function DownloadClient() {
   const [accessEmailStatus, setAccessEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [accessEmailMessage, setAccessEmailMessage] = useState<string | null>(null);
   const consumePromiseRef = useRef<
-    Promise<false | { creditsRemaining?: number | null; plan?: CheckoutPlan | null }> | null
+    Promise<false | { creditsRemaining?: number | null; plan?: CheckoutPlan | null; consumeToken?: string }> | null
   >(null);
   const [downloadInFlight, setDownloadInFlight] = useState(false);
   const downloadInFlightRef = useRef(false);
+  const [restoreCreditToken, setRestoreCreditToken] = useState<string | null>(null);
+  const [restoreCreditStatus, setRestoreCreditStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const statusTrackedRef = useRef<Record<Status, boolean>>({
     checking: false,
     ready: false,
@@ -434,30 +446,24 @@ export default function DownloadClient() {
     }
   }, [setPaidState]);
 
-  const consumeHdCredit = useCallback(async () => {
+  const consumeHdCredit = useCallback(async (tokenOverride?: string) => {
     if (consumePromiseRef.current) return consumePromiseRef.current;
     const promise = (async () => {
       try {
-        const token =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const res = await fetch("/api/entitlements/consume", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-        if (!res.ok) return false;
-        const data = (await res.json()) as { creditsRemaining?: number | null; plan?: CheckoutPlan | null };
+        const consumeToken = tokenOverride ?? createHdConsumeToken();
+        const data = await postHdCreditConsume(consumeToken);
+        if (!data) return false;
         if (typeof data.creditsRemaining === "number") {
           setCreditsRemaining(data.creditsRemaining);
-          // Don't set paid=false when credits depleted - user still paid, just used all credits
-          // The subsequent refreshPaidStatus call will set the correct state
         } else if (data.plan === "subscription") {
           setCreditsRemaining(null);
           setPaidState(true);
         }
-        return data;
+        return {
+          creditsRemaining: data.creditsRemaining ?? null,
+          plan: data.plan ?? null,
+          consumeToken: data.consumeToken,
+        };
       } catch {
         return false;
       } finally {
@@ -467,6 +473,26 @@ export default function DownloadClient() {
     consumePromiseRef.current = promise;
     return promise;
   }, [setPaidState]);
+
+  const restoreFailedDownloadCredit = useCallback(async () => {
+    if (!restoreCreditToken || restoreCreditStatus === "loading") return;
+    setRestoreCreditStatus("loading");
+    const result = await postHdCreditCompensate(restoreCreditToken);
+    if (!result.ok) {
+      setRestoreCreditStatus("error");
+      setMessage("We couldn't restore your credit automatically. Please contact support with your receipt.");
+      return;
+    }
+    if (typeof result.creditsRemaining === "number") {
+      setCreditsRemaining(result.creditsRemaining);
+    }
+    setPaidState(true);
+    setRestoreCreditToken(null);
+    setRestoreCreditStatus("done");
+    setStatus("ready");
+    setMessage("Credit restored. Please try Download HD file again.");
+    void refreshPaidStatus();
+  }, [refreshPaidStatus, restoreCreditStatus, restoreCreditToken, setPaidState]);
 
   const claimAccessToken = useCallback(
     async (token: string) => {
@@ -626,25 +652,33 @@ export default function DownloadClient() {
         }
 
         const blob = await canvasToPngBlob(canvas);
-        const consumed = await consumeHdCredit();
-        if (!consumed) {
-          setStatus("not-paid");
-          setMessage("You have no HD export credits remaining. Choose a new pack or subscription to continue.");
-          return;
-        }
-
         const mapIdForFile = mapIdFromUrl || readStoredMapId();
         const downloadFileName = buildStarMapDownloadFilename({
           recipe: activeRecipe,
           mode: "hd",
           mapId: mapIdForFile,
         });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.download = downloadFileName;
-        link.href = url;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+        const triggered = triggerBlobDownload(blob, downloadFileName);
+        if (!triggered.ok) {
+          setStatus("error");
+          setMessage(formatHdExportFailedMessage(true));
+          trackFunnelStep("download_failed", {
+            source: previewSource,
+            plan: currentPlan ?? undefined,
+            reason: "trigger_failed",
+          });
+          return;
+        }
+
+        const consumeToken = createHdConsumeToken();
+        const consumed = await consumeHdCredit(consumeToken);
+        if (!consumed) {
+          setStatus("error");
+          setMessage(formatHdExportConsumeFailedMessage());
+          void refreshPaidStatus();
+          return;
+        }
 
         // Best-effort archival so support can resend the exact paid-for file later.
         if (downloadArchiveEnabled && tokenFromUrl) {
@@ -667,6 +701,10 @@ export default function DownloadClient() {
         const remaining =
           typeof consumed.creditsRemaining === "number" ? consumed.creditsRemaining : null;
         setMessage(formatDownloadStartedMessage({ plan: consumed.plan ?? currentPlan, remaining }));
+        if (consumed.consumeToken) {
+          setRestoreCreditToken(consumed.consumeToken);
+          setRestoreCreditStatus("idle");
+        }
         track("export_download", { type: "hd", source });
         trackFunnelStep("download_completed", {
           source: previewSource,
@@ -677,10 +715,15 @@ export default function DownloadClient() {
       } catch (err) {
         console.error("Download failed", err);
         setStatus("error");
-        setMessage("We couldn't start the download. Please try again.");
+        setMessage(formatHdExportFailedMessage(true));
         if (!previewGeneratedRef.current) {
           setPreviewStatus("error");
         }
+        trackFunnelStep("download_failed", {
+          source: getPreviewSource() ?? "download",
+          plan: currentPlan ?? undefined,
+          reason: "render_failed",
+        });
       } finally {
         downloadInFlightRef.current = false;
         setDownloadInFlight(false);
@@ -760,15 +803,46 @@ export default function DownloadClient() {
         }
       }
       const paidResult = await refreshPaidStatus();
+      let accessResult = paidResult;
+      if (!accessResult.paid && sessionIdFromUrl) {
+        const verified = await verifyStripeSessionForDownload(sessionIdFromUrl);
+        if (verified.ok) {
+          setPaidState(true);
+          if (typeof verified.creditsRemaining === "number") {
+            setCreditsRemaining(verified.creditsRemaining);
+          }
+          if (
+            verified.plan === "single" ||
+            verified.plan === "pack3" ||
+            verified.plan === "subscription"
+          ) {
+            setCurrentPlan(verified.plan);
+          }
+          accessResult = {
+            paid: true,
+            creditsRemaining:
+              typeof verified.creditsRemaining === "number" ? verified.creditsRemaining : null,
+            plan:
+              verified.plan === "single" ||
+              verified.plan === "pack3" ||
+              verified.plan === "subscription"
+                ? verified.plan
+                : null,
+          };
+          void refreshPaidStatus();
+        }
+      }
       if (!active) return;
-      if (!paidResult.paid) {
+      if (!accessResult.paid) {
         setStatus("not-paid");
         setMessage(
           tokenInvalid
             ? "This access link has expired or was replaced. Open your original device to generate a new link."
-            : typeof paidResult.creditsRemaining === "number"
+            : typeof accessResult.creditsRemaining === "number" && accessResult.creditsRemaining <= 0
             ? "You have no HD export credits remaining. Choose a new pack or subscription to continue."
-            : "Payment verification is still pending. Please refresh in a moment.",
+            : sessionIdFromUrl
+              ? "We couldn't verify your payment yet. Refresh this page or reopen your success link."
+              : "Payment verification is still pending. Please refresh in a moment.",
         );
         return;
       }
@@ -829,6 +903,7 @@ export default function DownloadClient() {
     fetchMapRecipe,
     mapIdFromUrl,
     refreshPaidStatus,
+    sessionIdFromUrl,
     startDownload,
     tokenFromUrl,
     updatePreviewAspect,
@@ -1442,6 +1517,27 @@ export default function DownloadClient() {
                   {statusLabel}
                 </div>
                 {message && <p className="text-xs text-amber-100/80">{message}</p>}
+                {restoreCreditToken && status !== "downloading" && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void restoreFailedDownloadCredit();
+                      }}
+                      disabled={restoreCreditStatus === "loading" || restoreCreditStatus === "done"}
+                      className="rounded-full border border-amber-200/50 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:border-amber-200/80 hover:bg-white/15 disabled:opacity-60"
+                    >
+                      {restoreCreditStatus === "loading"
+                        ? "Restoring credit..."
+                        : restoreCreditStatus === "done"
+                          ? "Credit restored"
+                          : "Download didn't start? Restore my credit"}
+                    </button>
+                    <span className="text-[10px] text-amber-100/70">
+                      Use this only if the HD file is not in your Downloads folder.
+                    </span>
+                  </div>
+                )}
                 {status === "ready" && currentPlan === "pack3" && (
                   <div className="max-w-2xl rounded-xl border border-amber-200/35 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-100/90">
                     Pack tip: each click downloads the <strong>current map only</strong>. To use all 3 credits, make your
