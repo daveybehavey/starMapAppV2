@@ -6,6 +6,7 @@ import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { isPrintVariant } from "@/lib/printCatalog";
 import { resolveCheckoutMapIdFromStripeSession } from "@/lib/checkoutMapId";
+import { printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
 import {
   buildGa4PurchaseFromStripeSession,
   isQaStripeSession,
@@ -45,6 +46,31 @@ const sessionKey = (id: string) => `stripe:session:${id}`;
 const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
+
+type PrintOrderSummary = {
+  kvStatus: PrintOrderRecord["status"] | null;
+  printfulOrderId: string | number | null;
+  confirmationEmailSent: boolean;
+  shippingNotificationSent: boolean;
+};
+
+async function loadPrintSummary(sessionId: string): Promise<PrintOrderSummary | null> {
+  const order = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  if (!order) {
+    return {
+      kvStatus: null,
+      printfulOrderId: null,
+      confirmationEmailSent: false,
+      shippingNotificationSent: false,
+    };
+  }
+  return {
+    kvStatus: order.status ?? null,
+    printfulOrderId: order.printfulOrderId ?? null,
+    confirmationEmailSent: Boolean(order.printConfirmationSentAt),
+    shippingNotificationSent: Boolean(order.shippingNotificationSentAt),
+  };
+}
 
 function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
   return session.metadata?.order_type === "print" ? "print" : "digital";
@@ -111,6 +137,8 @@ export async function GET(req: NextRequest) {
 
   if (record?.paid && !record.revoked) {
     const mapId = typeof record.mapId === "string" ? record.mapId : undefined;
+    const orderType = record.orderType ?? "digital";
+    const printSummary = orderType === "print" ? await loadPrintSummary(sessionId) : undefined;
     const response = NextResponse.json(
       {
         paid: true,
@@ -120,9 +148,10 @@ export async function GET(req: NextRequest) {
         plan: record.plan ?? null,
         creditsRemaining: record.creditsRemaining ?? null,
         subscriptionActive: record.subscriptionActive ?? null,
-        orderType: record.orderType ?? "digital",
+        orderType,
         printVariant: record.printVariant ?? null,
         includesDigitalAddOn: Boolean(record.includesDigitalAddOn),
+        printSummary,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -244,6 +273,7 @@ export async function GET(req: NextRequest) {
         printVariant: printVariant ?? null,
         includesDigitalAddOn: hasDigitalAddOn,
         isQa: isQaStripeSession(session),
+        printSummary: orderType === "print" ? await loadPrintSummary(sessionId) : undefined,
       },
       { headers: { "Cache-Control": "no-store" } },
     );

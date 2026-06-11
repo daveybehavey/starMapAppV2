@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isValidPrintCheckoutSessionId, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
+import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,9 @@ export async function POST(req: NextRequest) {
   };
 
   await kv.set(printOrderKey(sessionId), updated);
+  if (updated.printfulOrderId) {
+    await setPrintFulfillmentIndex(updated.printfulOrderId, sessionId);
+  }
   return NextResponse.json({ ok: true, order: updated });
 }
 

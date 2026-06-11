@@ -36,6 +36,18 @@ npm run qa:sitemap-health -- --sitemap https://starmapco.com/sitemap.xml --concu
 npm run qa:print-ops -- --hours 168 --limit 40
 ```
 
+## Customer print comms (Layer A+B+C1)
+
+After deploy, print buyers should receive:
+
+1. Accurate `/success` timeline (payment → review → production → tracking email)
+2. One Resend **print order confirmation** email when KV status becomes `sent`
+3. Automatic **tracking email** when Printful fires `package_shipped` (requires fulfillment index + webhook)
+
+**Historical backfill (optional, no new paid order):** for orders that shipped before the fulfillment index existed, write `print:fulfillment:by-printful:{id} → sessionId` or use `POST /api/print/orders/notify-shipping`.
+
+Example: Printful **161064930** → session `cs_live_b1SMZnwizGDOHJAlX86rCGxyH2b2au2pNugxoHTfu9gyOhAoB4t2JJzIrh`.
+
 ## First production print proof (Phase A2)
 
 Human step — required before expanding SKUs (`docs/BIG_MOVES_ROADMAP.md` Phase C).
