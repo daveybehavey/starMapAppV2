@@ -138,6 +138,7 @@ Goal: wedding/ad traffic → editor → **print** Stripe checkout, with ops rhyt
 
 **Closes:** A4 (measurement), Phase A exit criteria  
 **Depends on:** 🔒 **1.1** deployed; **1.3** helpful for context  
+**Checklist:** **`docs/block-1.5-funnel-read.md`**  
 **Rough time:** 45 min (or longer if waiting on traffic)
 
 **Scope**
@@ -147,7 +148,7 @@ Goal: wedding/ad traffic → editor → **print** Stripe checkout, with ops rhyt
 
 **Done when**
 
-- One paragraph in notes: “funnel shows X reaching print checkout” or “waiting on traffic / fix Y”.
+- One paragraph in notes: “funnel shows X reaching print checkout” or “waiting on traffic / fix Y” (see checklist pass criteria).
 
 **Ship:** no code unless data exposes a single obvious leak → address before **1.6**
 

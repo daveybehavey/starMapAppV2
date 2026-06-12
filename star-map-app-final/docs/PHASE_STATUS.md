@@ -54,11 +54,13 @@ Legend: ✅ Done · 🟡 Partial / watch · ⬜ Open · ⏸ Deferred
 
 | ID | Item | Status | Notes / verify |
 |----|------|--------|----------------|
-| **A1** | Weekly growth loop | 🟡 | Block **1.3** notes in `reports/weekly-notes-2026-06-12.md`; company-os dev copy needs OneDrive fix for `data:pull` |
+| **A1** | Weekly growth loop | 🟡 | Block **1.3** notes + `qa:growth-weekly` (2026-06-12) |
 | **A2** | One fulfilled print in prod | 🟡 | Unframed historically **fulfilled**; framed **in production** — acceptable for 1A doc; confirm in Printful dashboard |
 | **A3** | Wedding → print conversion | 🟡 | **1.1–1.2 done** (deploy `5de4ed19`, URLs verified live); manual framed-path QA |
-| **A4** | Money-page 10-second test | 🟡 | **1.4 pass** on live `/wedding`, `/personalized-star-map`, `/star-map-gift`, `/shop` — no copy deploy needed |
+| **A4** | Money-page 10-second test | ✅ | **1.4 pass** on live money pages (2026-06-12) |
 | **A5** | Post-purchase upsell | ✅ | `/success` + `/download` print CTAs; print timeline on success |
+
+**Block 1.5:** **`docs/block-1.5-funnel-read.md`** — funnel read after ≥7d on deploy `5de4ed19` (prefer 14d).
 
 ---
 
@@ -142,6 +144,7 @@ npm run data:pull
 | `PRODUCT_EXECUTION_QUEUE.md` | Checkbox queue (sync when items ship) |
 | `GROWTH_OPS_WEEKLY.md` | A1 weekly rhythm |
 | `WORKING_BLOCKS.md` | Session-sized blocks (1–3 h each) |
+| `block-1.5-funnel-read.md` | Block 1.5 funnel read checklist + pass criteria |
 | `merchant-center-ads-checklist.md` | Ads/Merchant truth (no fake free shipping in ads) |
 
 ---
@@ -150,6 +153,6 @@ npm run data:pull
 
 | Date | Change |
 |------|--------|
-| 2026-06-12 | Blocks **1.2**, **1.4** verified live; unit tests for `previewSourceHints`; commit `2e1fd6d` |
+| 2026-06-12 | Block **1.5** checklist (`block-1.5-funnel-read.md`); pushed `2e1fd6d` + `4d76a7f` to GitHub |
 | 2026-06-12 | Gated execution sequence (replace calendar-week framing); proof gates for Phase C |
 | 2026-06-12 | Created unified checklist; marked 1A + B3 + money-page polish done; A3/A1/C blocked as next |
