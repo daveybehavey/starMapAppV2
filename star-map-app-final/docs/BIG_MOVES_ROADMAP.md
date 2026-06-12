@@ -2,9 +2,13 @@
 
 Sequenced product work after print/checkout plumbing (margin guard off, print UI live, promo fallback fixed — 2026-05).
 
-**How to use this doc:** Work top to bottom within each phase. Do not start Phase C SKUs until Phase A exit criteria pass. Polish items in Phase B can run in parallel with weekly growth ops.
+**How to use this doc:** Work top to bottom within each phase. Do not start Phase C SKUs until Phase A exit criteria pass (Block **1.6** in `docs/WORKING_BLOCKS.md`). Polish items in Phase B can run in parallel with growth ops once core wedding print intent ships.
 
-**Weekly rhythm (30–45 min):** `docs/GROWTH_OPS_WEEKLY.md` — `data:pull`, `qa:growth-weekly`, GA4 Realtime, one funnel fix if data points at it.
+**Execution:** `docs/WORKING_BLOCKS.md` — gated blocks, not calendar weeks. Move fast; do not skip proof gates.
+
+**Current status (single checklist):** `docs/PHASE_STATUS.md` — maps Phase 1A, Layer A/B/C, and Phases A–E in one place.
+
+**Weekly rhythm (30–45 min):** `docs/GROWTH_OPS_WEEKLY.md` — `data:pull`, `qa:growth-weekly`, GA4 Realtime, one funnel fix if data points at it. (Block **1.3** in working blocks.)
 
 ---
 
@@ -108,11 +112,6 @@ npm run ads:optimize
 
 ---
 
-## Suggested first sprint (serious start)
+## Suggested first sprint (after Phase 1A proof)
 
-1. **A2** — one fulfilled print  
-2. **A3 + A4** — wedding money path polish  
-3. **A1** — wire weekly growth loop  
-4. Then choose **C1 (card)** *or* **D1 (gift tiers)** — not both in the same week  
-
-Update checkboxes in `docs/PRODUCT_EXECUTION_QUEUE.md` when a phase item ships.
+Follow **`docs/WORKING_BLOCKS.md`** next execution sequence (**1.1 → 1.6**). Then choose **C1 (card)** *or* **D1 (gift tiers)** — not both in the same mini-wave.

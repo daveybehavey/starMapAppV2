@@ -7,6 +7,7 @@ import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -152,6 +153,11 @@ export default function PersonalizedStarMapPage() {
         sourcePrefix="personalized-format"
       />
       <FramedProofSection sourcePrefix="personalized-proof" />
+      <PhysicalProductGallerySection
+        heading="See the physical gift options"
+        intro="Room mockups from current StarMapCo artwork so buyers can judge framed and unframed finishes before checkout."
+        sourcePrefix="personalized-physical-proof"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">

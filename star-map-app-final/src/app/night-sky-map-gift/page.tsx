@@ -7,6 +7,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
@@ -50,6 +51,7 @@ export default function NightSkyMapGiftPage() {
           A night sky map gift captures the exact stars from a meaningful date and place. Start with a free preview, then
           choose the framed gift route, the lower-total unframed route, or HD digital delivery.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>

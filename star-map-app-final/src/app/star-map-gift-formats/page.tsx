@@ -19,7 +19,11 @@ import {
   getPrintAllowedCountries,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
+import FramedProofSection from "@/components/FramedProofSection";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import { getPrintShippingEstimate } from "@/lib/printfulShipping";
 
 export const revalidate = 86400;
@@ -54,8 +58,8 @@ export default function StarMapGiftFormatsPage() {
   const printCountryCount = getPrintAllowedCountries().length;
   const shippingDisclosure = getPrintShippingDisclosure();
   const proofImages = {
-    framed: getFramedProofImage(),
-    unframed: getUnframedProofImage(),
+    framed: HOME_MOCKUPS.framedBedroom,
+    unframed: HOME_MOCKUPS.unframedPoster,
   };
 
   const usFramedShipping = getPrintShippingEstimate("poster_framed", "US");
@@ -74,8 +78,8 @@ export default function StarMapGiftFormatsPage() {
       price: formatPrice(pricing.single.amountCents, pricing.single.currency),
       detail: "Best for same-day gifting and local print shops.",
       href: "/editor?mode=quick&source=gift-formats-digital",
-      imageSrc: "/custom-star-map-anniversary.webp",
-      fallbackSrc: "/custom-star-map-anniversary.png",
+      imageSrc: HOME_MOCKUPS.digitalHd,
+      fallbackSrc: HOME_MOCKUPS.digitalHd,
       bulletA: "Up to 6000x6000 PNG",
       bulletB: "Immediate access after payment",
       source: "gift-formats-digital-cta",
@@ -91,7 +95,7 @@ export default function StarMapGiftFormatsPage() {
       detail: `Premium ready-to-hang gift path. US shipping starts around ${usFramedShippingLabel}.`,
       href: "/editor?mode=quick&source=gift-formats-framed&checkout=print&print_variant=poster_framed&shipping_country=US",
       imageSrc: proofImages.framed,
-      fallbackSrc: "/printproof/framed-catalog.jpg",
+      fallbackSrc: HOME_MOCKUPS.framedBedroom,
       bulletA: "Ready-to-hang framed delivery",
       bulletB: "Highest gift conversion path",
       source: "gift-formats-framed-cta",
@@ -107,7 +111,7 @@ export default function StarMapGiftFormatsPage() {
       detail: `Professional poster print path. US shipping starts around ${usUnframedShippingLabel}.`,
       href: "/editor?mode=quick&source=gift-formats-unframed&checkout=print&print_variant=poster_unframed&shipping_country=US",
       imageSrc: proofImages.unframed,
-      fallbackSrc: "/printproof/unframed-catalog.jpg",
+      fallbackSrc: HOME_MOCKUPS.unframedPoster,
       bulletA: "Museum-grade poster stock",
       bulletB: "Best lower-cost physical option",
       source: "gift-formats-unframed-cta",
@@ -128,6 +132,7 @@ export default function StarMapGiftFormatsPage() {
         <p className="text-sm text-white/90 sm:text-base">
           Start with one preview, then choose your delivery format. This page focuses on the live checkout options.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
       </header>
 
       <PreviewStartForm source="star-map-gift-formats" />
@@ -140,9 +145,11 @@ export default function StarMapGiftFormatsPage() {
 
       <PhysicalProductGallerySection
         heading="See the live physical formats first"
-        intro="This is the physical side of the catalog: framed and unframed proof assets generated from current StarMapCo artwork, not generic room mockups detached from the render engine."
+        intro="Room mockups from current StarMapCo artwork — framed, unframed, and in-home styling — so buyers can judge the finish before checkout."
         sourcePrefix="gift-formats-physical-proof"
       />
+
+      <FramedProofSection sourcePrefix="gift-formats-proof" />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Live checkout formats</h2>
@@ -236,6 +243,29 @@ export default function StarMapGiftFormatsPage() {
           </div>
         </div>
       </section>
+
+      <PurchaseTrustPanel
+        heading="Before you choose a format"
+        intro="Preview for free first. Pick digital, framed, or unframed only once the design feels right."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Framed and unframed print paths available after preview",
+          shippingDisclosure,
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading="What your gift format order includes"
+        intro="Same approved map can stay digital, ship unframed, or arrive framed."
+      />
 
       <FaqSchema
         items={[

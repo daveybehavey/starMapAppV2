@@ -54,6 +54,7 @@ import {
 } from "@/lib/merchCatalog";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
+import { resolveEditorGiftTrafficIntent } from "@/lib/previewSourceHints";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -683,9 +684,20 @@ export function EditorExperience({
     const dateParam = searchParams.get("date");
     const locationParam = searchParams.get("location");
     const checkoutParam = searchParams.get("checkout");
+    const utmCampaignParam = searchParams.get("utm_campaign");
     const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
     const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
-    if (!dateParam && !locationParam && !sourceParam && !checkoutParam && !printVariantParam && !shippingCountryParam) return;
+    if (
+      !dateParam &&
+      !locationParam &&
+      !sourceParam &&
+      !checkoutParam &&
+      !printVariantParam &&
+      !shippingCountryParam &&
+      !utmCampaignParam
+    ) {
+      return;
+    }
 
     let hasValidDate = false;
     if (dateParam) {
@@ -706,17 +718,23 @@ export function EditorExperience({
       setRevealed(true);
     }
 
+    const giftTraffic = resolveEditorGiftTrafficIntent({
+      source: sourceParam,
+      checkoutParam,
+      printVariantParam,
+      utmCampaign: utmCampaignParam,
+    });
+
     if (printVariantParam) {
       setPreferredPrintVariant(printVariantParam);
+    } else if (giftTraffic.paywallIntent === "print") {
+      setPreferredPrintVariant(giftTraffic.preferredPrintVariant);
     }
+
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
       setPrintShippingCountryValue(shippingCountryParam, "query-param");
     }
-    if (
-      checkoutParam === "print" ||
-      sourceParam === "home-delivery-print-framed" ||
-      sourceParam === "home-delivery-print-unframed"
-    ) {
+    if (giftTraffic.paywallIntent === "print") {
       setPaywallIntent("print");
     }
 
@@ -746,13 +764,17 @@ export function EditorExperience({
 
   useEffect(() => {
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
-    const checkoutParam = searchParams.get("checkout");
     const sourceParam = searchParams.get("source");
-    if (
-      checkoutParam !== "print" &&
-      sourceParam !== "home-delivery-print-framed" &&
-      sourceParam !== "home-delivery-print-unframed"
-    ) {
+    const checkoutParam = searchParams.get("checkout");
+    const utmCampaignParam = searchParams.get("utm_campaign");
+    const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
+    const giftTraffic = resolveEditorGiftTrafficIntent({
+      source: sourceParam,
+      checkoutParam,
+      printVariantParam,
+      utmCampaign: utmCampaignParam,
+    });
+    if (!giftTraffic.autoOpenPaywall) {
       return;
     }
 

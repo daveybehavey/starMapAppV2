@@ -1,7 +1,6 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import ResilientImage from "@/components/ResilientImage";
-import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
+import { HOME_MOCKUPS } from "@/lib/homeMockups";
 
 type PhysicalProductGallerySectionProps = {
   heading?: string;
@@ -9,83 +8,42 @@ type PhysicalProductGallerySectionProps = {
   sourcePrefix?: string;
 };
 
+const galleryCards = [
+  {
+    src: HOME_MOCKUPS.framedBedroom,
+    alt: "Framed StarMapCo print above a bed in a styled bedroom",
+    eyebrow: "Framed · Classic",
+    title: "Ready-to-hang framed print",
+    detail: "Premium framing route for buyers who want the gift to arrive finished and presentation-ready.",
+  },
+  {
+    src: HOME_MOCKUPS.unframedPoster,
+    alt: "Unframed StarMapCo poster leaning against a wall",
+    eyebrow: "Unframed · Classic",
+    title: "Lower-cost unframed print",
+    detail: "Unframed route keeps physical delivery while leaving frame choice open for the buyer.",
+  },
+  {
+    src: HOME_MOCKUPS.starPoster,
+    alt: "Star-shaped StarMapCo poster in a styled room",
+    eyebrow: "Style · Heart",
+    title: "Romantic star layout",
+    detail: "Softer shape direction without changing the delivery route you pick at checkout.",
+  },
+  {
+    src: HOME_MOCKUPS.livingRoomFramed,
+    alt: "Framed StarMapCo print in a living room setting",
+    eyebrow: "Style · Living room",
+    title: "Gift-ready wall finish",
+    detail: "Shows how a finished framed map reads in a real home before you commit.",
+  },
+] as const;
+
 export default function PhysicalProductGallerySection({
   heading = "See the physical gift options side by side",
-  intro = "These styled product proofs mix current and alternate StarMapCo map styles so buyers can compare framed and unframed finishes in realistic contexts before checkout.",
+  intro = "Real room mockups from current StarMapCo artwork — framed, unframed, and in-home styling — so buyers can judge the finish before checkout.",
   sourcePrefix = "physical-proof-gallery",
 }: PhysicalProductGallerySectionProps) {
-  const framedProofImage = getFramedProofImage();
-  const unframedProofImage = getUnframedProofImage();
-  const primaryUnframedImage =
-    unframedProofImage === framedProofImage ? "/printproof/gallery/graduation-unframed.jpg" : unframedProofImage;
-
-  const galleryCards = [
-    {
-      src: framedProofImage,
-      fallbackSrc: "/printproof/gallery/wedding-framed.jpg",
-      alt: "Framed StarMapCo print shown hanging in a styled room",
-      eyebrow: "Framed · Classic",
-      title: "Ready-to-hang framed print",
-      detail: "Premium framing route for buyers who want the gift to arrive finished and presentation-ready.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--warm",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_18%_12%,rgba(255,255,255,0.26),rgba(255,255,255,0)_62%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/12 bg-white shadow-[0_14px_22px_rgba(0,0,0,0.2)]",
-      imageClass: "object-contain scale-[1.08]",
-      eyebrowClass: "text-amber-800",
-      artWrapStyle: undefined as CSSProperties | undefined,
-    },
-    {
-      src: primaryUnframedImage,
-      fallbackSrc: "/printproof/gallery/wedding-unframed.jpg",
-      alt: "Unframed StarMapCo poster shown in a styled setting",
-      eyebrow: "Unframed · Classic",
-      title: "Lower-cost unframed print",
-      detail: "Unframed route keeps physical delivery while leaving frame choice open for the buyer.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--neutral",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_82%_20%,rgba(255,255,255,0.24),rgba(255,255,255,0)_58%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/10 bg-white shadow-[0_14px_22px_rgba(0,0,0,0.2)]",
-      imageClass: "object-contain scale-[1.07]",
-      eyebrowClass: "text-slate-700",
-      artWrapStyle: undefined as CSSProperties | undefined,
-    },
-    {
-      src: "/examples/example-wedding-aurora-heart.webp",
-      fallbackSrc: "/examples/example-anniversary-heirloom.webp",
-      alt: "Heart-style StarMapCo example map",
-      eyebrow: "Style · Heart",
-      title: "Romantic heart layout",
-      detail: "Heart-shaped layout gives a softer style direction without changing the delivery route.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--warm-alt",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_22%_76%,rgba(255,255,255,0.2),rgba(255,255,255,0)_56%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/10 bg-white shadow-[0_14px_22px_rgba(0,0,0,0.2)]",
-      imageClass: "object-cover",
-      eyebrowClass: "text-amber-800",
-      artWrapStyle: undefined as CSSProperties | undefined,
-    },
-    {
-      src: "/examples/example-birthday-noir-full.webp",
-      fallbackSrc: "/examples/example-anniversary-heirloom.webp",
-      alt: "Noir-style StarMapCo example map",
-      eyebrow: "Style · Noir",
-      title: "Darker geometric variant",
-      detail: "Noir palette proves a high-contrast modern style for buyers who want a bolder look.",
-      stageClass: "gallery-wall-stage gallery-wall-stage--neutral-alt",
-      stageScrimClass:
-        "bg-[radial-gradient(circle_at_74%_72%,rgba(255,255,255,0.22),rgba(255,255,255,0)_58%)]",
-      artWrapClass:
-        "absolute inset-[11%] z-10 overflow-hidden border border-black/15 bg-[#0a1230] shadow-[0_14px_22px_rgba(0,0,0,0.28)]",
-      imageClass: "object-contain scale-[1.02]",
-      eyebrowClass: "text-slate-700",
-      artWrapStyle: undefined as CSSProperties | undefined,
-    },
-  ] as const;
-
   return (
     <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
       <div className="space-y-6 p-6">
@@ -97,27 +55,19 @@ export default function PhysicalProductGallerySection({
 
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {galleryCards.map((card) => (
-            <article
-              key={`${card.title}-${card.src}`}
-              className="group space-y-2"
-            >
-              <div
-                className={`relative aspect-[4/5] overflow-hidden border border-black/10 bg-[#081227]/10 shadow-[0_12px_20px_rgba(0,0,0,0.18)] transition duration-200 group-hover:-translate-y-[1px] group-hover:shadow-[0_18px_28px_rgba(0,0,0,0.22)] ${card.stageClass}`}
-              >
-                <div className={`pointer-events-none absolute inset-0 z-[5] ${card.stageScrimClass}`} />
-                <div className={card.artWrapClass} style={card.artWrapStyle}>
-                  <ResilientImage
-                    src={card.src}
-                    fallbackSrc={card.fallbackSrc}
-                    alt={card.alt}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
-                    className={card.imageClass}
-                  />
-                </div>
+            <article key={card.title} className="group space-y-2">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-black/10 bg-neutral-100 shadow-[0_12px_20px_rgba(0,0,0,0.12)] transition duration-200 group-hover:-translate-y-[1px] group-hover:shadow-[0_18px_28px_rgba(0,0,0,0.16)]">
+                <ResilientImage
+                  src={card.src}
+                  fallbackSrc={HOME_MOCKUPS.framedBedroom}
+                  alt={card.alt}
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                  className="object-cover"
+                />
               </div>
               <div className="space-y-1 px-1">
-                <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${card.eyebrowClass}`}>{card.eyebrow}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">{card.eyebrow}</p>
                 <h3 className="text-base font-semibold leading-tight text-midnight">{card.title}</h3>
                 <p className="text-[13px] leading-relaxed text-neutral-700">{card.detail}</p>
               </div>

@@ -6,7 +6,7 @@ import {
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { formatPrintShippingEstimateWithDelivery } from "@/lib/printfulShipping";
-import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
+import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type FramedProofSectionProps = {
@@ -33,8 +33,9 @@ export default function FramedProofSection({
     printTiers.poster_unframed.currency,
   );
   const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
-  const framedProofImage = getFramedProofImage();
-  const unframedProofImage = getUnframedProofImage();
+  const framedProofImage = HOME_MOCKUPS.framedBedroom;
+  const unframedProofImage = HOME_MOCKUPS.unframedPoster;
+  const digitalProofImage = HOME_MOCKUPS.digitalHd;
   const proofShippingCountry = "US";
   const framedShippingDetail = formatPrintShippingEstimateWithDelivery(
     "poster_framed",
@@ -51,52 +52,43 @@ export default function FramedProofSection({
     <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
       <div className="grid gap-0 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="grid gap-3 bg-neutral-100 p-3 sm:grid-cols-2 sm:p-4">
-          <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm sm:row-span-2 proof-wall-panel">
-            <div className="proof-wall-stage proof-wall-stage--gallery">
-              <ResilientImage
-                src={framedProofImage}
-                fallbackSrc="/printproof/framed-mockup.jpg"
-                alt="Framed StarMapCo star map mockup"
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-contain px-5 py-6 sm:px-7 sm:py-8 proof-wall-image"
-              />
-            </div>
-            <div className="pointer-events-none absolute inset-x-6 bottom-5 h-5 rounded-full bg-black/18 blur-xl" />
+          <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm sm:row-span-2">
+            <ResilientImage
+              src={framedProofImage}
+              fallbackSrc={HOME_MOCKUPS.framedBedroom}
+              alt="Framed StarMapCo star map in a styled bedroom"
+              fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="object-cover"
+            />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Framed print mockup
             </div>
           </div>
-          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm proof-wall-panel">
-            <div className="proof-wall-stage proof-wall-stage--tabletop">
-              <ResilientImage
-                src={unframedProofImage}
-                fallbackSrc="/printproof/unframed-mockup.jpg"
-                alt="Unframed StarMapCo poster mockup"
-                fill
-                sizes="(max-width: 1024px) 100vw, 25vw"
-                className="object-contain px-4 py-5 sm:px-5 sm:py-6 proof-wall-image"
-              />
-            </div>
-            <div className="pointer-events-none absolute inset-x-7 bottom-5 h-4 rounded-full bg-black/14 blur-xl" />
+          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm">
+            <ResilientImage
+              src={unframedProofImage}
+              fallbackSrc={HOME_MOCKUPS.unframedPoster}
+              alt="Unframed StarMapCo poster leaning against a wall"
+              fill
+              sizes="(max-width: 1024px) 100vw, 25vw"
+              className="object-cover"
+            />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
               Unframed poster mockup
             </div>
           </div>
-          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white/10 shadow-sm proof-wall-panel">
-            <div className="proof-wall-stage proof-wall-stage--editorial">
-              <ResilientImage
-                src="/printproof/digital-preview.webp"
-                fallbackSrc="/printproof/digital-preview.png"
-                alt="Digital StarMapCo preview shown as the instant file route"
-                fill
-                sizes="(max-width: 1024px) 100vw, 25vw"
-                className="object-contain px-5 py-5 sm:px-6 sm:py-6 proof-wall-image"
-              />
-            </div>
-            <div className="pointer-events-none absolute inset-x-8 bottom-5 h-4 rounded-full bg-black/16 blur-xl" />
+          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm">
+            <ResilientImage
+              src={digitalProofImage}
+              fallbackSrc={HOME_MOCKUPS.digitalHd}
+              alt="StarMapCo HD download on laptop and phone"
+              fill
+              sizes="(max-width: 1024px) 100vw, 25vw"
+              className="object-cover"
+            />
             <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
-              Current engine render
+              HD digital delivery
             </div>
           </div>
         </div>

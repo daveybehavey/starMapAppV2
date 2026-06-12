@@ -73,9 +73,9 @@ const VALUE_PROPS = [
 ] as const;
 
 const TRUST_ITEMS = [
-  { title: "Free shipping", detail: "On orders over $75", icon: HeroTruckIcon },
-  { title: "30-day returns", detail: "Love it or return it", icon: HeroReturnIcon },
-  { title: "5-star reviews", detail: "Thousands of happy customers", icon: HeroStarIcon },
+  { title: "Clear shipping", detail: "U.S. shipping shown before you pay", icon: HeroTruckIcon },
+  { title: "Quality review", detail: "Print orders checked before production", icon: HeroBadgeIcon },
+  { title: "Damage support", detail: "Help if your print arrives damaged", icon: HeroReturnIcon },
 ] as const;
 
 export default function HomeHero() {

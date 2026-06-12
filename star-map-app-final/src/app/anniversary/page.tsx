@@ -5,6 +5,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
@@ -49,8 +50,9 @@ export default function AnniversaryPage() {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Anniversary Star Map</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
           Mark your milestone with an anniversary star map gift showing the night sky from the date and place that shaped
-          your story. A keepsake that grows more meaningful each year.
+          your story. A           keepsake that grows more meaningful each year.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>

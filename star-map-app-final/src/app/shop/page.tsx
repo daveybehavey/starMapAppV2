@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import printproofManifest from "../../../public/printproof/manifest.json";
+import FramedProofSection from "@/components/FramedProofSection";
+import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import ResilientImage from "@/components/ResilientImage";
+import StickyCtaBar from "@/components/StickyCtaBar";
+import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { formatPrintDeliveryDisclosure, formatPrintShippingEstimateWithDelivery } from "@/lib/printfulShipping";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import { parseShopExternalOffers } from "@/lib/shopExternalOffers";
 import {
@@ -16,15 +23,6 @@ import {
 } from "@/lib/merchCatalog";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-
-type PrintproofManifestWithOptionalMockups = typeof printproofManifest & {
-  mockups?: {
-    framed?: { localPath?: string; sourceUrl?: string } | null;
-    unframed?: { localPath?: string; sourceUrl?: string } | null;
-  };
-};
-
-const manifest = printproofManifest as PrintproofManifestWithOptionalMockups;
 
 function merchShopTeaser(id: MerchFamilyId): string {
   switch (id) {
@@ -51,7 +49,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Shop prints & gifts | StarMapCo",
     description:
-    "Browse museum-grade star map posters, framed prints, optional stickers and apparel, plus HD digital delivery. Customize every map in the editor before checkout.",
+      "Browse museum-grade star map posters, framed prints, optional stickers and apparel, plus HD digital delivery. Customize every map in the editor before checkout.",
     url: `${siteUrl}/shop`,
     type: "website",
   },
@@ -65,19 +63,18 @@ export default function ShopPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
   const printTiers = getPrintPricingTiers();
   const digitals = getPricingTiers();
-
-  const framedImg =
-    manifest.catalog?.framed?.sourceUrl ||
-    manifest.mockups?.framed?.localPath ||
-    manifest.mockups?.framed?.sourceUrl ||
-    "";
-  const unframedImg =
-    manifest.catalog?.unframed?.sourceUrl ||
-    manifest.mockups?.unframed?.localPath ||
-    manifest.mockups?.unframed?.sourceUrl ||
-    "";
-  const framedAlt = manifest.catalog?.framed?.label || "Framed star map print preview";
-  const unframedAlt = manifest.catalog?.unframed?.label || "Unframed star map poster preview";
+  const printShippingCountry = "US";
+  const framedShippingDetail = formatPrintShippingEstimateWithDelivery(
+    "poster_framed",
+    printShippingCountry,
+    "shipping",
+  );
+  const unframedShippingDetail = formatPrintShippingEstimateWithDelivery(
+    "poster_unframed",
+    printShippingCountry,
+    "shipping",
+  );
+  const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", printShippingCountry);
 
   const framedPrice = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,
@@ -92,6 +89,50 @@ export default function ShopPage() {
   const partnerOffers = parseShopExternalOffers(process.env.NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON);
   const merchFamilies = listMerchFamiliesEnabledForPublicUi();
 
+  const productCards = [
+    {
+      key: "framed",
+      imageSrc: HOME_MOCKUPS.framedBedroom,
+      alt: "Framed StarMapCo print in a styled bedroom",
+      title: printTiers.poster_framed.label,
+      detail: "Premium presentation — gift-ready framing matched to our Printful storefront SKU.",
+      price: framedPrice,
+      shippingNote: `Est. to U.S.: ${framedShippingDetail}`,
+      href: "/editor?mode=quick&source=shop-framed&checkout=print&print_variant=poster_framed",
+      cta: "Customize framed print",
+      ctaClass:
+        "mt-auto inline-flex justify-center rounded-full bg-amber-500 px-4 py-2.5 text-sm font-semibold text-midnight transition hover:bg-amber-400",
+    },
+    {
+      key: "unframed",
+      imageSrc: HOME_MOCKUPS.unframedPoster,
+      alt: "Unframed StarMapCo poster leaning against a wall",
+      title: printTiers.poster_unframed.label,
+      detail: "Large-format poster print — ideal when you want to frame it locally or keep total cost lower.",
+      price: unframedPrice,
+      shippingNote: `Est. to U.S.: ${unframedShippingDetail}`,
+      href: "/editor?mode=quick&source=shop-unframed&checkout=print&print_variant=poster_unframed",
+      cta: "Customize poster",
+      ctaClass:
+        "mt-auto inline-flex justify-center rounded-full border border-amber-400/70 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-100",
+    },
+    {
+      key: "digital",
+      imageSrc: HOME_MOCKUPS.digitalHd,
+      alt: "StarMapCo HD download on laptop and phone",
+      title: "HD digital export",
+      detail:
+        "Same editor fidelity — instant download credits for DIY printing, same-night gifting, or international delivery without freight.",
+      price: digitalPrice,
+      shippingNote: "Delivered instantly after checkout",
+      href: "/editor?mode=quick&source=shop-digital",
+      cta: "Start digital map",
+      ctaClass:
+        "mt-auto inline-flex justify-center rounded-full bg-midnight px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-midnight/90",
+      darkCard: true,
+    },
+  ] as const;
+
   return (
     <main className="mx-auto min-h-[60vh] w-full max-w-5xl px-4 py-10 text-neutral-900 sm:px-6 lg:py-14">
       <div className="rounded-3xl border border-white/15 bg-white/90 px-5 py-8 shadow-xl shadow-black/10 sm:px-10 sm:py-10">
@@ -103,6 +144,18 @@ export default function ShopPage() {
           Every product starts in the editor so your sky, typography, and occasion lines stay yours. Physical orders ship
           through Printful with manual review before production.
         </p>
+        <p className="mt-2 text-sm text-neutral-700">
+          HD from <span className="font-semibold text-midnight">{digitalPrice}</span>
+          {" · "}
+          unframed from <span className="font-semibold text-midnight">{unframedPrice}</span>
+          {" · "}
+          framed from <span className="font-semibold text-midnight">{framedPrice}</span>
+        </p>
+        {framedDeliveryDisclosure ? (
+          <p className="mt-1 text-xs text-neutral-600">
+            Free preview first. {framedDeliveryDisclosure}. {shippingDisclosure}
+          </p>
+        ) : null}
         <ul className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-neutral-700">
           <li className="rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1">{printBadge}</li>
           <li className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1">{shippingDisclosure}</li>
@@ -112,6 +165,55 @@ export default function ShopPage() {
             </li>
           ) : null}
         </ul>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/editor?mode=quick&source=shop-hero-framed&checkout=print&print_variant=poster_framed"
+            prefetch={false}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px]"
+          >
+            Preview framed print
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=shop-hero-preview"
+            prefetch={false}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-neutral-300 bg-white px-5 py-3 text-sm font-semibold text-midnight transition hover:bg-neutral-50"
+          >
+            Start free preview
+          </Link>
+        </div>
+
+        <PreviewStartForm
+          source="shop"
+          title="Customize before you buy"
+          description="Enter the date and place, then open the editor with framed print, unframed poster, or HD digital pre-selected."
+          intentOptions={[
+            {
+              label: "Preview framed print",
+              sourceSuffix: "framed",
+              checkout: "print",
+              printVariant: "poster_framed",
+              plan: "print_framed",
+              tone: "recommended",
+              detail: "Gift-ready route — arrives finished and ready to hang.",
+            },
+            {
+              label: "Preview unframed poster",
+              sourceSuffix: "unframed",
+              checkout: "print",
+              printVariant: "poster_unframed",
+              plan: "print_unframed",
+              tone: "default",
+              detail: "Lower physical total when you handle framing yourself.",
+            },
+            {
+              label: "Start HD digital",
+              sourceSuffix: "digital",
+              plan: "single",
+              tone: "neutral",
+              detail: "Instant file after payment — no shipping wait.",
+            },
+          ]}
+        />
 
         <section className="mt-10">
           <h2 className="text-xl font-semibold text-midnight">Ready at checkout</h2>
@@ -119,67 +221,38 @@ export default function ShopPage() {
             Tap a card to open the editor with the matching fulfillment path pre-selected.
           </p>
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <article className="flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-              <div className="relative aspect-[4/3] bg-neutral-100">
-                {framedImg ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- remote Printful CDN asset
-                  <img src={framedImg} alt={framedAlt} className="h-full w-full object-cover" loading="lazy" />
-                ) : null}
-              </div>
-              <div className="flex flex-1 flex-col gap-2 p-4">
-                <h3 className="text-lg font-semibold text-midnight">{printTiers.poster_framed.label}</h3>
-                <p className="text-sm text-neutral-700">
-                  Premium presentation — gift-ready framing matched to our Printful storefront SKU.
-                </p>
-                <p className="text-base font-semibold text-amber-800">{framedPrice}</p>
-                <Link
-                  href="/editor?mode=quick&source=shop-framed&checkout=print&print_variant=poster_framed"
-                  prefetch={false}
-                  className="mt-auto inline-flex justify-center rounded-full bg-amber-500 px-4 py-2.5 text-sm font-semibold text-midnight transition hover:bg-amber-400"
-                >
-                  Customize framed print
-                </Link>
-              </div>
-            </article>
-
-            <article className="flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-              <div className="relative aspect-[4/3] bg-neutral-100">
-                {unframedImg ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={unframedImg} alt={unframedAlt} className="h-full w-full object-cover" loading="lazy" />
-                ) : null}
-              </div>
-              <div className="flex flex-1 flex-col gap-2 p-4">
-                <h3 className="text-lg font-semibold text-midnight">{printTiers.poster_unframed.label}</h3>
-                <p className="text-sm text-neutral-700">
-                  Large-format poster print — ideal when you want to frame it locally or keep total cost lower.
-                </p>
-                <p className="text-base font-semibold text-amber-800">{unframedPrice}</p>
-                <Link
-                  href="/editor?mode=quick&source=shop-unframed&checkout=print&print_variant=poster_unframed"
-                  prefetch={false}
-                  className="mt-auto inline-flex justify-center rounded-full border border-amber-400/70 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-100"
-                >
-                  Customize poster
-                </Link>
-              </div>
-            </article>
-
-            <article className="flex flex-col rounded-2xl border border-neutral-200 bg-gradient-to-br from-indigo-950 via-[#0c1738] to-[#050915] p-4 text-white shadow-sm sm:col-span-2 lg:col-span-1">
-              <h3 className="text-lg font-semibold text-white">HD digital export</h3>
-              <p className="mt-2 text-sm leading-relaxed text-indigo-100">
-                Same editor fidelity — instant download credits for DIY printing, same-night gifting, or international
-                delivery without freight.
-              </p>
-              <p className="mt-3 text-lg font-semibold text-amber-200">{digitalPrice}</p>
-              <Link
-                href="/editor?mode=quick&source=shop-digital"
-                prefetch={false}
-                className="mt-auto inline-flex justify-center rounded-full bg-white/95 px-4 py-2.5 text-sm font-semibold text-midnight transition hover:bg-white"
+            {productCards.map((card) => (
+              <article
+                key={card.key}
+                className={`flex flex-col overflow-hidden rounded-2xl border shadow-sm ${
+                  card.darkCard ? "border-neutral-800 bg-[#0c1738] text-white" : "border-neutral-200 bg-white"
+                }`}
               >
-                Start digital map
-              </Link>
-            </article>
+                <div className="relative aspect-[4/3] bg-neutral-100">
+                  <ResilientImage
+                    src={card.imageSrc}
+                    fallbackSrc={card.imageSrc}
+                    alt={card.alt}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-2 p-4">
+                  <h3 className={`text-lg font-semibold ${card.darkCard ? "text-white" : "text-midnight"}`}>{card.title}</h3>
+                  <p className={`text-sm ${card.darkCard ? "text-indigo-100" : "text-neutral-700"}`}>{card.detail}</p>
+                  <p className={`text-base font-semibold ${card.darkCard ? "text-amber-200" : "text-amber-800"}`}>
+                    {card.price}
+                  </p>
+                  <p className={`text-xs ${card.darkCard ? "text-indigo-200/80" : "text-neutral-600"}`}>
+                    {card.shippingNote}
+                  </p>
+                  <Link href={card.href} prefetch={false} className={card.ctaClass}>
+                    {card.cta}
+                  </Link>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -221,7 +294,8 @@ export default function ShopPage() {
           <section className="mt-14 border-t border-neutral-200 pt-10">
             <h2 className="text-xl font-semibold text-midnight">Partner picks</h2>
             <p className="mt-2 text-sm text-neutral-700">
-              Curated storefront links configured via <code className="rounded bg-neutral-100 px-1 text-xs">NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON</code>.
+              Curated storefront links configured via{" "}
+              <code className="rounded bg-neutral-100 px-1 text-xs">NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON</code>.
             </p>
             <ul className="mt-6 grid gap-4 sm:grid-cols-2">
               {partnerOffers.map((offer) => (
@@ -245,10 +319,8 @@ export default function ShopPage() {
         <section className="mt-14 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-sm text-neutral-800">
           <p className="font-semibold text-midnight">Fulfillment note</p>
           <p className="mt-2 leading-relaxed">
-            Poster and framed SKUs map directly to your configured Printful variants (
-            <span className="whitespace-nowrap">unframed {printproofManifest.catalog?.unframed?.variantId ?? "—"}</span>,{" "}
-            <span className="whitespace-nowrap">framed {printproofManifest.catalog?.framed?.variantId ?? "—"}</span>
-            ). Merch add-ons (stickers, magnets, pins, apparel) use Printful catalog variants per selected options.
+            Poster and framed SKUs map to your configured Printful variants. Merch add-ons use Printful catalog variants
+            per selected options. Every order is reviewed before production starts.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/how-to-print-star-map" prefetch={false} className="font-semibold text-amber-800 underline">
@@ -260,9 +332,48 @@ export default function ShopPage() {
             <Link href="/returns" prefetch={false} className="font-semibold text-amber-800 underline">
               Returns
             </Link>
+            <Link href="/star-map-gift-formats" prefetch={false} className="font-semibold text-amber-800 underline">
+              Compare gift formats
+            </Link>
           </div>
         </section>
       </div>
+
+      <FramedProofSection
+        heading="See the finished gift before checkout"
+        intro="Room mockups from current StarMapCo artwork — framed, unframed, and HD digital from the same preview you approve."
+        sourcePrefix="shop-proof"
+      />
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Upgrade only once the wording, date, and layout feel right."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Framed and unframed print paths available after preview",
+          shippingDisclosure,
+          "Physical orders stay in manual review before production starts",
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
+      <WhatYouReceiveModule
+        heading="What your shop order includes"
+        intro="Same handoff from preview to final delivery as our gift landing pages."
+      />
+
+      <StickyCtaBar
+        source="sticky-shop"
+        secondaryButtonLabel="Preview framed print"
+        secondaryHref="/editor?mode=quick&source=sticky-shop-framed&checkout=print&print_variant=poster_framed"
+        secondaryPlan="print_framed"
+      />
     </main>
   );
 }

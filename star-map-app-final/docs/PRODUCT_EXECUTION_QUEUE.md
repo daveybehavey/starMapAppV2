@@ -68,7 +68,7 @@ Ads: **Search - Wedding Gift 2026** live; weekly `data:pull` + `ads:optimize`.
 
 
 
-**Phase A (prove machine)** — see `docs/BIG_MOVES_ROADMAP.md`
+**Phase A (prove machine)** — see `docs/BIG_MOVES_ROADMAP.md` and **`docs/PHASE_STATUS.md`** (unified checklist)
 
 
 

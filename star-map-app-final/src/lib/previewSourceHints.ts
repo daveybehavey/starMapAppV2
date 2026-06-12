@@ -1,3 +1,4 @@
+import type { PrintVariant } from "@/lib/printCatalog";
 import { normalizeReferralAttribution, type ReferralAttribution } from "@/lib/referralAttribution";
 
 /** Must match `REFERRAL_SOURCE_COOKIE_NAME` in referralCookie.ts (client-safe duplicate). */
@@ -20,6 +21,18 @@ export function isWeddingUtmCampaign(campaign: string | null | undefined): boole
   if (!campaign) return false;
   const c = campaign.toLowerCase();
   return c.includes("wedding") || c.includes("gift_wedding");
+}
+
+/** Preview-first wedding paths — keep digital tab and do not auto-open paywall. */
+export function isNeutralWeddingPreviewSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  const s = source.toLowerCase();
+  if (s === "wedding" || s === "sticky-wedding") return true;
+  if (!s.includes("wedding")) return false;
+  if (s.includes("preview") && !s.includes("framed") && !s.includes("unframed") && !s.includes("print")) {
+    return true;
+  }
+  return false;
 }
 
 function decodeBase64UrlCookie(value: string): string {
@@ -59,23 +72,58 @@ export function isWeddingCommerceContext(source: string | null | undefined): boo
 export function shouldDefaultEditorPaywallToPrint(
   source: string | null | undefined,
   checkoutParam?: string | null,
+  utmCampaign?: string | null,
 ): boolean {
   if (checkoutParam === "print") return true;
+  if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") return true;
   if (isWeddingPrintLandingSource(source)) return true;
-  return isWeddingCommerceContext(source);
+  if (isNeutralWeddingPreviewSource(source)) return false;
+  if (isWeddingUtmCampaign(utmCampaign)) return true;
+  const attribution = readClientMarketingAttribution();
+  if (isWeddingUtmCampaign(attribution?.campaign)) return true;
+  return false;
 }
 
-/** Auto-open paywall after reveal when the visitor chose a print checkout path. */
+/** Auto-open paywall after reveal when the visitor chose an explicit print checkout path. */
 export function shouldAutoOpenEditorPrintPaywall(
   source: string | null | undefined,
   checkoutParam?: string | null,
 ): boolean {
   if (checkoutParam === "print") return true;
-  if (
-    source === "home-delivery-print-framed" ||
-    source === "home-delivery-print-unframed"
-  ) {
+  if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") {
     return true;
   }
   return isWeddingPrintLandingSource(source);
+}
+
+export function resolvePreferredPrintVariantFromSource(
+  source: string | null | undefined,
+  explicitVariant: PrintVariant | null,
+): PrintVariant {
+  if (explicitVariant) return explicitVariant;
+  if (source?.toLowerCase().includes("unframed")) return "poster_unframed";
+  return "poster_framed";
+}
+
+export type EditorGiftTrafficIntent = {
+  paywallIntent: "digital" | "print";
+  preferredPrintVariant: PrintVariant;
+  autoOpenPaywall: boolean;
+};
+
+/** Wedding / gift-wedding campaign → editor paywall behavior (Block 1.1). */
+export function resolveEditorGiftTrafficIntent(params: {
+  source: string | null;
+  checkoutParam: string | null;
+  printVariantParam: PrintVariant | null;
+  utmCampaign?: string | null;
+}): EditorGiftTrafficIntent {
+  const { source, checkoutParam, printVariantParam, utmCampaign } = params;
+  const defaultToPrint = shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCampaign);
+
+  return {
+    paywallIntent: defaultToPrint ? "print" : "digital",
+    preferredPrintVariant: resolvePreferredPrintVariantFromSource(source, printVariantParam),
+    autoOpenPaywall: shouldAutoOpenEditorPrintPaywall(source, checkoutParam),
+  };
 }

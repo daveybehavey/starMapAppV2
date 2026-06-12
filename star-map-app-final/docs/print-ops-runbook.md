@@ -48,6 +48,24 @@ After deploy, print buyers should receive:
 
 Example: Printful **161064930** → session `cs_live_b1SMZnwizGDOHJAlX86rCGxyH2b2au2pNugxoHTfu9gyOhAoB4t2JJzIrh`.
 
+Framed in-process example: Printful **161276125** → session `cs_live_b1OukUkmbrE4VT2xE3az7TJGBDkeMlLL2vYXwUCOSMoOdJ0kiDt4H6YvUL`.
+
+## Print customer comms slice — complete (2026-06-12)
+
+**Status:** deployed + verified. **Cloudflare version:** `ff30e44f-6e45-4ffa-b990-cff9144d9d7b` (main `3b63958` print comms, `251f73b` editor fix).
+
+Verified:
+
+- `/success` print timeline live
+- Safe `printSummary` on `/api/stripe/verify`
+- Historical unframed order **161064930** verified in browser + API
+- Fulfillment index backfilled for **161064930** and **161276125** (admin `POST /api/print/orders/resolve`)
+- No customer emails sent during verification
+- No new paid print order created
+- Checkout, pricing, Printful variants, `PRINTFUL_AUTO_CONFIRM=false` unchanged
+
+Passive watch only: monitor Printful **161276125** until tracking exists (automatic `package_shipped` path should resolve via index).
+
 ## First production print proof (Phase A2)
 
 Human step — required before expanding SKUs (`docs/BIG_MOVES_ROADMAP.md` Phase C).

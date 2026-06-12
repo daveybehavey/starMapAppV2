@@ -4,7 +4,9 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
@@ -80,7 +82,7 @@ export default function StarMapPosterPage() {
         description:
           "Made-to-order custom star map wall art created from your chosen date and location, available as an unframed poster or framed print after preview.",
         brand: { "@type": "Brand", name: "StarMapCo" },
-        image: [`${siteUrl}/printproof/unframed-mockup.jpg`, `${siteUrl}/printproof/framed-mockup.jpg`],
+        image: [`${siteUrl}${HOME_MOCKUPS.unframedPoster}`, `${siteUrl}${HOME_MOCKUPS.framedBedroom}`],
         category: "Home & Garden > Decor > Artwork > Posters, Prints, & Visual Artwork",
         offers: [
           {
@@ -372,6 +374,11 @@ export default function StarMapPosterPage() {
         heading="Poster design on screen, framed result on the wall"
         intro={`Use the poster layout to approve the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display. ${shippingDisclosure}`}
         sourcePrefix="poster-proof"
+      />
+      <PhysicalProductGallerySection
+        heading="See the poster and framed finish in real rooms"
+        intro="Room mockups from current StarMapCo artwork — framed, unframed, and in-home styling."
+        sourcePrefix="poster-physical-proof"
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

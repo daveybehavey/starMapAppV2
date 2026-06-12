@@ -28,6 +28,8 @@
   /* Standardized focus ring */
   --ring-color: rgba(241, 194, 125, 0.5);
   --ring-color-light: rgba(241, 194, 125, 0.3);
+  /* Sticky SiteTopNav: py-3 + single-line nav (~3.5rem) */
+  --site-header-height: 3.5rem;
   --ring-offset: 2px;
   --ring-width: 2px;
 }
@@ -1154,7 +1156,8 @@ input[type="range"]:hover::-moz-range-thumb {
   position: relative;
   isolation: isolate;
   width: 100%;
-  min-height: clamp(640px, 92vh, 920px);
+  min-height: calc(100svh - var(--site-header-height));
+  min-height: calc(100dvh - var(--site-header-height));
   background-color: var(--cosmic-midnight);
   overflow: hidden;
 }
@@ -1403,10 +1406,6 @@ input[type="range"]:hover::-moz-range-thumb {
 }
 
 @media (min-width: 640px) {
-  .hero-plan {
-    min-height: clamp(680px, 88vh, 860px);
-  }
-
   .hero-plan__bg-img {
     object-position: center;
   }
@@ -1442,10 +1441,6 @@ input[type="range"]:hover::-moz-range-thumb {
 }
 
 @media (min-width: 1024px) {
-  .hero-plan {
-    min-height: clamp(620px, 82vh, 780px);
-  }
-
   .hero-plan__bg-img {
     object-position: center;
   }

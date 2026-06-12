@@ -18,11 +18,13 @@ type HomeOfferStackProps = {
     framed: string;
     digitalAddOn: string;
   };
-  proofImages: {
-    framed: string;
-    unframed: string;
-  };
 };
+
+const OFFER_MOCKUPS = {
+  digital: "/home-mockups/offer-digital-hd.png",
+  framed: "/home-mockups/offer-framed-print.png",
+  unframed: "/home-mockups/offer-unframed-print.png",
+} as const;
 
 export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferStackProps) {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
@@ -70,18 +72,15 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
 
         <div className="grid gap-3 md:grid-cols-3">
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
-            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/15 bg-white/10">
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/15 bg-[#0a1228]">
               <ResilientImage
-                src="/printproof/digital-preview.webp"
-                fallbackSrc="/printproof/digital-preview.png"
-                alt="Digital StarMapCo HD download preview"
+                src={OFFER_MOCKUPS.digital}
+                fallbackSrc={OFFER_MOCKUPS.digital}
+                alt="StarMapCo HD download on laptop and phone"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover"
+                className="object-cover object-center"
               />
-              <span className="absolute bottom-2 left-2 rounded-full border border-white/15 bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
-                HD download
-              </span>
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-white">Instant digital</p>
@@ -111,21 +110,15 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </article>
 
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
-            <div className="home-proof-wall home-proof-wall--warm relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/45">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.35),rgba(0,0,0,0.06)_75%)]" />
-              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
-                <ResilientImage
-                  src="/printproof/gallery/wedding-framed.jpg"
-                  fallbackSrc="/printproof/framed-latest.png"
-                  alt="Framed StarMapCo print preview"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-contain p-2"
-                />
-              </div>
-              <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
-                Product preview
-              </span>
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-amber-200/45 bg-[#1a1410]">
+              <ResilientImage
+                src={OFFER_MOCKUPS.framed}
+                fallbackSrc={OFFER_MOCKUPS.framed}
+                alt="Framed StarMapCo print in a bedroom setting"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover object-center"
+              />
             </div>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
@@ -157,21 +150,15 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </article>
 
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
-            <div className="home-proof-wall home-proof-wall--neutral relative mb-3 h-28 overflow-hidden rounded-xl border border-white/18">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.32),rgba(0,0,0,0.08)_78%)]" />
-              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
-                <ResilientImage
-                  src="/printproof/unframed-latest.png"
-                  fallbackSrc="/printproof/gallery/wedding-unframed.jpg"
-                  alt="Unframed StarMapCo poster preview"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-contain p-2"
-                />
-              </div>
-              <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
-                Product preview
-              </span>
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/18 bg-[#eceae6]">
+              <ResilientImage
+                src={OFFER_MOCKUPS.unframed}
+                fallbackSrc={OFFER_MOCKUPS.unframed}
+                alt="Unframed StarMapCo poster leaning against a wall"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover object-center"
+              />
             </div>
             <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
               Physical saver

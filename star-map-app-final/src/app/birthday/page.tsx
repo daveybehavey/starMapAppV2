@@ -4,6 +4,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
@@ -50,10 +51,25 @@ export default function BirthdayPage() {
           Use our birthday star map generator to capture the exact night sky from their birth date and location—a
           keepsake that feels personal, timeless, and ready to frame.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href="/editor?mode=quick&source=birthday-hero-framed&checkout=print&print_variant=poster_framed"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Preview framed print
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=birthday-hero-preview"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Start free preview
+          </Link>
         </div>
       </header>
 

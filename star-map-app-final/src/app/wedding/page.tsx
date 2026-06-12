@@ -8,6 +8,7 @@ import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
@@ -224,6 +225,11 @@ export default function WeddingPage() {
         sourcePrefix="wedding-format"
       />
       <FramedProofSection sourcePrefix="wedding-proof" />
+      <PhysicalProductGallerySection
+        heading="What the wedding gift looks like in real rooms"
+        intro="Room mockups from current StarMapCo artwork — framed, unframed, and in-home styling for ceremony-night keepsakes."
+        sourcePrefix="wedding-physical-proof"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
