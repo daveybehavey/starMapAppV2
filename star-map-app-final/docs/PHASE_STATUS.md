@@ -54,10 +54,10 @@ Legend: ✅ Done · 🟡 Partial / watch · ⬜ Open · ⏸ Deferred
 
 | ID | Item | Status | Notes / verify |
 |----|------|--------|----------------|
-| **A1** | Weekly growth loop | ⬜ | `docs/GROWTH_OPS_WEEKLY.md` — `data:pull`, `qa:growth-weekly`, GA4 + one funnel fix |
+| **A1** | Weekly growth loop | 🟡 | Block **1.3** notes in `reports/weekly-notes-2026-06-12.md`; company-os dev copy needs OneDrive fix for `data:pull` |
 | **A2** | One fulfilled print in prod | 🟡 | Unframed historically **fulfilled**; framed **in production** — acceptable for 1A doc; confirm in Printful dashboard |
-| **A3** | Wedding → print conversion | 🟡 | **1.1 deployed** (`5de4ed19`); paywall resolver live — **1.2** URL audit + manual framed-path check |
-| **A4** | Money-page 10-second test | 🟡 | Mockups + price-at-a-glance on top pages; no formal stranger test / funnel read yet |
+| **A3** | Wedding → print conversion | 🟡 | **1.1–1.2 done** (deploy `5de4ed19`, URLs verified live); manual framed-path QA |
+| **A4** | Money-page 10-second test | 🟡 | **1.4 pass** on live `/wedding`, `/personalized-star-map`, `/star-map-gift`, `/shop` — no copy deploy needed |
 | **A5** | Post-purchase upsell | ✅ | `/success` + `/download` print CTAs; print timeline on success |
 
 ---
@@ -150,6 +150,6 @@ npm run data:pull
 
 | Date | Change |
 |------|--------|
-| 2026-06-12 | Block **1.1** deployed (`5de4ed19`); wedding print paywall resolver live |
+| 2026-06-12 | Blocks **1.2**, **1.4** verified live; unit tests for `previewSourceHints`; commit `2e1fd6d` |
 | 2026-06-12 | Gated execution sequence (replace calendar-week framing); proof gates for Phase C |
 | 2026-06-12 | Created unified checklist; marked 1A + B3 + money-page polish done; A3/A1/C blocked as next |
