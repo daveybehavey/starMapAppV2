@@ -11,7 +11,7 @@
 
 | Rank | Item | Status | Notes |
 |------|------|--------|-------|
-| 0.1 | **Push + `deploy:verify`** | ⬜ | Local commit ahead of origin; prod missing map hub, card bundle, QA scripts |
+| 0.1 | **Push + `deploy:verify`** | ✅ | `ae8c983` on prod; live-critical passed |
 | 0.2 | **Block 1.6 Phase A sign-off** | ⬜ | 15 min: tick `PHASE_STATUS.md`, wedding→print paragraph, pick C2 vs D1 |
 | 0.3 | **Cancel Printful draft #162333059** | ⬜ | QA order with failed files; optional cleanup |
 
