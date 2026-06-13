@@ -36,7 +36,7 @@ function parseArgs(argv) {
     if (token === "-h" || token === "--help") {
       console.log(`Usage: node scripts/merch-marketing-smoke.mjs [--site <url>] [--timeout-ms <n>] [--expect-merch-html]
 
-Default site is http://localhost:3001. Use --expect-merch-html to require id="merch-beta" on /shop (needs merch env flags).`);
+Default site is http://localhost:3001. Use --expect-merch-html to require id="merch-addons" on /shop (needs merch env flags).`);
       process.exit(0);
     }
     throw new Error(`Unknown arg: ${token}`);
@@ -83,7 +83,7 @@ async function main() {
 
     if (args.expectMerchHtml) {
       run('/shop includes "Wearables & small merch" block', shopHtml.includes("Wearables & small merch"), "merch env flags");
-      run('/shop includes id="merch-beta"', shopHtml.includes('id="merch-beta"'), "section anchor");
+      run('/shop includes id="merch-addons"', shopHtml.includes('id="merch-addons"'), "section anchor");
       run("/shop lists editor merch deep link", shopHtml.includes("merch_family="), "shop-merch href");
     }
 

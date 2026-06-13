@@ -1,11 +1,17 @@
 # StarMapCo — unified phase status
 
-**Last updated:** 2026-06-12  
+**Last updated:** 2026-06-13  
 **Purpose:** One checklist so you are not juggling three different “phase” naming systems.
 
 **How to use:** Work the **next execution sequence** in `docs/WORKING_BLOCKS.md`. Mark items here when they ship. Detailed runbooks stay in linked docs.
 
-**Execution rule:** Move as fast as you want. Do not skip gates. Do not start Phase C merch until Block **1.6** signs off Phase A.
+**Execution rule:** Move as fast as you want. Do not skip **proof** gates (test order, margin, checkout smoke).
+
+**Split gate (2026-06-09):**
+
+- **Wedding proof** (Blocks **1.5 → 1.6**) — still runs on its own schedule; gates **scaling wedding ads**, not merch prep.
+- **C1 greeting card** — **prep + launch unlocked now**; follow **`docs/block-c1-card-prep.md`**. Live when **C1.5** passes (one test order), **not** when 1.6 passes.
+- **C2 / C3** (canvas, mug) — still **after C1.5** passes.
 
 ---
 
@@ -24,7 +30,7 @@
 
 ## Where we are (one line)
 
-**Phase 1A proof is closed.** Homepage, money pages, `/shop`, and digital download are live and polished. **BIG_MOVES Phase A exit is not signed off yet** — growth habit, wedding paywall default, and funnel proof from ads traffic are still open. **Do not start Phase C SKUs** until Phase A exits.
+**Phase 1A proof is closed.** Homepage, money pages, `/shop`, map hub, and digital download are live and polished. **Block 1.5 funnel read done** (2026-06-13) — ready for **1.6 sign-off** after GA4 wedding slice review. **C1.5 paid plumbing proven** (framed + card → CA); **M1 stickers** at metadata proof (no second paid order required).
 
 ---
 
@@ -54,13 +60,13 @@ Legend: ✅ Done · 🟡 Partial / watch · ⬜ Open · ⏸ Deferred
 
 | ID | Item | Status | Notes / verify |
 |----|------|--------|----------------|
-| **A1** | Weekly growth loop | 🟡 | Block **1.3** notes + `qa:growth-weekly` (2026-06-12) |
-| **A2** | One fulfilled print in prod | 🟡 | Unframed historically **fulfilled**; framed **in production** — acceptable for 1A doc; confirm in Printful dashboard |
-| **A3** | Wedding → print conversion | 🟡 | **1.1–1.2 done** (deploy `5de4ed19`, URLs verified live); manual framed-path QA |
+| **A1** | Weekly growth loop | ✅ | `qa:growth-weekly` run 2026-06-13; notes in `reports/weekly-notes-2026-06-13.md` |
+| **A2** | One fulfilled print in prod | ✅ | 4 print paid / 4 sent in 14d digest; historical unframed **161064930** fulfilled |
+| **A3** | Wedding → print conversion | 🟡 | **1.1–1.2 done**; print checkout firing (59 opened / 4 paid in 14d) |
 | **A4** | Money-page 10-second test | ✅ | **1.4 pass** on live money pages (2026-06-12) |
 | **A5** | Post-purchase upsell | ✅ | `/success` + `/download` print CTAs; print timeline on success |
 
-**Block 1.5:** **`docs/block-1.5-funnel-read.md`** — funnel read after ≥7d on deploy `5de4ed19` (prefer 14d).
+**Block 1.5:** ✅ Funnel read **2026-06-13** — see `reports/weekly-notes-2026-06-13.md`. **1.6** next (15 min sign-off).
 
 ---
 
@@ -76,15 +82,16 @@ Legend: ✅ Done · 🟡 Partial / watch · ⬜ Open · ⏸ Deferred
 
 ---
 
-### BIG_MOVES — Phase C (catalog — **blocked until Phase A exit**)
+### BIG_MOVES — Phase C (catalog)
 
 Live paywall today: **`poster_framed`**, **`poster_unframed`** only.
 
 | Order | SKU | Status |
 |-------|-----|--------|
-| **C1** | `card_4x6` | ⬜ |
-| **C2** | `canvas_wrap` | ⬜ |
-| **C3** | `mug_11oz` (shop/merch, not wedding hero) | ⬜ |
+| **C1** | `card_4x6` (bundle add-on — see `block-c1-card-prep.md`) | ✅ **C1.5** — paid plumbing `cs_live_b1PTs2…` (framed + card, CA); C1.4 copy shipped |
+| **M1** | Stickers merch beta (`block-m1-stickers-beta.md`) | 🟡 **M1.3** — live proof 20/20 (no paid order); enable scale when ready |
+| **C2** | `canvas_wrap` | ⬜ After C1.5 |
+| **C3** | `mug_11oz` (shop/merch, not wedding hero) | ⬜ After C1.5 |
 
 Checklist per SKU: `docs/print-launch-checklist.md`, `npm run qa:print-margin`, `PAYWALL_LIVE_PRINT_VARIANTS`, one real test order.
 
@@ -107,13 +114,19 @@ See **`docs/WORKING_BLOCKS.md`** for full block specs. Order:
 2. **1.2** — Wedding CTAs + ad URL parity  
 3. **1.3** — First growth loop (A1)  
 4. **1.4** — Money-page 10-second pass (A4)  
-5. **1.5** — Funnel read: preview → print checkout  
-6. **1.6** — Phase A sign-off → then pick **C1** or **D1**
+5. **1.5** — Funnel read: preview → print checkout *(parallel with C1 prep)*  
+6. **1.6** — Phase A sign-off *(gates wedding ad scale; not C1)*  
 
-**Hard gate:** Phase C SKUs / Printful merch stay blocked until **1.6**.  
-**Parallel OK:** Wave 2 polish (B1–B5) after **1.1**; does not replace **1.6** proof.
+**Parallel tracks:**
 
-After Phase A exit: **B4** (testimonials when ready); merch via **C.x** sub-blocks (one SKU per mini-wave).
+| Track | Blocks | Unlocks |
+|-------|--------|---------|
+| Wedding proof | **1.5 → 1.6** | Scale Search wedding ads with confidence |
+| C1 card | **C1 prep → C1.5** | Live bundled card add-on; then C2/C3 |
+
+**C1 prep now:** `docs/block-c1-card-prep.md` — Stripe Price + Printful verify + bundle-only positioning.
+
+After **1.6:** pick **D1** (gift tiers) or keep stacking **C2** — not both in one mini-wave.
 
 ---
 
@@ -145,6 +158,7 @@ npm run data:pull
 | `GROWTH_OPS_WEEKLY.md` | A1 weekly rhythm |
 | `WORKING_BLOCKS.md` | Session-sized blocks (1–3 h each) |
 | `block-1.5-funnel-read.md` | Block 1.5 funnel read checklist + pass criteria |
+| `block-c1-card-prep.md` | C1 greeting card prep (split gate; bundle-only) |
 | `merchant-center-ads-checklist.md` | Ads/Merchant truth (no fake free shipping in ads) |
 
 ---
@@ -153,6 +167,8 @@ npm run data:pull
 
 | Date | Change |
 |------|--------|
+| 2026-06-13 | Block **1.5** read; **C1.5** paid proof; map hub + QA ops scripts; wedding card copy (C1.4) |
+| 2026-06-09 | **Split gate:** C1 card prep parallel to 1.5; `block-c1-card-prep.md` |
 | 2026-06-12 | Block **1.5** checklist (`block-1.5-funnel-read.md`); pushed `2e1fd6d` + `4d76a7f` to GitHub |
 | 2026-06-12 | Gated execution sequence (replace calendar-week framing); proof gates for Phase C |
 | 2026-06-12 | Created unified checklist; marked 1A + B3 + money-page polish done; A3/A1/C blocked as next |

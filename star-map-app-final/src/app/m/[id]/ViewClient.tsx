@@ -8,6 +8,8 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import Link from "next/link";
 import { formatPrice, getPricingTiers } from "@/lib/pricing";
 import EditorFontShell from "@/components/EditorFontShell";
+import MapCommerceHubPanel from "@/components/MapCommerceHubPanel";
+import { isValidMapId } from "@/lib/mapId";
 
 type ApiRecipe = {
   version: number;
@@ -106,13 +108,22 @@ export function ViewClient({ id, searchParams }: Props) {
     load();
   }, [id, searchParams]);
 
+  const showShopPanel = isValidMapId(id);
+
   if (status === "loading") {
     return (
       <EditorFontShell>
-        <main className="flex min-h-screen items-center justify-center bg-[#0b0f3b] text-amber-50">
-          <div className="text-center">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent"></div>
-            <p className="mt-3 text-sm">Loading your star map…</p>
+        <main className="min-h-screen bg-gradient-to-b from-[#0b0f3b] to-[#1a1f3a] text-amber-50">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+            <div className="grid gap-6 lg:grid-cols-[1fr,400px]">
+              <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-amber-200/30 bg-black/40 p-8">
+                <div className="text-center">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent"></div>
+                  <p className="mt-3 text-sm">Loading your star map…</p>
+                </div>
+              </div>
+              {showShopPanel ? <MapCommerceHubPanel mapId={id} /> : null}
+            </div>
           </div>
         </main>
       </EditorFontShell>
@@ -279,6 +290,9 @@ export function ViewClient({ id, searchParams }: Props) {
                 </div>
               </div>
             )}
+
+            {/* Shop this map */}
+            {showShopPanel ? <MapCommerceHubPanel mapId={id} /> : null}
 
             {/* CTA Card */}
             <div className="rounded-xl border border-amber-300/40 bg-gradient-to-br from-amber-50/10 to-amber-100/10 p-6 backdrop-blur">

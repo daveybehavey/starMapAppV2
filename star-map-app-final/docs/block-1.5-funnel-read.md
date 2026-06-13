@@ -6,7 +6,7 @@
 /wedding (or gift_wedding_2026) → editor preview → paywall (print intent) → print checkout → purchase
 ```
 
-**Do not** change product, checkout, pricing, Printful, or SKUs while running this read. **Do not** start Phase C merch until Block **1.6** signs off Phase A.
+**Do not** change product, checkout, pricing, Printful, or SKUs while running this read. **C1 card prep** may run in parallel (`docs/block-c1-card-prep.md`). **Do not** start C2/C3 until C1.5 passes.
 
 ---
 

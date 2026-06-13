@@ -6,8 +6,10 @@ import {
   parsePrintAssetTtlSeconds,
   PRINT_ASSET_ID_REGEX,
   printAssetKey,
+  normalizeRecipeFingerprint,
   type StoredPrintAsset,
 } from "@/lib/printAssets";
+import { indexPrintAssetForMap } from "@/lib/printAssetReuse";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,7 @@ type CreatePrintAssetBody = {
   mapId?: unknown;
   dataUrl?: unknown;
   source?: unknown;
+  recipeFingerprint?: unknown;
 };
 
 function decodeDataUrl(raw: string) {
@@ -65,6 +68,7 @@ export async function POST(req: NextRequest) {
   const mapId = typeof body.mapId === "string" ? body.mapId.trim() : "";
   const normalizedMapId = mapId && MAP_ID_REGEX.test(mapId) ? mapId : undefined;
   const source = body.source === "download" ? "download" : body.source === "editor" ? "editor" : undefined;
+  const recipeFingerprint = normalizeRecipeFingerprint(body.recipeFingerprint);
   const assetId = crypto.randomUUID();
   const ttlSeconds = parsePrintAssetTtlSeconds();
   const payload: StoredPrintAsset = {
@@ -75,6 +79,14 @@ export async function POST(req: NextRequest) {
     source,
   };
   await kv.set(printAssetKey(assetId), payload, { ex: ttlSeconds });
+  if (normalizedMapId) {
+    await indexPrintAssetForMap({
+      mapId: normalizedMapId,
+      assetId,
+      recipeFingerprint,
+      ttlSeconds,
+    });
+  }
 
   const origin = (process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin).replace(/\/+$/, "");
   return NextResponse.json({

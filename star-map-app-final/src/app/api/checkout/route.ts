@@ -17,13 +17,22 @@ import {
   REFERRAL_COOKIE_NAME,
   REFERRAL_SOURCE_COOKIE_NAME,
 } from "@/lib/referralCookie";
-import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
+import { PRINT_ASSET_ID_REGEX, normalizeRecipeFingerprint } from "@/lib/printAssets";
+import { loadReusablePrintAssetId } from "@/lib/printAssetReuse";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { parsePrintVariant } from "@/lib/printCatalog";
+import { isMerchFamilyId, type MerchFamilyId } from "@/lib/merchCatalog";
+import {
+  MerchCheckoutError,
+  applyMerchCheckoutMetadata,
+  buildMerchCheckoutLineItem,
+  getMerchShippingOptionsForCountry,
+  resolveMerchForCheckout,
+} from "@/lib/merchCheckout";
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import { applyMarketingAttributionMetadata } from "@/lib/commerceAnalytics";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
@@ -203,6 +212,16 @@ function parseCheckoutMapId(raw: unknown): string | undefined {
   if (!trimmed) return undefined;
   if (!MAP_ID_REGEX.test(trimmed)) return undefined;
   return trimmed;
+}
+
+async function resolveCheckoutPrintAssetId(input: {
+  mapId?: string;
+  printAssetId?: string;
+  recipeFingerprint?: string;
+}): Promise<string | undefined> {
+  if (input.printAssetId) return input.printAssetId;
+  if (!input.mapId) return undefined;
+  return loadReusablePrintAssetId(input.mapId, input.recipeFingerprint);
 }
 
 async function mapExists(mapId: string): Promise<boolean> {
@@ -573,6 +592,10 @@ function checkoutIdempotencyKey(input: {
   orderType: CheckoutOrderType;
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
+  includeCardAddOn?: boolean;
+  merchFamily?: MerchFamilyId;
+  merchSize?: string;
+  merchColor?: string;
   shippingCountry?: string | null;
   promoCode?: string | null;
   referralCode?: string | null;
@@ -583,10 +606,14 @@ function checkoutIdempotencyKey(input: {
   const orderType = input.orderType;
   const printVariant = parsePrintVariant(input.printVariant);
   const includeDigitalAddOn = input.includeDigitalAddOn ? "1" : "0";
+  const includeCardAddOn = input.includeCardAddOn ? "1" : "0";
+  const merchFamily = normalizeIdempotencyToken(input.merchFamily, 32);
+  const merchSize = normalizeIdempotencyToken(input.merchSize, 16);
+  const merchColor = normalizeIdempotencyToken(input.merchColor, 16);
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
-  return `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${shipping}:${promo}:${referral}:${mapId}`;
+  return `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}:${mapId}`;
 }
 
 async function createCheckoutSession(
@@ -600,6 +627,7 @@ async function createCheckoutSession(
     orderType?: CheckoutOrderType;
     printVariant?: PrintVariant;
     includeDigitalAddOn?: boolean;
+    includeCardAddOn?: boolean;
     shippingCountry?: string;
     clientCountry?: string | null;
     referralCode?: string;
@@ -608,6 +636,8 @@ async function createCheckoutSession(
     promotionSource?: PromotionSource;
     referralAutoOfferVariant?: ReferralAutoOfferVariant;
     idempotencyKey?: string;
+    merchFamily?: MerchFamilyId;
+    merchOptions?: { size?: string; color?: string };
   },
 ): Promise<CheckoutSessionResult> {
   const {
@@ -620,6 +650,7 @@ async function createCheckoutSession(
     orderType = "digital",
     printVariant = "poster_framed",
     includeDigitalAddOn = false,
+    includeCardAddOn = false,
     shippingCountry,
     clientCountry,
     referralCode,
@@ -628,6 +659,8 @@ async function createCheckoutSession(
     promotionSource = "none",
     referralAutoOfferVariant,
     idempotencyKey,
+    merchFamily,
+    merchOptions,
   } = input;
   if (!stripe) {
     throw new Error("Stripe not configured");
@@ -636,6 +669,15 @@ async function createCheckoutSession(
   const normalizedOrderType = parseOrderType(orderType);
   const isPrintOrder = normalizedOrderType === "print";
   const normalizedPrintVariant = parsePrintVariant(printVariant);
+  const resolvedMerch = merchFamily
+    ? await resolveMerchForCheckout({
+        familyId: merchFamily,
+        options: merchOptions ?? {},
+      })
+    : null;
+  const isMerchOrder = Boolean(resolvedMerch);
+  const normalizedIncludeCardAddOn =
+    !isMerchOrder && includeCardAddOn && normalizedPrintVariant === "poster_framed" && !includeDigitalAddOn;
   const effectivePlan = isPrintOrder ? "single" : plan;
   const allowPromotionCodes = canUseManualPromotionCode(normalizedOrderType, effectivePlan);
   const mapQuery = mapId ? `&map_id=${encodeURIComponent(mapId)}` : "";
@@ -674,9 +716,11 @@ async function createCheckoutSession(
     );
   }
   const printShippingSelection =
-    isPrintOrder
-      ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry)
-      : { shippingOptions: undefined, shippingChargeCents: null };
+    isPrintOrder && isMerchOrder && resolvedMerch
+      ? await getMerchShippingOptionsForCountry(resolvedMerch.catalogVariantId, resolvedShippingCountry)
+      : isPrintOrder
+        ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry)
+        : { shippingOptions: undefined, shippingChargeCents: null };
   const printShippingOptions = printShippingSelection.shippingOptions;
   const printShippingChargeCents = printShippingSelection.shippingChargeCents;
   const geoDigitalSingle =
@@ -687,11 +731,15 @@ async function createCheckoutSession(
   if (mapId) metadata.map_id = mapId;
   if (isPrintOrder) {
     metadata.print_variant = normalizedPrintVariant;
-    metadata.print_include_digital = includeDigitalAddOn ? "true" : "false";
+    metadata.print_include_digital = !isMerchOrder && includeDigitalAddOn ? "true" : "false";
+    metadata.print_include_card = normalizedIncludeCardAddOn ? "true" : "false";
     if (printAssetId) metadata.print_asset_id = printAssetId;
-    if (includeDigitalAddOn) {
+    if (!isMerchOrder && includeDigitalAddOn) {
       metadata.plan = "single";
       metadata.credits = "1";
+    }
+    if (resolvedMerch) {
+      applyMerchCheckoutMetadata(metadata, resolvedMerch);
     }
   } else {
     metadata.plan = effectivePlan;
@@ -728,7 +776,11 @@ async function createCheckoutSession(
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   const promotionEstimateLineItems: Array<{ amountCents: number; priceId?: string | null }> = [];
-  if (isPrintOrder) {
+  if (isPrintOrder && isMerchOrder && resolvedMerch) {
+    const merchLine = buildMerchCheckoutLineItem(resolvedMerch);
+    lineItems.push(merchLine.lineItem);
+    promotionEstimateLineItems.push(merchLine.promotionEstimate);
+  } else if (isPrintOrder) {
     const printPriceId = stripePrintVariantPriceIds[normalizedPrintVariant]?.trim();
     lineItems.push({
       ...(printPriceId
@@ -773,6 +825,30 @@ async function createCheckoutSession(
       promotionEstimateLineItems.push({
         amountCents: digitalAddOnTier.amountCents,
         priceId: digitalAddOnPriceId || null,
+      });
+    }
+    if (normalizedIncludeCardAddOn) {
+      const cardTier = printTiers.card_4x6;
+      const cardPriceId = stripePrintVariantPriceIds.card_4x6?.trim();
+      lineItems.push({
+        ...(cardPriceId
+          ? { price: cardPriceId }
+          : {
+              price_data: {
+                currency: cardTier.currency,
+                unit_amount: cardTier.amountCents,
+                product_data: {
+                  name: `Custom Star Map — ${cardTier.label}`,
+                  description: `${cardTier.label} • Bundled with framed print`,
+                  images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                },
+              },
+            }),
+        quantity: 1,
+      });
+      promotionEstimateLineItems.push({
+        amountCents: cardTier.amountCents,
+        priceId: cardPriceId || null,
       });
     }
   } else {
@@ -842,12 +918,13 @@ async function createCheckoutSession(
     metadata.promotion_discount_estimate_cents = String(estimatedPromotionDiscountCents);
   }
 
-  if (isPrintOrder) {
+  if (isPrintOrder && !isMerchOrder) {
     const marginCheck = evaluatePrintMarginForCheckout({
       variant: normalizedPrintVariant,
       shippingCountry: resolvedShippingCountry,
       shippingChargeCents: printShippingChargeCents,
       includeDigitalAddOn,
+      includeCardAddOn: normalizedIncludeCardAddOn,
       discountAmountCents: estimatedPromotionDiscountCents,
     });
     if (!marginCheck.allowed) {
@@ -982,6 +1059,10 @@ export async function GET(req: NextRequest) {
   const orderTypeParam = req.nextUrl.searchParams.get("order_type");
   const printVariantParam = req.nextUrl.searchParams.get("print_variant");
   const includeDigitalAddOnParam = req.nextUrl.searchParams.get("include_digital_addon");
+  const includeCardAddOnParam = req.nextUrl.searchParams.get("include_card_addon");
+  const merchFamilyParam = req.nextUrl.searchParams.get("merch_family");
+  const merchSizeParam = req.nextUrl.searchParams.get("merch_size");
+  const merchColorParam = req.nextUrl.searchParams.get("merch_color");
   const shippingCountryParam = req.nextUrl.searchParams.get("shipping_country");
   const printAssetIdParam = req.nextUrl.searchParams.get("print_asset_id");
   const referralParam =
@@ -995,6 +1076,11 @@ export async function GET(req: NextRequest) {
   const orderType = parseOrderType(orderTypeParam);
   const printVariant = parsePrintVariant(printVariantParam);
   const includeDigitalAddOn = parseBoolean(includeDigitalAddOnParam, false);
+  const includeCardAddOn = parseBoolean(includeCardAddOnParam, false);
+  const merchFamily =
+    merchFamilyParam && isMerchFamilyId(merchFamilyParam.trim()) ? (merchFamilyParam.trim() as MerchFamilyId) : undefined;
+  const merchSize = merchSizeParam?.trim() || undefined;
+  const merchColor = merchColorParam?.trim() || undefined;
   const shippingCountry = shippingCountryParam ? shippingCountryParam.trim().toUpperCase() : undefined;
   const printAssetId =
     printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim()) ? printAssetIdParam.trim() : undefined;
@@ -1024,7 +1110,13 @@ export async function GET(req: NextRequest) {
       { status: 503 },
     );
   }
-  if (orderType === "print" && !printAssetId) {
+  const recipeFingerprint = normalizeRecipeFingerprint(req.nextUrl.searchParams.get("recipe_fingerprint"));
+  const resolvedPrintAssetId = await resolveCheckoutPrintAssetId({
+    mapId,
+    printAssetId,
+    recipeFingerprint,
+  });
+  if (orderType === "print" && !resolvedPrintAssetId) {
     return NextResponse.json(
       { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
       { status: 400 },
@@ -1055,19 +1147,22 @@ export async function GET(req: NextRequest) {
     const { url: sessionUrl } = await createCheckoutSession({
       plan,
       mapId,
-      printAssetId,
+      printAssetId: resolvedPrintAssetId,
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
       orderType,
       printVariant,
       includeDigitalAddOn,
+      includeCardAddOn,
       shippingCountry,
       clientCountry,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      merchFamily,
+      merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
     });
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
@@ -1093,7 +1188,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    if (err instanceof CheckoutError) {
+    if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
       await recordCheckoutFailure({
         reason: err.code,
         source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
@@ -1130,7 +1225,12 @@ export async function POST(req: NextRequest) {
     const clientCountry = getRequestCountry(req);
     let mapId: string | undefined;
     let includeDigitalAddOn = false;
+    let includeCardAddOn = false;
+    let merchFamily: MerchFamilyId | undefined;
+    let merchSize: string | undefined;
+    let merchColor: string | undefined;
     let printAssetId: string | undefined;
+    let recipeFingerprint: string | undefined;
     let promoCode: string | undefined;
     let referralCode: string | undefined;
     let shippingCountry: string | undefined;
@@ -1142,7 +1242,11 @@ export async function POST(req: NextRequest) {
         orderType?: CheckoutOrderType;
         printVariant?: PrintVariant;
         includeDigitalAddOn?: boolean;
+        includeCardAddOn?: boolean;
+        merchFamily?: string;
+        merchOptions?: { size?: string; color?: string };
         printAssetId?: string;
+        recipeFingerprint?: string;
         shippingCountry?: string;
         referralCode?: string;
       } | null;
@@ -1153,12 +1257,25 @@ export async function POST(req: NextRequest) {
       orderType = parseOrderType(body?.orderType);
       printVariant = parsePrintVariant(body?.printVariant);
       includeDigitalAddOn = parseBoolean(body?.includeDigitalAddOn, false);
+      includeCardAddOn = parseBoolean(body?.includeCardAddOn, false);
+      if (body?.merchFamily && isMerchFamilyId(body.merchFamily.trim())) {
+        merchFamily = body.merchFamily.trim() as MerchFamilyId;
+      }
+      if (body?.merchOptions && typeof body.merchOptions === "object") {
+        if (typeof body.merchOptions.size === "string" && body.merchOptions.size.trim()) {
+          merchSize = body.merchOptions.size.trim();
+        }
+        if (typeof body.merchOptions.color === "string" && body.merchOptions.color.trim()) {
+          merchColor = body.merchOptions.color.trim();
+        }
+      }
       if (typeof body?.printAssetId === "string") {
         const trimmed = body.printAssetId.trim();
         if (trimmed && PRINT_ASSET_ID_REGEX.test(trimmed)) {
           printAssetId = trimmed;
         }
       }
+      recipeFingerprint = normalizeRecipeFingerprint(body?.recipeFingerprint);
       if (body?.promoCode && typeof body.promoCode === "string") {
         const trimmed = body.promoCode.trim();
         if (trimmed) {
@@ -1192,7 +1309,12 @@ export async function POST(req: NextRequest) {
         { status: 503 },
       );
     }
-    if (orderType === "print" && !printAssetId) {
+    const resolvedPrintAssetId = await resolveCheckoutPrintAssetId({
+      mapId,
+      printAssetId,
+      recipeFingerprint,
+    });
+    if (orderType === "print" && !resolvedPrintAssetId) {
       return NextResponse.json(
         { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
         { status: 400 },
@@ -1232,6 +1354,10 @@ export async function POST(req: NextRequest) {
       orderType,
       printVariant,
       includeDigitalAddOn,
+      includeCardAddOn,
+      merchFamily,
+      merchSize,
+      merchColor,
       shippingCountry: shippingCountry ?? null,
       promoCode: promoCode ?? null,
       referralCode: referral.code ?? null,
@@ -1258,7 +1384,7 @@ export async function POST(req: NextRequest) {
     const session = await createCheckoutSession({
       plan,
       mapId,
-      printAssetId,
+      printAssetId: resolvedPrintAssetId,
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
@@ -1267,6 +1393,7 @@ export async function POST(req: NextRequest) {
       orderType,
       printVariant,
       includeDigitalAddOn,
+      includeCardAddOn,
       shippingCountry,
       clientCountry,
       referralCode: referral.code,
@@ -1274,6 +1401,8 @@ export async function POST(req: NextRequest) {
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       idempotencyKey: idempotencyKey ?? undefined,
+      merchFamily,
+      merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
     });
     if (promoCode && session.discountRejected) {
       // Stripe rejected auto-apply (common on print + shipping). Still return checkout so the
@@ -1339,7 +1468,7 @@ export async function POST(req: NextRequest) {
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
     });
   } catch (err) {
-    if (err instanceof CheckoutError) {
+    if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
       await recordCheckoutFailure({
         reason: err.code,
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",

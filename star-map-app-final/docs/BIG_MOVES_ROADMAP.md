@@ -2,7 +2,7 @@
 
 Sequenced product work after print/checkout plumbing (margin guard off, print UI live, promo fallback fixed — 2026-05).
 
-**How to use this doc:** Work top to bottom within each phase. Do not start Phase C SKUs until Phase A exit criteria pass (Block **1.6** in `docs/WORKING_BLOCKS.md`). Polish items in Phase B can run in parallel with growth ops once core wedding print intent ships.
+**How to use this doc:** Work top to bottom within each phase. **C1 card prep** can start now (split gate — `docs/block-c1-card-prep.md`). **C2/C3** wait for C1.5. Wedding ad scale still waits for Phase A exit (Block **1.6**).
 
 **Execution:** `docs/WORKING_BLOCKS.md` — gated blocks, not calendar weeks. Move fast; do not skip proof gates.
 
@@ -51,7 +51,7 @@ Goal: Site feels premium; fewer leaks between preview and pay.
 
 | Order | SKU | Why | Pilot positioning |
 |-------|-----|-----|-------------------|
-| **C1** | `card_4x6` | Low price; wedding add-on; partial env in `wrangler.toml` | “Matching keepsake card” with framed print |
+| **C1** | `card_4x6` | Low price; **bundle add-on only**; partial env in `wrangler.toml` | “Framed + keepsake card” — not standalone shop hero |
 | **C2** | `canvas_wrap` | Premium tier between poster and framed | “Gallery wrap” on gift/anniversary pages |
 | **C3** | `mug_11oz` | Merch / shop traffic, not wedding hero | `/shop` or secondary CTA only |
 
@@ -114,4 +114,4 @@ npm run ads:optimize
 
 ## Suggested first sprint (after Phase 1A proof)
 
-Follow **`docs/WORKING_BLOCKS.md`** next execution sequence (**1.1 → 1.6**). Then choose **C1 (card)** *or* **D1 (gift tiers)** — not both in the same mini-wave.
+Follow **`docs/block-c1-card-prep.md`** for C1 (parallel with **1.5**). After **C1.5**, choose **C2** *or* **D1** — not both in the same mini-wave.

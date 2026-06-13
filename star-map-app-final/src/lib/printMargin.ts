@@ -78,11 +78,13 @@ function buildEstimate(input: {
   revenueCents: number;
   discountAmountCents?: number;
   config: PrintMarginGuardConfig;
+  extraProductCostCents?: number;
 }): PrintMarginEstimate | null {
   const shippingEstimate = getPrintShippingEstimate(input.variant, input.shippingCountry);
   if (!shippingEstimate) return null;
 
-  const productCostCents = getVariantProductCostCents(input.variant);
+  const productCostCents =
+    getVariantProductCostCents(input.variant) + Math.max(0, input.extraProductCostCents ?? 0);
   const shippingCostCents = shippingEstimate.amountCents;
   const fulfillmentCents = productCostCents + shippingCostCents;
   const stripeFeeCents = estimateStripeFeeCents(input.revenueCents, input.config);
@@ -105,6 +107,7 @@ export function evaluatePrintMarginForCheckout(input: {
   shippingCountry: string | null;
   shippingChargeCents: number | null;
   includeDigitalAddOn: boolean;
+  includeCardAddOn?: boolean;
   discountAmountCents?: number | null;
 }): PrintMarginEvaluation {
   const config = getPrintMarginGuardConfig();
@@ -121,12 +124,14 @@ export function evaluatePrintMarginForCheckout(input: {
 
   const printTier = getPrintPricingTiers()[input.variant];
   const digitalAddOn = getPrintDigitalAddOnPrice();
+  const cardTier = getPrintPricingTiers().card_4x6;
   const fallbackShippingCharge = Number.isFinite(input.shippingChargeCents ?? Number.NaN)
     ? Math.max(0, Math.round(input.shippingChargeCents ?? 0))
     : getPrintShippingEstimate(input.variant, input.shippingCountry)?.amountCents ?? 0;
   const baseRevenueCents =
     printTier.amountCents +
     (input.includeDigitalAddOn ? digitalAddOn.amountCents : 0) +
+    (input.includeCardAddOn ? cardTier.amountCents : 0) +
     fallbackShippingCharge;
   const discountAmountCents = Number.isFinite(input.discountAmountCents ?? Number.NaN)
     ? Math.max(0, Math.round(input.discountAmountCents ?? 0))
@@ -139,6 +144,7 @@ export function evaluatePrintMarginForCheckout(input: {
     revenueCents,
     discountAmountCents,
     config,
+    extraProductCostCents: input.includeCardAddOn ? getVariantProductCostCents("card_4x6") : 0,
   });
 
   if (!estimate) {

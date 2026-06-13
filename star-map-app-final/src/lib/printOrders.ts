@@ -16,6 +16,8 @@ export type PrintOrderRecord = {
   merchSize?: string;
   merchColor?: string;
   includesDigitalAddOn: boolean;
+  /** Bundled greeting card with framed print (C1). */
+  includesCardAddOn?: boolean;
   amountTotal?: number | null;
   currency?: string | null;
   customerEmail?: string | null;

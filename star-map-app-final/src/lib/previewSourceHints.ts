@@ -96,6 +96,11 @@ export function shouldAutoOpenEditorPrintPaywall(
   return isWeddingPrintLandingSource(source);
 }
 
+/** Auto-open paywall on the HD tab when map hub (or similar) sends explicit digital intent. */
+export function shouldAutoOpenEditorDigitalPaywall(checkoutParam?: string | null): boolean {
+  return checkoutParam === "hd" || checkoutParam === "digital";
+}
+
 export function resolvePreferredPrintVariantFromSource(
   source: string | null | undefined,
   explicitVariant: PrintVariant | null,

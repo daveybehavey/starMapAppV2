@@ -129,6 +129,8 @@ export const PAYWALL_PRINT_VARIANT_ORDER: readonly PrintVariant[] = [
 export type PaywallPrintCheckoutRow = {
   variant: PrintVariant;
   includeDigitalAddOn: boolean;
+  /** Bundled 4×6 greeting card (framed print only; see C1). */
+  includeCardAddOn?: boolean;
   /** Falls back to catalog tier label when omitted */
   headline?: string;
   recommended?: boolean;
@@ -143,6 +145,12 @@ export const PAYWALL_PRINT_CHECKOUT_ROWS: readonly PaywallPrintCheckoutRow[] = [
     recommended: true,
   },
   { variant: "poster_framed", includeDigitalAddOn: false, headline: "Framed print" },
+  {
+    variant: "poster_framed",
+    includeDigitalAddOn: false,
+    includeCardAddOn: true,
+    headline: "Framed + keepsake card",
+  },
   { variant: "poster_unframed", includeDigitalAddOn: false, headline: "Unframed poster" },
 ] as const;
 

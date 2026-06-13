@@ -221,7 +221,7 @@ export default function WeddingPage() {
 
       <DeliveryFormatModule
         heading="Pricing & delivery — pick one path after preview"
-        intro="Most wedding buyers choose the framed gift path for a ready-to-hang keepsake. Unframed lowers the total if you already have a frame. HD digital is fastest when you need same-day delivery."
+        intro="Most wedding buyers choose the framed gift path for a ready-to-hang keepsake. At checkout you can add a matching 4×6 keepsake card with your message (+$19, ships with the print). Unframed lowers the total if you already have a frame. HD digital is fastest when you need same-day delivery."
         sourcePrefix="wedding-format"
       />
       <FramedProofSection sourcePrefix="wedding-proof" />

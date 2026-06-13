@@ -21,6 +21,7 @@ import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
+  paywallPrintCheckoutRowKey,
   paywallPrintSkuButtonClassesMobile,
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
@@ -46,7 +47,11 @@ interface MobileCreateProps {
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
   printCheckoutInFlight?: boolean;
-  onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
+  onStartPrintCheckout?: (options: {
+    variant: PrintVariant;
+    includeDigitalAddOn: boolean;
+    includeCardAddOn?: boolean;
+  }) => void;
 }
 
 export function MobileCreate({
@@ -1443,6 +1448,7 @@ export function MobileCreate({
                       onStartPrintCheckout({
                         variant: primaryPrintRow.variant,
                         includeDigitalAddOn: primaryPrintRow.includeDigitalAddOn,
+                        includeCardAddOn: primaryPrintRow.includeCardAddOn,
                       })
                     }
                     disabled={!printShippingCountry || printCheckoutInFlight}
@@ -1469,12 +1475,13 @@ export function MobileCreate({
                     <div className="mt-2 flex flex-col gap-2">
                       {alternatePrintRows.map((row) => (
                         <button
-                          key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                          key={paywallPrintCheckoutRowKey(row)}
                           type="button"
                           onClick={() =>
                             onStartPrintCheckout({
                               variant: row.variant,
                               includeDigitalAddOn: row.includeDigitalAddOn,
+                              includeCardAddOn: row.includeCardAddOn,
                             })
                           }
                           disabled={!printShippingCountry || printCheckoutInFlight}

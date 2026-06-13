@@ -12,6 +12,7 @@ import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
   isPreferredPaywallPrintRow,
+  paywallPrintCheckoutRowKey,
   type PaywallPrintCheckoutPresentationRow,
 } from "@/lib/paywallPrintCheckout";
 
@@ -47,7 +48,11 @@ type Props = {
   preferredPrintVariant?: PrintVariant;
   showReferralHint?: boolean;
   onStartCheckout: (plan: CheckoutPlan) => void;
-  onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
+  onStartPrintCheckout?: (options: {
+    variant: PrintVariant;
+    includeDigitalAddOn: boolean;
+    includeCardAddOn?: boolean;
+  }) => void;
   onClose: () => void;
 };
 
@@ -157,6 +162,7 @@ export function PaywallModal({
         orderType: "print" as const,
         printVariant: row.variant,
         includeDigitalAddOn: row.includeDigitalAddOn,
+        includeCardAddOn: row.includeCardAddOn,
         index,
       })),
     });
@@ -189,10 +195,15 @@ export function PaywallModal({
         orderType: "print",
         printVariant: row.variant,
         includeDigitalAddOn: row.includeDigitalAddOn,
+        includeCardAddOn: row.includeCardAddOn,
         index: row.index,
       },
     });
-    onStartPrintCheckout?.({ variant: row.variant, includeDigitalAddOn: row.includeDigitalAddOn });
+    onStartPrintCheckout?.({
+      variant: row.variant,
+      includeDigitalAddOn: row.includeDigitalAddOn,
+      includeCardAddOn: row.includeCardAddOn,
+    });
   };
 
   const handlePrintUpsellClick = (row: PaywallPrintCheckoutPresentationRow) => {
@@ -327,7 +338,7 @@ export function PaywallModal({
               <div className="mt-3 grid gap-2">
                 {printRows.map((row) => (
                   <button
-                    key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                    key={paywallPrintCheckoutRowKey(row)}
                     type="button"
                     onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
                     disabled={checkoutInFlight || !canPrintCheckout}
@@ -435,7 +446,7 @@ export function PaywallModal({
               <div className="mt-3 grid gap-2">
                 {printRows.map((row) => (
                   <button
-                    key={`upsell-${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                    key={`upsell-${paywallPrintCheckoutRowKey(row)}`}
                     type="button"
                     onClick={() => handlePrintUpsellClick(row)}
                     disabled={checkoutInFlight}

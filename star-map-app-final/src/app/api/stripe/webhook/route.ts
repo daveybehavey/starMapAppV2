@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { kv } from "@/lib/kv";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { isPrintVariant } from "@/lib/printCatalog";
+import { getMerchFamily, isMerchFamilyId, type MerchFamilyId } from "@/lib/merchCatalog";
 import {
   normalizeReferralCode,
   referralKey,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/referrals";
 import { appendReferralEvent, getReferralEvents } from "@/lib/referralLedger";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
+import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
   buildPrintAssetUrl,
@@ -165,10 +167,35 @@ function includesDigitalAddOn(session: Stripe.Checkout.Session): boolean {
   return session.metadata?.print_include_digital === "true";
 }
 
+function includesCardAddOn(session: Stripe.Checkout.Session): boolean {
+  return session.metadata?.print_include_card === "true";
+}
+
 function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
   const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
   return raw;
+}
+
+function getMerchFamilyFromSession(session: Stripe.Checkout.Session): MerchFamilyId | undefined {
+  const raw = session.metadata?.print_merch_family;
+  return isMerchFamilyId(raw) ? raw : undefined;
+}
+
+function getMerchCatalogVariantId(session: Stripe.Checkout.Session): number | undefined {
+  const raw = session.metadata?.print_merch_catalog_variant_id;
+  const parsed = raw ? Number.parseInt(String(raw), 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function getMerchSize(session: Stripe.Checkout.Session): string | undefined {
+  const raw = typeof session.metadata?.print_merch_size === "string" ? session.metadata.print_merch_size.trim() : "";
+  return raw || undefined;
+}
+
+function getMerchColor(session: Stripe.Checkout.Session): string | undefined {
+  const raw = typeof session.metadata?.print_merch_color === "string" ? session.metadata.print_merch_color.trim() : "";
+  return raw || undefined;
 }
 
 function getReferralAttributionValue(session: Stripe.Checkout.Session, field: "source" | "medium" | "campaign" | "content") {
@@ -762,7 +789,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     sessionId: session.id,
     mapId: resolveCheckoutMapIdFromStripeSession(session),
     printVariant: getPrintVariant(session) ?? "poster_framed",
+    merchFamily: getMerchFamilyFromSession(session),
+    merchCatalogVariantId: getMerchCatalogVariantId(session),
+    merchSize: getMerchSize(session),
+    merchColor: getMerchColor(session),
     includesDigitalAddOn: includesDigitalAddOn(session),
+    includesCardAddOn: includesCardAddOn(session),
     printAssetId: getPrintAssetId(session),
     amountTotal: session.amount_total,
     currency: session.currency,
@@ -826,11 +858,13 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const marginCheck = evaluatePrintMarginForPaidOrder({
-    variant: payload.printVariant,
-    shippingCountry: recipient.country_code,
-    amountTotalCents: payload.amountTotal ?? null,
-  });
+  const marginCheck = payload.merchCatalogVariantId
+    ? { allowed: true, code: "merch_margin_skipped" as const, minMarginCents: 0 }
+    : evaluatePrintMarginForPaidOrder({
+        variant: payload.printVariant,
+        shippingCountry: recipient.country_code,
+        amountTotalCents: payload.amountTotal ?? null,
+      });
   if (!marginCheck.allowed) {
     await persistProblemPrintOrder({
       ...payload,
@@ -854,6 +888,69 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
+  if (payload.merchCatalogVariantId) {
+    if (!isPrintfulV2Configured() && !printFulfillmentWebhookUrl) {
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "fulfillment_not_configured",
+      });
+      return;
+    }
+
+    if (isPrintfulV2Configured()) {
+      const family = payload.merchFamily ? getMerchFamily(payload.merchFamily) : null;
+      const printfulResult = await submitPrintfulV2CatalogOrder({
+        externalId: session.id,
+        catalogVariantId: payload.merchCatalogVariantId,
+        fileUrl: printAssetUrl,
+        recipient,
+        placement: family?.placement ?? "default",
+        technique: family?.technique ?? "digital",
+        itemName: family?.labelFallback ?? "Custom Star Map merch",
+      });
+      if (!printfulResult.ok) {
+        await persistProblemPrintOrder({
+          ...payload,
+          printAssetUrl,
+          status: "failed",
+          webhookStatus: printfulResult.status,
+          error: printfulResult.error ?? "printful_v2_order_failed",
+        });
+        return;
+      }
+      const sentRecord: PrintOrderRecord = {
+        ...payload,
+        printAssetUrl,
+        status: "sent",
+        webhookStatus: printfulResult.status,
+        printfulOrderId: printfulResult.orderId,
+        sentAt: Date.now(),
+        error: undefined,
+      };
+      if (!sentRecord.operatorAlertedAt) {
+        const alertResult = await sendPrintOrderApprovalAlert(sentRecord);
+        if (alertResult.delivered) {
+          sentRecord.operatorAlertedAt = Date.now();
+          sentRecord.operatorAlertProvider = alertResult.provider;
+          sentRecord.operatorAlertError = undefined;
+        } else {
+          sentRecord.operatorAlertProvider = alertResult.provider;
+          sentRecord.operatorAlertError = alertResult.error;
+        }
+      }
+      await kv.set(printOrderKey(session.id), sentRecord);
+      if (sentRecord.printfulOrderId) {
+        await setPrintFulfillmentIndex(sentRecord.printfulOrderId, session.id);
+      }
+      void sendPrintOrderConfirmation(session.id).catch((error) => {
+        console.warn("Print confirmation email failed", { sessionId: session.id, error });
+      });
+    }
+    return;
+  }
+
   if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
     await persistProblemPrintOrder({
       ...payload,
@@ -870,6 +967,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       variant: payload.printVariant,
       fileUrl: printAssetUrl,
       recipient,
+      additionalVariants: payload.includesCardAddOn ? ["card_4x6"] : undefined,
     });
     if (!printfulResult.ok) {
       await persistProblemPrintOrder({

@@ -44,6 +44,7 @@ import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
+  paywallPrintCheckoutRowKey,
   paywallPrintSkuButtonClassesEditorPanel,
 } from "@/lib/paywallPrintCheckout";
 import {
@@ -54,7 +55,16 @@ import {
 } from "@/lib/merchCatalog";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
-import { resolveEditorGiftTrafficIntent } from "@/lib/previewSourceHints";
+import { resolveEditorGiftTrafficIntent, shouldAutoOpenEditorDigitalPaywall } from "@/lib/previewSourceHints";
+import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
+import {
+  isHydratableMapRecipe,
+  normalizeHydratedLocation,
+  resolveRecipeAspectRatio,
+  resolveRecipeShape,
+  type HydratableMapRecipe,
+} from "@/lib/mapRecipeHydration";
+import { parseMapIdParam } from "@/lib/mapId";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -345,8 +355,13 @@ export function EditorExperience({
   const [downloadHint, setDownloadHint] = useState<string | null>(null);
   const prefillAppliedRef = useRef(false);
   const printIntentHandledRef = useRef(false);
+  const digitalIntentHandledRef = useRef(false);
+  const mapFromUrlHandledRef = useRef(false);
+  const loadedMapIdRef = useRef<string | null>(null);
+  const loadedMapFingerprintRef = useRef<string | null>(null);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
+  const mapIdFromQuery = useMemo(() => parseMapIdParam(searchParams.get("map_id")), [searchParams]);
   const merchFamilyFromQuery = searchParams.get("merch_family");
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
@@ -762,6 +777,108 @@ export function EditorExperience({
     setRevealed,
   ]);
 
+  const applyHydratedMapRecipe = useCallback(
+    (recipe: HydratableMapRecipe) => {
+      if (recipe.datetimeISO) setDateTime(recipe.datetimeISO);
+      if (recipe.location) setLocation(normalizeHydratedLocation(recipe.location));
+      if (recipe.textBoxes?.length) setTextBoxes(recipe.textBoxes);
+      if (recipe.selectedStyle) setStyle(recipe.selectedStyle);
+      const aspect = resolveRecipeAspectRatio(recipe);
+      if (aspect) setAspectRatio(aspect);
+      const shapeValue = resolveRecipeShape(recipe);
+      if (shapeValue) setShape(shapeValue);
+      if (recipe.renderOptions) setRenderOptions(recipe.renderOptions);
+      if (recipe.selectedOccasion) {
+        setSelectedOccasion(recipe.selectedOccasion);
+        setCustomOccasion(false);
+      } else if (recipe.location?.name) {
+        setCustomOccasion(true);
+      }
+      if (recipe.location?.name) {
+        setRevealed(true);
+      }
+    },
+    [
+      setAspectRatio,
+      setCustomOccasion,
+      setDateTime,
+      setLocation,
+      setRenderOptions,
+      setRevealed,
+      setSelectedOccasion,
+      setShape,
+      setStyle,
+      setTextBoxes,
+    ],
+  );
+
+  useEffect(() => {
+    if (!restored || mapFromUrlHandledRef.current || !mapIdFromQuery) return;
+    mapFromUrlHandledRef.current = true;
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/maps?id=${encodeURIComponent(mapIdFromQuery)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as unknown;
+        if (!isHydratableMapRecipe(data)) return;
+
+        applyHydratedMapRecipe(data);
+        loadedMapIdRef.current = mapIdFromQuery;
+        loadedMapFingerprintRef.current = stableMapRecipeFingerprint(
+          buildRecipeFromState({
+            dateTime: data.datetimeISO,
+            location: normalizeHydratedLocation(data.location),
+            textBoxes: data.textBoxes ?? [],
+            selectedStyle: data.selectedStyle ?? selectedStyle,
+            aspectRatio: resolveRecipeAspectRatio(data) ?? aspectRatio,
+            shape: resolveRecipeShape(data) ?? shape,
+            renderOptions: data.renderOptions ?? renderOptions,
+          }),
+        );
+
+        try {
+          localStorage.setItem(CHECKOUT_MAP_KEY, mapIdFromQuery);
+        } catch {
+          // ignore storage errors
+        }
+
+        trackFunnelStep("preview_started", {
+          source: "map-hub",
+          hasDate: true,
+          hasLocation: Boolean(data.location?.name),
+        });
+      } catch {
+        // ignore failed hydration; editor still works from draft
+      }
+    })();
+  }, [
+    applyHydratedMapRecipe,
+    aspectRatio,
+    mapIdFromQuery,
+    renderOptions,
+    restored,
+    selectedStyle,
+    shape,
+  ]);
+
+  useEffect(() => {
+    if (!restored || !revealed || paid || digitalIntentHandledRef.current) return;
+    const checkoutParam = searchParams.get("checkout");
+    if (!shouldAutoOpenEditorDigitalPaywall(checkoutParam)) return;
+
+    digitalIntentHandledRef.current = true;
+    setPaywallIntent("digital");
+    setPaywallOpen(true);
+    setCheckoutError(null);
+    track("paywall_opened", {
+      visualMode: renderOptions.visualMode,
+      experiment: PAYWALL_COPY_EXPERIMENT,
+      variant: paywallVariant,
+      intent: "digital",
+    });
+  }, [paid, paywallVariant, renderOptions.visualMode, restored, revealed, searchParams]);
+
   useEffect(() => {
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
     const sourceParam = searchParams.get("source");
@@ -1137,6 +1254,7 @@ export function EditorExperience({
         merchFamily?: MerchFamilyId;
         merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
+        includeCardAddOn?: boolean;
       },
     ) => {
       if (checkoutInFlightRef.current) return;
@@ -1157,6 +1275,7 @@ export function EditorExperience({
         "poster_framed",
       );
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
+      const includeCardAddOn = Boolean(options?.includeCardAddOn);
       const recipeForCheckout = buildRecipeFromState({
         dateTime,
         location,
@@ -1177,32 +1296,49 @@ export function EditorExperience({
           orderType,
           printVariant: orderType === "print" ? printVariant : undefined,
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
+          includeCardAddOn: orderType === "print" ? includeCardAddOn : undefined,
           promoApplied: Boolean(promoCode),
           referralApplied: Boolean(referralCode),
         });
         let mapId: string | null = null;
         let mapSaveError: string | null = null;
-        try {
-          const mapRes = await fetch("/api/maps", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(recipeForCheckout),
-          });
-          if (mapRes.ok) {
-            const data = (await mapRes.json()) as { id?: string };
-            if (typeof data.id === "string" && data.id.trim()) {
-              mapId = data.id.trim();
-              try {
-                localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
-              } catch {
-                // ignore storage errors (e.g. private browsing)
-              }
-            }
-          } else {
-            mapSaveError = `save_failed_${mapRes.status}`;
+        const recipeFingerprint = stableMapRecipeFingerprint(recipeForCheckout);
+        if (
+          loadedMapIdRef.current &&
+          loadedMapFingerprintRef.current &&
+          loadedMapFingerprintRef.current === recipeFingerprint
+        ) {
+          mapId = loadedMapIdRef.current;
+          try {
+            localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+          } catch {
+            // ignore storage errors
           }
-        } catch {
-          mapSaveError = "save_failed_network";
+        } else {
+          try {
+            const mapRes = await fetch("/api/maps", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(recipeForCheckout),
+            });
+            if (mapRes.ok) {
+              const data = (await mapRes.json()) as { id?: string };
+              if (typeof data.id === "string" && data.id.trim()) {
+                mapId = data.id.trim();
+                loadedMapIdRef.current = mapId;
+                loadedMapFingerprintRef.current = recipeFingerprint;
+                try {
+                  localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+                } catch {
+                  // ignore storage errors (e.g. private browsing)
+                }
+              }
+            } else {
+              mapSaveError = `save_failed_${mapRes.status}`;
+            }
+          } catch {
+            mapSaveError = "save_failed_network";
+          }
         }
         if (!mapId) {
           throw new Error(mapSaveError ?? "map_save_failed");
@@ -1217,7 +1353,9 @@ export function EditorExperience({
           merchFamily?: MerchFamilyId;
           merchOptions?: { size?: string; color?: string };
           includeDigitalAddOn?: boolean;
+          includeCardAddOn?: boolean;
           printAssetId?: string;
+          recipeFingerprint?: string;
           shippingCountry?: string;
           referralCode?: string;
         } = { plan };
@@ -1232,6 +1370,8 @@ export function EditorExperience({
             checkoutPayload.merchFamily = merchFamily;
             if (merchOptions) checkoutPayload.merchOptions = merchOptions;
           }
+          const recipeFingerprint = stableMapRecipeFingerprint(recipeForCheckout);
+          checkoutPayload.recipeFingerprint = recipeFingerprint;
           if (typeof document !== "undefined" && document.fonts) {
             await document.fonts.ready;
           }
@@ -1244,6 +1384,21 @@ export function EditorExperience({
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
           let lastAssetError: string | null = null;
+          if (mapId) {
+            try {
+              const resolveRes = await fetch(
+                `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(recipeFingerprint)}`,
+              );
+              if (resolveRes.ok) {
+                const resolveData = (await resolveRes.json().catch(() => null)) as { assetId?: string } | null;
+                if (typeof resolveData?.assetId === "string" && resolveData.assetId.trim()) {
+                  uploadedAssetId = resolveData.assetId.trim();
+                }
+              }
+            } catch {
+              // fall through to render + upload
+            }
+          }
           const lowMemoryDevice = isLikelyLowMemoryDevice();
           const exportWidths =
             printVariant === "poster_framed"
@@ -1297,6 +1452,7 @@ export function EditorExperience({
                   mapId: mapId ?? undefined,
                   dataUrl,
                   source: "editor",
+                  recipeFingerprint,
                 }),
               });
               const printAssetData = (await printAssetRes.json().catch(() => null)) as
@@ -1335,6 +1491,7 @@ export function EditorExperience({
           checkoutPayload.orderType = "print";
           checkoutPayload.printVariant = printVariant;
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
+          checkoutPayload.includeCardAddOn = includeCardAddOn;
           checkoutPayload.printAssetId = uploadedAssetId;
           checkoutPayload.shippingCountry = printShippingCountry;
         }
@@ -1358,6 +1515,7 @@ export function EditorExperience({
           orderType,
           printVariant: orderType === "print" ? printVariant : undefined,
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
+          includeCardAddOn: orderType === "print" ? includeCardAddOn : undefined,
         });
 
         const res = await fetch("/api/checkout", checkoutInit);
@@ -1502,6 +1660,7 @@ export function EditorExperience({
     (options: {
       variant: PrintVariant;
       includeDigitalAddOn: boolean;
+      includeCardAddOn?: boolean;
       source: "editor_print_panel" | "paywall_modal" | "mobile_preview" | "preview_primary_print_cta";
     }) => {
       setPreferredPrintVariant(options.variant);
@@ -1509,11 +1668,13 @@ export function EditorExperience({
         source: options.source,
         variant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
+        includeCardAddOn: options.includeCardAddOn,
       });
       void startCheckout("single", {
         orderType: "print",
         printVariant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
+        includeCardAddOn: options.includeCardAddOn,
       });
     },
     [startCheckout],
@@ -2964,13 +3125,14 @@ export function EditorExperience({
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {printCheckoutRows.map((row) => (
                                 <button
-                                  key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                                  key={paywallPrintCheckoutRowKey(row)}
                                   type="button"
                                   onClick={() =>
                                     startPrintCheckout({
                                       source: "editor_print_panel",
                                       variant: row.variant,
                                       includeDigitalAddOn: row.includeDigitalAddOn,
+                                      includeCardAddOn: row.includeCardAddOn,
                                     })
                                   }
                                   disabled={checkoutInFlight || !printShippingCountry}
@@ -3149,6 +3311,7 @@ export function EditorExperience({
                         source: "mobile_preview",
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
+                        includeCardAddOn: options.includeCardAddOn,
                       });
                     }
                   : undefined
@@ -3183,6 +3346,7 @@ export function EditorExperience({
                         source: "paywall_modal",
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
+                        includeCardAddOn: options.includeCardAddOn,
                       });
                     }
                   : undefined

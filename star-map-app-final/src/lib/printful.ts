@@ -19,6 +19,8 @@ type SubmitPrintfulOrderInput = {
   variant: PrintVariant;
   fileUrl: string;
   recipient: PrintfulOrderRecipient;
+  /** Extra Printful line items (e.g. bundled greeting card). Same artwork URL. */
+  additionalVariants?: PrintVariant[];
 };
 
 export type SubmitPrintfulOrderResult = {
@@ -72,17 +74,28 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     "Content-Type": "application/json",
   };
 
+  const additionalVariants = Array.isArray(input.additionalVariants)
+    ? input.additionalVariants.filter((v) => v !== input.variant)
+    : [];
+  const itemVariants = [input.variant, ...additionalVariants];
+  const items = [];
+  for (const itemVariant of itemVariants) {
+    const itemVariantId = getVariantId(itemVariant);
+    if (!itemVariantId) {
+      return { ok: false, status: 503, error: `printful_variant_not_configured:${itemVariant}` };
+    }
+    items.push({
+      variant_id: itemVariantId,
+      quantity: 1,
+      files: [{ url: input.fileUrl }],
+    });
+  }
+
   const body = {
     external_id: normalizeExternalId(input.externalId),
     shipping: "STANDARD",
     recipient: input.recipient,
-    items: [
-      {
-        variant_id: variantId,
-        quantity: 1,
-        files: [{ url: input.fileUrl }],
-      },
-    ],
+    items,
   };
 
   const autoConfirmRaw = (process.env.PRINTFUL_AUTO_CONFIRM ?? "true").trim().toLowerCase();

@@ -6,8 +6,8 @@ import { PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import {
   evaluateClaimPaid as evaluateClaimPaidImpl,
   hasRecoverableAccess as evaluateDigitalAccessImpl,
-  isValidMapId as isValidMapIdImpl,
 } from "./accountAccessEntitlements.mjs";
+import { isValidMapId as isValidMapIdFromLib } from "./mapId";
 import { kv } from "@/lib/kv";
 
 /** Stripe checkout session entitlement (source of truth for digital access). */
@@ -83,7 +83,7 @@ export function evaluateClaimPaid(record: StripeSessionEntitlement) {
 }
 
 export function isValidMapId(id: string): boolean {
-  return isValidMapIdImpl(id);
+  return isValidMapIdFromLib(id);
 }
 
 export function isPrintOnlyOrder(record: StripeSessionEntitlement): boolean {

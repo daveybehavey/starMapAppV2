@@ -1,6 +1,6 @@
 # Working blocks
 
-**Last updated:** 2026-06-12  
+**Last updated:** 2026-06-09  
 **Use with:** `docs/PHASE_STATUS.md` (status) · `docs/BIG_MOVES_ROADMAP.md` (why)
 
 Each block is sized for **one focused session** (roughly 1–3 hours). Ship, verify, tick the block — then pick the next.
@@ -9,11 +9,12 @@ Each block is sized for **one focused session** (roughly 1–3 hours). Ship, ver
 
 ```text
 Move as fast as you want.
-Do not skip gates.
-Do not start Phase C merch until Phase A exit is actually signed off (Block 1.6).
+Do not skip proof gates (margin, env, one test order).
+C1 card prep/launch does NOT wait for Block 1.6.
+C2/C3 wait until C1.5 passes.
 ```
 
-**Speed is allowed. Skipping gates is not.** You may complete multiple blocks in one day if each block passes its **done when** criteria independently.
+**Split gate:** Wedding funnel proof (**1.5 → 1.6**) and **C1 card** run in parallel. See **`docs/block-c1-card-prep.md`**.
 
 **Legend:** 🔒 gate · 📋 mostly ops · 💻 code · 🧪 verify-only
 
@@ -184,11 +185,28 @@ These compound conversion; none block Phase A exit except where noted.
 
 ---
 
-## Wave 3 — After Phase A exit (pick one track)
+## Wave 3 — C1 card + later SKUs
 
-### Track C — SKU expansion (one SKU = one mini-wave)
+### Track C1 — Greeting card (`card_4x6`) — **active (split gate)**
 
-**Do not start until Block 1.6.**
+**Prep doc:** **`docs/block-c1-card-prep.md`** (plain English)  
+**Strategy:** **Bundle only** — add-on with framed print, not standalone shop hero (`upsell-rollout-matrix.md`).
+
+| Block | Work |
+|-------|------|
+| **C1 prep** | Printful 14457 · Stripe Price ID · `check:env` · mockup photo |
+| **C1.1–C1.2** | Margin + env (same as C.x.1–2) |
+| **C1.3** | Paywall row: “Framed + keepsake card” (+ metadata for fulfillment) — **not** standalone `PAYWALL_LIVE` row |
+| **C1.4** | Wedding / checkout copy · merchant feed if needed |
+| **C1.5** | Deploy · checkout smoke · **one real test order** |
+
+**Done when C1.5 passes:** card live as bundled add-on. **Does not require 1.6.**
+
+---
+
+### Track C2/C3 — After C1.5
+
+**Do not start canvas or mug until C1.5 passes.**
 
 Each SKU repeats the same sub-blocks (from `print-launch-checklist.md`):
 
@@ -206,7 +224,7 @@ Each SKU repeats the same sub-blocks (from `print-launch-checklist.md`):
 
 ## Merch expansion playbook (Printful SKUs)
 
-**When:** 🔒 After **Block 1.6** only. Wedding funnel + fulfilled print proof come first.
+**When:** **C1 prep now** (split gate). **C2/C3** after **C1.5**. Wedding ad scale still waits for **1.6**.
 
 **Rule:** **One new live SKU per mini-wave.** Finish **C.x.5** (checkout → fulfillment → merchant feed) for SKU *n* before starting *n+1*. Speed is fine; do not skip **C.x** sub-block gates.
 
@@ -260,7 +278,7 @@ Ref: `docs/print-launch-checklist.md`, header comment in `printCatalog.ts`.
 
 | Priority | SKU | ID (catalog) | Primary surface | Why |
 |----------|-----|--------------|-----------------|-----|
-| 1 | Greeting card 4×6 | `card_4x6` | P1 add-on or P2 | Low AOV; wedding bundle (→ **D5**) |
+| 1 | Greeting card 4×6 | `card_4x6` | **P1 bundle add-on** | Low AOV alone — pair with framed (→ **D5**) |
 | 2 | Canvas wrap | `canvas_wrap` | P2 | Premium tier between poster and framed |
 | 3 | Mug 11oz | `mug_11oz` | P2 / shop | Merch; not wedding hero |
 | — | *Future* | *new row* | TBD | Tote, blanket, pillow, 24×24 poster, etc. — each needs **C.new.0** scoping |
@@ -306,22 +324,26 @@ Move through these blocks as quickly as they pass their **done when** criteria:
 2. **Block 1.2** — Wedding CTAs + ad URLs aligned with print intent  
 3. **Block 1.3** — First disciplined growth loop  
 4. **Block 1.4** — Money-page 10-second pass  
-5. **Block 1.5** — Funnel read: preview → print checkout  
-6. **Block 1.6** — Phase A sign-off + pick **C1** or **D1**
+5. **Block 1.5** — Funnel read *(parallel with **C1 prep**)*  
+6. **Block 1.6** — Phase A sign-off *(wedding ads; not C1)*  
+
+**Parallel:** **`docs/block-c1-card-prep.md`** — Stripe + Printful prep now; code session for C1.3 add-on row.
 
 **Passive (anytime):** **0.1** — confirm Printful **161276125** fulfilled (closes A2 watch).
 
-After **1.6:** Phase C merch / SKUs are unblocked — start **C1.x** or **D1**, not both in the same mini-wave.
+After **C1.5:** **C2** or **D1** — not both in one mini-wave.
 
 ---
 
 ## Quick pick (“what block next?”)
 
-1. Phase A not signed off → next incomplete block in sequence above (**1.1** if nothing shipped yet)  
-2. **1.1** deployed, URLs not audited → **1.2**  
-3. Waiting on deploy → **1.3** (no code)  
-4. **1.1** live, copy gaps obvious → **1.4**  
-5. **1.1** live + notes exist → **1.5** (may wait on traffic — that is the gate, not the calendar)  
-6. All Wave 1 gates green → **1.6**, then **C1.1** or **D1** planning  
+1. Phase A not signed off → next incomplete block in sequence above  
+2. **Want merch now** → **`block-c1-card-prep.md`** (Stripe + Printful — no code yet)  
+3. **1.1** deployed, URLs not audited → **1.2**  
+4. Waiting on deploy → **1.3** (no code)  
+5. **1.1** live, copy gaps obvious → **1.4**  
+6. **1.1** live + notes exist → **1.5** (background wedding stats)  
+7. C1 prep green → **C1.3** code session (bundle add-on row)  
+8. **C1.5** passed → **C2** or **D1** planning  
 
 Update `PHASE_STATUS.md` changelog when a block completes.

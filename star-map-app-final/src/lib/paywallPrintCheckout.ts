@@ -17,23 +17,31 @@ export function getPaywallPrintCheckoutPresentation(
   const addon = getPrintDigitalAddOnPrice();
   const digitalAddonLabel = formatPrice(addon.amountCents, addon.currency);
 
+  const cardTier = tiers.card_4x6;
+  const cardAddonLabel = formatPrice(cardTier.amountCents, cardTier.currency);
+
   return PAYWALL_PRINT_CHECKOUT_ROWS.map((row, index) => {
     const tier = tiers[row.variant];
     const headline = row.headline ?? tier.label;
     const productPrice = formatPrice(tier.amountCents, tier.currency);
     const shippingLabel = formatPrintShippingEstimate(row.variant, printShippingCountry ?? null, "shipping");
-    const secondaryLine = row.includeDigitalAddOn
-      ? `${productPrice} + ${shippingLabel} + ${digitalAddonLabel}`
-      : `${productPrice} + ${shippingLabel}`;
+    const parts = [productPrice, shippingLabel];
+    if (row.includeDigitalAddOn) parts.push(digitalAddonLabel);
+    if (row.includeCardAddOn) parts.push(cardAddonLabel);
+    const secondaryLine = parts.join(" + ");
     return { ...row, index, headline, secondaryLine };
   });
 }
 
 export function paywallPrintCheckoutRowsMatch(
-  a: Pick<PaywallPrintCheckoutRow, "variant" | "includeDigitalAddOn">,
-  b: Pick<PaywallPrintCheckoutRow, "variant" | "includeDigitalAddOn">,
+  a: Pick<PaywallPrintCheckoutRow, "variant" | "includeDigitalAddOn" | "includeCardAddOn">,
+  b: Pick<PaywallPrintCheckoutRow, "variant" | "includeDigitalAddOn" | "includeCardAddOn">,
 ): boolean {
-  return a.variant === b.variant && a.includeDigitalAddOn === b.includeDigitalAddOn;
+  return (
+    a.variant === b.variant &&
+    a.includeDigitalAddOn === b.includeDigitalAddOn &&
+    Boolean(a.includeCardAddOn) === Boolean(b.includeCardAddOn)
+  );
 }
 
 export function isPreferredPaywallPrintRow(
@@ -44,6 +52,12 @@ export function isPreferredPaywallPrintRow(
     return preferredPrintVariant === "poster_framed";
   }
   return row.variant === preferredPrintVariant;
+}
+
+export function paywallPrintCheckoutRowKey(
+  row: Pick<PaywallPrintCheckoutRow, "variant" | "includeDigitalAddOn" | "includeCardAddOn">,
+): string {
+  return `${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}${row.includeCardAddOn ? "-card" : ""}`;
 }
 
 export function formatPosterShippingFootnote(printShippingCountry: string | null | undefined): string | null {
