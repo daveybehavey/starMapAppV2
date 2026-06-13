@@ -159,6 +159,7 @@ npm run data:pull
 | `WORKING_BLOCKS.md` | Session-sized blocks (1–3 h each) |
 | `block-1.5-funnel-read.md` | Block 1.5 funnel read checklist + pass criteria |
 | `block-c1-card-prep.md` | C1 greeting card prep (split gate; bundle-only) |
+| `LEVERAGE_ROADMAP.md` | Ranked backlog (fulfillment, analytics, growth, hygiene) |
 | `merchant-center-ads-checklist.md` | Ads/Merchant truth (no fake free shipping in ads) |
 
 ---

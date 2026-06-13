@@ -51,3 +51,11 @@ export function parsePrintAssetTtlSeconds() {
   return safeDays * 24 * 60 * 60;
 }
 
+/** Longer TTL once a paid order references the asset (Printful may fetch late). */
+export function parsePrintAssetEntitledTtlSeconds() {
+  const raw = process.env.PRINT_ASSET_ENTITLED_TTL_DAYS?.trim();
+  const days = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  const safeDays = Number.isFinite(days) && days > 0 ? days : 60;
+  return safeDays * 24 * 60 * 60;
+}
+

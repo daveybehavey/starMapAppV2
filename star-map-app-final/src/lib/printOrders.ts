@@ -27,6 +27,8 @@ export type PrintOrderRecord = {
   shippingChargeCents?: number | null;
   printAssetId?: string;
   printAssetUrl?: string;
+  cardPrintAssetId?: string;
+  cardPrintAssetUrl?: string;
   printfulOrderId?: string | number;
   attempts: number;
   webhookStatus?: number;

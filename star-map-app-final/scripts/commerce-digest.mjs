@@ -3,6 +3,7 @@
 import Stripe from "stripe";
 import { loadDotenv } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
+import { isQaStripeSession } from "../src/lib/commerceAnalyticsQa.mjs";
 
 loadDotenv();
 
@@ -347,6 +348,8 @@ async function buildReport(args) {
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session));
   const realPaidSessions = paidSessions.filter((session) => Number(session.amount_total || 0) > 0);
+  const qaPaidSessions = realPaidSessions.filter((session) => isQaStripeSession(session));
+  const productionPaidSessions = realPaidSessions.filter((session) => !isQaStripeSession(session));
   const zeroPaidSessions = paidSessions.length - realPaidSessions.length;
   const digitalPaid = paidSessions.filter((session) => classifyOrder(session) === "digital");
   const printSessions = sessions.filter((session) => classifyOrder(session) === "print");
@@ -458,6 +461,8 @@ async function buildReport(args) {
       sessionsScanned: sessions.length,
       paidSessions: paidSessions.length,
       realPaidSessions: realPaidSessions.length,
+      productionPaidSessions: productionPaidSessions.length,
+      qaPaidSessions: qaPaidSessions.length,
       zeroPaidSessions,
       digitalPaidSessions: digitalPaid.length,
       printSessionsTotal: printSessions.length,
@@ -490,6 +495,10 @@ function printHumanReport(report) {
   console.log(
     `Real paid sessions (amount_total>0): ${report.stripe.realPaidSessions} ` +
       `(zero-dollar/test: ${report.stripe.zeroPaidSessions})`,
+  );
+  console.log(
+    `Production paid (excl. QA metadata): ${report.stripe.productionPaidSessions} ` +
+      `(QA-tagged: ${report.stripe.qaPaidSessions})`,
   );
   console.log(
     `Revenue: ${formatMoney(report.stripe.totalRevenueCents, report.stripe.currency)} ` +

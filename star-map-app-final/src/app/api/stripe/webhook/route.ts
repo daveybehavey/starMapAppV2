@@ -23,7 +23,9 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
-import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
+import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
@@ -173,6 +175,13 @@ function includesCardAddOn(session: Stripe.Checkout.Session): boolean {
 
 function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
   const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
+  if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
+  return raw;
+}
+
+function getPrintCardAssetId(session: Stripe.Checkout.Session): string | undefined {
+  const raw =
+    typeof session.metadata?.print_card_asset_id === "string" ? session.metadata.print_card_asset_id.trim() : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
   return raw;
 }
@@ -796,6 +805,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     includesDigitalAddOn: includesDigitalAddOn(session),
     includesCardAddOn: includesCardAddOn(session),
     printAssetId: getPrintAssetId(session),
+    cardPrintAssetId: getPrintCardAssetId(session),
     amountTotal: session.amount_total,
     currency: session.currency,
     customerEmail: session.customer_details?.email ?? session.customer_email ?? null,
@@ -817,6 +827,28 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   const printAssetUrl = buildPrintAssetUrl(siteUrl, printAssetId);
+  await extendPrintAssetTtlForFulfillment(printAssetId).catch((error) => {
+    console.warn("Print asset TTL extension failed", { printAssetId, error });
+  });
+
+  const cardPrintAssetId = payload.cardPrintAssetId;
+  let cardPrintAssetUrl: string | undefined;
+  if (payload.includesCardAddOn) {
+    if (!cardPrintAssetId) {
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "card_print_asset_missing",
+      });
+      return;
+    }
+    cardPrintAssetUrl = buildPrintAssetUrl(siteUrl, cardPrintAssetId);
+    await extendPrintAssetTtlForFulfillment(cardPrintAssetId).catch((error) => {
+      console.warn("Card print asset TTL extension failed", { cardPrintAssetId, error });
+    });
+  }
+
   let recipient = getPrintRecipient(payload);
   if (!recipient && stripe) {
     try {
@@ -929,20 +961,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         sentAt: Date.now(),
         error: undefined,
       };
-      if (!sentRecord.operatorAlertedAt) {
-        const alertResult = await sendPrintOrderApprovalAlert(sentRecord);
-        if (alertResult.delivered) {
-          sentRecord.operatorAlertedAt = Date.now();
-          sentRecord.operatorAlertProvider = alertResult.provider;
-          sentRecord.operatorAlertError = undefined;
-        } else {
-          sentRecord.operatorAlertProvider = alertResult.provider;
-          sentRecord.operatorAlertError = alertResult.error;
-        }
-      }
-      await kv.set(printOrderKey(session.id), sentRecord);
-      if (sentRecord.printfulOrderId) {
-        await setPrintFulfillmentIndex(sentRecord.printfulOrderId, session.id);
+      const reviewedRecord = printfulResult.orderId
+        ? await applyPrintfulPostSubmitReview(sentRecord)
+        : sentRecord;
+      await kv.set(printOrderKey(session.id), reviewedRecord);
+      if (reviewedRecord.printfulOrderId) {
+        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
       }
       void sendPrintOrderConfirmation(session.id).catch((error) => {
         console.warn("Print confirmation email failed", { sessionId: session.id, error });
@@ -968,6 +992,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       fileUrl: printAssetUrl,
       recipient,
       additionalVariants: payload.includesCardAddOn ? ["card_4x6"] : undefined,
+      variantFileUrls: cardPrintAssetUrl ? { card_4x6: cardPrintAssetUrl } : undefined,
     });
     if (!printfulResult.ok) {
       await persistProblemPrintOrder({
@@ -982,26 +1007,19 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const sentRecord: PrintOrderRecord = {
       ...payload,
       printAssetUrl,
+      cardPrintAssetUrl,
       status: "sent",
       webhookStatus: printfulResult.status,
       printfulOrderId: printfulResult.orderId,
       sentAt: Date.now(),
       error: undefined,
     };
-    if (!sentRecord.operatorAlertedAt) {
-      const alertResult = await sendPrintOrderApprovalAlert(sentRecord);
-      if (alertResult.delivered) {
-        sentRecord.operatorAlertedAt = Date.now();
-        sentRecord.operatorAlertProvider = alertResult.provider;
-        sentRecord.operatorAlertError = undefined;
-      } else {
-        sentRecord.operatorAlertProvider = alertResult.provider;
-        sentRecord.operatorAlertError = alertResult.error;
-      }
-    }
-    await kv.set(printOrderKey(session.id), sentRecord);
-    if (sentRecord.printfulOrderId) {
-      await setPrintFulfillmentIndex(sentRecord.printfulOrderId, session.id);
+    const reviewedRecord = printfulResult.orderId
+      ? await applyPrintfulPostSubmitReview(sentRecord)
+      : sentRecord;
+    await kv.set(printOrderKey(session.id), reviewedRecord);
+    if (reviewedRecord.printfulOrderId) {
+      await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
     }
     void sendPrintOrderConfirmation(session.id).catch((error) => {
       console.warn("Print confirmation email failed", { sessionId: session.id, error });

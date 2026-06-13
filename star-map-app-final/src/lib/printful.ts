@@ -19,8 +19,10 @@ type SubmitPrintfulOrderInput = {
   variant: PrintVariant;
   fileUrl: string;
   recipient: PrintfulOrderRecipient;
-  /** Extra Printful line items (e.g. bundled greeting card). Same artwork URL. */
+  /** Extra Printful line items (e.g. bundled greeting card). */
   additionalVariants?: PrintVariant[];
+  /** Per-variant artwork URLs (defaults to fileUrl). */
+  variantFileUrls?: Partial<Record<PrintVariant, string>>;
 };
 
 export type SubmitPrintfulOrderResult = {
@@ -87,7 +89,7 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     items.push({
       variant_id: itemVariantId,
       quantity: 1,
-      files: [{ url: input.fileUrl }],
+      files: [{ url: input.variantFileUrls?.[itemVariant] ?? input.fileUrl }],
     });
   }
 

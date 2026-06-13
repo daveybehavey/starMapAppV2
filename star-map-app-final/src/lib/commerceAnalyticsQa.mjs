@@ -9,6 +9,7 @@ export function isQaStripeSession(session) {
   if (!session) return false;
   const meta = session.metadata ?? {};
   if (QA_METADATA_FLAG.test(String(meta.qa_run ?? "").trim())) return true;
+  if (QA_METADATA_FLAG.test(String(meta.qa_ops_checkout ?? "").trim())) return true;
   const qaSource = String(meta.qa_source ?? "")
     .trim()
     .toLowerCase();

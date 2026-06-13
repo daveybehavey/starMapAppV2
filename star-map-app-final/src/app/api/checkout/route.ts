@@ -18,6 +18,7 @@ import {
   REFERRAL_SOURCE_COOKIE_NAME,
 } from "@/lib/referralCookie";
 import { PRINT_ASSET_ID_REGEX, normalizeRecipeFingerprint } from "@/lib/printAssets";
+import { cardRecipeFingerprintSuffix } from "@/lib/printCardExport";
 import { loadReusablePrintAssetId } from "@/lib/printAssetReuse";
 import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
@@ -621,6 +622,7 @@ async function createCheckoutSession(
     plan: CheckoutPlan;
     mapId?: string;
     printAssetId?: string;
+    cardPrintAssetId?: string;
     promotionCodeId?: string;
     resolvedPromotionCode?: ResolvedPromotionCode;
     fallbackOnDiscountError?: boolean;
@@ -644,6 +646,7 @@ async function createCheckoutSession(
     plan,
     mapId,
     printAssetId,
+    cardPrintAssetId,
     promotionCodeId,
     resolvedPromotionCode,
     fallbackOnDiscountError = true,
@@ -734,6 +737,7 @@ async function createCheckoutSession(
     metadata.print_include_digital = !isMerchOrder && includeDigitalAddOn ? "true" : "false";
     metadata.print_include_card = normalizedIncludeCardAddOn ? "true" : "false";
     if (printAssetId) metadata.print_asset_id = printAssetId;
+    if (normalizedIncludeCardAddOn && cardPrintAssetId) metadata.print_card_asset_id = cardPrintAssetId;
     if (!isMerchOrder && includeDigitalAddOn) {
       metadata.plan = "single";
       metadata.credits = "1";
@@ -1084,6 +1088,11 @@ export async function GET(req: NextRequest) {
   const shippingCountry = shippingCountryParam ? shippingCountryParam.trim().toUpperCase() : undefined;
   const printAssetId =
     printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim()) ? printAssetIdParam.trim() : undefined;
+  const cardPrintAssetIdParam = req.nextUrl.searchParams.get("card_print_asset_id");
+  const cardPrintAssetId =
+    cardPrintAssetIdParam && PRINT_ASSET_ID_REGEX.test(cardPrintAssetIdParam.trim())
+      ? cardPrintAssetIdParam.trim()
+      : undefined;
   const clientCountry = getRequestCountry(req);
   const mapId = parseCheckoutMapId(mapParam);
   const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
@@ -1116,9 +1125,29 @@ export async function GET(req: NextRequest) {
     printAssetId,
     recipeFingerprint,
   });
+  const normalizedCardAddOnGet =
+    orderType === "print" &&
+    !merchFamily &&
+    includeCardAddOn &&
+    parsePrintVariant(printVariant) === "poster_framed" &&
+    !includeDigitalAddOn;
+  const cardFingerprintGet = recipeFingerprint ? cardRecipeFingerprintSuffix(recipeFingerprint) : undefined;
+  const resolvedCardPrintAssetId = normalizedCardAddOnGet
+    ? await resolveCheckoutPrintAssetId({
+        mapId,
+        printAssetId: cardPrintAssetId,
+        recipeFingerprint: cardFingerprintGet,
+      })
+    : undefined;
   if (orderType === "print" && !resolvedPrintAssetId) {
     return NextResponse.json(
       { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
+      { status: 400 },
+    );
+  }
+  if (normalizedCardAddOnGet && !resolvedCardPrintAssetId) {
+    return NextResponse.json(
+      { error: "Could not prepare greeting card artwork. Please retry checkout.", code: "missing_card_print_asset" },
       { status: 400 },
     );
   }
@@ -1139,15 +1168,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    await recordFunnelStep({
-      step: "checkout_request_received",
-      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-      plan: orderType === "print" ? printVariant : plan,
-    });
     const { url: sessionUrl } = await createCheckoutSession({
       plan,
       mapId,
       printAssetId: resolvedPrintAssetId,
+      cardPrintAssetId: resolvedCardPrintAssetId,
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
@@ -1230,6 +1255,7 @@ export async function POST(req: NextRequest) {
     let merchSize: string | undefined;
     let merchColor: string | undefined;
     let printAssetId: string | undefined;
+    let cardPrintAssetId: string | undefined;
     let recipeFingerprint: string | undefined;
     let promoCode: string | undefined;
     let referralCode: string | undefined;
@@ -1246,6 +1272,7 @@ export async function POST(req: NextRequest) {
         merchFamily?: string;
         merchOptions?: { size?: string; color?: string };
         printAssetId?: string;
+        cardPrintAssetId?: string;
         recipeFingerprint?: string;
         shippingCountry?: string;
         referralCode?: string;
@@ -1273,6 +1300,12 @@ export async function POST(req: NextRequest) {
         const trimmed = body.printAssetId.trim();
         if (trimmed && PRINT_ASSET_ID_REGEX.test(trimmed)) {
           printAssetId = trimmed;
+        }
+      }
+      if (typeof body?.cardPrintAssetId === "string") {
+        const trimmed = body.cardPrintAssetId.trim();
+        if (trimmed && PRINT_ASSET_ID_REGEX.test(trimmed)) {
+          cardPrintAssetId = trimmed;
         }
       }
       recipeFingerprint = normalizeRecipeFingerprint(body?.recipeFingerprint);
@@ -1314,9 +1347,29 @@ export async function POST(req: NextRequest) {
       printAssetId,
       recipeFingerprint,
     });
+    const normalizedCardAddOn =
+      orderType === "print" &&
+      !merchFamily &&
+      includeCardAddOn &&
+      parsePrintVariant(printVariant) === "poster_framed" &&
+      !includeDigitalAddOn;
+    const cardFingerprint = recipeFingerprint ? cardRecipeFingerprintSuffix(recipeFingerprint) : undefined;
+    const resolvedCardPrintAssetId = normalizedCardAddOn
+      ? await resolveCheckoutPrintAssetId({
+          mapId,
+          printAssetId: cardPrintAssetId,
+          recipeFingerprint: cardFingerprint,
+        })
+      : undefined;
     if (orderType === "print" && !resolvedPrintAssetId) {
       return NextResponse.json(
         { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
+        { status: 400 },
+      );
+    }
+    if (normalizedCardAddOn && !resolvedCardPrintAssetId) {
+      return NextResponse.json(
+        { error: "Could not prepare greeting card artwork. Please retry checkout.", code: "missing_card_print_asset" },
         { status: 400 },
       );
     }
@@ -1385,6 +1438,7 @@ export async function POST(req: NextRequest) {
       plan,
       mapId,
       printAssetId: resolvedPrintAssetId,
+      cardPrintAssetId: resolvedCardPrintAssetId,
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,

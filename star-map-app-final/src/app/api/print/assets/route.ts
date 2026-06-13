@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
+import { validatePrintAssetBytes } from "@/lib/printAssetValidation";
 import {
   parsePrintAssetTtlSeconds,
   PRINT_ASSET_ID_REGEX,
@@ -63,6 +64,18 @@ export async function POST(req: NextRequest) {
       { error: "Invalid print asset. Expected base64 PNG/JPEG data under 16MB." },
       { status: 400 },
     );
+  }
+
+  let assetBytes: Uint8Array;
+  try {
+    assetBytes = decodeStoredBase64(decoded.base64Data);
+  } catch {
+    return NextResponse.json({ error: "Invalid print asset encoding.", code: "invalid_print_asset" }, { status: 400 });
+  }
+
+  const validation = validatePrintAssetBytes(assetBytes);
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.message, code: validation.code }, { status: 400 });
   }
 
   const mapId = typeof body.mapId === "string" ? body.mapId.trim() : "";

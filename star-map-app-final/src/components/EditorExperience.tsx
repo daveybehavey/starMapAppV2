@@ -57,6 +57,7 @@ import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience"
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import { resolveEditorGiftTrafficIntent, shouldAutoOpenEditorDigitalPaywall } from "@/lib/previewSourceHints";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
+import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
 import {
   isHydratableMapRecipe,
   normalizeHydratedLocation,
@@ -427,6 +428,20 @@ export function EditorExperience({
       return null;
     }
   }, []);
+
+  const trackPaywallOpenedEvent = useCallback(
+    (intent: PaywallIntent, trigger?: string) => {
+      track("paywall_opened", {
+        visualMode: renderOptions.visualMode,
+        experiment: PAYWALL_COPY_EXPERIMENT,
+        variant: paywallVariant,
+        intent,
+        source: getPreviewSource() ?? "editor",
+        ...(trigger ? { trigger } : {}),
+      });
+    },
+    [getPreviewSource, paywallVariant, renderOptions.visualMode],
+  );
 
   useEffect(() => {
     if (!queryPromoCode || typeof window === "undefined") return;
@@ -871,13 +886,8 @@ export function EditorExperience({
     setPaywallIntent("digital");
     setPaywallOpen(true);
     setCheckoutError(null);
-    track("paywall_opened", {
-      visualMode: renderOptions.visualMode,
-      experiment: PAYWALL_COPY_EXPERIMENT,
-      variant: paywallVariant,
-      intent: "digital",
-    });
-  }, [paid, paywallVariant, renderOptions.visualMode, restored, revealed, searchParams]);
+    trackPaywallOpenedEvent("digital", "checkout_param");
+  }, [paid, paywallVariant, renderOptions.visualMode, restored, revealed, searchParams, trackPaywallOpenedEvent]);
 
   useEffect(() => {
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
@@ -899,13 +909,8 @@ export function EditorExperience({
     setPaywallIntent("print");
     setPaywallOpen(true);
     setCheckoutError(null);
-    track("paywall_opened", {
-      visualMode: renderOptions.visualMode,
-      experiment: PAYWALL_COPY_EXPERIMENT,
-      variant: paywallVariant,
-      intent: "print",
-    });
-  }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams]);
+    trackPaywallOpenedEvent("print", "gift_traffic_auto");
+  }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams, trackPaywallOpenedEvent]);
 
   useEffect(() => {
     if (!autoExportPending || paid) return;
@@ -1174,11 +1179,7 @@ export function EditorExperience({
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
-          track("paywall_opened", {
-            visualMode: renderOptions.visualMode,
-            experiment: PAYWALL_COPY_EXPERIMENT,
-            variant: paywallVariant,
-          });
+          trackPaywallOpenedEvent("digital", "hd_export_gate");
           if (typeof window !== "undefined") {
             try {
               localStorage.setItem(AUTO_EXPORT_KEY, mode);
@@ -1355,6 +1356,7 @@ export function EditorExperience({
           includeDigitalAddOn?: boolean;
           includeCardAddOn?: boolean;
           printAssetId?: string;
+          cardPrintAssetId?: string;
           recipeFingerprint?: string;
           shippingCountry?: string;
           referralCode?: string;
@@ -1488,11 +1490,107 @@ export function EditorExperience({
             }
             throw new Error("print_asset_failed");
           }
+
+          let uploadedCardAssetId: string | null = null;
+          let lastCardAssetError: string | null = null;
+          if (includeCardAddOn && printVariant === "poster_framed" && !includeDigitalAddOn) {
+            const cardFingerprint = cardRecipeFingerprintSuffix(recipeFingerprint);
+            if (mapId) {
+              try {
+                const resolveCardRes = await fetch(
+                  `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(cardFingerprint)}`,
+                );
+                if (resolveCardRes.ok) {
+                  const resolveCardData = (await resolveCardRes.json().catch(() => null)) as { assetId?: string } | null;
+                  if (typeof resolveCardData?.assetId === "string" && resolveCardData.assetId.trim()) {
+                    uploadedCardAssetId = resolveCardData.assetId.trim();
+                  }
+                }
+              } catch {
+                // fall through to render + upload
+              }
+            }
+            const cardExportWidths = lowMemoryDevice ? [2100, 1800, 1500] : [2700, 2400, 2100, 1800];
+            for (const cardBaseWidth of cardExportWidths) {
+              if (uploadedCardAssetId) break;
+              const { width: cardWidth, height: cardHeight } = getCard4x6ExportDimensions(cardBaseWidth);
+              const cardCanvas = document.createElement("canvas");
+              try {
+                await renderStarMap({
+                  recipe: recipeForCheckout,
+                  canvas: cardCanvas,
+                  width: cardWidth,
+                  height: cardHeight,
+                  watermark: false,
+                  quality: "export",
+                  premium: true,
+                  matPurpose: "print",
+                });
+              } catch {
+                lastCardAssetError = "card_print_render_failed";
+                continue;
+              }
+              for (let index = 0; index < uploadQualities.length; index += 1) {
+                const quality = uploadQualities[index];
+                let dataUrl = "";
+                try {
+                  dataUrl = cardCanvas.toDataURL("image/jpeg", quality);
+                } catch {
+                  lastCardAssetError = "card_print_asset_generation_failed";
+                  continue;
+                }
+                if (!dataUrl.startsWith("data:image/jpeg;base64,")) {
+                  lastCardAssetError = "card_print_asset_generation_failed";
+                  continue;
+                }
+                if (estimateDataUrlBytes(dataUrl) > MAX_PRINT_ASSET_BYTES) {
+                  lastCardAssetError = "card_print_asset_too_large";
+                  continue;
+                }
+                const cardAssetRes = await fetch("/api/print/assets", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    mapId: mapId ?? undefined,
+                    dataUrl,
+                    source: "editor",
+                    recipeFingerprint: cardFingerprint,
+                  }),
+                });
+                const cardAssetData = (await cardAssetRes.json().catch(() => null)) as
+                  | { assetId?: string; error?: string }
+                  | null;
+                if (cardAssetRes.ok && cardAssetData?.assetId) {
+                  uploadedCardAssetId = cardAssetData.assetId;
+                  break;
+                }
+                if (typeof cardAssetData?.error === "string") {
+                  lastCardAssetError = cardAssetData.error;
+                }
+                const shouldRetryForSize =
+                  index < uploadQualities.length - 1 &&
+                  typeof cardAssetData?.error === "string" &&
+                  /16MB|base64|Invalid print asset/i.test(cardAssetData.error);
+                if (!shouldRetryForSize) break;
+              }
+            }
+            if (!uploadedCardAssetId) {
+              track("print_asset_generation_failed", {
+                source: "editor_checkout_card",
+                reason: lastCardAssetError ?? "unknown",
+                printVariant,
+                shippingCountry: printShippingCountry,
+              });
+              throw new Error("card_print_asset_failed");
+            }
+          }
+
           checkoutPayload.orderType = "print";
           checkoutPayload.printVariant = printVariant;
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
           checkoutPayload.includeCardAddOn = includeCardAddOn;
           checkoutPayload.printAssetId = uploadedAssetId;
+          if (uploadedCardAssetId) checkoutPayload.cardPrintAssetId = uploadedCardAssetId;
           checkoutPayload.shippingCountry = printShippingCountry;
         }
         const checkoutInit: RequestInit = {
@@ -1526,6 +1624,7 @@ export function EditorExperience({
           code?: string;
           promoApplied?: boolean;
           referralOfferApplied?: boolean;
+          discountRejected?: boolean;
         } | null;
         if (!res.ok) {
           if (data?.code === "invalid_promotion_code") {
@@ -1569,11 +1668,18 @@ export function EditorExperience({
             orderType,
             promoApplied,
             referralOfferApplied,
-            promotionSource: referralOfferApplied ? "referral_auto" : promoApplied ? "manual" : "none",
+            discountRejected: Boolean(data.discountRejected),
+            promotionSource: referralOfferApplied ? "referral_auto" : promoApplied ? "manual" : data.discountRejected ? "referral_no_discount" : "none",
             referralApplied: Boolean(referralCode),
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
+          if (data.discountRejected) {
+            setCheckoutError(
+              "We couldn't apply your discount automatically. You can still enter a promo code on the payment page.",
+            );
+            await new Promise((resolve) => setTimeout(resolve, 2200));
+          }
           window.location.href = data.url;
           return;
         }
@@ -1604,6 +1710,10 @@ export function EditorExperience({
                 ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
                 : reason === "print_render_failed"
                   ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
+                : reason === "card_print_asset_failed"
+                  ? "We couldn't prepare the greeting card artwork. Please try checkout again."
+                : reason === "missing_card_print_asset"
+                  ? "Greeting card artwork is missing. Please reopen checkout and try again."
                 : reason === "missing_shipping_country"
                   ? "Select your shipping country to continue with print checkout."
                 : reason === "print_shipping_country_invalid"
@@ -2016,6 +2126,7 @@ export function EditorExperience({
                                   if (!paid && mode.premium) {
                                     setPaywallIntent("digital");
                                     setPaywallOpen(true);
+                                    trackPaywallOpenedEvent("digital", "premium_render_mode");
                                   }
                                   const targetLevel =
                                     mode.id === "cinematic"
@@ -2330,6 +2441,7 @@ export function EditorExperience({
                                                           if (fontMeta?.premium && !paid) {
                                                             setPaywallIntent("digital");
                                                             setPaywallOpen(true);
+                                                            trackPaywallOpenedEvent("digital", "premium_font");
                                                             return;
                                                           }
                                                           updateTextBox(box.id, { fontFamily: next });
@@ -2980,6 +3092,7 @@ export function EditorExperience({
                                 setPaywallIntent("print");
                                 setPaywallOpen(true);
                                 setCheckoutError(null);
+                                trackPaywallOpenedEvent("print", "preview_primary_print_cta");
                                 track("print_option_clicked", {
                                   source: "preview_primary_print_cta",
                                   variant: preferredPrintVariant,

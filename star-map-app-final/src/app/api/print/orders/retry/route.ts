@@ -13,7 +13,9 @@ import {
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
-import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
@@ -164,6 +166,24 @@ export async function POST(req: NextRequest) {
   }
 
   const printAssetUrl = hydrated.printAssetUrl?.trim() || buildPrintAssetUrl(siteUrl, printAssetId);
+  await extendPrintAssetTtlForFulfillment(printAssetId).catch(() => undefined);
+
+  let cardPrintAssetUrl: string | undefined;
+  const cardPrintAssetId = hydrated.cardPrintAssetId?.trim();
+  if (hydrated.includesCardAddOn) {
+    if (!cardPrintAssetId) {
+      const failed = await persistFailedPrintOrder({
+        ...hydrated,
+        attempts: (hydrated.attempts ?? 0) + 1,
+        printAssetUrl,
+        error: "card_print_asset_missing",
+      });
+      return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    }
+    cardPrintAssetUrl = hydrated.cardPrintAssetUrl?.trim() || buildPrintAssetUrl(siteUrl, cardPrintAssetId);
+    await extendPrintAssetTtlForFulfillment(cardPrintAssetId).catch(() => undefined);
+  }
+
   const recipient = getPrintRecipient(hydrated);
   if (!recipient) {
     const failed = await persistFailedPrintOrder({
@@ -216,6 +236,8 @@ export async function POST(req: NextRequest) {
       variant: hydrated.printVariant,
       fileUrl: printAssetUrl,
       recipient,
+      additionalVariants: hydrated.includesCardAddOn ? ["card_4x6"] : undefined,
+      variantFileUrls: cardPrintAssetUrl ? { card_4x6: cardPrintAssetUrl } : undefined,
     });
     if (!printful.ok) {
       const failed = await persistFailedPrintOrder({
@@ -227,27 +249,18 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 502 });
     }
-    const sent: PrintOrderRecord = {
+    let sent: PrintOrderRecord = {
       ...hydrated,
       status: "sent" as const,
       attempts,
       printAssetUrl,
+      cardPrintAssetUrl,
       webhookStatus: printful.status,
       printfulOrderId: printful.orderId,
       sentAt: now,
       error: undefined,
     };
-    if (!sent.operatorAlertedAt) {
-      const alertResult = await sendPrintOrderApprovalAlert(sent);
-      if (alertResult.delivered) {
-        sent.operatorAlertedAt = Date.now();
-        sent.operatorAlertProvider = alertResult.provider;
-        sent.operatorAlertError = undefined;
-      } else {
-        sent.operatorAlertProvider = alertResult.provider;
-        sent.operatorAlertError = alertResult.error;
-      }
-    }
+    sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
     await kv.set(printOrderKey(sessionId), sent);
     if (sent.printfulOrderId) {
       await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);

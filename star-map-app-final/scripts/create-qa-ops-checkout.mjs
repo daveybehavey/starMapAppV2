@@ -8,7 +8,7 @@
  *   node scripts/create-qa-ops-checkout.mjs --kind sticker
  *   node scripts/create-qa-ops-checkout.mjs --kind card-bundle
  *   node scripts/create-qa-ops-checkout.mjs --kind sticker --country CA
- *   node scripts/create-qa-ops-checkout.mjs --kind card-bundle --asset tiny   # metadata-only (Printful files fail)
+ *   node scripts/create-qa-ops-checkout.mjs --kind card-bundle --asset proof   # use proof (default); tiny rejected by upload validation
  */
 import { loadDotenv } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
@@ -32,6 +32,12 @@ if (!/^[A-Z]{2}$/.test(countryArg)) {
   process.exit(1);
 }
 const assetArg = parseQaAssetArg(process.argv);
+if (assetArg === "tiny") {
+  console.error(
+    "--asset tiny is no longer supported for checkout uploads (print asset validation requires real dimensions). Use --asset proof (default).",
+  );
+  process.exit(1);
+}
 let printAssetDataUrl;
 try {
   printAssetDataUrl = loadQaPrintAssetDataUrl(assetArg);
