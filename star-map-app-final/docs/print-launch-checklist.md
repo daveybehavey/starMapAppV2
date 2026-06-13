@@ -78,7 +78,7 @@ Expect:
 5. Confirm digital entitlement behavior is correct for print + digital add-on.
 6. Run `npm run qa:live-smoke` after deploy to verify production metadata/footer/API sanity.
 7. Run `npm run qa:print-ops -- --hours 72 --limit 50` to verify print order status visibility.
-8. **Customer shipping email:** `GET /api/printful/webhook?token=<PRINTFUL_WEBHOOK_SECRET>` returns `{"ok":true,"status":"ready"}`. Printful `package_shipped` webhook must point at that URL. Requires `RESEND_API_KEY` + `RESEND_FROM_EMAIL` (domain verified). Manual backfill: `POST /api/print/orders/notify-shipping` (admin auth).
+8. **Customer shipping email:** `GET /api/printful/webhook?token=<PRINTFUL_WEBHOOK_SECRET>` returns `{"ok":true,"status":"ready"}`. Printful webhooks must point at that URL with at least `package_shipped`, plus `order_failed`, `order_canceled`, and `order_put_hold` for operator alerts when fulfillment breaks. Requires `RESEND_API_KEY` + `RESEND_FROM_EMAIL` (domain verified). Manual backfill: `POST /api/print/orders/notify-shipping` (admin auth).
 
 ## No-Go Conditions
 

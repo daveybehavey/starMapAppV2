@@ -38,7 +38,7 @@
 | 2.2 | **Funnel: stop inflating `checkout_request_received` on GET checkout** | ✅ | GET records session_created only |
 | 2.3 | **QA session filter in commerce digest** | ✅ | `productionPaidSessions` + `qa_ops_checkout` flag |
 | 2.4 | **Promo fallback surfaced to client** | ✅ | Brief paywall message when `discountRejected` |
-| 2.5 | **Printful webhooks beyond `package_shipped`** | ⬜ | File failure / order canceled events |
+| 2.5 | **Printful webhooks beyond `package_shipped`** | ✅ | `order_failed`, `order_canceled`, `order_put_hold` → KV + ops alert |
 | 2.6 | **GA4 / ads UTM hygiene** | ⬜ | `gift_wedding_2026`, missing `utm_content={adgroup}` |
 | 2.7 | **Referral loop read** | ⬜ | UI live; conversions ~0 in scorecard |
 
@@ -50,7 +50,7 @@
 |------|------|--------|-------|
 | 3.1 | **CI: `typecheck` + `test:unit` on PRs** | ✅ | Root `.github/workflows/ci.yml` |
 | 3.2 | **Add map-hub Playwright to nightly or commerce smoke** | ⬜ | `tests/map-hub-editor.spec.ts` |
-| 3.3 | **Remove duplicate weak CI** | ⬜ | `star-map-app-final/.github/workflows/ci.yml` lint-only |
+| 3.3 | **Remove duplicate weak CI** | ✅ | Removed lint-only `star-map-app-final/.github/workflows/ci.yml` |
 | 3.4 | **Stripe webhook event dedupe** | ✅ | `stripe:event:{id}` via `kv.incr` |
 
 ---
@@ -96,6 +96,7 @@
 
 | Date | Shipped |
 |------|---------|
+| 2026-06-09 | Tier 2.5 Printful failure webhooks, Tier 3.3 duplicate CI removed |
 | 2026-06-09 | Tier 1.4 card 4×6 export, Tier 2.4 promo fallback UX |
 | 2026-06-09 | Tier 1.1–1.3, 2.1–2.3, 3.1 — fulfillment validation, analytics, CI |
 
