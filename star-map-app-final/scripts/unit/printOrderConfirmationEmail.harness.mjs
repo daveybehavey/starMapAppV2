@@ -23,6 +23,6 @@ export function renderPrintOrderConfirmationEmail(data) {
   ]
     .filter(Boolean)
     .join("\n");
-  const html = `<html><body><h1>Print order confirmed</h1><p>${productLabel}</p><a href="${data.successUrl}">View confirmation</a></body></html>`;
+  const html = `<html><body><h1>Your print is on the way to production</h1><p>${productLabel}</p><a href="${data.successUrl}">View order status</a></body></html>`;
   return { subject, html, text };
 }

@@ -1,6 +1,6 @@
 # StarMapCo — unified phase status
 
-**Last updated:** 2026-06-13  
+**Last updated:** 2026-06-15  
 **Purpose:** One checklist so you are not juggling three different “phase” naming systems.
 
 **How to use:** Work the **next execution sequence** in `docs/WORKING_BLOCKS.md`. Mark items here when they ship. Detailed runbooks stay in linked docs.
@@ -30,7 +30,7 @@
 
 ## Where we are (one line)
 
-**Phase 1A proof is closed.** Homepage, money pages, `/shop`, map hub, and digital download are live and polished. **Block 1.5 funnel read done** (2026-06-13) — ready for **1.6 sign-off** after GA4 wedding slice review. **C1.5 paid plumbing proven** (framed + card → CA); **M1 stickers** at metadata proof (no second paid order required).
+**Phase A exit signed off (2026-06-15).** Print fulfillment proven, checkout + card bundle live, ~**$359** production revenue / **6 paid** orders in 14d. **Next focus: controlled wedding Search ads** ($10–15/day) — unit economics support spend if conversion tracking holds. **C1 card** live; **D1 gift tiers** deferred until ads show a baseline CPA.
 
 ---
 
@@ -62,11 +62,32 @@ Legend: ✅ Done · 🟡 Partial / watch · ⬜ Open · ⏸ Deferred
 |----|------|--------|----------------|
 | **A1** | Weekly growth loop | ✅ | `qa:growth-weekly` run 2026-06-13; notes in `reports/weekly-notes-2026-06-13.md` |
 | **A2** | One fulfilled print in prod | ✅ | 4 print paid / 4 sent in 14d digest; historical unframed **161064930** fulfilled |
-| **A3** | Wedding → print conversion | 🟡 | **1.1–1.2 done**; print checkout firing (59 opened / 4 paid in 14d) |
+| **A3** | Wedding → print conversion | ✅ | Paywall + `/wedding` path live; 61 print checkouts opened / 5 paid (14d); ads will prove campaign attribution |
 | **A4** | Money-page 10-second test | ✅ | **1.4 pass** on live money pages (2026-06-12) |
 | **A5** | Post-purchase upsell | ✅ | `/success` + `/download` print CTAs; print timeline on success |
 
-**Block 1.5:** ✅ Funnel read **2026-06-13** — see `reports/weekly-notes-2026-06-13.md`. **1.6** next (15 min sign-off).
+**Block 1.5:** ✅ Funnel read **2026-06-13**. **Block 1.6:** ✅ Phase A sign-off **2026-06-15** — wedding Search ads cleared for controlled test (see below).
+
+### Ads scale — go decision (2026-06-15)
+
+**Economics (live SKUs, `npm run qa:print-margin`):**
+
+| SKU | Retail | Est. profit (US) | Est. profit (CA) |
+|-----|--------|------------------|------------------|
+| Framed 14×14 | $99 | ~$64–71 | ~$66–73 |
+| Poster 18×18 | $49 | ~$43–50 | ~$40–48 |
+
+One **framed** sale covers **~5–6 days** at **$12/day** ad spend before fulfillment is double-counted — margin is comfortable for a **test budget** if even a fraction of clicks convert.
+
+**Launch params (do not skip):**
+
+1. Follow **`docs/ADS_RELAUNCH_SETUP.md`** — Search only, **pause PMax**, auto-tagging ON, GA4 property **517653481** linked.
+2. Final URL: `https://starmapco.com/wedding?utm_source=google&utm_medium=cpc&utm_campaign=gift_wedding_2026&utm_content={adgroup}`
+3. **Budget:** **$10–15/day** cap · **CPC cap ~$2–4** · **7-day** review before raising.
+4. **Server `purchase` events** already on (`NEXT_PUBLIC_GA4_SERVER_PURCHASES=true` in prod).
+5. **Kill switch:** pause if **7 days + ≥$70 spend + zero** GA4 purchases where campaign = `gift_wedding_2026`.
+
+**Next product bet (not in same wave):** keep **C1 card** messaging on wedding ads; pick **D1 gift tiers** only after baseline CPA is known.
 
 ---
 
@@ -101,8 +122,8 @@ Checklist per SKU: `docs/print-launch-checklist.md`, `npm run qa:print-margin`, 
 
 | Phase | Theme | Status |
 |-------|--------|--------|
-| **D** | Quarterly big bets (gift tiers, occasion kits, delivery promise, proof gallery, card bundle) | ⬜ Pick **one** after Phase A exit |
-| **E** | Ads & measurement (`gift_wedding_2026`, GA4 server purchases, live conversion QA) | 🟡 Ongoing — pause scale if purchases break |
+| **D** | Quarterly big bets (gift tiers, occasion kits, delivery promise, proof gallery, card bundle) | ⏸ | Deferred — wedding Search test first |
+| **E** | Ads & measurement (`gift_wedding_2026`, GA4 server purchases, live conversion QA) | 🟡 | **Enable Search $10–15/day** per `ADS_RELAUNCH_SETUP.md`; review in 7d |
 
 ---
 
@@ -115,18 +136,15 @@ See **`docs/WORKING_BLOCKS.md`** for full block specs. Order:
 3. **1.3** — First growth loop (A1)  
 4. **1.4** — Money-page 10-second pass (A4)  
 5. **1.5** — Funnel read: preview → print checkout *(parallel with C1 prep)*  
-6. **1.6** — Phase A sign-off *(gates wedding ad scale; not C1)*  
+6. **1.6** — ✅ Phase A sign-off **2026-06-15**
 
-**Parallel tracks:**
+**Current focus:**
 
-| Track | Blocks | Unlocks |
-|-------|--------|---------|
-| Wedding proof | **1.5 → 1.6** | Scale Search wedding ads with confidence |
-| C1 card | **C1 prep → C1.5** | Live bundled card add-on; then C2/C3 |
-
-**C1 prep now:** `docs/block-c1-card-prep.md` — Stripe Price + Printful verify + bundle-only positioning.
-
-After **1.6:** pick **D1** (gift tiers) or keep stacking **C2** — not both in one mini-wave.
+| Track | Action |
+|-------|--------|
+| **Wedding ads (E)** | Launch Search **$10–15/day** — `ADS_RELAUNCH_SETUP.md` |
+| **C1 card** | Mention in ad copy where natural; bundle already live |
+| **D1 / C2** | Wait for 7-day ad read |
 
 ---
 

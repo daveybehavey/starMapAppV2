@@ -20,7 +20,7 @@ test("renderPrintOrderConfirmationEmail includes manual review and success link"
   assert.equal(rendered.subject, "Your StarMapCo print order is confirmed");
   assert.match(rendered.text, /Manual quality review before production/);
   assert.match(rendered.text, /https:\/\/starmapco\.com\/success\?session_id=cs_live_test/);
-  assert.match(rendered.html, /Print order confirmed/);
+  assert.match(rendered.html, /Your print is on the way to production/);
 });
 
 test("renderPrintOrderConfirmationEmail includes product label", () => {

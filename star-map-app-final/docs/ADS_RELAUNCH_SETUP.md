@@ -1,5 +1,7 @@
 # Google Ads relaunch — clean Search setup (StarMapCo)
 
+**Status (2026-06-15):** Phase A signed off — cleared for a **$10–15/day** Search-only wedding test. See economics + kill rules in `PHASE_STATUS.md` → *Ads scale — go decision*.
+
 Practical step-by-step for a **new or reset Search-only** wedding-gift campaign on [starmapco.com](https://starmapco.com).
 
 **Optional API setup (paused campaign):** from `company-os`, after `npm run ads:doctor` passes:

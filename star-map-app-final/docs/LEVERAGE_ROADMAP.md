@@ -12,8 +12,8 @@
 | Rank | Item | Status | Notes |
 |------|------|--------|-------|
 | 0.1 | **Push + `deploy:verify`** | ✅ | `ae8c983` on prod; live-critical passed |
-| 0.2 | **Block 1.6 Phase A sign-off** | ⬜ | 15 min: tick `PHASE_STATUS.md`, wedding→print paragraph, pick C2 vs D1 |
-| 0.3 | **Cancel Printful draft #162333059** | ⬜ | QA order with failed files; optional cleanup |
+| 0.2 | **Block 1.6 Phase A sign-off** | ✅ | 2026-06-15; ads scale decision in `PHASE_STATUS.md` |
+| 0.3 | **Cancel Printful draft #162333059** | ✅ | Canceled 2026-06-15 |
 
 ---
 
@@ -96,7 +96,7 @@
 
 | Date | Shipped |
 |------|---------|
-| 2026-06-09 | Tier 2.5 Printful failure webhooks, Tier 3.3 duplicate CI removed |
+| 2026-06-15 | Phase A sign-off; transactional email polish; ads go decision |
 | 2026-06-09 | Tier 1.4 card 4×6 export, Tier 2.4 promo fallback UX |
 | 2026-06-09 | Tier 1.1–1.3, 2.1–2.3, 3.1 — fulfillment validation, analytics, CI |
 
