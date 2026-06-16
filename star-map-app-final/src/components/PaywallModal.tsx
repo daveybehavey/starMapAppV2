@@ -22,14 +22,18 @@ type PriceLabels = {
   subscription: string;
 };
 
-function paywallPrintSkuButtonClasses(row: PaywallPrintCheckoutPresentationRow, preferredPrintVariant: PrintVariant) {
+function paywallPrintSkuButtonClasses(
+  row: PaywallPrintCheckoutPresentationRow,
+  preferredPrintVariant: PrintVariant,
+  preferredIncludeDigitalAddOn = false,
+) {
   const shared =
     "w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70";
 
   if (row.recommended) {
     return `${shared} border-amber-200/70 bg-amber-400/30 text-amber-50 hover:bg-amber-400/40`;
   }
-  if (isPreferredPaywallPrintRow(row, preferredPrintVariant)) {
+  if (isPreferredPaywallPrintRow(row, preferredPrintVariant, preferredIncludeDigitalAddOn)) {
     return `${shared} border-amber-200/70 bg-amber-400/25 text-amber-50 hover:bg-amber-400/35`;
   }
 
@@ -46,6 +50,7 @@ type Props = {
   variant: PaywallCopyVariant;
   purchaseIntent?: "digital" | "print";
   preferredPrintVariant?: PrintVariant;
+  preferredIncludeDigitalAddOn?: boolean;
   showReferralHint?: boolean;
   onStartCheckout: (plan: CheckoutPlan) => void;
   onStartPrintCheckout?: (options: {
@@ -92,6 +97,7 @@ export function PaywallModal({
   variant,
   purchaseIntent = "digital",
   preferredPrintVariant = "poster_framed",
+  preferredIncludeDigitalAddOn = false,
   printShippingCountry,
   printShippingCountries = [],
   onPrintShippingCountryChange,
@@ -342,7 +348,7 @@ export function PaywallModal({
                     type="button"
                     onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
                     disabled={checkoutInFlight || !canPrintCheckout}
-                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant)}
+                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant, preferredIncludeDigitalAddOn)}
                   >
                     {checkoutInFlight ? (
                       "Opening secure checkout..."
@@ -450,7 +456,7 @@ export function PaywallModal({
                     type="button"
                     onClick={() => handlePrintUpsellClick(row)}
                     disabled={checkoutInFlight}
-                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant)}
+                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant, preferredIncludeDigitalAddOn)}
                   >
                     {checkoutInFlight ? (
                       "Opening secure checkout..."

@@ -327,6 +327,7 @@ export function EditorExperience({
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
   const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
+  const [preferredIncludeDigitalAddOn, setPreferredIncludeDigitalAddOn] = useState(false);
   const enabledMerchFamilies = useMemo(() => listMerchFamiliesEnabledForPublicUi(), []);
   const defaultMerchFamily = (enabledMerchFamilies[0]?.id ?? "sticker_kisscut") as MerchFamilyId;
   const [selectedMerchFamily, setSelectedMerchFamily] = useState<MerchFamilyId>(defaultMerchFamily);
@@ -716,6 +717,7 @@ export function EditorExperience({
     const checkoutParam = searchParams.get("checkout");
     const utmCampaignParam = searchParams.get("utm_campaign");
     const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
+    const includeDigitalAddOnParam = searchParams.get("include_digital_addon");
     const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
     if (
       !dateParam &&
@@ -759,6 +761,10 @@ export function EditorExperience({
       setPreferredPrintVariant(printVariantParam);
     } else if (giftTraffic.paywallIntent === "print") {
       setPreferredPrintVariant(giftTraffic.preferredPrintVariant);
+    }
+
+    if (/^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? "")) {
+      setPreferredIncludeDigitalAddOn(true);
     }
 
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
@@ -3249,7 +3255,11 @@ export function EditorExperience({
                                     })
                                   }
                                   disabled={checkoutInFlight || !printShippingCountry}
-                                  className={paywallPrintSkuButtonClassesEditorPanel(row, preferredPrintVariant)}
+                                  className={paywallPrintSkuButtonClassesEditorPanel(
+                                    row,
+                                    preferredPrintVariant,
+                                    preferredIncludeDigitalAddOn,
+                                  )}
                                 >
                                   {checkoutInFlight ? (
                                     "Opening secure checkout..."
@@ -3411,6 +3421,7 @@ export function EditorExperience({
               currentPlan={currentPlan}
               printCheckoutEnabled={printCheckoutEnabled}
               preferredPrintVariant={preferredPrintVariant}
+              preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
               printCheckoutInFlight={checkoutInFlight}
@@ -3447,6 +3458,7 @@ export function EditorExperience({
               variant={paywallVariant}
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}
+              preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
               showReferralHint={Boolean(getCheckoutReferralCode())}
               onStartCheckout={(plan) => {
                 setPaywallIntent("digital");

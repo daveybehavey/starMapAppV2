@@ -43,6 +43,7 @@ interface MobileCreateProps {
   currentPlan?: CheckoutPlan | null;
   printCheckoutEnabled?: boolean;
   preferredPrintVariant?: PrintVariant;
+  preferredIncludeDigitalAddOn?: boolean;
   printShippingCountry?: string | null;
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
@@ -66,6 +67,7 @@ export function MobileCreate({
   currentPlan = null,
   printCheckoutEnabled = false,
   preferredPrintVariant = "poster_framed",
+  preferredIncludeDigitalAddOn = false,
   printShippingCountry,
   printShippingCountries = [],
   onPrintShippingCountryChange,
@@ -1452,7 +1454,7 @@ export function MobileCreate({
                       })
                     }
                     disabled={!printShippingCountry || printCheckoutInFlight}
-                    className={`${paywallPrintSkuButtonClassesMobile(primaryPrintRow, preferredPrintVariant)} mt-2 w-full`}
+                    className={`${paywallPrintSkuButtonClassesMobile(primaryPrintRow, preferredPrintVariant, preferredIncludeDigitalAddOn)} mt-2 w-full`}
                   >
                     {printCheckoutInFlight ? (
                       "Opening secure checkout..."
@@ -1485,7 +1487,7 @@ export function MobileCreate({
                             })
                           }
                           disabled={!printShippingCountry || printCheckoutInFlight}
-                          className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant)}
+                          className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant, preferredIncludeDigitalAddOn)}
                         >
                           {printCheckoutInFlight ? (
                             "Opening secure checkout..."

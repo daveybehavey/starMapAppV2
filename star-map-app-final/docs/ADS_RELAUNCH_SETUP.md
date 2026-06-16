@@ -137,20 +137,19 @@ Match live copy on [/wedding](https://starmapco.com/wedding). **No fake claims**
 
 - Wedding Star Map Gift
 - Stars on Your Wedding Night
-- Custom Map From Your Date
+- Framed + HD · Free Shipping
+- $106 Gift Bundle
 - Free Preview Before You Buy
-- Framed & Digital Options
 - Ceremony Date + Location
 - Meaningful Couples Gift
-- Print-Ready Star Map
 - Preview in Under 5 Minutes
 - From StarMapCo
 
 **Descriptions:**
 
-- Turn your wedding date and place into a personalized star map. Free preview, then print or HD digital.
-- Capture the night sky from your ceremony. Choose framed print, unframed print, or HD digital after you approve the design.
-- A thoughtful wedding or anniversary gift — preview free, checkout when the map looks right.
+- Turn your wedding date and place into a personalized star map. Free preview, then our $106 framed + HD bundle with free shipping.
+- Capture the night sky from your ceremony. Framed print + instant HD digital from the same approved design.
+- Couples call it wall-ready art from their most meaningful night. Preview free, checkout when the map looks right.
 
 **Avoid:** “Free download,” “#1,” competitor names, or guarantees you do not state on the page.
 
