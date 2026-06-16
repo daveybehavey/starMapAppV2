@@ -60,6 +60,15 @@ const PRINT_FRAMED_CENTS = parseIntEnv(
   ["NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", "PRINT_FRAMED_PRICE_CENTS"],
   9900,
 );
+const PRINT_DIGITAL_ADDON_CENTS = parseIntEnv(
+  ["NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS", "PRINT_DIGITAL_ADDON_PRICE_CENTS"],
+  700,
+);
+const PRINT_FRAMED_HD_BUNDLE_CENTS = PRINT_FRAMED_CENTS + PRINT_DIGITAL_ADDON_CENTS;
+const PRINT_FREE_SHIPPING_THRESHOLD_CENTS = parseIntEnv(
+  ["PRINT_FREE_SHIPPING_THRESHOLD_CENTS", "NEXT_PUBLIC_PRINT_FREE_SHIPPING_THRESHOLD_CENTS"],
+  10000,
+);
 const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
 let shippingMap = null;
 try {
@@ -289,6 +298,32 @@ const items = [
           })
       : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],
   },
+  ...(PRINT_FRAMED_HD_BUNDLE_CENTS >= PRINT_FREE_SHIPPING_THRESHOLD_CENTS
+    ? [
+        {
+          id: "print_poster_framed_hd_bundle",
+          title: "Custom Star Map Framed Print + HD Digital Download",
+          description: `${printBaseDescription} Framed print with instant HD digital add-on. Free standard shipping on this bundle.`,
+          link: `${SITE_URL}/editor?mode=quick&source=merchant-feed-framed-hd&checkout=print&print_variant=poster_framed&include_digital=true`,
+          imageLink: framedImageLink,
+          additionalImageLinks: [unframedImageLink, `${SITE_URL}/blog/anniversary/framed-star-map.jpg`],
+          availability: "in_stock",
+          condition: "new",
+          price: formatPrice(PRINT_FRAMED_HD_BUNDLE_CENTS),
+          productType: "Framed print bundle",
+          shippingLabel: "print_framed_hd_free",
+          googleProductCategory: "Home & Garden > Decor > Artwork > Posters, Prints, & Visual Artwork",
+          identifierExists: false,
+          brand: "StarMapCo",
+          shipping: MERCHANT_FEED_COUNTRIES.map((country) =>
+            withDeliveryDefaults({
+              country,
+              price: formatPrice(0),
+            }),
+          ),
+        },
+      ]
+    : []),
 ];
 
 const body = [

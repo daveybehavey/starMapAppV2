@@ -27,6 +27,7 @@ alwaysApply: true
 ## GitHub Actions (CI)
 
 - **CI** (on PRs touching `star-map-app-final`): lint, production build, **`npm run qa:smoke:commerce`**.
+- **Deploy production** (`deploy-production.yml`, manual): Linux OpenNext deploy + live-critical — use **`npm run deploy:remote`** from Windows.
 - **Nightly E2E:** schedule + manual **`npm run qa:smoke`**.
 - **Live canary:** schedule + manual **`scripts/live-smoke.mjs`** against production (no `npm ci` in that job).
 - Ops reference: **`star-map-app-final/docs/OPS_RUNBOOK.md`**.
@@ -62,11 +63,16 @@ After success, tell them the printed **task id** and link to **`/tasks`** on the
 ## Before builds / deploys
 
 - After `git pull`: run **`npm ci`** inside `star-map-app-final`.
-- Target Node **20 or 22 LTS** when possible. OpenNext warns about Windows; for **production** releases prefer **WSL** (install with `wsl --install` in an elevated terminal, then deploy from Linux path under `/mnt/c/...`).
+- Target Node **20 or 22 LTS** when possible.
+- **Do not run production deploy on Windows** while Codex/VS Code is building another repo (`next build`, `next dev`, Vite, etc.) — CPU/RAM contention causes 15–30+ min compiles and `ECONNRESET` retries. Pause other builds first.
+- Work from **`C:\Users\david\dev\starMapAppV2`**, not `C:\Code\...` or OneDrive mirrors.
 
 ## Deploy commands
 
-- Default ship path: **`npm run deploy:verify`** (runs OpenNext deploy + **`npm run qa:live-critical`**). Use plain `deploy` only if intentionally skipping the probe.
+- **Default ship path (guarded):** **`npm run deploy:verify`** — preflight + lock + OpenNext deploy + **`npm run qa:live-critical`**. On Windows, guard **blocks** unless `DEPLOY_ALLOW_WINDOWS=1`.
+- **Preferred on Windows:** **`npm run deploy:wsl`** (WSL/Linux OpenNext) or **`npm run deploy:remote`** (GitHub Actions `deploy-production.yml` on `ubuntu-latest`; needs `CLOUDFLARE_API_TOKEN` secret).
+- **`npm run deploy:preflight`** — check only (competing Node builds, path, platform).
+- **`npm run deploy:inner`** — unguarded deploy (CI/Linux only).
 - **`npm run deploy:safe`** when OAuth Wrangler is required and API tokens must be stripped from local env files.
 
 ## Wrangler / secrets

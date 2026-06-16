@@ -1,4 +1,5 @@
 import { formatPrice } from "@/lib/pricing";
+import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
 import { getPrintfulShippingCountries } from "@/lib/printfulShipping";
 
 function parseCountries(raw: string | undefined) {
@@ -36,9 +37,17 @@ export function getPrintShippingCountryLabel() {
 }
 
 export function getPrintShippingDisclosure() {
+  const freeShippingLine = getPrintFreeShippingOfferLine();
   const audience = getPrintShippingCountryLabel();
-  if (audience === "U.S.") return "U.S. shipping is added at checkout for physical orders.";
-  return `Shipping is added at checkout for physical orders in ${audience}.`;
+  const base =
+    audience === "U.S."
+      ? "U.S. shipping is added at checkout for physical orders below the free-shipping threshold."
+      : `Shipping is added at checkout for physical orders in ${audience} below the free-shipping threshold.`;
+  if (!freeShippingLine) {
+    if (audience === "U.S.") return "U.S. shipping is added at checkout for physical orders.";
+    return `Shipping is added at checkout for physical orders in ${audience}.`;
+  }
+  return `${freeShippingLine} ${base}`;
 }
 
 export function getPrintAvailabilityBadgeLabel() {

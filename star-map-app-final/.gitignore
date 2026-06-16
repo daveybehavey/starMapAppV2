@@ -38,6 +38,7 @@ testzip.zip
 /exports/custom/
 /exports/
 /.tmp/
+.deploy.lock
 /secrets/
 *service-account*.json
 google-merchant-*.json

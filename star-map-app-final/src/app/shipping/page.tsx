@@ -4,6 +4,7 @@ import { getBusinessProfile } from "@/lib/businessProfile";
 import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
 import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
 import { getPrintAllowedCountries } from "@/lib/printCheckoutConfig";
+import { getPrintFreeShippingOfferLine, getPrintFreeShippingQualifyingHint } from "@/lib/printFreeShipping";
 import { getPrintfulShippingRate, getPrintShippingCountryLabel } from "@/lib/printfulShipping";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
@@ -60,6 +61,8 @@ function buildShippingRows(): ShippingRow[] {
 export default function ShippingPage() {
   const rows = buildShippingRows();
   const profile = getBusinessProfile();
+  const freeShippingOffer = getPrintFreeShippingOfferLine();
+  const freeShippingHint = getPrintFreeShippingQualifyingHint();
 
   return (
     <PolicyShell
@@ -76,6 +79,17 @@ export default function ShippingPage() {
           Print orders are made to order. Typical fulfillment time before shipment is {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS},
           plus carrier transit time shown below.
         </p>
+        {freeShippingOffer ? (
+          <section className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4 text-sm text-neutral-900 sm:text-base">
+            <h2 className="text-lg font-semibold text-midnight">Free shipping on larger print orders</h2>
+            <p className="mt-2">{freeShippingOffer}</p>
+            {freeShippingHint ? <p className="mt-2 text-neutral-800">{freeShippingHint}</p> : null}
+            <p className="mt-2 text-neutral-800">
+              Merchandise subtotal is calculated before shipping and tax. Promo codes that reduce the subtotal below the
+              threshold may remove free shipping.
+            </p>
+          </section>
+        ) : null}
 
         <section className="mt-6">
           <h2 className="text-xl font-semibold text-midnight">Physical print countries</h2>

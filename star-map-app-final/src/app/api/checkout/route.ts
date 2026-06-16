@@ -25,6 +25,7 @@ import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
+import { applyPrintFreeShippingToCheckout } from "@/lib/printFreeShipping";
 import { parsePrintVariant } from "@/lib/printCatalog";
 import { isMerchFamilyId, type MerchFamilyId } from "@/lib/merchCatalog";
 import {
@@ -724,8 +725,8 @@ async function createCheckoutSession(
       : isPrintOrder
         ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry)
         : { shippingOptions: undefined, shippingChargeCents: null };
-  const printShippingOptions = printShippingSelection.shippingOptions;
-  const printShippingChargeCents = printShippingSelection.shippingChargeCents;
+  let printShippingOptions = printShippingSelection.shippingOptions;
+  let printShippingChargeCents = printShippingSelection.shippingChargeCents;
   const geoDigitalSingle =
     !isPrintOrder && effectivePlan === "single" ? getGeoDigitalSinglePrice(clientCountry) : null;
   const useGeoDigitalSinglePricing = Boolean(geoDigitalSingle?.amountCents);
@@ -770,9 +771,6 @@ async function createCheckoutSession(
   }
   if (isPrintOrder && resolvedShippingCountry) {
     metadata.print_shipping_country = resolvedShippingCountry;
-  }
-  if (isPrintOrder && typeof printShippingChargeCents === "number") {
-    metadata.print_shipping_charge_cents = String(printShippingChargeCents);
   }
 
   const digitalPriceId = stripePriceIds[effectivePlan]?.trim();
@@ -923,6 +921,24 @@ async function createCheckoutSession(
   }
 
   if (isPrintOrder && !isMerchOrder) {
+    const merchandiseSubtotalCents = promotionEstimateLineItems.reduce((sum, item) => sum + item.amountCents, 0);
+    const merchandiseAfterDiscountCents = Math.max(0, merchandiseSubtotalCents - estimatedPromotionDiscountCents);
+    const freeShippingSelection = applyPrintFreeShippingToCheckout(
+      { shippingOptions: printShippingOptions, shippingChargeCents: printShippingChargeCents },
+      merchandiseAfterDiscountCents,
+    );
+    printShippingOptions = freeShippingSelection.shippingOptions;
+    printShippingChargeCents = freeShippingSelection.shippingChargeCents;
+    if (freeShippingSelection.freeShippingApplied) {
+      metadata.print_free_shipping_applied = "true";
+      metadata.print_shipping_charge_cents = "0";
+      if (typeof freeShippingSelection.shippingSubsidyCents === "number") {
+        metadata.print_shipping_subsidy_cents = String(freeShippingSelection.shippingSubsidyCents);
+      }
+    } else if (typeof printShippingChargeCents === "number") {
+      metadata.print_shipping_charge_cents = String(printShippingChargeCents);
+    }
+
     const marginCheck = evaluatePrintMarginForCheckout({
       variant: normalizedPrintVariant,
       shippingCountry: resolvedShippingCountry,

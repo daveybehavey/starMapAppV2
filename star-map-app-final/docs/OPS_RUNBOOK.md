@@ -9,10 +9,12 @@ Concise reference for incidents, deploys, and money-path monitoring. **Do not pa
 
 ## Deploy and rollback
 
-- **Happy path:** `npm ci` then `npm run deploy:verify` (OpenNext build + deploy + **`npm run qa:live-critical`** against production).
+- **Happy path:** `npm ci` then **`npm run deploy:verify`** (preflight guard + OpenNext deploy + **`npm run qa:live-critical`**).
+- **Windows / parallel IDE builds:** Local Windows deploy is **blocked by default** (`scripts/deploy-guard.mjs`) because OpenNext is slow and competing `next build` / Codex sessions in other repos cause multi-hour builds and `ECONNRESET` during compile. Use **`npm run deploy:wsl`** or **`npm run deploy:remote`** instead. Override only with `DEPLOY_ALLOW_WINDOWS=1` after pausing other builds.
+- **Remote deploy (recommended on Windows):** GitHub Actions **`deploy-production.yml`** (`workflow_dispatch`). One-time: add repo secret **`CLOUDFLARE_API_TOKEN`** (Workers Scripts Edit). Then `npm run deploy:remote` or Actions → Deploy production → Run workflow.
 - **OAuth / token hygiene:** `npm run deploy:safe` when Wrangler must use OAuth and local env must not leak tokens.
 - **Rollback after a bad deploy:** `npx wrangler deployments list` then `npx wrangler rollback <previous-version-id> -y`.
-- **Windows:** `node scripts/opennext-cloudflare.mjs deploy` merges `wrangler.toml` vars into the OpenNext build, then runs `opennextjs-cloudflare deploy`. On failure (common: empty CLI error, WASM path, R2 cache 403), the script **automatically falls back** to `OPEN_NEXT_DEPLOY=true npx wrangler deploy` after a successful build. Requires **wrangler >= 4.94** in `package.json`. Manual sequence:
+- **Windows manual fallback:** `node scripts/opennext-cloudflare.mjs deploy` merges `wrangler.toml` vars into the OpenNext build, then runs `opennextjs-cloudflare deploy`. On failure (common: empty CLI error, WASM path, R2 cache 403), the script **automatically falls back** to `OPEN_NEXT_DEPLOY=true npx wrangler deploy` after a successful build. Requires **wrangler >= 4.94** in `package.json`. Manual sequence:
 
 ```powershell
 cd C:\Users\david\dev\starMapAppV2\star-map-app-final

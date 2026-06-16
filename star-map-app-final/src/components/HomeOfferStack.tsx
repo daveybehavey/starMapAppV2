@@ -1,4 +1,5 @@
 import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
 import ResilientImage from "@/components/ResilientImage";
 import {
   formatPrintDeliveryDisclosure,
@@ -29,6 +30,7 @@ const OFFER_MOCKUPS = {
 export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferStackProps) {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingOffer = getPrintFreeShippingOfferLine();
   const printShippingCountry = "US";
   const printShippingCountries = getPrintAllowedCountries();
   const framedShippingLabel = formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry, "shipping");
@@ -133,6 +135,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Most buyers pair this with the HD add-on</li>
+              {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
               <li>Best-looking premium option for special occasions</li>
               <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
               {framedDeliveryDisclosure ? <li>{framedDeliveryDisclosure}</li> : null}

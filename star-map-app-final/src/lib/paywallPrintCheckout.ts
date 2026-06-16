@@ -3,6 +3,10 @@ import type { PrintVariant } from "@/lib/printCatalog";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import { formatPrintShippingEstimate } from "@/lib/printfulShipping";
+import {
+  getPrintMerchandiseSubtotalCents,
+  qualifiesForPrintFreeShipping,
+} from "@/lib/printFreeShipping";
 
 export type PaywallPrintCheckoutPresentationRow = PaywallPrintCheckoutRow & {
   index: number;
@@ -24,7 +28,14 @@ export function getPaywallPrintCheckoutPresentation(
     const tier = tiers[row.variant];
     const headline = row.headline ?? tier.label;
     const productPrice = formatPrice(tier.amountCents, tier.currency);
-    const shippingLabel = formatPrintShippingEstimate(row.variant, printShippingCountry ?? null, "shipping");
+    const merchandiseSubtotalCents = getPrintMerchandiseSubtotalCents({
+      variant: row.variant,
+      includeDigitalAddOn: row.includeDigitalAddOn,
+      includeCardAddOn: row.includeCardAddOn,
+    });
+    const shippingLabel = qualifiesForPrintFreeShipping(merchandiseSubtotalCents)
+      ? "free shipping"
+      : formatPrintShippingEstimate(row.variant, printShippingCountry ?? null, "shipping");
     const parts = [productPrice, shippingLabel];
     if (row.includeDigitalAddOn) parts.push(digitalAddonLabel);
     if (row.includeCardAddOn) parts.push(cardAddonLabel);
