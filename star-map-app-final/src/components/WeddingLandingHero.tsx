@@ -11,7 +11,6 @@ type WeddingLandingHeroProps = {
   breadcrumbs: BreadcrumbItem[];
   primaryHref: string;
   bundlePriceLine: string;
-  freeShippingLine: string;
   featuredTestimonial: VerifiedTestimonial;
 };
 
@@ -19,22 +18,20 @@ export default function WeddingLandingHero({
   breadcrumbs,
   primaryHref,
   bundlePriceLine,
-  freeShippingLine,
   featuredTestimonial,
 }: WeddingLandingHeroProps) {
   return (
     <header className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-10">
-      <div className="space-y-5 text-center lg:text-left">
+      <div className="space-y-5 text-center text-white lg:text-left">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center lg:justify-start" />
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.3em] text-amber-300">Wedding gift · Framed + HD</p>
-          <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[2.65rem] lg:leading-[1.1]">
+          <h1 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-[2.65rem] lg:leading-[1.1]">
             The night you said &ldquo;I do&rdquo; — framed for the wall
           </h1>
           <p className="mx-auto max-w-xl text-sm leading-relaxed text-white/90 sm:text-base lg:mx-0">
-            Preview the exact sky from your ceremony date and place. Our most popular wedding gift is the{" "}
-            <span className="font-semibold text-amber-50">{bundlePriceLine}</span> bundle — ready to hang plus an
-            instant HD file.
+            Preview the exact sky from your ceremony, then order the{" "}
+            <span className="font-semibold text-amber-50">{bundlePriceLine}</span> gift bundle when it feels right.
           </p>
         </div>
 
@@ -55,9 +52,9 @@ export default function WeddingLandingHero({
           </figcaption>
         </figure>
 
-        <MoneyPagePriceAtGlance className="mx-auto max-w-md lg:mx-0" weddingTone />
+        <MoneyPagePriceAtGlance className="mx-auto max-w-md lg:mx-0" weddingTone compact />
 
-        <ul className="mx-auto flex max-w-md flex-col gap-2 text-left text-sm text-amber-50/95 sm:text-base lg:mx-0">
+        <ul className="mx-auto flex max-w-md flex-col gap-2 text-left text-sm text-white/90 sm:text-base lg:mx-0">
           <li className="flex gap-2">
             <span className="mt-0.5 text-amber-300" aria-hidden="true">
               ✓
@@ -70,24 +67,18 @@ export default function WeddingLandingHero({
             </span>
             <span>Astronomically accurate for your date, time, and location</span>
           </li>
-          <li className="flex gap-2">
-            <span className="mt-0.5 text-amber-300" aria-hidden="true">
-              ✓
-            </span>
-            <span>{freeShippingLine}</span>
-          </li>
         </ul>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:items-start lg:justify-start">
           <Link
             href={primaryHref}
-            className="inline-flex min-h-12 w-full min-w-[14rem] items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3.5 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent sm:w-auto"
+            className="inline-flex min-h-12 w-full min-w-[14rem] items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3.5 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-midnight sm:w-auto"
           >
-            Preview your wedding map — {bundlePriceLine}
+            Preview your wedding map
           </Link>
           <Link
             href="/editor?mode=quick&source=wedding-hero-preview"
-            className="text-sm font-semibold text-amber-100/90 underline decoration-amber-200/50 underline-offset-4 transition hover:text-white"
+            className="text-sm font-semibold text-white underline decoration-white/50 underline-offset-4 transition hover:text-amber-200 hover:decoration-amber-200/70"
           >
             Or start a free preview first
           </Link>
@@ -108,7 +99,7 @@ export default function WeddingLandingHero({
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-midnight/90 via-midnight/50 to-transparent px-4 pb-4 pt-16">
             <p className="text-sm font-semibold text-amber-50">Gift-ready framed print</p>
             <p className="mt-1 text-xs text-amber-100/85">
-              Room styling mockup — your map is personalized to your wedding date and venue.
+              Room styling mockup — personalized to your wedding date and venue.
             </p>
           </div>
         </div>

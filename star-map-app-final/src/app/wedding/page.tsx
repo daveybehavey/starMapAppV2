@@ -18,7 +18,6 @@ import { testimonialsByPage } from "@/data/testimonials";
 import {
   buildPrintEditorCheckoutHref,
   getFramedHdBundlePriceLine,
-  getPrintFreeShippingOfferLine,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
@@ -83,7 +82,6 @@ const weddingFaqItems = [
 
 export default function WeddingPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
-  const freeShippingLine = getPrintFreeShippingOfferLine();
   const bundlePriceLine = getFramedHdBundlePriceLine();
   const featuredTestimonial = testimonialsByPage.wedding[0];
   const framedHdHref = buildPrintEditorCheckoutHref({
@@ -102,7 +100,6 @@ export default function WeddingPage() {
         breadcrumbs={breadcrumbs}
         primaryHref={framedHdHref}
         bundlePriceLine={bundlePriceLine}
-        freeShippingLine={freeShippingLine}
         featuredTestimonial={featuredTestimonial}
       />
 

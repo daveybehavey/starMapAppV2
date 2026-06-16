@@ -11,9 +11,15 @@ type MoneyPagePriceAtGlanceProps = {
   className?: string;
   /** When true, emphasize framed print as the default gift path (wedding). */
   weddingTone?: boolean;
+  /** Hide fulfillment/shipping fine print (hero uses trust panel below). */
+  compact?: boolean;
 };
 
-export default function MoneyPagePriceAtGlance({ className = "", weddingTone = false }: MoneyPagePriceAtGlanceProps) {
+export default function MoneyPagePriceAtGlance({
+  className = "",
+  weddingTone = false,
+  compact = false,
+}: MoneyPagePriceAtGlanceProps) {
   const printTiers = getPrintPricingTiers();
   const pricing = getPricingInfo();
   const digitalPrice = formatPrice(pricing.activeAmountCents, pricing.currency);
@@ -50,11 +56,13 @@ export default function MoneyPagePriceAtGlance({ className = "", weddingTone = f
           </>
         )}
       </p>
-      <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
-        Free preview first. HD unlocks instantly after checkout. Physical prints are reviewed, then produced in{" "}
-        {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}
-        {framedDelivery ? ` — ${framedDelivery.toLowerCase()}` : ""}. {shippingDisclosure}
-      </p>
+      {!compact ? (
+        <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
+          Free preview first. HD unlocks instantly after checkout. Physical prints are reviewed, then produced in{" "}
+          {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}
+          {framedDelivery ? ` — ${framedDelivery.toLowerCase()}` : ""}. {shippingDisclosure}
+        </p>
+      ) : null}
     </div>
   );
 }
