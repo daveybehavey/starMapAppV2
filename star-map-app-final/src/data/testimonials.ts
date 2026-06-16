@@ -13,7 +13,13 @@ export const testimonialsByPage: Record<
 > = {
   personalized: [],
   gift: [],
-  wedding: [],
+  wedding: [
+    {
+      quote: "We turned our most meaningful night into a stunning piece of art.",
+      author: "D.H. & K.H.",
+      context: "Wedding gift · framed print + HD",
+    },
+  ],
   anniversary: [],
   nightSkyGift: [],
 };

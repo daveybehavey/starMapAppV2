@@ -1,6 +1,10 @@
 import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintPriceWithShipping,
+  getFramedHdBundlePriceLine,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
 
 type MoneyPagePriceAtGlanceProps = {
@@ -21,6 +25,7 @@ export default function MoneyPagePriceAtGlance({ className = "", weddingTone = f
     printTiers.poster_unframed.amountCents,
     printTiers.poster_unframed.currency,
   );
+  const framedHdBundle = getFramedHdBundlePriceLine();
   const shippingDisclosure = getPrintShippingDisclosure();
   const framedDelivery = formatPrintDeliveryDisclosure("poster_framed", "US");
 
@@ -29,11 +34,11 @@ export default function MoneyPagePriceAtGlance({ className = "", weddingTone = f
       <p className="text-xs text-amber-100/90 sm:text-sm">
         {weddingTone ? (
           <>
-            Framed from <span className="font-semibold text-amber-50">{framedPrice}</span>
+            <span className="font-semibold text-amber-50">{framedHdBundle}</span>
             {" · "}
             unframed from <span className="font-semibold text-amber-50">{unframedPrice}</span>
             {" · "}
-            HD from <span className="font-semibold text-amber-50">{digitalPrice}</span>
+            HD only <span className="font-semibold text-amber-50">{digitalPrice}</span>
           </>
         ) : (
           <>

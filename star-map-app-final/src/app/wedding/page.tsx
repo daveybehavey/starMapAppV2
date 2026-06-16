@@ -12,16 +12,21 @@ import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySe
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import { featuredRenderExamples, galleryExamples } from "@/lib/galleryExamples";
-import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { featuredRenderExamples } from "@/lib/galleryExamples";
+import WeddingLandingHero from "@/components/WeddingLandingHero";
+import { testimonialsByPage } from "@/data/testimonials";
+import {
+  buildPrintEditorCheckoutHref,
+  getFramedHdBundlePriceLine,
+  getPrintFreeShippingOfferLine,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
-const heroExample = galleryExamples.find((item) => item.id === "wedding-aurora") ?? galleryExamples[0];
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/wedding", label: "Wedding" },
@@ -30,12 +35,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map Gift | StarMapCo",
   description:
-    "Create a wedding star map from your ceremony date and location. Free preview, then framed print, unframed print, or HD digital — a meaningful couples gift.",
+    "Create a wedding star map from your ceremony date and location. Free preview, then our popular framed + HD gift bundle with free shipping on $100+ orders.",
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map Gift | StarMapCo",
     description:
-      "Capture the exact night sky from your wedding day and place. Free preview, then framed print, unframed print, or HD digital delivery.",
+      "Capture the exact night sky from your wedding day and place. Preview free, then order the framed + HD gift bundle with free shipping on qualifying orders.",
     url: `${siteUrl}/wedding`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -78,94 +83,43 @@ const weddingFaqItems = [
 
 export default function WeddingPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingLine = getPrintFreeShippingOfferLine();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
+  const featuredTestimonial = testimonialsByPage.wedding[0];
+  const framedHdHref = buildPrintEditorCheckoutHref({
+    source: "wedding-hero-framed-hd",
+    variant: "poster_framed",
+    includeDigitalAddOn: true,
+  });
   const framedFaqAnswer = `${weddingFaqItems[5].answer} ${shippingDisclosure}`;
+  const deliveryIntro = `Most wedding buyers choose framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant digital file. Unframed lowers the total if you already have a frame. HD-only is fastest when you need same-day delivery.`;
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-16 pt-8 sm:pt-12">
       <LandingViewTracker source="wedding" />
 
-      <header className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-10">
-        <div className="space-y-4 text-center lg:text-left">
-          <Breadcrumbs items={breadcrumbs} className="flex justify-center lg:justify-start" />
-          <p className="text-xs uppercase tracking-[0.3em] text-amber-300">Wedding gift · StarMapCo</p>
-          <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl">
-            The night sky from your wedding — framed for the wall
-          </h1>
-          <p className="text-sm leading-relaxed text-white/90 sm:text-base">
-            Enter your ceremony date and place to preview the exact sky overhead. Most couples choose a gift-ready framed
-            print; unframed and instant HD stay on the same design.
-          </p>
-          <p className="text-xs text-amber-100/80 sm:text-sm">
-            Free preview first—checkout only when you are ready for framed print, unframed print, or HD digital from the
-            same approved design.
-          </p>
-          <MoneyPagePriceAtGlance className="mx-auto max-w-md lg:mx-0" weddingTone />
-          <ul className="mx-auto mt-3 flex max-w-md flex-col gap-2 text-left text-sm text-amber-50/95 sm:text-base lg:mx-0">
-            <li className="flex gap-2">
-              <span className="mt-0.5 text-amber-300" aria-hidden="true">
-                ✓
-              </span>
-              <span>Free live preview — no account required</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-0.5 text-amber-300" aria-hidden="true">
-                ✓
-              </span>
-              <span>Astronomically accurate for your date, time, and location</span>
-            </li>
-          </ul>
-          <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-            <Link
-              href="/editor?mode=quick&source=wedding-hero-framed&checkout=print&print_variant=poster_framed"
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
-            >
-              Preview framed wedding print
-            </Link>
-            <Link
-              href="/editor?mode=quick&source=wedding-hero-preview"
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
-            >
-              Start free preview
-            </Link>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90 lg:justify-start">
-            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-            <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital</span>
-          </div>
-        </div>
-
-        <figure className="mx-auto w-full max-w-sm overflow-hidden rounded-3xl border border-white/15 bg-white/5 shadow-2xl shadow-black/30 lg:max-w-none">
-          <div className="relative aspect-square">
-            <Image
-              src={heroExample.src}
-              alt={heroExample.alt}
-              width={900}
-              height={900}
-              priority
-              sizes="(max-width: 1024px) 100vw, 420px"
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <figcaption className="border-t border-white/10 bg-midnight/80 px-4 py-3 text-center text-xs text-amber-100/90 sm:text-sm">
-            {heroExample.caption} · {heroExample.title}
-          </figcaption>
-        </figure>
-      </header>
+      <WeddingLandingHero
+        breadcrumbs={breadcrumbs}
+        primaryHref={framedHdHref}
+        bundlePriceLine={bundlePriceLine}
+        freeShippingLine={freeShippingLine}
+        featuredTestimonial={featuredTestimonial}
+      />
 
       <PreviewStartForm
         source="wedding"
         title="Start your wedding preview"
-        description="Enter the wedding date and place, then open the editor on the framed path, unframed path, or a neutral preview-first start."
+        description="Enter the wedding date and place, then open the editor on the framed + HD gift path, unframed, or a neutral preview-first start."
         intentOptions={[
           {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
+            label: "Preview framed + HD gift",
+            sourceSuffix: "framed-hd",
             checkout: "print",
             printVariant: "poster_framed",
-            plan: "print_framed",
+            includeDigitalAddOn: true,
+            plan: "print_framed_hd",
             tone: "recommended",
-            detail: "Best when the keepsake should arrive ready to display.",
+            detail: `${bundlePriceLine} — best wedding gift.`,
           },
           {
             label: "Preview unframed print",
@@ -187,10 +141,14 @@ export default function WeddingPage() {
       <StickyCtaBar
         source="sticky-wedding"
         title="Still deciding? Preview the wedding sky free"
-        description="Takes minutes — same design for framed, unframed, or HD."
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-wedding-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        description="Takes minutes — same design for framed + HD, unframed, or HD-only."
+        secondaryButtonLabel="Preview framed + HD"
+        secondaryHref={buildPrintEditorCheckoutHref({
+          source: "sticky-wedding-framed-hd",
+          variant: "poster_framed",
+          includeDigitalAddOn: true,
+        })}
+        secondaryPlan="print_framed_hd"
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -221,7 +179,7 @@ export default function WeddingPage() {
 
       <DeliveryFormatModule
         heading="Pricing & delivery — pick one path after preview"
-        intro="Most wedding buyers choose the framed gift path for a ready-to-hang keepsake. At checkout you can add a matching 4×6 keepsake card with your message (+$19, ships with the print). Unframed lowers the total if you already have a frame. HD digital is fastest when you need same-day delivery."
+        intro={deliveryIntro}
         sourcePrefix="wedding-format"
       />
       <FramedProofSection sourcePrefix="wedding-proof" />
@@ -293,10 +251,14 @@ export default function WeddingPage() {
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/editor?mode=quick&source=wedding-bottom-framed&checkout=print&print_variant=poster_framed"
+            href={buildPrintEditorCheckoutHref({
+              source: "wedding-bottom-framed-hd",
+              variant: "poster_framed",
+              includeDigitalAddOn: true,
+            })}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-gold"
           >
-            Preview framed print
+            Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=wedding-bottom-preview"

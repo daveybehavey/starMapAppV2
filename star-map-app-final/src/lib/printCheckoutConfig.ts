@@ -1,5 +1,10 @@
-import { formatPrice } from "@/lib/pricing";
-import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
+import { formatPrice, getPrintPricingTiers } from "@/lib/pricing";
+import type { PrintVariant } from "@/lib/printCatalog";
+import {
+  getPrintFreeShippingOfferLine,
+  getPrintMerchandiseSubtotalCents,
+  qualifiesForPrintFreeShipping,
+} from "@/lib/printFreeShipping";
 import { getPrintfulShippingCountries } from "@/lib/printfulShipping";
 
 function parseCountries(raw: string | undefined) {
@@ -61,3 +66,37 @@ export function formatPrintPriceWithShipping(amountCents: number, currency: stri
 export function formatPrintPriceLabel(baseLabel: string) {
   return `${baseLabel} + shipping`;
 }
+
+export function buildPrintEditorCheckoutHref(input: {
+  source: string;
+  variant: PrintVariant;
+  includeDigitalAddOn?: boolean;
+  includeCardAddOn?: boolean;
+  mode?: string;
+}): string {
+  const params = new URLSearchParams({
+    mode: input.mode ?? "quick",
+    source: input.source,
+    checkout: "print",
+    print_variant: input.variant,
+  });
+  if (input.includeDigitalAddOn) params.set("include_digital_addon", "1");
+  if (input.includeCardAddOn) params.set("include_card_addon", "1");
+  return `/editor?${params.toString()}`;
+}
+
+export function getFramedHdBundlePriceLine(): string {
+  const tiers = getPrintPricingTiers();
+  const currency = tiers.poster_framed.currency;
+  const subtotal = getPrintMerchandiseSubtotalCents({
+    variant: "poster_framed",
+    includeDigitalAddOn: true,
+  });
+  const total = formatPrice(subtotal, currency);
+  if (qualifiesForPrintFreeShipping(subtotal)) {
+    return `${total} framed + HD · free shipping`;
+  }
+  return `${total} framed + HD digital`;
+}
+
+export { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";

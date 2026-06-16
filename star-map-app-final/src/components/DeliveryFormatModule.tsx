@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import { getPrintPricingTiers } from "@/lib/pricing";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  buildPrintEditorCheckoutHref,
+  formatPrintPriceWithShipping,
+  getFramedHdBundlePriceLine,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 
 type DeliveryFormatModuleProps = {
   heading?: string;
@@ -11,7 +16,7 @@ type DeliveryFormatModuleProps = {
 
 export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
-  intro = "You only build the map once. After preview, most buyers choose the framed gift path or the lower-total unframed route. HD digital stays available when instant access matters more than shipping.",
+  intro = "You only build the map once. After preview, most buyers choose framed + HD for the best gift value and free standard shipping on $100+ orders.",
   sourcePrefix = "delivery-format",
 }: DeliveryFormatModuleProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
@@ -71,24 +76,30 @@ export default function DeliveryFormatModule({
         {printCheckoutEnabled ? (
           <article className="rounded-2xl border border-amber-300/70 bg-gradient-to-br from-amber-100 to-amber-50 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</p>
+              <p className="text-sm font-semibold text-midnight">Framed print + HD digital</p>
               <span className="rounded-full border border-amber-300/80 bg-amber-300/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
                 Recommended
               </span>
             </div>
-            <p className="mt-1 text-xs text-neutral-700">Best for gifting. Buyers choose this when they want the finished piece to arrive ready to display.</p>
+            <p className="mt-1 text-xs text-neutral-700">
+              Best wedding gift: ready-to-display framed print plus instant HD from the same approved design.
+            </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Gift-ready framed presentation</li>
-              <li>{shippingDisclosure}</li>
+              <li>Instant HD download after payment</li>
+              <li>{getFramedHdBundlePriceLine()}</li>
               {baselineDeliveryDisclosure ? <li>{baselineDeliveryDisclosure}</li> : null}
-              <li>Starts at {printLabels.framed}</li>
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
-                href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-print-framed`)}&checkout=print&print_variant=poster_framed`}
+                href={buildPrintEditorCheckoutHref({
+                  source: `${sourcePrefix}-print-framed-hd`,
+                  variant: "poster_framed",
+                  includeDigitalAddOn: true,
+                })}
                 className="inline-flex rounded-full bg-midnight px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-midnight/90"
               >
-                Preview then buy framed
+                Preview framed + HD gift
               </Link>
               <Link
                 href="/how-to-print-star-map"

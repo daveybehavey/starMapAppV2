@@ -11,6 +11,7 @@ type PreviewStartIntent = {
   sourceSuffix?: string;
   checkout?: "print";
   printVariant?: PrintVariant;
+  includeDigitalAddOn?: boolean;
   plan: string;
   tone?: "recommended" | "default" | "neutral";
   detail?: string;
@@ -24,7 +25,12 @@ type PreviewStartFormProps = {
   intentOptions?: PreviewStartIntent[];
 };
 
-function buildEditorAction(source: string, checkout?: "print", printVariant?: PrintVariant): string {
+function buildEditorAction(
+  source: string,
+  checkout?: "print",
+  printVariant?: PrintVariant,
+  includeDigitalAddOn?: boolean,
+): string {
   const params = new URLSearchParams({
     mode: "quick",
     source,
@@ -35,6 +41,9 @@ function buildEditorAction(source: string, checkout?: "print", printVariant?: Pr
   }
   if (printVariant) {
     params.set("print_variant", printVariant);
+  }
+  if (includeDigitalAddOn) {
+    params.set("include_digital_addon", "1");
   }
 
   return `/editor?${params.toString()}`;
@@ -138,7 +147,12 @@ export default function PreviewStartForm({
                   <button
                     key={`${intent.plan}-${intent.label}`}
                     type="submit"
-                    formAction={buildEditorAction(actionSource, intent.checkout, intent.printVariant)}
+                    formAction={buildEditorAction(
+                      actionSource,
+                      intent.checkout,
+                      intent.printVariant,
+                      intent.includeDigitalAddOn,
+                    )}
                     data-source={actionSource}
                     data-plan={intent.plan}
                     data-checkout={intent.checkout}
@@ -169,8 +183,8 @@ export default function PreviewStartForm({
         )}
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
         <p className="mt-1 text-xs font-semibold text-amber-700">
-          Physical checkout is available: unframed print, framed print, or print + HD file. Shipping is shown at
-          checkout.
+          Best wedding gift: framed print + HD digital — free standard shipping on $100+ orders. Shipping shown before
+          payment.
         </p>
       </form>
     </section>
