@@ -26,6 +26,8 @@ import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
+import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import {
   createHdConsumeToken,
   formatHdExportConsumeFailedMessage,
@@ -55,7 +57,12 @@ import {
 } from "@/lib/merchCatalog";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
-import { resolveEditorGiftTrafficIntent, shouldAutoOpenEditorDigitalPaywall } from "@/lib/previewSourceHints";
+import {
+  resolveEditorGiftTrafficIntent,
+  isWeddingCommerceContext,
+  isWeddingUtmCampaign,
+  shouldAutoOpenEditorDigitalPaywall,
+} from "@/lib/previewSourceHints";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
 import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
 import {
@@ -626,7 +633,7 @@ export function EditorExperience({
           setCreditsRemaining(null);
           setPaid(true);
         }
-        return data;
+        return true;
       } catch {
         return false;
       } finally {
@@ -755,6 +762,7 @@ export function EditorExperience({
       checkoutParam,
       printVariantParam,
       utmCampaign: utmCampaignParam,
+      explicitIncludeDigitalAddOn: /^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? ""),
     });
 
     if (printVariantParam) {
@@ -764,6 +772,8 @@ export function EditorExperience({
     }
 
     if (/^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? "")) {
+      setPreferredIncludeDigitalAddOn(true);
+    } else if (giftTraffic.preferredIncludeDigitalAddOn) {
       setPreferredIncludeDigitalAddOn(true);
     }
 
@@ -901,11 +911,13 @@ export function EditorExperience({
     const checkoutParam = searchParams.get("checkout");
     const utmCampaignParam = searchParams.get("utm_campaign");
     const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
+    const includeDigitalAddOnParam = searchParams.get("include_digital_addon");
     const giftTraffic = resolveEditorGiftTrafficIntent({
       source: sourceParam,
       checkoutParam,
       printVariantParam,
       utmCampaign: utmCampaignParam,
+      explicitIncludeDigitalAddOn: /^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? ""),
     });
     if (!giftTraffic.autoOpenPaywall) {
       return;
@@ -913,6 +925,9 @@ export function EditorExperience({
 
     printIntentHandledRef.current = true;
     setPaywallIntent("print");
+    if (giftTraffic.preferredIncludeDigitalAddOn) {
+      setPreferredIncludeDigitalAddOn(true);
+    }
     setPaywallOpen(true);
     setCheckoutError(null);
     trackPaywallOpenedEvent("print", "gift_traffic_auto");
@@ -3142,6 +3157,9 @@ export function EditorExperience({
                             </button>
                           )}
                         </div>
+                        {printCheckoutEnabled && posterAspectMismatch && (
+                          <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
+                        )}
                         {paid &&
                           (currentPlan === "subscription" ||
                             (typeof creditsRemaining === "number" && creditsRemaining > 0)) && (
@@ -3188,15 +3206,7 @@ export function EditorExperience({
                               </p>
                             )}
                             {posterAspectMismatch && (
-                              <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-[11px] font-semibold text-amber-50">
-                                Poster prints are square (18×18 unframed, 14×14 framed). Your map is{" "}
-                                {aspectRatio === "3:4"
-                                  ? "3:4 portrait"
-                                  : aspectRatio === "2:3"
-                                    ? "2:3 portrait"
-                                    : "4:5 portrait"}
-                                — switch to Square in Advanced before checkout to avoid letterboxing on the print.
-                              </p>
+                              <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
                             )}
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
@@ -3240,6 +3250,11 @@ export function EditorExperience({
                                   {posterShippingFootnote}
                                 </p>
                               ) : null}
+                              <PrintGiftDecisionPanel
+                                printShippingCountry={printShippingCountry}
+                                sizingVariant={preferredPrintVariant}
+                                compact
+                              />
                             </div>
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {printCheckoutRows.map((row) => (
@@ -3459,6 +3474,12 @@ export function EditorExperience({
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
+              giftPaywallContext={
+                isWeddingCommerceContext(searchParams.get("source")) ||
+                isWeddingUtmCampaign(searchParams.get("utm_campaign"))
+                  ? "wedding"
+                  : undefined
+              }
               showReferralHint={Boolean(getCheckoutReferralCode())}
               onStartCheckout={(plan) => {
                 setPaywallIntent("digital");

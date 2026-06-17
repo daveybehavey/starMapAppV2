@@ -1,7 +1,6 @@
 import type { AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
 import {
   dispatchHdPurchaseDownloadEmail,
-  trySendInitialHdPurchaseEmail,
   type HdDownloadEmailDispatchResult,
 } from "@/lib/hdDownloadEmailDispatch";
 

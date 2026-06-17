@@ -16,6 +16,7 @@ test("wedding framed landing defaults to print and auto-opens paywall", () => {
   });
   assert.equal(intent.paywallIntent, "print");
   assert.equal(intent.preferredPrintVariant, "poster_framed");
+  assert.equal(intent.preferredIncludeDigitalAddOn, true);
   assert.equal(intent.autoOpenPaywall, true);
 });
 
@@ -54,7 +55,7 @@ test("gift_wedding_2026 UTM defaults print tab without auto-open on neutral prev
   assert.equal(withPrintSource.autoOpenPaywall, true);
 });
 
-test("utm-only editor entry defaults print intent to framed", () => {
+test("utm-only editor entry defaults print intent to framed bundle", () => {
   const intent = resolveEditorGiftTrafficIntent({
     source: null,
     checkoutParam: null,
@@ -63,6 +64,7 @@ test("utm-only editor entry defaults print intent to framed", () => {
   });
   assert.equal(intent.paywallIntent, "print");
   assert.equal(intent.preferredPrintVariant, "poster_framed");
+  assert.equal(intent.preferredIncludeDigitalAddOn, true);
   assert.equal(intent.autoOpenPaywall, false);
 });
 
@@ -82,4 +84,5 @@ test("unframed wedding source selects poster_unframed", () => {
     utmCampaign: null,
   });
   assert.equal(intent.preferredPrintVariant, "poster_unframed");
+  assert.equal(intent.preferredIncludeDigitalAddOn, false);
 });

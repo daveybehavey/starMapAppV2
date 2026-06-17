@@ -25,6 +25,8 @@ import {
   paywallPrintSkuButtonClassesMobile,
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
@@ -134,6 +136,7 @@ export function MobileCreate({
     () => (primaryPrintRow ? printCheckoutRows.filter((row) => row !== primaryPrintRow) : printCheckoutRows),
     [printCheckoutRows, primaryPrintRow],
   );
+  const posterAspectMismatch = aspectRatio !== "square";
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -1411,6 +1414,9 @@ export function MobileCreate({
                   Start with the framed gift-ready path. Shipping shows before payment, and your print order is created
                   right after checkout. {shippingDisclosure}
                 </p>
+                {posterAspectMismatch && (
+                  <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
+                )}
                 {printShippingCountries.length > 0 && (
                   <div className="mt-2">
                     <label htmlFor="mobile-print-shipping-country" className="text-[10px] font-semibold text-amber-100/80">
@@ -1441,6 +1447,12 @@ export function MobileCreate({
                         Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}
                       </p>
                     ) : null}
+                    <PrintGiftDecisionPanel
+                      printShippingCountry={printShippingCountry}
+                      sizingVariant={preferredPrintVariant}
+                      compact
+                      showGiftLadder={false}
+                    />
                   </div>
                 )}
                 {primaryPrintRow && (

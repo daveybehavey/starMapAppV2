@@ -1618,7 +1618,7 @@ export default function DownloadClient() {
                   <button
                     type="button"
                     onClick={() => void startDownload(undefined, "manual")}
-                    disabled={!canDownloadHd || status === "downloading"}
+                    disabled={!canDownloadHd}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-[#201a0c] shadow-lg transition disabled:cursor-not-allowed disabled:opacity-70 hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
                   >
                     {!paid
@@ -2016,11 +2016,11 @@ export default function DownloadClient() {
                 )}
               </div>
 
-              <details className="rounded-2xl border border-white/12 bg-white/6 p-4">
-                <summary className="cursor-pointer text-sm font-semibold text-white">Share and earn bonus HD credits</summary>
-                <p className="mt-2 text-xs text-neutral-200">
-                  Share on social. Friends get {referralFriendOfferLabel} and each paid checkout through your link adds{" "}
-                  {referralRewardCreditsLabel}.
+              <div className="rounded-2xl border border-amber-300/40 bg-amber-400/10 p-4">
+                <p className="text-sm font-semibold text-amber-100">Share & earn {referralRewardCreditsLabel}</p>
+                <p className="mt-2 text-xs text-amber-50/90">
+                  Send your link to friends planning a wedding or anniversary gift. They get {referralFriendOfferLabel}; you
+                  earn {referralRewardCreditsLabel} on each paid checkout.
                 </p>
                 <p className="mt-2 text-[11px] text-amber-100/70">
                   Referral credits earned so far: {referralSummary.rewardsGranted}.
@@ -2068,7 +2068,7 @@ export default function DownloadClient() {
                   <p className="mt-2 text-xs text-rose-200">Couldn&apos;t load referral stats. You can still create a link.</p>
                 )}
                 {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
-              </details>
+              </div>
 
               {merchDownloadEditorHref && status === "ready" ? (
                 <div className="rounded-2xl border border-violet-200/35 bg-violet-950/35 p-4">

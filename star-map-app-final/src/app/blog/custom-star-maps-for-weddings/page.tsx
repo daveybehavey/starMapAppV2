@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
+import { buildPrintEditorCheckoutHref } from "@/lib/printCheckoutConfig";
 
 const title = "Custom Star Maps for Weddings Guide";
 const description =
@@ -35,6 +36,11 @@ export const metadata: Metadata = {
 };
 
 export default function WeddingsPostPage() {
+  const framedHdHref = buildPrintEditorCheckoutHref({
+    source: "blog-wedding-framed-hd",
+    variant: "poster_framed",
+    includeDigitalAddOn: true,
+  });
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -198,9 +204,13 @@ export default function WeddingsPostPage() {
               Create Your Wedding Star Map Today
             </h2>
             <p>
-              Capture the sky from your ceremony, first dance, or proposal. Start free preview and{" "}
-              <Link href="/editor?mode=quick&source=blog-wedding-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with framed print preview
+              Capture the sky from your ceremony, first dance, or proposal.{" "}
+              <Link href="/wedding?source=blog-wedding-landing" className="font-semibold text-amber-300 hover:underline">
+                Start on the wedding gift page
+              </Link>{" "}
+              for framed + HD pricing, or{" "}
+              <Link href={framedHdHref} className="font-semibold text-amber-300 hover:underline">
+                jump straight into a framed + HD preview
               </Link>{" "}
               in minutes.
             </p>

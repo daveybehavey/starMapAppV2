@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useState } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
@@ -23,6 +23,10 @@ type PreviewStartFormProps = {
   buttonLabel?: string;
   source?: string;
   intentOptions?: PreviewStartIntent[];
+  /** When false, hides the iOS date-keyboard helper under the date field. */
+  showMobileDateHelper?: boolean;
+  /** Optional links or notes rendered inside the card below the form. */
+  footerContent?: ReactNode;
 };
 
 function buildEditorAction(
@@ -55,6 +59,8 @@ export default function PreviewStartForm({
   buttonLabel = "Preview your map",
   source,
   intentOptions,
+  showMobileDateHelper = true,
+  footerContent,
 }: PreviewStartFormProps) {
   const resolvedSource = source?.trim() || "preview-start-form";
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -123,7 +129,9 @@ export default function PreviewStartForm({
             />
           </div>
         </div>
-        <p className="mt-2 text-xs text-neutral-600">{MOBILE_DATE_HELPER_TEXT}</p>
+        {showMobileDateHelper ? (
+          <p className="mt-2 text-xs text-neutral-600">{MOBILE_DATE_HELPER_TEXT}</p>
+        ) : null}
         {validationMessage ? (
           <p className="mt-2 text-sm font-semibold text-amber-800" role="alert">
             {validationMessage}
@@ -186,6 +194,7 @@ export default function PreviewStartForm({
           Best wedding gift: framed print + HD digital — free standard shipping on $100+ orders. Shipping shown before
           payment.
         </p>
+        {footerContent ? <div className="mt-5 border-t border-amber-200/60 pt-4">{footerContent}</div> : null}
       </form>
     </section>
   );

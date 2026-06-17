@@ -19,7 +19,9 @@ export const PAYWALL_LIVE_PRINT_VARIANTS = ["poster_framed", "poster_unframed"];
 export const PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS = [
   "poster_framed",
   "poster_framed",
+  "poster_framed",
   "poster_unframed",
+  "canvas_wrap",
 ];
 
 /**

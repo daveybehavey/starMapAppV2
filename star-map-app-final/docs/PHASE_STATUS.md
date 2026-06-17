@@ -1,6 +1,6 @@
 # StarMapCo — unified phase status
 
-**Last updated:** 2026-06-15  
+**Last updated:** 2026-06-16  
 **Purpose:** One checklist so you are not juggling three different “phase” naming systems.
 
 **How to use:** Work the **next execution sequence** in `docs/WORKING_BLOCKS.md`. Mark items here when they ship. Detailed runbooks stay in linked docs.
@@ -30,7 +30,9 @@
 
 ## Where we are (one line)
 
-**Phase A exit signed off (2026-06-15).** Print fulfillment proven, checkout + card bundle live, ~**$359** production revenue / **6 paid** orders in 14d. **Next focus: controlled wedding Search ads** ($10–15/day) — unit economics support spend if conversion tracking holds. **C1 card** live; **D1 gift tiers** deferred until ads show a baseline CPA.
+**North star:** **$10k production revenue by 2026-12-31** — track with `npm run qa:revenue-goal`; plan in **`docs/GOAL_10K_2026.md`**.
+
+**Phase A exit signed off (2026-06-15).** Print fulfillment proven, checkout + card bundle live. **Current pace ~$400/mo** — need **~3.5×** acquisition to hit $10k. **Three lanes:** wedding Search ads (controlled test), organic/AI (SEO + AIEO), trust (B4 testimonials). **C1 card** live; **C2/C3/D1** deferred until **~$1k/mo** sustained.
 
 ---
 
@@ -123,7 +125,7 @@ Checklist per SKU: `docs/print-launch-checklist.md`, `npm run qa:print-margin`, 
 | Phase | Theme | Status |
 |-------|--------|--------|
 | **D** | Quarterly big bets (gift tiers, occasion kits, delivery promise, proof gallery, card bundle) | ⏸ | Deferred — wedding Search test first |
-| **E** | Ads & measurement (`gift_wedding_2026`, GA4 server purchases, live conversion QA) | 🟡 | **Enable Search $10–15/day** per `ADS_RELAUNCH_SETUP.md`; review in 7d |
+| **E** | **Acquisition** (paid Search + organic/AI + measurement) | 🟡 | Ads: `ADS_RELAUNCH_SETUP.md`; organic: B5 + AIEO in `GOAL_10K_2026.md`; weekly `qa:revenue-goal` |
 
 ---
 
@@ -169,7 +171,7 @@ npm run data:pull
 
 | Doc | Use for |
 |-----|---------|
-| `BIG_MOVES_ROADMAP.md` | Sequencing philosophy + Phase C/D/E detail |
+| `GOAL_10K_2026.md` | **$10k north star** — math, lanes, milestones, weekly scorecard |
 | `phase1a-print-fulfillment-proof.md` | Canonical print proof IDs + “do not re-test” rules |
 | `print-ops-runbook.md` | Print comms slice + ops commands |
 | `PRODUCT_EXECUTION_QUEUE.md` | Checkbox queue (sync when items ship) |

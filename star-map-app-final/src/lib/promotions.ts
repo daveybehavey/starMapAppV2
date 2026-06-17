@@ -71,7 +71,6 @@ function weddingPromoUrl(source: string) {
 }
 
 function getPromotionCopy(email: string, couponCode: string): EmailCopy {
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
   const checkoutUrl = editorPromoUrl("promo-welcome");
   const weddingUrl = weddingPromoUrl("promo-welcome");
   const subject = promotionSubject;

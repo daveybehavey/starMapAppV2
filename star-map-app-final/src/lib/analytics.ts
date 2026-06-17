@@ -1,5 +1,11 @@
 import type { FunnelStep } from "./funnelSteps";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
+import { pushDataLayer } from "./googleTagManager";
+import {
+  trackPinterestAddToCart,
+  trackPinterestCheckout,
+  trackPinterestPageView,
+} from "./pinterestTag";
 
 export type EventProps = Record<string, string | number | boolean | undefined | null>;
 
@@ -13,6 +19,7 @@ type CheckoutAnalyticsInput = {
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant | null;
   includeDigitalAddOn?: boolean;
+  includeCardAddOn?: boolean;
   value?: number | null;
   currency?: string | null;
 };
@@ -240,6 +247,17 @@ export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: st
     items,
     source: input.source,
   });
+  pushDataLayer({
+    event: "begin_checkout",
+    currency,
+    value,
+    source: input.source,
+    order_type: input.orderType ?? "digital",
+    print_variant: input.printVariant ?? undefined,
+  });
+  if (canTrackAnalytics()) {
+    trackPinterestAddToCart({ value, currency });
+  }
   track("checkout_started", {
     currency,
     value,
@@ -286,6 +304,7 @@ export function trackPurchaseCompleted(
     // PostHog revenue still fires client-side when consent is granted (server has no PostHog secret).
     if (canTrackAnalytics()) {
       const value = estimateCheckoutValue(input);
+      const currency = getCheckoutCurrency(input);
       capturePosthog("purchase", {
         transaction_id: input.transactionId,
         revenue: value,
@@ -298,6 +317,15 @@ export function trackPurchaseCompleted(
         ga4_server_primary: true,
         ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
       });
+      pushDataLayer({
+        event: "purchase",
+        transaction_id: input.transactionId,
+        currency,
+        value,
+        order_type: input.orderType ?? "digital",
+        print_variant: input.printVariant ?? undefined,
+      });
+      trackPinterestCheckout({ value, currency, orderId: input.transactionId });
     }
     return;
   }
@@ -317,6 +345,15 @@ export function trackPurchaseCompleted(
     ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
     items,
   });
+  pushDataLayer({
+    event: "purchase",
+    transaction_id: input.transactionId,
+    currency,
+    value,
+    order_type: input.orderType ?? "digital",
+    print_variant: input.printVariant ?? undefined,
+  });
+  trackPinterestCheckout({ value, currency, orderId: input.transactionId });
   track("purchase", {
     transaction_id: input.transactionId,
     revenue: value,
@@ -372,6 +409,15 @@ export function trackPageView(input?: {
     page_title: input?.title || document.title,
     page_location: location,
   });
+  pushDataLayer({
+    event: "page_view",
+    page_path: path,
+    page_title: input?.title || document.title,
+    page_location: location,
+  });
+  if (canTrackAnalytics()) {
+    trackPinterestPageView();
+  }
 }
 
 function postFunnelCounter(payload: {

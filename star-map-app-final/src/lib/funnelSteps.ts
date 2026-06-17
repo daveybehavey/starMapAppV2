@@ -13,6 +13,7 @@ export const FUNNEL_STEPS = [
   "payment_verified",
   "download_started",
   "download_completed",
+  "download_failed",
 ] as const;
 
 export type FunnelStep = (typeof FUNNEL_STEPS)[number];

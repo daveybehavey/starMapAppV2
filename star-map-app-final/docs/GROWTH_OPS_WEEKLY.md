@@ -24,7 +24,9 @@ cd C:\Users\david\dev\starMapAppV2\star-map-app-final
 npm run qa:growth-weekly
 ```
 
-Covers loop scorecard, live-critical, print margin, optional GA4 MP probe (local secrets), funnel reconcile (14d), commerce digest.
+Covers **$10k goal scorecard** (`qa:revenue-goal`), loop scorecard, commerce digest (14d), funnel reconcile (14d). See **`docs/GOAL_10K_2026.md`** for monthly milestones.
+
+**If behind pace:** pick one acquisition action that week (ads tweak, GSC title pass, or funnel fix) — do not open new SKUs.
 
 Full Tier 0 checklist (manual checkout + print proof): `docs/TIER0_VALIDATION.md`.
 

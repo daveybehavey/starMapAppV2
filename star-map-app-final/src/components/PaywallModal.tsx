@@ -15,6 +15,7 @@ import {
   paywallPrintCheckoutRowKey,
   type PaywallPrintCheckoutPresentationRow,
 } from "@/lib/paywallPrintCheckout";
+import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 
 type PriceLabels = {
   single: string;
@@ -51,6 +52,8 @@ type Props = {
   purchaseIntent?: "digital" | "print";
   preferredPrintVariant?: PrintVariant;
   preferredIncludeDigitalAddOn?: boolean;
+  /** Wedding gift funnel — tailored paywall copy on the print tab */
+  giftPaywallContext?: "wedding";
   showReferralHint?: boolean;
   onStartCheckout: (plan: CheckoutPlan) => void;
   onStartPrintCheckout?: (options: {
@@ -98,6 +101,7 @@ export function PaywallModal({
   purchaseIntent = "digital",
   preferredPrintVariant = "poster_framed",
   preferredIncludeDigitalAddOn = false,
+  giftPaywallContext,
   printShippingCountry,
   printShippingCountries = [],
   onPrintShippingCountryChange,
@@ -111,6 +115,17 @@ export function PaywallModal({
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
+  const isWeddingGift = giftPaywallContext === "wedding";
+  const dialogTitle =
+    isWeddingGift && activeIntent === "print" && hasPrintOptions
+      ? "Complete your wedding gift"
+      : copy.title;
+  const dialogSubtitle =
+    isWeddingGift && activeIntent === "print" && hasPrintOptions
+      ? "Most gift-givers choose framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
+      : activeIntent === "print" && hasPrintOptions
+        ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
+        : copy.subtitle;
   const [printUpsellHint, setPrintUpsellHint] = useState<string | null>(null);
   const shippingDisclosure = getPrintShippingDisclosure();
   const viewedListsRef = useRef<Set<string>>(new Set());
@@ -238,13 +253,9 @@ export function PaywallModal({
         className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25"
       >
         <h3 id="paywall-dialog-title" className="text-lg font-semibold text-midnight">
-          {copy.title}
+          {dialogTitle}
         </h3>
-        <p className="mt-2 text-xs text-neutral-700">
-          {activeIntent === "print" && hasPrintOptions
-            ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
-            : copy.subtitle}
-        </p>
+        <p className="mt-2 text-xs text-neutral-700">{dialogSubtitle}</p>
         <ul className="mt-3 space-y-1 text-xs text-neutral-700">
           <li>• 6000px high resolution (poster quality)</li>
           <li>• No watermark</li>
@@ -334,6 +345,11 @@ export function PaywallModal({
                       Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}
                     </p>
                   ) : null}
+                  <PrintGiftDecisionPanel
+                    printShippingCountry={printShippingCountry}
+                    sizingVariant={preferredPrintVariant}
+                    compact
+                  />
                 </div>
               )}
               {printUpsellHint ? (

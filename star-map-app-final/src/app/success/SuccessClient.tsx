@@ -1130,13 +1130,13 @@ export default function SuccessClient() {
                   </div>
                 ) : null}
                 {hasDigitalEntitlement && (
-                  <details className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
-                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                      Referral bonus
-                    </summary>
-                    <p className="mt-2 text-xs text-amber-100/80">
-                      Share your link on social. Friends get {referralFriendOfferLabel} and each paid checkout adds{" "}
-                      {referralRewardCreditsLabel}.
+                  <div className="mt-4 rounded-xl border border-amber-300/45 bg-amber-400/10 p-4 text-left">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100">
+                      Share & earn {referralRewardCreditsLabel}
+                    </p>
+                    <p className="mt-2 text-xs text-amber-50/90">
+                      Know someone planning a gift? Send your link — friends get {referralFriendOfferLabel}, and you earn{" "}
+                      {referralRewardCreditsLabel} when they checkout.
                     </p>
                     <p className="mt-2 text-[11px] text-amber-100/70">
                       Referral credits earned so far: {referralSummary.rewardsGranted}.
@@ -1184,7 +1184,7 @@ export default function SuccessClient() {
                       <p className="mt-2 text-[11px] text-rose-200">Couldn&apos;t load referral stats right now.</p>
                     )}
                     {referralError && <p className="mt-2 text-[11px] text-rose-200">{referralError}</p>}
-                  </details>
+                  </div>
                 )}
                 <PostPurchaseProofRequest
                   source="success"

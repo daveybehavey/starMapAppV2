@@ -1,8 +1,9 @@
 export type ReferralSharePlatform = "copy" | "native" | "x" | "facebook" | "pinterest";
 export type ReferralShareSurface = "download" | "success";
 
-const DEFAULT_REFERRAL_FRIEND_OFFER = "a special referral offer on their first HD map";
-const SHARE_MESSAGE_BASE = "I made a custom star map with StarMapCo. Preview yours free in seconds.";
+const DEFAULT_REFERRAL_FRIEND_OFFER = "a discount on their first HD star map";
+const SHARE_MESSAGE_BASE =
+  "I made a custom star map for a special night — preview yours free in under a minute with StarMapCo.";
 
 export function getReferralFriendOfferLabel() {
   const configured = process.env.NEXT_PUBLIC_REFERRAL_FRIEND_OFFER_LABEL?.trim();

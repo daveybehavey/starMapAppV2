@@ -11,6 +11,12 @@ export function isWeddingPrintLandingSource(source) {
 }
 
 /** @param {string | null | undefined} source */
+export function isWeddingTrafficSource(source) {
+  if (!source) return false;
+  return source.toLowerCase().includes("wedding");
+}
+
+/** @param {string | null | undefined} source */
 export function isNeutralWeddingPreviewSource(source) {
   if (!source) return false;
   const s = source.toLowerCase();
@@ -65,18 +71,56 @@ export function resolvePreferredPrintVariantFromSource(source, explicitVariant) 
 
 /**
  * @param {{
+ *   source: string | null | undefined;
+ *   checkoutParam?: string | null;
+ *   printVariantParam?: string | null;
+ *   utmCampaign?: string | null;
+ *   explicitIncludeDigitalAddOn?: boolean;
+ * }} params
+ */
+export function resolvePreferredIncludeDigitalAddOn(params) {
+  if (params.explicitIncludeDigitalAddOn) return true;
+
+  const sourceLower = params.source?.toLowerCase() ?? "";
+  if (sourceLower.includes("unframed")) return false;
+  if (params.printVariantParam === "poster_unframed") return false;
+
+  const preferredVariant = resolvePreferredPrintVariantFromSource(params.source ?? null, params.printVariantParam ?? null);
+  if (preferredVariant !== "poster_framed") return false;
+
+  if (isWeddingPrintLandingSource(params.source) && !isNeutralWeddingPreviewSource(params.source)) {
+    return true;
+  }
+
+  if (!shouldDefaultEditorPaywallToPrint(params.source, params.checkoutParam, params.utmCampaign)) {
+    return false;
+  }
+
+  return isWeddingTrafficSource(params.source) || isWeddingUtmCampaign(params.utmCampaign);
+}
+
+/**
+ * @param {{
  *   source: string | null;
  *   checkoutParam: string | null;
  *   printVariantParam: string | null;
  *   utmCampaign?: string | null;
+ *   explicitIncludeDigitalAddOn?: boolean;
  * }} params
  */
 export function resolveEditorGiftTrafficIntent(params) {
-  const { source, checkoutParam, printVariantParam, utmCampaign } = params;
+  const { source, checkoutParam, printVariantParam, utmCampaign, explicitIncludeDigitalAddOn } = params;
   const defaultToPrint = shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCampaign);
   return {
     paywallIntent: defaultToPrint ? "print" : "digital",
     preferredPrintVariant: resolvePreferredPrintVariantFromSource(source, printVariantParam),
+    preferredIncludeDigitalAddOn: resolvePreferredIncludeDigitalAddOn({
+      source,
+      checkoutParam,
+      printVariantParam,
+      utmCampaign,
+      explicitIncludeDigitalAddOn,
+    }),
     autoOpenPaywall: shouldAutoOpenEditorPrintPaywall(source, checkoutParam),
   };
 }

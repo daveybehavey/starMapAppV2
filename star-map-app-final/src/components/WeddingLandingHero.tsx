@@ -27,6 +27,9 @@ export default function WeddingLandingHero({
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.3em] text-amber-300">Wedding gift · Framed + HD</p>
           <h1 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-[2.65rem] lg:leading-[1.1]">
+            <span className="mb-2 block text-sm font-semibold uppercase tracking-[0.18em] text-amber-200/95 sm:text-base">
+              Custom wedding star map gift
+            </span>
             The night you said &ldquo;I do&rdquo; — framed for the wall
           </h1>
           <p className="mx-auto max-w-xl text-sm leading-relaxed text-white/90 sm:text-base lg:mx-0">
@@ -35,22 +38,34 @@ export default function WeddingLandingHero({
           </p>
         </div>
 
-        <figure className="mx-auto max-w-xl rounded-2xl border border-amber-200/30 bg-gradient-to-br from-amber-50/10 via-white/5 to-transparent p-5 text-left shadow-lg shadow-black/20 lg:mx-0">
-          <div className="flex gap-1 text-amber-300" aria-hidden="true">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <span key={index} className="text-sm">
-                ★
-              </span>
-            ))}
+        {featuredTestimonial.isSample ? (
+          <div className="mx-auto max-w-xl rounded-2xl border border-amber-200/30 bg-gradient-to-br from-amber-50/10 via-white/5 to-transparent p-5 text-left shadow-lg shadow-black/20 lg:mx-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/90">Honest preview-first</p>
+            <p className="mt-2 text-base font-medium leading-relaxed text-amber-50 sm:text-lg">
+              See your ceremony sky before you pay — same design for framed + HD, unframed, or digital-only.
+            </p>
+            <p className="mt-3 text-xs text-amber-100/75">
+              Real customer photos coming soon · we never use stock testimonials
+            </p>
           </div>
-          <blockquote className="mt-2 text-base font-medium leading-relaxed text-amber-50 sm:text-lg">
-            &ldquo;{featuredTestimonial.quote}&rdquo;
-          </blockquote>
-          <figcaption className="mt-3 text-xs font-semibold text-amber-100/90 sm:text-sm">
-            {featuredTestimonial.author}
-            <span className="font-normal text-amber-100/70"> · {featuredTestimonial.context}</span>
-          </figcaption>
-        </figure>
+        ) : (
+          <figure className="mx-auto max-w-xl rounded-2xl border border-amber-200/30 bg-gradient-to-br from-amber-50/10 via-white/5 to-transparent p-5 text-left shadow-lg shadow-black/20 lg:mx-0">
+            <div className="flex gap-1 text-amber-300" aria-hidden="true">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <span key={index} className="text-sm">
+                  ★
+                </span>
+              ))}
+            </div>
+            <blockquote className="mt-2 text-base font-medium leading-relaxed text-amber-50 sm:text-lg">
+              &ldquo;{featuredTestimonial.quote}&rdquo;
+            </blockquote>
+            <figcaption className="mt-3 text-xs font-semibold text-amber-100/90 sm:text-sm">
+              {featuredTestimonial.author}
+              <span className="font-normal text-amber-100/70"> · {featuredTestimonial.context}</span>
+            </figcaption>
+          </figure>
+        )}
 
         <MoneyPagePriceAtGlance className="mx-auto max-w-md lg:mx-0" weddingTone compact />
 

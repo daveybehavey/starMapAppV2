@@ -33,7 +33,7 @@ function parseArgs(argv) {
     if (token === "--days") {
       const next = Number(argv[i + 1]);
       if (!Number.isFinite(next) || next <= 0) throw new Error("--days must be a positive number");
-      args.days = Math.min(90, Math.floor(next));
+      args.days = Math.min(365, Math.floor(next));
       i += 1;
       continue;
     }
@@ -361,12 +361,18 @@ async function buildReport(args) {
   const printVariantCounts = new Map();
   const referralSourceCounts = new Map();
   const referralOfferVariantCounts = new Map();
+  const marketingSourceCounts = new Map();
   const paidPaymentMethodCounts = new Map();
   const digitalPaymentMethodCounts = new Map();
   const printPaymentMethodCounts = new Map();
 
   let digitalRevenueCents = 0;
   let printRevenueCents = 0;
+  let productionDigitalRevenueCents = 0;
+  let productionPrintRevenueCents = 0;
+  const productionRealPaid = realPaidSessions.filter((session) => !isQaStripeSession(session));
+  const productionPrintPaid = productionRealPaid.filter((session) => classifyOrder(session) === "print");
+  const productionDigitalPaid = productionRealPaid.filter((session) => classifyOrder(session) === "digital");
 
   for (const session of digitalPaid) {
     incrementBucket(digitalPlanCounts, getPlan(session));
@@ -394,6 +400,20 @@ async function buildReport(args) {
     if (referralSource) incrementBucket(referralSourceCounts, referralSource);
     const referralOfferVariant = getReferralOfferVariant(session);
     if (referralOfferVariant) incrementBucket(referralOfferVariantCounts, referralOfferVariant);
+  }
+
+  for (const session of productionDigitalPaid) {
+    productionDigitalRevenueCents += Number(session.amount_total || 0);
+    const marketingSource =
+      typeof session.metadata?.marketing_source === "string" ? session.metadata.marketing_source.trim().toLowerCase() : "";
+    if (marketingSource) incrementBucket(marketingSourceCounts, marketingSource);
+  }
+
+  for (const session of productionPrintPaid) {
+    productionPrintRevenueCents += Number(session.amount_total || 0);
+    const marketingSource =
+      typeof session.metadata?.marketing_source === "string" ? session.metadata.marketing_source.trim().toLowerCase() : "";
+    if (marketingSource) incrementBucket(marketingSourceCounts, marketingSource);
   }
 
   const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
@@ -471,6 +491,11 @@ async function buildReport(args) {
       digitalRevenueCents,
       printRevenueCents,
       totalRevenueCents: digitalRevenueCents + printRevenueCents,
+      productionDigitalRevenueCents,
+      productionPrintRevenueCents,
+      productionTotalRevenueCents: productionDigitalRevenueCents + productionPrintRevenueCents,
+      productionPrintPaidSessions: productionPrintPaid.length,
+      productionDigitalPaidSessions: productionDigitalPaid.length,
       currency: "usd",
       digitalPlanCounts: topBuckets(digitalPlanCounts, "plan"),
       printVariantCounts: topBuckets(printVariantCounts, "variant"),
@@ -479,6 +504,7 @@ async function buildReport(args) {
       printPaymentMethods: topBuckets(printPaymentMethodCounts, "method"),
       referralPaidSources: topBuckets(referralSourceCounts, "source"),
       referralOfferVariants: topBuckets(referralOfferVariantCounts, "variant"),
+      marketingSources: topBuckets(marketingSourceCounts, "source"),
     },
     printOps,
   };
@@ -501,10 +527,21 @@ function printHumanReport(report) {
       `(QA-tagged: ${report.stripe.qaPaidSessions})`,
   );
   console.log(
-    `Revenue: ${formatMoney(report.stripe.totalRevenueCents, report.stripe.currency)} ` +
+    `Production revenue: ${formatMoney(report.stripe.productionTotalRevenueCents, report.stripe.currency)} ` +
+      `(digital ${formatMoney(report.stripe.productionDigitalRevenueCents, report.stripe.currency)}, ` +
+      `print ${formatMoney(report.stripe.productionPrintRevenueCents, report.stripe.currency)})`,
+  );
+  console.log(
+    `All paid revenue (incl. QA/zero): ${formatMoney(report.stripe.totalRevenueCents, report.stripe.currency)} ` +
       `(digital ${formatMoney(report.stripe.digitalRevenueCents, report.stripe.currency)}, ` +
       `print ${formatMoney(report.stripe.printRevenueCents, report.stripe.currency)})`,
   );
+  const marketingSources = report.stripe.marketingSources || [];
+  if (marketingSources.length) {
+    console.log(
+      `Production marketing sources: ${marketingSources.map((row) => `${row.source}=${row.count}`).join(", ")}`,
+    );
+  }
   console.log(
     `Mix: digital=${report.stripe.digitalPaidSessions} print=${report.stripe.printPaidSessions} scanned=${report.stripe.sessionsScanned}`,
   );

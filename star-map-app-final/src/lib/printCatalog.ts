@@ -152,6 +152,11 @@ export const PAYWALL_PRINT_CHECKOUT_ROWS: readonly PaywallPrintCheckoutRow[] = [
     headline: "Framed + keepsake card",
   },
   { variant: "poster_unframed", includeDigitalAddOn: false, headline: "Unframed poster" },
+  {
+    variant: "canvas_wrap",
+    includeDigitalAddOn: false,
+    headline: "Canvas gallery wrap (premium)",
+  },
 ] as const;
 
 export type PrintShippingProfile = "poster_unframed" | "poster_framed";

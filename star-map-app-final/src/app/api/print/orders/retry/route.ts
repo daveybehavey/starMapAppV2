@@ -13,7 +13,7 @@ import {
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
-import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";

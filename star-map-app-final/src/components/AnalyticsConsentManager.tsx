@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import PosthogProvider from "@/components/PosthogProvider";
 import { ANALYTICS_STORAGE_KEY, flushPendingGa4Purchase, trackPageView } from "@/lib/analytics";
+import { ensureGoogleTagManagerLoaded, getGtmContainerId } from "@/lib/googleTagManager";
+import { ensurePinterestTagLoaded, getPinterestTagId } from "@/lib/pinterestTag";
 
 type ConsentState = "granted" | "denied" | "unset";
 
@@ -12,7 +14,7 @@ const GA_EXTERNAL_SCRIPT_ID = "ga4-external-script";
 
 declare global {
   interface Window {
-    dataLayer?: unknown[];
+    dataLayer?: Record<string, unknown>[];
   }
 }
 
@@ -36,7 +38,7 @@ function ensureGaBootstrap(gaId: string) {
   window.dataLayer = window.dataLayer || [];
   if (typeof window.gtag !== "function") {
     window.gtag = function gtag(...args: unknown[]) {
-      window.dataLayer?.push(args);
+      window.dataLayer?.push(args as unknown as Record<string, unknown>);
     };
   }
 
@@ -66,6 +68,8 @@ function disableGa(gaId: string) {
 export default function AnalyticsConsentManager() {
   const [consent, setConsent] = useState<ConsentState>("unset");
   const gaId = useMemo(() => process.env.NEXT_PUBLIC_GA_ID?.trim() || "", []);
+  const gtmId = useMemo(() => getGtmContainerId(), []);
+  const pinterestTagId = useMemo(() => getPinterestTagId(), []);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -74,6 +78,12 @@ export default function AnalyticsConsentManager() {
     window.addEventListener("starmap:analytics-consent", onExternalGrant);
     return () => window.removeEventListener("starmap:analytics-consent", onExternalGrant);
   }, []);
+
+  useEffect(() => {
+    if (consent !== "granted") return;
+    if (gtmId) ensureGoogleTagManagerLoaded(gtmId);
+    if (pinterestTagId) ensurePinterestTagLoaded(pinterestTagId);
+  }, [consent, gtmId, pinterestTagId]);
 
   useEffect(() => {
     if (!gaId) return;
@@ -86,11 +96,12 @@ export default function AnalyticsConsentManager() {
   }, [consent, gaId]);
 
   useEffect(() => {
-    if (!gaId || consent !== "granted") return;
+    if (consent !== "granted") return;
+    if (!gaId && !gtmId && !pinterestTagId) return;
     trackPageView({
       path: pathname || "/",
     });
-  }, [consent, gaId, pathname]);
+  }, [consent, gaId, gtmId, pinterestTagId, pathname]);
 
   const updateConsent = (next: Exclude<ConsentState, "unset">) => {
     setConsent(next);

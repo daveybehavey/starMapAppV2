@@ -4,6 +4,9 @@ export type AccountAccessAlertInput = {
   email: string;
   link: string;
   directDownloadLink?: string;
+  /** Email template selector (e.g. "hd", "hd_archive_ready"); optional, defaults handled downstream. */
+  mode?: string;
+  supportEmail?: string;
 };
 
 export type AccountAccessAlertResult = {

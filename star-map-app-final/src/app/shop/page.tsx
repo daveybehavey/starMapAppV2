@@ -89,6 +89,21 @@ export default function ShopPage() {
   const partnerOffers = parseShopExternalOffers(process.env.NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON);
   const merchFamilies = listMerchFamiliesEnabledForPublicUi();
 
+  const canvasPrice = formatPrintPriceWithShipping(
+    printTiers.canvas_wrap.amountCents,
+    (printTiers.canvas_wrap.currency || "USD").toUpperCase(),
+  );
+  const mugPrice = formatPrintPriceWithShipping(
+    printTiers.mug_11oz.amountCents,
+    (printTiers.mug_11oz.currency || "USD").toUpperCase(),
+  );
+  const canvasShippingDetail = formatPrintShippingEstimateWithDelivery(
+    "canvas_wrap",
+    printShippingCountry,
+    "shipping",
+  );
+  const mugShippingDetail = formatPrintShippingEstimateWithDelivery("mug_11oz", printShippingCountry, "shipping");
+
   const productCards = [
     {
       key: "framed",
@@ -102,6 +117,7 @@ export default function ShopPage() {
       cta: "Customize framed print",
       ctaClass:
         "mt-auto inline-flex justify-center rounded-full bg-amber-500 px-4 py-2.5 text-sm font-semibold text-midnight transition hover:bg-amber-400",
+      darkCard: false,
     },
     {
       key: "unframed",
@@ -115,6 +131,35 @@ export default function ShopPage() {
       cta: "Customize poster",
       ctaClass:
         "mt-auto inline-flex justify-center rounded-full border border-amber-400/70 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-100",
+      darkCard: false,
+    },
+    {
+      key: "canvas",
+      imageSrc: HOME_MOCKUPS.framedBedroom,
+      alt: "Star map canvas gallery wrap mockup",
+      title: printTiers.canvas_wrap.label,
+      detail: "Gallery-wrap canvas — premium wall art between poster and framed print.",
+      price: canvasPrice,
+      shippingNote: `Est. to U.S.: ${canvasShippingDetail}`,
+      href: "/editor?mode=quick&source=shop-canvas&checkout=print&print_variant=canvas_wrap",
+      cta: "Customize canvas",
+      ctaClass:
+        "mt-auto inline-flex justify-center rounded-full border border-amber-400/70 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-100",
+      darkCard: false,
+    },
+    {
+      key: "mug",
+      imageSrc: HOME_MOCKUPS.digitalHd,
+      alt: "Star map mug gift mockup",
+      title: printTiers.mug_11oz.label,
+      detail: "Everyday merch gift — not the wedding hero, but great for birthdays and desk gifts.",
+      price: mugPrice,
+      shippingNote: `Est. to U.S.: ${mugShippingDetail}`,
+      href: "/editor?mode=quick&source=shop-mug&checkout=print&print_variant=mug_11oz",
+      cta: "Customize mug",
+      ctaClass:
+        "mt-auto inline-flex justify-center rounded-full border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-midnight transition hover:bg-neutral-50",
+      darkCard: false,
     },
     {
       key: "digital",

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
-import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import { BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
@@ -13,6 +13,8 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
+import WeddingDesignExampleSection from "@/components/WeddingDesignExampleSection";
+import WeddingGiftJourneySection from "@/components/WeddingGiftJourneySection";
 import WeddingLandingHero from "@/components/WeddingLandingHero";
 import { testimonialsByPage } from "@/data/testimonials";
 import {
@@ -103,10 +105,35 @@ export default function WeddingPage() {
         featuredTestimonial={featuredTestimonial}
       />
 
+      <WeddingDesignExampleSection previewHref={framedHdHref} />
+
       <PreviewStartForm
         source="wedding"
         title="Start your wedding preview"
-        description="Enter the wedding date and place, then open the editor on the framed + HD gift path, unframed, or a neutral preview-first start."
+        description="Enter the wedding date and ceremony location. We’ll open the editor on the framed + HD gift path — the option most couples choose."
+        showMobileDateHelper={false}
+        footerContent={
+          <p className="text-center text-sm text-neutral-700">
+            <Link
+              href={buildPrintEditorCheckoutHref({
+                source: "wedding-form-unframed",
+                variant: "poster_unframed",
+              })}
+              className="font-semibold text-midnight underline decoration-amber-400/80 underline-offset-2 hover:text-amber-900"
+            >
+              Unframed print instead
+            </Link>
+            <span className="mx-2 text-neutral-400" aria-hidden="true">
+              ·
+            </span>
+            <Link
+              href="/editor?mode=quick&source=wedding-form-preview"
+              className="font-semibold text-midnight underline decoration-amber-400/80 underline-offset-2 hover:text-amber-900"
+            >
+              Free preview first
+            </Link>
+          </p>
+        }
         intentOptions={[
           {
             label: "Preview framed + HD gift",
@@ -117,21 +144,6 @@ export default function WeddingPage() {
             plan: "print_framed_hd",
             tone: "recommended",
             detail: `${bundlePriceLine} — best wedding gift.`,
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best for couples who already know their frame plan.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Keep the editor neutral until you approve the design.",
           },
         ]}
       />
@@ -147,6 +159,8 @@ export default function WeddingPage() {
         })}
         secondaryPlan="print_framed_hd"
       />
+
+      <WeddingGiftJourneySection />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Why couples choose this gift</h2>
@@ -193,26 +207,27 @@ export default function WeddingPage() {
             Start with a current-engine look you like, then personalize wording, date line, and frame feel for your event.
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3">
           {featuredRenderExamples.map((item) => (
-            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-              <div className="relative aspect-square proof-wall-panel">
-                <div className="proof-wall-stage proof-wall-stage--gallery h-full w-full">
-                  <Image
-                    src={item.src}
-                    alt={item.shortLabel}
-                    width={900}
-                    height={900}
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="h-full w-full object-contain px-4 py-5 proof-wall-image"
-                  />
-                </div>
+            <figure
+              key={item.src}
+              className="overflow-hidden rounded-2xl bg-white shadow-md shadow-black/5 ring-1 ring-black/[0.06]"
+            >
+              <div className="relative aspect-square bg-gradient-to-b from-[#0c1428] to-[#050915]">
+                <Image
+                  src={item.src}
+                  alt={item.shortLabel}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="h-full w-full object-contain p-3 sm:p-4"
+                />
               </div>
-              <div className="border-t border-black/5 px-3 py-2">
+              <figcaption className="border-t border-black/[0.04] bg-amber-50/30 px-3 py-3">
                 <p className="text-xs font-semibold text-midnight">{item.shortLabel}</p>
-                <p className="text-[11px] text-neutral-600">{item.caption}</p>
-              </div>
-            </div>
+                <p className="mt-0.5 text-[11px] leading-snug text-neutral-600">{item.caption}</p>
+              </figcaption>
+            </figure>
           ))}
         </div>
       </section>
@@ -267,6 +282,25 @@ export default function WeddingPage() {
       </section>
 
       <OccasionLinks />
+
+      <section className="content-visibility-auto mt-6 rounded-3xl border border-amber-200/60 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/40 p-6 shadow-lg shadow-amber-100/50">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">Wedding planning guide</p>
+            <h2 className="text-lg font-semibold text-midnight">Ceremony date, venue, and print options explained</h2>
+            <p className="max-w-xl text-sm text-neutral-700">
+              Step-by-step help for picking the right moment, heart layouts, and framed vs unframed — written for couples
+              and wedding-party gift buyers.
+            </p>
+          </div>
+          <Link
+            href="/blog/custom-star-maps-for-weddings?source=wedding-page-guide"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-gold"
+          >
+            Read the wedding guide
+          </Link>
+        </div>
+      </section>
 
       <section
         className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10"
