@@ -45,6 +45,7 @@ jobs:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
           CLOUDFLARE_ACCOUNT_ID: c5699cbcedce27a6ad755bdeb815f6de
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
           DEPLOY_SKIP_LOCK: "1"
           DEPLOY_SKIP_COMPETING: "1"
         run: npm run deploy:inner

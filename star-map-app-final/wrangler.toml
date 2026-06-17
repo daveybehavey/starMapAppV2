@@ -26,8 +26,7 @@ NEXT_PUBLIC_SITE_URL = "https://starmapco.com"
 # Feature flags
 BULK_EVENT_ORDERS_ENABLED = "true"
 
-# Analytics
-NEXT_PUBLIC_POSTHOG_KEY = "phc_s1dorhk13RhnCG0tHFiHLiMyamlm9UN06T7N3uSvRhY"
+# Analytics (NEXT_PUBLIC_POSTHOG_KEY: .env.local locally, GitHub secret in CI — not committed)
 NEXT_PUBLIC_POSTHOG_HOST = "https://app.posthog.com"
 NEXT_PUBLIC_GA_ID = "G-N4PPJ50JQ7"
 NEXT_PUBLIC_GA4_SERVER_PURCHASES = "true"
