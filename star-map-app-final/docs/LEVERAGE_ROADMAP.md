@@ -62,7 +62,7 @@
 | 4.1 | **B4 — Permissioned social proof** | ⏸ | Human: real testimonials; no fabricated quotes |
 | 4.2 | **B5 — Weekly GSC → title/H1 pass** | ✅ | `/star-map-generator`, `/personalized-star-map`, `/star-map-poster`; `npm run qa:b5-weekly` |
 | 4.3 | **Free shipping UI** | ✅ | Checkout waives at $100+ via `printFreeShipping.ts`; unit tests + `verify-print-free-shipping.mjs` |
-| 4.4 | **Support email send-as** | 🟡 | Copy guard: `npm run qa:support-email-copy`; Gmail send-as still human ops (`support-email-send-as-setup.md`) |
+| 4.4 | **Support email send-as** | ✅ | Gmail send-as live; `npm run qa:support-email-copy` guards public src |
 | 4.5 | **Public `/order-status` (Layer C2)** | ⏸ | Deferred; reduces support load later |
 
 ---

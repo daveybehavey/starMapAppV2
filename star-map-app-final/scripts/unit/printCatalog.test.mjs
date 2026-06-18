@@ -29,5 +29,5 @@ test("paywall checkout rows expose canvas pilot; mug stays shop-only", () => {
   assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes("canvas_wrap"), true);
   assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes("mug_11oz"), false);
   assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes("card_4x6"), false);
-  assert.deepEqual(PAYWALL_LIVE_PRINT_VARIANTS, ["poster_framed", "poster_unframed"]);
+  assert.deepEqual(PAYWALL_LIVE_PRINT_VARIANTS, ["poster_framed", "poster_unframed", "canvas_wrap"]);
 });

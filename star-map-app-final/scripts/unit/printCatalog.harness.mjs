@@ -13,7 +13,7 @@ const VARIANT_SET = new Set([
 ]);
 
 /** @type {PrintVariant[]} */
-export const PAYWALL_LIVE_PRINT_VARIANTS = ["poster_framed", "poster_unframed"];
+export const PAYWALL_LIVE_PRINT_VARIANTS = ["poster_framed", "poster_unframed", "canvas_wrap"];
 
 /** @type {PrintVariant[]} */
 export const PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS = [

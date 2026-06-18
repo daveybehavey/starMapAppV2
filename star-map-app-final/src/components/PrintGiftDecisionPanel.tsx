@@ -39,7 +39,7 @@ export function PrintGiftDecisionPanel({
       </div>
       {showGiftLadder ? (
         <div className={boxClass}>
-          <p className="font-semibold text-inherit">Gift options (simple ladder)</p>
+          <p className="font-semibold text-inherit">Gift format ladder</p>
           <ol className="mt-1 list-decimal space-y-1 pl-4">
             {PRINT_GIFT_TIER_STEPS.map((step) => (
               <li key={step.id}>

@@ -1,5 +1,6 @@
 import type { AspectRatio } from "@/lib/types";
 import type { PrintVariant } from "@/lib/printCatalog";
+import { getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 
 export function describeAspectRatioLabel(aspectRatio: AspectRatio): string {
@@ -38,7 +39,7 @@ export function getPrintSizingLine(variant: PrintVariant = "poster_framed"): str
 }
 
 export function getPrintProductionEtaLine(): string {
-  return "Orders are reviewed manually, then production typically starts within 1–2 business days.";
+  return getPrintProductionReviewDisclosure();
 }
 
 export function getPrintDeliveryEtaLine(
@@ -52,17 +53,22 @@ export function getPrintDeliveryEtaLine(
 export const PRINT_GIFT_TIER_STEPS = [
   {
     id: "digital",
-    label: "Digital HD",
+    label: "HD digital",
     detail: "Instant download — best for same-night gifting or DIY printing.",
   },
   {
     id: "poster",
     label: "Unframed poster",
-    detail: "Lower total — you supply the frame.",
+    detail: "Lower total — you supply the frame (18×18).",
   },
   {
-    id: "framed",
-    label: "Framed print (+ optional card)",
-    detail: "Gift-ready wall art; add HD or a keepsake card when you want both.",
+    id: "framed_hd",
+    label: "Framed + HD",
+    detail: "Most popular — gift-ready wall art plus instant HD file.",
+  },
+  {
+    id: "framed_card",
+    label: "Framed + keepsake card",
+    detail: "Main gift on the wall plus a small 4×6 card from the same map.",
   },
 ] as const;

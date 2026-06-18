@@ -1,4 +1,5 @@
 import Link from "next/link";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -50,7 +51,7 @@ export default function AnniversaryPage() {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Anniversary Star Map</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
           Mark your milestone with an anniversary star map gift showing the night sky from the date and place that shaped
-          your story. A           keepsake that grows more meaningful each year.
+          your story. A keepsake that grows more meaningful each year.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
@@ -71,8 +72,22 @@ export default function AnniversaryPage() {
           >
             Start free preview
           </Link>
+          <Link
+            href="/editor?mode=quick&source=anniversary-hero-canvas&checkout=print&print_variant=canvas_wrap"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Preview canvas wrap
+          </Link>
         </div>
       </header>
+
+      <GiftFormatLadder
+        sourcePrefix="anniversary-ladder"
+        heading="Anniversary gift formats"
+        intro="Same preview — pick HD for instant delivery, poster for DIY framing, framed + HD for the full gift, or canvas for a premium wall piece."
+        includeCanvas
+        className="mt-8"
+      />
 
       <PreviewStartForm
         source="anniversary"

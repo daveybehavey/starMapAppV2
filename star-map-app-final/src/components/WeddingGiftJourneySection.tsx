@@ -1,5 +1,9 @@
 import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
-import { getFramedHdBundlePriceLine, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getFramedHdBundlePriceLine,
+  getPrintProductionReviewDisclosure,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 
 const steps = [
@@ -12,14 +16,15 @@ const steps = [
     detail: "Choose framed + HD, unframed, or HD-only. Shipping and total show before Stripe — no surprise fees.",
   },
   {
-    title: "HD instant · print after review",
-    detail: "HD unlocks immediately. We review your print file, then production and shipping begin.",
+    title: "HD instant · print ships after checkout",
+    detail: "HD unlocks immediately. Physical gifts move into Printful fulfillment after payment.",
   },
 ] as const;
 
 export default function WeddingGiftJourneySection() {
   const bundleLine = getFramedHdBundlePriceLine();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionDisclosure = getPrintProductionReviewDisclosure();
   const framedDelivery = formatPrintDeliveryDisclosure("poster_framed", "US");
 
   return (
@@ -49,9 +54,10 @@ export default function WeddingGiftJourneySection() {
       </ol>
 
       <div className="mt-5 rounded-2xl border border-black/5 bg-neutral-50 px-4 py-3 text-xs leading-relaxed text-neutral-700 sm:text-sm">
-        <span className="font-semibold text-midnight">Timing:</span> HD digital downloads right after payment. Physical
-        prints are reviewed first, then produced in {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}
-        {framedDelivery ? ` (${framedDelivery.toLowerCase()} for framed U.S. orders)` : ""}. {shippingDisclosure}
+        <span className="font-semibold text-midnight">Timing:</span> HD digital downloads right after payment.{" "}
+        {productionDisclosure}
+        {framedDelivery ? ` Typical framed U.S. delivery: ${framedDelivery.toLowerCase()}.` : ""}{" "}
+        Production window {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}. {shippingDisclosure}
       </div>
     </section>
   );

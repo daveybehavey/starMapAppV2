@@ -102,6 +102,16 @@ export default function DeliveryFormatModule({
                 Preview framed + HD gift
               </Link>
               <Link
+                href={buildPrintEditorCheckoutHref({
+                  source: `${sourcePrefix}-print-framed-card`,
+                  variant: "poster_framed",
+                  includeCardAddOn: true,
+                })}
+                className="inline-flex rounded-full border border-amber-300/70 bg-white px-4 py-2 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-50"
+              >
+                Preview framed + card
+              </Link>
+              <Link
                 href="/how-to-print-star-map"
                 className="inline-flex rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-neutral-50"
               >

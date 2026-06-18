@@ -13,6 +13,7 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import WeddingDesignExampleSection from "@/components/WeddingDesignExampleSection";
 import WeddingGiftJourneySection from "@/components/WeddingGiftJourneySection";
 import WeddingLandingHero from "@/components/WeddingLandingHero";
@@ -105,6 +106,18 @@ export default function WeddingPage() {
         primaryHref={framedHdHref}
         bundlePriceLine={bundlePriceLine}
         featuredTestimonial={featuredTestimonial}
+        framedCardHref={buildPrintEditorCheckoutHref({
+          source: "wedding-hero-framed-card",
+          variant: "poster_framed",
+          includeCardAddOn: true,
+        })}
+      />
+
+      <GiftFormatLadder
+        sourcePrefix="wedding-ladder"
+        heading="Choose your wedding gift format"
+        intro={`Most couples choose framed + HD (${bundlePriceLine}). Unframed lowers the total; framed + card adds a small keepsake.`}
+        className="mt-10"
       />
 
       <WeddingDesignExampleSection previewHref={framedHdHref} />
@@ -146,6 +159,16 @@ export default function WeddingPage() {
             plan: "print_framed_hd",
             tone: "recommended",
             detail: `${bundlePriceLine} — best wedding gift.`,
+          },
+          {
+            label: "Preview framed + keepsake card",
+            sourceSuffix: "framed-card",
+            checkout: "print",
+            printVariant: "poster_framed",
+            includeCardAddOn: true,
+            plan: "print_framed_card",
+            tone: "default",
+            detail: "Wall gift plus a 4×6 card from the same map.",
           },
         ]}
       />

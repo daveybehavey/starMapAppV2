@@ -12,6 +12,7 @@ type PreviewStartIntent = {
   checkout?: "print";
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
+  includeCardAddOn?: boolean;
   plan: string;
   tone?: "recommended" | "default" | "neutral";
   detail?: string;
@@ -34,6 +35,7 @@ function buildEditorAction(
   checkout?: "print",
   printVariant?: PrintVariant,
   includeDigitalAddOn?: boolean,
+  includeCardAddOn?: boolean,
 ): string {
   const params = new URLSearchParams({
     mode: "quick",
@@ -48,6 +50,9 @@ function buildEditorAction(
   }
   if (includeDigitalAddOn) {
     params.set("include_digital_addon", "1");
+  }
+  if (includeCardAddOn) {
+    params.set("include_card_addon", "1");
   }
 
   return `/editor?${params.toString()}`;
@@ -139,7 +144,7 @@ export default function PreviewStartForm({
         ) : null}
         {intentOptions?.length ? (
           <div className="mt-4 space-y-3">
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2">
               {intentOptions.map((intent) => {
                 const actionSource = intent.sourceSuffix
                   ? `${resolvedSource}-${intent.sourceSuffix}`
@@ -160,6 +165,7 @@ export default function PreviewStartForm({
                       intent.checkout,
                       intent.printVariant,
                       intent.includeDigitalAddOn,
+                      intent.includeCardAddOn,
                     )}
                     data-source={actionSource}
                     data-plan={intent.plan}

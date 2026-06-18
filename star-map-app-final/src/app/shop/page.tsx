@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import FramedProofSection from "@/components/FramedProofSection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -142,8 +143,8 @@ export default function ShopPage() {
     },
     {
       key: "canvas",
-      imageSrc: HOME_MOCKUPS.framedBedroom,
-      alt: "Star map canvas gallery wrap mockup",
+      imageSrc: HOME_MOCKUPS.framedLightWood,
+      alt: "Star map canvas gallery wrap in a living room",
       title: printTiers.canvas_wrap.label,
       detail: "Gallery-wrap canvas — premium wall art between poster and framed print.",
       price: canvasPrice,
@@ -284,6 +285,14 @@ export default function ShopPage() {
               detail: "Instant file after payment — no shipping wait.",
             },
           ]}
+        />
+
+        <GiftFormatLadder
+          sourcePrefix="shop-ladder"
+          heading="Not sure which format?"
+          intro="One free preview — then pick digital, poster, framed + HD, framed + card, or canvas gallery wrap."
+          includeCanvas
+          className="mt-10"
         />
 
         <section className="mt-10">

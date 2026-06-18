@@ -1,8 +1,8 @@
-import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import {
   formatPrintPriceWithShipping,
   getFramedHdBundlePriceLine,
+  getPrintProductionReviewDisclosure,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
@@ -34,6 +34,7 @@ export default function MoneyPagePriceAtGlance({
   const framedHdBundle = getFramedHdBundlePriceLine();
   const shippingDisclosure = getPrintShippingDisclosure();
   const framedDelivery = formatPrintDeliveryDisclosure("poster_framed", "US");
+  const productionDisclosure = getPrintProductionReviewDisclosure();
 
   return (
     <div className={`space-y-1.5 text-center lg:text-left ${className}`.trim()}>
@@ -58,9 +59,8 @@ export default function MoneyPagePriceAtGlance({
       </p>
       {!compact ? (
         <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
-          Free preview first. HD unlocks instantly after checkout. Physical prints are reviewed, then produced in{" "}
-          {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}
-          {framedDelivery ? ` — ${framedDelivery.toLowerCase()}` : ""}. {shippingDisclosure}
+          Free preview first. HD unlocks instantly after checkout. {productionDisclosure}
+          {framedDelivery ? ` Typical framed delivery: ${framedDelivery.toLowerCase()}.` : ""} {shippingDisclosure}
         </p>
       ) : null}
     </div>

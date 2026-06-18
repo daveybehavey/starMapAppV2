@@ -112,10 +112,11 @@ export function getPrintCatalogRow(id: PrintVariant): PrintCatalogRow {
   return row;
 }
 
-/** Posters only on primary paywall until canvas / mug / card pilots pass QA */
+/** Posters + canvas on paywall/checkout; mug stays shop-only until pilot proof */
 export const PAYWALL_LIVE_PRINT_VARIANTS: readonly PrintVariant[] = [
   "poster_framed",
   "poster_unframed",
+  "canvas_wrap",
 ];
 
 /** Stripe Checkout success URLs + download upsell ordering (live SKUs first) */

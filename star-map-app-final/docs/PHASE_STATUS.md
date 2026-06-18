@@ -97,7 +97,7 @@ One **framed** sale covers **~5–6 days** at **$12/day** ad spend before fulfil
 
 | ID | Item | Status | Notes / verify |
 |----|------|--------|----------------|
-| **B1** | Paywall as gift decision (shipping ETA, sizing notes) | 🟡 | ETA exists; wedding default tab still open (see A3) |
+| **B1** | Paywall as gift decision (shipping ETA, sizing notes) | 🟡 | Gift ladder on paywall + wedding/shop; ETA copy aligned |
 | **B2** | Editor trust moments | 🟡 | Square/portrait warnings exist; tune as needed |
 | **B3** | Proof gallery (money pages + shop) | ✅ | `HOME_MOCKUPS` on `/`, `/shop`, gift formats, wedding, etc. |
 | **B4** | Permissioned social proof | ⬜ | `docs/testimonial-intake-template.md` — **no placeholder quotes** |

@@ -5,7 +5,7 @@ import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
@@ -312,7 +312,8 @@ export function PaywallModal({
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-100/80">
-              Your current map is attached automatically. Shipping shows before payment, and the order is created for review after checkout. {shippingDisclosure}
+              Your current map is attached automatically. Shipping shows before payment. {getPrintProductionReviewDisclosure()}{" "}
+              {shippingDisclosure}
               </p>
               {printShippingCountries.length > 0 && (
                 <div className="mt-3">

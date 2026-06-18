@@ -12,6 +12,7 @@ type WeddingLandingHeroProps = {
   primaryHref: string;
   bundlePriceLine: string;
   featuredTestimonial: VerifiedTestimonial;
+  framedCardHref?: string;
 };
 
 export default function WeddingLandingHero({
@@ -19,6 +20,7 @@ export default function WeddingLandingHero({
   primaryHref,
   bundlePriceLine,
   featuredTestimonial,
+  framedCardHref,
 }: WeddingLandingHeroProps) {
   return (
     <header className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-10">
@@ -84,18 +86,26 @@ export default function WeddingLandingHero({
           </li>
         </ul>
 
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:items-start lg:justify-start">
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center lg:items-start lg:justify-start">
           <Link
             href={primaryHref}
             className="inline-flex min-h-12 w-full min-w-[14rem] items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-6 py-3.5 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-midnight sm:w-auto"
           >
-            Preview your wedding map
+            Preview framed + HD gift
           </Link>
+          {framedCardHref ? (
+            <Link
+              href={framedCardHref}
+              className="inline-flex min-h-12 w-full min-w-[14rem] items-center justify-center rounded-full border border-amber-200/50 bg-white/10 px-6 py-3.5 text-sm font-semibold text-amber-50 transition hover:bg-white/15 sm:w-auto"
+            >
+              Or framed + keepsake card
+            </Link>
+          ) : null}
           <Link
             href="/editor?mode=quick&source=wedding-hero-preview"
             className="text-sm font-semibold text-white underline decoration-white/50 underline-offset-4 transition hover:text-amber-200 hover:decoration-amber-200/70"
           >
-            Or start a free preview first
+            Free preview first
           </Link>
         </div>
       </div>
