@@ -113,7 +113,7 @@ Live paywall today: **`poster_framed`**, **`poster_unframed`** only.
 |-------|-----|--------|
 | **C1** | `card_4x6` (bundle add-on — see `block-c1-card-prep.md`) | ✅ **C1.5** — paid plumbing `cs_live_b1PTs2…` (framed + card, CA); C1.4 copy shipped |
 | **M1** | Stickers merch beta (`block-m1-stickers-beta.md`) | 🟡 **M1.3** — live proof 20/20 (no paid order); enable scale when ready |
-| **C2** | `canvas_wrap` | ⬜ After C1.5 |
+| **C2** | `canvas_wrap` | 🟡 Pilot on paywall + shop; paid test order pending |
 | **C3** | `mug_11oz` (shop/merch, not wedding hero) | ⬜ After C1.5 |
 
 Checklist per SKU: `docs/print-launch-checklist.md`, `npm run qa:print-margin`, `PAYWALL_LIVE_PRINT_VARIANTS`, one real test order.
@@ -124,7 +124,7 @@ Checklist per SKU: `docs/print-launch-checklist.md`, `npm run qa:print-margin`, 
 
 | Phase | Theme | Status |
 |-------|--------|--------|
-| **D** | Quarterly big bets (gift tiers, occasion kits, delivery promise, proof gallery, card bundle) | ⏸ | Deferred — wedding Search test first |
+| **D1** | Gift tiers UX on money pages | 🟡 | Gift ladder on wedding, shop, anniversary, home, birthday, personalized, night-sky, star-map-for/* |
 | **E** | **Acquisition** (paid Search + organic/AI + measurement) | 🟡 | Ads: `ADS_RELAUNCH_SETUP.md`; organic: B5 + AIEO in `GOAL_10K_2026.md`; weekly `qa:revenue-goal` |
 
 ---

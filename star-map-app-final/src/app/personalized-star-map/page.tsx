@@ -12,9 +12,19 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
-import { getPrintProductionReviewTrustPoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getFramedHdBundlePriceLine,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import {
+  buildFramedHdCheckoutHref,
+  buildStandardGiftPreviewIntents,
+  getGiftLadderIntro,
+} from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -45,6 +55,9 @@ export const metadata: Metadata = {
 export default function PersonalizedStarMapPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
+  const framedHdHref = buildFramedHdCheckoutHref("personalized-star-map-hero-framed-hd");
+  const previewIntents = buildStandardGiftPreviewIntents("personalized-star-map");
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -64,10 +77,10 @@ export default function PersonalizedStarMapPage() {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
-            href="/editor?mode=quick&source=personalized-star-map-hero-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            Preview framed print
+            Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=personalized-star-map-hero-preview"
@@ -76,44 +89,33 @@ export default function PersonalizedStarMapPage() {
             Start free preview
           </Link>
         </div>
+        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
+
+      <GiftFormatLadder
+        sourcePrefix="personalized-ladder"
+        heading="Personalized gift formats"
+        intro={getGiftLadderIntro()}
+        includeCanvas
+        className="mt-8"
+      />
 
       <PreviewStartForm
         source="personalized-star-map"
         title="Start your personalized preview"
-        description="Enter the date and location, then choose the framed path, unframed path, or a neutral preview-first start."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best when the final piece should arrive presentation-ready.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you want the print but will handle framing yourself.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Open the editor without locking in a delivery path yet.",
-          },
-        ]}
+        description={`Enter the date and location. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        intentOptions={previewIntents}
       />
       <StickyCtaBar
-        source="sticky-personalized-star-map"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-personalized-star-map-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        source="sticky-personalized-star-map-framed-hd"
+        title="Ready to preview their night sky?"
+        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        buttonLabel="Preview framed + HD"
+        primaryHref={framedHdHref}
+        primaryPlan="print_framed_hd"
+        secondaryButtonLabel="Free preview only"
+        secondaryHref="/editor?mode=quick&source=sticky-personalized-star-map-preview"
+        secondaryPlan="preview"
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -140,10 +142,10 @@ export default function PersonalizedStarMapPage() {
         </ol>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=personalized-star-map-cta-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed print preview
+            Preview framed + HD gift
           </Link>
         </div>
       </section>
@@ -151,7 +153,7 @@ export default function PersonalizedStarMapPage() {
 
       <DeliveryFormatModule
         heading="Pick the right format after you preview"
-        intro="Most buyers decide fastest between ready-to-display framed print and the lower-total unframed route. HD digital stays available when instant delivery matters more than shipping."
+        intro={`Most buyers choose framed + HD (${bundlePriceLine}) for a presentation-ready gift plus an instant file. Unframed lowers the total; canvas adds a premium wall option.`}
         sourcePrefix="personalized-format"
       />
       <FramedProofSection sourcePrefix="personalized-proof" />

@@ -74,6 +74,7 @@ export function shouldDefaultEditorPaywallToPrint(
   checkoutParam?: string | null,
   utmCampaign?: string | null,
 ): boolean {
+  if (shouldAutoOpenEditorDigitalPaywall(source, checkoutParam)) return false;
   if (checkoutParam === "print") return true;
   if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") return true;
   if (isWeddingPrintLandingSource(source)) return true;
@@ -97,8 +98,20 @@ export function shouldAutoOpenEditorPrintPaywall(
 }
 
 /** Auto-open paywall on the HD tab when map hub (or similar) sends explicit digital intent. */
-export function shouldAutoOpenEditorDigitalPaywall(checkoutParam?: string | null): boolean {
-  return checkoutParam === "hd" || checkoutParam === "digital";
+export function isDigitalLandingSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  const s = source.toLowerCase();
+  if (s.includes("hd-star-map") || s.includes("instant-hd")) return true;
+  if (s.endsWith("-digital") || s.includes("-digital-")) return true;
+  return false;
+}
+
+export function shouldAutoOpenEditorDigitalPaywall(
+  source?: string | null,
+  checkoutParam?: string | null,
+): boolean {
+  if (checkoutParam === "hd" || checkoutParam === "digital") return true;
+  return isDigitalLandingSource(source);
 }
 
 export function resolvePreferredPrintVariantFromSource(
@@ -158,9 +171,11 @@ export function resolveEditorGiftTrafficIntent(params: {
 }): EditorGiftTrafficIntent {
   const { source, checkoutParam, printVariantParam, utmCampaign, explicitIncludeDigitalAddOn } = params;
   const defaultToPrint = shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCampaign);
+  const digitalAutoOpen = shouldAutoOpenEditorDigitalPaywall(source, checkoutParam);
+  const printAutoOpen = shouldAutoOpenEditorPrintPaywall(source, checkoutParam);
 
   return {
-    paywallIntent: defaultToPrint ? "print" : "digital",
+    paywallIntent: digitalAutoOpen ? "digital" : defaultToPrint ? "print" : "digital",
     preferredPrintVariant: resolvePreferredPrintVariantFromSource(source, printVariantParam),
     preferredIncludeDigitalAddOn: resolvePreferredIncludeDigitalAddOn({
       source,
@@ -169,6 +184,6 @@ export function resolveEditorGiftTrafficIntent(params: {
       utmCampaign,
       explicitIncludeDigitalAddOn,
     }),
-    autoOpenPaywall: shouldAutoOpenEditorPrintPaywall(source, checkoutParam),
+    autoOpenPaywall: digitalAutoOpen || printAutoOpen,
   };
 }

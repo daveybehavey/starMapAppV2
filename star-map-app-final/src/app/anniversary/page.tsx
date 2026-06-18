@@ -12,7 +12,17 @@ import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  buildPrintEditorCheckoutHref,
+  getFramedHdBundlePriceLine,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import {
+  buildFramedHdCheckoutHref,
+  buildStandardGiftPreviewIntents,
+  getGiftLadderIntro,
+} from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -42,6 +52,10 @@ export const metadata: Metadata = {
 
 export default function AnniversaryPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
+  const framedHdHref = buildFramedHdCheckoutHref("anniversary-hero-framed-hd");
+  const previewIntents = buildStandardGiftPreviewIntents("anniversary");
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -61,10 +75,10 @@ export default function AnniversaryPage() {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
-            href="/editor?mode=quick&source=anniversary-hero-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            Preview framed print
+            Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=anniversary-hero-preview"
@@ -73,18 +87,22 @@ export default function AnniversaryPage() {
             Start free preview
           </Link>
           <Link
-            href="/editor?mode=quick&source=anniversary-hero-canvas&checkout=print&print_variant=canvas_wrap"
+            href={buildPrintEditorCheckoutHref({
+              source: "anniversary-hero-canvas",
+              variant: "canvas_wrap",
+            })}
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
           >
             Preview canvas wrap
           </Link>
         </div>
+        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
 
       <GiftFormatLadder
         sourcePrefix="anniversary-ladder"
         heading="Anniversary gift formats"
-        intro="Same preview — pick HD for instant delivery, poster for DIY framing, framed + HD for the full gift, or canvas for a premium wall piece."
+        intro={getGiftLadderIntro({ occasionLabel: "anniversary" })}
         includeCanvas
         className="mt-8"
       />
@@ -92,39 +110,19 @@ export default function AnniversaryPage() {
       <PreviewStartForm
         source="anniversary"
         title="Start your anniversary preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best if you want the finished keepsake to arrive ready to display.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you already know your frame plan.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Keep the editor neutral until the anniversary design feels final.",
-          },
-        ]}
+        description={`Enter the date and place. We open the editor on framed + HD (${bundlePriceLine}) — the path most anniversary gift buyers choose.`}
+        intentOptions={previewIntents}
       />
       <StickyCtaBar
-        source="sticky-anniversary"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-anniversary-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        source="sticky-anniversary-framed-hd"
+        title="Ready to see your anniversary sky?"
+        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        buttonLabel="Preview framed + HD"
+        primaryHref={framedHdHref}
+        primaryPlan="print_framed_hd"
+        secondaryButtonLabel="Free preview only"
+        secondaryHref="/editor?mode=quick&source=sticky-anniversary-preview"
+        secondaryPlan="preview"
       />
 
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -155,10 +153,10 @@ export default function AnniversaryPage() {
         </p>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=anniversary-cta-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed print preview
+            Preview framed + HD gift
           </Link>
         </div>
       </section>
@@ -166,7 +164,7 @@ export default function AnniversaryPage() {
 
       <DeliveryFormatModule
         heading="Choose how you want to keep the anniversary map"
-        intro="Most anniversary buyers decide between the finished framed route and the lower-total unframed route. HD digital stays available when you want instant delivery or local printing."
+        intro={`Most anniversary buyers choose framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant file. Canvas adds a premium wall option between poster and framed.`}
         sourcePrefix="anniversary-format"
       />
       <FramedProofSection
@@ -204,7 +202,7 @@ export default function AnniversaryPage() {
         rightPoints={[
           "Framed and unframed print paths are available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

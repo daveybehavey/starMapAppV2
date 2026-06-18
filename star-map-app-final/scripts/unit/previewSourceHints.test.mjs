@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isDigitalLandingSource,
   isNeutralWeddingPreviewSource,
   resolveEditorGiftTrafficIntent,
+  shouldAutoOpenEditorDigitalPaywall,
   shouldAutoOpenEditorPrintPaywall,
   shouldDefaultEditorPaywallToPrint,
 } from "./previewSourceHints.harness.mjs";
@@ -97,4 +99,32 @@ test("unframed wedding source selects poster_unframed", () => {
   });
   assert.equal(intent.preferredPrintVariant, "poster_unframed");
   assert.equal(intent.preferredIncludeDigitalAddOn, false);
+});
+
+test("instant HD landing opens digital paywall and stays on digital tab", () => {
+  assert.equal(isDigitalLandingSource("hd-star-map-hero-instant"), true);
+  assert.equal(isDigitalLandingSource("birthday-ladder-digital"), true);
+  assert.equal(shouldAutoOpenEditorDigitalPaywall("hd-star-map-hero-instant", "digital"), true);
+  assert.equal(shouldDefaultEditorPaywallToPrint("hd-star-map-hero-instant", "digital"), false);
+
+  const intent = resolveEditorGiftTrafficIntent({
+    source: "birthday-hero-instant-hd",
+    checkoutParam: "digital",
+    printVariantParam: null,
+    utmCampaign: null,
+  });
+  assert.equal(intent.paywallIntent, "digital");
+  assert.equal(intent.autoOpenPaywall, true);
+  assert.equal(shouldAutoOpenEditorPrintPaywall("birthday-hero-instant-hd", "digital"), false);
+});
+
+test("digital checkout param beats wedding UTM default-to-print", () => {
+  const intent = resolveEditorGiftTrafficIntent({
+    source: "wedding-hero-preview",
+    checkoutParam: "digital",
+    printVariantParam: null,
+    utmCampaign: "gift_wedding_2026",
+  });
+  assert.equal(intent.paywallIntent, "digital");
+  assert.equal(intent.autoOpenPaywall, true);
 });

@@ -7,7 +7,10 @@ type BlogPostConversionLinksProps = {
 
 const LINKS = [
   { href: "/editor", label: "Create your star map" },
+  { href: "/hd-star-map", label: "Instant HD download" },
   { href: "/personalized-star-map", label: "Personalized star map gifts" },
+  { href: "/star-map-for/new-baby", label: "New baby star maps" },
+  { href: "/birthday", label: "Birthday star maps" },
   { href: "/star-map-gift", label: "Star map gift ideas" },
   { href: "/wedding", label: "Wedding star maps" },
   { href: "/how-accurate-are-star-maps", label: "How accurate are star maps?" },

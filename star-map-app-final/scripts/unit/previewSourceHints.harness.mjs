@@ -35,12 +35,31 @@ export function isWeddingUtmCampaign(campaign) {
   return c.includes("wedding") || c.includes("gift_wedding");
 }
 
+/** @param {string | null | undefined} source */
+export function isDigitalLandingSource(source) {
+  if (!source) return false;
+  const s = source.toLowerCase();
+  if (s.includes("hd-star-map") || s.includes("instant-hd")) return true;
+  if (s.endsWith("-digital") || s.includes("-digital-")) return true;
+  return false;
+}
+
+/**
+ * @param {string | null | undefined} [source]
+ * @param {string | null | undefined} [checkoutParam]
+ */
+export function shouldAutoOpenEditorDigitalPaywall(source, checkoutParam) {
+  if (checkoutParam === "hd" || checkoutParam === "digital") return true;
+  return isDigitalLandingSource(source);
+}
+
 /**
  * @param {string | null | undefined} source
  * @param {string | null | undefined} [checkoutParam]
  * @param {string | null | undefined} [utmCampaign]
  */
 export function shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCampaign) {
+  if (shouldAutoOpenEditorDigitalPaywall(source, checkoutParam)) return false;
   if (checkoutParam === "print") return true;
   if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") return true;
   if (isWeddingPrintLandingSource(source)) return true;
@@ -111,8 +130,11 @@ export function resolvePreferredIncludeDigitalAddOn(params) {
 export function resolveEditorGiftTrafficIntent(params) {
   const { source, checkoutParam, printVariantParam, utmCampaign, explicitIncludeDigitalAddOn } = params;
   const defaultToPrint = shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCampaign);
+  const digitalAutoOpen = shouldAutoOpenEditorDigitalPaywall(source, checkoutParam);
+  const printAutoOpen = shouldAutoOpenEditorPrintPaywall(source, checkoutParam);
+
   return {
-    paywallIntent: defaultToPrint ? "print" : "digital",
+    paywallIntent: digitalAutoOpen ? "digital" : defaultToPrint ? "print" : "digital",
     preferredPrintVariant: resolvePreferredPrintVariantFromSource(source, printVariantParam),
     preferredIncludeDigitalAddOn: resolvePreferredIncludeDigitalAddOn({
       source,
@@ -121,6 +143,6 @@ export function resolveEditorGiftTrafficIntent(params) {
       utmCampaign,
       explicitIncludeDigitalAddOn,
     }),
-    autoOpenPaywall: shouldAutoOpenEditorPrintPaywall(source, checkoutParam),
+    autoOpenPaywall: digitalAutoOpen || printAutoOpen,
   };
 }

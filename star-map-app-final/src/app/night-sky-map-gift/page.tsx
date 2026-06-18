@@ -2,6 +2,7 @@ import Link from "next/link";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
@@ -10,7 +11,16 @@ import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySe
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getFramedHdBundlePriceLine,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import {
+  buildFramedHdCheckoutHref,
+  buildStandardGiftPreviewIntents,
+  getGiftLadderIntro,
+} from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -40,6 +50,10 @@ export const metadata: Metadata = {
 
 export default function NightSkyMapGiftPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
+  const framedHdHref = buildFramedHdCheckoutHref("night-sky-map-gift-hero-framed-hd");
+  const previewIntents = buildStandardGiftPreviewIntents("night-sky-map-gift");
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -59,10 +73,10 @@ export default function NightSkyMapGiftPage() {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
-            href="/editor?mode=quick&source=night-sky-map-gift-hero-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            Preview framed print
+            Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=night-sky-map-gift-hero-preview"
@@ -71,44 +85,33 @@ export default function NightSkyMapGiftPage() {
             Start free preview
           </Link>
         </div>
+        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
+
+      <GiftFormatLadder
+        sourcePrefix="night-sky-gift-ladder"
+        heading="Night sky gift formats"
+        intro={getGiftLadderIntro()}
+        includeCanvas
+        className="mt-8"
+      />
 
       <PreviewStartForm
         source="night-sky-map-gift"
         title="Start the night-sky gift preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best when the final gift should arrive ready to display.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you want the physical print with a lower total.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Keep the editor neutral until the design feels right.",
-          },
-        ]}
+        description={`Enter the date and place. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        intentOptions={previewIntents}
       />
       <StickyCtaBar
-        source="sticky-night-sky-map-gift"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-night-sky-map-gift-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        source="sticky-night-sky-map-gift-framed-hd"
+        title="Ready to preview their night sky?"
+        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        buttonLabel="Preview framed + HD"
+        primaryHref={framedHdHref}
+        primaryPlan="print_framed_hd"
+        secondaryButtonLabel="Free preview only"
+        secondaryHref="/editor?mode=quick&source=sticky-night-sky-map-gift-preview"
+        secondaryPlan="preview"
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -174,7 +177,7 @@ export default function NightSkyMapGiftPage() {
         rightPoints={[
           "Framed and unframed print paths after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Shipping, returns, and refund details linked below",
         ]}
         guideLabel="Print and frame guide"

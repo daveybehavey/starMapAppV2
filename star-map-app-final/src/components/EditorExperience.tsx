@@ -780,7 +780,9 @@ export function EditorExperience({
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
       setPrintShippingCountryValue(shippingCountryParam, "query-param");
     }
-    if (giftTraffic.paywallIntent === "print") {
+    if (shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) {
+      setPaywallIntent("digital");
+    } else if (giftTraffic.paywallIntent === "print") {
       setPaywallIntent("print");
     }
 
@@ -896,7 +898,8 @@ export function EditorExperience({
   useEffect(() => {
     if (!restored || !revealed || paid || digitalIntentHandledRef.current) return;
     const checkoutParam = searchParams.get("checkout");
-    if (!shouldAutoOpenEditorDigitalPaywall(checkoutParam)) return;
+    const sourceParam = searchParams.get("source");
+    if (!shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) return;
 
     digitalIntentHandledRef.current = true;
     setPaywallIntent("digital");
@@ -920,6 +923,9 @@ export function EditorExperience({
       explicitIncludeDigitalAddOn: /^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? ""),
     });
     if (!giftTraffic.autoOpenPaywall) {
+      return;
+    }
+    if (shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) {
       return;
     }
 

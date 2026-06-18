@@ -5,6 +5,12 @@ export type SeoOccasion = {
   detail?: string;
   exampleLine: string;
   faqs: { question: string; answer: string }[];
+  /** Optional GSC-tuned `<title>` — defaults to "Star Map for {label} | StarMapCo". */
+  seoTitle?: string;
+  /** Optional meta description override. */
+  seoDescription?: string;
+  /** Optional on-page H1 override. */
+  seoH1?: string;
 };
 
 export const seoOccasions: SeoOccasion[] = [
@@ -63,26 +69,35 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "new-baby",
     label: "New Baby",
+    seoTitle: "New Baby Star Map Gift — Birth Night Sky | StarMapCo",
+    seoH1: "New Baby Star Map Gift",
+    seoDescription:
+      "Create a personalized new baby star map from their birth date, time, and hospital or home city. Free preview, then framed + HD digital with free shipping on $100+ orders.",
     intro:
-      "Welcome a new baby with a star map that shows the sky from their birth date and location.",
+      "Welcome a new baby with a star map that shows the exact night sky from their birth date and location — a nursery-ready keepsake parents treasure for years.",
     detail:
-      "Use the birth date and time if you have it, or the first night home. Parents often add the baby’s name and a short dedication line.",
+      "Use the birth date and time if you have it, or the first night home. Parents often add the baby’s name, birth weight, and a short welcome line before choosing framed + HD for the nursery wall.",
     exampleLine: "Welcome, Noah · Austin, TX · March 18, 2024",
     faqs: [
       {
-        question: "Is this a good newborn gift?",
+        question: "Is a star map a good newborn gift?",
         answer:
-          "Yes. A star map is a thoughtful keepsake for a baby’s birth date and location.",
+          "Yes. A birth-night star map is a thoughtful keepsake that captures the sky exactly as it appeared when they arrived — popular for baby showers, hospital visits, and first birthdays.",
       },
       {
-        question: "Can I include the baby’s name?",
+        question: "Can I include the baby’s name on the print?",
         answer:
-          "You can add names, a date line, and a dedication before downloading.",
+          "Yes. Add the baby’s name, birth date line, and a short dedication in the editor before checkout. The same design works for framed print, canvas, or HD digital.",
       },
       {
         question: "Do I need the exact birth time?",
         answer:
-          "Exact time helps, but it’s optional. The date and location still produce a beautiful map.",
+          "Exact time improves Moon and planet placement, but date plus city or hospital location still produces a beautiful, meaningful nursery print.",
+      },
+      {
+        question: "What format do new-parent gift buyers choose most?",
+        answer:
+          "Most nursery gifts use framed print + HD digital so the wall art ships ready to hang and parents get an instant file for sharing. Unframed poster lowers the total if they already picked a frame.",
       },
     ],
   },

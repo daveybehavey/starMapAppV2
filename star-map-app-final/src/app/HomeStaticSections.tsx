@@ -1,5 +1,6 @@
 import Link from "next/link";
 import FramedProofSection from "@/components/FramedProofSection";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import HomeOfferStack from "@/components/HomeOfferStack";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
@@ -11,9 +12,11 @@ import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import {
   formatPrintPriceWithShipping,
+  getFramedHdBundlePriceLine,
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
 
 type PriceLabels = {
   single: string;
@@ -42,6 +45,7 @@ export default function HomeStaticSections({
   };
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
   const proofImages = {
     framed: HOME_MOCKUPS.framedBedroom,
     unframed: HOME_MOCKUPS.unframedPoster,
@@ -50,6 +54,39 @@ export default function HomeStaticSections({
   return (
     <>
       <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} />
+
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 pt-6 sm:px-6 lg:px-8">
+        <GiftFormatLadder
+          sourcePrefix="home-ladder"
+          heading="Pick your gift format"
+          intro={getGiftLadderIntro()}
+          includeCanvas
+          className="shadow-2xl shadow-black/20"
+        />
+        <p className="mt-3 text-center text-xs text-neutral-300 sm:text-sm">
+          Most buyers choose framed + HD ({bundlePriceLine}). Browse by occasion:{" "}
+          <Link href="/wedding" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            wedding
+          </Link>
+          ,{" "}
+          <Link href="/anniversary" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            anniversary
+          </Link>
+          ,{" "}
+          <Link href="/birthday" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            birthday
+          </Link>
+          ,{" "}
+          <Link href="/hd-star-map" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            instant HD
+          </Link>
+          , or{" "}
+          <Link href="/star-map-for/new-baby" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            new baby
+          </Link>
+          .
+        </p>
+      </section>
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
@@ -316,6 +353,7 @@ export default function HomeStaticSections({
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
             {[
+              { href: "/hd-star-map", label: "Instant HD star map" },
               { href: "/star-map-generator", label: "Star map generator" },
               { href: "/star-map-for", label: "Star map by occasion" },
               { href: "/star-map-in", label: "Star map by city" },

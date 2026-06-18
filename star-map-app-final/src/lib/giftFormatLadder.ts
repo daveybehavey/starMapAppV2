@@ -3,6 +3,7 @@ import {
   formatPrintPriceWithShipping,
   getFramedHdBundlePriceLine,
 } from "@/lib/printCheckoutConfig";
+import { buildDigitalEditorCheckoutHref } from "@/lib/digitalGiftCheckout";
 import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
 
 export type GiftFormatTierId = "digital" | "poster" | "framed_hd" | "framed_card" | "canvas";
@@ -17,7 +18,10 @@ export type GiftFormatTier = {
   cta: string;
 };
 
-export function buildGiftFormatTiers(sourcePrefix: string, options?: { includeCanvas?: boolean }): GiftFormatTier[] {
+export function buildGiftFormatTiers(
+  sourcePrefix: string,
+  options?: { includeCanvas?: boolean; digitalRecommended?: boolean },
+): GiftFormatTier[] {
   const printTiers = getPrintPricingTiers();
   const pricing = getPricingInfo();
   const digitalPrice = formatPrice(pricing.activeAmountCents, pricing.currency);
@@ -31,14 +35,17 @@ export function buildGiftFormatTiers(sourcePrefix: string, options?: { includeCa
     printTiers.canvas_wrap.currency,
   );
 
+  const digitalRecommended = options?.digitalRecommended === true;
+
   const tiers: GiftFormatTier[] = [
     {
       id: "digital",
       label: "HD digital",
       priceLine: digitalPrice,
       detail: "Instant download — same-night gift or DIY printing.",
-      href: `/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-digital`)}`,
-      cta: "Preview digital",
+      recommended: digitalRecommended,
+      href: buildDigitalEditorCheckoutHref(`${sourcePrefix}-digital`),
+      cta: "Preview instant HD",
     },
     {
       id: "poster",
@@ -56,7 +63,7 @@ export function buildGiftFormatTiers(sourcePrefix: string, options?: { includeCa
       label: "Framed + HD",
       priceLine: getFramedHdBundlePriceLine(),
       detail: "Gift-ready wall art plus instant HD from the same design.",
-      recommended: true,
+      recommended: !digitalRecommended,
       href: buildPrintEditorCheckoutHref({
         source: `${sourcePrefix}-framed-hd`,
         variant: "poster_framed",

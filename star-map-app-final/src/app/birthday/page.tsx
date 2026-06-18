@@ -3,6 +3,7 @@ import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import OccasionLinks from "@/components/OccasionLinks";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -10,7 +11,20 @@ import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getFramedHdBundlePriceLine,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import {
+  buildInstantHdPreviewIntents,
+  getInstantHdHeroHref,
+  getInstantHdPriceLine,
+} from "@/lib/digitalGiftCheckout";
+import {
+  buildFramedHdCheckoutHref,
+  getGiftLadderIntro,
+} from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -25,7 +39,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Birthday Star Map Generator | StarMapCo",
   description:
-    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed print, unframed print, or HD digital delivery.",
+    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed + HD (free shipping at $100+), poster, or instant digital delivery.",
   alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
     title: "Birthday Star Map Generator | StarMapCo",
@@ -40,6 +54,12 @@ export const metadata: Metadata = {
 
 export default function BirthdayPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
+  const framedHdHref = buildFramedHdCheckoutHref("birthday-hero-framed-hd");
+  const instantHref = getInstantHdHeroHref("birthday-hero-instant");
+  const instantPrice = getInstantHdPriceLine();
+  const previewIntents = buildInstantHdPreviewIntents("birthday");
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -59,56 +79,57 @@ export default function BirthdayPage() {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
-            href="/editor?mode=quick&source=birthday-hero-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            Preview framed print
+            Preview framed + HD gift
+          </Link>
+          <Link
+            href={instantHref}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Instant HD from {instantPrice}
           </Link>
           <Link
             href="/editor?mode=quick&source=birthday-hero-preview"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/20 bg-transparent px-4 py-3 text-sm font-semibold text-neutral-200 underline decoration-white/30 underline-offset-2 transition hover:text-white"
           >
-            Start free preview
+            Free preview only
           </Link>
         </div>
+        <p className="text-xs text-neutral-300 sm:text-sm">
+          Last-minute?{" "}
+          <Link href="/hd-star-map" className="font-semibold text-amber-200 underline decoration-amber-400/50 underline-offset-2 hover:text-amber-100">
+            Instant HD funnel
+          </Link>
+          {" · "}
+          Popular bundle: {bundlePriceLine}
+        </p>
       </header>
+
+      <GiftFormatLadder
+        sourcePrefix="birthday-ladder"
+        heading="Birthday gift formats"
+        intro={getGiftLadderIntro({ occasionLabel: "birthday" })}
+        className="mt-8"
+      />
 
       <PreviewStartForm
         source="birthday"
         title="Start your birthday preview"
-        description="Enter the birth date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best if you want the final gift to arrive ready to display.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you already know the frame plan.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Keep the editor neutral until the birthday layout is approved.",
-          },
-        ]}
+        description="Enter the birth date and place — choose instant HD for same-night gifts or framed + HD for a shipped keepsake."
+        intentOptions={previewIntents}
       />
       <StickyCtaBar
-        source="sticky-birthday"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-birthday-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        source="sticky-birthday-instant-hd"
+        title="Party tomorrow?"
+        description="Instant HD unlocks right after checkout — no shipping wait."
+        buttonLabel="Preview instant HD"
+        primaryHref={instantHref}
+        primaryPlan="hd_digital"
+        secondaryButtonLabel="Framed + HD instead"
+        secondaryHref={framedHdHref}
+        secondaryPlan="print_framed_hd"
       />
 
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -139,17 +160,17 @@ export default function BirthdayPage() {
         </p>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=birthday-cta-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed print preview
+            Preview framed + HD gift
           </Link>
         </div>
       </section>
 
       <DeliveryFormatModule
         heading="Choose the birthday delivery format"
-        intro="Most birthday buyers decide between the ready-to-display framed route and the lower-total unframed route. HD digital stays available for same-day gifting or local printing."
+        intro={`Most birthday buyers choose framed + HD (${bundlePriceLine}) for a ready-to-hang gift plus an instant file. Unframed lowers the total; HD-only is fastest for same-day gifting.`}
         sourcePrefix="birthday-format"
       />
       <FramedProofSection
@@ -187,7 +208,7 @@ export default function BirthdayPage() {
         rightPoints={[
           "Framed and unframed print paths are available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

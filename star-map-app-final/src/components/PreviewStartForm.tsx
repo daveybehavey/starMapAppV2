@@ -9,7 +9,7 @@ import type { PrintVariant } from "@/lib/pricing";
 type PreviewStartIntent = {
   label: string;
   sourceSuffix?: string;
-  checkout?: "print";
+  checkout?: "print" | "digital";
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
@@ -32,7 +32,7 @@ type PreviewStartFormProps = {
 
 function buildEditorAction(
   source: string,
-  checkout?: "print",
+  checkout?: "print" | "digital",
   printVariant?: PrintVariant,
   includeDigitalAddOn?: boolean,
   includeCardAddOn?: boolean,

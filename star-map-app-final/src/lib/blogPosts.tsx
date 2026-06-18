@@ -1413,7 +1413,10 @@ export const blogPosts: BlogPost[] = [
         <ul>
           <li>It marks a specific date and location instead of feeling generic.</li>
           <li>It becomes display-worthy decor, not just a one-day gift item.</li>
-          <li>It works across occasions: anniversaries, weddings, birthdays, and new-baby milestones.</li>
+          <li>
+            It works across occasions: anniversaries, weddings, birthdays, and{" "}
+            <Link href="/star-map-for/new-baby">new-baby milestones</Link>.
+          </li>
         </ul>
         <p>
           That combination is why &quot;star map gift&quot; keeps showing up in gift-buying searches.

@@ -8,6 +8,8 @@ type GiftFormatLadderProps = {
   intro?: string;
   /** Show canvas tier (shop / anniversary — not wedding ad hero). */
   includeCanvas?: boolean;
+  /** Mark instant HD as the recommended tier (digital funnel pages). */
+  digitalRecommended?: boolean;
   className?: string;
 };
 
@@ -16,9 +18,10 @@ export default function GiftFormatLadder({
   heading = "Pick your gift format",
   intro = "One free preview — then choose the delivery path that fits. Most gift buyers choose framed + HD.",
   includeCanvas = false,
+  digitalRecommended = false,
   className = "",
 }: GiftFormatLadderProps) {
-  const tiers = buildGiftFormatTiers(sourcePrefix, { includeCanvas });
+  const tiers = buildGiftFormatTiers(sourcePrefix, { includeCanvas, digitalRecommended });
   const shippingDisclosure = getPrintShippingDisclosure();
 
   return (
