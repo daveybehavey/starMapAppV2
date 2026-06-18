@@ -6,6 +6,7 @@ import { getBusinessProfile } from "@/lib/businessProfile";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import { isPrintVariant } from "@/lib/printCatalog";
+import { buildTestimonialRequestMailto } from "@/lib/testimonialRequestCopy";
 
 type PostPurchaseProofRequestProps = {
   source: "success" | "download";
@@ -84,6 +85,7 @@ export default function PostPurchaseProofRequest({
   const mailtoHref = useMemo(() => {
     return `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(subjectWithReference)}&body=${encodeURIComponent(emailDraft)}`;
   }, [emailDraft, subjectWithReference, supportEmail]);
+  const testimonialMailtoHref = useMemo(() => buildTestimonialRequestMailto(), []);
 
   async function handleCopyEmailDraft() {
     try {
@@ -122,8 +124,18 @@ export default function PostPurchaseProofRequest({
           >
             {copied ? "Email draft copied" : "Copy email draft"}
           </button>
+          <a
+            href={testimonialMailtoHref}
+            onClick={() => track("testimonial_request_email_clicked", { source, orderType })}
+            className="inline-flex items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-500/15 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:-translate-y-[1px] hover:bg-emerald-500/25"
+          >
+            Share a testimonial
+          </a>
         </div>
       </div>
+      <p className="mt-3 text-[11px] text-neutral-300">
+        We never invent reviews — we only publish quotes buyers approve in writing.
+      </p>
     </div>
   );
 }

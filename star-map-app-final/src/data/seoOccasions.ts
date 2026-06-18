@@ -218,6 +218,10 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "long-distance",
     label: "Long Distance",
+    seoTitle: "Long Distance Star Map Gift — Shared Night Sky | StarMapCo",
+    seoH1: "Long Distance Star Map Gift",
+    seoDescription:
+      "Celebrate long-distance love with a custom star map from your shared date and place. Free preview, then instant HD for fast delivery or framed print shipped to them.",
     intro:
       "Celebrate long‑distance love with a star map that marks a shared date and sky.",
     detail:
@@ -244,6 +248,10 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "retirement",
     label: "Retirement",
+    seoTitle: "Retirement Star Map Gift — Milestone Night Sky | StarMapCo",
+    seoH1: "Retirement Star Map Gift",
+    seoDescription:
+      "Mark retirement with a personalized star map from the final day or celebration night. Free preview, then framed + HD, poster, or instant HD download.",
     intro:
       "Mark a retirement with a star map from the final day or a celebratory date.",
     exampleLine: "Cheers to Retirement · Phoenix, AZ · June 30, 2024",
@@ -293,6 +301,10 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "mothers-day",
     label: "Mother’s Day",
+    seoTitle: "Mother's Day Star Map Gift — Personalized Night Sky | StarMapCo",
+    seoH1: "Mother's Day Star Map Gift",
+    seoDescription:
+      "Give mom a personalized star map from a meaningful date — birth date, anniversary, or Mother's Day itself. Free preview, framed + HD, poster, or instant HD.",
     intro:
       "Honor mom with a star map from a meaningful date—birthdays, anniversaries, or family milestones.",
     detail:
@@ -530,6 +542,10 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "first-date",
     label: "First Date",
+    seoTitle: "First Date Star Map Gift — Custom Night Sky | StarMapCo",
+    seoH1: "First Date Star Map Gift",
+    seoDescription:
+      "Remember your first date with a custom star map from that night and place. Free preview, then framed print, poster, or instant HD for a romantic keepsake.",
     intro:
       "Remember your first date with a star map of the night sky from that exact evening.",
     exampleLine: "Our First Date · Seattle, WA · November 3, 2018",
@@ -587,6 +603,10 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "christmas",
     label: "Christmas",
+    seoTitle: "Christmas Star Map Gift — Holiday Night Sky | StarMapCo",
+    seoH1: "Christmas Star Map Gift",
+    seoDescription:
+      "Give a Christmas star map from a holiday memory, proposal, or family gathering. Free preview, then framed + HD, poster, or instant HD for last-minute gifts.",
     intro:
       "Create a Christmas star map for a holiday memory, proposal, or family gathering.",
     exampleLine: "Christmas Night · New York, NY · December 25, 2023",
@@ -739,6 +759,10 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "fathers-day",
     label: "Father's Day",
+    seoTitle: "Father's Day Star Map Gift — Personalized Night Sky | StarMapCo",
+    seoH1: "Father's Day Star Map Gift",
+    seoDescription:
+      "Celebrate Dad with a personalized star map from a meaningful family date and place. Free preview, framed + HD, poster, or instant HD download.",
     intro:
       "Celebrate Dad with a star map that captures a meaningful family date and location.",
     exampleLine: "For Dad · Portland, OR · June 16, 2019",

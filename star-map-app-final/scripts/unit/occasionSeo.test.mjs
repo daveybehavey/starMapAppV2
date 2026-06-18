@@ -33,6 +33,18 @@ const TUNED_OCCASIONS = [
     seoH1: "Graduation Star Map Gift",
     mustMatchTitle: /Graduation/i,
   },
+  {
+    slug: "mothers-day",
+    seoTitle: "Mother's Day Star Map Gift — Personalized Night Sky | StarMapCo",
+    seoH1: "Mother's Day Star Map Gift",
+    mustMatchTitle: /Mother/i,
+  },
+  {
+    slug: "first-date",
+    seoTitle: "First Date Star Map Gift — Custom Night Sky | StarMapCo",
+    seoH1: "First Date Star Map Gift",
+    mustMatchTitle: /First Date/i,
+  },
 ];
 
 for (const occasion of TUNED_OCCASIONS) {

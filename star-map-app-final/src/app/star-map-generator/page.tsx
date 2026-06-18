@@ -4,8 +4,10 @@ import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import { getInstantHdHeroHref, getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -36,6 +38,8 @@ export const metadata: Metadata = {
 
 export default function StarMapGeneratorPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const instantHref = getInstantHdHeroHref("star-map-generator-hero-instant");
+  const instantPrice = getInstantHdPriceLine();
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -45,8 +49,23 @@ export default function StarMapGeneratorPage() {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Free star map generator — night sky by date</h1>
         <p className="text-sm text-white/90 sm:text-base">
           Use our free star map generator to preview the exact night sky for any date and location. When it looks right,
-          upgrade to framed print, unframed poster, or HD digital — no watermark on paid exports.
+          upgrade to framed print, unframed poster, or instant HD — no watermark on paid exports.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href="/editor?mode=quick&source=star-map-generator-hero-preview"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Start free preview
+          </Link>
+          <Link
+            href={instantHref}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Instant HD from {instantPrice}
+          </Link>
+        </div>
+        <InstantHdHeroExtras source="star-map-generator-hero-instant" showButton={false} />
       </header>
 
       <PreviewStartForm

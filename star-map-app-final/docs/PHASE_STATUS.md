@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-16  
 **Purpose:** One checklist so you are not juggling three different “phase” naming systems.
 
-**How to use:** Work the **next execution sequence** in `docs/WORKING_BLOCKS.md`. Mark items here when they ship. Detailed runbooks stay in linked docs.
+**How to use:** Start with **`docs/BUSINESS_OPERATING_SYSTEM.md`** (decision tree + weekly rhythm). Work blocks in **`docs/WORKING_BLOCKS.md`**. Mark items here when they ship.
 
 **Execution rule:** Move as fast as you want. Do not skip **proof** gates (test order, margin, checkout smoke).
 
@@ -24,7 +24,7 @@
 | **Phase A–E** | `BIG_MOVES_ROADMAP.md` | **Main product roadmap** — prove gift machine → polish → SKUs → big bets → ads |
 | **Phase 0–5** | `roadmap-status.md` | Older macro history (foundation → print scale); useful for ops context, not day-to-day priority |
 
-**Canonical “what’s next” for product:** `BIG_MOVES_ROADMAP.md` + **this file**.
+**Canonical “what’s next” for product:** **`docs/BUSINESS_OPERATING_SYSTEM.md`** · `BIG_MOVES_ROADMAP.md` · **this file**.
 
 ---
 
@@ -32,7 +32,7 @@
 
 **North star:** **$10k production revenue by 2026-12-31** — track with `npm run qa:revenue-goal`; plan in **`docs/GOAL_10K_2026.md`**.
 
-**Phase A exit signed off (2026-06-15).** Print fulfillment proven, checkout + card bundle live. **Current pace ~$400/mo** — need **~3.5×** acquisition to hit $10k. **Three lanes:** wedding Search ads (controlled test), organic/AI (SEO + AIEO), trust (B4 testimonials). **C1 card** live; **C2/C3/D1** deferred until **~$1k/mo** sustained.
+**Phase A exit signed off (2026-06-15).** **Active phase: 2 (dual-lane revenue)** — see **`docs/BUSINESS_OPERATING_SYSTEM.md`**. Run rate ~$381/mo; need ~3.8× for $10k pace. Wedding ads + B4 testimonial are owner gates; HD funnel shipped.
 
 ---
 
@@ -100,8 +100,8 @@ One **framed** sale covers **~5–6 days** at **$12/day** ad spend before fulfil
 | **B1** | Paywall as gift decision (shipping ETA, sizing notes) | 🟡 | Gift ladder on paywall + wedding/shop; ETA copy aligned |
 | **B2** | Editor trust moments | 🟡 | Square/portrait warnings exist; tune as needed |
 | **B3** | Proof gallery (money pages + shop) | ✅ | `HOME_MOCKUPS` on `/`, `/shop`, gift formats, wedding, etc. |
-| **B4** | Permissioned social proof | ⬜ | `docs/testimonial-intake-template.md` — **no placeholder quotes** |
-| **B5** | SEO from GSC data | ✅ | Generator, personalized, poster tuned; `npm run qa:b5-weekly` |
+| **B4** | Permissioned social proof | 🟡 | Post-purchase testimonial mailto on success/download; owner still needs first approved quote |
+| **B5** | SEO from GSC data | ✅ | All indexable `/star-map-for/*` pages tuned; generator HD CTA; `npm run qa:b5-weekly` |
 
 ---
 
