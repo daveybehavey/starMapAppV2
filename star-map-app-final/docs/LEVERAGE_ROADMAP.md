@@ -25,8 +25,8 @@
 | 1.2 | **Print asset upload validation** | ✅ | Min 20KB + 800×800 at `POST /api/print/assets` |
 | 1.3 | **Pin print asset TTL on paid webhook** | ✅ | 60d entitled TTL via `printAssetFulfillment.ts` |
 | 1.4 | **Card 4×6 dedicated export crop** | ✅ | Portrait 4:6 asset + `print_card_asset_id` metadata |
-| 1.5 | **Enable print margin guard in prod** | ⬜ | `PRINT_MARGIN_GUARD_ENABLED=true` when ready to block unprofitable promos |
-| 1.6 | **`PRINTFUL_AUTO_CONFIRM` policy** | ⬜ | Drafts safe for QA; decide confirm strategy before volume |
+| 1.5 | **Enable print margin guard in prod** | ✅ | `PRINT_MARGIN_GUARD_ENABLED=true`, `PRINT_MIN_MARGIN_CENTS=1000`; `npm run qa:print-margin-guard` |
+| 1.6 | **`PRINTFUL_AUTO_CONFIRM` policy** | ✅ | Prod `true`; policy in `docs/PRINTFUL_AUTO_CONFIRM_POLICY.md`; copy via `getPrintProductionReviewDisclosure()` |
 
 ---
 
@@ -39,8 +39,8 @@
 | 2.3 | **QA session filter in commerce digest** | ✅ | `productionPaidSessions` + `qa_ops_checkout` flag |
 | 2.4 | **Promo fallback surfaced to client** | ✅ | Brief paywall message when `discountRejected` |
 | 2.5 | **Printful webhooks beyond `package_shipped`** | ✅ | `order_failed`, `order_canceled`, `order_put_hold` → KV + ops alert |
-| 2.6 | **GA4 / ads UTM hygiene** | ⬜ | `gift_wedding_2026`, missing `utm_content={adgroup}` |
-| 2.7 | **Referral loop read** | ⬜ | UI live; conversions ~0 in scorecard |
+| 2.6 | **GA4 / ads UTM hygiene** | ✅ | UTM capture + GA4 params on checkout/purchase; `npm run qa:ads-utm-hygiene` |
+| 2.7 | **Referral loop read** | ✅ | `npm run qa:referral-loop` in growth-weekly |
 
 ---
 
@@ -49,7 +49,7 @@
 | Rank | Item | Status | Notes |
 |------|------|--------|-------|
 | 3.1 | **CI: `typecheck` + `test:unit` on PRs** | ✅ | Root `.github/workflows/ci.yml` |
-| 3.2 | **Add map-hub Playwright to nightly or commerce smoke** | ⬜ | `tests/map-hub-editor.spec.ts` |
+| 3.2 | **Add map-hub Playwright to nightly or commerce smoke** | ✅ | `tests/map-hub-editor.spec.ts` in `qa:smoke:commerce` |
 | 3.3 | **Remove duplicate weak CI** | ✅ | Removed lint-only `star-map-app-final/.github/workflows/ci.yml` |
 | 3.4 | **Stripe webhook event dedupe** | ✅ | `stripe:event:{id}` via `kv.incr` |
 
@@ -60,9 +60,9 @@
 | Rank | Item | Status | Notes |
 |------|------|--------|-------|
 | 4.1 | **B4 — Permissioned social proof** | ⏸ | Human: real testimonials; no fabricated quotes |
-| 4.2 | **B5 — Weekly GSC → title/H1 pass** | 🟡 | `npm run qa:b5-weekly` (GSC snapshot + Lighthouse money pages) |
+| 4.2 | **B5 — Weekly GSC → title/H1 pass** | ✅ | `/star-map-generator`, `/personalized-star-map`, `/star-map-poster`; `npm run qa:b5-weekly` |
 | 4.3 | **Free shipping UI** | ✅ | Checkout waives at $100+ via `printFreeShipping.ts`; unit tests + `verify-print-free-shipping.mjs` |
-| 4.4 | **Support email send-as** | ⬜ | `support-email-send-as-setup.md` |
+| 4.4 | **Support email send-as** | 🟡 | Copy guard: `npm run qa:support-email-copy`; Gmail send-as still human ops (`support-email-send-as-setup.md`) |
 | 4.5 | **Public `/order-status` (Layer C2)** | ⏸ | Deferred; reduces support load later |
 
 ---
@@ -98,7 +98,7 @@
 |------|---------|
 | 2026-06-15 | Phase A sign-off; transactional email polish; ads go decision |
 | 2026-06-09 | Tier 1.4 card 4×6 export, Tier 2.4 promo fallback UX |
-| 2026-06-09 | Tier 1.1–1.3, 2.1–2.3, 3.1 — fulfillment validation, analytics, CI |
+| 2026-06-18 | Tiers 1–4 close-out: margin guard verify, Printful policy + honest copy, GA4 UTM params, referral read, map-hub CI, B5 poster SEO |
 
 ---
 

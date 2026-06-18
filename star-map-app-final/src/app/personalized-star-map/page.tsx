@@ -14,7 +14,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintProductionReviewTrustPoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -44,6 +44,7 @@ export const metadata: Metadata = {
 
 export default function PersonalizedStarMapPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -205,7 +206,7 @@ export default function PersonalizedStarMapPage() {
           "Export up to 6000x6000 resolution",
           "Built for poster-quality prints and framing",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Email support at support@starmapco.com",
         ]}
         guideLabel="Print size and frame guide"

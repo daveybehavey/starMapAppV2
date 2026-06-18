@@ -9,6 +9,10 @@ export type Ga4PurchaseInput = {
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant | null;
   includeDigitalAddOn?: boolean;
+  campaign?: string;
+  source?: string;
+  medium?: string;
+  content?: string;
 };
 
 const GA4_MP_DEDUPE_TTL_SECONDS = 400 * 24 * 60 * 60;
@@ -134,6 +138,10 @@ function buildPurchaseParams(input: Ga4PurchaseInput) {
     currency: getCheckoutCurrency(input),
     value,
     ...(freeCheckout ? { free_checkout: true } : {}),
+    ...(input.campaign ? { campaign: input.campaign } : {}),
+    ...(input.source ? { source: input.source } : {}),
+    ...(input.medium ? { medium: input.medium } : {}),
+    ...(input.content ? { content: input.content } : {}),
     items: [
       removeUndefinedValues({
         item_id: getCheckoutItemId(input),

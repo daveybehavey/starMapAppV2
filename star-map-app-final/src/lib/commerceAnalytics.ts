@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 import { isPrintVariant } from "./printCatalog";
 import type { Ga4PurchaseInput } from "./ga4MeasurementProtocol";
+import { buildGa4MarketingParamsFromStripeMetadata } from "./marketingAttributionGa4";
 import {
   applyMarketingAttributionMetadata,
   isQaStripeSession,
@@ -33,6 +34,7 @@ export function buildGa4PurchaseFromStripeSession(session: Stripe.Checkout.Sessi
   const orderType = getOrderTypeFromStripeSession(session);
   const printVariant = getPrintVariantFromStripeSession(session);
   const includeDigitalAddOn = session.metadata?.print_include_digital === "true";
+  const marketing = buildGa4MarketingParamsFromStripeMetadata(session.metadata ?? undefined);
   return {
     transactionId: session.id,
     plan: getPlanFromStripeSession(session),
@@ -41,5 +43,6 @@ export function buildGa4PurchaseFromStripeSession(session: Stripe.Checkout.Sessi
     includeDigitalAddOn,
     value: stripeSessionPaidValueDollars(session),
     currency: typeof session.currency === "string" ? session.currency : undefined,
+    ...marketing,
   };
 }

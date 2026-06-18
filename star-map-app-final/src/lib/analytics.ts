@@ -1,6 +1,7 @@
 import type { FunnelStep } from "./funnelSteps";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 import { pushDataLayer } from "./googleTagManager";
+import { buildGa4MarketingParams } from "./marketingAttributionGa4";
 import {
   trackPinterestAddToCart,
   trackPinterestCheckout,
@@ -241,11 +242,13 @@ export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: st
   const value = estimateCheckoutValue(input);
   const currency = getCheckoutCurrency(input);
   const items = [buildGaItem(input)];
+  const marketing = buildGa4MarketingParams();
   sendGaEvent("begin_checkout", {
     currency,
     value,
     items,
     source: input.source,
+    ...marketing,
   });
   pushDataLayer({
     event: "begin_checkout",
@@ -254,6 +257,7 @@ export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: st
     source: input.source,
     order_type: input.orderType ?? "digital",
     print_variant: input.printVariant ?? undefined,
+    ...marketing,
   });
   if (canTrackAnalytics()) {
     trackPinterestAddToCart({ value, currency });
@@ -301,6 +305,7 @@ export function trackPurchaseCompleted(
         // Ignore storage failures.
       }
     }
+    const marketing = buildGa4MarketingParams();
     // PostHog revenue still fires client-side when consent is granted (server has no PostHog secret).
     if (canTrackAnalytics()) {
       const value = estimateCheckoutValue(input);
@@ -316,6 +321,7 @@ export function trackPurchaseCompleted(
         include_digital_add_on: input.includeDigitalAddOn ?? undefined,
         ga4_server_primary: true,
         ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
+        ...marketing,
       });
       pushDataLayer({
         event: "purchase",
@@ -324,6 +330,8 @@ export function trackPurchaseCompleted(
         value,
         order_type: input.orderType ?? "digital",
         print_variant: input.printVariant ?? undefined,
+        ga4_server_primary: true,
+        ...marketing,
       });
       trackPinterestCheckout({ value, currency, orderId: input.transactionId });
     }
@@ -338,12 +346,14 @@ export function trackPurchaseCompleted(
   const value = estimateCheckoutValue(input);
   const currency = getCheckoutCurrency(input);
   const items = [buildGaItem({ ...input, value })];
+  const marketing = buildGa4MarketingParams();
   sendGaEvent("purchase", {
     transaction_id: input.transactionId,
     currency,
     value,
     ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
     items,
+    ...marketing,
   });
   pushDataLayer({
     event: "purchase",
@@ -352,6 +362,7 @@ export function trackPurchaseCompleted(
     value,
     order_type: input.orderType ?? "digital",
     print_variant: input.printVariant ?? undefined,
+    ...marketing,
   });
   trackPinterestCheckout({ value, currency, orderId: input.transactionId });
   track("purchase", {

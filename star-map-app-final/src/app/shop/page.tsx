@@ -10,6 +10,8 @@ import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
+  getPrintProductionReviewDisclosure,
+  getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { formatPrintDeliveryDisclosure, formatPrintShippingEstimateWithDelivery } from "@/lib/printfulShipping";
@@ -61,6 +63,8 @@ export default function ShopPage() {
   );
   const printBadge = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewDisclosure = getPrintProductionReviewDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const printTiers = getPrintPricingTiers();
   const digitals = getPricingTiers();
   const printShippingCountry = "US";
@@ -209,7 +213,7 @@ export default function ShopPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-neutral-700 sm:text-lg">
           Every product starts in the editor so your sky, typography, and occasion lines stay yours. Physical orders ship
-          through Printful with manual review before production.
+          through Printful. {productionReviewDisclosure}
         </p>
         <p className="mt-2 text-sm text-neutral-700">
           HD from <span className="font-semibold text-midnight">{digitalPrice}</span>
@@ -333,7 +337,7 @@ export default function ShopPage() {
             </div>
             <p className="mt-2 text-sm text-neutral-700">
               Same editor artwork — pick product options after your preview. Shipping appears in Stripe before payment.
-              Fulfillment via Printful with manual review on physical orders.
+              {` ${productionReviewDisclosure}`}
             </p>
             <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {merchFamilies.map((family) => {
@@ -430,7 +434,7 @@ export default function ShopPage() {
         rightPoints={[
           "Framed and unframed print paths available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

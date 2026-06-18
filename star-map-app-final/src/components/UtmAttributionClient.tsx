@@ -14,7 +14,14 @@ export default function UtmAttributionClient() {
   useEffect(() => {
     if (typeof window === "undefined" || sentRef.current) return;
     const attribution = getReferralAttributionFromSearchParams(searchParams);
-    if (!attribution?.source && !attribution?.medium && !attribution?.campaign) return;
+    if (
+      !attribution?.source &&
+      !attribution?.medium &&
+      !attribution?.campaign &&
+      !attribution?.content
+    ) {
+      return;
+    }
 
     try {
       if (sessionStorage.getItem(UTM_CAPTURED_KEY) === "1") return;

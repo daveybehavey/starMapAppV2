@@ -20,6 +20,7 @@ import { testimonialsByPage } from "@/data/testimonials";
 import {
   buildPrintEditorCheckoutHref,
   getFramedHdBundlePriceLine,
+  getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
@@ -84,6 +85,7 @@ const weddingFaqItems = [
 
 export default function WeddingPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const bundlePriceLine = getFramedHdBundlePriceLine();
   const featuredTestimonial = testimonialsByPage.wedding[0];
   const framedHdHref = buildPrintEditorCheckoutHref({
@@ -245,7 +247,7 @@ export default function WeddingPage() {
           "High-resolution file up to 6000x6000",
           "Designed for frame-ready printing",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Shipping, returns, and refund details linked below",
           "Help available at support@starmapco.com",
         ]}

@@ -27,3 +27,14 @@ export function applyMarketingAttributionMetadata(metadata, attribution) {
   if (attribution.campaign) metadata.marketing_campaign = attribution.campaign;
   if (attribution.content) metadata.marketing_content = attribution.content;
 }
+
+/** @param {Record<string, string | undefined> | null | undefined} metadata */
+export function buildGa4MarketingParamsFromStripeMetadata(metadata) {
+  if (!metadata) return {};
+  const out = {};
+  if (metadata.marketing_campaign) out.campaign = metadata.marketing_campaign;
+  if (metadata.marketing_source) out.source = metadata.marketing_source;
+  if (metadata.marketing_medium) out.medium = metadata.marketing_medium;
+  if (metadata.marketing_content) out.content = metadata.marketing_content;
+  return out;
+}

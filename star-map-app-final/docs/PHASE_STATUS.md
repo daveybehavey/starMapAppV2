@@ -101,7 +101,7 @@ One **framed** sale covers **~5–6 days** at **$12/day** ad spend before fulfil
 | **B2** | Editor trust moments | 🟡 | Square/portrait warnings exist; tune as needed |
 | **B3** | Proof gallery (money pages + shop) | ✅ | `HOME_MOCKUPS` on `/`, `/shop`, gift formats, wedding, etc. |
 | **B4** | Permissioned social proof | ⬜ | `docs/testimonial-intake-template.md` — **no placeholder quotes** |
-| **B5** | SEO from GSC data | ⬜ | Weekly title/H1 pass from top queries |
+| **B5** | SEO from GSC data | ✅ | Generator, personalized, poster tuned; `npm run qa:b5-weekly` |
 
 ---
 

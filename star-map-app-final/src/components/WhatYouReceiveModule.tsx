@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatPrintPriceWithShipping, getPrintAddOnTimelinePoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type ReceiveItem = {
@@ -40,9 +40,7 @@ export default function WhatYouReceiveModule({
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
   );
-  const printAutoConfirm = /^(1|true|yes)$/i.test(
-    (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
-  );
+  const printAddOnTimelinePoint = getPrintAddOnTimelinePoint();
   const shippingDisclosure = getPrintShippingDisclosure();
   const printTiers = getPrintPricingTiers();
   const digitalAddOn = getPrintDigitalAddOnPrice();
@@ -103,11 +101,7 @@ export default function WhatYouReceiveModule({
           <li>Unlock HD and download immediately.</li>
           {printCheckoutEnabled ? (
             <>
-              <li>
-                {printAutoConfirm
-                  ? "If you add print, the physical order is submitted for fulfillment after payment."
-                  : "If you add print, the physical order is created for manual review before production starts."}
-              </li>
+              <li>{printAddOnTimelinePoint}</li>
               <li>{shippingDisclosure}</li>
             </>
           ) : null}
