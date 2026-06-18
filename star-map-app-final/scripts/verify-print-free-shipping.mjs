@@ -25,3 +25,5 @@ if (bundle < threshold) {
 }
 
 console.log("\nOK — ads can honestly say free shipping on the $106 wedding bundle.");
+console.log("Checkout applies waive via applyPrintFreeShippingToCheckout in src/app/api/checkout/route.ts.");
+console.log("Run: npm run test:unit -- scripts/unit/printFreeShipping.test.mjs");

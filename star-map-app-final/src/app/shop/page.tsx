@@ -104,6 +104,9 @@ export default function ShopPage() {
   );
   const mugShippingDetail = formatPrintShippingEstimateWithDelivery("mug_11oz", printShippingCountry, "shipping");
 
+  const stickerFamily = merchFamilies.find((f) => f.id === "sticker_kisscut");
+  const stickerPrice = stickerFamily ? formatPrice(getMerchPublicDisplayPriceCents(stickerFamily), "USD") : null;
+
   const productCards = [
     {
       key: "framed",
@@ -176,6 +179,25 @@ export default function ShopPage() {
         "mt-auto inline-flex justify-center rounded-full bg-midnight px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-midnight/90",
       darkCard: true,
     },
+    ...(stickerFamily && stickerPrice
+      ? [
+          {
+            key: "stickers",
+            imageSrc: "/printproof/gift-raw/sticker/sticker-mockup.png",
+            alt: "Kiss-cut star map stickers on a laptop",
+            title: getMerchPublicDisplayLabel(stickerFamily),
+            detail:
+              "Weatherproof kiss-cut stickers from the same map you preview — great add-on gift or laptop keepsake.",
+            price: `${stickerPrice}+ shipping`,
+            shippingNote: "Pick size in editor · Printful fulfillment",
+            href: "/editor?mode=quick&source=shop-sticker&merch_family=sticker_kisscut",
+            cta: "Customize stickers",
+            ctaClass:
+              "mt-auto inline-flex justify-center rounded-full bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800",
+            darkCard: false,
+          },
+        ]
+      : []),
   ] as const;
 
   return (
@@ -303,7 +325,12 @@ export default function ShopPage() {
 
         {merchFamilies.length ? (
           <section id="merch-addons" className="mt-14 border-t border-neutral-200 pt-10">
-            <h2 className="text-xl font-semibold text-midnight">Wearables & small merch</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-semibold text-midnight">Stickers & small merch</h2>
+              <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-800">
+                Live beta
+              </span>
+            </div>
             <p className="mt-2 text-sm text-neutral-700">
               Same editor artwork — pick product options after your preview. Shipping appears in Stripe before payment.
               Fulfillment via Printful with manual review on physical orders.
@@ -415,9 +442,12 @@ export default function ShopPage() {
 
       <StickyCtaBar
         source="sticky-shop"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-shop-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        buttonLabel="Preview framed print"
+        primaryHref="/editor?mode=quick&source=sticky-shop-framed&checkout=print&print_variant=poster_framed"
+        primaryPlan="print_framed"
+        secondaryButtonLabel="Custom stickers"
+        secondaryHref="/editor?mode=quick&source=sticky-shop-sticker&merch_family=sticker_kisscut"
+        secondaryPlan="merch_sticker"
       />
     </main>
   );

@@ -19,14 +19,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Generator | StarMapCo",
+  title: "Free Star Map Generator by Date & Location | StarMapCo",
   description:
-    "Use a star map generator to create a custom star map or night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Free star map generator: preview the exact night sky for any date and location. No account required. Upgrade to framed print, unframed poster, or HD digital when your design is ready.",
   alternates: { canonical: `${siteUrl}/star-map-generator` },
   openGraph: {
-    title: "Star Map Generator | StarMapCo",
+    title: "Free Star Map Generator by Date & Location | StarMapCo",
     description:
-      "Use a star map generator to create a custom star map or night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Free star map generator with a live preview for any date and place. Choose framed print, unframed poster, or HD digital after your map looks right.",
     url: `${siteUrl}/star-map-generator`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -42,10 +42,10 @@ export default function StarMapGeneratorPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Generator</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Free star map generator — night sky by date</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Build a custom star map with our star map generator. Enter the date, time, and location to preview the exact
-          night sky, then choose framed print, unframed print, or HD digital delivery.
+          Use our free star map generator to preview the exact night sky for any date and location. When it looks right,
+          upgrade to framed print, unframed poster, or HD digital — no watermark on paid exports.
         </p>
       </header>
 
@@ -185,6 +185,12 @@ export default function StarMapGeneratorPage() {
             Star map gift ideas
           </Link>
           <Link
+            href="/shop#merch-addons"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Custom stickers
+          </Link>
+          <Link
             href="/blog"
             className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
           >
@@ -210,6 +216,13 @@ export default function StarMapGeneratorPage() {
               choosing framed print, unframed print, or HD digital delivery.
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Is this star map generator free?</h3>
+            <p>
+              Yes — you can preview your map for free with no account required. HD downloads and physical prints are paid
+              upgrades after you approve the design. We do not offer free PDF or wallpaper downloads.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -223,6 +236,11 @@ export default function StarMapGeneratorPage() {
             question: "Can I create a star map for any date and location?",
             answer:
               "Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before choosing framed print, unframed print, or HD digital delivery.",
+          },
+          {
+            question: "Is this star map generator free?",
+            answer:
+              "Yes — preview is free with no account required. HD downloads and physical prints are paid upgrades after you approve the design.",
           },
         ]}
       />
