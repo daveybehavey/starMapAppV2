@@ -1,5 +1,6 @@
 import Link from "next/link";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -95,7 +96,9 @@ export default function AnniversaryPage() {
           >
             Preview canvas wrap
           </Link>
+          <InstantHdHeroExtras source="anniversary-hero-instant" showFunnelLink={false} />
         </div>
+        <InstantHdHeroExtras source="anniversary-hero-instant" showButton={false} />
         <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
 

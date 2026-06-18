@@ -13,6 +13,7 @@ import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import {
@@ -88,7 +89,9 @@ export default function PersonalizedStarMapPage() {
           >
             Start free preview
           </Link>
+          <InstantHdHeroExtras source="personalized-star-map-hero-instant" showFunnelLink={false} />
         </div>
+        <InstantHdHeroExtras source="personalized-star-map-hero-instant" showButton={false} />
         <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
 

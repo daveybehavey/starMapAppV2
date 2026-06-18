@@ -3,6 +3,7 @@ import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
@@ -84,7 +85,9 @@ export default function NightSkyMapGiftPage() {
           >
             Start free preview
           </Link>
+          <InstantHdHeroExtras source="night-sky-map-gift-hero-instant" showFunnelLink={false} />
         </div>
+        <InstantHdHeroExtras source="night-sky-map-gift-hero-instant" showButton={false} />
         <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
 

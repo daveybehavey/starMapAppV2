@@ -7,6 +7,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import OccasionLinks from "@/components/OccasionLinks";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -130,7 +131,9 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           >
             Start free preview
           </Link>
+          <InstantHdHeroExtras source={`${sourcePrefix}-hero-instant`} showFunnelLink={false} />
         </div>
+        <InstantHdHeroExtras source={`${sourcePrefix}-hero-instant`} showButton={false} />
         <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
 

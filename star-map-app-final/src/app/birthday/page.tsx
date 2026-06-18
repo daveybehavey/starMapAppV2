@@ -3,6 +3,7 @@ import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
 import OccasionLinks from "@/components/OccasionLinks";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
@@ -97,12 +98,8 @@ export default function BirthdayPage() {
             Free preview only
           </Link>
         </div>
+        <InstantHdHeroExtras source="birthday-hero-instant" showButton={false} />
         <p className="text-xs text-neutral-300 sm:text-sm">
-          Last-minute?{" "}
-          <Link href="/hd-star-map" className="font-semibold text-amber-200 underline decoration-amber-400/50 underline-offset-2 hover:text-amber-100">
-            Instant HD funnel
-          </Link>
-          {" · "}
           Popular bundle: {bundlePriceLine}
         </p>
       </header>

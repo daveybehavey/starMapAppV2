@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import type { VerifiedTestimonial } from "@/data/testimonials";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
 
@@ -108,6 +109,7 @@ export default function WeddingLandingHero({
             Free preview first
           </Link>
         </div>
+        <InstantHdHeroExtras source="wedding-hero-instant" showButton={false} />
       </div>
 
       <figure className="mx-auto w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-white/5 shadow-2xl shadow-black/30 lg:max-w-none">
