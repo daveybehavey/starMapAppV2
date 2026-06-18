@@ -60,8 +60,8 @@
 | Rank | Item | Status | Notes |
 |------|------|--------|-------|
 | 4.1 | **B4 — Permissioned social proof** | ⏸ | Human: real testimonials; no fabricated quotes |
-| 4.2 | **B5 — Weekly GSC → title/H1 pass** | ⬜ | `npm run data:pull` habit |
-| 4.3 | **Free shipping UI** | ⏸ | `freeShippingPolicy.ts` not wired; do not advertise until checkout waives |
+| 4.2 | **B5 — Weekly GSC → title/H1 pass** | 🟡 | `npm run qa:b5-weekly` (GSC snapshot + Lighthouse money pages) |
+| 4.3 | **Free shipping UI** | ✅ | Checkout waives at $100+ via `printFreeShipping.ts`; unit tests + `verify-print-free-shipping.mjs` |
 | 4.4 | **Support email send-as** | ⬜ | `support-email-send-as-setup.md` |
 | 4.5 | **Public `/order-status` (Layer C2)** | ⏸ | Deferred; reduces support load later |
 

@@ -53,6 +53,7 @@ export default function PersonalizedStarMapPage() {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Best Personalized Star Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
           A personalized star map gift with names, a date, and a location—the exact night sky from a moment worth framing.
+          Framed print + HD digital qualifies for free shipping at checkout.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
@@ -253,6 +254,17 @@ export default function PersonalizedStarMapPage() {
               Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. {shippingDisclosure}
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What is the best personalized star map gift?</h3>
+            <p>
+              Most gift buyers choose the framed print so it arrives ready to display, often paired with HD digital for a
+              keepsake file. Orders at $100+ qualify for free shipping. Add{" "}
+              <Link href="/shop#merch-addons" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+                custom kiss-cut stickers
+              </Link>{" "}
+              from the same map for a small add-on gift.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -278,6 +290,11 @@ export default function PersonalizedStarMapPage() {
           {
             question: "Can I order a printed or framed version directly?",
             answer: `Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. ${shippingDisclosure}`,
+          },
+          {
+            question: "What is the best personalized star map gift?",
+            answer:
+              "Most gift buyers choose framed print so it arrives ready to display, often with HD digital included. Orders at $100+ qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
           },
         ]}
       />
