@@ -7,6 +7,9 @@ type BlogPostConversionLinksProps = {
 
 const LINKS = [
   { href: "/editor", label: "Create your star map" },
+  { href: "/star-map-for/engagement", label: "Engagement star map gift" },
+  { href: "/star-map-for/proposal", label: "Proposal star map gift" },
+  { href: "/star-map-for/memorial", label: "Memorial star map gift" },
   { href: "/hd-star-map", label: "Instant HD download" },
   { href: "/personalized-star-map", label: "Personalized star map gifts" },
   { href: "/star-map-for/new-baby", label: "New baby star maps" },

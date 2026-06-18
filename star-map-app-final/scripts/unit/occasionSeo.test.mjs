@@ -1,20 +1,47 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-/** Keep in sync with new-baby row in seoOccasions.ts */
-const NEW_BABY_SEO = {
-  seoTitle: "New Baby Star Map Gift — Birth Night Sky | StarMapCo",
-  seoH1: "New Baby Star Map Gift",
-  seoDescription:
-    "Create a personalized new baby star map from their birth date, time, and hospital or home city. Free preview, then framed + HD digital with free shipping on $100+ orders.",
-};
+/** GSC-tuned occasion rows — keep in sync with seoOccasions.ts */
+const TUNED_OCCASIONS = [
+  {
+    slug: "new-baby",
+    seoTitle: "New Baby Star Map Gift — Birth Night Sky | StarMapCo",
+    seoH1: "New Baby Star Map Gift",
+    mustMatchTitle: /New Baby/i,
+  },
+  {
+    slug: "engagement",
+    seoTitle: "Engagement Star Map Gift — Proposal Night Sky | StarMapCo",
+    seoH1: "Engagement Star Map Gift",
+    mustMatchTitle: /Engagement/i,
+  },
+  {
+    slug: "proposal",
+    seoTitle: "Proposal Star Map Gift — Custom Night Sky | StarMapCo",
+    seoH1: "Proposal Star Map Gift",
+    mustMatchTitle: /Proposal/i,
+  },
+  {
+    slug: "memorial",
+    seoTitle: "Memorial Star Map Gift — Remembrance Night Sky | StarMapCo",
+    seoH1: "Memorial Star Map Gift",
+    mustMatchTitle: /Memorial/i,
+  },
+  {
+    slug: "graduation",
+    seoTitle: "Graduation Star Map Gift — Ceremony Night Sky | StarMapCo",
+    seoH1: "Graduation Star Map Gift",
+    mustMatchTitle: /Graduation/i,
+  },
+];
 
-test("new-baby occasion has GSC-tuned metadata fields", () => {
-  assert.match(NEW_BABY_SEO.seoTitle, /New Baby/i);
-  assert.match(NEW_BABY_SEO.seoDescription, /framed \+ HD/i);
-  assert.match(NEW_BABY_SEO.seoDescription, /\$100\+/);
-  assert.equal(NEW_BABY_SEO.seoH1, "New Baby Star Map Gift");
-});
+for (const occasion of TUNED_OCCASIONS) {
+  test(`${occasion.slug} occasion has GSC-tuned title and H1`, () => {
+    assert.match(occasion.seoTitle, occasion.mustMatchTitle);
+    assert.match(occasion.seoH1, occasion.mustMatchTitle);
+    assert.match(occasion.seoTitle, /StarMapCo$/);
+  });
+}
 
 test("default occasion description mentions framed + HD path", () => {
   const suffix =

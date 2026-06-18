@@ -39,14 +39,14 @@ const featuredOccasions = seoOccasions.filter((occasion) => featuredOccasionSlug
 const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasionSlug(occasion.slug));
 
 export const metadata: Metadata = {
-  title: "Star Map for Occasions | StarMapCo",
+  title: "Custom Star Map Gifts by Occasion | StarMapCo",
   description:
-    "Star maps for new baby, engagement, proposal, graduation, memorial, and more. Free preview, then framed + HD digital with free shipping on $100+ orders.",
+    "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or instant HD download.",
   alternates: { canonical: `${siteUrl}/star-map-for` },
   openGraph: {
-    title: "Star Map for Occasions | StarMapCo",
+    title: "Custom Star Map Gifts by Occasion | StarMapCo",
     description:
-      "Star maps for new baby, engagement, proposal, graduation, memorial, and more. Free preview, then framed + HD digital with free shipping on $100+ orders.",
+      "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or instant HD download.",
     url: `${siteUrl}/star-map-for`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Star maps for new baby, engagement, proposal, graduation, memorial, and more. Free preview, then framed + HD digital with free shipping on $100+ orders.",
+      "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or instant HD download.",
     images: [ogImage],
   },
 };
@@ -71,9 +71,9 @@ export default function StarMapForOccasionsPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map for Every Occasion</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Star Map Gifts by Occasion</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          From new baby and engagement gifts to graduations and memorials — create a custom star map that captures the
+          Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more — capture the
           exact night sky from your date and location.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -84,10 +84,28 @@ export default function StarMapForOccasionsPage() {
             Preview framed + HD gift
           </Link>
           <Link
+            href="/star-map-for/engagement"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Engagement gifts
+          </Link>
+          <Link
+            href="/star-map-for/proposal"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Proposal gifts
+          </Link>
+          <Link
             href="/star-map-for/new-baby"
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            New baby star maps
+            New baby
+          </Link>
+          <Link
+            href="/hd-star-map"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/20 bg-transparent px-4 py-3 text-sm font-semibold text-neutral-200 underline decoration-white/30 underline-offset-2 transition hover:text-white"
+          >
+            Instant HD
           </Link>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
