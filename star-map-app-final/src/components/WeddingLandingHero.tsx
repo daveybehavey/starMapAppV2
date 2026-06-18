@@ -36,7 +36,7 @@ export default function WeddingLandingHero({
             The night you said &ldquo;I do&rdquo; — framed for the wall
           </h1>
           <p className="mx-auto max-w-xl text-sm leading-relaxed text-white/90 sm:text-base lg:mx-0">
-            Preview the exact sky from your ceremony, then order the{" "}
+            Custom star map for your wedding date and location — preview the exact ceremony sky, then order the{" "}
             <span className="font-semibold text-amber-50">{bundlePriceLine}</span> gift bundle when it feels right.
           </p>
         </div>

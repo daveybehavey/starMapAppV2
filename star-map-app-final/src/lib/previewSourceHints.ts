@@ -85,16 +85,20 @@ export function shouldDefaultEditorPaywallToPrint(
   return false;
 }
 
-/** Auto-open paywall after reveal when the visitor chose an explicit print checkout path. */
+/** Auto-open paywall after reveal for explicit print paths and paid wedding Search traffic. */
 export function shouldAutoOpenEditorPrintPaywall(
   source: string | null | undefined,
   checkoutParam?: string | null,
+  utmCampaign?: string | null,
 ): boolean {
   if (checkoutParam === "print") return true;
   if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") {
     return true;
   }
-  return isWeddingPrintLandingSource(source);
+  if (isWeddingPrintLandingSource(source)) return true;
+  if (isWeddingUtmCampaign(utmCampaign)) return true;
+  const attribution = readClientMarketingAttribution();
+  return isWeddingUtmCampaign(attribution?.campaign);
 }
 
 /** Auto-open paywall on the HD tab when map hub (or similar) sends explicit digital intent. */
@@ -172,7 +176,7 @@ export function resolveEditorGiftTrafficIntent(params: {
   const { source, checkoutParam, printVariantParam, utmCampaign, explicitIncludeDigitalAddOn } = params;
   const defaultToPrint = shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCampaign);
   const digitalAutoOpen = shouldAutoOpenEditorDigitalPaywall(source, checkoutParam);
-  const printAutoOpen = shouldAutoOpenEditorPrintPaywall(source, checkoutParam);
+  const printAutoOpen = shouldAutoOpenEditorPrintPaywall(source, checkoutParam, utmCampaign);
 
   return {
     paywallIntent: digitalAutoOpen ? "digital" : defaultToPrint ? "print" : "digital",

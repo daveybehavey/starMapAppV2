@@ -71,11 +71,14 @@ export function shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCamp
 /**
  * @param {string | null | undefined} source
  * @param {string | null | undefined} [checkoutParam]
+ * @param {string | null | undefined} [utmCampaign]
  */
-export function shouldAutoOpenEditorPrintPaywall(source, checkoutParam) {
+export function shouldAutoOpenEditorPrintPaywall(source, checkoutParam, utmCampaign) {
   if (checkoutParam === "print") return true;
   if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") return true;
-  return isWeddingPrintLandingSource(source);
+  if (isWeddingPrintLandingSource(source)) return true;
+  if (isWeddingUtmCampaign(utmCampaign)) return true;
+  return false;
 }
 
 /**
@@ -131,7 +134,7 @@ export function resolveEditorGiftTrafficIntent(params) {
   const { source, checkoutParam, printVariantParam, utmCampaign, explicitIncludeDigitalAddOn } = params;
   const defaultToPrint = shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCampaign);
   const digitalAutoOpen = shouldAutoOpenEditorDigitalPaywall(source, checkoutParam);
-  const printAutoOpen = shouldAutoOpenEditorPrintPaywall(source, checkoutParam);
+  const printAutoOpen = shouldAutoOpenEditorPrintPaywall(source, checkoutParam, utmCampaign);
 
   return {
     paywallIntent: digitalAutoOpen ? "digital" : defaultToPrint ? "print" : "digital",

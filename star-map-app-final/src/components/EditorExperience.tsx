@@ -60,7 +60,6 @@ import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import {
   resolveEditorGiftTrafficIntent,
   isWeddingCommerceContext,
-  isWeddingUtmCampaign,
   shouldAutoOpenEditorDigitalPaywall,
 } from "@/lib/previewSourceHints";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
@@ -3480,12 +3479,7 @@ export function EditorExperience({
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
-              giftPaywallContext={
-                isWeddingCommerceContext(searchParams.get("source")) ||
-                isWeddingUtmCampaign(searchParams.get("utm_campaign"))
-                  ? "wedding"
-                  : undefined
-              }
+              giftPaywallContext={isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined}
               showReferralHint={Boolean(getCheckoutReferralCode())}
               onStartCheckout={(plan) => {
                 setPaywallIntent("digital");

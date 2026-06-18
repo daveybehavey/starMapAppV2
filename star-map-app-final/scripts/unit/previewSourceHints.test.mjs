@@ -36,7 +36,7 @@ test("preview-first wedding paths stay neutral", () => {
   }
 });
 
-test("gift_wedding_2026 UTM defaults print tab without auto-open on neutral preview", () => {
+test("gift_wedding_2026 UTM defaults print tab and auto-opens paywall for paid wedding traffic", () => {
   const intent = resolveEditorGiftTrafficIntent({
     source: "wedding-hero-preview",
     checkoutParam: null,
@@ -45,7 +45,7 @@ test("gift_wedding_2026 UTM defaults print tab without auto-open on neutral prev
   });
   assert.equal(intent.paywallIntent, "print");
   assert.equal(intent.preferredIncludeDigitalAddOn, true);
-  assert.equal(intent.autoOpenPaywall, false);
+  assert.equal(intent.autoOpenPaywall, true);
 
   const withPrintSource = resolveEditorGiftTrafficIntent({
     source: "wedding-framed",
@@ -69,7 +69,7 @@ test("sticky wedding print CTA auto-opens paywall", () => {
   assert.equal(intent.autoOpenPaywall, true);
 });
 
-test("utm-only editor entry defaults print intent to framed bundle", () => {
+test("utm-only editor entry defaults print intent to framed bundle and opens paywall", () => {
   const intent = resolveEditorGiftTrafficIntent({
     source: null,
     checkoutParam: null,
@@ -79,7 +79,7 @@ test("utm-only editor entry defaults print intent to framed bundle", () => {
   assert.equal(intent.paywallIntent, "print");
   assert.equal(intent.preferredPrintVariant, "poster_framed");
   assert.equal(intent.preferredIncludeDigitalAddOn, true);
-  assert.equal(intent.autoOpenPaywall, false);
+  assert.equal(intent.autoOpenPaywall, true);
 });
 
 test("unframed wedding source selects poster_unframed", () => {
