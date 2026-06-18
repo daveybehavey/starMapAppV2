@@ -148,16 +148,15 @@ export default function WeddingPage() {
         ]}
       />
       <StickyCtaBar
-        source="sticky-wedding"
-        title="Still deciding? Preview the wedding sky free"
-        description="Takes minutes — same design for framed + HD, unframed, or HD-only."
-        secondaryButtonLabel="Preview framed + HD"
-        secondaryHref={buildPrintEditorCheckoutHref({
-          source: "sticky-wedding-framed-hd",
-          variant: "poster_framed",
-          includeDigitalAddOn: true,
-        })}
-        secondaryPlan="print_framed_hd"
+        source="sticky-wedding-framed-hd"
+        title="Ready to see your ceremony sky?"
+        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        buttonLabel="Preview framed + HD"
+        primaryHref={framedHdHref}
+        primaryPlan="print_framed_hd"
+        secondaryButtonLabel="Free preview only"
+        secondaryHref="/editor?mode=quick&source=sticky-wedding-preview"
+        secondaryPlan="preview"
       />
 
       <WeddingGiftJourneySection />

@@ -41,7 +41,8 @@ test("gift_wedding_2026 UTM defaults print tab without auto-open on neutral prev
     printVariantParam: null,
     utmCampaign: "gift_wedding_2026",
   });
-  assert.equal(intent.paywallIntent, "digital");
+  assert.equal(intent.paywallIntent, "print");
+  assert.equal(intent.preferredIncludeDigitalAddOn, true);
   assert.equal(intent.autoOpenPaywall, false);
 
   const withPrintSource = resolveEditorGiftTrafficIntent({
@@ -53,6 +54,17 @@ test("gift_wedding_2026 UTM defaults print tab without auto-open on neutral prev
   assert.equal(withPrintSource.paywallIntent, "print");
   assert.equal(withPrintSource.preferredPrintVariant, "poster_framed");
   assert.equal(withPrintSource.autoOpenPaywall, true);
+});
+
+test("sticky wedding print CTA auto-opens paywall", () => {
+  const intent = resolveEditorGiftTrafficIntent({
+    source: "sticky-wedding-framed-hd",
+    checkoutParam: "print",
+    printVariantParam: "poster_framed",
+    utmCampaign: null,
+  });
+  assert.equal(intent.paywallIntent, "print");
+  assert.equal(intent.autoOpenPaywall, true);
 });
 
 test("utm-only editor entry defaults print intent to framed bundle", () => {

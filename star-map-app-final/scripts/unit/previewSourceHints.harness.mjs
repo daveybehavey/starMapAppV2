@@ -44,8 +44,8 @@ export function shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCamp
   if (checkoutParam === "print") return true;
   if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") return true;
   if (isWeddingPrintLandingSource(source)) return true;
-  if (isNeutralWeddingPreviewSource(source)) return false;
   if (isWeddingUtmCampaign(utmCampaign)) return true;
+  if (isNeutralWeddingPreviewSource(source)) return false;
   return false;
 }
 
