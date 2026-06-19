@@ -55,6 +55,7 @@ interface MobileCreateProps {
     includeDigitalAddOn: boolean;
     includeCardAddOn?: boolean;
   }) => void;
+  onIntensityPaywall?: () => void;
 }
 
 export function MobileCreate({
@@ -75,6 +76,7 @@ export function MobileCreate({
   onPrintShippingCountryChange,
   printCheckoutInFlight = false,
   onStartPrintCheckout,
+  onIntensityPaywall,
 }: MobileCreateProps) {
   // Use shared editor logic hook
   const {
@@ -155,6 +157,7 @@ export function MobileCreate({
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
+  const [showIntensityBanner, setShowIntensityBanner] = useState(false);
 
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
@@ -276,13 +279,17 @@ export function MobileCreate({
       if (!paid && value > 60) {
         setIntensityDisplay(60);
         track("paywall_intensity_blocked", { attemptedValue: value });
+        if (!showIntensityBanner) {
+          setShowIntensityBanner(true);
+          track("mobile_intensity_upsell_shown", { attemptedValue: value });
+        }
         return;
       }
       setIntensityDisplay(value);
       setIntensity(value);
       applyVisualOptions(renderMode, value);
     },
-    [applyVisualOptions, paid, renderMode, setIntensity, setIntensityDisplay],
+    [applyVisualOptions, paid, renderMode, setIntensity, setIntensityDisplay, showIntensityBanner],
   );
 
   // Handle render mode change
@@ -698,6 +705,33 @@ export function MobileCreate({
               aria-valuetext={`Intensity: ${intensityDisplay}%`}
               className="w-full accent-amber-400"
             />
+            {!paid && showIntensityBanner && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+                <p className="text-[11px] font-semibold text-amber-100">
+                  Intensity locked at 60% — unlock more with HD access
+                </p>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      track("mobile_intensity_upsell_clicked");
+                      onIntensityPaywall?.();
+                    }}
+                    className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                  >
+                    Unlock HD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowIntensityBanner(false)}
+                    aria-label="Dismiss intensity upsell"
+                    className="text-amber-100/60 hover:text-amber-100 text-[14px] leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}

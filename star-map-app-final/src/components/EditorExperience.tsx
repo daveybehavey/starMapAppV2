@@ -1279,6 +1279,7 @@ export function EditorExperience({
       renderExportFile,
       renderOptions.visualMode,
       revealed,
+      trackPaywallOpenedEvent,
       triggerDownload,
     ]
   );
@@ -3521,6 +3522,11 @@ export function EditorExperience({
                     }
                   : undefined
               }
+              onIntensityPaywall={() => {
+                setPaywallIntent("digital");
+                setPaywallOpen(true);
+                trackPaywallOpenedEvent("digital", "mobile_intensity");
+              }}
             />
           </div>
         )}
