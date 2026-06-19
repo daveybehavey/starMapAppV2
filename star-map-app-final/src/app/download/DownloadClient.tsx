@@ -1644,6 +1644,27 @@ export default function DownloadClient() {
           </div>
         </section>
 
+        {status === "not-paid" && (
+          <section className="rounded-2xl border border-amber-300/30 bg-amber-400/8 p-5 text-center sm:p-6">
+            <p className="text-sm font-semibold text-amber-100">Already purchased?</p>
+            <p className="mt-1 text-xs text-amber-100/80">
+              If you cleared cookies, switched devices, or opened a private window, your access cookie is gone — but
+              your order is safe. Enter the email you used at checkout to get a new sign-in link.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/my-downloads"
+                onClick={() => {
+                  track("download_recovery_action", { action: "not_paid_restore_access", source: "not_paid_callout" });
+                }}
+                className="inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-400/20 px-5 py-2.5 text-sm font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
+              >
+                Restore access →
+              </Link>
+            </div>
+          </section>
+        )}
+
         <section className="rounded-3xl border border-white/15 bg-white/[0.07] p-5 shadow-xl shadow-black/30 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
