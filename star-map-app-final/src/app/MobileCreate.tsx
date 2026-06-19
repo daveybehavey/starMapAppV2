@@ -158,6 +158,8 @@ export function MobileCreate({
   const previewSectionRef = useRef<HTMLDivElement>(null);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
   const [showIntensityBanner, setShowIntensityBanner] = useState(false);
+  const [showRenderModeBanner, setShowRenderModeBanner] = useState(false);
+  const renderModeBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
@@ -297,6 +299,10 @@ export function MobileCreate({
     (mode: RenderModeId) => {
       if ((mode === "cinematic" || mode === "luxe") && !paid) {
         track("paywall_render_mode_blocked", { mode });
+        if (!showRenderModeBanner) {
+          setShowRenderModeBanner(true);
+          track("mobile_render_mode_upsell_shown", { mode });
+        }
         return;
       }
       setRenderMode(mode);
@@ -306,7 +312,7 @@ export function MobileCreate({
       applyVisualOptions(mode, targetLevel);
       track("render_mode_changed", { mode });
     },
-    [applyVisualOptions, intensityDisplay, paid, setIntensity, setIntensityDisplay, setRenderMode],
+    [applyVisualOptions, intensityDisplay, paid, setIntensity, setIntensityDisplay, setRenderMode, showRenderModeBanner],
   );
 
   const handleStartPreset = useCallback(() => {
@@ -402,6 +408,24 @@ export function MobileCreate({
       }
     };
   }, []);
+
+  // Auto-dismiss render mode upsell banner after 20 seconds
+  useEffect(() => {
+    if (!showRenderModeBanner) return;
+    if (renderModeBannerTimerRef.current) {
+      clearTimeout(renderModeBannerTimerRef.current);
+    }
+    renderModeBannerTimerRef.current = setTimeout(() => {
+      setShowRenderModeBanner(false);
+      renderModeBannerTimerRef.current = null;
+    }, 20000);
+    return () => {
+      if (renderModeBannerTimerRef.current) {
+        clearTimeout(renderModeBannerTimerRef.current);
+        renderModeBannerTimerRef.current = null;
+      }
+    };
+  }, [showRenderModeBanner]);
 
   useEffect(() => {
     if (!canReveal || revealed) {
@@ -689,6 +713,34 @@ export function MobileCreate({
               </button>
             ))}
           </div>
+
+          {!paid && showRenderModeBanner && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+              <p className="text-[11px] font-semibold text-amber-100">
+                This render mode requires HD access — unlock to apply it
+              </p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    track("mobile_render_mode_upsell_clicked");
+                    onIntensityPaywall?.();
+                  }}
+                  className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                >
+                  Unlock HD →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRenderModeBanner(false)}
+                  aria-label="Dismiss render mode upsell"
+                  className="text-amber-100/60 hover:text-amber-100 text-[14px] leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
