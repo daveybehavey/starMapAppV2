@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { getReferralAttributionFromSearchParams } from "@/lib/referralAttribution";
+import { storeClientMarketingAttribution } from "@/lib/marketingAttributionStorage";
 
 const UTM_CAPTURED_KEY = "starmap_utm_captured";
 
@@ -12,7 +13,7 @@ export default function UtmAttributionClient() {
   const sentRef = useRef(false);
 
   useEffect(() => {
-    if (typeof window === "undefined" || sentRef.current) return;
+    if (typeof window === "undefined") return;
     const attribution = getReferralAttributionFromSearchParams(searchParams);
     if (
       !attribution?.source &&
@@ -23,12 +24,15 @@ export default function UtmAttributionClient() {
       return;
     }
 
+    storeClientMarketingAttribution(attribution);
+
     try {
       if (sessionStorage.getItem(UTM_CAPTURED_KEY) === "1") return;
     } catch {
       /* ignore */
     }
 
+    if (sentRef.current) return;
     sentRef.current = true;
     void fetch("/api/marketing-attribution", {
       method: "POST",

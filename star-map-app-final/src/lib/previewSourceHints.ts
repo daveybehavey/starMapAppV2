@@ -1,5 +1,6 @@
 import type { PrintVariant } from "@/lib/printCatalog";
 import { normalizeReferralAttribution, type ReferralAttribution } from "@/lib/referralAttribution";
+import { readStoredClientMarketingAttribution } from "@/lib/marketingAttributionStorage";
 
 /** Must match `REFERRAL_SOURCE_COOKIE_NAME` in referralCookie.ts (client-safe duplicate). */
 const REFERRAL_SOURCE_COOKIE_NAME = "starmap_ref_src";
@@ -41,8 +42,11 @@ function decodeBase64UrlCookie(value: string): string {
   return atob(padded + "=".repeat(padLen));
 }
 
-/** Client-only: read marketing UTMs stored by UtmAttributionClient / checkout cookies. */
+/** Client-only: read marketing UTMs from sessionStorage (and legacy readable cookies if present). */
 export function readClientMarketingAttribution(): ReferralAttribution | null {
+  const fromStorage = readStoredClientMarketingAttribution();
+  if (fromStorage) return fromStorage;
+
   if (typeof document === "undefined") return null;
   const pattern = new RegExp(`(?:^|;\\s*)${REFERRAL_SOURCE_COOKIE_NAME}=([^;]*)`);
   const match = document.cookie.match(pattern);

@@ -5,7 +5,7 @@ import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
-import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure, getPrintFreeShippingOfferLine } from "@/lib/printCheckoutConfig";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
@@ -116,13 +116,16 @@ export function PaywallModal({
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
   );
   const isWeddingGift = giftPaywallContext === "wedding";
+  const freeShippingOfferLine = getPrintFreeShippingOfferLine();
   const dialogTitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions
       ? "Complete your wedding gift"
       : copy.title;
   const dialogSubtitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions
-      ? "Most gift-givers choose framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
+      ? freeShippingOfferLine
+        ? `Most gift-givers choose framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
+        : "Most gift-givers choose framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
       : activeIntent === "print" && hasPrintOptions
         ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
         : copy.subtitle;

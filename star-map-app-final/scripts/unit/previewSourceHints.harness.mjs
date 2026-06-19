@@ -1,6 +1,12 @@
 /**
  * Pure preview-source helpers for Node unit tests. Keep in sync with previewSourceHints.ts.
  */
+import {
+  readStoredClientMarketingAttribution,
+  resetMarketingAttributionStorageForTests,
+} from "./marketingAttributionStorage.harness.mjs";
+
+export { resetMarketingAttributionStorageForTests };
 
 /** @param {string | null | undefined} source */
 export function isWeddingPrintLandingSource(source) {
@@ -64,6 +70,8 @@ export function shouldDefaultEditorPaywallToPrint(source, checkoutParam, utmCamp
   if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") return true;
   if (isWeddingPrintLandingSource(source)) return true;
   if (isWeddingUtmCampaign(utmCampaign)) return true;
+  const attribution = readStoredClientMarketingAttribution();
+  if (isWeddingUtmCampaign(attribution?.campaign)) return true;
   if (isNeutralWeddingPreviewSource(source)) return false;
   return false;
 }
@@ -78,7 +86,8 @@ export function shouldAutoOpenEditorPrintPaywall(source, checkoutParam, utmCampa
   if (source === "home-delivery-print-framed" || source === "home-delivery-print-unframed") return true;
   if (isWeddingPrintLandingSource(source)) return true;
   if (isWeddingUtmCampaign(utmCampaign)) return true;
-  return false;
+  const attribution = readStoredClientMarketingAttribution();
+  return isWeddingUtmCampaign(attribution?.campaign);
 }
 
 /**

@@ -3,11 +3,13 @@ import test from "node:test";
 import {
   isDigitalLandingSource,
   isNeutralWeddingPreviewSource,
+  resetMarketingAttributionStorageForTests,
   resolveEditorGiftTrafficIntent,
   shouldAutoOpenEditorDigitalPaywall,
   shouldAutoOpenEditorPrintPaywall,
   shouldDefaultEditorPaywallToPrint,
 } from "./previewSourceHints.harness.mjs";
+import { storeClientMarketingAttribution } from "./marketingAttributionStorage.harness.mjs";
 
 test("wedding framed landing defaults to print and auto-opens paywall", () => {
   const intent = resolveEditorGiftTrafficIntent({
@@ -116,6 +118,20 @@ test("instant HD landing opens digital paywall and stays on digital tab", () => 
   assert.equal(intent.paywallIntent, "digital");
   assert.equal(intent.autoOpenPaywall, true);
   assert.equal(shouldAutoOpenEditorPrintPaywall("birthday-hero-instant-hd", "digital"), false);
+});
+
+test("stored gift_wedding_2026 attribution auto-opens paywall without utm param", () => {
+  resetMarketingAttributionStorageForTests();
+  storeClientMarketingAttribution({ source: "google", medium: "cpc", campaign: "gift_wedding_2026" });
+
+  const intent = resolveEditorGiftTrafficIntent({
+    source: "wedding-hero-preview",
+    checkoutParam: null,
+    printVariantParam: null,
+    utmCampaign: null,
+  });
+  assert.equal(intent.paywallIntent, "print");
+  assert.equal(intent.autoOpenPaywall, true);
 });
 
 test("digital checkout param beats wedding UTM default-to-print", () => {
