@@ -106,6 +106,22 @@ export default function AnniversaryPage() {
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
+        <ul className="mx-auto flex max-w-sm flex-col gap-1.5 text-left text-sm text-white/85 sm:max-w-none sm:flex-row sm:flex-wrap sm:justify-center">
+          <li className="flex items-center gap-1.5">
+            <span className="text-amber-300" aria-hidden="true">✓</span>
+            Free preview — no payment required
+          </li>
+          <li className="hidden items-center gap-1.5 text-white/35 sm:flex" aria-hidden="true">·</li>
+          <li className="flex items-center gap-1.5">
+            <span className="text-amber-300" aria-hidden="true">✓</span>
+            Secure Stripe checkout
+          </li>
+          <li className="hidden items-center gap-1.5 text-white/35 sm:flex" aria-hidden="true">·</li>
+          <li className="flex items-center gap-1.5">
+            <span className="text-amber-300" aria-hidden="true">✓</span>
+            Same design unlocks framed, unframed, or HD
+          </li>
+        </ul>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href={framedHdHref}
