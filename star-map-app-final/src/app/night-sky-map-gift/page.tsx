@@ -224,14 +224,20 @@ export default function NightSkyMapGiftPage() {
           Looking for more ideas? Explore star map gift guides and examples.
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
+          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
+            Personalized star map
+          </Link>
+          <Link href="/custom-night-sky-map" className="text-amber-700 underline hover:text-amber-800">
+            Custom night sky map
+          </Link>
+          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
+            Star map generator
+          </Link>
           <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
             Star map gift
           </Link>
           <Link href="/star-map-gift-ideas" className="text-amber-700 underline hover:text-amber-800">
             Star map gift ideas
-          </Link>
-          <Link href="/star-map-gallery" className="text-amber-700 underline hover:text-amber-800">
-            Star map gallery
           </Link>
         </div>
       </section>

@@ -179,8 +179,38 @@ export default function StarMapGeneratorPage() {
         </p>
         <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           <Link
-            href="/constellation-map"
+            href="/wedding"
             className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
+          >
+            Wedding star map
+          </Link>
+          <Link
+            href="/anniversary"
+            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
+          >
+            Anniversary star map
+          </Link>
+          <Link
+            href="/birthday"
+            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
+          >
+            Birthday star map
+          </Link>
+          <Link
+            href="/personalized-star-map"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Personalized star map
+          </Link>
+          <Link
+            href="/night-sky-map-gift"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            Night sky map gift
+          </Link>
+          <Link
+            href="/constellation-map"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
           >
             Constellation map
           </Link>
@@ -195,12 +225,6 @@ export default function StarMapGeneratorPage() {
             className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
           >
             Occasion hub
-          </Link>
-          <Link
-            href="/star-map-in"
-            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
-          >
-            Location hub
           </Link>
         </div>
       </section>

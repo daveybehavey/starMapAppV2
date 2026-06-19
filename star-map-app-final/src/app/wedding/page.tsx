@@ -358,6 +358,30 @@ export default function WeddingPage() {
         </div>
       </section>
 
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Related star map gifts</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Explore anniversary, birthday, and other occasion maps — or use the generator to preview any date and place.
+        </p>
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
+          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
+            Anniversary star map
+          </Link>
+          <Link href="/birthday" className="text-amber-700 underline hover:text-amber-800">
+            Birthday star map
+          </Link>
+          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
+            Personalized star map
+          </Link>
+          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
+            Star map generator
+          </Link>
+          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
+            Night sky map gift
+          </Link>
+        </div>
+      </section>
+
       <section
         className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10"
         aria-labelledby="wedding-faq"

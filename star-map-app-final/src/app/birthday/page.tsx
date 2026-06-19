@@ -182,12 +182,21 @@ export default function BirthdayPage() {
           Preview and HD export share the same rendering engine, so the final download matches what you see. Toggle
           constellations, glow, labels, and choose fonts to fit their style. The same approved design can stay digital, go unframed, or arrive framed without rebuilding the map.
         </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
             Wedding star maps
           </Link>
           <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
             Anniversary star maps
+          </Link>
+          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
+            Star map generator
+          </Link>
+          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
+            Personalized star map
+          </Link>
+          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
+            Night sky map gift
           </Link>
         </div>
       </section>

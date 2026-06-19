@@ -133,12 +133,21 @@ export default function CustomNightSkyMapPage() {
         <p className="text-sm text-neutral-800 sm:text-base">
           Looking for a specific format? Explore these popular options.
         </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
             Night sky map gift
           </Link>
+          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
+            Personalized star map
+          </Link>
           <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
             Star map generator
+          </Link>
+          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
+            Wedding star map
+          </Link>
+          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
+            Anniversary star map
           </Link>
         </div>
       </section>

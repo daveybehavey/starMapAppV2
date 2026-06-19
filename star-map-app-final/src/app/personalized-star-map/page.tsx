@@ -224,6 +224,34 @@ export default function PersonalizedStarMapPage() {
         heading="Personalized order confidence"
         intro="This is built for gifting quality, not just a quick screenshot. Use this section to confirm the format, shipping, and final review details before checkout."
       />
+
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Related star map options</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Explore by occasion or browse other formats to find the right fit.
+        </p>
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
+          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
+            Star map generator
+          </Link>
+          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
+            Night sky map gift
+          </Link>
+          <Link href="/custom-night-sky-map" className="text-amber-700 underline hover:text-amber-800">
+            Custom night sky map
+          </Link>
+          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
+            Wedding star map
+          </Link>
+          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
+            Anniversary star map
+          </Link>
+          <Link href="/birthday" className="text-amber-700 underline hover:text-amber-800">
+            Birthday star map
+          </Link>
+        </div>
+      </section>
+
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
