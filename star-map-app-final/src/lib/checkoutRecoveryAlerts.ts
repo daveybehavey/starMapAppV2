@@ -94,17 +94,34 @@ function getOfferLabel(input: CheckoutRecoveryAlertInput) {
 function getSubject(input: CheckoutRecoveryAlertInput) {
   if (input.orderType === "print") {
     if (input.printVariant === "poster_framed") {
-      return "Your framed StarMapCo order is still waiting";
+      return "Your framed star map design is saved — pick up where you left off";
     }
     if (input.printVariant === "poster_unframed") {
-      return "Your StarMapCo print order is still waiting";
+      return "Your star map print design is saved — pick up where you left off";
     }
     if (input.printVariant) {
-      return `Your ${getPrintPricingTiers()[input.printVariant].label} order is still waiting`;
+      return `Your ${getPrintPricingTiers()[input.printVariant].label} design is saved — pick up where you left off`;
     }
-    return "Your StarMapCo print order is still waiting";
+    return "Your star map design is saved — pick up where you left off";
   }
-  return "Complete your StarMapCo order";
+  if (input.plan === "subscription") return "Your StarMapCo subscription is one step away";
+  return "Your star map download is waiting — complete in seconds";
+}
+
+function getIncludesBullets(input: CheckoutRecoveryAlertInput): string[] {
+  if (input.orderType !== "print") return [];
+  const tiers = getPrintPricingTiers();
+  const bullets: string[] = [];
+  if (input.printVariant && tiers[input.printVariant]) {
+    bullets.push(tiers[input.printVariant].label);
+  } else {
+    bullets.push("Printed star map");
+  }
+  if (input.includesDigitalAddOn) {
+    bullets.push("HD digital download (unlocked instantly after payment)");
+  }
+  bullets.push("Your custom text, date, and location — all saved");
+  return bullets;
 }
 
 function getCopy(input: CheckoutRecoveryAlertInput) {
@@ -112,41 +129,59 @@ function getCopy(input: CheckoutRecoveryAlertInput) {
   const subject = getSubject(input);
   const offerLabel = getOfferLabel(input);
   const amount = formatAmount(input.amountTotal, input.currency);
+  const includesBullets = getIncludesBullets(input);
+
   const text = [
     subject,
     "",
-    `Your ${offerLabel} is still saved and ready.`,
+    "Your design is saved — no need to start over.",
     "",
+    ...(includesBullets.length > 0
+      ? ["What's included:", ...includesBullets.map((b) => `  • ${b}`), ""]
+      : []),
     amount ? `Order total: ${amount}` : null,
     `Resume checkout: ${input.recoveryUrl}`,
     "",
-    "If you have any questions, reply to this email and we can help.",
+    "This link returns you directly to your saved checkout. Reply here with any questions and we will help.",
     "",
     "— StarMapCo",
+    siteUrl,
   ]
     .filter(Boolean)
     .join("\n");
+
+  const includesBulletsHtml =
+    includesBullets.length > 0
+      ? `<div style="margin: 0 0 18px;">
+          <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8c7a4a; margin: 0 0 8px;">What's included</p>
+          <ul style="margin: 0; padding: 0 0 0 18px; font-size: 14px; color: #2a3246;">
+            ${includesBullets.map((b) => `<li style="margin-bottom: 4px;">${escapeHtml(b)}</li>`).join("")}
+          </ul>
+        </div>`
+      : "";
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
       <div style="border: 1px solid #e6dcc8; border-radius: 20px; overflow: hidden; background: #fbf7ef;">
         <div style="padding: 18px 22px; background: linear-gradient(135deg, #07112b, #11234d); color: #f7f1e6;">
           <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.82;">StarMapCo</div>
-          <p style="font-size: 24px; font-weight: 700; margin: 8px 0 0;">${escapeHtml(subject)}</p>
-          <p style="margin: 8px 0 0; color: #d9c78d;">Your ${escapeHtml(offerLabel)} is still saved and ready.</p>
+          <p style="font-size: 22px; font-weight: 700; margin: 8px 0 0; line-height: 1.3;">${escapeHtml(subject)}</p>
+          <p style="margin: 8px 0 0; color: #d9c78d; font-size: 14px;">Your ${escapeHtml(offerLabel)} is still saved and ready.</p>
         </div>
         <div style="padding: 20px 22px;">
-          <p style="margin: 0 0 14px;">Pick up where you left off and finish checkout when you are ready.</p>
+          <p style="margin: 0 0 16px; font-size: 15px;">Your design is saved — no need to start over. Just pick up where you left off.</p>
+          ${includesBulletsHtml}
           ${
             amount
-              ? `<p style="font-size: 24px; font-weight: 700; margin: 0 0 18px; color: #0b1324;">${escapeHtml(amount)}</p>`
+              ? `<p style="font-size: 26px; font-weight: 700; margin: 0 0 18px; color: #0b1324;">${escapeHtml(amount)}</p>`
               : ""
           }
-          <p style="margin: 0 0 16px;">
-            <a href="${input.recoveryUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700;">Resume checkout</a>
+          <p style="margin: 0 0 14px;">
+            <a href="${input.recoveryUrl}" style="display: inline-block; padding: 12px 22px; border-radius: 999px; background: #f4c74e; color: #141414; text-decoration: none; font-weight: 700; font-size: 15px;">Resume checkout →</a>
           </p>
-          <p style="font-size: 13px; color: #5f6677; margin: 0 0 6px;">You can also come back later from ${escapeHtml(siteUrl)}.</p>
-          <p style="font-size: 13px; color: #5f6677; margin: 0;">If you have any questions, reply and we can help.</p>
+          <p style="font-size: 12px; color: #8c7a4a; margin: 0 0 14px;">This link returns you directly to your saved checkout.</p>
+          <hr style="border: none; border-top: 1px solid #e6dcc8; margin: 0 0 14px;" />
+          <p style="font-size: 13px; color: #5f6677; margin: 0;">Questions? Reply to this email and we will help.</p>
         </div>
       </div>
     </div>
