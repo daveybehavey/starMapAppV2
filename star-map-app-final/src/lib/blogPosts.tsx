@@ -1762,6 +1762,38 @@ export const blogPosts: BlogPost[] = [
     ),
   },
   {
+    slug: "birth-star-map",
+    title: "Birth Star Map: A Meaningful Nursery Gift From the Night They Arrived",
+    seoTitle: "Birth Star Map & Baby Nursery Gift Guide",
+    description:
+      "A birth star map captures the exact night sky from a baby's birth date, time, and location — a personalized nursery keepsake for new parents, grandparents, and baby shower gifts.",
+    date: "2026-06-19",
+    keywords: [
+      "birth star map",
+      "baby star map",
+      "new baby star map",
+      "nursery star map",
+      "baby shower star map gift",
+      "birth date star map",
+      "personalized baby gift",
+      "night sky when baby was born",
+    ],
+    ogImage: "/custom-star-map-anniversary.webp",
+    content: () => (
+      <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
+        <p>
+          A birth star map turns the night sky from a baby&apos;s arrival into nursery-ready wall art — a personalized
+          gift for new parents, baby showers, and grandparents. Preview free, then choose framed print, poster, or HD
+          digital delivery.
+        </p>
+        <p>
+          Read the full guide at{" "}
+          <Link href="/blog/birth-star-map">Birth Star Map: A Meaningful Nursery Gift From the Night They Arrived</Link>.
+        </p>
+      </article>
+    ),
+  },
+  {
     slug: "memorial-star-map",
     title: "Memorial Star Map: Honoring a Loved One With the Night Sky",
     seoTitle: "Memorial Star Map Gift Ideas",
