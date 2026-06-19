@@ -2051,6 +2051,13 @@ export function EditorExperience({
                             Editing mode
                           </p>
                           <p className="text-sm font-semibold text-white">Refine your map</p>
+                          {lastDraftSavedAt ? (
+                            <p className="text-[10px] text-neutral-400">
+                              Saved {lastDraftSavedAt}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-neutral-500">Draft autosaves on this device</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {isQuick && allowAdvancedInQuick ? (
