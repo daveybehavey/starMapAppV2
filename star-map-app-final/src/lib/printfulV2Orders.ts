@@ -116,6 +116,8 @@ export async function submitPrintfulV2CatalogOrder(
     ],
   };
 
+  const PRINTFUL_API_TIMEOUT_MS = 15_000;
+
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -125,6 +127,7 @@ export async function submitPrintfulV2CatalogOrder(
         "X-PF-Store-Id": storeId,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(PRINTFUL_API_TIMEOUT_MS),
     });
     const raw = await response.text();
     let parsed: unknown = null;
@@ -148,10 +151,11 @@ export async function submitPrintfulV2CatalogOrder(
       typeof data?.id === "string" || typeof data?.id === "number" ? (data.id as string | number) : undefined;
     return { ok: true, status: response.status, orderId };
   } catch (error) {
+    const isTimeout = error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
     return {
       ok: false,
       status: 503,
-      error: error instanceof Error ? error.message.slice(0, 240) : "printful_v2_request_failed",
+      error: isTimeout ? "printful_v2_request_timeout" : error instanceof Error ? error.message.slice(0, 240) : "printful_v2_request_failed",
     };
   }
 }

@@ -143,12 +143,15 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     return msg.includes("no longer editable") || resultMsg.includes("no longer editable");
   };
 
+  const PRINTFUL_API_TIMEOUT_MS = 15_000;
+
   try {
     const attempt = async (options: { updateExisting: boolean; externalId: string }) => {
       const response = await fetch(buildOrdersUrl({ updateExisting: options.updateExisting }), {
         method: "POST",
         headers,
         body: JSON.stringify({ ...body, external_id: normalizeExternalId(options.externalId) }),
+        signal: AbortSignal.timeout(PRINTFUL_API_TIMEOUT_MS),
       });
       const raw = await response.text();
       let parsed: unknown = null;
@@ -195,10 +198,11 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
 
     return { ok: true, status: first.response.status, orderId: result?.id };
   } catch (error) {
+    const isTimeout = error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
     return {
       ok: false,
       status: 503,
-      error: error instanceof Error ? error.message.slice(0, 240) : "printful_request_failed",
+      error: isTimeout ? "printful_request_timeout" : error instanceof Error ? error.message.slice(0, 240) : "printful_request_failed",
     };
   }
 }
