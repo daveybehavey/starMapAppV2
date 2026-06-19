@@ -970,7 +970,7 @@ export const blogPosts: BlogPost[] = [
     title: "Custom Star Map for Anniversary: A Timeless Romantic Gift",
     seoTitle: "Anniversary Star Map Gift Guide",
     description:
-      "Discover why a custom star map for anniversary moments is one of the most romantic, personal, and unforgettable gifts you can give.",
+      "A custom star map for your anniversary captures the exact night sky from your wedding, first date, or proposal — a romantic, science-backed keepsake that tells your love story through the stars. Includes personalization ideas, design styles, and common ordering mistakes to avoid.",
     date: "2025-12-31",
     keywords: [
       "custom star map for anniversary",
@@ -997,7 +997,7 @@ export const blogPosts: BlogPost[] = [
     title: "Personalized Star Map Birthday Gift - Capture the Stars on Their Special Day",
     seoTitle: "Birthday Star Map Gift Guide",
     description:
-      "A personalized star map birthday gift recreates the night sky from their birth date, time, and location to create a meaningful keepsake.",
+      "Searching for a unique birthday present? A personalized star map birthday gift recreates the night sky from their exact birth date, time, and location — a thoughtful keepsake that works for milestone birthdays, newborns, and anyone who deserves something more meaningful than a generic gift.",
     date: "2025-12-31",
     keywords: [
       "personalized star map birthday gift",
@@ -1019,7 +1019,7 @@ export const blogPosts: BlogPost[] = [
     title: "Astronomy Behind Star Maps - How Science Makes Them Accurate",
     seoTitle: "Astronomy Behind Star Maps",
     description:
-      "Explore how real data from catalogs and precise calculations create accurate custom star maps for gifts and education.",
+      "Curious how star maps are actually made? Explore the astronomy behind them — from stellar catalogs like Yale and Hipparcos to the calculations that turn a date, time, and place into a scientifically accurate night sky. Understand what separates a real star map from a generic illustration.",
     date: "2025-12-31",
     keywords: ["astronomy behind star maps", "accurate star map data", "custom star map science"],
     content: () => (
@@ -1036,7 +1036,7 @@ export const blogPosts: BlogPost[] = [
     title: "Choose Date Location Custom Star Map - Tips for Perfect Accuracy",
     seoTitle: "Choose Date and Location for a Star Map",
     description:
-      "How to pick the right date and location for an accurate and meaningful custom star map, with tips on timing, coordinates, and common pitfalls.",
+      "Choosing the right date and location is the most important step in creating a meaningful star map. This guide covers how to identify the perfect moment, set the correct time zone, adjust for your hemisphere, and avoid the most common accuracy mistakes before you order.",
     date: "2025-12-31",
     keywords: [
       "choose date location custom star map",
@@ -1614,9 +1614,9 @@ export const blogPosts: BlogPost[] = [
     ),
   },
   {
-    slug: "fathers-day-star-map-gift-ideas",
+    slug: "fathers-day-star-map-gift-2",
     title: "Father's Day Star Map Gift Ideas: Honor the Night He Became Dad",
-    seoTitle: "Father's Day Star Map Gift Ideas",
+    seoTitle: "Father's Day Star Map: Honor the Night He Became Dad",
     description:
       "Looking for a Father's Day gift with meaning? A custom star map celebrates the night he became a dad or another milestone worth honoring.",
     date: "2026-02-12",
@@ -1757,6 +1757,196 @@ export const blogPosts: BlogPost[] = [
         <p>
           See real outputs in the <Link href="/star-map-gallery">star map gallery</Link> or explore{" "}
           <Link href="/star-map-gift-ideas">gift ideas</Link> for other milestones.
+        </p>
+      </article>
+    ),
+  },
+  {
+    slug: "memorial-star-map",
+    title: "Memorial Star Map: Honoring a Loved One With the Night Sky",
+    seoTitle: "Memorial Star Map Gift Ideas",
+    description:
+      "A memorial star map captures the exact sky from a meaningful date — the night they passed, a shared birthday, or a moment you shared. A lasting, personal tribute for families and friends.",
+    date: "2026-06-19",
+    keywords: [
+      "memorial star map",
+      "star map for someone who passed away",
+      "remembrance star map",
+      "star map in memory of",
+      "loss gift",
+      "bereavement gift",
+      "personalized memorial gift",
+    ],
+    ogImage: "/custom-star-map-anniversary.webp",
+    content: () => (
+      <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
+        <p>
+          Grief rarely comes with a clear path forward. What it does come with, in time, is a quiet wish to hold
+          onto something — a date, a place, a moment that still belongs to the person who is gone. A{" "}
+          <strong>memorial star map</strong> is one of the gentlest ways to do that. It captures the exact night
+          sky from a date that mattered and turns it into something families can keep on a wall, share across
+          distance, or simply return to when they need a moment of stillness.
+        </p>
+        <p>
+          This is not a morbid gift. It is a quiet one. The sky on the night someone passed, on a birthday they
+          shared with a grandchild, or on an anniversary of a life well-lived — that sky was real, and it is
+          still out there, waiting to be remembered.
+        </p>
+
+        <h2>Why a star map works as a memorial tribute</h2>
+        <p>
+          Most memorial gifts are beautiful but impersonal — candles, garden stones, engraved plaques. A{" "}
+          <strong>remembrance star map</strong> is different because it is tied to a specific moment. The sky
+          above the night they passed was unlike any other sky before or after it. That uniqueness is what makes
+          the gift feel honest rather than generic.
+        </p>
+        <ul>
+          <li>It is grounded in something real — an actual astronomical calculation, not a stock image.</li>
+          <li>It does not try to replace the person; it simply marks the time they were here.</li>
+          <li>It gives grief a place to land — something tangible and quiet to return to.</li>
+          <li>It works for families who want to share something across distances without shipping a physical object.</li>
+        </ul>
+
+        <h2>Choosing the right date</h2>
+        <p>
+          There is no single correct date for a <strong>star map in memory of</strong> someone. The right date
+          is the one that carries the most meaning for the people who will see it displayed.
+        </p>
+        <p>Common choices include:</p>
+        <ul>
+          <li>
+            <strong>The date of passing.</strong> The most direct choice. The sky from that night becomes a
+            quiet acknowledgment that the moment was real, and that it was witnessed.
+          </li>
+          <li>
+            <strong>Their birthday.</strong> Many families prefer to remember a life rather than a death. A map
+            from the date they were born — or the last birthday they celebrated — keeps the focus on who they were.
+          </li>
+          <li>
+            <strong>A shared moment.</strong> A wedding anniversary, a family reunion date, the night a
+            grandchild was born — a date the person would have recognized and loved.
+          </li>
+        </ul>
+        <p>
+          If you are unsure, the{" "}
+          <Link href="/blog/meaningful-dates-star-map">meaningful dates guide</Link> walks through how different
+          types of moments translate into star maps.
+        </p>
+
+        <h2>Choosing the location</h2>
+        <p>
+          The location anchors the map to a place that had meaning. For a{" "}
+          <strong>star map for someone who passed away</strong>, common location choices include:
+        </p>
+        <ul>
+          <li>The city where they lived most of their life.</li>
+          <li>The place where they passed, if that location held significance.</li>
+          <li>A place you were together — a hometown, a vacation spot, a family home.</li>
+          <li>The city where you are now, if the intention is to capture the sky as it appears to you in memory of them.</li>
+        </ul>
+        <p>
+          There is no wrong answer. The location sets the perspective of the sky — it is one of two inputs that
+          make the map unique to this moment and no other.
+        </p>
+
+        <h2>Personalizing the text</h2>
+        <p>
+          The text is where a memorial star map becomes unmistakably personal. Short and simple tends to carry
+          the most weight:
+        </p>
+        <ul>
+          <li>A name and a date line: <em>Margaret Ellis · November 14, 2023</em></li>
+          <li>A short dedication: <em>Forever in Our Sky</em>, <em>In Loving Memory</em>, <em>Still Here</em></li>
+          <li>A place that meant something: <em>Portland, Oregon</em></li>
+        </ul>
+        <p>
+          Avoid overloading the design with too much text. The sky itself is the tribute. The words should
+          support it, not compete with it. A restrained layout — a name, a date, one quiet line — tends to feel
+          more respectful and more lasting than something crowded.
+        </p>
+        <p>
+          You can explore personalization options in the <Link href="/star-map-generator">star map generator</Link>{" "}
+          and preview the design before committing to a format.
+        </p>
+
+        <h2>Choosing the right format</h2>
+        <p>
+          A memorial star map is often shared across families and generations, which makes format choice
+          especially worth thinking through.
+        </p>
+        <ul>
+          <li>
+            <strong>Framed print</strong> is the right choice when the map will live in a family home — on a
+            mantle, in a hallway, or in a room that was theirs. It is a permanent, visible presence.
+          </li>
+          <li>
+            <strong>HD digital delivery</strong> is ideal when family members are spread across different cities
+            or countries. Everyone can receive the same map file and choose to print it locally, frame it
+            themselves, or simply keep it on a device where it can be revisited quietly.
+          </li>
+          <li>
+            <strong>Unframed print</strong> is a practical middle path — a high-quality physical print that the
+            recipient can frame in a way that fits their home.
+          </li>
+        </ul>
+        <p>
+          Compare all three options on the <Link href="/star-map-gift-formats">gift formats page</Link>.
+        </p>
+
+        <h2>Who gives a memorial star map</h2>
+        <p>
+          These maps are given in many different ways. Adult children commissioning one for a parent&apos;s loss.
+          A partner creating one quietly for the first anniversary after. A group of siblings pooling together
+          to have something to share at a gathering. A friend who wants to give something that does not expire
+          or gather dust.
+        </p>
+        <p>
+          The common thread is that the giver wants the memory to have a home — somewhere to exist outside of
+          photographs and social posts, somewhere calm and lasting.
+        </p>
+
+        <h2>A note on tone</h2>
+        <p>
+          A memorial star map does not need to announce itself. It can simply exist — beautiful and quiet — in
+          a corner of a home, on a shelf, or in a drawer someone opens on hard days. It does not need to
+          explain grief or perform it. It just needs to mark the sky from a moment that mattered, and let that
+          be enough.
+        </p>
+        <p>
+          If you are looking for a gift that respects the weight of loss without adding to it, a star map offers
+          a gentle, honest option that most people are grateful to receive. Start from the{" "}
+          <Link href="/anniversary">anniversary page</Link> for format ideas or go directly to the{" "}
+          <Link href="/star-map-generator">generator</Link> to preview the sky from a date that mattered.
+        </p>
+
+        <h2>Memorial star map FAQ</h2>
+        <h3>Can I use a date from many years ago?</h3>
+        <p>
+          Yes. Star map calculations work accurately across centuries. Whether the date was last year or decades
+          ago, the sky from that moment can be recreated with precision.
+        </p>
+        <h3>What if I do not know the exact time?</h3>
+        <p>
+          A date and location is enough to create a meaningful map. If you want to use a specific time —
+          midnight, sunrise, an hour that held significance — you can add it, but it is not required.
+        </p>
+        <h3>Is this appropriate to give shortly after a loss?</h3>
+        <p>
+          It depends on the person and the relationship. Some families find it comforting to have something
+          like this close to the time of loss. Others prefer to wait until the grief has settled a little. Both
+          approaches are valid. The map will be just as meaningful months or years later.
+        </p>
+        <h3>Can multiple family members receive the same map?</h3>
+        <p>
+          Yes. HD digital delivery makes it easy to share the same design with multiple family members so
+          everyone can print or keep it in their own way.
+        </p>
+        <h3>What style looks best for a memorial?</h3>
+        <p>
+          Restrained, quiet styles tend to work best — a dark or muted background, minimal text, clean
+          typography. Bold or colorful styles are not wrong, but for a memorial context most people gravitate
+          toward something calmer. Preview a few options in the{" "}
+          <Link href="/star-map-generator">generator</Link> to see what feels right.
         </p>
       </article>
     ),
