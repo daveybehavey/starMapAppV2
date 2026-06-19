@@ -45,7 +45,11 @@ export default function HowToPrintStarMapPage() {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">How to Print a Star Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
           Use this guide to print your star map at the right size, on the right paper, with a frame that makes it shine.
-          Need the file first? Start with instant HD — then print locally or order framed from the same design.
+          Need the file first? Start with the{" "}
+          <Link href="/star-map-generator" className="font-semibold text-amber-200 hover:underline">
+            free star map generator
+          </Link>{" "}
+          or instant HD — then print locally or order framed from the same design.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
