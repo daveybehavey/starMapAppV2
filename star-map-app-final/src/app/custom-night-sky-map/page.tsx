@@ -18,14 +18,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Custom Night Sky Map | StarMapCo",
+  title: "Custom Night Sky Map — Personalized Print or Digital Gift | StarMapCo",
   description:
-    "Create a custom night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Create a custom night sky map from any date and location. Preview free, then choose a framed print, unframed poster, or instant HD digital download — no account required.",
   alternates: { canonical: `${siteUrl}/custom-night-sky-map` },
   openGraph: {
-    title: "Custom Night Sky Map | StarMapCo",
+    title: "Custom Night Sky Map — Personalized Print or Digital Gift | StarMapCo",
     description:
-      "Create a custom night sky map from any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Create a custom night sky map from any date and location. Preview free, then choose a framed print, unframed poster, or instant HD digital download — no account required.",
     url: `${siteUrl}/custom-night-sky-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -41,8 +41,8 @@ export default function CustomNightSkyMapPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Night Sky Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Design a custom night sky map that reflects the exact stars above you on a meaningful date. Start with a free
-          preview, then choose framed print, unframed print, or HD digital delivery from the same design.
+          Design a custom night sky map showing the exact stars above a meaningful date and place — a wedding, a birth, an anniversary. Preview free with no account, then choose a{" "}
+          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or instant HD digital download.
         </p>
       </header>
 
@@ -151,14 +151,31 @@ export default function CustomNightSkyMapPage() {
           <div>
             <h3 className="font-semibold text-midnight">What is a custom night sky map?</h3>
             <p>
-              A custom night sky map is a star map created from a specific date and location, showing the real sky from that
-              moment.
+              A custom night sky map is a star map generated from a specific date, time, and location — showing the real positions of stars and constellations as they appeared at that moment. It is commonly used as a personalized gift for anniversaries, weddings, birthdays, and other milestones.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Can I preview the night sky map before buying?</h3>
             <p>
-              Yes. You can preview the map for free, then choose framed print, unframed print, or HD digital delivery when you are ready.
+              Yes. The preview is free and requires no account. Enter your date and location, refine the design, and then choose framed print, unframed print, or HD digital delivery when you are ready to buy.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">How accurate is the custom night sky map?</h3>
+            <p>
+              The map is calculated from real astronomical data, so the star positions and constellation shapes match the sky at your exact date, time, and geographic coordinates — not a generic illustration.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I make a custom night sky map for a wedding date?</h3>
+            <p>
+              Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. Many couples order the framed print as a keepsake. You can preview the design for free before choosing a format.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What formats are available for the custom night sky map?</h3>
+            <p>
+              After preview, you can choose a framed print (arrives ready to display), an unframed poster (lower cost, you frame it), or an instant HD digital download. All three use the same approved design.
             </p>
           </div>
         </div>
@@ -168,11 +185,23 @@ export default function CustomNightSkyMapPage() {
           {
             question: "What is a custom night sky map?",
             answer:
-              "A custom night sky map is a star map created from a specific date and location, showing the real sky from that moment.",
+              "A custom night sky map is a star map generated from a specific date, time, and location — showing the real positions of stars and constellations as they appeared at that moment. It is commonly used as a personalized gift for anniversaries, weddings, birthdays, and other milestones.",
           },
           {
             question: "Can I preview the night sky map before buying?",
-            answer: "Yes. You can preview the map for free, then choose framed print, unframed print, or HD digital delivery when you are ready.",
+            answer: "Yes. The preview is free and requires no account. Enter your date and location, refine the design, and then choose framed print, unframed print, or HD digital delivery when you are ready to buy.",
+          },
+          {
+            question: "How accurate is the custom night sky map?",
+            answer: "The map is calculated from real astronomical data, so the star positions and constellation shapes match the sky at your exact date, time, and geographic coordinates — not a generic illustration.",
+          },
+          {
+            question: "Can I make a custom night sky map for a wedding date?",
+            answer: "Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. Many couples order the framed print as a keepsake. You can preview the design for free before choosing a format.",
+          },
+          {
+            question: "What formats are available for the custom night sky map?",
+            answer: "After preview, you can choose a framed print (arrives ready to display), an unframed poster (lower cost, you frame it), or an instant HD digital download. All three use the same approved design.",
           },
         ]}
       />

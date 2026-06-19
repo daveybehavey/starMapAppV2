@@ -6,22 +6,22 @@ import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrint
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed poster, or HD digital delivery. Seasonal guides cover Canada Day and July 4th gift ideas.";
+  "Create a personalized star map for any date and location — preview the exact night sky for free, then order a framed print, unframed poster, or instant HD digital download. Perfect for anniversaries, weddings, and birthdays.";
 
 export const metadata: Metadata = {
-  title: "Custom Star Map & Constellation Map | StarMapCo",
+  title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
   description: homepageDescription,
   keywords: [
     "custom star map",
     "star map gift",
     "constellation map",
-    "Canada Day star map",
-    "July 4th star map",
-    "seasonal gift ideas",
+    "personalized star map",
+    "star map by date",
+    "star map anniversary gift",
   ],
   alternates: { canonical: `${siteUrl}/` },
   openGraph: {
-    title: "Custom Star Map & Constellation Map | StarMapCo",
+    title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
     description: homepageDescription,
     url: `${siteUrl}/`,
     siteName: "StarMapCo",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Custom Star Map & Constellation Map | StarMapCo",
+    title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
     description: homepageDescription,
     images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },

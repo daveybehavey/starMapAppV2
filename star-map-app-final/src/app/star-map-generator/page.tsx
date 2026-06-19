@@ -224,22 +224,37 @@ export default function StarMapGeneratorPage() {
           <div>
             <h3 className="font-semibold text-midnight">How accurate is the star map generator?</h3>
             <p>
-              The star map generator uses real astronomical data, so star positions and constellations match your chosen
-              date, time, and location.
+              The star map generator uses real astronomical data — not an illustration — so star positions and constellations match your chosen date, time, and location to the minute.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Can I create a star map for any date and location?</h3>
             <p>
-              Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before
-              choosing framed print, unframed print, or HD digital delivery.
+              Yes. Enter any date, time, and place worldwide to generate a custom night sky map. You can preview the result for free before choosing framed print, unframed print, or HD digital delivery.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Is this star map generator free?</h3>
             <p>
-              Yes — you can preview your map for free with no account required. HD downloads and physical prints are paid
-              upgrades after you approve the design. We do not offer free PDF or wallpaper downloads.
+              Yes — the preview is free and requires no account. HD downloads and physical prints are paid upgrades after you approve the design. We do not offer free PDF or wallpaper downloads.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I generate a birthday star map?</h3>
+            <p>
+              Yes. Enter the birthday date and the location where the person was born (or where they celebrated) to generate the exact night sky for that moment. The result works as a framed print, unframed poster, or instant HD digital gift.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">How do I generate a star map for an anniversary?</h3>
+            <p>
+              Enter the anniversary date and the location where the moment happened — a wedding venue, the city where you met, or anywhere meaningful. The generator shows the actual sky from that night. You can add names and a message, then order a framed print or HD digital.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I customize the star map after generating it?</h3>
+            <p>
+              Yes. After generating the initial preview, you can change the style, shape, color, and label text directly in the editor before choosing a delivery format.
             </p>
           </div>
         </div>
@@ -249,17 +264,32 @@ export default function StarMapGeneratorPage() {
           {
             question: "How accurate is the star map generator?",
             answer:
-              "The star map generator uses real astronomical data, so star positions and constellations match your chosen date, time, and location.",
+              "The star map generator uses real astronomical data — not an illustration — so star positions and constellations match your chosen date, time, and location to the minute.",
           },
           {
             question: "Can I create a star map for any date and location?",
             answer:
-              "Yes. Enter any date, time, and place worldwide to create a custom night sky map you can preview before choosing framed print, unframed print, or HD digital delivery.",
+              "Yes. Enter any date, time, and place worldwide to generate a custom night sky map. You can preview the result for free before choosing framed print, unframed print, or HD digital delivery.",
           },
           {
             question: "Is this star map generator free?",
             answer:
-              "Yes — preview is free with no account required. HD downloads and physical prints are paid upgrades after you approve the design.",
+              "Yes — the preview is free and requires no account. HD downloads and physical prints are paid upgrades after you approve the design.",
+          },
+          {
+            question: "Can I generate a birthday star map?",
+            answer:
+              "Yes. Enter the birthday date and the location where the person was born (or where they celebrated) to generate the exact night sky for that moment. The result works as a framed print, unframed poster, or instant HD digital gift.",
+          },
+          {
+            question: "How do I generate a star map for an anniversary?",
+            answer:
+              "Enter the anniversary date and the location where the moment happened. The generator shows the actual sky from that night. You can add names and a message, then order a framed print or HD digital.",
+          },
+          {
+            question: "Can I customize the star map after generating it?",
+            answer:
+              "Yes. After generating the initial preview, you can change the style, shape, color, and label text directly in the editor before choosing a delivery format.",
           },
         ]}
       />
