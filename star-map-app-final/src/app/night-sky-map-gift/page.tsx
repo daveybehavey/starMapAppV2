@@ -10,6 +10,7 @@ import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import {
@@ -22,6 +23,7 @@ import {
   buildStandardGiftPreviewIntents,
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
+import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -55,6 +57,36 @@ export default function NightSkyMapGiftPage() {
   const bundlePriceLine = getFramedHdBundlePriceLine();
   const framedHdHref = buildFramedHdCheckoutHref("night-sky-map-gift-hero-framed-hd");
   const previewIntents = buildStandardGiftPreviewIntents("night-sky-map-gift");
+  const tiers = getPricingTiers();
+  const printTiers = getPrintPricingTiers();
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
+  const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
+  const productOffers = [
+    {
+      name: "HD digital download",
+      price: (tiers.single.amountCents / 100).toFixed(2),
+      priceCurrency: schemaCurrency,
+      url: `${siteUrl}/editor?mode=quick&source=night-sky-gift-schema-digital`,
+    },
+    ...(printCheckoutEnabled
+      ? [
+          {
+            name: "Unframed print",
+            price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=night-sky-gift-schema-print-unframed&checkout=print&print_variant=poster_unframed`,
+          },
+          {
+            name: "Framed print",
+            price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=night-sky-gift-schema-print-framed&checkout=print&print_variant=poster_framed`,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -241,6 +273,12 @@ export default function NightSkyMapGiftPage() {
           </div>
         </div>
       </section>
+      <ProductSchema
+        name="Night Sky Map Gift"
+        description="Personalized night sky map gift showing the exact stars from any meaningful date and location. Perfect for anniversaries, weddings, birthdays, and milestones. Choose framed print, unframed poster, or instant HD digital."
+        imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
+        offers={productOffers}
+      />
       <FaqSchema
         items={[
           {

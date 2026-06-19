@@ -7,6 +7,7 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
+import ProductSchema from "@/components/ProductSchema";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -24,6 +25,7 @@ import {
   getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -88,6 +90,36 @@ export default function WeddingPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const bundlePriceLine = getFramedHdBundlePriceLine();
+  const tiers = getPricingTiers();
+  const printTiers = getPrintPricingTiers();
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
+  const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
+  const productOffers = [
+    {
+      name: "HD digital download",
+      price: (tiers.single.amountCents / 100).toFixed(2),
+      priceCurrency: schemaCurrency,
+      url: `${siteUrl}/editor?mode=quick&source=wedding-schema-digital`,
+    },
+    ...(printCheckoutEnabled
+      ? [
+          {
+            name: "Unframed print",
+            price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=wedding-schema-print-unframed&checkout=print&print_variant=poster_unframed`,
+          },
+          {
+            name: "Framed print",
+            price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=wedding-schema-print-framed&checkout=print&print_variant=poster_framed`,
+          },
+        ]
+      : []),
+  ];
   const featuredTestimonial = testimonialsByPage.wedding[0];
   const framedHdHref = buildPrintEditorCheckoutHref({
     source: "wedding-hero-framed-hd",
@@ -342,6 +374,12 @@ export default function WeddingPage() {
           ))}
         </div>
       </section>
+      <ProductSchema
+        name="Wedding Star Map Gift"
+        description="Personalized wedding star map showing the exact night sky from your ceremony date and location. Order a framed print, unframed poster, or instant HD digital download."
+        imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
+        offers={productOffers}
+      />
       <FaqSchema
         items={weddingFaqItems.map((item, index) =>
           index === 5 ? { question: item.question, answer: framedFaqAnswer } : item,
