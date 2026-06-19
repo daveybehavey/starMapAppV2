@@ -267,13 +267,52 @@ export default function AnniversaryPage() {
           <div>
             <h3 className="font-semibold text-midnight">What date should I use for an anniversary star map?</h3>
             <p>
-              Most couples use their wedding date or the night they first met. Any meaningful date works.
+              Most couples use their wedding date or the night they first met. Any meaningful date works — anniversaries,
+              first dates, and engagements are all popular choices.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Is this a good couples gift?</h3>
             <p>
-              Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment.
+              Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment
+              unique to your relationship.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I include the exact time of our wedding or first date?</h3>
+            <p>
+              Yes. Adding a time makes the star positions even more precise — the Moon, planets, and constellations shift
+              during the night. If you do not know the exact time, just the date and location still produces a beautiful,
+              accurate map.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">How far back can anniversary dates go?</h3>
+            <p>
+              The generator works for any date — whether your milestone was last year or decades ago. You can recreate
+              the sky from a first date in 1985 just as easily as one from last summer.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I add our names and a personal message?</h3>
+            <p>
+              Yes. The editor lets you add a title, both names, a date line, and a short dedication. You can also choose
+              fonts and styles that match your home decor.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Is the star map astronomically accurate?</h3>
+            <p>
+              Yes. The map is generated from real astronomical data — not a stock illustration — so every star,
+              constellation, and planet position matches your specific date, time, and location.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What format is best for an anniversary gift?</h3>
+            <p>
+              Most anniversary buyers choose the framed print bundled with HD digital — the finished piece arrives ready
+              to hang and the digital file is available instantly. Unframed print is a great option if you already have a
+              frame in mind.
             </p>
           </div>
         </div>
@@ -288,12 +327,38 @@ export default function AnniversaryPage() {
         items={[
           {
             question: "What date should I use for an anniversary star map?",
-            answer: "Most couples use their wedding date or the night they first met. Any meaningful date works.",
+            answer:
+              "Most couples use their wedding date or the night they first met. Any meaningful date works — anniversaries, first dates, and engagements are all popular choices.",
           },
           {
             question: "Is this a good couples gift?",
             answer:
-              "Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment.",
+              "Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment unique to your relationship.",
+          },
+          {
+            question: "Can I include the exact time of our wedding or first date?",
+            answer:
+              "Yes. Adding a time makes the star positions even more precise — the Moon, planets, and constellations shift during the night. If you do not know the exact time, just the date and location still produces a beautiful, accurate map.",
+          },
+          {
+            question: "How far back can anniversary dates go?",
+            answer:
+              "The generator works for any date — whether your milestone was last year or decades ago. You can recreate the sky from a first date in 1985 just as easily as one from last summer.",
+          },
+          {
+            question: "Can I add our names and a personal message?",
+            answer:
+              "Yes. The editor lets you add a title, both names, a date line, and a short dedication. You can also choose fonts and styles that match your home decor.",
+          },
+          {
+            question: "Is the star map astronomically accurate?",
+            answer:
+              "Yes. The map is generated from real astronomical data — not a stock illustration — so every star, constellation, and planet position matches your specific date, time, and location.",
+          },
+          {
+            question: "What format is best for an anniversary gift?",
+            answer:
+              "Most anniversary buyers choose the framed print bundled with HD digital — the finished piece arrives ready to hang and the digital file is available instantly. Unframed print is a great option if you already have a frame in mind.",
           },
         ]}
       />
