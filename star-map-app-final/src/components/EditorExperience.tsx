@@ -361,6 +361,7 @@ export function EditorExperience({
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
   const [downloadHint, setDownloadHint] = useState<string | null>(null);
+  const [showFreeExportUpsell, setShowFreeExportUpsell] = useState(false);
   const prefillAppliedRef = useRef(false);
   const printIntentHandledRef = useRef(false);
   const digitalIntentHandledRef = useRef(false);
@@ -1135,6 +1136,12 @@ export function EditorExperience({
   }, [downloadHint]);
 
   useEffect(() => {
+    if (!showFreeExportUpsell) return;
+    const timeout = window.setTimeout(() => setShowFreeExportUpsell(false), 45000);
+    return () => window.clearTimeout(timeout);
+  }, [showFreeExportUpsell]);
+
+  useEffect(() => {
     if (!restored || !autoExportPending || !paid) return;
     setRevealed(true);
   }, [autoExportPending, paid, restored, setRevealed]);
@@ -1247,7 +1254,11 @@ export function EditorExperience({
         });
         track("export_download", { type: "preview" });
         const renderedPreview = await renderExportFile("preview", hasAccess);
-        triggerDownload(renderedPreview.blob, renderedPreview.filename);
+        const downloadResult = triggerDownload(renderedPreview.blob, renderedPreview.filename);
+        // Show upgrade nudge only for unpaid users — highest-intent moment in the funnel
+        if (!hasAccess && downloadResult.ok) {
+          setShowFreeExportUpsell(true);
+        }
       } catch (error) {
         console.error("Export failed", error);
         if (isHd) {
@@ -3189,6 +3200,56 @@ export function EditorExperience({
                             >
                               Open my downloads
                             </a>
+                          </div>
+                        )}
+                        {showFreeExportUpsell && !paid && (
+                          <div className="mt-2 rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs font-semibold text-amber-100">
+                                {"That's the watermarked preview (1,200 px)."}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setShowFreeExportUpsell(false)}
+                                aria-label="Dismiss"
+                                className="flex-shrink-0 text-amber-200/60 hover:text-amber-100"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                                  <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
+                                </svg>
+                              </button>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-amber-100/80">
+                              Unlock the full 6,000 px HD version — no watermark, print-ready.
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowFreeExportUpsell(false);
+                                  setPaywallIntent("digital");
+                                  setPaywallOpen(true);
+                                  track("free_export_upsell_clicked", { action: "hd" });
+                                }}
+                                className="rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-300"
+                              >
+                                Unlock HD &rarr;
+                              </button>
+                              {printCheckoutEnabled && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowFreeExportUpsell(false);
+                                    setPaywallIntent("print");
+                                    setPaywallOpen(true);
+                                    track("free_export_upsell_clicked", { action: "print" });
+                                  }}
+                                  className="rounded-full border border-amber-300/50 bg-transparent px-3 py-1 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-amber-200"
+                                >
+                                  Get it framed &rarr;
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
                         {printCheckoutEnabled && (

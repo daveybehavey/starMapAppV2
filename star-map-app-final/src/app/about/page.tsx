@@ -3,10 +3,19 @@ import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile"
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
+const aboutDescription = "Learn how StarMapCo works, what we sell, and how customer support and print fulfillment are handled.";
+
 export const metadata: Metadata = {
   title: "About StarMapCo",
-  description: "Learn how StarMapCo works, what we sell, and how customer support and print fulfillment are handled.",
+  description: aboutDescription,
   alternates: { canonical: `${siteUrl}/about` },
+  openGraph: {
+    title: "About StarMapCo",
+    description: aboutDescription,
+    url: `${siteUrl}/about`,
+    siteName: "StarMapCo",
+    type: "website",
+  },
 };
 
 export default function AboutPage() {

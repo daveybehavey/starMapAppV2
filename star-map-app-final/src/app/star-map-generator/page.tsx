@@ -5,10 +5,12 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getInstantHdHeroHref, getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -40,6 +42,36 @@ export default function StarMapGeneratorPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
   const instantHref = getInstantHdHeroHref("star-map-generator-hero-instant");
   const instantPrice = getInstantHdPriceLine();
+  const tiers = getPricingTiers();
+  const printTiers = getPrintPricingTiers();
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
+  const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
+  const productOffers = [
+    {
+      name: "HD digital download",
+      price: (tiers.single.amountCents / 100).toFixed(2),
+      priceCurrency: schemaCurrency,
+      url: `${siteUrl}/editor?mode=quick&source=generator-schema-digital`,
+    },
+    ...(printCheckoutEnabled
+      ? [
+          {
+            name: "Unframed print",
+            price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=generator-schema-print-unframed&checkout=print&print_variant=poster_unframed`,
+          },
+          {
+            name: "Framed print",
+            price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=generator-schema-print-framed&checkout=print&print_variant=poster_framed`,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -259,6 +291,12 @@ export default function StarMapGeneratorPage() {
           </div>
         </div>
       </section>
+      <ProductSchema
+        name="Custom Star Map Generator"
+        description="Free star map generator for any date and location. Preview the exact night sky for free, then choose framed print, unframed poster, or instant HD digital download."
+        imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
+        offers={productOffers}
+      />
       <FaqSchema
         items={[
           {
