@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
@@ -145,6 +145,63 @@ export function PaywallModal({
 
   const canPrintCheckout = Boolean(printShippingCountry);
 
+  // ── Focus management ────────────────────────────────────────────────────────
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    // Save caller focus so we can restore it on close
+    previousFocusRef.current = document.activeElement;
+    // Move focus into the dialog immediately
+    dialogRef.current?.focus();
+    return () => {
+      if (previousFocusRef.current instanceof HTMLElement) {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, []);
+
+  // Focus trap + Escape handler consolidated in one listener
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+
+      const focusableSelectors =
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelectors),
+      ).filter((el) => !el.closest("[hidden]"));
+
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first || document.activeElement === dialogRef.current) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // ── Analytics ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!hasPrintOptions) {
       setActiveIntent("digital");
@@ -239,31 +296,71 @@ export function PaywallModal({
     handlePrintCheckoutClick(row, "paywall_print_upsell");
   };
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  // ── Tab ordering ────────────────────────────────────────────────────────────
+  const tabs: { id: "digital" | "print"; label: string }[] =
+    purchaseIntent === "print"
+      ? [
+          { id: "print", label: "Printed gift" },
+          { id: "digital", label: "Digital HD" },
+        ]
+      : [
+          { id: "digital", label: "Digital HD" },
+          { id: "print", label: "Printed gift" },
+        ];
+
+  // ── Per-tab bullet list ──────────────────────────────────────────────────────
+  const bullets =
+    activeIntent === "print"
+      ? [
+          "Printed and shipped to your door — framed or unframed",
+          "Production reviewed before fulfillment",
+          "Secure checkout — card, Apple Pay, Google Pay",
+          "HD digital file available to add at checkout",
+        ]
+      : [
+          "6,000 px high resolution — poster-quality print",
+          "No watermark on your downloaded file",
+          "Secure checkout — card, Apple Pay, Google Pay",
+          "Instant download after payment",
+        ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8"
+      onClick={onClose}
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="paywall-dialog-title"
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25"
+        aria-describedby="paywall-dialog-desc"
+        tabIndex={-1}
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-200 bg-[rgba(247,241,227,0.95)] p-5 shadow-2xl shadow-black/25 focus:outline-none"
+        onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="paywall-dialog-title" className="text-lg font-semibold text-midnight">
-          {dialogTitle}
-        </h3>
-        <p className="mt-2 text-xs text-neutral-700">{dialogSubtitle}</p>
-        <ul className="mt-3 space-y-1 text-xs text-neutral-700">
-          <li>• 6000px high resolution (poster quality)</li>
-          <li>• No watermark</li>
-          <li>• Secure checkout with card, Apple Pay, Google Pay, and Link on supported devices</li>
-          <li>{activeIntent === "print" ? "• Print order draft is created right after payment" : "• Instant digital download"}</li>
+        {/* Header row: title + close button */}
+        <div className="flex items-start justify-between gap-3">
+          <h3 id="paywall-dialog-title" className="text-lg font-semibold text-midnight">
+            {dialogTitle}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close purchase options"
+            className="flex-shrink-0 rounded-full p-1 text-neutral-500 transition hover:bg-black/10 hover:text-midnight focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+            </svg>
+          </button>
+        </div>
+
+        <p id="paywall-dialog-desc" className="mt-2 text-xs text-neutral-700">{dialogSubtitle}</p>
+        <ul className="mt-3 space-y-1 text-xs text-neutral-700" aria-label="What's included">
+          {bullets.map((b) => (
+            <li key={b}>• {b}</li>
+          ))}
         </ul>
         {activeIntent === "digital" && (
           <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
@@ -272,24 +369,19 @@ export function PaywallModal({
         )}
 
         {hasPrintOptions && (
-          <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-amber-200/70 bg-white/70 p-1">
-            {(purchaseIntent === "print"
-              ? (
-                  [
-                    { id: "print" as const, label: "Printed gift" },
-                    { id: "digital" as const, label: "Digital HD" },
-                  ]
-                )
-              : (
-                  [
-                    { id: "digital" as const, label: "Digital HD" },
-                    { id: "print" as const, label: "Printed gift" },
-                  ]
-                )
-            ).map((tab) => (
+          <div
+            role="tablist"
+            aria-label="Purchase type"
+            className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-amber-200/70 bg-white/70 p-1"
+          >
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={activeIntent === tab.id}
+                aria-controls={`paywall-tab-panel-${tab.id}`}
+                id={`paywall-tab-${tab.id}`}
                 onClick={() => setActiveIntent(tab.id)}
                 className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
                   activeIntent === tab.id
@@ -305,8 +397,20 @@ export function PaywallModal({
           </div>
         )}
 
-        <div className="mt-4 grid gap-3 text-sm">
-          {activeIntent === "print" && hasPrintOptions && onStartPrintCheckout && (
+        {/* Polite status for screen readers when checkout is in-flight */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {checkoutInFlight ? "Opening secure checkout, please wait." : ""}
+        </div>
+
+        {hasPrintOptions && (
+        <div
+          id="paywall-tab-panel-print"
+          role="tabpanel"
+          aria-labelledby="paywall-tab-print"
+          hidden={activeIntent !== "print"}
+          className="mt-4 grid gap-3 text-sm"
+        >
+          {onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold">Printed gift checkout</p>
@@ -383,7 +487,17 @@ export function PaywallModal({
               </div>
             </div>
           )}
+        </div>
+        )}
 
+        {/* ── Digital tab panel ─────────────────────────────────────────────── */}
+        <div
+          id="paywall-tab-panel-digital"
+          role={hasPrintOptions ? "tabpanel" : undefined}
+          aria-labelledby={hasPrintOptions ? "paywall-tab-digital" : undefined}
+          hidden={hasPrintOptions ? activeIntent !== "digital" : undefined}
+          className="mt-4 grid gap-3 text-sm"
+        >
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -455,7 +569,7 @@ export function PaywallModal({
             </button>
           </div>
 
-          {activeIntent !== "print" && onStartPrintCheckout && (
+          {onStartPrintCheckout && (
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">Prefer a physical print?</p>
@@ -495,8 +609,9 @@ export function PaywallModal({
           )}
         </div>
 
-        <p className="mt-3 text-[11px] text-neutral-600">
-          Secure checkout with card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be canceled anytime. Need help? Email support@starmapco.com.
+        <p className="mt-4 text-[11px] text-neutral-600">
+          Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be canceled anytime.{" "}
+          Need help? <a href="mailto:support@starmapco.com" className="underline hover:text-neutral-900">support@starmapco.com</a>
         </p>
         <p className="mt-2 text-xs font-semibold text-neutral-700">
           Have a promo code? It can be applied at checkout.
@@ -506,17 +621,11 @@ export function PaywallModal({
             Referral offers apply automatically at checkout when available.
           </p>
         )}
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close purchase options"
-            className="rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:-translate-y-[1px] hover:shadow"
-          >
-            Cancel
-          </button>
-        </div>
-        {checkoutError && <p className="mt-2 text-sm font-semibold text-rose-700">{checkoutError}</p>}
+        {checkoutError && (
+          <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+            {checkoutError}
+          </p>
+        )}
       </div>
     </div>
   );
