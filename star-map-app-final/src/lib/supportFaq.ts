@@ -1,4 +1,4 @@
-import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
+import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS, getPrintStandardShippingOnlyLine, getPrintUrgentHdUpsellLine, getPrintUsTotalDeliveryEstimateLine } from "@/lib/commerceFacts";
 
 /** Used on `/support` and in FAQPage JSON-LD — keep answers aligned with linked policies. */
 export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer: string }[] = [
@@ -11,7 +11,7 @@ export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer:
   {
     id: "print-timing",
     question: "When will my print ship?",
-    answer: `Prints are made to order. Typical fulfillment time before shipment is ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}, plus carrier transit time. See our Shipping policy for country rates and delivery estimates; dates are estimates, not guarantees.`,
+    answer: `Prints are made to order. Typical fulfillment time before shipment is ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}, plus standard carrier transit after production. ${getPrintUsTotalDeliveryEstimateLine()} ${getPrintStandardShippingOnlyLine()} ${getPrintUrgentHdUpsellLine()} See our Shipping policy for country rates; dates are estimates, not guarantees.`,
   },
   {
     id: "damaged-print",

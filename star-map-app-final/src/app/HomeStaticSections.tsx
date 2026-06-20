@@ -16,6 +16,7 @@ import {
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getPrintDeliveryTimingFaqAnswer, getPrintPhysicalOrderSummaryLine, getPrintUrgentHdUpsellLine } from "@/lib/commerceFacts";
 import { getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
 
 type PriceLabels = {
@@ -108,7 +109,8 @@ export default function HomeStaticSections({
           rightPoints={[
             "Most gift buyers start with framed print; unframed stays available if you already have a frame plan",
             shippingDisclosure,
-            "Physical orders stay in manual review before production starts",
+            getPrintPhysicalOrderSummaryLine(),
+            getPrintUrgentHdUpsellLine(),
             `Optional HD digital add-on is available on print orders for ${printLabels.digitalAddOn}`,
             "If a print arrives damaged, support@starmapco.com handles it",
           ]}
@@ -310,7 +312,7 @@ export default function HomeStaticSections({
               },
               {
                 q: "When do I see shipping cost and delivery timing?",
-                a: `${shippingDisclosure} Production starts after order review while manual approval is enabled.`,
+                a: getPrintDeliveryTimingFaqAnswer(shippingDisclosure),
               },
               {
                 q: "What if a print arrives damaged?",

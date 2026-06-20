@@ -5,6 +5,15 @@ import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
+import {
+  getPrintProductionTimelineLine,
+  getPrintStandardShippingOnlyLine,
+  getPrintUsTotalDeliveryEstimateLine,
+  getPrintUrgentHdUpsellLine,
+  getPaywallDigitalBullets,
+  getPaywallPrintBullets,
+} from "@/lib/commerceFacts";
+import { getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure, getPrintFreeShippingOfferLine } from "@/lib/printCheckoutConfig";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
@@ -309,20 +318,8 @@ export function PaywallModal({
         ];
 
   // ── Per-tab bullet list ──────────────────────────────────────────────────────
-  const bullets =
-    activeIntent === "print"
-      ? [
-          "Printed and shipped to your door — framed or unframed",
-          "Production reviewed before fulfillment",
-          "Secure checkout — card, Apple Pay, Google Pay",
-          "HD digital file available to add at checkout",
-        ]
-      : [
-          "6,000 px high resolution — poster-quality print",
-          "No watermark on your downloaded file",
-          "Secure checkout — card, Apple Pay, Google Pay",
-          "Instant download after payment",
-        ];
+  const bullets = activeIntent === "print" ? getPaywallPrintBullets() : getPaywallDigitalBullets();
+  const instantHdPriceLine = getInstantHdPriceLine();
 
   return (
     <div
@@ -450,9 +447,16 @@ export function PaywallModal({
                   )}
                   {printShippingCountry && posterShippingFootnote ? (
                     <p className="mt-1 text-[10px] text-amber-100/80">
-                      Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}
+                      Standard shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}{" "}
+                      (carrier transit after production — not the full delivery date).
                     </p>
                   ) : null}
+                  <div className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85">
+                    <p>{getPrintProductionTimelineLine()}</p>
+                    <p>{getPrintUsTotalDeliveryEstimateLine()}</p>
+                    <p>{getPrintStandardShippingOnlyLine()}</p>
+                    <p className="font-medium text-amber-50">{getPrintUrgentHdUpsellLine(instantHdPriceLine)}</p>
+                  </div>
                   <PrintGiftDecisionPanel
                     printShippingCountry={printShippingCountry}
                     sizingVariant={preferredPrintVariant}

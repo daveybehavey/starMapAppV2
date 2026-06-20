@@ -1,5 +1,6 @@
 import type { AspectRatio } from "@/lib/types";
 import type { PrintVariant } from "@/lib/printCatalog";
+import { getPrintFramedHdBundleTimingLine } from "@/lib/commerceFacts";
 import { getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 
@@ -64,7 +65,7 @@ export const PRINT_GIFT_TIER_STEPS = [
   {
     id: "framed_hd",
     label: "Framed + HD",
-    detail: "Most popular — gift-ready wall art plus instant HD file.",
+    detail: `Most popular — gift-ready wall art plus instant HD file. ${getPrintFramedHdBundleTimingLine()}`,
   },
   {
     id: "framed_card",

@@ -1,4 +1,9 @@
-import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
+import {
+  getPrintFramedHdBundleShortLine,
+  getPrintFramedHdBundleTimingLine,
+  getPrintStandardShippingOnlyLine,
+  getPrintUsTotalDeliveryEstimateLine,
+} from "@/lib/commerceFacts";
 import {
   getFramedHdBundlePriceLine,
   getPrintProductionReviewDisclosure,
@@ -17,7 +22,7 @@ const steps = [
   },
   {
     title: "HD instant · print ships after checkout",
-    detail: "HD unlocks immediately. Physical gifts move into Printful fulfillment after payment.",
+    detail: getPrintFramedHdBundleTimingLine(),
   },
 ] as const;
 
@@ -54,10 +59,9 @@ export default function WeddingGiftJourneySection() {
       </ol>
 
       <div className="mt-5 rounded-2xl border border-black/5 bg-neutral-50 px-4 py-3 text-xs leading-relaxed text-neutral-700 sm:text-sm">
-        <span className="font-semibold text-midnight">Timing:</span> HD digital downloads right after payment.{" "}
-        {productionDisclosure}
-        {framedDelivery ? ` Typical framed U.S. delivery: ${framedDelivery.toLowerCase()}.` : ""}{" "}
-        Production window {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}. {shippingDisclosure}
+        <span className="font-semibold text-midnight">Timing:</span> {getPrintFramedHdBundleShortLine()}{" "}
+        {productionDisclosure} {getPrintUsTotalDeliveryEstimateLine()} {getPrintStandardShippingOnlyLine()}{" "}
+        {framedDelivery ? ` Carrier transit reference: ${framedDelivery.toLowerCase()}.` : ""} {shippingDisclosure}
       </div>
     </section>
   );

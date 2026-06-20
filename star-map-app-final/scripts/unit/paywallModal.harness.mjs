@@ -5,25 +5,14 @@
  * Mirrors the logic in the component — keep in sync when editing.
  */
 
+import { getPaywallDigitalBullets, getPaywallPrintBullets } from "./commerceFacts.harness.mjs";
+
 /**
  * @param {"digital"|"print"} activeIntent
  * @returns {string[]}
  */
 export function getBullets(activeIntent) {
-  if (activeIntent === "print") {
-    return [
-      "Printed and shipped to your door — framed or unframed",
-      "Production reviewed before fulfillment",
-      "Secure checkout — card, Apple Pay, Google Pay",
-      "HD digital file available to add at checkout",
-    ];
-  }
-  return [
-    "6,000 px high resolution — poster-quality print",
-    "No watermark on your downloaded file",
-    "Secure checkout — card, Apple Pay, Google Pay",
-    "Instant download after payment",
-  ];
+  return activeIntent === "print" ? getPaywallPrintBullets() : getPaywallDigitalBullets();
 }
 
 /**

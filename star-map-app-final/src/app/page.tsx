@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections from "./HomeStaticSections";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
+import { getPrintDeliveryTimingFaqAnswer } from "@/lib/commerceFacts";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
@@ -235,7 +236,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "When do I see shipping cost and delivery timing?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: `${shippingDisclosure} Production starts after order review while manual approval is enabled.`,
+              text: getPrintDeliveryTimingFaqAnswer(shippingDisclosure),
             },
           },
           {

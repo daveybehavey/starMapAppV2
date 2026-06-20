@@ -42,9 +42,10 @@ describe("getBullets", () => {
     assert.ok(bullets.some((b) => b.toLowerCase().includes("shipped")));
   });
 
-  it("print bullets mention production review", () => {
+  it("print bullets mention made-to-order production timeline", () => {
     const bullets = getBullets("print");
-    assert.ok(bullets.some((b) => b.toLowerCase().includes("production reviewed")));
+    assert.ok(bullets.some((b) => b.toLowerCase().includes("made to order")));
+    assert.ok(bullets.some((b) => b.includes("2–5 business days")));
   });
 
   it("print bullets do NOT mention '6,000 px'", () => {

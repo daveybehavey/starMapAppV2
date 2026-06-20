@@ -14,6 +14,7 @@ import {
   getPrintDigitalAddOnPrice,
   getPrintPricingTiers,
 } from "@/lib/pricing";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import {
   formatPrintPriceWithShipping,
   getPrintAllowedCountries,
@@ -257,7 +258,7 @@ export default function StarMapGiftFormatsPage() {
         rightPoints={[
           "Framed and unframed print paths available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          getPrintPhysicalOrderSummaryLine(),
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

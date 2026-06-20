@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import PolicyShell from "@/components/policy/PolicyShell";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
+import { getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
@@ -51,7 +53,7 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-midnight">4. Print Add-ons</h2>
             <p>
               Physical prints are produced on demand from the design approved in preview. Shipping costs and delivery
-              estimates are shown at checkout. Production may be paused for manual review before fulfillment.
+              estimates are shown at checkout. {getPrintProductionReviewDisclosure()} {getPrintPhysicalOrderSummaryLine()}
             </p>
             <p>
               Physical print orders are fulfilled by third-party production and delivery partners on behalf of

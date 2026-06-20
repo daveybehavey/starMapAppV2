@@ -13,6 +13,7 @@ import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -170,7 +171,7 @@ export default function StarMapGiftPage() {
         rightPoints={[
           "Clear returns and refund policy",
           shippingDisclosure,
-          "Manual review stays in place before physical production begins",
+          getPrintPhysicalOrderSummaryLine(),
           "Direct support at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

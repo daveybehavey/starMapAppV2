@@ -1,4 +1,10 @@
-import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getPrintAllowedCountries,
+  getPrintAvailabilityBadgeLabel,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
 import ResilientImage from "@/components/ResilientImage";
 import {
@@ -216,7 +222,8 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
-            <li>✓ Production starts after manual order review.</li>
+            <li>✓ {getPrintProductionReviewTrustPoint()}</li>
+            <li>✓ {getPrintPhysicalOrderSummaryLine()}</li>
             <li>✓ {shippingDisclosure}</li>
             <li>✓ Damage support: support@starmapco.com.</li>
             <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>

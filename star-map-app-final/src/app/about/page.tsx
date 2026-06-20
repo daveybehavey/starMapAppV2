@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
+import {
+  getPrintPhysicalOrderSummaryLine,
+  getPrintProductionTimelineLine,
+  getPrintStandardShippingOnlyLine,
+} from "@/lib/commerceFacts";
+import { getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -42,7 +48,7 @@ export default function AboutPage() {
             <h2 className="text-xl font-semibold text-midnight">How orders work</h2>
             <p>
               Digital orders unlock download access after payment verification. Physical print orders are custom-made
-              from the approved design and move into fulfillment after checkout and order review.
+              from the approved design. {getPrintProductionReviewDisclosure()} {getPrintPhysicalOrderSummaryLine()}
             </p>
           </section>
 
@@ -50,8 +56,8 @@ export default function AboutPage() {
             <h2 className="text-xl font-semibold text-midnight">Fulfillment model</h2>
             <p>
               StarMapCo sells the personalized product, handles checkout, and provides customer support directly.
-              Physical print orders are produced and shipped through third-party print and carrier partners after the
-              order is reviewed.
+              Physical print orders are produced and shipped through third-party print and carrier partners.{" "}
+              {getPrintProductionTimelineLine()} {getPrintStandardShippingOnlyLine()}
             </p>
           </section>
 

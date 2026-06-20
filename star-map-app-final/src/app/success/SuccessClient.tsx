@@ -20,6 +20,7 @@ import {
   type CheckoutPlan,
   type PrintVariant,
 } from "@/lib/pricing";
+import { getPrintFulfillmentProgressSteps, getPrintOrderIncludesDigitalNote } from "@/lib/commerceFacts";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   buildReferralShareUrl,
@@ -77,13 +78,8 @@ type PrintOrderSummary = {
   shippingNotificationSent: boolean;
 };
 
-const PRINT_FULFILLMENT_STEPS = [
-  "Payment received",
-  "Print order submitted to our production partner",
-  "Manual quality review before production (required for every order)",
-  "Production and shipping after approval",
-  "Tracking email when your order ships",
-] as const;
+const printFulfillmentSteps = getPrintFulfillmentProgressSteps();
+const printOrderIncludesDigitalNote = getPrintOrderIncludesDigitalNote();
 
 function readStoredMapId() {
   if (typeof window === "undefined") return null;
@@ -834,7 +830,7 @@ export default function SuccessClient() {
                   {printOrderReference ? ` · Ref ${printOrderReference}` : ""}
                 </p>
                 <ol className="mt-3 space-y-2 text-left text-xs text-amber-100/85">
-                  {PRINT_FULFILLMENT_STEPS.map((step) => (
+                  {printFulfillmentSteps.map((step) => (
                     <li key={step} className="flex gap-2">
                       <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" aria-hidden />
                       <span>{step}</span>
@@ -1100,7 +1096,7 @@ export default function SuccessClient() {
                       </details>
                     )}
                     <p className="mt-2 text-[11px] text-amber-100/70">
-                      Physical orders are reviewed before production begins, but your digital file stays available right away.
+                      {printOrderIncludesDigitalNote}
                     </p>
                   </div>
                 )}

@@ -14,6 +14,11 @@ import {
   renderTimelineSteps,
   renderTransactionalEmailDocument,
 } from "@/lib/transactionalEmailLayout";
+import {
+  getPrintOrderConfirmationEtaNote,
+  getPrintOrderConfirmationNextSteps,
+  getPrintOrderConfirmationPreheader,
+} from "@/lib/commerceFacts";
 
 export type PrintOrderConfirmationData = {
   customerName?: string | null;
@@ -25,6 +30,7 @@ export type PrintOrderConfirmationData = {
   supportEmail?: string | null;
   siteUrl?: string | null;
   manualReviewRequired?: boolean;
+  includesDigitalAddOn?: boolean;
 };
 
 export type RenderedPrintOrderConfirmationEmail = {
@@ -84,25 +90,17 @@ export function renderPrintOrderConfirmationEmail(data: PrintOrderConfirmationDa
   const siteUrl = normalizeSiteUrl(data.siteUrl);
   const orderRef = data.orderReference?.trim();
   const manualReview = data.manualReviewRequired !== false;
+  const includesDigitalAddOn = data.includesDigitalAddOn === true;
 
   const subject = "Your StarMapCo print order is confirmed";
 
-  const nextSteps = manualReview
-    ? [
-        "Your print file is sent to our production partner.",
-        "Manual quality review before production begins.",
-        "After approval, your map is printed, packed, and shipped.",
-        "You'll receive a separate email with tracking when it ships.",
-      ]
-    : [
-        "Your print is submitted to our production partner.",
-        "Production begins shortly after file processing.",
-        "You'll receive a separate email with tracking when it ships.",
-      ];
+  const nextSteps = getPrintOrderConfirmationNextSteps({
+    manualReviewRequired: manualReview,
+    includesDigitalAddOn,
+  });
 
-  const preheader = manualReview
-    ? "Payment received — we're reviewing your print before production. Tracking email coming soon."
-    : "Payment received — your custom star map print is in production. Tracking email coming soon.";
+  const preheader = getPrintOrderConfirmationPreheader(manualReview);
+  const etaNote = getPrintOrderConfirmationEtaNote({ includesDigitalAddOn });
 
   const textLines = [
     `Hi ${firstName},`,
@@ -116,6 +114,9 @@ export function renderPrintOrderConfirmationEmail(data: PrintOrderConfirmationDa
     "",
     "What happens next:",
     ...nextSteps.map((line, index) => `${index + 1}. ${line}`),
+    "",
+    "Delivery timing:",
+    etaNote,
     "",
     `View your order: ${data.successUrl}`,
     "",
@@ -148,6 +149,7 @@ export function renderPrintOrderConfirmationEmail(data: PrintOrderConfirmationDa
     </p>
     ${renderInfoCard("Order summary", orderSummaryBody, { marginTop: "24px" })}
     ${renderInfoCard("What happens next", renderTimelineSteps(nextSteps), { marginTop: "16px" })}
+    ${renderInfoCard("Delivery timing", `<p style="margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;">${escapeHtml(etaNote)}</p>`, { marginTop: "16px" })}
     ${renderPrimaryButton(data.successUrl, "View order status")}
     <p style="margin:20px 0 0;font-size:14px;line-height:1.65;color:#ffffff;">
       Thanks for trusting us with a meaningful moment,<br />

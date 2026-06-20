@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
+import { getPrintFramedHdBundleTimingLine } from "@/lib/commerceFacts";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import {
   buildPrintEditorCheckoutHref,
@@ -82,7 +83,8 @@ export default function DeliveryFormatModule({
               </span>
             </div>
             <p className="mt-1 text-xs text-neutral-700">
-              Best wedding gift: ready-to-display framed print plus instant HD from the same approved design.
+              Best wedding gift: ready-to-display framed print plus instant HD from the same approved design.{" "}
+              {getPrintFramedHdBundleTimingLine()}
             </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Gift-ready framed presentation</li>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ResilientImage from "@/components/ResilientImage";
+import { getPrintFramedHdBundleShortLine, getPrintPhysicalOrderSummaryLine, getPrintProductionBadgeLabel } from "@/lib/commerceFacts";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
@@ -96,7 +97,7 @@ export default function FramedProofSection({
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-900/90">
               <span className="brand-pill rounded-full px-3 py-1">{availabilityBadge}</span>
-              <span className="rounded-full border border-black/10 bg-white/85 px-3 py-1 text-[#4f5a73]">Manual review before production</span>
+              <span className="rounded-full border border-black/10 bg-white/85 px-3 py-1 text-[#4f5a73]">{getPrintProductionBadgeLabel()}</span>
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700">Framed in real spaces</p>
             <h2 className="text-xl font-semibold text-midnight">{heading}</h2>
@@ -122,15 +123,13 @@ export default function FramedProofSection({
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Instant backup</p>
               <h3 className="mt-2 text-sm font-semibold text-midnight">HD digital add-on</h3>
               <p className="mt-1 text-sm text-neutral-700">{digitalAddOnPrice}</p>
-              <p className="mt-2 text-xs text-neutral-700">Delivered immediately after checkout, even when you order print.</p>
+              <p className="mt-2 text-xs text-neutral-700">Delivered immediately after checkout, even when you order print. {getPrintFramedHdBundleShortLine()}</p>
             </div>
           </div>
 
           <ul className="space-y-2 text-sm text-neutral-800">
             <li className="brand-light-card rounded-2xl px-4 py-3">{shippingDisclosure}</li>
-            <li className="brand-light-card rounded-2xl px-4 py-3">
-              Paid print orders are created for review first, then approved manually before production starts.
-            </li>
+            <li className="brand-light-card rounded-2xl px-4 py-3">{getPrintPhysicalOrderSummaryLine()}</li>
             <li className="brand-light-card rounded-2xl px-4 py-3">
               The same approved map can stay digital, ship unframed, or arrive framed without rebuilding the design.
             </li>

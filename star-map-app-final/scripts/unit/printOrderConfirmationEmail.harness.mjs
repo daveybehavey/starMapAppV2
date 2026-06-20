@@ -1,5 +1,11 @@
 /** Keep in sync with src/lib/printOrderConfirmationEmail.ts (render + labels). */
 
+import {
+  getPrintOrderConfirmationEtaNote,
+  getPrintOrderConfirmationNextSteps,
+  getPrintOrderConfirmationPreheader,
+} from "./commerceFacts.harness.mjs";
+
 export function getPrintProductLabel(variant) {
   switch (variant) {
     case "poster_framed":
@@ -14,15 +20,24 @@ export function getPrintProductLabel(variant) {
 export function renderPrintOrderConfirmationEmail(data) {
   const productLabel = data.productLabel.trim() || "Custom star map print";
   const manualReview = data.manualReviewRequired !== false;
+  const includesDigitalAddOn = data.includesDigitalAddOn === true;
   const subject = "Your StarMapCo print order is confirmed";
+  const nextSteps = getPrintOrderConfirmationNextSteps({
+    manualReviewRequired: manualReview,
+    includesDigitalAddOn,
+  });
+  const etaNote = getPrintOrderConfirmationEtaNote({ includesDigitalAddOn });
+  const preheader = getPrintOrderConfirmationPreheader(manualReview);
   const text = [
     `Product: ${productLabel}`,
-    manualReview ? "Manual quality review before production." : "",
+    preheader,
+    ...nextSteps,
+    etaNote,
     data.successUrl,
     data.supportEmail || "support@starmapco.com",
   ]
     .filter(Boolean)
     .join("\n");
-  const html = `<html><body><h1>Your print is on the way to production</h1><p>${productLabel}</p><a href="${data.successUrl}">View order status</a></body></html>`;
+  const html = `<html><body><h1>Your print is on the way to production</h1><p>${productLabel}</p><p>${etaNote}</p><a href="${data.successUrl}">View order status</a></body></html>`;
   return { subject, html, text };
 }

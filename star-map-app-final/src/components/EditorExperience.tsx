@@ -37,6 +37,11 @@ import {
 } from "@/lib/hdExportFulfillment";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
+  getPrintFramedHdBundleShortLine,
+  getPrintPhysicalOrderSummaryLine,
+  getPrintProductionTimelineLine,
+} from "@/lib/commerceFacts";
+import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
@@ -3269,9 +3274,9 @@ export function EditorExperience({
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Shipping is shown before payment, and your print order draft is
-                              created right after payment for manual review. Apple Pay, Google Pay, and Link show when
-                              available. {shippingDisclosure}
+                              Secure Stripe checkout. Shipping is shown before payment, and your print order is submitted
+                              after payment for production. Apple Pay, Google Pay, and Link show when available.{" "}
+                              {getPrintProductionTimelineLine()} {shippingDisclosure}
                             </p>
                             {activeMapLookTier === "minimal" && (
                               <p className="mt-2 rounded-lg border border-amber-200/30 bg-black/15 px-3 py-2 text-[11px] text-amber-50/90">
@@ -3289,7 +3294,7 @@ export function EditorExperience({
                               </div>
                               <div className="rounded-xl border border-amber-300/35 bg-black/20 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Best gift</p>
-                                <p className="mt-1">Framed print. Easiest premium route.</p>
+                                <p className="mt-1">Framed + HD — instant file plus shipped wall art. {getPrintFramedHdBundleShortLine()}</p>
                               </div>
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Lower total</p>

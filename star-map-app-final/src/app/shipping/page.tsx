@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import PolicyShell from "@/components/policy/PolicyShell";
 import { getBusinessProfile } from "@/lib/businessProfile";
-import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS } from "@/lib/commerceFacts";
+import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS, getPrintStandardShippingOnlyLine, getPrintUsTotalDeliveryEstimateLine } from "@/lib/commerceFacts";
 import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
-import { getPrintAllowedCountries } from "@/lib/printCheckoutConfig";
+import { getPrintAllowedCountries, getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 import { getPrintFreeShippingOfferLine, getPrintFreeShippingQualifyingHint } from "@/lib/printFreeShipping";
 import { getPrintfulShippingRate, getPrintShippingCountryLabel } from "@/lib/printfulShipping";
 
@@ -77,8 +77,9 @@ export default function ShippingPage() {
         </p>
         <p className="mt-3 text-sm text-neutral-900 sm:text-base">
           Print orders are made to order. Typical fulfillment time before shipment is {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS},
-          plus carrier transit time shown below.
+          plus carrier transit time shown below. {getPrintUsTotalDeliveryEstimateLine()}
         </p>
+        <p className="mt-3 text-sm text-neutral-900 sm:text-base">{getPrintStandardShippingOnlyLine()}</p>
         {freeShippingOffer ? (
           <section className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4 text-sm text-neutral-900 sm:text-base">
             <h2 className="text-lg font-semibold text-midnight">Free shipping on larger print orders</h2>
@@ -100,7 +101,7 @@ export default function ShippingPage() {
                   <th className="px-3 py-2 font-semibold">Country</th>
                   <th className="px-3 py-2 font-semibold">Unframed shipping</th>
                   <th className="px-3 py-2 font-semibold">Framed shipping</th>
-                  <th className="px-3 py-2 font-semibold">Delivery estimate</th>
+                  <th className="px-3 py-2 font-semibold">Transit after production</th>
                 </tr>
               </thead>
               <tbody>
@@ -119,10 +120,7 @@ export default function ShippingPage() {
 
         <section className="mt-6 space-y-3 text-sm text-neutral-900 sm:text-base">
           <h2 className="text-xl font-semibold text-midnight">Notes</h2>
-          <p>
-            Orders are reviewed before production when manual approval mode is enabled. Production begins after review,
-            then tracking is provided by the print partner.
-          </p>
+          <p>{getPrintProductionReviewDisclosure()} Tracking is provided when your order ships.</p>
           <p>
             Physical orders are fulfilled through third-party print facilities selected by destination and production
             availability, while StarMapCo handles customer support directly.
