@@ -111,7 +111,14 @@ export default function AstronomyBehindStarMaps() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">
               Why Accuracy Matters in Custom Star Maps
             </h2>
-            <p>Inaccurate maps lose sentimental value; scientific precision ensures authenticity for gifts and education.</p>
+            <p>
+              Inaccurate maps lose sentimental value; scientific precision ensures authenticity for gifts and education.
+              For a buyer-friendly breakdown of what inputs matter most, see{" "}
+              <Link href="/how-accurate-are-star-maps?source=blog-astronomy" className="text-amber-300 hover:underline">
+                how accurate star maps are
+              </Link>
+              .
+            </p>
             <div className="overflow-x-auto">
               <table className="min-w-full border border-amber-200/40 text-left text-sm text-neutral-100">
                 <thead className="bg-[#0f1f3a] text-amber-200">
@@ -158,9 +165,13 @@ export default function AstronomyBehindStarMaps() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Where to Experience Accurate Star Maps</h2>
             <p>
-              Choose tools with proven libraries and real catalogs. Ready to see your sky?{" "}
+              Choose tools with proven libraries and real catalogs. Preview your own moment free in the{" "}
+              <Link href="/star-map-generator?source=blog-astronomy" className="text-amber-300 hover:underline">
+                star map generator
+              </Link>
+              , or{" "}
               <Link href="/editor?mode=quick&source=blog-astronomy-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with framed print preview
+                jump straight to a framed print preview
               </Link>
               .
             </p>

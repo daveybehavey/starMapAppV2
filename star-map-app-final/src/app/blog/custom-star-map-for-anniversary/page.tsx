@@ -141,7 +141,11 @@ export default function AnniversaryPostPage() {
             <p>
               Star maps are generated using real astronomical databases that calculate where stars, planets,
               and constellations were located at a specific time and place. This ensures your map reflects the
-              real sky from that exact moment.
+              real sky from that exact moment. Read{" "}
+              <Link href="/how-accurate-are-star-maps?source=blog-anniversary" className="text-amber-300 hover:underline">
+                how accurate star maps are
+              </Link>{" "}
+              if you want to understand date, time, and location inputs before you order.
             </p>
             <h3 className="text-xl font-semibold text-amber-100">Design &amp; Personalization</h3>
             <p>Once the sky data is generated, design elements are added, such as:</p>
@@ -263,12 +267,15 @@ export default function AnniversaryPostPage() {
             </h2>
             <p>
               Look for accurate astronomical data, high-quality printing options, clear customization
-              previews, and reliable delivery timelines. If you’re ready to turn your special moment into a
-              celestial keepsake, you can{" "}
-              <Link href="/editor?mode=quick&source=blog-anniversary-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with framed print preview
+              previews, and reliable delivery timelines. Start on the{" "}
+              <Link href="/anniversary?source=blog-anniversary" className="text-amber-300 hover:underline">
+                anniversary star map gift page
               </Link>{" "}
-              with confidence and ease.
+              for a preview-first path, or{" "}
+              <Link href="/editor?mode=quick&source=blog-anniversary-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
+                jump straight to a framed print preview
+              </Link>
+              .
             </p>
           </section>
 

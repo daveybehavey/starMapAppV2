@@ -189,7 +189,11 @@ export default function MemorialStarMapPostPage() {
               <li>
                 <strong>HD digital delivery</strong> is ideal when family members are spread across different cities
                 or countries. Everyone can receive the same map file and choose to print it locally, frame it
-                themselves, or simply keep it on a device where it can be revisited quietly.
+                themselves, or simply keep it on a device where it can be revisited quietly. See{" "}
+                <Link href="/hd-star-map?source=blog-memorial-star-map" className="text-amber-300 hover:underline">
+                  instant HD delivery
+                </Link>{" "}
+                for same-day sharing options.
               </li>
               <li>
                 <strong>Unframed print</strong> is a practical middle path — a high-quality physical print that the
@@ -229,13 +233,13 @@ export default function MemorialStarMapPostPage() {
             </p>
             <p className="mt-2">
               If you are looking for a gift that respects the weight of loss without adding to it, a star map offers
-              a gentle, honest option that most people are grateful to receive. Start from the{" "}
-              <Link href="/anniversary" className="text-amber-300 hover:underline">
-                anniversary page
+              a gentle, honest option that most people are grateful to receive. Browse the{" "}
+              <Link href="/star-map-for/memorial?source=blog-memorial-star-map" className="text-amber-300 hover:underline">
+                memorial star map gift page
               </Link>{" "}
               for format ideas or go directly to the{" "}
-              <Link href="/star-map-generator" className="text-amber-300 hover:underline">
-                generator
+              <Link href="/star-map-generator?source=blog-memorial-star-map" className="text-amber-300 hover:underline">
+                star map generator
               </Link>{" "}
               to preview the sky from a date that mattered.
             </p>

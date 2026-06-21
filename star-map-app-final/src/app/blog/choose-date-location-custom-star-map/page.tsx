@@ -74,7 +74,12 @@ export default function ChooseDateLocationPost() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">
               Why Date and Location Matter in Custom Star Maps
             </h2>
-            <p>Date determines star alignments; location adjusts for the local sky view. Wrong choices lead to inaccuracies.</p>
+            <p>Date determines star alignments; location adjusts for the local sky view. Wrong choices lead to inaccuracies. Our{" "}
+              <Link href="/how-accurate-are-star-maps?source=blog-date-location" className="text-amber-300 hover:underline">
+                accuracy guide
+              </Link>{" "}
+              explains how date, time, timezone, and place affect the final map.
+            </p>
           </section>
 
           <section className="space-y-4">
@@ -143,11 +148,15 @@ export default function ChooseDateLocationPost() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">How to Finalize</h2>
             <p>
-              Preview tools show real-time changes. Ready to lock it in?{" "}
-              <Link href="/editor?mode=quick&source=blog-date-location-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with framed print preview
+              Preview tools show real-time changes. Open the{" "}
+              <Link href="/star-map-generator?source=blog-date-location" className="text-amber-300 hover:underline">
+                star map generator
               </Link>{" "}
-              with confidence.
+              to test date and location inputs, or{" "}
+              <Link href="/editor?mode=quick&source=blog-date-location-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
+                jump straight to a framed print preview
+              </Link>{" "}
+              when you are ready to lock it in.
             </p>
           </section>
 
