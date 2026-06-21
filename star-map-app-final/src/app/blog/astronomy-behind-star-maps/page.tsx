@@ -202,7 +202,7 @@ export default function AstronomyBehindStarMaps() {
             </p>
           </section>
 
-          <BlogPostConversionLinks source="astronomy-behind-star-maps" />
+          <BlogPostConversionLinks source="astronomy-behind-star-maps" postSlug="astronomy-behind-star-maps" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

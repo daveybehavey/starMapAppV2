@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { blogPosts } from "@/lib/blogPosts";
+import { BLOG_MONEY_PAGE_LINKS } from "@/lib/blogConversionLinks";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -93,6 +94,19 @@ const formatBlogDate = (date: string) => {
   return blogDateFormatter.format(parsed);
 };
 
+const blogOccasionHubLinks = BLOG_MONEY_PAGE_LINKS.filter((link) =>
+  [
+    "/star-map-generator",
+    "/wedding",
+    "/anniversary",
+    "/birthday",
+    "/star-map-for/new-baby",
+    "/star-map-for/memorial",
+    "/hd-star-map",
+    "/shop",
+  ].includes(link.href),
+);
+
 export default function BlogIndex() {
   return (
     <main className="bg-[#050915] px-4 pt-10 pb-16 text-white">
@@ -106,6 +120,30 @@ export default function BlogIndex() {
           astronomy insights.
         </p>
       </header>
+
+      <section
+        aria-labelledby="blog-occasion-hub"
+        className="mx-auto mb-10 max-w-5xl rounded-2xl border border-amber-200/30 bg-amber-400/10 p-5"
+      >
+        <h2 id="blog-occasion-hub" className="text-lg font-semibold text-amber-100">
+          Design by occasion
+        </h2>
+        <p className="mt-1 text-sm text-neutral-200">
+          Jump from guides to the pages where you preview free and choose HD download or printed delivery.
+        </p>
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {blogOccasionHubLinks.map((item) => (
+            <li key={item.href}>
+              <Link
+                href={`${item.href}?source=blog_index`}
+                className="inline-flex rounded-full border border-amber-200/50 bg-white/10 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:border-amber-200 hover:bg-white/15"
+              >
+                {item.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="mx-auto max-w-5xl">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -148,8 +186,8 @@ export default function BlogIndex() {
 
         <div className="mt-10 text-center text-base text-neutral-200">
           Ready to create?{" "}
-          <Link href="/" className="font-semibold text-amber-300 hover:underline">
-            Start free preview
+          <Link href="/star-map-generator?source=blog_index" className="font-semibold text-amber-300 hover:underline">
+            Free star map generator
           </Link>
         </div>
       </section>

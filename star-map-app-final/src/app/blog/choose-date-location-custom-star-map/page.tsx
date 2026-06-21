@@ -185,7 +185,7 @@ export default function ChooseDateLocationPost() {
             </p>
           </section>
 
-          <BlogPostConversionLinks source="choose-date-location" />
+          <BlogPostConversionLinks source="choose-date-location" postSlug="choose-date-location-custom-star-map" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

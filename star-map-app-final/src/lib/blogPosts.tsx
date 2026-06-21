@@ -1788,7 +1788,8 @@ export const blogPosts: BlogPost[] = [
         </p>
         <p>
           Read the full guide at{" "}
-          <Link href="/blog/birth-star-map">Birth Star Map: A Meaningful Nursery Gift From the Night They Arrived</Link>.
+          <Link href="/blog/birth-star-map">Birth Star Map: A Meaningful Nursery Gift From the Night They Arrived</Link>{" "}
+          or start on the <Link href="/star-map-for/new-baby">new baby star map page</Link>.
         </p>
       </article>
     ),
@@ -1947,7 +1948,7 @@ export const blogPosts: BlogPost[] = [
         <p>
           If you are looking for a gift that respects the weight of loss without adding to it, a star map offers
           a gentle, honest option that most people are grateful to receive. Start from the{" "}
-          <Link href="/anniversary">anniversary page</Link> for format ideas or go directly to the{" "}
+          <Link href="/star-map-for/memorial">memorial star map page</Link> for format ideas or go directly to the{" "}
           <Link href="/star-map-generator">generator</Link> to preview the sky from a date that mattered.
         </p>
 

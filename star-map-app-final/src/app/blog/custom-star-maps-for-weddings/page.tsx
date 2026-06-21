@@ -216,7 +216,7 @@ export default function WeddingsPostPage() {
             </p>
           </section>
 
-          <BlogPostConversionLinks source="custom-star-maps-weddings" />
+          <BlogPostConversionLinks source="custom-star-maps-weddings" postSlug="custom-star-maps-for-weddings" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

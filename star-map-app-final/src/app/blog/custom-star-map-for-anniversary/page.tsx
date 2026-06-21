@@ -330,7 +330,7 @@ export default function AnniversaryPostPage() {
             </p>
           </section>
 
-          <BlogPostConversionLinks source="custom-star-map-anniversary" />
+          <BlogPostConversionLinks source="custom-star-map-anniversary" postSlug="custom-star-map-for-anniversary" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-3">

@@ -176,7 +176,7 @@ export default function ValentinesStarMapPage() {
           </p>
         </section>
 
-        <BlogPostConversionLinks source="valentines-day-star-map" />
+        <BlogPostConversionLinks source="valentines-day-star-map" postSlug="valentines-day-star-map" />
 
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Your Valentine’s Day, elevated</h2>

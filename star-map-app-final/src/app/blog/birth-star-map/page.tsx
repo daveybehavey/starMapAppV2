@@ -272,7 +272,7 @@ export default function BirthStarMapPostPage() {
           </section>
         </div>
 
-        <BlogPostConversionLinks source="blog-birth-star-map" />
+        <BlogPostConversionLinks source="blog-birth-star-map" postSlug="birth-star-map" />
         <FaqSchema items={faqItems} />
       </article>
     </main>

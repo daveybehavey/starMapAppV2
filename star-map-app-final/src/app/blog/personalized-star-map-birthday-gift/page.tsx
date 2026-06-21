@@ -258,7 +258,7 @@ export default function PersonalizedBirthdayPost() {
             </p>
           </section>
 
-          <BlogPostConversionLinks source="birthday-star-map-gift" />
+          <BlogPostConversionLinks source="birthday-star-map-gift" postSlug="personalized-star-map-birthday-gift" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

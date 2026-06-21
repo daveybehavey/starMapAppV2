@@ -1,33 +1,31 @@
 import Link from "next/link";
+import {
+  getBlogConversionIntro,
+  getOrderedBlogConversionLinks,
+  resolveBlogOccasion,
+} from "@/lib/blogConversionLinks";
 
 type BlogPostConversionLinksProps = {
   /** PostHog / analytics source slug */
   source: string;
+  /** Blog post slug — used to prioritize occasion-relevant money pages */
+  postSlug?: string;
+  className?: string;
 };
 
-const LINKS = [
-  { href: "/editor", label: "Create your star map" },
-  { href: "/star-map-for/engagement", label: "Engagement star map gift" },
-  { href: "/star-map-for/proposal", label: "Proposal star map gift" },
-  { href: "/star-map-for/memorial", label: "Memorial star map gift" },
-  { href: "/hd-star-map", label: "Instant HD download" },
-  { href: "/personalized-star-map", label: "Personalized star map gifts" },
-  { href: "/star-map-for/new-baby", label: "New baby star maps" },
-  { href: "/birthday", label: "Birthday star maps" },
-  { href: "/star-map-gift", label: "Star map gift ideas" },
-  { href: "/wedding", label: "Wedding star maps" },
-  { href: "/how-accurate-are-star-maps", label: "How accurate are star maps?" },
-] as const;
+export default function BlogPostConversionLinks({ source, postSlug, className }: BlogPostConversionLinksProps) {
+  const occasion = postSlug ? resolveBlogOccasion(postSlug) : "general";
+  const links = postSlug ? getOrderedBlogConversionLinks(postSlug) : getOrderedBlogConversionLinks("general");
+  const intro = getBlogConversionIntro(occasion);
 
-export default function BlogPostConversionLinks({ source }: BlogPostConversionLinksProps) {
   return (
-    <section className="mt-10 rounded-2xl border border-amber-200/40 bg-amber-400/10 p-5">
+    <section
+      className={`rounded-2xl border border-amber-200/40 bg-amber-400/10 p-5 ${className ?? ""}`.trim()}
+    >
       <h2 className="text-lg font-semibold text-amber-100">Ready to design yours?</h2>
-      <p className="mt-1 text-sm text-neutral-200">
-        Free preview in the editor — HD download or printed delivery when you are happy with the sky.
-      </p>
+      <p className="mt-1 text-sm text-neutral-200">{intro}</p>
       <ul className="mt-4 flex flex-wrap gap-2">
-        {LINKS.map((item) => (
+        {links.map((item) => (
           <li key={item.href}>
             <Link
               href={`${item.href}?source=blog_${source}`}

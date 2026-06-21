@@ -286,7 +286,7 @@ export default function MemorialStarMapPostPage() {
           </section>
         </div>
 
-        <BlogPostConversionLinks source="blog-memorial-star-map" className="mt-12" />
+        <BlogPostConversionLinks source="blog-memorial-star-map" postSlug="memorial-star-map" className="mt-12" />
       </article>
     </main>
   );
