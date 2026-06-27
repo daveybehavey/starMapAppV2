@@ -11,11 +11,12 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:commerce-digest -- --days 7`
   - Latest snapshot: `landing_view=151`, `preview_started=111`, `checkout_started=110`, `payment_verified=0`
 - **Funnel truth note**:
-  - treat `checkout_started` as checkout intent
-  - treat `checkout_request_received` as requests that actually reached `/api/checkout`
-  - treat `checkout_session_created` as successful Stripe session creation
+  - treat `checkout_started` as client-side checkout intent recorded before `/api/checkout`; it is browser-executed and Do Not Track gated
+  - treat `checkout_request_received` as server-side `/api/checkout` request volume; it may include GET and POST checkout paths and is not directly comparable to browser-gated intent
+  - treat `checkout_session_created` as server-side successful Stripe session creation; it is operational volume, not proof of unique buyer intent
   - treat `payment_verified` as the paid truth metric
-  - On March 18, 2026, `checkout_started` was tightened to client intent only (before `/api/checkout`), so expect one transition window of skew while old counts roll out of 14-day comparisons
+  - On March 18, 2026, `checkout_started` was tightened to client intent only (before `/api/checkout`), so historical comparisons can be skewed while old counts roll out of reporting windows
+  - do not calculate `checkout_started -> checkout_request_received` or `checkout_started -> checkout_session_created` as a conversion rate when server volume exceeds client intent
   - if `checkout_started` is high but `checkout_request_received` is low, the drop is before the checkout API handoff
   - if `checkout_request_received` is healthy but `checkout_session_created` is low, the drop is inside checkout preparation
   - if `checkout_session_created` is healthy but `payment_verified` is low, the drop is inside or after Checkout
@@ -152,7 +153,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - Open `/funnel?token=<FUNNEL_DASHBOARD_TOKEN>`
 - The page now shows:
   - landing conversion
-  - checkout handoff (`checkout_started` -> `checkout_request_received`)
+  - client checkout intent (`checkout_started` from `preview_started`)
   - Stripe session creation (`checkout_request_received` -> `checkout_session_created`)
   - paid-after-Stripe conversion
   - promo signup counts

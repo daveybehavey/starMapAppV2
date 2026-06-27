@@ -13,6 +13,7 @@ for (const [key, value] of Object.entries(wranglerVars)) {
 }
 
 const PREVIEW_STEP = "preview_started";
+const CLIENT_INTENT_STEP = "checkout_started";
 const SESSION_STEP = "checkout_session_created";
 const PAID_STEP = "payment_verified";
 
@@ -43,8 +44,8 @@ function parseArgs(argv) {
     if (token === "-h" || token === "--help") {
       console.log(`Usage: node scripts/checkout-ratio-sanity.mjs [--site <url>] [--no-probe] [--json]
 
-Prints preview_started → checkout_session_created → payment_verified ratios for the
-funnel dashboard windows last 1d and last 7d (UTC day range, same source as commerce digest).
+Prints preview_started, checkout_started, checkout_session_created, and payment_verified
+for the funnel dashboard windows last 1d and last 7d (UTC day range, same source as commerce digest).
 
 Optional env:
   FUNNEL_DASHBOARD_TOKEN — required when the site enforces funnel dashboard auth
@@ -94,19 +95,30 @@ async function fetchFunnelSteps(site, days) {
     generatedAt: body.data.generatedAt,
     days: body.data.days,
     preview: Number(steps[PREVIEW_STEP] || 0),
+    clientIntent: Number(steps[CLIENT_INTENT_STEP] || 0),
     session: Number(steps[SESSION_STEP] || 0),
     paid: Number(steps[PAID_STEP] || 0),
   };
 }
 
 function buildWindowReport(snapshot) {
-  const { days, preview, session, paid } = snapshot;
+  const { days, preview, clientIntent, session, paid } = snapshot;
   return {
     days,
-    counts: { preview_started: preview, checkout_session_created: session, payment_verified: paid },
-    previewToSession: { pct: pct(session, preview), numerator: session, denominator: preview },
+    counts: {
+      preview_started: preview,
+      checkout_started: clientIntent,
+      checkout_session_created: session,
+      payment_verified: paid,
+    },
+    previewToClientIntent: { pct: pct(clientIntent, preview), numerator: clientIntent, denominator: preview },
+    previewToServerSession: { pct: pct(session, preview), numerator: session, denominator: preview },
     sessionToPaid: { pct: pct(paid, session), numerator: paid, denominator: session },
     previewToPaid: { pct: pct(paid, preview), numerator: paid, denominator: preview },
+    comparableWarning:
+      clientIntent > 0 && session > clientIntent
+        ? "server checkout sessions exceed client checkout intent; do not compare these as a conversion rate"
+        : null,
   };
 }
 
@@ -122,11 +134,19 @@ async function probeSiteRoot(site) {
 function printWindow(label, report) {
   console.log(label);
   console.log(
-    `  counts: ${PREVIEW_STEP}=${report.counts.preview_started} ${SESSION_STEP}=${report.counts.checkout_session_created} ${PAID_STEP}=${report.counts.payment_verified}`,
+    `  counts: ${PREVIEW_STEP}=${report.counts.preview_started} ${CLIENT_INTENT_STEP}=${report.counts.checkout_started} ${SESSION_STEP}=${report.counts.checkout_session_created} ${PAID_STEP}=${report.counts.payment_verified}`,
   );
-  console.log(`  preview → session: ${formatRate(report.previewToSession.numerator, report.previewToSession.denominator)}`);
-  console.log(`  session → paid: ${formatRate(report.sessionToPaid.numerator, report.sessionToPaid.denominator)}`);
-  console.log(`  preview → paid: ${formatRate(report.previewToPaid.numerator, report.previewToPaid.denominator)}`);
+  console.log(
+    `  preview -> client checkout intent: ${formatRate(report.previewToClientIntent.numerator, report.previewToClientIntent.denominator)}`,
+  );
+  console.log(
+    `  preview -> server session created: ${formatRate(report.previewToServerSession.numerator, report.previewToServerSession.denominator)} (operational, not buyer-intent truth)`,
+  );
+  console.log(`  server session created -> paid: ${formatRate(report.sessionToPaid.numerator, report.sessionToPaid.denominator)}`);
+  console.log(`  preview -> paid: ${formatRate(report.previewToPaid.numerator, report.previewToPaid.denominator)}`);
+  if (report.comparableWarning) {
+    console.log(`  warning: ${report.comparableWarning}`);
+  }
   console.log("");
 }
 
@@ -149,9 +169,10 @@ async function main() {
     return;
   }
 
-  console.log("Checkout ratio sanity (funnel)");
+  console.log("Checkout ratio sanity (funnel semantics)");
   console.log(`Site: ${args.site}`);
   console.log(`Funnel snapshots: 1d@${one.generatedAt || "unknown"} 7d@${seven.generatedAt || "unknown"}`);
+  console.log("Note: checkout_started is client-side/DNT-gated. checkout_session_created is server-side operational volume.");
   console.log("");
   printWindow("Last 1d (funnel UTC window)", out.windows.last1d);
   printWindow("Last 7d (funnel UTC window)", out.windows.last7d);

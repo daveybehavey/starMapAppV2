@@ -129,6 +129,11 @@ function formatMoney(cents, currency) {
   }
 }
 
+function formatRate(numerator, denominator) {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return "n/a";
+  return `${((numerator / denominator) * 100).toFixed(2)}% (${numerator}/${denominator})`;
+}
+
 function incrementBucket(map, key, by = 1) {
   map.set(key, (map.get(key) ?? 0) + by);
 }
@@ -569,44 +574,38 @@ function printHumanReport(report) {
     }
 
     console.log("");
-    console.log("Checkout conversion");
+    console.log("Checkout semantics");
     const checkoutStarted = Number(report.funnel.checkout_started || 0);
     const checkoutRequestReceived = Number(report.funnel.checkout_request_received || 0);
     const sessionCreated = Number(report.funnel.checkout_session_created || 0);
     const paid = Number(report.funnel.payment_verified || 0);
-    if (checkoutStarted > 0) {
-      console.log(
-        `intent -> api request: ${((checkoutRequestReceived / checkoutStarted) * 100).toFixed(2)}% (${checkoutRequestReceived}/${checkoutStarted})`,
-      );
-    } else {
-      console.log("intent -> api request: n/a");
-    }
+    console.log("checkout_started: client-side checkout intent; browser/DNT gated");
+    console.log("checkout_request_received: server-side /api/checkout volume; not directly comparable to client intent");
+    console.log("checkout_session_created: server-side Stripe session creation; operational volume");
+    console.log("payment_verified: paid truth metric; deduped against Stripe session/payment verification");
+    console.log(`preview -> client checkout intent: ${formatRate(checkoutStarted, Number(report.funnel.preview_started || 0))}`);
+    console.log("client checkout intent -> server request: not comparable across browser/DNT/server event sources");
     if (checkoutRequestReceived > 0) {
       if (checkoutRequestReceived < sessionCreated) {
         console.log(
           `api request -> session created: partial history (${sessionCreated} sessions, ${checkoutRequestReceived} api requests tracked in-window)`,
         );
       } else {
-        console.log(
-          `api request -> session created: ${((sessionCreated / checkoutRequestReceived) * 100).toFixed(2)}% (${sessionCreated}/${checkoutRequestReceived})`,
-        );
+        console.log(`api request -> session created: ${formatRate(sessionCreated, checkoutRequestReceived)}`);
       }
     } else {
       console.log("api request -> session created: n/a");
     }
-    if (checkoutStarted > 0) {
+    console.log("client checkout intent -> server session: not comparable across browser/DNT/server event sources");
+    if (checkoutStarted > 0 && (checkoutRequestReceived > checkoutStarted || sessionCreated > checkoutStarted)) {
       console.log(
-        `intent -> session created: ${((sessionCreated / checkoutStarted) * 100).toFixed(2)}% (${sessionCreated}/${checkoutStarted})`,
+        "semantics warning: server checkout volume exceeds client checkout intent; do not treat this as a conversion rate.",
       );
-    } else {
-      console.log("intent -> session created: n/a");
     }
     if (sessionCreated > 0) {
-      console.log(
-        `session created -> paid: ${((paid / sessionCreated) * 100).toFixed(2)}% (${paid}/${sessionCreated})`,
-      );
+      console.log(`server session created -> paid: ${formatRate(paid, sessionCreated)}`);
     } else {
-      console.log("session created -> paid: n/a");
+      console.log("server session created -> paid: n/a");
     }
   }
 
