@@ -7,14 +7,25 @@ import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import { testimonialsByPage } from "@/data/testimonials";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import {
+  getFramedHdBundlePriceLine,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import {
+  buildFramedHdCheckoutHref,
+  buildStandardGiftPreviewIntents,
+  getGiftLadderIntro,
+} from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -27,14 +38,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Star Map | StarMapCo",
+  title: "Best Personalized Star Map Gift | StarMapCo",
   description:
-    "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Looking for the best personalized star map gift? Capture any date and place with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
-    title: "Personalized Star Map | StarMapCo",
+    title: "Best Personalized Star Map Gift | StarMapCo",
     description:
-      "Create a personalized star map with names, dates, and locations. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "A personalized star map gift with names, dates, and locations. Free preview, then framed print, unframed print, or HD digital.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -44,59 +55,70 @@ export const metadata: Metadata = {
 
 export default function PersonalizedStarMapPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
+  const framedHdHref = buildFramedHdCheckoutHref("personalized-star-map-hero-framed-hd");
+  const previewIntents = buildStandardGiftPreviewIntents("personalized-star-map");
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Star Map</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Best Personalized Star Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Personalize a star map with names, a date, and a location to capture the exact night sky from a meaningful moment.
+          A personalized star map gift with names, a date, and a location—the exact night sky from a moment worth framing.
+          Framed print + HD digital qualifies for free shipping at checkout.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href={framedHdHref}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Preview framed + HD gift
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=personalized-star-map-hero-preview"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Start free preview
+          </Link>
+          <InstantHdHeroExtras source="personalized-star-map-hero-instant" showFunnelLink={false} />
+        </div>
+        <InstantHdHeroExtras source="personalized-star-map-hero-instant" showButton={false} />
+        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
+
+      <GiftFormatLadder
+        sourcePrefix="personalized-ladder"
+        heading="Personalized gift formats"
+        intro={getGiftLadderIntro()}
+        includeCanvas
+        className="mt-8"
+      />
 
       <PreviewStartForm
         source="personalized-star-map"
         title="Start your personalized preview"
-        description="Enter the date and location, then choose the framed path, unframed path, or a neutral preview-first start."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best when the final piece should arrive presentation-ready.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you want the print but will handle framing yourself.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Open the editor without locking in a delivery path yet.",
-          },
-        ]}
+        description={`Enter the date and location. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        intentOptions={previewIntents}
       />
       <StickyCtaBar
-        source="sticky-personalized-star-map"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-personalized-star-map-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        source="sticky-personalized-star-map-framed-hd"
+        title="Ready to preview their night sky?"
+        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        buttonLabel="Preview framed + HD"
+        primaryHref={framedHdHref}
+        primaryPlan="print_framed_hd"
+        secondaryButtonLabel="Free preview only"
+        secondaryHref="/editor?mode=quick&source=sticky-personalized-star-map-preview"
+        secondaryPlan="preview"
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -123,10 +145,10 @@ export default function PersonalizedStarMapPage() {
         </ol>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=personalized-star-map-cta-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed print preview
+            Preview framed + HD gift
           </Link>
         </div>
       </section>
@@ -134,10 +156,15 @@ export default function PersonalizedStarMapPage() {
 
       <DeliveryFormatModule
         heading="Pick the right format after you preview"
-        intro="Most buyers decide fastest between ready-to-display framed print and the lower-total unframed route. HD digital stays available when instant delivery matters more than shipping."
+        intro={`Most buyers choose framed + HD (${bundlePriceLine}) for a presentation-ready gift plus an instant file. Unframed lowers the total; canvas adds a premium wall option.`}
         sourcePrefix="personalized-format"
       />
       <FramedProofSection sourcePrefix="personalized-proof" />
+      <PhysicalProductGallerySection
+        heading="See the physical gift options"
+        intro="Room mockups from current StarMapCo artwork so buyers can judge framed and unframed finishes before checkout."
+        sourcePrefix="personalized-physical-proof"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
@@ -184,7 +211,7 @@ export default function PersonalizedStarMapPage() {
           "Export up to 6000x6000 resolution",
           "Built for poster-quality prints and framing",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Email support at support@starmapco.com",
         ]}
         guideLabel="Print size and frame guide"
@@ -197,11 +224,33 @@ export default function PersonalizedStarMapPage() {
         heading="Personalized order confidence"
         intro="This is built for gifting quality, not just a quick screenshot. Use this section to confirm the format, shipping, and final review details before checkout."
       />
-      <TestimonialHighlights
-        heading="Verified personalized map feedback"
-        intro="Real comments from buyers are shown here as they are collected."
-        testimonials={testimonialsByPage.personalized}
-      />
+
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-lg font-semibold text-midnight">Related star map options</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Explore by occasion or browse other formats to find the right fit.
+        </p>
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
+          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
+            Star map generator
+          </Link>
+          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
+            Night sky map gift
+          </Link>
+          <Link href="/custom-night-sky-map" className="text-amber-700 underline hover:text-amber-800">
+            Custom night sky map
+          </Link>
+          <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
+            Wedding star map
+          </Link>
+          <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
+            Anniversary star map
+          </Link>
+          <Link href="/birthday" className="text-amber-700 underline hover:text-amber-800">
+            Birthday star map
+          </Link>
+        </div>
+      </section>
 
       <OccasionLinks />
 
@@ -239,6 +288,17 @@ export default function PersonalizedStarMapPage() {
               Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. {shippingDisclosure}
             </p>
           </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What is the best personalized star map gift?</h3>
+            <p>
+              Most gift buyers choose the framed print so it arrives ready to display, often paired with HD digital for a
+              keepsake file. Orders at $100+ qualify for free shipping. Add{" "}
+              <Link href="/shop#merch-addons" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+                custom kiss-cut stickers
+              </Link>{" "}
+              from the same map for a small add-on gift.
+            </p>
+          </div>
         </div>
       </section>
       <FaqSchema
@@ -264,6 +324,11 @@ export default function PersonalizedStarMapPage() {
           {
             question: "Can I order a printed or framed version directly?",
             answer: `Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. ${shippingDisclosure}`,
+          },
+          {
+            question: "What is the best personalized star map gift?",
+            answer:
+              "Most gift buyers choose framed print so it arrives ready to display, often with HD digital included. Orders at $100+ qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
           },
         ]}
       />

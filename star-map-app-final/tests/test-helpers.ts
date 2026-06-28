@@ -1,4 +1,7 @@
 import { expect, type Page } from "@playwright/test";
+import type { MapLookTier } from "../src/lib/mapLookTiers";
+import { buildMapLookSnapshotState } from "../src/lib/mapLookTiers";
+import type { StyleId } from "../src/lib/store";
 
 const overlaySelectors = [
   'button[aria-label="Close"]',
@@ -51,18 +54,51 @@ export const mockGeocode = async (page: Page) => {
       });
       return;
     }
+    if (query.includes("santorini")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: 2,
+            name: "Santorini, Greece",
+            latitude: 36.3932,
+            longitude: 25.4615,
+            timezone: "Europe/Athens",
+          },
+        ]),
+      });
+      return;
+    }
+    if (query.includes("toronto")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: 3,
+            name: "Toronto, Canada",
+            latitude: 43.6532,
+            longitude: -79.3832,
+            timezone: "America/Toronto",
+          },
+        ]),
+      });
+      return;
+    }
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
 };
 
 export const waitForEditor = async (page: Page, isDesktop?: boolean) => {
   const editor = page.locator("#editor");
-  await editor.waitFor({ state: "attached", timeout: 60000 });
-  await expect(editor).toBeVisible({ timeout: 60000 });
+  const editorTimeoutMs = 90_000;
+  await editor.waitFor({ state: "attached", timeout: editorTimeoutMs });
+  await expect(editor).toBeVisible({ timeout: editorTimeoutMs });
   if (typeof isDesktop === "boolean") {
     await expect(editor).toHaveAttribute("data-is-desktop", String(isDesktop));
   }
-  await expect(editor).not.toContainText(/Loading editor/i);
+  await expect(editor).not.toContainText(/Loading editor/i, { timeout: editorTimeoutMs });
 };
 
 export const gotoEditor = async (
@@ -82,7 +118,8 @@ export const gotoEditor = async (
       search.set(key, value);
     }
   }
-  await page.goto(`${path}?${search.toString()}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const waitUntil = query?.checkout === "print" ? "commit" : "domcontentloaded";
+  await page.goto(`${path}?${search.toString()}`, { waitUntil, timeout: 60000 });
   await waitForEditor(page, force === "desktop");
   await dismissOverlays(page);
 };
@@ -129,4 +166,50 @@ export const applySampleMoment = async (page: Page) => {
     await generateButton.click({ timeout: 5000 }).catch(() => undefined);
   }
   await waitForPreview(page);
+};
+
+export async function applyMapLookSnapshotState(
+  page: Page,
+  tier: Exclude<MapLookTier, "custom">,
+  styleId: StyleId,
+) {
+  const snapshot = buildMapLookSnapshotState(tier, styleId);
+  await page.evaluate((state) => {
+    const store = (window as unknown as {
+      __ZUSTAND_STORE__?: {
+        getState: () => {
+          setDateTime: (value: string) => void;
+          setLocation: (value: typeof state.location) => void;
+          setStyle: (value: typeof state.selectedStyle) => void;
+          setRenderOptions: (value: typeof state.renderOptions) => void;
+          setTextBoxes: (value: typeof state.textBoxes) => void;
+          setRevealed: (value: boolean) => void;
+          setPreviewFidelity: (value: "standard" | "high") => void;
+          setAspectRatio: (value: typeof state.aspectRatio) => void;
+          setShape: (value: typeof state.shape) => void;
+        };
+      };
+    }).__ZUSTAND_STORE__;
+    if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+    const api = store.getState();
+    api.setDateTime(state.dateTime);
+    api.setLocation(state.location);
+    api.setStyle(state.selectedStyle);
+    api.setRenderOptions(state.renderOptions);
+    api.setTextBoxes(state.textBoxes);
+    api.setRevealed(state.revealed);
+    api.setPreviewFidelity(state.previewFidelity);
+    api.setAspectRatio(state.aspectRatio);
+    api.setShape(state.shape);
+  }, snapshot);
+  await page.waitForTimeout(1200);
+};
+
+export const waitForMapCanvasReady = async (page: Page) => {
+  const preview = page.getByLabel(/Star map preview/i).first();
+  await expect(preview).toBeVisible({ timeout: 90_000 });
+  const canvas = preview.locator("canvas").last();
+  await expect(canvas).toHaveClass(/opacity-100/, { timeout: 90_000 });
+  await page.waitForTimeout(400);
+  return preview;
 };

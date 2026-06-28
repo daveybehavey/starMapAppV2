@@ -2,6 +2,8 @@
 
 /**
  * Daily checkout funnel ratio check: preview_started, server checkout sessions, and payment_verified.
+ * preview_started is contextual only; some checkout entrypoints bypass a fresh preview.
+ * Server checkout sessions are operational volume, not buyer-intent truth.
  * Uses GET /api/analytics/funnel (same KV-backed daily counts as qa:commerce-digest).
  */
 
@@ -140,17 +142,6 @@ async function main() {
         detail: `payment_verified (${row.payment_verified}) > checkout_session_created (${row.checkout_session_created})`,
       });
     }
-    if (row.checkout_session_created > row.preview_started && row.preview_started > 0) {
-      const ratio = row.checkout_session_created / row.preview_started;
-      if (ratio > 1.25) {
-        issues.push({
-          level: "warn",
-          date: row.date,
-          code: "session_high_vs_preview",
-          detail: `checkout_session_created is ${ratio.toFixed(2)}x preview_started (server session volume exceeds preview volume; inspect source/gating alignment)`,
-        });
-      }
-    }
   }
 
   const report = {
@@ -182,6 +173,9 @@ async function main() {
       );
     }
     console.log("");
+    console.log(
+      "Note: checkout sessions can legitimately exceed previews because some checkout flows start from /success, /download, or other direct checkout entrypoints without a fresh preview_started event.",
+    );
     if (!report.issues.length) {
       console.log("Sanity: no issues flagged.");
     } else {

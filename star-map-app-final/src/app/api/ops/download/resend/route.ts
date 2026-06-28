@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { normalizeAccountLiteEmail, getAccountLiteEmailSessions } from "@/lib/accountLite";
+import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
+import { buildHdArchiveDownloadUrl, hdArchiveObjectExists } from "@/lib/downloadArchiveStorage";
 import { getOrCreateClaimToken, hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
-import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/accountAccessAlerts";
+import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
+import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -14,9 +16,7 @@ type RequestPayload = {
   forceNewToken?: unknown;
 };
 
-const sessionKey = (id: string) => `stripe:session:${id}`;
-const R2_BUCKET_BINDING = "NEXT_INC_CACHE_R2_BUCKET";
-const ARCHIVE_PREFIX = "download-archive/hd/";
+const sessionKey = ENTITLEMENT_KV.stripeSession;
 
 function requireAdmin(req: NextRequest) {
   const configured = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
@@ -28,25 +28,6 @@ function getSiteUrl(req: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");
   return new URL(req.url).origin;
-}
-
-async function getR2Bucket(): Promise<R2Bucket | null> {
-  const timeoutMs = 120;
-  try {
-    const ctx = await Promise.race([
-      getCloudflareContext({ async: true }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-    ]);
-    const env = (ctx as { env?: unknown } | null)?.env as Record<string, unknown> | undefined;
-    const bucket = env?.[R2_BUCKET_BINDING] as R2Bucket | undefined;
-    return bucket ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function archiveKey(sessionId: string) {
-  return `${ARCHIVE_PREFIX}${sessionId}.png`;
 }
 
 export async function POST(req: NextRequest) {
@@ -109,30 +90,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unexpected_missing_record" }, { status: 500 });
   }
 
-  const token = forceNewToken ? "" : await getOrCreateClaimToken(sessionId, record);
-  const finalToken = token || (await getOrCreateClaimToken(sessionId, { ...record, claimToken: "" }));
-  const link = `${getSiteUrl(req)}/download?token=${encodeURIComponent(finalToken)}`;
-  const directDownloadLinkCandidate = `${getSiteUrl(req)}/api/download/archive?token=${encodeURIComponent(finalToken)}`;
+  let workingRecord = record;
+  if (forceNewToken) {
+    workingRecord = { ...record, claimToken: "" };
+  }
+  const finalToken = await getOrCreateClaimToken(sessionId, workingRecord);
+  const claimPageLink = `${getSiteUrl(req)}/download?token=${encodeURIComponent(finalToken)}`;
+  const siteOrigin = getSiteUrl(req);
+  const directDownloadLinkCandidate = buildHdArchiveDownloadUrl(siteOrigin, finalToken);
 
   const targetEmail = email || record.customerEmail?.trim() || "";
   if (!targetEmail) {
     return NextResponse.json({ ok: false, error: "missing_customer_email" }, { status: 409 });
   }
 
-  let directDownloadLink: string | undefined;
-  const bucket = await getR2Bucket();
-  if (bucket) {
-    try {
-      const object = await bucket.head(archiveKey(sessionId));
-      if (object) {
-        directDownloadLink = directDownloadLinkCandidate;
-      }
-    } catch {
-      // ignore archive lookups
-    }
-  }
+  const directDownloadLinkOverride = (await hdArchiveObjectExists(sessionId))
+    ? directDownloadLinkCandidate
+    : undefined;
 
-  const result = await sendAccountAccessAlert({ email: targetEmail, link, ...(directDownloadLink ? { directDownloadLink } : {}) });
+  const result = await sendPostPurchaseAccessEmail({
+    siteOrigin,
+    email: targetEmail,
+    sessionId,
+    record: workingRecord,
+    directDownloadLinkOverride,
+  });
   if (!result.delivered) {
     return NextResponse.json(
       { ok: false, error: result.error ?? "account_access_email_failed", provider: result.provider },
@@ -145,8 +127,8 @@ export async function POST(req: NextRequest) {
     sessionId,
     provider: result.provider,
     email: targetEmail,
-    link,
-    directDownloadLink: directDownloadLink ?? null,
+    link: claimPageLink,
+    directDownloadLink: directDownloadLinkOverride ?? null,
   });
 }
 

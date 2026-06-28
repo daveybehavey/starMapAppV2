@@ -2,10 +2,16 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import FramedProofSection from "@/components/FramedProofSection";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import OccasionLinks from "@/components/OccasionLinks";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { galleryStyleQuickLinks } from "@/lib/galleryExamples";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
+import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 export const revalidate = 86400;
 
@@ -31,6 +37,16 @@ const seasonalIdeas = [
     title: "Father's Day",
     description: "Honor a milestone night or a shared trip under the stars.",
     href: "/star-map-for/fathers-day",
+  },
+  {
+    title: "Canada Day",
+    description: "Turn July 1 into a keepsake with a summer celebration sky.",
+    href: "/blog/canada-day-star-map-gift-ideas",
+  },
+  {
+    title: "July 4th",
+    description: "Preserve fireworks night with a personalized holiday star map.",
+    href: "/blog/july-4th-star-map-gift-ideas",
   },
   {
     title: "Graduation",
@@ -66,6 +82,8 @@ export const metadata: Metadata = {
 };
 
 export default function StarMapGiftIdeasPage() {
+  const shippingDisclosure = getPrintShippingDisclosure();
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -76,6 +94,7 @@ export default function StarMapGiftIdeasPage() {
           Find the most meaningful star map gift for any occasion. Use seasonal ideas below or start with your own moment,
           then choose framed print, unframed print, or HD digital delivery.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
@@ -119,6 +138,13 @@ export default function StarMapGiftIdeasPage() {
         secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-star-map-gift-ideas-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
+      />
+
+      <FramedProofSection sourcePrefix="gift-ideas-proof" />
+      <PhysicalProductGallerySection
+        heading="See what the physical gift looks like"
+        intro="Room mockups from current StarMapCo artwork — framed, unframed, and in-home styling."
+        sourcePrefix="gift-ideas-physical-proof"
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -208,6 +234,25 @@ export default function StarMapGiftIdeasPage() {
       </section>
 
       <OccasionLinks />
+
+      <PurchaseTrustPanel
+        heading="Before you buy"
+        intro="Preview for free first. Pick the occasion and format once the design feels right."
+        leftTitle="Checkout and files"
+        leftPoints={[
+          "Secure Stripe checkout",
+          "Instant HD download after payment",
+          "No watermark on paid exports",
+        ]}
+        rightTitle="Print and support"
+        rightPoints={[
+          "Framed and unframed print paths available after preview",
+          shippingDisclosure,
+          getPrintPhysicalOrderSummaryLine(),
+          "Support is available at support@starmapco.com",
+        ]}
+        guideLabel="Print and frame guide"
+      />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Star map gift ideas FAQ</h2>

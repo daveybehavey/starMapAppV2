@@ -34,7 +34,53 @@ npm run qa:sitemap-health -- --sitemap https://starmapco.com/sitemap.xml --concu
 
 # Print order visibility (Stripe sessions + KV status)
 npm run qa:print-ops -- --hours 168 --limit 40
+```
 
+## Customer print comms (Layer A+B+C1)
+
+After deploy, print buyers should receive:
+
+1. Accurate `/success` timeline (payment → review → production → tracking email)
+2. One Resend **print order confirmation** email when KV status becomes `sent`
+3. Automatic **tracking email** when Printful fires `package_shipped` (requires fulfillment index + webhook)
+
+**Historical backfill (optional, no new paid order):** for orders that shipped before the fulfillment index existed, write `print:fulfillment:by-printful:{id} → sessionId` or use `POST /api/print/orders/notify-shipping`.
+
+Example: Printful **161064930** → session `cs_live_b1SMZnwizGDOHJAlX86rCGxyH2b2au2pNugxoHTfu9gyOhAoB4t2JJzIrh`.
+
+Framed in-process example: Printful **161276125** → session `cs_live_b1OukUkmbrE4VT2xE3az7TJGBDkeMlLL2vYXwUCOSMoOdJ0kiDt4H6YvUL`.
+
+## Print customer comms slice — complete (2026-06-12)
+
+**Status:** deployed + verified. **Cloudflare version:** `ff30e44f-6e45-4ffa-b990-cff9144d9d7b` (main `3b63958` print comms, `251f73b` editor fix).
+
+Verified:
+
+- `/success` print timeline live
+- Safe `printSummary` on `/api/stripe/verify`
+- Historical unframed order **161064930** verified in browser + API
+- Fulfillment index backfilled for **161064930** and **161276125** (admin `POST /api/print/orders/resolve`)
+- No customer emails sent during verification
+- No new paid print order created
+- Checkout, pricing, Printful variants, `PRINTFUL_AUTO_CONFIRM=false` unchanged
+
+Passive watch only: monitor Printful **161276125** until tracking exists (automatic `package_shipped` path should resolve via index).
+
+## First production print proof (Phase A2)
+
+Human step — required before expanding SKUs (`docs/BIG_MOVES_ROADMAP.md` Phase C).
+
+1. Place one **paid** framed or unframed order on https://starmapco.com (wedding path or editor print checkout).
+2. Confirm Stripe `checkout.session.completed` and Printful receives the order.
+3. Run:
+
+```bash
+npm run qa:print-ops -- --hours 168 --limit 50
+```
+
+4. Exit criteria: at least one row with Printful status **sent** (or documented ops fix if stuck in pending/failed).
+
+```bash
 # Refresh proof images from recent Printful test orders
 npm run assets:printproof
 ```

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { isPrintVariant } from "@/lib/printCatalog";
+import { getMerchFamily, isMerchFamilyId, type MerchFamilyId } from "@/lib/merchCatalog";
 import {
   normalizeReferralCode,
   referralKey,
@@ -10,6 +12,7 @@ import {
 } from "@/lib/referrals";
 import { appendReferralEvent, getReferralEvents } from "@/lib/referralLedger";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
+import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
   buildPrintAssetUrl,
@@ -20,27 +23,28 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
-import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
+import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
+import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
-import { getOrCreateClaimToken, hasRecoverableAccess } from "@/lib/accountAccessLinks";
-import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/accountAccessAlerts";
+import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
+import { hasRecoverableAccess } from "@/lib/accountAccessLinks";
+import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
+import { resolveCheckoutMapIdFromStripeSession } from "@/lib/checkoutMapId";
+import {
+  buildGa4PurchaseFromStripeSession,
+  isQaStripeSession,
+} from "@/lib/commerceAnalytics";
+import {
+  ENTITLEMENT_KV,
+  refreshEntitledMapRecipeTtl,
+} from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
-
-/** JSON lines for log drains / alerts; grep `stripe_webhook`. */
-function logWebhook(
-  level: "info" | "warn" | "error",
-  message: string,
-  extra?: Record<string, string | number | boolean | undefined | null>,
-) {
-  const payload = { scope: "stripe_webhook", level, message, ...extra };
-  const line = JSON.stringify(payload);
-  if (level === "error") console.error(line);
-  else if (level === "warn") console.warn(line);
-  else console.log(line);
-}
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -142,8 +146,9 @@ const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
 const recoveryEmailKey = (id: string) => `stripe:checkout_recovery:email:${id}`;
 const RECOVERY_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
-const accessEmailKey = (id: string) => `stripe:access_link:email:${id}`;
+const accessEmailKey = (id: string) => ENTITLEMENT_KV.accessEmailDedupe(id);
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
+const WEBHOOK_EVENT_DEDUPE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -151,32 +156,55 @@ function normalizeEmail(raw: unknown) {
   return trimmed || null;
 }
 
-function getMapId(session: Stripe.Checkout.Session) {
-  return (
-    (typeof session.metadata?.map_id === "string" && session.metadata.map_id.trim()) ||
-    (typeof session.client_reference_id === "string" && session.client_reference_id.trim()) ||
-    undefined
-  );
-}
-
 function getOrderType(session: Stripe.Checkout.Session): CheckoutOrderType {
   return session.metadata?.order_type === "print" ? "print" : "digital";
 }
 
 function getPrintVariant(session: Stripe.Checkout.Session): PrintVariant | undefined {
-  if (session.metadata?.print_variant === "poster_framed") return "poster_framed";
-  if (session.metadata?.print_variant === "poster_unframed") return "poster_unframed";
-  return undefined;
+  const raw = session.metadata?.print_variant;
+  return isPrintVariant(raw) ? raw : undefined;
 }
 
 function includesDigitalAddOn(session: Stripe.Checkout.Session): boolean {
   return session.metadata?.print_include_digital === "true";
 }
 
+function includesCardAddOn(session: Stripe.Checkout.Session): boolean {
+  return session.metadata?.print_include_card === "true";
+}
+
 function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
   const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
   return raw;
+}
+
+function getPrintCardAssetId(session: Stripe.Checkout.Session): string | undefined {
+  const raw =
+    typeof session.metadata?.print_card_asset_id === "string" ? session.metadata.print_card_asset_id.trim() : "";
+  if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
+  return raw;
+}
+
+function getMerchFamilyFromSession(session: Stripe.Checkout.Session): MerchFamilyId | undefined {
+  const raw = session.metadata?.print_merch_family;
+  return isMerchFamilyId(raw) ? raw : undefined;
+}
+
+function getMerchCatalogVariantId(session: Stripe.Checkout.Session): number | undefined {
+  const raw = session.metadata?.print_merch_catalog_variant_id;
+  const parsed = raw ? Number.parseInt(String(raw), 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function getMerchSize(session: Stripe.Checkout.Session): string | undefined {
+  const raw = typeof session.metadata?.print_merch_size === "string" ? session.metadata.print_merch_size.trim() : "";
+  return raw || undefined;
+}
+
+function getMerchColor(session: Stripe.Checkout.Session): string | undefined {
+  const raw = typeof session.metadata?.print_merch_color === "string" ? session.metadata.print_merch_color.trim() : "";
+  return raw || undefined;
 }
 
 function getReferralAttributionValue(session: Stripe.Checkout.Session, field: "source" | "medium" | "campaign" | "content") {
@@ -275,7 +303,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     paid: true,
     created: Date.now(),
     revoked: false,
-    mapId: getMapId(session),
+    mapId: resolveCheckoutMapIdFromStripeSession(session),
     paymentIntentId,
     amountTotal: session.amount_total ?? null,
     currency: session.currency ?? null,
@@ -304,7 +332,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
       session: {
         sessionId: session.id,
         createdAt: typeof session.created === "number" ? session.created * 1000 : Date.now(),
-        mapId: getMapId(session),
+        mapId: resolveCheckoutMapIdFromStripeSession(session),
         plan,
         orderType,
         printVariant,
@@ -329,9 +357,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
         }
       }
     } catch (err) {
-      logWebhook("warn", "payment_intent_lookup_failed", {
-        detail: err instanceof Error ? err.message : String(err),
-      });
+      console.warn("Stripe payment intent lookup failed", err);
     }
   }
   if (subscriptionId) {
@@ -339,11 +365,20 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   }
 
   if (!alreadyPaid) {
+    const skipProductionAnalytics = isQaStripeSession(session);
     await recordPaymentVerifiedOnce({
       sessionId: session.id,
+      amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
       source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",
       plan: plan ?? undefined,
+      skipProductionAnalytics,
+      ga4Purchase: buildGa4PurchaseFromStripeSession(session),
     });
+  }
+
+  const mapId = resolveCheckoutMapIdFromStripeSession(session);
+  if (mapId) {
+    await refreshEntitledMapRecipeTtl(mapId);
   }
 
   if (!alreadyPaid && customerEmail && hasDigitalEntitlementCandidate && isAccountAccessEmailConfigured()) {
@@ -351,11 +386,11 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     if (shouldSend === 1) {
       const current = await kv.get<SessionRecord>(sessionKey(session.id));
       if (current && hasRecoverableAccess(current)) {
-        const token = await getOrCreateClaimToken(session.id, current);
-        const link = `${siteUrl}/download?token=${encodeURIComponent(token)}`;
-        const alertResult = await sendAccountAccessAlert({
+        const alertResult = await sendPostPurchaseAccessEmail({
+          siteOrigin: siteUrl,
           email: customerEmail,
-          link,
+          sessionId: session.id,
+          record: current,
         });
         await kv.set(sessionKey(session.id), {
           ...current,
@@ -408,9 +443,7 @@ async function resolvePaymentIntentIdFromCharge(chargeId?: string | null) {
     const charge = await stripe.charges.retrieve(chargeId);
     return typeof charge.payment_intent === "string" ? charge.payment_intent : null;
   } catch (err) {
-    logWebhook("warn", "charge_lookup_failed", {
-      detail: err instanceof Error ? err.message : String(err),
-    });
+    console.warn("Stripe charge lookup failed", err);
     return null;
   }
 }
@@ -753,15 +786,26 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   };
 
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
-  if (existing?.status === "sent") return;
+  if (existing?.status === "sent") {
+    void sendPrintOrderConfirmation(session.id).catch((error) => {
+      console.warn("Print confirmation email retry on sent order failed", error);
+    });
+    return;
+  }
 
   let payload: PrintOrderRecord = {
     status: "pending",
     sessionId: session.id,
-    mapId: getMapId(session),
+    mapId: resolveCheckoutMapIdFromStripeSession(session),
     printVariant: getPrintVariant(session) ?? "poster_framed",
+    merchFamily: getMerchFamilyFromSession(session),
+    merchCatalogVariantId: getMerchCatalogVariantId(session),
+    merchSize: getMerchSize(session),
+    merchColor: getMerchColor(session),
     includesDigitalAddOn: includesDigitalAddOn(session),
+    includesCardAddOn: includesCardAddOn(session),
     printAssetId: getPrintAssetId(session),
+    cardPrintAssetId: getPrintCardAssetId(session),
     amountTotal: session.amount_total,
     currency: session.currency,
     customerEmail: session.customer_details?.email ?? session.customer_email ?? null,
@@ -783,6 +827,28 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   const printAssetUrl = buildPrintAssetUrl(siteUrl, printAssetId);
+  await extendPrintAssetTtlForFulfillment(printAssetId).catch((error) => {
+    console.warn("Print asset TTL extension failed", { printAssetId, error });
+  });
+
+  const cardPrintAssetId = payload.cardPrintAssetId;
+  let cardPrintAssetUrl: string | undefined;
+  if (payload.includesCardAddOn) {
+    if (!cardPrintAssetId) {
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "card_print_asset_missing",
+      });
+      return;
+    }
+    cardPrintAssetUrl = buildPrintAssetUrl(siteUrl, cardPrintAssetId);
+    await extendPrintAssetTtlForFulfillment(cardPrintAssetId).catch((error) => {
+      console.warn("Card print asset TTL extension failed", { cardPrintAssetId, error });
+    });
+  }
+
   let recipient = getPrintRecipient(payload);
   if (!recipient && stripe) {
     try {
@@ -801,9 +867,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       await kv.set(printOrderKey(session.id), payload);
       recipient = getPrintRecipient(payload);
     } catch (error) {
-      logWebhook("warn", "print_order_recipient_refresh_failed", {
-        detail: error instanceof Error ? error.message : String(error),
-      });
+      console.warn("Print order recipient refresh failed", error);
     }
   }
   if (!recipient) {
@@ -826,11 +890,13 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const marginCheck = evaluatePrintMarginForPaidOrder({
-    variant: payload.printVariant,
-    shippingCountry: recipient.country_code,
-    amountTotalCents: payload.amountTotal ?? null,
-  });
+  const marginCheck = payload.merchCatalogVariantId
+    ? { allowed: true, code: "merch_margin_skipped" as const, minMarginCents: 0 }
+    : evaluatePrintMarginForPaidOrder({
+        variant: payload.printVariant,
+        shippingCountry: recipient.country_code,
+        amountTotalCents: payload.amountTotal ?? null,
+      });
   if (!marginCheck.allowed) {
     await persistProblemPrintOrder({
       ...payload,
@@ -854,6 +920,61 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
+  if (payload.merchCatalogVariantId) {
+    if (!isPrintfulV2Configured() && !printFulfillmentWebhookUrl) {
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "fulfillment_not_configured",
+      });
+      return;
+    }
+
+    if (isPrintfulV2Configured()) {
+      const family = payload.merchFamily ? getMerchFamily(payload.merchFamily) : null;
+      const printfulResult = await submitPrintfulV2CatalogOrder({
+        externalId: session.id,
+        catalogVariantId: payload.merchCatalogVariantId,
+        fileUrl: printAssetUrl,
+        recipient,
+        placement: family?.placement ?? "default",
+        technique: family?.technique ?? "digital",
+        itemName: family?.labelFallback ?? "Custom Star Map merch",
+      });
+      if (!printfulResult.ok) {
+        await persistProblemPrintOrder({
+          ...payload,
+          printAssetUrl,
+          status: "failed",
+          webhookStatus: printfulResult.status,
+          error: printfulResult.error ?? "printful_v2_order_failed",
+        });
+        return;
+      }
+      const sentRecord: PrintOrderRecord = {
+        ...payload,
+        printAssetUrl,
+        status: "sent",
+        webhookStatus: printfulResult.status,
+        printfulOrderId: printfulResult.orderId,
+        sentAt: Date.now(),
+        error: undefined,
+      };
+      const reviewedRecord = printfulResult.orderId
+        ? await applyPrintfulPostSubmitReview(sentRecord)
+        : sentRecord;
+      await kv.set(printOrderKey(session.id), reviewedRecord);
+      if (reviewedRecord.printfulOrderId) {
+        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+      }
+      void sendPrintOrderConfirmation(session.id).catch((error) => {
+        console.warn("Print confirmation email failed", { sessionId: session.id, error });
+      });
+    }
+    return;
+  }
+
   if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
     await persistProblemPrintOrder({
       ...payload,
@@ -870,6 +991,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       variant: payload.printVariant,
       fileUrl: printAssetUrl,
       recipient,
+      additionalVariants: payload.includesCardAddOn ? ["card_4x6"] : undefined,
+      variantFileUrls: cardPrintAssetUrl ? { card_4x6: cardPrintAssetUrl } : undefined,
     });
     if (!printfulResult.ok) {
       await persistProblemPrintOrder({
@@ -884,24 +1007,23 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const sentRecord: PrintOrderRecord = {
       ...payload,
       printAssetUrl,
+      cardPrintAssetUrl,
       status: "sent",
       webhookStatus: printfulResult.status,
       printfulOrderId: printfulResult.orderId,
       sentAt: Date.now(),
       error: undefined,
     };
-    if (!sentRecord.operatorAlertedAt) {
-      const alertResult = await sendPrintOrderApprovalAlert(sentRecord);
-      if (alertResult.delivered) {
-        sentRecord.operatorAlertedAt = Date.now();
-        sentRecord.operatorAlertProvider = alertResult.provider;
-        sentRecord.operatorAlertError = undefined;
-      } else {
-        sentRecord.operatorAlertProvider = alertResult.provider;
-        sentRecord.operatorAlertError = alertResult.error;
-      }
+    const reviewedRecord = printfulResult.orderId
+      ? await applyPrintfulPostSubmitReview(sentRecord)
+      : sentRecord;
+    await kv.set(printOrderKey(session.id), reviewedRecord);
+    if (reviewedRecord.printfulOrderId) {
+      await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
     }
-    await kv.set(printOrderKey(session.id), sentRecord);
+    void sendPrintOrderConfirmation(session.id).catch((error) => {
+      console.warn("Print confirmation email failed", { sessionId: session.id, error });
+    });
   }
 
   if (!printFulfillmentWebhookUrl) return;
@@ -952,9 +1074,7 @@ async function hydrateExpiredSession(session: Stripe.Checkout.Session) {
   try {
     return await stripe.checkout.sessions.retrieve(session.id);
   } catch (error) {
-    logWebhook("warn", "expired_session_refresh_failed", {
-      detail: error instanceof Error ? error.message : String(error),
-    });
+    console.warn("Stripe expired session refresh failed", error);
     return session;
   }
 }
@@ -982,7 +1102,7 @@ async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, ev
     created:
       existing?.created ??
       (typeof hydrated.created === "number" && Number.isFinite(hydrated.created) ? hydrated.created * 1000 : Date.now()),
-    mapId: getMapId(hydrated),
+    mapId: resolveCheckoutMapIdFromStripeSession(hydrated),
     paymentIntentId: typeof hydrated.payment_intent === "string" ? hydrated.payment_intent : existing?.paymentIntentId,
     amountTotal: hydrated.amount_total ?? existing?.amountTotal ?? null,
     currency: hydrated.currency ?? existing?.currency ?? null,
@@ -1046,13 +1166,16 @@ export async function POST(req: Request) {
     const payload = await req.text();
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (err) {
-    logWebhook("error", "signature_verification_failed", {
-      detail: err instanceof Error ? err.message : String(err),
-    });
+    console.error("Stripe webhook signature verification failed", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  logWebhook("info", "event_received", { eventType: event.type, eventId: event.id });
+  const dedupeCount = await kv.incr(ENTITLEMENT_KV.stripeWebhookEvent(event.id), 1, {
+    ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
+  });
+  if (dedupeCount > 1) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
 
   switch (event.type) {
     case "checkout.session.completed": {

@@ -215,6 +215,12 @@ export default function HowAccurateAreStarMapsPage() {
               Start free preview
             </Link>
             <Link
+              href="/star-map-generator"
+              className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/12"
+            >
+              Open the star map generator
+            </Link>
+            <Link
               href="/blog/astronomy-behind-star-maps"
               className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/12"
             >

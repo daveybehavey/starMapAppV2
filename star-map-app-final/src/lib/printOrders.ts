@@ -16,6 +16,8 @@ export type PrintOrderRecord = {
   merchSize?: string;
   merchColor?: string;
   includesDigitalAddOn: boolean;
+  /** Bundled greeting card with framed print (C1). */
+  includesCardAddOn?: boolean;
   amountTotal?: number | null;
   currency?: string | null;
   customerEmail?: string | null;
@@ -25,6 +27,8 @@ export type PrintOrderRecord = {
   shippingChargeCents?: number | null;
   printAssetId?: string;
   printAssetUrl?: string;
+  cardPrintAssetId?: string;
+  cardPrintAssetUrl?: string;
   printfulOrderId?: string | number;
   attempts: number;
   webhookStatus?: number;
@@ -38,6 +42,14 @@ export type PrintOrderRecord = {
   operatorResolvedAt?: number;
   operatorResolvedProvider?: "manual_printful" | "manual_other";
   operatorResolvedNote?: string;
+  printConfirmationSentAt?: number;
+  printConfirmationMessageId?: string;
+  printConfirmationError?: string;
+  shippingNotificationSentAt?: number;
+  shippingNotificationProvider?: "resend";
+  shippingNotificationTrackingNumber?: string;
+  shippingNotificationMessageId?: string;
+  shippingNotificationError?: string;
   error?: string;
   createdAt: number;
 };

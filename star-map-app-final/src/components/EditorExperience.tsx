@@ -17,7 +17,8 @@ import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
-import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale } from "@/lib/config";
+import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale, mapLookTiers } from "@/lib/config";
+import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -25,8 +26,21 @@ import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
-import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
+import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
+import {
+  createHdConsumeToken,
+  formatHdExportConsumeFailedMessage,
+  formatHdExportFailedMessage,
+  postHdCreditConsume,
+  triggerBlobDownload,
+} from "@/lib/hdExportFulfillment";
 import { getPrintAllowedCountries, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getPrintFramedHdBundleShortLine,
+  getPrintPhysicalOrderSummaryLine,
+  getPrintProductionTimelineLine,
+} from "@/lib/commerceFacts";
 import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
@@ -37,6 +51,7 @@ import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
+  paywallPrintCheckoutRowKey,
   paywallPrintSkuButtonClassesEditorPanel,
 } from "@/lib/paywallPrintCheckout";
 import {
@@ -46,6 +61,22 @@ import {
   type MerchFamilyId,
 } from "@/lib/merchCatalog";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
+import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
+import {
+  resolveEditorGiftTrafficIntent,
+  isWeddingCommerceContext,
+  shouldAutoOpenEditorDigitalPaywall,
+} from "@/lib/previewSourceHints";
+import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
+import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
+import {
+  isHydratableMapRecipe,
+  normalizeHydratedLocation,
+  resolveRecipeAspectRatio,
+  resolveRecipeShape,
+  type HydratableMapRecipe,
+} from "@/lib/mapRecipeHydration";
+import { parseMapIdParam } from "@/lib/mapId";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -277,11 +308,13 @@ export function EditorExperience({
   );
 
   const hdCreditLabel =
-    currentPlan === "subscription"
-      ? "Unlimited HD"
-      : typeof creditsRemaining === "number"
-        ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
-        : null;
+    !paid
+      ? null
+      : currentPlan === "subscription"
+        ? "Unlimited HD"
+        : typeof creditsRemaining === "number" && creditsRemaining > 0
+          ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
+          : null;
 
   useEffect(() => {
     setMounted(true);
@@ -299,12 +332,13 @@ export function EditorExperience({
     subtitle: true,
     dedication: true,
   }));
-  const [showOccasionPresets, setShowOccasionPresets] = useState(() => !isQuick);
-  const [showProPresets, setShowProPresets] = useState(() => !isQuick);
+  const [showOccasionPresets, setShowOccasionPresets] = useState(false);
+  const [showProPresets, setShowProPresets] = useState(false);
   const [restored, setRestored] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
   const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
+  const [preferredIncludeDigitalAddOn, setPreferredIncludeDigitalAddOn] = useState(false);
   const enabledMerchFamilies = useMemo(() => listMerchFamiliesEnabledForPublicUi(), []);
   const defaultMerchFamily = (enabledMerchFamilies[0]?.id ?? "sticker_kisscut") as MerchFamilyId;
   const [selectedMerchFamily, setSelectedMerchFamily] = useState<MerchFamilyId>(defaultMerchFamily);
@@ -332,10 +366,16 @@ export function EditorExperience({
   const [hdExportInFlight, setHdExportInFlight] = useState(false);
   const hdExportInFlightRef = useRef(false);
   const [downloadHint, setDownloadHint] = useState<string | null>(null);
+  const [showFreeExportUpsell, setShowFreeExportUpsell] = useState(false);
   const prefillAppliedRef = useRef(false);
   const printIntentHandledRef = useRef(false);
+  const digitalIntentHandledRef = useRef(false);
+  const mapFromUrlHandledRef = useRef(false);
+  const loadedMapIdRef = useRef<string | null>(null);
+  const loadedMapFingerprintRef = useRef<string | null>(null);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
+  const mapIdFromQuery = useMemo(() => parseMapIdParam(searchParams.get("map_id")), [searchParams]);
   const merchFamilyFromQuery = searchParams.get("merch_family");
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
@@ -402,6 +442,20 @@ export function EditorExperience({
     }
   }, []);
 
+  const trackPaywallOpenedEvent = useCallback(
+    (intent: PaywallIntent, trigger?: string) => {
+      track("paywall_opened", {
+        visualMode: renderOptions.visualMode,
+        experiment: PAYWALL_COPY_EXPERIMENT,
+        variant: paywallVariant,
+        intent,
+        source: getPreviewSource() ?? "editor",
+        ...(trigger ? { trigger } : {}),
+      });
+    },
+    [getPreviewSource, paywallVariant, renderOptions.visualMode],
+  );
+
   useEffect(() => {
     if (!queryPromoCode || typeof window === "undefined") return;
     try {
@@ -454,6 +508,11 @@ export function EditorExperience({
     () => getPaywallPrintCheckoutPresentation(printShippingCountry),
     [printShippingCountry],
   );
+  const activeMapLookTier = useMemo(
+    () => resolveMapLookTier(renderOptions, selectedStyle),
+    [renderOptions, selectedStyle],
+  );
+  const posterAspectMismatch = aspectRatio !== "square";
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
   const showAdvanced = allowAdvanced ? showAdvancedState : false;
   const previewRef = useRef<HTMLDivElement>(null);
@@ -473,13 +532,17 @@ export function EditorExperience({
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
-  const revealBlockedMessage = !hasDate && !hasLocation
-    ? "Add your date and place to unlock preview."
+  const previewLockedMessage = !hasDate && !hasLocation
+    ? "Add your date and place to unlock preview. Presets optional."
     : !hasDate
-      ? "Add your date to unlock preview."
-      : !hasLocation
-        ? "Add your place to unlock preview."
-        : "Presets optional.";
+      ? "Add your date to unlock preview. Presets optional."
+      : "Add your place to unlock preview. Presets optional.";
+  const previewReadyMessage = "Preview is ready. Presets optional.";
+  const previewUnlockButtonLabel = !hasDate && !hasLocation
+    ? "Add date + place to unlock preview"
+    : !hasDate
+      ? "Add your date to unlock preview"
+      : "Add your place to unlock preview";
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(
@@ -550,7 +613,9 @@ export function EditorExperience({
       };
       const nextPaid = Boolean(data.paid);
       setPaid(nextPaid);
-      setCreditsRemaining(typeof data.creditsRemaining === "number" ? data.creditsRemaining : null);
+      setCreditsRemaining(
+        nextPaid && typeof data.creditsRemaining === "number" ? data.creditsRemaining : null,
+      );
       setCurrentPlan(
         data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null
       );
@@ -560,24 +625,15 @@ export function EditorExperience({
     }
   }, [setPaid]);
 
-  const consumeHdCredit = useCallback(async () => {
+  const consumeHdCredit = useCallback(async (tokenOverride?: string) => {
     if (consumePromiseRef.current) return consumePromiseRef.current;
     const promise = (async () => {
       try {
-        const token =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const res = await fetch("/api/entitlements/consume", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-        if (!res.ok) return false;
-        const data = (await res.json()) as { creditsRemaining?: number | null; plan?: CheckoutPlan | null };
+        const consumeToken = tokenOverride ?? createHdConsumeToken();
+        const data = await postHdCreditConsume(consumeToken);
+        if (!data) return false;
         if (typeof data.creditsRemaining === "number") {
           setCreditsRemaining(data.creditsRemaining);
-          setPaid(data.creditsRemaining > 0);
         } else if (data.plan === "subscription") {
           setCreditsRemaining(null);
           setPaid(true);
@@ -671,9 +727,21 @@ export function EditorExperience({
     const dateParam = searchParams.get("date");
     const locationParam = searchParams.get("location");
     const checkoutParam = searchParams.get("checkout");
+    const utmCampaignParam = searchParams.get("utm_campaign");
     const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
+    const includeDigitalAddOnParam = searchParams.get("include_digital_addon");
     const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
-    if (!dateParam && !locationParam && !sourceParam && !checkoutParam && !printVariantParam && !shippingCountryParam) return;
+    if (
+      !dateParam &&
+      !locationParam &&
+      !sourceParam &&
+      !checkoutParam &&
+      !printVariantParam &&
+      !shippingCountryParam &&
+      !utmCampaignParam
+    ) {
+      return;
+    }
 
     let hasValidDate = false;
     if (dateParam) {
@@ -694,17 +762,32 @@ export function EditorExperience({
       setRevealed(true);
     }
 
+    const giftTraffic = resolveEditorGiftTrafficIntent({
+      source: sourceParam,
+      checkoutParam,
+      printVariantParam,
+      utmCampaign: utmCampaignParam,
+      explicitIncludeDigitalAddOn: /^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? ""),
+    });
+
     if (printVariantParam) {
       setPreferredPrintVariant(printVariantParam);
+    } else if (giftTraffic.paywallIntent === "print") {
+      setPreferredPrintVariant(giftTraffic.preferredPrintVariant);
     }
+
+    if (/^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? "")) {
+      setPreferredIncludeDigitalAddOn(true);
+    } else if (giftTraffic.preferredIncludeDigitalAddOn) {
+      setPreferredIncludeDigitalAddOn(true);
+    }
+
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
       setPrintShippingCountryValue(shippingCountryParam, "query-param");
     }
-    if (
-      checkoutParam === "print" ||
-      sourceParam === "home-delivery-print-framed" ||
-      sourceParam === "home-delivery-print-unframed"
-    ) {
+    if (shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) {
+      setPaywallIntent("digital");
+    } else if (giftTraffic.paywallIntent === "print") {
       setPaywallIntent("print");
     }
 
@@ -732,29 +815,134 @@ export function EditorExperience({
     setRevealed,
   ]);
 
+  const applyHydratedMapRecipe = useCallback(
+    (recipe: HydratableMapRecipe) => {
+      if (recipe.datetimeISO) setDateTime(recipe.datetimeISO);
+      if (recipe.location) setLocation(normalizeHydratedLocation(recipe.location));
+      if (recipe.textBoxes?.length) setTextBoxes(recipe.textBoxes);
+      if (recipe.selectedStyle) setStyle(recipe.selectedStyle);
+      const aspect = resolveRecipeAspectRatio(recipe);
+      if (aspect) setAspectRatio(aspect);
+      const shapeValue = resolveRecipeShape(recipe);
+      if (shapeValue) setShape(shapeValue);
+      if (recipe.renderOptions) setRenderOptions(recipe.renderOptions);
+      if (recipe.selectedOccasion) {
+        setSelectedOccasion(recipe.selectedOccasion);
+        setCustomOccasion(false);
+      } else if (recipe.location?.name) {
+        setCustomOccasion(true);
+      }
+      if (recipe.location?.name) {
+        setRevealed(true);
+      }
+    },
+    [
+      setAspectRatio,
+      setCustomOccasion,
+      setDateTime,
+      setLocation,
+      setRenderOptions,
+      setRevealed,
+      setSelectedOccasion,
+      setShape,
+      setStyle,
+      setTextBoxes,
+    ],
+  );
+
   useEffect(() => {
-    if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
+    if (!restored || mapFromUrlHandledRef.current || !mapIdFromQuery) return;
+    mapFromUrlHandledRef.current = true;
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/maps?id=${encodeURIComponent(mapIdFromQuery)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as unknown;
+        if (!isHydratableMapRecipe(data)) return;
+
+        applyHydratedMapRecipe(data);
+        loadedMapIdRef.current = mapIdFromQuery;
+        loadedMapFingerprintRef.current = stableMapRecipeFingerprint(
+          buildRecipeFromState({
+            dateTime: data.datetimeISO,
+            location: normalizeHydratedLocation(data.location),
+            textBoxes: data.textBoxes ?? [],
+            selectedStyle: data.selectedStyle ?? selectedStyle,
+            aspectRatio: resolveRecipeAspectRatio(data) ?? aspectRatio,
+            shape: resolveRecipeShape(data) ?? shape,
+            renderOptions: data.renderOptions ?? renderOptions,
+          }),
+        );
+
+        try {
+          localStorage.setItem(CHECKOUT_MAP_KEY, mapIdFromQuery);
+        } catch {
+          // ignore storage errors
+        }
+
+        trackFunnelStep("preview_started", {
+          source: "map-hub",
+          hasDate: true,
+          hasLocation: Boolean(data.location?.name),
+        });
+      } catch {
+        // ignore failed hydration; editor still works from draft
+      }
+    })();
+  }, [
+    applyHydratedMapRecipe,
+    aspectRatio,
+    mapIdFromQuery,
+    renderOptions,
+    restored,
+    selectedStyle,
+    shape,
+  ]);
+
+  useEffect(() => {
+    if (!restored || !revealed || paid || digitalIntentHandledRef.current) return;
     const checkoutParam = searchParams.get("checkout");
     const sourceParam = searchParams.get("source");
-    if (
-      checkoutParam !== "print" &&
-      sourceParam !== "home-delivery-print-framed" &&
-      sourceParam !== "home-delivery-print-unframed"
-    ) {
+    if (!shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) return;
+
+    digitalIntentHandledRef.current = true;
+    setPaywallIntent("digital");
+    setPaywallOpen(true);
+    setCheckoutError(null);
+    trackPaywallOpenedEvent("digital", "checkout_param");
+  }, [paid, paywallVariant, renderOptions.visualMode, restored, revealed, searchParams, trackPaywallOpenedEvent]);
+
+  useEffect(() => {
+    if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
+    const sourceParam = searchParams.get("source");
+    const checkoutParam = searchParams.get("checkout");
+    const utmCampaignParam = searchParams.get("utm_campaign");
+    const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
+    const includeDigitalAddOnParam = searchParams.get("include_digital_addon");
+    const giftTraffic = resolveEditorGiftTrafficIntent({
+      source: sourceParam,
+      checkoutParam,
+      printVariantParam,
+      utmCampaign: utmCampaignParam,
+      explicitIncludeDigitalAddOn: /^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? ""),
+    });
+    if (!giftTraffic.autoOpenPaywall) {
+      return;
+    }
+    if (shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) {
       return;
     }
 
     printIntentHandledRef.current = true;
     setPaywallIntent("print");
+    if (giftTraffic.preferredIncludeDigitalAddOn) {
+      setPreferredIncludeDigitalAddOn(true);
+    }
     setPaywallOpen(true);
     setCheckoutError(null);
-    track("paywall_opened", {
-      visualMode: renderOptions.visualMode,
-      experiment: PAYWALL_COPY_EXPERIMENT,
-      variant: paywallVariant,
-      intent: "print",
-    });
-  }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams]);
+    trackPaywallOpenedEvent("print", "gift_traffic_auto");
+  }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams, trackPaywallOpenedEvent]);
 
   useEffect(() => {
     if (!autoExportPending || paid) return;
@@ -939,13 +1127,11 @@ export function EditorExperience({
   );
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = filename;
-    link.href = url;
-    link.click();
-    setDownloadHint(getDownloadLocationHint());
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const result = triggerBlobDownload(blob, filename);
+    if (result.ok) {
+      setDownloadHint(getDownloadLocationHint());
+    }
+    return result;
   }, []);
 
   useEffect(() => {
@@ -953,6 +1139,12 @@ export function EditorExperience({
     const timeout = window.setTimeout(() => setDownloadHint(null), 12000);
     return () => window.clearTimeout(timeout);
   }, [downloadHint]);
+
+  useEffect(() => {
+    if (!showFreeExportUpsell) return;
+    const timeout = window.setTimeout(() => setShowFreeExportUpsell(false), 45000);
+    return () => window.clearTimeout(timeout);
+  }, [showFreeExportUpsell]);
 
   useEffect(() => {
     if (!restored || !autoExportPending || !paid) return;
@@ -971,11 +1163,19 @@ export function EditorExperience({
       setHdExportInFlight(true);
       renderExportFile("hd", true)
         .then(async (rendered) => {
-          const ok = await consumeHdCredit();
-          if (!ok) return;
-          triggerDownload(rendered.blob, rendered.filename);
+          const triggered = triggerDownload(rendered.blob, rendered.filename);
+          if (!triggered.ok) {
+            setCheckoutError(formatHdExportFailedMessage(true));
+            return;
+          }
+          const consumed = await consumeHdCredit();
+          if (!consumed) {
+            setCheckoutError(formatHdExportConsumeFailedMessage());
+          }
         })
-        .catch(() => {})
+        .catch(() => {
+          setCheckoutError(formatHdExportFailedMessage(true));
+        })
         .finally(() => {
           hdExportInFlightRef.current = false;
           setHdExportInFlight(false);
@@ -1017,11 +1217,7 @@ export function EditorExperience({
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
-          track("paywall_opened", {
-            visualMode: renderOptions.visualMode,
-            experiment: PAYWALL_COPY_EXPERIMENT,
-            variant: paywallVariant,
-          });
+          trackPaywallOpenedEvent("digital", "hd_export_gate");
           if (typeof window !== "undefined") {
             try {
               localStorage.setItem(AUTO_EXPORT_KEY, mode);
@@ -1036,12 +1232,14 @@ export function EditorExperience({
       try {
         if (isHd) {
           const rendered = await renderExportFile("hd", true);
+          const triggered = triggerDownload(rendered.blob, rendered.filename);
+          if (!triggered.ok) {
+            setCheckoutError(formatHdExportFailedMessage(true));
+            return;
+          }
           const consumed = await consumeHdCredit();
           if (!consumed) {
-            setPendingExport(mode);
-            setPaywallIntent("digital");
-            setPaywallOpen(true);
-            setCheckoutError("No HD export credits remaining. Choose a new pack or subscription.");
+            setCheckoutError(formatHdExportConsumeFailedMessage());
             return;
           }
           track("export_hd_clicked", {
@@ -1051,7 +1249,6 @@ export function EditorExperience({
           });
           trackFunnelStep("download_started", { source: "editor" });
           track("export_download", { type: "hd" });
-          triggerDownload(rendered.blob, rendered.filename);
           trackFunnelStep("download_completed", { source: "editor" });
           return;
         }
@@ -1062,11 +1259,15 @@ export function EditorExperience({
         });
         track("export_download", { type: "preview" });
         const renderedPreview = await renderExportFile("preview", hasAccess);
-        triggerDownload(renderedPreview.blob, renderedPreview.filename);
+        const downloadResult = triggerDownload(renderedPreview.blob, renderedPreview.filename);
+        // Show upgrade nudge only for unpaid users — highest-intent moment in the funnel
+        if (!hasAccess && downloadResult.ok) {
+          setShowFreeExportUpsell(true);
+        }
       } catch (error) {
         console.error("Export failed", error);
         if (isHd) {
-          setCheckoutError("We couldn't generate your HD file. Please try again.");
+          setCheckoutError(formatHdExportFailedMessage(true));
         }
       } finally {
         if (isHd) {
@@ -1083,6 +1284,7 @@ export function EditorExperience({
       renderExportFile,
       renderOptions.visualMode,
       revealed,
+      trackPaywallOpenedEvent,
       triggerDownload,
     ]
   );
@@ -1096,6 +1298,7 @@ export function EditorExperience({
         merchFamily?: MerchFamilyId;
         merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
+        includeCardAddOn?: boolean;
       },
     ) => {
       if (checkoutInFlightRef.current) return;
@@ -1116,6 +1319,7 @@ export function EditorExperience({
         "poster_framed",
       );
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
+      const includeCardAddOn = Boolean(options?.includeCardAddOn);
       const recipeForCheckout = buildRecipeFromState({
         dateTime,
         location,
@@ -1136,32 +1340,49 @@ export function EditorExperience({
           orderType,
           printVariant: orderType === "print" ? printVariant : undefined,
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
+          includeCardAddOn: orderType === "print" ? includeCardAddOn : undefined,
           promoApplied: Boolean(promoCode),
           referralApplied: Boolean(referralCode),
         });
         let mapId: string | null = null;
         let mapSaveError: string | null = null;
-        try {
-          const mapRes = await fetch("/api/maps", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(recipeForCheckout),
-          });
-          if (mapRes.ok) {
-            const data = (await mapRes.json()) as { id?: string };
-            if (typeof data.id === "string" && data.id.trim()) {
-              mapId = data.id.trim();
-              try {
-                localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
-              } catch {
-                // ignore storage errors (e.g. private browsing)
-              }
-            }
-          } else {
-            mapSaveError = `save_failed_${mapRes.status}`;
+        const recipeFingerprint = stableMapRecipeFingerprint(recipeForCheckout);
+        if (
+          loadedMapIdRef.current &&
+          loadedMapFingerprintRef.current &&
+          loadedMapFingerprintRef.current === recipeFingerprint
+        ) {
+          mapId = loadedMapIdRef.current;
+          try {
+            localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+          } catch {
+            // ignore storage errors
           }
-        } catch {
-          mapSaveError = "save_failed_network";
+        } else {
+          try {
+            const mapRes = await fetch("/api/maps", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(recipeForCheckout),
+            });
+            if (mapRes.ok) {
+              const data = (await mapRes.json()) as { id?: string };
+              if (typeof data.id === "string" && data.id.trim()) {
+                mapId = data.id.trim();
+                loadedMapIdRef.current = mapId;
+                loadedMapFingerprintRef.current = recipeFingerprint;
+                try {
+                  localStorage.setItem(CHECKOUT_MAP_KEY, mapId);
+                } catch {
+                  // ignore storage errors (e.g. private browsing)
+                }
+              }
+            } else {
+              mapSaveError = `save_failed_${mapRes.status}`;
+            }
+          } catch {
+            mapSaveError = "save_failed_network";
+          }
         }
         if (!mapId) {
           throw new Error(mapSaveError ?? "map_save_failed");
@@ -1176,7 +1397,10 @@ export function EditorExperience({
           merchFamily?: MerchFamilyId;
           merchOptions?: { size?: string; color?: string };
           includeDigitalAddOn?: boolean;
+          includeCardAddOn?: boolean;
           printAssetId?: string;
+          cardPrintAssetId?: string;
+          recipeFingerprint?: string;
           shippingCountry?: string;
           referralCode?: string;
         } = { plan };
@@ -1191,6 +1415,8 @@ export function EditorExperience({
             checkoutPayload.merchFamily = merchFamily;
             if (merchOptions) checkoutPayload.merchOptions = merchOptions;
           }
+          const recipeFingerprint = stableMapRecipeFingerprint(recipeForCheckout);
+          checkoutPayload.recipeFingerprint = recipeFingerprint;
           if (typeof document !== "undefined" && document.fonts) {
             await document.fonts.ready;
           }
@@ -1203,6 +1429,21 @@ export function EditorExperience({
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
           let lastAssetError: string | null = null;
+          if (mapId) {
+            try {
+              const resolveRes = await fetch(
+                `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(recipeFingerprint)}`,
+              );
+              if (resolveRes.ok) {
+                const resolveData = (await resolveRes.json().catch(() => null)) as { assetId?: string } | null;
+                if (typeof resolveData?.assetId === "string" && resolveData.assetId.trim()) {
+                  uploadedAssetId = resolveData.assetId.trim();
+                }
+              }
+            } catch {
+              // fall through to render + upload
+            }
+          }
           const lowMemoryDevice = isLikelyLowMemoryDevice();
           const exportWidths =
             printVariant === "poster_framed"
@@ -1226,6 +1467,7 @@ export function EditorExperience({
                 watermark: false,
                 quality: "export",
                 premium: true,
+                matPurpose: "print",
               });
             } catch {
               lastAssetError = "print_render_failed";
@@ -1255,6 +1497,7 @@ export function EditorExperience({
                   mapId: mapId ?? undefined,
                   dataUrl,
                   source: "editor",
+                  recipeFingerprint,
                 }),
               });
               const printAssetData = (await printAssetRes.json().catch(() => null)) as
@@ -1290,10 +1533,107 @@ export function EditorExperience({
             }
             throw new Error("print_asset_failed");
           }
+
+          let uploadedCardAssetId: string | null = null;
+          let lastCardAssetError: string | null = null;
+          if (includeCardAddOn && printVariant === "poster_framed" && !includeDigitalAddOn) {
+            const cardFingerprint = cardRecipeFingerprintSuffix(recipeFingerprint);
+            if (mapId) {
+              try {
+                const resolveCardRes = await fetch(
+                  `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(cardFingerprint)}`,
+                );
+                if (resolveCardRes.ok) {
+                  const resolveCardData = (await resolveCardRes.json().catch(() => null)) as { assetId?: string } | null;
+                  if (typeof resolveCardData?.assetId === "string" && resolveCardData.assetId.trim()) {
+                    uploadedCardAssetId = resolveCardData.assetId.trim();
+                  }
+                }
+              } catch {
+                // fall through to render + upload
+              }
+            }
+            const cardExportWidths = lowMemoryDevice ? [2100, 1800, 1500] : [2700, 2400, 2100, 1800];
+            for (const cardBaseWidth of cardExportWidths) {
+              if (uploadedCardAssetId) break;
+              const { width: cardWidth, height: cardHeight } = getCard4x6ExportDimensions(cardBaseWidth);
+              const cardCanvas = document.createElement("canvas");
+              try {
+                await renderStarMap({
+                  recipe: recipeForCheckout,
+                  canvas: cardCanvas,
+                  width: cardWidth,
+                  height: cardHeight,
+                  watermark: false,
+                  quality: "export",
+                  premium: true,
+                  matPurpose: "print",
+                });
+              } catch {
+                lastCardAssetError = "card_print_render_failed";
+                continue;
+              }
+              for (let index = 0; index < uploadQualities.length; index += 1) {
+                const quality = uploadQualities[index];
+                let dataUrl = "";
+                try {
+                  dataUrl = cardCanvas.toDataURL("image/jpeg", quality);
+                } catch {
+                  lastCardAssetError = "card_print_asset_generation_failed";
+                  continue;
+                }
+                if (!dataUrl.startsWith("data:image/jpeg;base64,")) {
+                  lastCardAssetError = "card_print_asset_generation_failed";
+                  continue;
+                }
+                if (estimateDataUrlBytes(dataUrl) > MAX_PRINT_ASSET_BYTES) {
+                  lastCardAssetError = "card_print_asset_too_large";
+                  continue;
+                }
+                const cardAssetRes = await fetch("/api/print/assets", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    mapId: mapId ?? undefined,
+                    dataUrl,
+                    source: "editor",
+                    recipeFingerprint: cardFingerprint,
+                  }),
+                });
+                const cardAssetData = (await cardAssetRes.json().catch(() => null)) as
+                  | { assetId?: string; error?: string }
+                  | null;
+                if (cardAssetRes.ok && cardAssetData?.assetId) {
+                  uploadedCardAssetId = cardAssetData.assetId;
+                  break;
+                }
+                if (typeof cardAssetData?.error === "string") {
+                  lastCardAssetError = cardAssetData.error;
+                }
+                const shouldRetryForSize =
+                  index < uploadQualities.length - 1 &&
+                  typeof cardAssetData?.error === "string" &&
+                  /16MB|base64|Invalid print asset/i.test(cardAssetData.error);
+                if (!shouldRetryForSize) break;
+              }
+            }
+            if (!uploadedCardAssetId) {
+              track("print_asset_generation_failed", {
+                source: "editor_checkout_card",
+                reason: lastCardAssetError ?? "unknown",
+                printVariant,
+                shippingCountry: printShippingCountry,
+              });
+              throw new Error("card_print_asset_failed");
+            }
+          }
+
           checkoutPayload.orderType = "print";
           checkoutPayload.printVariant = printVariant;
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
+          checkoutPayload.includeCardAddOn = includeCardAddOn;
           checkoutPayload.printAssetId = uploadedAssetId;
+          if (uploadedCardAssetId) checkoutPayload.cardPrintAssetId = uploadedCardAssetId;
           checkoutPayload.shippingCountry = printShippingCountry;
         }
         const checkoutInit: RequestInit = {
@@ -1316,6 +1656,7 @@ export function EditorExperience({
           orderType,
           printVariant: orderType === "print" ? printVariant : undefined,
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
+          includeCardAddOn: orderType === "print" ? includeCardAddOn : undefined,
         });
 
         const res = await fetch("/api/checkout", checkoutInit);
@@ -1326,6 +1667,7 @@ export function EditorExperience({
           code?: string;
           promoApplied?: boolean;
           referralOfferApplied?: boolean;
+          discountRejected?: boolean;
         } | null;
         if (!res.ok) {
           if (data?.code === "invalid_promotion_code") {
@@ -1358,7 +1700,7 @@ export function EditorExperience({
           if (data?.code === "map_not_found") {
             throw new Error("map_not_found");
           }
-          throw new Error(data?.error ?? "checkout failed");
+          throw new Error(data?.code ?? data?.error ?? "checkout_failed");
         }
         if (data?.url) {
           const promoApplied = Boolean(data.promoApplied);
@@ -1369,11 +1711,18 @@ export function EditorExperience({
             orderType,
             promoApplied,
             referralOfferApplied,
-            promotionSource: referralOfferApplied ? "referral_auto" : promoApplied ? "manual" : "none",
+            discountRejected: Boolean(data.discountRejected),
+            promotionSource: referralOfferApplied ? "referral_auto" : promoApplied ? "manual" : data.discountRejected ? "referral_no_discount" : "none",
             referralApplied: Boolean(referralCode),
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
+          if (data.discountRejected) {
+            setCheckoutError(
+              "We couldn't apply your discount automatically. You can still enter a promo code on the payment page.",
+            );
+            await new Promise((resolve) => setTimeout(resolve, 2200));
+          }
           window.location.href = data.url;
           return;
         }
@@ -1404,6 +1753,10 @@ export function EditorExperience({
                 ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
                 : reason === "print_render_failed"
                   ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
+                : reason === "card_print_asset_failed"
+                  ? "We couldn't prepare the greeting card artwork. Please try checkout again."
+                : reason === "missing_card_print_asset"
+                  ? "Greeting card artwork is missing. Please reopen checkout and try again."
                 : reason === "missing_shipping_country"
                   ? "Select your shipping country to continue with print checkout."
                 : reason === "print_shipping_country_invalid"
@@ -1420,6 +1773,8 @@ export function EditorExperience({
                   ? "We couldn't find that map. Refresh preview and try checkout again."
                 : reason.startsWith("save_failed_") || reason === "map_save_failed"
                   ? "We couldn't save this map yet. Please retry in a moment."
+              : reason === "unknown_error"
+                ? "We couldn't start checkout right now. Please try again shortly."
               : "Checkout is unavailable right now. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {
@@ -1458,6 +1813,7 @@ export function EditorExperience({
     (options: {
       variant: PrintVariant;
       includeDigitalAddOn: boolean;
+      includeCardAddOn?: boolean;
       source: "editor_print_panel" | "paywall_modal" | "mobile_preview" | "preview_primary_print_cta";
     }) => {
       setPreferredPrintVariant(options.variant);
@@ -1465,11 +1821,13 @@ export function EditorExperience({
         source: options.source,
         variant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
+        includeCardAddOn: options.includeCardAddOn,
       });
       void startCheckout("single", {
         orderType: "print",
         printVariant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
+        includeCardAddOn: options.includeCardAddOn,
       });
     },
     [startCheckout],
@@ -1604,7 +1962,7 @@ export function EditorExperience({
     });
   }, [allowAdvanced]);
 
-  const showGuidedForm = !revealed || !showAdvanced;
+  const showGuidedForm = !revealed;
   const showEditor = revealed && showAdvanced;
   const showSetupPanels = !revealed || showEditor;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
@@ -1638,10 +1996,11 @@ export function EditorExperience({
                           Create your star map
                         </p>
                         <h2 className="text-3xl font-[var(--font-playfair)] font-semibold tracking-tight text-white sm:text-4xl">
-                          Build your map in 3 quick steps
+                          Start with the moment, then preview
                         </h2>
                         <p className="text-base text-neutral-200 sm:text-lg">
-                          Enter date and place, add your title, then generate a free preview.
+                          Add the date, location, and words that matter, then generate a free preview before opening
+                          any extra controls.
                         </p>
                         <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-300">
                           {setupSteps.map((step, index) => (
@@ -1681,7 +2040,9 @@ export function EditorExperience({
                             Start empty
                           </button>
                         </div>
-                        <p className="text-xs text-neutral-300">Need deeper control? Use “Customize more” after preview.</p>
+                        <p className="text-xs text-neutral-300">
+                          Advanced controls stay tucked away until you want them.
+                        </p>
                         <p className="text-[11px] text-neutral-400">
                           {lastDraftSavedAt
                             ? `Draft autosaved on this device at ${lastDraftSavedAt}.`
@@ -1695,6 +2056,13 @@ export function EditorExperience({
                             Editing mode
                           </p>
                           <p className="text-sm font-semibold text-white">Refine your map</p>
+                          {lastDraftSavedAt ? (
+                            <p className="text-[10px] text-neutral-400">
+                              Saved {lastDraftSavedAt}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-neutral-500">Draft autosaves on this device</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {isQuick && allowAdvancedInQuick ? (
@@ -1703,7 +2071,7 @@ export function EditorExperience({
                               onClick={handleLessOptions}
                               className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
                             >
-                              Less options
+                              Back to preview
                             </button>
                           ) : null}
                           <button
@@ -1808,6 +2176,7 @@ export function EditorExperience({
                                   if (!paid && mode.premium) {
                                     setPaywallIntent("digital");
                                     setPaywallOpen(true);
+                                    trackPaywallOpenedEvent("digital", "premium_render_mode");
                                   }
                                   const targetLevel =
                                     mode.id === "cinematic"
@@ -1961,14 +2330,24 @@ export function EditorExperience({
                                 type="button"
                                 onClick={handleReveal}
                                 disabled={!canReveal || isRevealing}
-                                aria-label="Generate preview"
+                                aria-label={
+                                  isRevealing
+                                    ? "Revealing your sky"
+                                    : canReveal
+                                      ? "Generate preview"
+                                      : previewUnlockButtonLabel
+                                }
                                 className={`text-midnight focus:ring-gold inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
                                   canReveal && !isRevealing
                                     ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                                     : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
                                 }`}
                               >
-                                {isRevealing ? "Revealing your sky..." : "Generate preview"}
+                                {isRevealing
+                                  ? "Revealing your sky..."
+                                  : canReveal
+                                    ? "Generate preview"
+                                    : previewUnlockButtonLabel}
                               </button>
                             )}
                             {!revealed && (
@@ -1976,9 +2355,15 @@ export function EditorExperience({
                                 <p>
                                   {isRevealing
                                     ? "Aligning constellations for your selected moment..."
-                                    : revealBlockedMessage}
+                                    : canReveal
+                                      ? previewReadyMessage
+                                      : previewLockedMessage}
                                 </p>
-                                <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
+                                <p className="text-[11px] text-neutral-500">
+                                  {canReveal
+                                    ? "Free preview, HD optional."
+                                    : "Free preview, HD optional after you add date + place."}
+                                </p>
                               </div>
                             )}
                           </div>
@@ -2106,6 +2491,7 @@ export function EditorExperience({
                                                           if (fontMeta?.premium && !paid) {
                                                             setPaywallIntent("digital");
                                                             setPaywallOpen(true);
+                                                            trackPaywallOpenedEvent("digital", "premium_font");
                                                             return;
                                                           }
                                                           updateTextBox(box.id, { fontFamily: next });
@@ -2246,7 +2632,82 @@ export function EditorExperience({
                                       </span>
                                     </button>
                                     {!collapsedCards.style && (
-                                      <div className="mt-2 grid grid-cols-1 gap-2">
+                                      <div className="mt-2 space-y-3">
+                                        <div className="space-y-1">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <p
+                                              id="map-look-tier-label"
+                                              className="text-[10px] font-semibold tracking-[0.14em] text-neutral-300 uppercase"
+                                            >
+                                              Map look
+                                            </p>
+                                            {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const tier = resolveMapLookTier(renderOptions, selectedStyle);
+                                                  setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
+                                                }}
+                                                className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90 transition hover:border-amber-300/40 hover:bg-white/10"
+                                              >
+                                                Reset typography
+                                              </button>
+                                            )}
+                                          </div>
+                                          <div
+                                            role="radiogroup"
+                                            aria-labelledby="map-look-tier-label"
+                                            className="grid grid-cols-3 gap-1.5"
+                                          >
+                                            {mapLookTiers.map((tier) => {
+                                              const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+                                              return (
+                                                <button
+                                                  key={tier.id}
+                                                  type="button"
+                                                  role="radio"
+                                                  aria-checked={activeTier === tier.id}
+                                                  aria-label={`${tier.label}: ${tier.description}`}
+                                                  onClick={() => {
+                                                    const tierOptions = applyMapLookTier(tier.id, selectedStyle);
+                                                    setRenderOptions(tierOptions);
+                                                    setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
+                                                  }}
+                                                  onKeyDown={(event) => {
+                                                    const tierIndex = mapLookTiers.findIndex((item) => item.id === tier.id);
+                                                    if (tierIndex < 0) return;
+                                                    let nextIndex: number | null = null;
+                                                    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                                                      nextIndex = (tierIndex + 1) % mapLookTiers.length;
+                                                    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                                                      nextIndex = (tierIndex - 1 + mapLookTiers.length) % mapLookTiers.length;
+                                                    }
+                                                    if (nextIndex === null) return;
+                                                    event.preventDefault();
+                                                    const nextTier = mapLookTiers[nextIndex];
+                                                    if (!nextTier) return;
+                                                    const tierOptions = applyMapLookTier(nextTier.id, selectedStyle);
+                                                    setRenderOptions(tierOptions);
+                                                    setTextBoxes(
+                                                      applyTierTypography(nextTier.id, selectedStyle, textBoxes),
+                                                    );
+                                                  }}
+                                                  className={`min-h-[3.25rem] rounded-md border px-2 py-2 text-left transition ${
+                                                    activeTier === tier.id
+                                                      ? "!text-midnight border-amber-300 bg-amber-100"
+                                                      : "border-white/15 bg-white/10 text-white hover:border-amber-400/40"
+                                                  }`}
+                                                >
+                                                  <div className="text-[11px] font-semibold">{tier.label}</div>
+                                                  <div className="mt-0.5 text-[9px] leading-snug opacity-80">
+                                                    {tier.description}
+                                                  </div>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2">
                                         {styles.map((style) => {
                                           const styleClasses = {
                                             navyGold:
@@ -2273,12 +2734,26 @@ export function EditorExperience({
                                               type="button"
                                               onClick={() => {
                                                 setStyle(style.id);
+                                                const tier: MapLookTier =
+                                                  renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
+                                                const tierOptions =
+                                                  tier === "custom"
+                                                    ? {}
+                                                    : applyMapLookTier(tier, style.id);
                                                 const defaults = applyStyleDefaults(style.id, textBoxes);
-                                                if (Object.keys(defaults.renderOptions).length) {
-                                                  setRenderOptions(defaults.renderOptions);
+                                                const mergedOptions = {
+                                                  ...defaults.renderOptions,
+                                                  ...tierOptions,
+                                                };
+                                                if (Object.keys(mergedOptions).length) {
+                                                  setRenderOptions(mergedOptions);
                                                 }
-                                                if (defaults.textBoxes !== textBoxes) {
-                                                  setTextBoxes(defaults.textBoxes);
+                                                const nextText =
+                                                  tier === "custom"
+                                                    ? defaults.textBoxes
+                                                    : applyTierTypography(tier, style.id, defaults.textBoxes);
+                                                if (nextText !== textBoxes) {
+                                                  setTextBoxes(nextText);
                                                 }
                                               }}
                                               className={`flex h-full flex-col justify-center rounded-lg border px-3 py-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] ${
@@ -2290,6 +2765,7 @@ export function EditorExperience({
                                             </button>
                                           );
                                         })}
+                                        </div>
                                       </div>
                                     )}
                                   </section>
@@ -2451,6 +2927,8 @@ export function EditorExperience({
                                     selectedStyle={selectedStyle}
                                     renderOptions={renderOptions}
                                     setRenderOptions={setRenderOptions}
+                                    textBoxes={textBoxes}
+                                    setTextBoxes={setTextBoxes}
                                     previewFidelity={previewFidelity}
                                     setPreviewFidelity={setPreviewFidelity}
                                     paid={paid}
@@ -2572,7 +3050,7 @@ export function EditorExperience({
                                 )
                               ) : (
                                 <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-neutral-200 shadow-sm backdrop-blur">
-                                  {revealBlockedMessage}
+                                  {previewLockedMessage}
                                 </div>
                               )}
                               {canReveal && (
@@ -2664,6 +3142,7 @@ export function EditorExperience({
                                 setPaywallIntent("print");
                                 setPaywallOpen(true);
                                 setCheckoutError(null);
+                                trackPaywallOpenedEvent("print", "preview_primary_print_cta");
                                 track("print_option_clicked", {
                                   source: "preview_primary_print_cta",
                                   variant: preferredPrintVariant,
@@ -2674,6 +3153,15 @@ export function EditorExperience({
                               title="Buy a printed star map with framing options."
                             >
                               Print & frame
+                            </button>
+                          )}
+                          {!showEditor && (
+                            <button
+                              type="button"
+                              onClick={handleCustomizeMore}
+                              className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                            >
+                              Customize more
                             </button>
                           )}
                           {hdCreditLabel && (
@@ -2697,23 +3185,17 @@ export function EditorExperience({
                               💾 Save & Remix
                             </button>
                           )}
-                          {!showEditor && (
-                            <button
-                              type="button"
-                              onClick={handleCustomizeMore}
-                              className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                            >
-                              Customize more
-                            </button>
-                          )}
                         </div>
-                        {(currentPlan === "subscription" || typeof creditsRemaining === "number") && (
+                        {printCheckoutEnabled && posterAspectMismatch && (
+                          <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
+                        )}
+                        {paid &&
+                          (currentPlan === "subscription" ||
+                            (typeof creditsRemaining === "number" && creditsRemaining > 0)) && (
                           <p className="mt-2 text-[11px] text-neutral-300">
                             {currentPlan === "subscription"
                               ? "Unlimited HD exports on your active subscription."
-                              : typeof creditsRemaining === "number"
-                                ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
-                                : "HD export credits available."}
+                              : `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`}
                           </p>
                         )}
                         {currentPlan !== "subscription" && (
@@ -2733,6 +3215,56 @@ export function EditorExperience({
                             </a>
                           </div>
                         )}
+                        {showFreeExportUpsell && !paid && (
+                          <div className="mt-2 rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs font-semibold text-amber-100">
+                                {"That's the watermarked preview (1,200 px)."}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setShowFreeExportUpsell(false)}
+                                aria-label="Dismiss"
+                                className="flex-shrink-0 text-amber-200/60 hover:text-amber-100"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                                  <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
+                                </svg>
+                              </button>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-amber-100/80">
+                              Unlock the full 6,000 px HD version — no watermark, print-ready.
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowFreeExportUpsell(false);
+                                  setPaywallIntent("digital");
+                                  setPaywallOpen(true);
+                                  track("free_export_upsell_clicked", { action: "hd" });
+                                }}
+                                className="rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-300"
+                              >
+                                Unlock HD &rarr;
+                              </button>
+                              {printCheckoutEnabled && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowFreeExportUpsell(false);
+                                    setPaywallIntent("print");
+                                    setPaywallOpen(true);
+                                    track("free_export_upsell_clicked", { action: "print" });
+                                  }}
+                                  className="rounded-full border border-amber-300/50 bg-transparent px-3 py-1 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-amber-200"
+                                >
+                                  Get it framed &rarr;
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {printCheckoutEnabled && (
                           <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2742,10 +3274,19 @@ export function EditorExperience({
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Shipping is shown before payment, and your print order draft is
-                              created right after payment for manual review. Apple Pay, Google Pay, and Link show when
-                              available. {shippingDisclosure}
+                              Secure Stripe checkout. Shipping is shown before payment, and your print order is submitted
+                              after payment for production. Apple Pay, Google Pay, and Link show when available.{" "}
+                              {getPrintProductionTimelineLine()} {shippingDisclosure}
                             </p>
+                            {activeMapLookTier === "minimal" && (
+                              <p className="mt-2 rounded-lg border border-amber-200/30 bg-black/15 px-3 py-2 text-[11px] text-amber-50/90">
+                                Print preview note: your editor uses a transparent mat on Minimal. The print file adds a
+                                filled border so fulfillment has no transparent edges.
+                              </p>
+                            )}
+                            {posterAspectMismatch && (
+                              <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
+                            )}
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Fastest</p>
@@ -2753,7 +3294,7 @@ export function EditorExperience({
                               </div>
                               <div className="rounded-xl border border-amber-300/35 bg-black/20 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Best gift</p>
-                                <p className="mt-1">Framed print. Easiest premium route.</p>
+                                <p className="mt-1">Framed + HD — instant file plus shipped wall art. {getPrintFramedHdBundleShortLine()}</p>
                               </div>
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Lower total</p>
@@ -2788,21 +3329,31 @@ export function EditorExperience({
                                   {posterShippingFootnote}
                                 </p>
                               ) : null}
+                              <PrintGiftDecisionPanel
+                                printShippingCountry={printShippingCountry}
+                                sizingVariant={preferredPrintVariant}
+                                compact
+                              />
                             </div>
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {printCheckoutRows.map((row) => (
                                 <button
-                                  key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
+                                  key={paywallPrintCheckoutRowKey(row)}
                                   type="button"
                                   onClick={() =>
                                     startPrintCheckout({
                                       source: "editor_print_panel",
                                       variant: row.variant,
                                       includeDigitalAddOn: row.includeDigitalAddOn,
+                                      includeCardAddOn: row.includeCardAddOn,
                                     })
                                   }
                                   disabled={checkoutInFlight || !printShippingCountry}
-                                  className={paywallPrintSkuButtonClassesEditorPanel(row, preferredPrintVariant)}
+                                  className={paywallPrintSkuButtonClassesEditorPanel(
+                                    row,
+                                    preferredPrintVariant,
+                                    preferredIncludeDigitalAddOn,
+                                  )}
                                 >
                                   {checkoutInFlight ? (
                                     "Opening secure checkout..."
@@ -2964,6 +3515,7 @@ export function EditorExperience({
               currentPlan={currentPlan}
               printCheckoutEnabled={printCheckoutEnabled}
               preferredPrintVariant={preferredPrintVariant}
+              preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
               printCheckoutInFlight={checkoutInFlight}
@@ -2977,10 +3529,16 @@ export function EditorExperience({
                         source: "mobile_preview",
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
+                        includeCardAddOn: options.includeCardAddOn,
                       });
                     }
                   : undefined
               }
+              onIntensityPaywall={() => {
+                setPaywallIntent("digital");
+                setPaywallOpen(true);
+                trackPaywallOpenedEvent("digital", "mobile_intensity");
+              }}
             />
           </div>
         )}
@@ -2999,6 +3557,8 @@ export function EditorExperience({
               variant={paywallVariant}
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}
+              preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
+              giftPaywallContext={isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined}
               showReferralHint={Boolean(getCheckoutReferralCode())}
               onStartCheckout={(plan) => {
                 setPaywallIntent("digital");
@@ -3011,6 +3571,7 @@ export function EditorExperience({
                         source: "paywall_modal",
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
+                        includeCardAddOn: options.includeCardAddOn,
                       });
                     }
                   : undefined

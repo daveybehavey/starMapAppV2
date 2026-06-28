@@ -3,6 +3,7 @@
 import Stripe from "stripe";
 import { loadDotenv } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
+import { isQaStripeSession } from "../src/lib/commerceAnalyticsQa.mjs";
 
 loadDotenv();
 
@@ -32,7 +33,7 @@ function parseArgs(argv) {
     if (token === "--days") {
       const next = Number(argv[i + 1]);
       if (!Number.isFinite(next) || next <= 0) throw new Error("--days must be a positive number");
-      args.days = Math.min(90, Math.floor(next));
+      args.days = Math.min(365, Math.floor(next));
       i += 1;
       continue;
     }
@@ -352,21 +353,31 @@ async function buildReport(args) {
 
   const paidSessions = sessions.filter((session) => isPaidCheckoutSession(session));
   const realPaidSessions = paidSessions.filter((session) => Number(session.amount_total || 0) > 0);
+  const qaPaidSessions = realPaidSessions.filter((session) => isQaStripeSession(session));
+  const productionPaidSessions = realPaidSessions.filter((session) => !isQaStripeSession(session));
   const zeroPaidSessions = paidSessions.length - realPaidSessions.length;
   const digitalPaid = paidSessions.filter((session) => classifyOrder(session) === "digital");
-  const printPaid = paidSessions.filter((session) => classifyOrder(session) === "print");
+  const printSessions = sessions.filter((session) => classifyOrder(session) === "print");
+  const printPaid = printSessions.filter((session) => isPaidCheckoutSession(session));
+  const printUnpaidSessions = printSessions.length - printPaid.length;
   const paymentMethodMix = await resolvePaidSessionPaymentMethods(stripe, paidSessions);
 
   const digitalPlanCounts = new Map();
   const printVariantCounts = new Map();
   const referralSourceCounts = new Map();
   const referralOfferVariantCounts = new Map();
+  const marketingSourceCounts = new Map();
   const paidPaymentMethodCounts = new Map();
   const digitalPaymentMethodCounts = new Map();
   const printPaymentMethodCounts = new Map();
 
   let digitalRevenueCents = 0;
   let printRevenueCents = 0;
+  let productionDigitalRevenueCents = 0;
+  let productionPrintRevenueCents = 0;
+  const productionRealPaid = realPaidSessions.filter((session) => !isQaStripeSession(session));
+  const productionPrintPaid = productionRealPaid.filter((session) => classifyOrder(session) === "print");
+  const productionDigitalPaid = productionRealPaid.filter((session) => classifyOrder(session) === "digital");
 
   for (const session of digitalPaid) {
     incrementBucket(digitalPlanCounts, getPlan(session));
@@ -394,6 +405,20 @@ async function buildReport(args) {
     if (referralSource) incrementBucket(referralSourceCounts, referralSource);
     const referralOfferVariant = getReferralOfferVariant(session);
     if (referralOfferVariant) incrementBucket(referralOfferVariantCounts, referralOfferVariant);
+  }
+
+  for (const session of productionDigitalPaid) {
+    productionDigitalRevenueCents += Number(session.amount_total || 0);
+    const marketingSource =
+      typeof session.metadata?.marketing_source === "string" ? session.metadata.marketing_source.trim().toLowerCase() : "";
+    if (marketingSource) incrementBucket(marketingSourceCounts, marketingSource);
+  }
+
+  for (const session of productionPrintPaid) {
+    productionPrintRevenueCents += Number(session.amount_total || 0);
+    const marketingSource =
+      typeof session.metadata?.marketing_source === "string" ? session.metadata.marketing_source.trim().toLowerCase() : "";
+    if (marketingSource) incrementBucket(marketingSourceCounts, marketingSource);
   }
 
   const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || "";
@@ -461,12 +486,21 @@ async function buildReport(args) {
       sessionsScanned: sessions.length,
       paidSessions: paidSessions.length,
       realPaidSessions: realPaidSessions.length,
+      productionPaidSessions: productionPaidSessions.length,
+      qaPaidSessions: qaPaidSessions.length,
       zeroPaidSessions,
       digitalPaidSessions: digitalPaid.length,
+      printSessionsTotal: printSessions.length,
       printPaidSessions: printPaid.length,
+      printUnpaidSessions,
       digitalRevenueCents,
       printRevenueCents,
       totalRevenueCents: digitalRevenueCents + printRevenueCents,
+      productionDigitalRevenueCents,
+      productionPrintRevenueCents,
+      productionTotalRevenueCents: productionDigitalRevenueCents + productionPrintRevenueCents,
+      productionPrintPaidSessions: productionPrintPaid.length,
+      productionDigitalPaidSessions: productionDigitalPaid.length,
       currency: "usd",
       digitalPlanCounts: topBuckets(digitalPlanCounts, "plan"),
       printVariantCounts: topBuckets(printVariantCounts, "variant"),
@@ -475,6 +509,7 @@ async function buildReport(args) {
       printPaymentMethods: topBuckets(printPaymentMethodCounts, "method"),
       referralPaidSources: topBuckets(referralSourceCounts, "source"),
       referralOfferVariants: topBuckets(referralOfferVariantCounts, "variant"),
+      marketingSources: topBuckets(marketingSourceCounts, "source"),
     },
     printOps,
   };
@@ -493,13 +528,42 @@ function printHumanReport(report) {
       `(zero-dollar/test: ${report.stripe.zeroPaidSessions})`,
   );
   console.log(
-    `Revenue: ${formatMoney(report.stripe.totalRevenueCents, report.stripe.currency)} ` +
+    `Production paid (excl. QA metadata): ${report.stripe.productionPaidSessions} ` +
+      `(QA-tagged: ${report.stripe.qaPaidSessions})`,
+  );
+  console.log(
+    `Production revenue: ${formatMoney(report.stripe.productionTotalRevenueCents, report.stripe.currency)} ` +
+      `(digital ${formatMoney(report.stripe.productionDigitalRevenueCents, report.stripe.currency)}, ` +
+      `print ${formatMoney(report.stripe.productionPrintRevenueCents, report.stripe.currency)})`,
+  );
+  console.log(
+    `All paid revenue (incl. QA/zero): ${formatMoney(report.stripe.totalRevenueCents, report.stripe.currency)} ` +
       `(digital ${formatMoney(report.stripe.digitalRevenueCents, report.stripe.currency)}, ` +
       `print ${formatMoney(report.stripe.printRevenueCents, report.stripe.currency)})`,
   );
+  const marketingSources = report.stripe.marketingSources || [];
+  if (marketingSources.length) {
+    console.log(
+      `Production marketing sources: ${marketingSources.map((row) => `${row.source}=${row.count}`).join(", ")}`,
+    );
+  }
   console.log(
     `Mix: digital=${report.stripe.digitalPaidSessions} print=${report.stripe.printPaidSessions} scanned=${report.stripe.sessionsScanned}`,
   );
+  if (report.stripe.printSessionsTotal > 0) {
+    const paidPct =
+      report.stripe.printSessionsTotal > 0
+        ? ((report.stripe.printPaidSessions / report.stripe.printSessionsTotal) * 100).toFixed(1)
+        : "0.0";
+    console.log(
+      `Print checkout (Stripe): opened=${report.stripe.printSessionsTotal} paid=${report.stripe.printPaidSessions} (${paidPct}%) unpaid=${report.stripe.printUnpaidSessions}`,
+    );
+    if (report.stripe.printPaidSessions === 0 && report.stripe.printUnpaidSessions >= 3) {
+      console.log(
+        "  ⚠ Phase A2 blocked: no paid print in window — expect abandon at Stripe until one real order completes.",
+      );
+    }
+  }
 
   console.log("");
   console.log("Top digital plans");

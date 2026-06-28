@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const token = (process.env.PRINTFUL_API_TOKEN || "").trim();
@@ -107,6 +107,19 @@ async function main() {
   const outputDir = resolve(process.cwd(), "public", "printproof");
   mkdirSync(outputDir, { recursive: true });
 
+  // Preserve previously generated "room mockup" references.
+  // The sync operation is meant to refresh `latest` + `catalog`,
+  // but it should not erase local JPGs that power the higher-trust mockup selection logic.
+  const manifestPath = resolve(outputDir, "manifest.json");
+  let existingManifest = null;
+  if (existsSync(manifestPath)) {
+    try {
+      existingManifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    } catch {
+      existingManifest = null;
+    }
+  }
+
   const ordersResponse = await requestJson(`/orders?store_id=${encodeURIComponent(storeId)}&limit=25`);
   const orders = Array.isArray(ordersResponse?.result) ? ordersResponse.result : [];
   if (!orders.length) {
@@ -155,6 +168,10 @@ async function main() {
       framed: null,
       unframed: null,
     },
+    // Preserve room mockups if they exist locally / were previously generated.
+    // This prevents `sync-printful-proof-images` from overwriting the manifest
+    // and making our proof-image selection fall back to less-preferred images.
+    mockups: existingManifest?.mockups ?? undefined,
   };
 
   if (framed?.previewUrl) {

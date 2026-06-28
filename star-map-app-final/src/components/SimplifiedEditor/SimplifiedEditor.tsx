@@ -31,6 +31,7 @@ import {
   toISODate,
 } from "@/lib/dateInput";
 import { trackCheckoutClientDiagnostic, trackFunnelStep } from "@/lib/analytics";
+import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -572,8 +573,36 @@ export function SimplifiedEditor() {
       }
 
       // Create checkout session
-      const checkoutPayload: { mapId?: string; plan: string } = { plan: "single" };
+      // QA-only knob: allow automated tests to use Stripe TEST mode while
+      // exercising the real UX flow (same behavior as EditorExperience).
+      const stripeMode = (() => {
+        const cookieKey = "starmapco_qa_stripeMode";
+        try {
+          const raw = localStorage.getItem("starmapco:qa:stripeMode");
+          if (raw === "test" || raw === "live") return raw;
+        } catch {
+          // ignore
+        }
+        try {
+          if (typeof document !== "undefined" && typeof document.cookie === "string") {
+            const match = document.cookie
+              .split(";")
+              .map((v) => v.trim())
+              .find((v) => v.startsWith(`${cookieKey}=`));
+            const raw = match ? decodeURIComponent(match.slice(cookieKey.length + 1)) : "";
+            if (raw === "test" || raw === "live") return raw;
+          }
+        } catch {
+          // ignore
+        }
+        return undefined;
+      })() as "test" | "live" | undefined;
+
+      const checkoutPayload: { mapId?: string; plan: string; stripeMode?: "test" | "live" } = {
+        plan: "single",
+      };
       if (mapId) checkoutPayload.mapId = mapId;
+      if (stripeMode) checkoutPayload.stripeMode = stripeMode;
       trackFunnelStep("checkout_started", {
         source: "simplified_editor",
         plan: "single",
@@ -594,25 +623,23 @@ export function SimplifiedEditor() {
         const payload = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
         if (payload?.code === "map_required") throw new Error("map_required");
         if (payload?.code === "map_not_found") throw new Error("map_not_found");
-        throw new Error(payload?.error ?? "checkout_failed");
+        throw new Error(payload?.code ?? payload?.error ?? "checkout_failed");
       }
 
       const data = (await res.json()) as { url?: string };
       if (data.url) {
-        try {
-          const nextUrl = new URL(data.url);
-          if (nextUrl.protocol.startsWith("http")) {
-            window.location.href = nextUrl.toString();
-            return;
-          }
-        } catch {
-          // fall through to error
-        }
+        redirectToStripeCheckout(data.url);
+        return;
       }
       throw new Error("No checkout URL");
     } catch (err) {
       console.error("Checkout error:", err);
-      const reason = err instanceof Error ? err.message : "checkout_failed";
+      const reason =
+        err instanceof Error && err.name === "AbortError"
+          ? "checkout_timeout"
+          : err instanceof Error
+            ? err.message
+            : "checkout_failed";
       if (!checkoutApiResponseReceived) {
         trackCheckoutClientDiagnostic({
           reason,
@@ -621,7 +648,10 @@ export function SimplifiedEditor() {
           orderType: "digital",
         });
       }
-      if (reason === "map_required") {
+      const urlMessage = checkoutUrlErrorMessage(reason);
+      if (urlMessage) {
+        setExportError(urlMessage);
+      } else if (reason === "map_required") {
         setExportError("Generate a preview before checkout.");
       } else if (reason === "map_not_found") {
         setExportError("We couldn't find your saved map. Refresh and try again.");

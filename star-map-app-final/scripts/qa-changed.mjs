@@ -10,6 +10,12 @@ function run(cmd, args, options = {}) {
     cwd: process.cwd(),
   });
 
+  if (result.error) {
+    // When spawnSync can't resolve/launch the executable, result.error is set.
+    // Surface it so failures aren't silent (common on Windows when PATH/cmd resolution differs).
+    throw result.error;
+  }
+
   if (options.capture) {
     if (result.status !== 0) {
       const stderr = (result.stderr || "").trim();
@@ -148,6 +154,13 @@ function buildPlan(files, includeLint) {
 }
 
 function runShellCommand(command) {
+  if (process.platform === "win32") {
+    // Windows spawn quirks: executing `npx.cmd` directly can throw EINVAL.
+    // Route through cmd.exe so PATH resolution + PATHEXT handling matches the shell.
+    run("cmd.exe", ["/c", command]);
+    return;
+  }
+
   const [cmd, ...args] = command.split(" ");
   run(cmd, args);
 }

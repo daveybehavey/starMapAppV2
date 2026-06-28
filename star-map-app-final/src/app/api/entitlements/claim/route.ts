@@ -1,29 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { evaluateClaimPaid, ENTITLEMENT_KV, type ClaimTokenRecord, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
-import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
-
-type ClaimRecord = {
-  sessionId: string;
-  mapId?: string;
-  createdAt: number;
-};
-
-type SessionRecord = {
-  paid?: boolean;
-  revoked?: boolean;
-  mapId?: string;
-  plan?: CheckoutPlan;
-  creditsRemaining?: number;
-  subscriptionActive?: boolean;
-  orderType?: CheckoutOrderType;
-  includesDigitalAddOn?: boolean;
-  claimToken?: string;
-};
-
-const claimKey = (token: string) => `claim:${token}`;
-const sessionKey = (id: string) => `stripe:session:${id}`;
 
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
@@ -37,12 +16,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
   }
 
-  const claim = await kv.get<ClaimRecord>(claimKey(token));
+  const claim = await kv.get<ClaimTokenRecord>(ENTITLEMENT_KV.claim(token));
   if (!claim?.sessionId) {
     return NextResponse.json({ ok: false, error: "Invalid token" }, { status: 404 });
   }
 
-  const record = await kv.get<SessionRecord>(sessionKey(claim.sessionId));
+  const record = await kv.get<StripeSessionEntitlement>(ENTITLEMENT_KV.stripeSession(claim.sessionId));
   if (!record || record.revoked) {
     return NextResponse.json({ ok: false, error: "Access revoked" }, { status: 403 });
   }
@@ -50,12 +29,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid token" }, { status: 404 });
   }
 
-  const subscriptionActive = Boolean(record.subscriptionActive);
+  const { paid } = evaluateClaimPaid(record);
   const creditsRemaining = record.creditsRemaining ?? 0;
-  const isPrintOnly = record.orderType === "print" && !record.includesDigitalAddOn;
-  const paid = !isPrintOnly && (
-    record.plan === "subscription" ? subscriptionActive : creditsRemaining > 0 || Boolean(record.paid)
-  );
+  const subscriptionActive = Boolean(record.subscriptionActive);
 
   const response = NextResponse.json({
     ok: true,

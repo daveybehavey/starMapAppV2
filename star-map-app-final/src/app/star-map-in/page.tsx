@@ -5,6 +5,7 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -142,7 +143,7 @@ export default function StarMapByCityPage() {
         rightPoints={[
           "Unframed and framed print paths are available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          getPrintPhysicalOrderSummaryLine(),
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

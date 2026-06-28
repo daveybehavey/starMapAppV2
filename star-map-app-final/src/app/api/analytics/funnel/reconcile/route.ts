@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import {
+  buildGa4PurchaseFromStripeSession,
+  isQaStripeSession,
+} from "@/lib/commerceAnalytics";
+import {
   hasPaymentVerifiedRecord,
   recordPaymentVerifiedOnce,
   syncPaymentVerifiedWindow,
@@ -48,7 +52,8 @@ function toBoolean(raw: unknown, fallback = false) {
 }
 
 function isPaidCheckoutSession(session: Stripe.Checkout.Session) {
-  return session.payment_status === "paid" || session.payment_status === "no_payment_required";
+  const amountTotal = typeof session.amount_total === "number" ? session.amount_total : null;
+  return (session.payment_status === "paid" || session.payment_status === "no_payment_required") && (amountTotal ?? 0) > 0;
 }
 
 function belongsToStarMap(session: Stripe.Checkout.Session) {
@@ -146,11 +151,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (!dryRun) {
+      const skipProductionAnalytics = isQaStripeSession(session);
       await recordPaymentVerifiedOnce({
         sessionId: session.id,
+        amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
         source: classifyOrder(session) === "print" ? "stripe_reconcile_print" : "stripe_reconcile_digital",
         plan: resolvePlan(session),
         occurredAt,
+        skipProductionAnalytics,
+        ga4Purchase: skipProductionAnalytics ? undefined : buildGa4PurchaseFromStripeSession(session),
       });
     }
 

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import { buildInstantHdPreviewIntents, getInstantHdHeroHref, getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -31,6 +33,10 @@ export const metadata: Metadata = {
 };
 
 export default function HowToPrintStarMapPage() {
+  const instantHref = getInstantHdHeroHref("how-to-print-star-map-hero-instant");
+  const instantPrice = getInstantHdPriceLine();
+  const previewIntents = buildInstantHdPreviewIntents("how-to-print-star-map");
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -39,26 +45,82 @@ export default function HowToPrintStarMapPage() {
         <h1 className="text-3xl font-bold text-white sm:text-4xl">How to Print a Star Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
           Use this guide to print your star map at the right size, on the right paper, with a frame that makes it shine.
+          Need the file first? Start with the{" "}
+          <Link href="/star-map-generator" className="font-semibold text-amber-200 hover:underline">
+            free star map generator
+          </Link>{" "}
+          or instant HD — then print locally or order framed from the same design.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href={instantHref}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Get instant HD from {instantPrice}
+          </Link>
+          <Link
+            href="/hd-star-map"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Instant HD funnel
+          </Link>
+        </div>
       </header>
 
       <PreviewStartForm
         title="Start your preview"
-        description="Jump into the editor with your date and location, then come back to this guide for printing tips."
+        description="Enter date and location — instant HD unlocks after checkout, or add a framed print from the same approved design."
         buttonLabel="Preview your map"
         source="how-to-print-star-map"
+        intentOptions={previewIntents}
       />
-      <StickyCtaBar source="sticky-how-to-print-star-map" />
+      <StickyCtaBar
+        source="sticky-how-to-print-instant-hd"
+        title="Printing locally?"
+        description="Unlock the HD file first — same preview engine, poster-quality PNG."
+        buttonLabel="Preview instant HD"
+        primaryHref={instantHref}
+        primaryPlan="hd_digital"
+        secondaryButtonLabel="Order framed print"
+        secondaryHref="/editor?mode=quick&source=sticky-how-to-print-framed&checkout=print&print_variant=poster_framed&include_digital_addon=1"
+        secondaryPlan="print_framed_hd"
+      />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Recommended print sizes</h2>
+        <h2 className="text-xl font-semibold text-midnight">StarMapCo print SKUs (live today)</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          Choose a size that fits your space. These are the most popular sizes for star map prints:
+          Physical checkout uses square artwork matched to Printful variants. Use a square layout in the editor for the
+          best fit.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>8x10 or 11x14 for desks, shelves, and small frames</li>
-          <li>12x16 or 16x20 for standard wall frames</li>
-          <li>18x24 or 24x36 for statement pieces</li>
+          <li>
+            <strong>Framed print — 14×14 in</strong> (Enhanced Matte, black frame). Gift-ready; ships from Printful.
+          </li>
+          <li>
+            <strong>Unframed poster — 18×18 in</strong> (museum-grade poster). Frame locally or at a print shop.
+          </li>
+          <li>
+            <strong>HD digital — 6000×6000 PNG</strong> for DIY printing when you need a custom size or international
+            delivery without freight.
+          </li>
+        </ul>
+        <p className="text-sm text-neutral-700">
+          <Link href="/shop" className="font-semibold text-amber-800 underline hover:text-amber-950">
+            Browse the shop
+          </Link>{" "}
+          for current pricing and shipping disclosure.
+        </p>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-xl font-semibold text-midnight">Other DIY print sizes</h2>
+        <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+          With the HD digital file you can print at common frame sizes:
+        </p>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
+          <li>8×10 or 11×14 for desks, shelves, and small frames</li>
+          <li>12×16 or 16×20 for standard wall frames</li>
+          <li>18×24 or 24×36 for statement pieces (crop or letterbox as needed)</li>
         </ul>
       </section>
 
@@ -97,12 +159,18 @@ export default function HowToPrintStarMapPage() {
           Start with an instant preview, then choose framed print, unframed print, or HD digital delivery once the
           design is final.
         </p>
-        <div className="pt-2">
+        <div className="pt-2 flex flex-wrap gap-3">
           <Link
-            href="/editor?mode=quick&source=how-to-print-star-map-cta"
+            href={instantHref}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start free preview
+            Get instant HD from {instantPrice}
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=how-to-print-star-map-cta"
+            className="inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-white px-5 py-3 text-sm font-semibold text-midnight transition hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+          >
+            Free preview first
           </Link>
         </div>
       </section>

@@ -187,9 +187,27 @@ export function isMerchPublicBetaEnabled(): boolean {
 
 export function listMerchFamiliesEnabledForPublicUi(): MerchFamily[] {
   if (!isMerchPublicBetaEnabled()) return [];
-  return MERCH_FAMILIES.filter((family) =>
-    /^(1|true|yes)$/i.test((process.env[family.enabledPublicEnv] || "").trim()),
-  );
+  return MERCH_FAMILIES.filter((family) => isMerchFamilyEnvEnabled(family.enabledPublicEnv));
+}
+
+function isMerchFamilyEnvEnabled(envKey: string): boolean {
+  return /^(1|true|yes)$/i.test((process.env[envKey] || "").trim());
+}
+
+/** Server checkout gate — must match public UI flags. */
+export function isMerchFamilyEnabledForCheckout(familyId: MerchFamilyId): boolean {
+  if (!isMerchPublicBetaEnabled()) return false;
+  const family = getMerchFamily(familyId);
+  return isMerchFamilyEnvEnabled(family.enabledPublicEnv);
+}
+
+export function getMerchStripePriceId(family: MerchFamily): string | undefined {
+  const raw = process.env[family.stripePriceEnv]?.trim();
+  return raw || undefined;
+}
+
+export function getMerchCheckoutPriceCents(family: MerchFamily): number {
+  return getMerchPublicDisplayPriceCents(family);
 }
 
 export function getMerchPublicDisplayLabel(family: MerchFamily): string {
@@ -202,6 +220,12 @@ export function getMerchPublicDisplayPriceCents(family: MerchFamily): number {
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return family.priceFallbackCents;
+}
+
+/** Shop anchor when the merch-beta section is rendered; null when merch UI is off. */
+export function getMerchShopSectionHref(): string | null {
+  if (!listMerchFamiliesEnabledForPublicUi().length) return null;
+  return "/shop#merch-addons";
 }
 
 /** First enabled family for lightweight CTAs (download/success). Returns null if merch UI is off. */

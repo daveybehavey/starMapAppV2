@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
+import { validatePrintAssetBytes } from "@/lib/printAssetValidation";
 import {
   parsePrintAssetTtlSeconds,
   PRINT_ASSET_ID_REGEX,
   printAssetKey,
+  normalizeRecipeFingerprint,
   type StoredPrintAsset,
 } from "@/lib/printAssets";
+import { indexPrintAssetForMap } from "@/lib/printAssetReuse";
 
 export const runtime = "nodejs";
 
@@ -18,6 +21,7 @@ type CreatePrintAssetBody = {
   mapId?: unknown;
   dataUrl?: unknown;
   source?: unknown;
+  recipeFingerprint?: unknown;
 };
 
 function decodeDataUrl(raw: string) {
@@ -62,9 +66,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let assetBytes: Uint8Array;
+  try {
+    assetBytes = decodeStoredBase64(decoded.base64Data);
+  } catch {
+    return NextResponse.json({ error: "Invalid print asset encoding.", code: "invalid_print_asset" }, { status: 400 });
+  }
+
+  const validation = validatePrintAssetBytes(assetBytes);
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.message, code: validation.code }, { status: 400 });
+  }
+
   const mapId = typeof body.mapId === "string" ? body.mapId.trim() : "";
   const normalizedMapId = mapId && MAP_ID_REGEX.test(mapId) ? mapId : undefined;
   const source = body.source === "download" ? "download" : body.source === "editor" ? "editor" : undefined;
+  const recipeFingerprint = normalizeRecipeFingerprint(body.recipeFingerprint);
   const assetId = crypto.randomUUID();
   const ttlSeconds = parsePrintAssetTtlSeconds();
   const payload: StoredPrintAsset = {
@@ -75,6 +92,14 @@ export async function POST(req: NextRequest) {
     source,
   };
   await kv.set(printAssetKey(assetId), payload, { ex: ttlSeconds });
+  if (normalizedMapId) {
+    await indexPrintAssetForMap({
+      mapId: normalizedMapId,
+      assetId,
+      recipeFingerprint,
+      ttlSeconds,
+    });
+  }
 
   const origin = (process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin).replace(/\/+$/, "");
   return NextResponse.json({

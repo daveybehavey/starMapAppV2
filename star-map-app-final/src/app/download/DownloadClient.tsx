@@ -43,6 +43,15 @@ import {
 import EditorFontShell from "@/components/EditorFontShell";
 import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import ResilientImage from "@/components/ResilientImage";
+import {
+  createHdConsumeToken,
+  formatHdExportConsumeFailedMessage,
+  formatHdExportFailedMessage,
+  postHdCreditCompensate,
+  postHdCreditConsume,
+  triggerBlobDownload,
+  verifyStripeSessionForDownload,
+} from "@/lib/hdExportFulfillment";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -281,6 +290,7 @@ export default function DownloadClient() {
   const paidRef = useRef(false);
   const printUpsellTrackedRef = useRef(false);
   const mapIdFromUrl = searchParams.get("map_id")?.trim() || null;
+  const sessionIdFromUrl = searchParams.get("session_id")?.trim() || null;
   const tokenFromUrl = searchParams.get("token")?.trim() || null;
   const upsellRaw = searchParams.get("upsell")?.trim();
   const upsellIntent = isPrintVariant(upsellRaw) ? upsellRaw : null;
@@ -289,14 +299,17 @@ export default function DownloadClient() {
   const accessLinkStatusRef = useRef<"idle" | "loading" | "ready" | "error">("idle");
   const accessLinkInitRef = useRef(false);
   const initCompletedRef = useRef(false);
+  const lastAccessInitKeyRef = useRef<string | null>(null);
   const [accessLinkCopied, setAccessLinkCopied] = useState(false);
   const [accessEmailStatus, setAccessEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [accessEmailMessage, setAccessEmailMessage] = useState<string | null>(null);
   const consumePromiseRef = useRef<
-    Promise<false | { creditsRemaining?: number | null; plan?: CheckoutPlan | null }> | null
+    Promise<false | { creditsRemaining?: number | null; plan?: CheckoutPlan | null; consumeToken?: string }> | null
   >(null);
   const [downloadInFlight, setDownloadInFlight] = useState(false);
   const downloadInFlightRef = useRef(false);
+  const [restoreCreditToken, setRestoreCreditToken] = useState<string | null>(null);
+  const [restoreCreditStatus, setRestoreCreditStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const statusTrackedRef = useRef<Record<Status, boolean>>({
     checking: false,
     ready: false,
@@ -344,6 +357,22 @@ export default function DownloadClient() {
       };
     });
   }, [printShippingCountry, printTiers]);
+  const recommendedPrintOption = useMemo(
+    () => downloadPrintOptions.find((option) => option.variant === "poster_framed") ?? downloadPrintOptions[0],
+    [downloadPrintOptions],
+  );
+  const secondaryPrintOptions = useMemo(
+    () => downloadPrintOptions.filter((option) => option.variant !== recommendedPrintOption?.variant),
+    [downloadPrintOptions, recommendedPrintOption],
+  );
+  const unframedPrintOption = useMemo(
+    () => downloadPrintOptions.find((option) => option.variant === "poster_unframed") ?? null,
+    [downloadPrintOptions],
+  );
+  const morePrintOptions = useMemo(
+    () => secondaryPrintOptions.filter((option) => option.variant !== "poster_unframed"),
+    [secondaryPrintOptions],
+  );
   const shippingCountryLabel = useMemo(
     () => getPrintShippingCountryLabel(printShippingCountry),
     [printShippingCountry],
@@ -426,30 +455,24 @@ export default function DownloadClient() {
     }
   }, [setPaidState]);
 
-  const consumeHdCredit = useCallback(async () => {
+  const consumeHdCredit = useCallback(async (tokenOverride?: string) => {
     if (consumePromiseRef.current) return consumePromiseRef.current;
     const promise = (async () => {
       try {
-        const token =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const res = await fetch("/api/entitlements/consume", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-        if (!res.ok) return false;
-        const data = (await res.json()) as { creditsRemaining?: number | null; plan?: CheckoutPlan | null };
+        const consumeToken = tokenOverride ?? createHdConsumeToken();
+        const data = await postHdCreditConsume(consumeToken);
+        if (!data) return false;
         if (typeof data.creditsRemaining === "number") {
           setCreditsRemaining(data.creditsRemaining);
-          // Don't set paid=false when credits depleted - user still paid, just used all credits
-          // The subsequent refreshPaidStatus call will set the correct state
         } else if (data.plan === "subscription") {
           setCreditsRemaining(null);
           setPaidState(true);
         }
-        return data;
+        return {
+          creditsRemaining: data.creditsRemaining ?? null,
+          plan: data.plan ?? null,
+          consumeToken: data.consumeToken,
+        };
       } catch {
         return false;
       } finally {
@@ -459,6 +482,26 @@ export default function DownloadClient() {
     consumePromiseRef.current = promise;
     return promise;
   }, [setPaidState]);
+
+  const restoreFailedDownloadCredit = useCallback(async () => {
+    if (!restoreCreditToken || restoreCreditStatus === "loading") return;
+    setRestoreCreditStatus("loading");
+    const result = await postHdCreditCompensate(restoreCreditToken);
+    if (!result.ok) {
+      setRestoreCreditStatus("error");
+      setMessage("We couldn't restore your credit automatically. Please contact support with your receipt.");
+      return;
+    }
+    if (typeof result.creditsRemaining === "number") {
+      setCreditsRemaining(result.creditsRemaining);
+    }
+    setPaidState(true);
+    setRestoreCreditToken(null);
+    setRestoreCreditStatus("done");
+    setStatus("ready");
+    setMessage("Credit restored. Please try Download HD file again.");
+    void refreshPaidStatus();
+  }, [refreshPaidStatus, restoreCreditStatus, restoreCreditToken, setPaidState]);
 
   const claimAccessToken = useCallback(
     async (token: string) => {
@@ -618,25 +661,33 @@ export default function DownloadClient() {
         }
 
         const blob = await canvasToPngBlob(canvas);
-        const consumed = await consumeHdCredit();
-        if (!consumed) {
-          setStatus("not-paid");
-          setMessage("You have no HD export credits remaining. Choose a new pack or subscription to continue.");
-          return;
-        }
-
         const mapIdForFile = mapIdFromUrl || readStoredMapId();
         const downloadFileName = buildStarMapDownloadFilename({
           recipe: activeRecipe,
           mode: "hd",
           mapId: mapIdForFile,
         });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.download = downloadFileName;
-        link.href = url;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+        const triggered = triggerBlobDownload(blob, downloadFileName);
+        if (!triggered.ok) {
+          setStatus("error");
+          setMessage(formatHdExportFailedMessage(true));
+          trackFunnelStep("download_failed", {
+            source: previewSource,
+            plan: currentPlan ?? undefined,
+            reason: "trigger_failed",
+          });
+          return;
+        }
+
+        const consumeToken = createHdConsumeToken();
+        const consumed = await consumeHdCredit(consumeToken);
+        if (!consumed) {
+          setStatus("error");
+          setMessage(formatHdExportConsumeFailedMessage());
+          void refreshPaidStatus();
+          return;
+        }
 
         // Best-effort archival so support can resend the exact paid-for file later.
         if (downloadArchiveEnabled && tokenFromUrl) {
@@ -659,6 +710,10 @@ export default function DownloadClient() {
         const remaining =
           typeof consumed.creditsRemaining === "number" ? consumed.creditsRemaining : null;
         setMessage(formatDownloadStartedMessage({ plan: consumed.plan ?? currentPlan, remaining }));
+        if (consumed.consumeToken) {
+          setRestoreCreditToken(consumed.consumeToken);
+          setRestoreCreditStatus("idle");
+        }
         track("export_download", { type: "hd", source });
         trackFunnelStep("download_completed", {
           source: previewSource,
@@ -669,10 +724,15 @@ export default function DownloadClient() {
       } catch (err) {
         console.error("Download failed", err);
         setStatus("error");
-        setMessage("We couldn't start the download. Please try again.");
+        setMessage(formatHdExportFailedMessage(true));
         if (!previewGeneratedRef.current) {
           setPreviewStatus("error");
         }
+        trackFunnelStep("download_failed", {
+          source: getPreviewSource() ?? "download",
+          plan: currentPlan ?? undefined,
+          reason: "render_failed",
+        });
       } finally {
         downloadInFlightRef.current = false;
         setDownloadInFlight(false);
@@ -727,11 +787,22 @@ export default function DownloadClient() {
     [previewStatus, resolveShapeAndRatio],
   );
 
+  const accessInitKey = useMemo(
+    () => `${tokenFromUrl ?? ""}|${sessionIdFromUrl ?? ""}|${mapIdFromUrl ?? ""}`,
+    [mapIdFromUrl, sessionIdFromUrl, tokenFromUrl],
+  );
+
   useEffect(() => {
-    initCompletedRef.current = false;
+    if (lastAccessInitKeyRef.current === accessInitKey && initCompletedRef.current) {
+      return;
+    }
+    if (lastAccessInitKeyRef.current !== accessInitKey) {
+      lastAccessInitKeyRef.current = accessInitKey;
+      initCompletedRef.current = false;
+    }
+
     let active = true;
     const init = async () => {
-      // Prevent re-running init if it already completed successfully
       if (initCompletedRef.current) return;
 
       setStatus("checking");
@@ -752,15 +823,45 @@ export default function DownloadClient() {
         }
       }
       const paidResult = await refreshPaidStatus();
+      let accessResult = paidResult;
+      if (!accessResult.paid && sessionIdFromUrl) {
+        const verified = await verifyStripeSessionForDownload(sessionIdFromUrl);
+        if (verified.ok) {
+          setPaidState(true);
+          if (typeof verified.creditsRemaining === "number") {
+            setCreditsRemaining(verified.creditsRemaining);
+          }
+          if (
+            verified.plan === "single" ||
+            verified.plan === "pack3" ||
+            verified.plan === "subscription"
+          ) {
+            setCurrentPlan(verified.plan);
+          }
+          accessResult = {
+            paid: true,
+            creditsRemaining:
+              typeof verified.creditsRemaining === "number" ? verified.creditsRemaining : null,
+            plan:
+              verified.plan === "single" ||
+              verified.plan === "pack3" ||
+              verified.plan === "subscription"
+                ? verified.plan
+                : null,
+          };
+        }
+      }
       if (!active) return;
-      if (!paidResult.paid) {
+      if (!accessResult.paid) {
         setStatus("not-paid");
         setMessage(
           tokenInvalid
             ? "This access link has expired or was replaced. Open your original device to generate a new link."
-            : typeof paidResult.creditsRemaining === "number"
+            : typeof accessResult.creditsRemaining === "number" && accessResult.creditsRemaining <= 0
             ? "You have no HD export credits remaining. Choose a new pack or subscription to continue."
-            : "Payment verification is still pending. Please refresh in a moment.",
+            : sessionIdFromUrl
+              ? "We couldn't verify your payment yet. Refresh this page or reopen your success link."
+              : "Payment verification is still pending. Please refresh in a moment.",
         );
         return;
       }
@@ -816,12 +917,13 @@ export default function DownloadClient() {
       active = false;
     };
   }, [
+    accessInitKey,
     claimAccessToken,
     createAccessLink,
     fetchMapRecipe,
     mapIdFromUrl,
     refreshPaidStatus,
-    startDownload,
+    sessionIdFromUrl,
     tokenFromUrl,
     updatePreviewAspect,
   ]);
@@ -888,7 +990,7 @@ export default function DownloadClient() {
         throw new Error(payload?.error ?? "request_failed");
       }
       setAccessEmailStatus("sent");
-      setAccessEmailMessage("Sent. Check your inbox for the secure access link.");
+      setAccessEmailMessage("Sent. Check your email to open all downloads in My Downloads.");
       track("access_link_email_requested", { source: "download", outcome: "sent" });
     } catch {
       setAccessEmailStatus("error");
@@ -968,6 +1070,10 @@ export default function DownloadClient() {
     }
   }, [portalLoading]);
 
+  const handleRetryVerification = useCallback(() => {
+    window.location.reload();
+  }, []);
+
   const handlePrintCheckout = useCallback(
     async (variant: PrintVariant) => {
       if (printCheckoutInFlightRef.current) return;
@@ -1018,6 +1124,7 @@ export default function DownloadClient() {
             watermark: false,
             quality: "export",
             premium: true,
+            matPurpose: "print",
           });
           for (let index = 0; index < uploadQualities.length; index += 1) {
             const quality = uploadQualities[index];
@@ -1093,7 +1200,7 @@ export default function DownloadClient() {
           if (data?.code === "missing_shipping_country") {
             throw new Error("missing_shipping_country");
           }
-          throw new Error(data?.error ?? "checkout_failed");
+          throw new Error(data?.code ?? data?.error ?? "checkout_failed");
         }
         track("print_checkout_started", {
           source: "download",
@@ -1135,6 +1242,8 @@ export default function DownloadClient() {
                 ? "Could not attach your print file. Please retry print checkout."
                 : reason === "print_checkout_disabled"
                   ? "Print checkout is not live yet."
+                  : reason === "unknown_error"
+                    ? "We couldn't start checkout right now. Please try again shortly."
                   : "Print checkout is unavailable right now. Please try again.";
         setPrintCheckoutError(messageByReason);
         printCheckoutInFlightRef.current = false;
@@ -1348,7 +1457,30 @@ export default function DownloadClient() {
     void createReferralLink("auto");
   }, [createReferralLink, paid, referralLink, referralLoading, referralStatus]);
 
+  const singleCreditExhausted =
+    paid &&
+    currentPlan === "single" &&
+    typeof creditsRemaining === "number" &&
+    creditsRemaining === 0 &&
+    status !== "checking" &&
+    status !== "not-paid" &&
+    status !== "no-draft";
+
+  const showTrustStrip =
+    paid && status !== "not-paid" && status !== "no-draft" && status !== "checking";
+
+  const canDownloadHd =
+    paid &&
+    !singleCreditExhausted &&
+    status !== "downloading" &&
+    !downloadInFlight &&
+    status !== "no-draft" &&
+    status !== "not-paid";
+
   const statusLabel = (() => {
+    if (singleCreditExhausted && status !== "downloading" && status !== "error") {
+      return "Download started";
+    }
     switch (status) {
       case "checking":
         return "Checking access";
@@ -1361,7 +1493,7 @@ export default function DownloadClient() {
       case "error":
         return "Download issue";
       default:
-        return "Download ready";
+        return "Ready to download";
     }
   })();
 
@@ -1369,17 +1501,23 @@ export default function DownloadClient() {
     status === "no-draft"
       ? "Create your map first"
       : status === "not-paid"
-        ? "Confirm access first"
-        : "Your download is ready";
+        ? "Confirm your access"
+        : singleCreditExhausted
+          ? "Download started"
+          : "Your HD star map is ready";
 
   const heroDescription =
     status === "no-draft"
       ? "Your HD export credits are active, but this browser has no saved map yet. Open the editor to create or reload your map, then return here to export."
       : status === "not-paid"
         ? "We could not verify your access yet. Reopen your secure success link and return to this page."
-        : currentPlan === "pack3"
-        ? "Your 3-credit pack is active. Each HD download exports the current map and uses 1 credit. Edit or create another map between downloads to use all 3 credits."
-          : "Your access is unlocked. Download the HD print file now, or jump back into the editor to tweak details.";
+        : singleCreditExhausted
+          ? "Check your Downloads folder for starmap-*.png. Your HD credit has been used."
+          : currentPlan === "pack3" && typeof creditsRemaining === "number"
+            ? `Payment confirmed. You have ${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} left — this download uses 1 credit for the map below.`
+            : currentPlan === "subscription"
+              ? "Payment confirmed. Download your print-ready PNG — unlimited HD exports while your subscription is active."
+              : "Payment confirmed. Download your print-ready PNG — no watermark, full resolution.";
 
   return (
     <EditorFontShell>
@@ -1405,18 +1543,36 @@ export default function DownloadClient() {
                 <p className="max-w-2xl text-sm text-amber-100/90 sm:text-base">
                   {heroDescription}
                 </p>
-                <div className="text-xs text-amber-100/80">
-                  {paid
-                    ? currentPlan === "subscription"
-                      ? "Unlimited HD exports active."
-                      : typeof creditsRemaining === "number"
-                        ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`
-                        : "HD export access is active."
-                    : "Payment verification pending."}
-                </div>
+                {showTrustStrip && !singleCreditExhausted && (
+                  <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-amber-100/85">
+                    <li className="flex items-center gap-1.5">
+                      <span className="h-1 w-1 rounded-full bg-amber-300" />
+                      No watermark
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="h-1 w-1 rounded-full bg-amber-300" />
+                      6000×6000 print-ready
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="h-1 w-1 rounded-full bg-amber-300" />
+                      Credit used only after download starts
+                    </li>
+                  </ul>
+                )}
+                {!singleCreditExhausted && paid && currentPlan !== "subscription" && typeof creditsRemaining === "number" && (
+                  <div className="text-xs text-amber-100/80">
+                    {creditsRemaining} HD export credit{creditsRemaining === 1 ? "" : "s"} remaining.
+                  </div>
+                )}
+                {!singleCreditExhausted && paid && currentPlan === "subscription" && (
+                  <div className="text-xs text-amber-100/80">Unlimited HD exports active.</div>
+                )}
+                {!paid && status !== "not-paid" && status !== "no-draft" && (
+                  <div className="text-xs text-amber-100/80">Payment verification pending.</div>
+                )}
                 <div
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
-                    status === "ready"
+                    singleCreditExhausted || status === "ready"
                       ? "border-emerald-300/60 bg-emerald-500/20 text-emerald-100"
                       : status === "downloading"
                         ? "border-amber-300/60 bg-amber-400/20 text-amber-100"
@@ -1427,33 +1583,51 @@ export default function DownloadClient() {
                   {statusLabel}
                 </div>
                 {message && <p className="text-xs text-amber-100/80">{message}</p>}
-                {status === "ready" && currentPlan === "pack3" && (
+                {status === "ready" && currentPlan === "pack3" && !singleCreditExhausted && (
                   <div className="max-w-2xl rounded-xl border border-amber-200/35 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-100/90">
-                    Pack tip: each click downloads the <strong>current map only</strong>. To use all 3 credits, make your
-                    next map in the editor and return to download again.
+                    Pack tip: each download uses <strong>one credit</strong> for the map shown below. Edit or create
+                    another map in the editor to use your remaining credits.
                   </div>
                 )}
               </div>
 
-              <div className="grid w-full gap-3 md:max-w-[260px]">
+              <div className="grid w-full gap-3 md:max-w-[280px]">
                 {status === "no-draft" ? (
                   <Link
                     href="/editor?mode=quick&source=download-create-first"
                     onClick={() => {
                       track("download_recovery_action", { action: "open_editor_create_map", source: "hero" });
                     }}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2.5 text-sm font-semibold text-[#201a0c] shadow-lg transition hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-[#201a0c] shadow-lg transition hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
                   >
                     Open editor to create map
                   </Link>
+                ) : status === "not-paid" ? (
+                  <button
+                    type="button"
+                    onClick={handleRetryVerification}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-[#201a0c] shadow-lg transition hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
+                  >
+                    Retry verification
+                  </button>
+                ) : singleCreditExhausted ? (
+                  <div className="rounded-2xl border border-emerald-300/40 bg-emerald-500/10 px-4 py-3 text-center text-xs text-emerald-100">
+                    HD credit used. Your file should be in Downloads as <code className="text-emerald-50">starmap-*.png</code>.
+                  </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => void startDownload(undefined, "manual")}
-                    disabled={status === "downloading" || downloadInFlight || !paid}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2.5 text-sm font-semibold text-[#201a0c] shadow-lg transition disabled:cursor-not-allowed disabled:opacity-70 hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
+                    disabled={!canDownloadHd}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-[#201a0c] shadow-lg transition disabled:cursor-not-allowed disabled:opacity-70 hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(215,181,108,0.45)] focus:outline-none focus:ring-2 focus:ring-[#d7b56c]/70 focus:ring-offset-2"
                   >
-                    {paid ? "Download HD file" : status === "checking" ? "Checking access..." : "Download locked"}
+                    {!paid
+                      ? status === "checking"
+                        ? "Checking access..."
+                        : "Download locked"
+                      : currentPlan === "pack3"
+                        ? "Download HD file (uses 1 credit)"
+                        : "Download HD file"}
                   </button>
                 )}
                 <Link
@@ -1465,529 +1639,344 @@ export default function DownloadClient() {
                 >
                   Keep editing
                 </Link>
-                <Link
-                  href="/"
-                  onClick={() => {
-                    track("download_recovery_action", { action: "back_home", source: "hero" });
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-transparent px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80 transition hover:text-amber-100"
-                >
-                  Back to homepage
-                </Link>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-amber-200/30 bg-white/6 p-4 shadow-lg shadow-black/20">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="max-w-3xl space-y-2">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-amber-100">
-                Can't find your download?
-              </h2>
-              {isIosDevice ? (
-                <p className="text-sm text-neutral-100">
-                  On iPhone, downloads go to <strong>Files app → Browse → Downloads</strong> (not Photos). In Safari,
-                  you can also tap the download arrow icon to open recent files named <code>starmap-*.png</code>.
-                </p>
-              ) : isAndroidDevice ? (
-                <p className="text-sm text-neutral-100">
-                  On Android, check <strong>Files/My Files → Downloads</strong> (or your browser's download history),
-                  then open the latest <code>starmap-*.png</code> file.
-                </p>
-              ) : (
-                <p className="text-sm text-neutral-100">
-                  Mobile downloads usually save to your device's <strong>Downloads</strong> folder in the Files app.
-                  If you don't see it right away, use your browser's download history.
-                </p>
-              )}
-              <p className="text-xs text-amber-100/80">
-                You can always re-download from this page while export credits remain, and use your private access link as a
-                backup for another device.
-              </p>
-              {currentPlan === "pack3" && (
-                <p className="text-xs text-amber-100/80">
-                  3-credit pack reminder: one credit = one HD export of the map currently loaded.
-                </p>
-              )}
-              <ol className="list-decimal space-y-1 pl-4 text-xs text-amber-100/85">
-                <li>Check your device Downloads folder first.</li>
-                <li>Use your private access link or My Downloads to reopen access.</li>
-                <li>If you have a 3-credit pack, create/edit the next map before each download.</li>
-              </ol>
-            </div>
-            <div className="w-full max-w-[380px] rounded-xl border border-white/12 bg-white/8 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100">
-                Email Recovery Links
-              </p>
-              <p className="mt-1 text-[11px] text-neutral-300">
-                Enter your checkout email and we&apos;ll send fresh secure links for recent paid orders.
-              </p>
-              <form
-                className="mt-2 flex flex-col gap-2 sm:flex-row"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleSendRecoveryEmail();
-                }}
-              >
-                <input
-                  type="email"
-                  value={recoveryEmail}
-                  onChange={(event) => {
-                    setRecoveryEmail(event.target.value);
-                    if (recoveryStatus !== "idle") {
-                      setRecoveryStatus("idle");
-                      setRecoveryMessage(null);
-                    }
-                  }}
-                  placeholder="you@email.com"
-                  autoComplete="email"
-                  className="min-w-0 flex-1 rounded-full border border-white/20 bg-white px-3 py-2 text-xs text-midnight placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
-                />
-                <button
-                  type="submit"
-                  disabled={recoveryStatus === "sending"}
-                  className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {recoveryStatus === "sending" ? "Sending..." : "Send links"}
-                </button>
-              </form>
-              {recoveryMessage && (
-                <p
-                  className={`mt-2 text-[11px] ${
-                    recoveryStatus === "sent" ? "text-emerald-200" : "text-rose-200"
-                  }`}
-                >
-                  {recoveryMessage}
-                </p>
-              )}
-              <a
-                href="#access-link-panel"
-                onClick={() => {
-                  track("download_recovery_action", { action: "jump_access_link", source: "recovery_card" });
-                }}
-                className="mt-3 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-              >
-                Jump to access link
-              </a>
+        {status === "not-paid" && (
+          <section className="rounded-2xl border border-amber-300/30 bg-amber-400/8 p-5 text-center sm:p-6">
+            <p className="text-sm font-semibold text-amber-100">Already purchased?</p>
+            <p className="mt-1 text-xs text-amber-100/80">
+              If you cleared cookies, switched devices, or opened a private window, your access cookie is gone — but
+              your order is safe. Enter the email you used at checkout to get a new sign-in link.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/my-downloads"
                 onClick={() => {
-                  track("download_recovery_action", { action: "open_my_downloads", source: "recovery_card" });
+                  track("download_recovery_action", { action: "not_paid_restore_access", source: "not_paid_callout" });
                 }}
-                className="mt-2 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                className="inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-400/20 px-5 py-2.5 text-sm font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
               >
-                Open My Downloads
+                Restore access →
               </Link>
             </div>
+          </section>
+        )}
+
+        <section className="rounded-3xl border border-white/15 bg-white/[0.07] p-5 shadow-xl shadow-black/30 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-white sm:text-xl">Your star map</h2>
+              <p className="mt-1 text-xs text-neutral-300">This preview matches your final HD file.</p>
+            </div>
+            <span className="rounded-full border border-emerald-300/50 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+              HD ready
+            </span>
           </div>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-white/12 bg-[#0b0f24]/95 shadow-inner">
+            <div className="relative w-full" style={{ aspectRatio: previewAspect }}>
+              {previewUrl ? (
+                <Image
+                  src={previewUrl}
+                  alt="Star map preview"
+                  fill
+                  unoptimized
+                  className="object-contain p-2"
+                  sizes="(max-width: 1024px) 100vw, 768px"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <div className="flex flex-col items-center gap-3 text-xs text-neutral-300">
+                    <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+                    <span>
+                      {previewStatus === "error" ? "Preview unavailable" : "Rendering your preview..."}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-neutral-300">
+            Adjust details in the editor before downloading if anything looks off.
+          </p>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Your map preview</h2>
-              <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
-                HD ready
-              </span>
-            </div>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#0b0f24]/90">
-              <div className="relative w-full" style={{ aspectRatio: previewAspect }}>
-                {previewUrl ? (
-                  <Image
-                    src={previewUrl}
-                    alt="Star map preview"
-                    fill
-                    unoptimized
-                    className="object-contain"
-                    sizes="(max-width: 1024px) 100vw, 55vw"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <div className="flex flex-col items-center gap-3 text-xs text-neutral-300">
-                      <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
-                      <span>
-                        {previewStatus === "error"
-                          ? "Preview unavailable"
-                          : "Rendering your preview..."}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <p className="mt-4 text-xs text-neutral-200">
-              This preview matches your final print file. Adjust details in the editor before downloading.
-            </p>
-          </div>
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-amber-100">Your HD file</h3>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                title: "Print-ready quality",
+                desc: "6000×6000 PNG for crisp framing and posters.",
+              },
+              {
+                title: "No watermark",
+                desc: "Clean, high-resolution file ready to gift.",
+              },
+              {
+                title: "Instant filename",
+                desc: "Saved as starmap-*.png in your Downloads folder.",
+              },
+            ].map((item) => (
+              <li key={item.title} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-sm font-semibold text-white">{item.title}</p>
+                <p className="mt-1 text-xs text-neutral-300">{item.desc}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Download details</h3>
-              <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200">
-                Instant access
-              </span>
-            </div>
-            <div className="mt-4 divide-y divide-white/10">
-              {[
-                {
-                  title: "Print-ready quality",
-                  desc: "6000×6000px PNG sized for crisp framing and posters.",
-                },
-                {
-                  title: "No watermark",
-                  desc: "Your premium file is clean, high-resolution, and ready to gift.",
-                },
-                currentPlan === "subscription"
-                  ? {
-                      title: "Unlimited access",
-                      desc: "Your subscription lets you export unlimited HD files while active.",
-                    }
-                  : {
-                      title: "Download credits",
-                      desc:
-                        currentPlan === "pack3" && typeof creditsRemaining === "number"
-                          ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining. Each export uses one credit for the current map.`
-                          : typeof creditsRemaining === "number"
-                            ? `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining on this pack.`
-                          : "Use a 3-credit pack or subscription for multiple exports.",
-                },
-              ].map((item) => (
-                <div key={item.title} className="flex gap-3 py-4 first:pt-0 last:pb-0">
-                  <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-amber-300 shadow-[0_0_12px_rgba(215,181,108,0.6)]" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-white">{item.title}</h4>
-                    <p className="mt-1 text-xs text-neutral-200">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {printCheckoutEnabled ? (
-              <div
-                id="print-addons"
-                ref={printUpsellRef}
-                className={`mt-4 rounded-2xl border p-4 transition ${
-                  upsellIntent
-                    ? "border-amber-200/60 bg-amber-400/15 shadow-[0_0_0_1px_rgba(251,191,36,0.18)]"
-                    : "border-amber-200/35 bg-amber-400/10"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-white">
-                    {upsellIntent ? "Your map is ready for print checkout" : "Want a physical print shipped to you?"}
-                  </h4>
-                  <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                    {upsellIntent === "poster_framed"
-                      ? "Framed recommended"
-                      : upsellIntent
-                        ? printTiers[upsellIntent].label
-                        : "Print add-on"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-neutral-200">
-                  {upsellIntent
-                    ? `Start checkout with your current map already attached. Framed gives you the strongest gift-ready finish. ${printShippingDisclosure}`
-                    : `Start print checkout with your current map already attached. ${printShippingDisclosure}`}
-                </p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {downloadPrintOptions.map((option) => (
-                    <div
-                      key={option.variant}
-                      className={`overflow-hidden rounded-2xl border ${
-                        upsellIntent === option.variant
-                          ? "border-amber-200/70 bg-white/10 shadow-[0_0_0_1px_rgba(251,191,36,0.18)]"
-                          : "border-white/10 bg-white/5"
-                      }`}
-                    >
-                      <div className="p-3 pb-0">
-                        <div className="relative aspect-[4/3] overflow-hidden rounded-[1.35rem]">
-                          <div className={option.sceneClass}>
-                            <ResilientImage
-                              src={option.imageSrc}
-                              fallbackSrc={option.fallbackSrc}
-                              alt={option.label}
-                              fill
-                              sizes="(max-width: 640px) 100vw, 33vw"
-                              className={option.imageClass}
-                            />
-                          </div>
-                          <span className="absolute left-4 top-4 rounded-full border border-black/10 bg-white/88 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-midnight shadow-sm">
-                            {option.sceneLabel}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="space-y-1 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold text-white">{option.label}</p>
-                          <span className="rounded-full border border-amber-200/35 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                            {option.badge}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-neutral-300">{option.detail}</p>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/85">{option.bestFor}</p>
-                        <p className="text-[11px] font-semibold text-amber-100">{option.priceLine}</p>
-                      </div>
+        {printCheckoutEnabled && paid && (status === "ready" || singleCreditExhausted) ? (
+          <section
+            id="print-addons"
+            ref={printUpsellRef}
+            className={`rounded-3xl border p-5 shadow-xl sm:p-6 ${
+              upsellIntent
+                ? "border-amber-200/60 bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.18)]"
+                : "border-amber-200/35 bg-white/[0.06]"
+            }`}
+          >
+            <h2 className="text-xl font-semibold text-white font-[var(--font-playfair)]">Want this as a gift?</h2>
+            <p className="mt-2 max-w-2xl text-sm text-neutral-200">
+              Turn your digital star map into a physical print — same design, delivered to your door.
+              {printShippingDisclosure ? ` ${printShippingDisclosure}` : ""}
+            </p>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {recommendedPrintOption ? (
+                <div className="flex flex-col rounded-2xl border border-amber-200/50 bg-white/10 p-4">
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-xl">
+                    <div className={recommendedPrintOption.sceneClass}>
+                      <ResilientImage
+                        src={recommendedPrintOption.imageSrc}
+                        fallbackSrc={recommendedPrintOption.fallbackSrc}
+                        alt={recommendedPrintOption.label}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 400px"
+                        className={recommendedPrintOption.imageClass}
+                      />
                     </div>
-                  ))}
-                </div>
-                {printShippingCountryOptions.length > 0 ? (
-                  <div className="mt-3 rounded-xl border border-white/10 bg-white/6 p-3">
-                    <label
-                      htmlFor="print-shipping-country"
-                      className="text-[11px] font-semibold text-amber-100/80"
-                    >
-                      Shipping country
-                    </label>
-                    <select
-                      id="print-shipping-country"
-                      value={printShippingCountry}
-                      onChange={(event) => {
-                        const next = event.target.value;
-                        setPrintShippingCountry(next);
-                        storePrintShippingCountry(next);
-                      }}
-                      className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
-                      style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
-                    >
-                      {printShippingCountryOptions.map((country) => (
-                        <option
-                          key={country.code}
-                          value={country.code}
-                          className="text-midnight"
-                          style={{ color: "#111827", backgroundColor: "#ffffff" }}
-                        >
-                          {country.label}
-                        </option>
-                      ))}
-                    </select>
-                    {posterShippingFootnote ? (
-                      <p className="mt-2 text-[11px] text-neutral-300">
-                        Estimated shipping to {shippingCountryLabel}: {posterShippingFootnote}
-                      </p>
-                    ) : null}
                   </div>
-                ) : null}
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {downloadPrintOptions.map((option) => {
-                    const selected = upsellIntent === option.variant;
-                    const primary = option.variant === "poster_framed";
-                    return (
-                      <button
-                        key={`btn-${option.variant}`}
-                        type="button"
-                        onClick={() => void handlePrintCheckout(option.variant)}
-                        disabled={printCheckoutLoading}
-                        className={`rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${
-                          selected
-                            ? primary
-                              ? "border-amber-100 bg-amber-300 text-midnight shadow-lg hover:bg-amber-200"
-                              : "border-white/50 bg-white text-midnight shadow-lg hover:bg-white/90"
-                            : primary
-                              ? "border-amber-200/60 bg-amber-400/20 text-amber-50 hover:border-amber-200 hover:bg-amber-400/30"
-                              : "border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/15"
-                        }`}
-                      >
-                        {option.label}
-                        {primary ? " (recommended)" : ""} • {option.priceLine}
-                      </button>
-                    );
-                  })}
-                </div>
-                {upsellIntent ? (
-                  <p className="mt-2 text-[11px] text-amber-100/75">
-                    You can still keep the digital file only. This simply carries the same approved map into print checkout.
+                  <h3 className="mt-3 text-base font-semibold text-white">{recommendedPrintOption.label}</h3>
+                  <p className="mt-1 text-xs text-neutral-300">
+                    Wall-ready gift — we print and ship your exact map
                   </p>
-                ) : null}
-                {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}
-              </div>
-            ) : null}
-            {merchDownloadEditorHref && paid && status === "ready" ? (
-              <div className="mt-4 rounded-2xl border border-violet-200/35 bg-violet-950/35 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-white">Stickers & apparel (beta)</h4>
-                  <span className="rounded-full border border-violet-200/45 bg-violet-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
-                    New
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-neutral-200">
-                  Ship the same constellation art on stickers, magnets, pins, or DTG shirts — customize sizes and colors in
-                  the editor before checkout.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Link
-                    href={merchDownloadEditorHref}
-                    prefetch={false}
-                    onClick={() => track("download_merch_teaser_clicked", { destination: "editor" })}
-                    className="inline-flex rounded-full bg-violet-400 px-4 py-2 text-xs font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:bg-violet-300"
-                  >
-                    Customize merch
-                  </Link>
-                  <Link
-                    href="/shop#merch-beta"
-                    prefetch={false}
-                    onClick={() => track("download_merch_teaser_clicked", { destination: "shop" })}
-                    className="inline-flex items-center rounded-full border border-white/25 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/45 hover:bg-white/10"
-                  >
-                    View shop
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-            {paid ? (
-              <div className="mt-4 rounded-2xl border border-white/12 bg-white/6 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-semibold text-white">Share and earn bonus HD credits</h4>
-                  <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                    Referral
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-neutral-200">
-                  Share on social. Friends get {referralFriendOfferLabel} and each paid checkout through your link adds{" "}
-                  {referralRewardCreditsLabel}.
-                </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-amber-100/70">Visits</p>
-                    <p className="mt-1 text-sm font-semibold text-white">{referralSummary.visits}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-amber-100/70">Conversions</p>
-                    <p className="mt-1 text-sm font-semibold text-white">{referralSummary.conversions}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-amber-100/70">Bonus credits</p>
-                    <p className="mt-1 text-sm font-semibold text-white">{referralSummary.rewardsGranted}</p>
-                  </div>
-                </div>
-                {(referralSummary.conversionReversals > 0 || referralSummary.rewardReversals > 0) && (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Reversals tracked: {referralSummary.conversionReversals} conversions • {referralSummary.rewardReversals} rewards
-                  </p>
-                )}
-                {referralSummary.lastConvertedAt ? (
-                  <p className="mt-2 text-[11px] text-amber-100/70">
-                    Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
-                  </p>
-                ) : null}
-                {referralSummary.topVisitSources.length > 0 ? (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Top social traffic:{" "}
-                    {referralSummary.topVisitSources
-                      .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
-                      .join(" • ")}
-                  </p>
-                ) : null}
-                {referralSummary.topConversionSources.length > 0 ? (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Top referral sales:{" "}
-                    {referralSummary.topConversionSources
-                      .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
-                      .join(" • ")}
-                  </p>
-                ) : null}
-                {referralSummary.topOfferVariants.length > 0 ? (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Offer mix:{" "}
-                    {referralSummary.topOfferVariants
-                      .map((entry) => `${entry.value.replace(/_/g, " ")} (${entry.count})`)
-                      .join(" • ")}
-                  </p>
-                ) : null}
-                {referralSummary.topRewardSkipReasons.length > 0 ? (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Top skip reasons:{" "}
-                    {referralSummary.topRewardSkipReasons
-                      .map((entry) => `${entry.value.replace(/_/g, " ")} (${entry.count})`)
-                      .join(" • ")}
-                  </p>
-                ) : null}
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <p className="mt-2 text-sm font-semibold text-amber-100">{recommendedPrintOption.priceLine}</p>
                   <button
                     type="button"
-                    onClick={() => void handleCreateReferralLink()}
-                    disabled={referralLoading}
-                    className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => void handlePrintCheckout(recommendedPrintOption.variant)}
+                    disabled={printCheckoutLoading}
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-full border border-amber-100 bg-amber-300 px-4 py-2.5 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
+                    Order framed print
                   </button>
-                  {referralLink ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void handleCopyReferralLink()}
-                        className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
-                      >
-                        {referralCopied ? "Copied" : "Copy social link"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleCopyReferralPost()}
-                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-                      >
-                        {referralPostCopied ? "Post text copied" : "Copy post text"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleShareReferralLink("native")}
-                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-                      >
-                        Share link
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleShareReferralLink("x")}
-                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-                      >
-                        Share on X
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleShareReferralLink("facebook")}
-                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-                      >
-                        Share on Facebook
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleShareReferralLink("pinterest")}
-                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
-                      >
-                        Share on Pinterest
-                      </button>
-                    </>
-                  ) : null}
                 </div>
-                {referralLink ? (
-                  <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p>
-                ) : (
-                  <p className="mt-2 text-[11px] text-amber-100/70">
-                    Create your referral link once and use it everywhere.
+              ) : null}
+              {unframedPrintOption ? (
+                <div className="flex flex-col rounded-2xl border border-white/15 bg-white/5 p-4">
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-xl">
+                    <div className={unframedPrintOption.sceneClass}>
+                      <ResilientImage
+                        src={unframedPrintOption.imageSrc}
+                        fallbackSrc={unframedPrintOption.fallbackSrc}
+                        alt={unframedPrintOption.label}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 400px"
+                        className={unframedPrintOption.imageClass}
+                      />
+                    </div>
+                  </div>
+                  <h3 className="mt-3 text-base font-semibold text-white">{unframedPrintOption.label}</h3>
+                  <p className="mt-1 text-xs text-neutral-300">
+                    Lower-cost option if you&apos;ll frame it yourself
                   </p>
-                )}
-                {referralLink ? (
-                  <p className="mt-1 text-[11px] text-amber-100/70">
-                    Suggested social caption: {referralShareMessage}
+                  <p className="mt-2 text-sm font-semibold text-amber-100">{unframedPrintOption.priceLine}</p>
+                  <button
+                    type="button"
+                    onClick={() => void handlePrintCheckout(unframedPrintOption.variant)}
+                    disabled={printCheckoutLoading}
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-full border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Order unframed poster
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            {printShippingCountryOptions.length > 0 ? (
+              <div className="mt-4 max-w-md rounded-xl border border-white/10 bg-white/5 p-3">
+                <label htmlFor="print-shipping-country" className="text-[11px] font-semibold text-amber-100/80">
+                  Shipping country
+                </label>
+                <select
+                  id="print-shipping-country"
+                  value={printShippingCountry}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setPrintShippingCountry(next);
+                    storePrintShippingCountry(next);
+                  }}
+                  className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
+                  style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                >
+                  {printShippingCountryOptions.map((country) => (
+                    <option
+                      key={country.code}
+                      value={country.code}
+                      className="text-midnight"
+                      style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                    >
+                      {country.label}
+                    </option>
+                  ))}
+                </select>
+                {posterShippingFootnote ? (
+                  <p className="mt-2 text-[11px] text-neutral-300">
+                    Estimated shipping to {shippingCountryLabel}: {posterShippingFootnote}
                   </p>
                 ) : null}
-                {referralStatus === "loading" && (
-                  <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
-                )}
-                {referralStatus === "error" && (
-                  <p className="mt-2 text-xs text-rose-200">Couldn't load referral stats. You can still create a link.</p>
-                )}
-                {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
               </div>
             ) : null}
-            <PostPurchaseProofRequest source="download" orderType="digital" plan={currentPlan} />
-            <div id="access-link-panel" className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Use this on another device</h4>
-                  <p className="mt-1 text-xs text-neutral-200">
-                    Copy a private access link to restore your download on any device.
-                  </p>
+            {morePrintOptions.length > 0 ? (
+              <details className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-semibold text-white/90">More print formats</summary>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {morePrintOptions.map((option) => (
+                    <button
+                      key={`btn-${option.variant}`}
+                      type="button"
+                      onClick={() => void handlePrintCheckout(option.variant)}
+                      disabled={printCheckoutLoading}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/5 px-3 py-2 text-left text-xs transition hover:-translate-y-[1px] hover:border-white/25 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white">{option.label}</p>
+                        <p className="mt-0.5 text-[11px] text-neutral-300">{option.bestFor}</p>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-semibold text-amber-100">{option.priceLine}</span>
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
+              </details>
+            ) : null}
+            <p className="mt-4 text-xs text-amber-100/75">Keep digital only — your HD file is already yours.</p>
+            {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}
+          </section>
+        ) : null}
+
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-amber-100">Need help?</h2>
+          <p className="mt-2 text-sm text-neutral-200">
+            If the export fails before your file saves, your credit is <strong>not</strong> used. You can try again or
+            restore your credit below.
+          </p>
+          {restoreCreditToken && status !== "downloading" && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void restoreFailedDownloadCredit();
+                }}
+                disabled={restoreCreditStatus === "loading" || restoreCreditStatus === "done"}
+                className="rounded-full border border-amber-200/50 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:border-amber-200/80 hover:bg-white/15 disabled:opacity-60"
+              >
+                {restoreCreditStatus === "loading"
+                  ? "Restoring credit..."
+                  : restoreCreditStatus === "done"
+                    ? "Credit restored"
+                    : "Download didn't start? Restore my credit"}
+              </button>
+              <span className="text-[10px] text-amber-100/70">
+                Use only if the HD file is not in your Downloads folder.
+              </span>
+            </div>
+          )}
+          <div className="mt-4 space-y-2 text-sm text-neutral-200">
+            {isIosDevice ? (
+              <p>
+                On iPhone, check <strong>Files → Browse → Downloads</strong> for{" "}
+                <code className="text-amber-100">starmap-*.png</code>.
+              </p>
+            ) : isAndroidDevice ? (
+              <p>
+                On Android, check <strong>Files → Downloads</strong> or your browser download history for{" "}
+                <code className="text-amber-100">starmap-*.png</code>.
+              </p>
+            ) : (
+              <p>
+                Your file usually saves to <strong>Downloads</strong> as{" "}
+                <code className="text-amber-100">starmap-*.png</code>.
+              </p>
+            )}
+            {!singleCreditExhausted && (
+              <p className="text-xs text-amber-100/80">
+                You can re-download from this page while credits remain.
+              </p>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/my-downloads"
+              onClick={() => {
+                track("download_recovery_action", { action: "open_my_downloads", source: "help_panel" });
+              }}
+              className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/40 hover:bg-white/15"
+            >
+              Open My Downloads
+            </Link>
+            <a
+              href={`mailto:${supportEmail}`}
+              className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/40 hover:bg-white/15"
+            >
+              Email {supportEmail}
+            </a>
+          </div>
+          <form
+            className="mt-4 flex max-w-lg flex-col gap-2 sm:flex-row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSendRecoveryEmail();
+            }}
+          >
+            <input
+              type="email"
+              value={recoveryEmail}
+              onChange={(event) => {
+                setRecoveryEmail(event.target.value);
+                if (recoveryStatus !== "idle") {
+                  setRecoveryStatus("idle");
+                  setRecoveryMessage(null);
+                }
+              }}
+              placeholder="Email recovery links to you@email.com"
+              autoComplete="email"
+              className="min-w-0 flex-1 rounded-full border border-white/20 bg-white px-3 py-2 text-xs text-midnight placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
+            />
+            <button
+              type="submit"
+              disabled={recoveryStatus === "sending"}
+              className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {recoveryStatus === "sending" ? "Sending..." : "Send recovery links"}
+            </button>
+          </form>
+          {recoveryMessage && (
+            <p className={`mt-2 text-[11px] ${recoveryStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+              {recoveryMessage}
+            </p>
+          )}
+        </section>
+
+        {paid ? (
+          <details className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+            <summary className="cursor-pointer text-sm font-semibold text-white">More options</summary>
+            <div className="mt-4 space-y-4">
+              <div id="access-link-panel" className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <h4 className="text-sm font-semibold text-white">Use this on another device</h4>
+                <p className="mt-1 text-xs text-neutral-200">
+                  Copy a private access link to restore your download on any device.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={handleCopyAccessLink}
@@ -2032,41 +2021,125 @@ export default function DownloadClient() {
                     </button>
                   )}
                 </div>
-              </div>
-              <p className="mt-2 text-[11px] text-amber-100/70">
-                Keep this link private — anyone with it can access your downloads.
-              </p>
-              {accessLink && accessLinkStatus === "ready" && (
-                <p className="mt-1 break-all text-[11px] text-amber-100/85">{accessLink}</p>
-              )}
-              {accessLinkStatus === "error" && (
-                <p className="mt-2 text-xs text-rose-200">We couldn't generate a link yet. Please refresh and try again.</p>
-              )}
-              {accessEmailMessage && (
-                <p className={`mt-2 text-xs ${accessEmailStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
-                  {accessEmailMessage}
+                <p className="mt-2 text-[11px] text-amber-100/70">
+                  Keep this link private — anyone with it can access your downloads.
                 </p>
+                {accessLink && accessLinkStatus === "ready" && (
+                  <p className="mt-1 break-all text-[11px] text-amber-100/85">{accessLink}</p>
+                )}
+                {accessLinkStatus === "error" && (
+                  <p className="mt-2 text-xs text-rose-200">We couldn&apos;t generate a link yet. Please refresh and try again.</p>
+                )}
+                {accessEmailMessage && (
+                  <p className={`mt-2 text-xs ${accessEmailStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+                    {accessEmailMessage}
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-amber-300/40 bg-amber-400/10 p-4">
+                <p className="text-sm font-semibold text-amber-100">Share & earn {referralRewardCreditsLabel}</p>
+                <p className="mt-2 text-xs text-amber-50/90">
+                  Send your link to friends planning a wedding or anniversary gift. They get {referralFriendOfferLabel}; you
+                  earn {referralRewardCreditsLabel} on each paid checkout.
+                </p>
+                <p className="mt-2 text-[11px] text-amber-100/70">
+                  Referral credits earned so far: {referralSummary.rewardsGranted}.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateReferralLink()}
+                    disabled={referralLoading}
+                    className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {referralLoading ? "Generating..." : referralLink ? "Refresh referral link" : "Create referral link"}
+                  </button>
+                  {referralLink ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyReferralLink()}
+                        className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                      >
+                        {referralCopied ? "Copied" : "Copy social link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyReferralPost()}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        {referralPostCopied ? "Post text copied" : "Copy post text"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleShareReferralLink("native")}
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15"
+                      >
+                        Share link
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+                {referralLink ? <p className="mt-2 break-all text-[11px] text-amber-100/80">{referralLink}</p> : null}
+                {referralStatus === "loading" && (
+                  <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
+                )}
+                {referralStatus === "error" && (
+                  <p className="mt-2 text-xs text-rose-200">Couldn&apos;t load referral stats. You can still create a link.</p>
+                )}
+                {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
+              </div>
+
+              {merchDownloadEditorHref && status === "ready" ? (
+                <div className="rounded-2xl border border-violet-200/35 bg-violet-950/35 p-4">
+                  <h4 className="text-sm font-semibold text-white">Stickers &amp; apparel</h4>
+                  <p className="mt-1 text-xs text-neutral-200">
+                    Ship the same constellation art on stickers, magnets, pins, or DTG shirts.
+                  </p>
+                  <Link
+                    href={merchDownloadEditorHref}
+                    prefetch={false}
+                    onClick={() => track("download_merch_teaser_clicked", { destination: "editor" })}
+                    className="mt-3 inline-flex rounded-full bg-violet-400 px-4 py-2 text-xs font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:bg-violet-300"
+                  >
+                    Customize merch
+                  </Link>
+                </div>
+              ) : null}
+
+              <PostPurchaseProofRequest source="download" orderType="digital" plan={currentPlan} />
+
+              {currentPlan === "subscription" && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <h4 className="text-sm font-semibold text-white">Manage subscription</h4>
+                  <p className="mt-1 text-xs text-neutral-200">
+                    Update payment details or cancel anytime in Stripe billing settings.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleManageBilling()}
+                    disabled={portalLoading}
+                    className="mt-3 inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {portalLoading ? "Opening billing..." : "Manage subscription"}
+                  </button>
+                  {portalError && <p className="mt-2 text-xs text-rose-200">{portalError}</p>}
+                </div>
               )}
+
+              <Link
+                href="/"
+                onClick={() => {
+                  track("download_recovery_action", { action: "back_home", source: "more_options" });
+                }}
+                className="inline-flex text-xs font-semibold text-amber-200/80 transition hover:text-amber-100"
+              >
+                Back to homepage
+              </Link>
             </div>
-            {currentPlan === "subscription" && (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                <h4 className="text-sm font-semibold text-white">Manage subscription</h4>
-                <p className="mt-1 text-xs text-neutral-200">
-                  Update payment details or cancel anytime in Stripe billing settings.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void handleManageBilling()}
-                  disabled={portalLoading}
-                  className="mt-3 inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {portalLoading ? "Opening billing..." : "Manage subscription"}
-                </button>
-                {portalError && <p className="mt-2 text-xs text-rose-200">{portalError}</p>}
-              </div>
-            )}
-          </div>
-        </section>
+          </details>
+        ) : null}
       </div>
       </main>
     </EditorFontShell>

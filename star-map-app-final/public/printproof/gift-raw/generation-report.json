@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-06-04T20:17:00.613Z",
+  "sourceArtUrl": "https://starmapco.com/examples/example-anniversary-heirloom.png",
+  "report": [
+    {
+      "category": "tshirt",
+      "productIdV1": 679,
+      "variantId": 17008,
+      "orderId": "161167520",
+      "previewUrl": "https://files.cdn.printful.com/files/d33/d33584552e14b83eba856aee1257766b_preview.png",
+      "filePath": "C:\\Code\\starMapAppV2\\star-map-app-final\\public\\printproof\\gift-raw\\tshirt\\tshirt-mockup.png"
+    },
+    {
+      "category": "hoodie",
+      "productIdV1": 388,
+      "variantId": 18730,
+      "orderId": "161167524",
+      "previewUrl": "https://files.cdn.printful.com/files/d33/d33584552e14b83eba856aee1257766b_preview.png",
+      "filePath": "C:\\Code\\starMapAppV2\\star-map-app-final\\public\\printproof\\gift-raw\\hoodie\\hoodie-mockup.png"
+    },
+    {
+      "category": "sticker",
+      "productIdV2": 656,
+      "variantId": 16366,
+      "orderId": "161167527",
+      "previewUrl": "https://files.cdn.printful.com/files/d33/d33584552e14b83eba856aee1257766b_preview.png",
+      "filePath": "C:\\Code\\starMapAppV2\\star-map-app-final\\public\\printproof\\gift-raw\\sticker\\sticker-mockup.png"
+    }
+  ]
+}

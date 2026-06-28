@@ -17,7 +17,7 @@ export default function DownloadPage() {
               StarMapCo
             </div>
             <h1 className="mt-4 text-2xl font-semibold text-white md:text-3xl">
-              Preparing your download
+              Preparing your HD star map
             </h1>
             <p className="mt-2 text-sm text-amber-100/90">
               Verifying payment and loading your map...

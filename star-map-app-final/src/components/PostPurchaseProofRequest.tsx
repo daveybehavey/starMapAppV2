@@ -6,6 +6,7 @@ import { getBusinessProfile } from "@/lib/businessProfile";
 import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import { isPrintVariant } from "@/lib/printCatalog";
+import { buildTestimonialRequestMailto } from "@/lib/testimonialRequestCopy";
 
 type PostPurchaseProofRequestProps = {
   source: "success" | "download";
@@ -84,6 +85,7 @@ export default function PostPurchaseProofRequest({
   const mailtoHref = useMemo(() => {
     return `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(subjectWithReference)}&body=${encodeURIComponent(emailDraft)}`;
   }, [emailDraft, subjectWithReference, supportEmail]);
+  const testimonialMailtoHref = useMemo(() => buildTestimonialRequestMailto(), []);
 
   async function handleCopyEmailDraft() {
     try {
@@ -97,13 +99,13 @@ export default function PostPurchaseProofRequest({
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">Help us collect real proof</p>
-          <h4 className="mt-1 text-sm font-semibold text-white">Send a real photo when this map is in the wild</h4>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100/75">Share a real photo later</p>
+          <h4 className="mt-1 text-sm font-semibold text-white">If this map ends up on display, send us a photo</h4>
           <p className="mt-1 text-xs text-neutral-200">
-            Email {supportEmail} with a photo and a short note. We only use real examples and only publish them with permission.
+            Email {supportEmail} with a photo and short note. We only feature real examples with permission.
           </p>
           {sessionId ? <p className="mt-1 text-[11px] text-amber-100/70">Reference: {sessionId}</p> : null}
         </div>
@@ -122,8 +124,18 @@ export default function PostPurchaseProofRequest({
           >
             {copied ? "Email draft copied" : "Copy email draft"}
           </button>
+          <a
+            href={testimonialMailtoHref}
+            onClick={() => track("testimonial_request_email_clicked", { source, orderType })}
+            className="inline-flex items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-500/15 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:-translate-y-[1px] hover:bg-emerald-500/25"
+          >
+            Share a testimonial
+          </a>
         </div>
       </div>
+      <p className="mt-3 text-[11px] text-neutral-300">
+        We never invent reviews — we only publish quotes buyers approve in writing.
+      </p>
     </div>
   );
 }

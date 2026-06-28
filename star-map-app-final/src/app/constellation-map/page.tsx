@@ -16,14 +16,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Custom Constellation Map | StarMapCo",
+  title: "Constellation Map Generator | StarMapCo",
   description:
-    "Create a custom constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Constellation map generator and creator for any date and location—preview the real sky layout free, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/constellation-map` },
   openGraph: {
-    title: "Custom Constellation Map | StarMapCo",
+    title: "Constellation Map Generator | StarMapCo",
     description:
-      "Create a custom constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Create a custom constellation map from any date and place. Free preview, then framed print, unframed print, or HD digital.",
     url: `${siteUrl}/constellation-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -37,10 +37,10 @@ export default function ConstellationMapPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Constellation Map</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Constellation Map Generator</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Capture the exact constellation layout from any date and place. Start with a free preview, then choose framed
-          print, unframed print, or HD digital delivery from the same design.
+          Build a constellation map from any date and place—the generator shows the real layout overhead. Start with a
+          free preview, then choose framed print, unframed print, or HD digital from the same design.
         </p>
       </header>
 

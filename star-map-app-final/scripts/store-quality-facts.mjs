@@ -71,7 +71,12 @@ function main() {
     merchantFeed: {
       currency,
       targetCountries,
-      shippingLabels: ["print_unframed", "print_framed"],
+      shippingLabels: ["print_unframed", "print_framed", "print_framed_hd_free"],
+      freeShipping: {
+        thresholdCents: parseInt(process.env.PRINT_FREE_SHIPPING_THRESHOLD_CENTS || "10000", 10),
+        qualifyingExample: "Framed print + HD digital ($106 merchandise)",
+        merchantFeedBundleId: "print_poster_framed_hd_bundle",
+      },
     },
   };
 
@@ -84,7 +89,8 @@ function main() {
   console.log(`- Fulfillment (handling) time: ${fulfillment.minBusinessDays}-${fulfillment.maxBusinessDays} business days (average)`);
   console.log(`- Return cost (prints): customer-paid for change-of-mind; damage/defect claims within ${returns.physicalPrints.damageDefectWindowDays} days`);
   console.log(`- Feed countries: ${targetCountries.join(", ")}`);
-  console.log(`- Feed shipping labels: print_unframed, print_framed`);
+  console.log(`- Feed shipping labels: print_unframed, print_framed, print_framed_hd_free`);
+  console.log(`- Free shipping: merchandise $100+ at checkout; GMC bundle print_poster_framed_hd_bundle ships at $0`);
   console.log("");
   console.log("Suggested Merchant Center ship-from location values:");
   console.log(`- Max handling time: ${shipFrom.handlingTime.maxBusinessDays} business days`);

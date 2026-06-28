@@ -2,20 +2,30 @@ import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections from "./HomeStaticSections";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
+import { getPrintDeliveryTimingFaqAnswer } from "@/lib/commerceFacts";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a custom star map or constellation map of any date and location. Start with a free live preview, then choose framed print, unframed poster, or HD digital delivery at StarMapCo.";
+  "Create a personalized star map for any date and location — preview the exact night sky for free, then order a framed print, unframed poster, or instant HD digital download. Perfect for anniversaries, weddings, and birthdays.";
 
 export const metadata: Metadata = {
-  title: "Custom Star Map & Constellation Map | StarMapCo",
+  title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
   description: homepageDescription,
+  keywords: [
+    "custom star map",
+    "star map gift",
+    "constellation map",
+    "personalized star map",
+    "star map by date",
+    "star map anniversary gift",
+  ],
   alternates: { canonical: `${siteUrl}/` },
   openGraph: {
-    title: "Custom Star Map & Constellation Map | StarMapCo",
+    title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
     description: homepageDescription,
     url: `${siteUrl}/`,
+    siteName: "StarMapCo",
     images: [
       {
         url: `${siteUrl}/custom-star-map-anniversary.png`,
@@ -28,7 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Custom Star Map & Constellation Map | StarMapCo",
+    title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
     description: homepageDescription,
     images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },
@@ -226,7 +236,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "When do I see shipping cost and delivery timing?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: `${shippingDisclosure} Production starts after order review while manual approval is enabled.`,
+              text: getPrintDeliveryTimingFaqAnswer(shippingDisclosure),
             },
           },
           {
@@ -276,6 +286,27 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <>
+      <link
+        rel="preload"
+        as="image"
+        href="/textures/star-map-hero/phone.webp"
+        media="(max-width: 639px)"
+        fetchPriority="high"
+      />
+      <link
+        rel="preload"
+        as="image"
+        href="/textures/star-map-hero/tablet.webp"
+        media="(min-width: 640px) and (max-width: 1023px)"
+        fetchPriority="high"
+      />
+      <link
+        rel="preload"
+        as="image"
+        href="/textures/star-map-hero/desktop.webp"
+        media="(min-width: 1024px)"
+        fetchPriority="high"
+      />
       <script
         id="product-faq-schema"
         type="application/ld+json"

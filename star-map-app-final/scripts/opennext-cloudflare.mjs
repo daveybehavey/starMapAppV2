@@ -4,6 +4,11 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { buildEnvWithWranglerVars } from "./wrangler-vars.mjs";
 
+function psSingleQuote(value) {
+  // PowerShell single-quote escaping: ' becomes '' inside a single-quoted string.
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 function writeCaptured(result) {
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
@@ -27,6 +32,25 @@ function runCapture(command, args, env) {
   });
 }
 
+function runNpx(npxArgs, env) {
+  // On some Windows setups, `npx` is exposed primarily as `npx.ps1`.
+  // `spawnSync('npx', ...)` can fail with ENOENT; invoking through PowerShell works.
+  if (process.platform === "win32") {
+    const psCommand = `npx ${npxArgs.map(psSingleQuote).join(" ")}`;
+    run("powershell", ["-NoProfile", "-Command", psCommand], env);
+    return;
+  }
+  run("npx", npxArgs, env);
+}
+
+function runNpxCapture(npxArgs, env) {
+  if (process.platform === "win32") {
+    const psCommand = `npx ${npxArgs.map(psSingleQuote).join(" ")}`;
+    return runCapture("powershell", ["-NoProfile", "-Command", psCommand], env);
+  }
+  return runCapture("npx", npxArgs, env);
+}
+
 function isRecoverableR2DeployFailure(output) {
   return (
     /Populating R2 incremental cache/i.test(output) &&
@@ -38,11 +62,11 @@ function deployWorkerDirect(env) {
   console.warn(
     "OpenNext cache population failed against R2. Falling back to direct Worker deploy without cache pre-population.",
   );
-  run("npx", ["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
+  runNpx(["wrangler", "deploy"], { ...env, OPEN_NEXT_DEPLOY: "true" });
 }
 
 function deployBuilt(env) {
-  const result = runCapture("npx", ["opennextjs-cloudflare", "deploy"], env);
+  const result = runNpxCapture(["opennextjs-cloudflare", "deploy"], env);
   writeCaptured(result);
 
   if (result.status === 0) return;
@@ -68,12 +92,12 @@ async function main() {
   run("node", ["scripts/generate-merchant-feed.mjs"], env);
 
   if (mode === "build") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
+    runNpx(["opennextjs-cloudflare", "build"], env);
     return;
   }
 
   if (mode === "deploy") {
-    run("npx", ["opennextjs-cloudflare", "build"], env);
+    runNpx(["opennextjs-cloudflare", "build"], env);
     deployBuilt(env);
     return;
   }
@@ -83,8 +107,8 @@ async function main() {
     return;
   }
 
-  run("npx", ["opennextjs-cloudflare", "build"], env);
-  run("npx", ["opennextjs-cloudflare", "preview"], env);
+  runNpx(["opennextjs-cloudflare", "build"], env);
+  runNpx(["opennextjs-cloudflare", "preview"], env);
 }
 
 main().catch((error) => {

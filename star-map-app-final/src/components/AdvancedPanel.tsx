@@ -1,13 +1,16 @@
 "use client";
 
 import { constellationPresets, visualModes } from "@/lib/config";
+import { applyTierTypography, resolveMapLookTier } from "@/lib/mapLookTiers";
 import { getRenderPresetOptions, renderPresets, resolveRenderPreset } from "@/lib/renderPresets";
-import type { RenderOptions, StyleId } from "@/lib/store";
+import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
 
 type AdvancedPanelProps = {
   selectedStyle: StyleId;
   renderOptions: RenderOptions;
   setRenderOptions: (next: Partial<RenderOptions>) => void;
+  textBoxes: TextBox[];
+  setTextBoxes: (value: TextBox[]) => void;
   previewFidelity: "standard" | "high";
   setPreviewFidelity: (next: "standard" | "high") => void;
   paid: boolean;
@@ -18,12 +21,18 @@ export function AdvancedPanel({
   selectedStyle,
   renderOptions,
   setRenderOptions,
+  textBoxes,
+  setTextBoxes,
   previewFidelity,
   setPreviewFidelity,
   paid,
   onPremiumPreview,
 }: AdvancedPanelProps) {
   const activePreset = resolveRenderPreset(renderOptions, selectedStyle);
+  const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+  const applyCustomRenderOptions = (next: Partial<RenderOptions>) => {
+    setRenderOptions({ ...next, mapLookTier: "custom" });
+  };
 
   return (
     <div className="mt-2 space-y-3 rounded-lg border border-white/10 bg-[#0a1024]/60 p-3">
@@ -49,7 +58,12 @@ export function AdvancedPanel({
               <button
                 key={preset.id}
                 type="button"
-                onClick={() => setRenderOptions(getRenderPresetOptions(preset.id, selectedStyle))}
+                onClick={() =>
+                  applyCustomRenderOptions({
+                    ...getRenderPresetOptions(preset.id, selectedStyle),
+                    mapLookTier: preset.id === "clean" ? "minimal" : "polished",
+                  })
+                }
                 className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
                   activePreset === preset.id
                     ? "!text-midnight border-amber-300 bg-amber-100"
@@ -69,7 +83,7 @@ export function AdvancedPanel({
               <button
                 key={mode.id}
                 type="button"
-                onClick={() => setRenderOptions({ visualMode: mode.id })}
+                onClick={() => applyCustomRenderOptions({ visualMode: mode.id })}
                 className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
                   renderOptions.visualMode === mode.id
                     ? "!text-midnight border-amber-300 bg-amber-100"
@@ -108,10 +122,41 @@ export function AdvancedPanel({
 
       <div className="space-y-2 rounded-md border border-white/10 bg-white/5 p-2.5">
         <div className="flex items-center justify-between gap-2">
+          <label className="text-[11px] font-semibold text-neutral-100">Typography & ring</label>
+          {activeTier !== "custom" ? (
+            <button
+              type="button"
+              onClick={() => setTextBoxes(applyTierTypography(activeTier, selectedStyle, textBoxes))}
+              className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold text-white transition hover:border-amber-400/40"
+            >
+              Reset to tier
+            </button>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-neutral-200">Technical ring (date/location arc)</span>
+          <button
+            type="button"
+            onClick={() =>
+              applyCustomRenderOptions({ showTechnicalRing: !renderOptions.showTechnicalRing })
+            }
+            className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+              renderOptions.showTechnicalRing
+                ? "!text-midnight border-amber-300 bg-amber-100"
+                : "border-white/15 bg-white/10 text-white"
+            }`}
+          >
+            {renderOptions.showTechnicalRing ? "On" : "Off"}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-white/10 bg-white/5 p-2.5">
+        <div className="flex items-center justify-between gap-2">
           <label className="text-[11px] font-semibold text-neutral-100">Constellations</label>
           <button
             type="button"
-            onClick={() => setRenderOptions({ constellationLabels: !renderOptions.constellationLabels })}
+            onClick={() => applyCustomRenderOptions({ constellationLabels: !renderOptions.constellationLabels })}
             className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
               renderOptions.constellationLabels
                 ? "!text-midnight border-amber-300 bg-amber-100"
@@ -127,7 +172,7 @@ export function AdvancedPanel({
             <button
               key={preset.id}
               type="button"
-              onClick={() => setRenderOptions({ constellationLines: preset.id })}
+              onClick={() => applyCustomRenderOptions({ constellationLines: preset.id })}
               className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
                 renderOptions.constellationLines === preset.id
                   ? "!text-midnight border-amber-300 bg-amber-100"
@@ -146,7 +191,7 @@ export function AdvancedPanel({
               <input
                 type="color"
                 value={renderOptions.constellationColor || "#ffffff"}
-                onChange={(e) => setRenderOptions({ constellationColor: e.target.value })}
+                onChange={(e) => applyCustomRenderOptions({ constellationColor: e.target.value })}
                 className="h-8 w-full cursor-pointer rounded-md border border-white/15 bg-white/10"
               />
             </div>
@@ -160,7 +205,7 @@ export function AdvancedPanel({
                 max={2}
                 step={0.1}
                 value={renderOptions.constellationLineScale || 1}
-                onChange={(e) => setRenderOptions({ constellationLineScale: Number(e.target.value) })}
+                onChange={(e) => applyCustomRenderOptions({ constellationLineScale: Number(e.target.value) })}
                 aria-label="Constellation line scale"
                 aria-valuetext={`Line scale: ${renderOptions.constellationLineScale || 1}`}
                 className="w-full accent-amber-400"
@@ -190,7 +235,7 @@ export function AdvancedPanel({
                   key={preset.id}
                   type="button"
                   onClick={() => {
-                    setRenderOptions({ premiumStars: preset.id as RenderOptions["premiumStars"] });
+                    applyCustomRenderOptions({ premiumStars: preset.id as RenderOptions["premiumStars"] });
                     if (!paid && preset.id !== "off") {
                       onPremiumPreview("stars", preset.id);
                     }
@@ -219,7 +264,7 @@ export function AdvancedPanel({
                   key={preset.id}
                   type="button"
                   onClick={() => {
-                    setRenderOptions({ premiumPlanets: preset.id as RenderOptions["premiumPlanets"] });
+                    applyCustomRenderOptions({ premiumPlanets: preset.id as RenderOptions["premiumPlanets"] });
                     if (!paid && preset.id !== "off") {
                       onPremiumPreview("planets", preset.id);
                     }

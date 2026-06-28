@@ -50,7 +50,9 @@ export async function POST(req: NextRequest) {
   }
 
   const code = queryCode ?? bodyCode;
-  const attribution = bodyAttribution ?? queryAttribution;
+  // If the user arrived with only `?ref=CODE` (no ref_src / utm params),
+  // we still want attribution analytics to have a deterministic source.
+  const attribution = bodyAttribution ?? queryAttribution ?? { source: "referral" };
   if (!code) {
     return NextResponse.json({ ok: false, error: "Invalid referral code" }, { status: 400 });
   }

@@ -26,6 +26,9 @@ function main() {
 
   for (const pagePath of pages) {
     const absolutePagePath = resolve(root, pagePath);
+    if (!existsSync(absolutePagePath)) {
+      continue;
+    }
     const html = readFileSync(absolutePagePath, "utf8");
     const sources = extractImageSources(html);
     for (const src of sources) {

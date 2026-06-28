@@ -1,7 +1,15 @@
-import { getPrintAllowedCountries, getPrintAvailabilityBadgeLabel, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getPrintAllowedCountries,
+  getPrintAvailabilityBadgeLabel,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
+import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
 import ResilientImage from "@/components/ResilientImage";
 import {
-  formatPrintShippingEstimate,
+  formatPrintDeliveryDisclosure,
+  formatPrintShippingEstimateWithDelivery,
   getPrintShippingCountryLabel,
 } from "@/lib/printfulShipping";
 
@@ -17,19 +25,23 @@ type HomeOfferStackProps = {
     framed: string;
     digitalAddOn: string;
   };
-  proofImages: {
-    framed: string;
-    unframed: string;
-  };
 };
 
-export default function HomeOfferStack({ priceLabels, printLabels, proofImages }: HomeOfferStackProps) {
+const OFFER_MOCKUPS = {
+  digital: "/home-mockups/offer-digital-hd.png",
+  framed: "/home-mockups/offer-framed-print.png",
+  unframed: "/home-mockups/offer-unframed-print.png",
+} as const;
+
+export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferStackProps) {
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingOffer = getPrintFreeShippingOfferLine();
   const printShippingCountry = "US";
   const printShippingCountries = getPrintAllowedCountries();
-  const framedShippingLabel = formatPrintShippingEstimate("poster_framed", printShippingCountry, "shipping");
-  const unframedShippingLabel = formatPrintShippingEstimate("poster_unframed", printShippingCountry, "shipping");
+  const framedShippingLabel = formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry, "shipping");
+  const unframedShippingLabel = formatPrintShippingEstimateWithDelivery("poster_unframed", printShippingCountry, "shipping");
+  const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", printShippingCountry);
   const shippingCountryLabel = getPrintShippingCountryLabel(printShippingCountry);
   const shippingCoverageLabel = (() => {
     const count = printShippingCountries.length;
@@ -68,18 +80,15 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
 
         <div className="grid gap-3 md:grid-cols-3">
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
-            <div className="relative mb-3 h-28 overflow-hidden rounded-xl border border-white/15 bg-white/10">
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/15 bg-[#0a1228]">
               <ResilientImage
-                src="/custom-star-map-anniversary.webp"
-                fallbackSrc="/custom-star-map-anniversary.png"
-                alt="Digital StarMapCo preview"
+                src={OFFER_MOCKUPS.digital}
+                fallbackSrc={OFFER_MOCKUPS.digital}
+                alt="StarMapCo HD download on laptop and phone"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover"
+                className="object-cover object-center"
               />
-              <span className="absolute bottom-2 left-2 rounded-full border border-white/15 bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
-                Current render
-              </span>
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-white">Instant digital</p>
@@ -109,21 +118,15 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </article>
 
           <article className="brand-dark-card-accent flex h-full flex-col rounded-2xl p-4">
-            <div className="home-proof-wall home-proof-wall--warm relative mb-3 h-28 overflow-hidden rounded-xl border border-amber-200/45">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.35),rgba(0,0,0,0.06)_75%)]" />
-              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.22)]">
-                <ResilientImage
-                  src={proofImages.framed}
-                  fallbackSrc="/printproof/framed-catalog.jpg"
-                  alt="Framed StarMapCo print preview"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-contain p-2"
-                />
-              </div>
-              <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
-                Wall-stage mockup
-              </span>
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-amber-200/45 bg-[#1a1410]">
+              <ResilientImage
+                src={OFFER_MOCKUPS.framed}
+                fallbackSrc={OFFER_MOCKUPS.framed}
+                alt="Framed StarMapCo print in a bedroom setting"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover object-center"
+              />
             </div>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
@@ -138,8 +141,10 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Most buyers pair this with the HD add-on</li>
+              {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
               <li>Best-looking premium option for special occasions</li>
               <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
+              {framedDeliveryDisclosure ? <li>{framedDeliveryDisclosure}</li> : null}
               <li>{printLabels.framed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-amber-300/35 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
@@ -154,21 +159,15 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </article>
 
           <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
-            <div className="home-proof-wall home-proof-wall--neutral relative mb-3 h-28 overflow-hidden rounded-xl border border-white/18">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.32),rgba(0,0,0,0.08)_78%)]" />
-              <div className="absolute inset-[7px] overflow-hidden rounded-[10px] border border-white/45 bg-transparent shadow-[0_9px_16px_rgba(0,0,0,0.2)]">
-                <ResilientImage
-                  src={proofImages.unframed}
-                  fallbackSrc="/printproof/unframed-catalog.jpg"
-                  alt="Unframed StarMapCo poster preview"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-contain p-2"
-                />
-              </div>
-              <span className="absolute bottom-2 left-2 z-10 rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-midnight">
-                Wall-stage mockup
-              </span>
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/18 bg-[#eceae6]">
+              <ResilientImage
+                src={OFFER_MOCKUPS.unframed}
+                fallbackSrc={OFFER_MOCKUPS.unframed}
+                alt="Unframed StarMapCo poster leaning against a wall"
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover object-center"
+              />
             </div>
             <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
               Physical saver
@@ -223,7 +222,8 @@ export default function HomeOfferStack({ priceLabels, printLabels, proofImages }
           </div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
-            <li>✓ Production starts after manual order review.</li>
+            <li>✓ {getPrintProductionReviewTrustPoint()}</li>
+            <li>✓ {getPrintPhysicalOrderSummaryLine()}</li>
             <li>✓ {shippingDisclosure}</li>
             <li>✓ Damage support: support@starmapco.com.</li>
             <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>

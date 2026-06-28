@@ -4,10 +4,12 @@ import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
 import OccasionLinks from "@/components/OccasionLinks";
+import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatPrintPriceWithShipping, getPrintProductionReviewDisclosure, getPrintProductionReviewTrustPoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { getBusinessProfile } from "@/lib/businessProfile";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
@@ -22,14 +24,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Star Map Poster | StarMapCo",
+  title: "Custom Star Map Poster — Framed & Unframed Prints | StarMapCo",
   description:
-    "Create a made-to-order custom star map poster from any date and location. Choose unframed or framed wall art checkout after preview.",
+    "Create a custom star map poster from any date and location. Free preview, then choose unframed poster or framed wall art with shipping shown before payment.",
   alternates: { canonical: `${siteUrl}/star-map-poster` },
   openGraph: {
-    title: "Star Map Poster | StarMapCo",
+    title: "Custom Star Map Poster — Framed & Unframed Prints | StarMapCo",
     description:
-      "Create a made-to-order custom star map poster from any date and location. Choose unframed or framed wall art checkout after preview.",
+      "Create a custom star map poster from any date and location. Free preview, then unframed or framed print checkout after you approve the design.",
     url: `${siteUrl}/star-map-poster`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -39,6 +41,8 @@ export const metadata: Metadata = {
 
 export default function StarMapPosterPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewDisclosure = getPrintProductionReviewDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const profile = getBusinessProfile();
   const printTiers = getPrintPricingTiers();
   const framedPrice = formatPrintPriceWithShipping(
@@ -62,13 +66,17 @@ export default function StarMapPosterPage() {
     },
     {
       question: "Do I see shipping before paying?",
-      answer:
-        "Yes. Physical checkout shows the shipping charge before payment is finalized, and orders are reviewed before production begins while manual approval mode is enabled.",
+      answer: `Yes. Physical checkout shows the shipping charge before payment is finalized. ${productionReviewDisclosure}`,
     },
     {
       question: "What happens after I approve the preview?",
       answer:
         "After you approve the design, the same map moves into print checkout. Once payment clears, the order is reviewed, then approved for production, and support stays with StarMapCo if there is a print issue.",
+    },
+    {
+      question: "What sizes do star map posters come in?",
+      answer:
+        "StarMapCo posters are made to order from your approved design. Most buyers choose framed 14×14 for gifting or unframed 18×18 when they already have a frame plan. Preview first, then pick the format at checkout.",
     },
   ] as const;
   const schema = {
@@ -80,7 +88,7 @@ export default function StarMapPosterPage() {
         description:
           "Made-to-order custom star map wall art created from your chosen date and location, available as an unframed poster or framed print after preview.",
         brand: { "@type": "Brand", name: "StarMapCo" },
-        image: [`${siteUrl}/printproof/unframed-mockup.jpg`, `${siteUrl}/printproof/framed-mockup.jpg`],
+        image: [`${siteUrl}${HOME_MOCKUPS.unframedPoster}`, `${siteUrl}${HOME_MOCKUPS.framedBedroom}`],
         category: "Home & Garden > Decor > Artwork > Posters, Prints, & Visual Artwork",
         offers: [
           {
@@ -118,7 +126,7 @@ export default function StarMapPosterPage() {
             <div className="space-y-3">
               <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
               <h1 className="max-w-2xl text-3xl font-bold text-white sm:text-4xl">
-                Star Map Poster with a clear framed-first gift path
+                Custom star map poster for any date and place
               </h1>
               <p className="max-w-2xl text-sm leading-relaxed text-white/88 sm:text-base">
                 Build the map once from the exact night sky of a special moment, approve the preview, then choose the
@@ -284,7 +292,7 @@ export default function StarMapPosterPage() {
               },
               {
                 step: "03",
-                title: "See shipping before payment, then manual review before production",
+                title: "See shipping before payment, then fulfillment after checkout",
                 detail: "Physical checkout shows the shipping charge before you pay, and print orders are reviewed before production starts.",
               },
             ].map((item) => (
@@ -358,7 +366,7 @@ export default function StarMapPosterPage() {
         rightPoints={[
           "The same approved map carries into the physical checkout path you choose.",
           shippingDisclosure,
-          "Physical orders are reviewed before production while manual approval mode is enabled, and damaged prints can be reported to support with photos and order details.",
+          `${productionReviewTrustPoint} Damaged prints can be reported to support with photos and order details.`,
         ]}
       />
 
@@ -372,6 +380,11 @@ export default function StarMapPosterPage() {
         heading="Poster design on screen, framed result on the wall"
         intro={`Use the poster layout to approve the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display. ${shippingDisclosure}`}
         sourcePrefix="poster-proof"
+      />
+      <PhysicalProductGallerySection
+        heading="See the poster and framed finish in real rooms"
+        intro="Room mockups from current StarMapCo artwork — framed, unframed, and in-home styling."
+        sourcePrefix="poster-physical-proof"
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

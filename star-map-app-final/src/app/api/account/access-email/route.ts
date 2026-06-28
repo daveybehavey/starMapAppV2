@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
+import { hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
+import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
+import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
+import { normalizeAccountLiteEmail } from "@/lib/accountLite";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
-import { getOrCreateClaimToken, hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
-import { isAccountAccessEmailConfigured, sendAccountAccessAlert } from "@/lib/accountAccessAlerts";
-import { normalizeAccountLiteEmail } from "@/lib/accountLite";
 
 export const runtime = "nodejs";
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com";
-
-const sessionKey = (id: string) => `stripe:session:${id}`;
 
 function getSiteUrl(req: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const record = await kv.get<AccountAccessSessionRecord>(sessionKey(sessionId));
+  const record = await kv.get<AccountAccessSessionRecord>(ENTITLEMENT_KV.stripeSession(sessionId));
   if (!record || !hasRecoverableAccess(record)) {
     return NextResponse.json({ ok: false, error: "No active access" }, { status: 403 });
   }
@@ -58,9 +58,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const token = await getOrCreateClaimToken(sessionId, record);
-  const link = `${getSiteUrl(req)}/download?token=${encodeURIComponent(token)}`;
-  const result = await sendAccountAccessAlert({ email, link });
+  const result = await sendPostPurchaseAccessEmail({
+    siteOrigin: getSiteUrl(req),
+    email,
+    sessionId,
+    record,
+  });
 
   if (!result.delivered) {
     return NextResponse.json(
@@ -74,6 +77,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    message: "Access link sent.",
+    message: "Check your email for your HD download link.",
   });
 }

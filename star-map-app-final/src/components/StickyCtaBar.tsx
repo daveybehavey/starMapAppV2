@@ -7,6 +7,9 @@ type StickyCtaBarProps = {
   title?: string;
   description?: string;
   buttonLabel?: string;
+  /** When set, primary CTA uses this href instead of a generic preview editor link. */
+  primaryHref?: string;
+  primaryPlan?: string;
   secondaryButtonLabel?: string;
   secondaryHref?: string;
   secondaryPlan?: string;
@@ -18,6 +21,8 @@ export default function StickyCtaBar({
   title = "Ready for a free preview?",
   description = "Create your star map in minutes — no account required.",
   buttonLabel = "Start free preview",
+  primaryHref,
+  primaryPlan = "preview",
   secondaryButtonLabel,
   secondaryHref,
   secondaryPlan = "print_intent",
@@ -28,7 +33,9 @@ export default function StickyCtaBar({
   );
   const baseHref = "/editor?mode=quick";
   const resolvedSource = source?.trim() || "sticky-cta";
-  const href = source ? `${baseHref}&source=${encodeURIComponent(source)}` : baseHref;
+  const href =
+    primaryHref?.trim() ||
+    (source ? `${baseHref}&source=${encodeURIComponent(source)}` : baseHref);
 
   return (
     <div className={`sticky top-3 z-20 mt-6 ${className}`}>
@@ -63,8 +70,8 @@ export default function StickyCtaBar({
           <a
             href={href}
             onClick={() => {
-              track("sticky_preview_click", { source: resolvedSource });
-              trackFunnelStep("hero_plan_click", { source: resolvedSource, plan: "preview" });
+              track("sticky_preview_click", { source: resolvedSource, plan: primaryPlan });
+              trackFunnelStep("hero_plan_click", { source: resolvedSource, plan: primaryPlan });
             }}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg"
           >

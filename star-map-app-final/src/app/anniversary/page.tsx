@@ -1,18 +1,31 @@
 import Link from "next/link";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
+import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
+import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import TestimonialHighlights from "@/components/TestimonialHighlights";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
-import { testimonialsByPage } from "@/data/testimonials";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  buildPrintEditorCheckoutHref,
+  getFramedHdBundlePriceLine,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
+import {
+  buildFramedHdCheckoutHref,
+  buildStandardGiftPreviewIntents,
+  getGiftLadderIntro,
+} from "@/lib/moneyPageGiftCheckout";
+import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -42,6 +55,40 @@ export const metadata: Metadata = {
 
 export default function AnniversaryPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
+  const framedHdHref = buildFramedHdCheckoutHref("anniversary-hero-framed-hd");
+  const previewIntents = buildStandardGiftPreviewIntents("anniversary");
+  const tiers = getPricingTiers();
+  const printTiers = getPrintPricingTiers();
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
+  const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
+  const productOffers = [
+    {
+      name: "HD digital download",
+      price: (tiers.single.amountCents / 100).toFixed(2),
+      priceCurrency: schemaCurrency,
+      url: `${siteUrl}/editor?mode=quick&source=anniversary-schema-digital`,
+    },
+    ...(printCheckoutEnabled
+      ? [
+          {
+            name: "Unframed print",
+            price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=anniversary-schema-print-unframed&checkout=print&print_variant=poster_unframed`,
+          },
+          {
+            name: "Framed print",
+            price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=anniversary-schema-print-framed&checkout=print&print_variant=poster_framed`,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
@@ -53,49 +100,80 @@ export default function AnniversaryPage() {
           Mark your milestone with an anniversary star map gift showing the night sky from the date and place that shaped
           your story. A keepsake that grows more meaningful each year.
         </p>
+        <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
         </div>
+        <ul className="mx-auto flex max-w-sm flex-col gap-1.5 text-left text-sm text-white/85 sm:max-w-none sm:flex-row sm:flex-wrap sm:justify-center">
+          <li className="flex items-center gap-1.5">
+            <span className="text-amber-300" aria-hidden="true">✓</span>
+            Free preview — no payment required
+          </li>
+          <li className="hidden items-center gap-1.5 text-white/35 sm:flex" aria-hidden="true">·</li>
+          <li className="flex items-center gap-1.5">
+            <span className="text-amber-300" aria-hidden="true">✓</span>
+            Secure Stripe checkout
+          </li>
+          <li className="hidden items-center gap-1.5 text-white/35 sm:flex" aria-hidden="true">·</li>
+          <li className="flex items-center gap-1.5">
+            <span className="text-amber-300" aria-hidden="true">✓</span>
+            Same design unlocks framed, unframed, or HD
+          </li>
+        </ul>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href={framedHdHref}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Preview framed + HD gift
+          </Link>
+          <Link
+            href="/editor?mode=quick&source=anniversary-hero-preview"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Start free preview
+          </Link>
+          <Link
+            href={buildPrintEditorCheckoutHref({
+              source: "anniversary-hero-canvas",
+              variant: "canvas_wrap",
+            })}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            Preview canvas wrap
+          </Link>
+          <InstantHdHeroExtras source="anniversary-hero-instant" showFunnelLink={false} />
+        </div>
+        <InstantHdHeroExtras source="anniversary-hero-instant" showButton={false} />
+        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
+
+      <GiftFormatLadder
+        sourcePrefix="anniversary-ladder"
+        heading="Anniversary gift formats"
+        intro={getGiftLadderIntro({ occasionLabel: "anniversary" })}
+        includeCanvas
+        className="mt-8"
+      />
 
       <PreviewStartForm
         source="anniversary"
         title="Start your anniversary preview"
-        description="Enter the date and place, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
-        intentOptions={[
-          {
-            label: "Preview framed print",
-            sourceSuffix: "framed",
-            checkout: "print",
-            printVariant: "poster_framed",
-            plan: "print_framed",
-            tone: "recommended",
-            detail: "Best if you want the finished keepsake to arrive ready to display.",
-          },
-          {
-            label: "Preview unframed print",
-            sourceSuffix: "unframed",
-            checkout: "print",
-            printVariant: "poster_unframed",
-            plan: "print_unframed",
-            tone: "default",
-            detail: "Best if you already know your frame plan.",
-          },
-          {
-            label: "Preview first, decide later",
-            plan: "preview",
-            tone: "neutral",
-            detail: "Keep the editor neutral until the anniversary design feels final.",
-          },
-        ]}
+        description={`Enter the date and place. We open the editor on framed + HD (${bundlePriceLine}) — the path most anniversary gift buyers choose.`}
+        intentOptions={previewIntents}
       />
       <StickyCtaBar
-        source="sticky-anniversary"
-        secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-anniversary-framed&checkout=print&print_variant=poster_framed"
-        secondaryPlan="print_framed"
+        source="sticky-anniversary-framed-hd"
+        title="Ready to see your anniversary sky?"
+        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        buttonLabel="Preview framed + HD"
+        primaryHref={framedHdHref}
+        primaryPlan="print_framed_hd"
+        secondaryButtonLabel="Free preview only"
+        secondaryHref="/editor?mode=quick&source=sticky-anniversary-preview"
+        secondaryPlan="preview"
       />
 
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -126,10 +204,10 @@ export default function AnniversaryPage() {
         </p>
         <div className="pt-2">
           <Link
-            href="/editor?mode=quick&source=anniversary-cta-framed&checkout=print&print_variant=poster_framed"
+            href={framedHdHref}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Start with framed print preview
+            Preview framed + HD gift
           </Link>
         </div>
       </section>
@@ -137,7 +215,7 @@ export default function AnniversaryPage() {
 
       <DeliveryFormatModule
         heading="Choose how you want to keep the anniversary map"
-        intro="Most anniversary buyers decide between the finished framed route and the lower-total unframed route. HD digital stays available when you want instant delivery or local printing."
+        intro={`Most anniversary buyers choose framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant file. Canvas adds a premium wall option between poster and framed.`}
         sourcePrefix="anniversary-format"
       />
       <FramedProofSection
@@ -152,12 +230,21 @@ export default function AnniversaryPage() {
           The preview and HD export use the same rendering engine—what you see is what you download. Toggle constellations,
           glow, labels, and choose fonts to match your style. The same approved design can stay digital, go unframed, or arrive framed without rebuilding the map.
         </p>
-        <div className="flex gap-3 text-sm text-neutral-800">
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
             Wedding star maps
           </Link>
           <Link href="/birthday" className="text-amber-700 underline hover:text-amber-800">
             Birthday star maps
+          </Link>
+          <Link href="/star-map-generator" className="text-amber-700 underline hover:text-amber-800">
+            Star map generator
+          </Link>
+          <Link href="/personalized-star-map" className="text-amber-700 underline hover:text-amber-800">
+            Personalized star map
+          </Link>
+          <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
+            Night sky map gift
           </Link>
         </div>
       </section>
@@ -175,7 +262,7 @@ export default function AnniversaryPage() {
         rightPoints={[
           "Framed and unframed print paths are available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          productionReviewTrustPoint,
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"
@@ -188,12 +275,6 @@ export default function AnniversaryPage() {
         heading="Anniversary gift confidence"
         intro="Most couples decide faster once the wording, frame plan, and whether they want the finished framed route are already clear."
       />
-      <TestimonialHighlights
-        heading="Verified anniversary buyer feedback"
-        intro="Real anniversary-buyer comments are shown here as they are collected."
-        testimonials={testimonialsByPage.anniversary}
-      />
-
       <OccasionLinks />
 
       <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -202,27 +283,98 @@ export default function AnniversaryPage() {
           <div>
             <h3 className="font-semibold text-midnight">What date should I use for an anniversary star map?</h3>
             <p>
-              Most couples use their wedding date or the night they first met. Any meaningful date works.
+              Most couples use their wedding date or the night they first met. Any meaningful date works — anniversaries,
+              first dates, and engagements are all popular choices.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-midnight">Is this a good couples gift?</h3>
             <p>
-              Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment.
+              Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment
+              unique to your relationship.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I include the exact time of our wedding or first date?</h3>
+            <p>
+              Yes. Adding a time makes the star positions even more precise — the Moon, planets, and constellations shift
+              during the night. If you do not know the exact time, just the date and location still produces a beautiful,
+              accurate map.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">How far back can anniversary dates go?</h3>
+            <p>
+              The generator works for any date — whether your milestone was last year or decades ago. You can recreate
+              the sky from a first date in 1985 just as easily as one from last summer.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Can I add our names and a personal message?</h3>
+            <p>
+              Yes. The editor lets you add a title, both names, a date line, and a short dedication. You can also choose
+              fonts and styles that match your home decor.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">Is the star map astronomically accurate?</h3>
+            <p>
+              Yes. The map is generated from real astronomical data — not a stock illustration — so every star,
+              constellation, and planet position matches your specific date, time, and location.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-midnight">What format is best for an anniversary gift?</h3>
+            <p>
+              Most anniversary buyers choose the framed print bundled with HD digital — the finished piece arrives ready
+              to hang and the digital file is available instantly. Unframed print is a great option if you already have a
+              frame in mind.
             </p>
           </div>
         </div>
       </section>
+      <ProductSchema
+        name="Anniversary Star Map"
+        description="Personalized anniversary star map showing the exact night sky from your milestone date and location. Order a framed print, unframed poster, or instant HD digital download."
+        imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
+        offers={productOffers}
+      />
       <FaqSchema
         items={[
           {
             question: "What date should I use for an anniversary star map?",
-            answer: "Most couples use their wedding date or the night they first met. Any meaningful date works.",
+            answer:
+              "Most couples use their wedding date or the night they first met. Any meaningful date works — anniversaries, first dates, and engagements are all popular choices.",
           },
           {
             question: "Is this a good couples gift?",
             answer:
-              "Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment.",
+              "Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment unique to your relationship.",
+          },
+          {
+            question: "Can I include the exact time of our wedding or first date?",
+            answer:
+              "Yes. Adding a time makes the star positions even more precise — the Moon, planets, and constellations shift during the night. If you do not know the exact time, just the date and location still produces a beautiful, accurate map.",
+          },
+          {
+            question: "How far back can anniversary dates go?",
+            answer:
+              "The generator works for any date — whether your milestone was last year or decades ago. You can recreate the sky from a first date in 1985 just as easily as one from last summer.",
+          },
+          {
+            question: "Can I add our names and a personal message?",
+            answer:
+              "Yes. The editor lets you add a title, both names, a date line, and a short dedication. You can also choose fonts and styles that match your home decor.",
+          },
+          {
+            question: "Is the star map astronomically accurate?",
+            answer:
+              "Yes. The map is generated from real astronomical data — not a stock illustration — so every star, constellation, and planet position matches your specific date, time, and location.",
+          },
+          {
+            question: "What format is best for an anniversary gift?",
+            answer:
+              "Most anniversary buyers choose the framed print bundled with HD digital — the finished piece arrives ready to hang and the digital file is available instantly. Unframed print is a great option if you already have a frame in mind.",
           },
         ]}
       />

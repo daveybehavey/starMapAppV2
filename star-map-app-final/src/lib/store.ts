@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { MapLookTier } from "./mapLookTiers";
 import type { AspectRatio, Shape } from "./types";
 
 export type StyleId =
@@ -33,6 +34,7 @@ export interface TextBox {
     | "abrilFatface";
   color: string;
   size: number;
+  fontWeight?: number;
   align: TextAlign;
   textShadow?: boolean;
   textGlow?: boolean;
@@ -51,8 +53,11 @@ export interface LocationState {
 
 export type VisualMode = "astronomical" | "enhanced" | "illustrated";
 export type ConstellationLines = "off" | "thin" | "thick";
+export type { MapLookTier, ExportMatPurpose } from "./mapLookTiers";
 
 export interface RenderOptions {
+  /** Product tier: minimal (flat/clean), polished (signature look), or custom knobs. */
+  mapLookTier?: MapLookTier;
   visualMode: VisualMode;
   starIntensity: "subtle" | "normal" | "bold";
   starGlow: boolean;
@@ -70,6 +75,10 @@ export interface RenderOptions {
   backgroundColor?: string;
   constellationColor?: string;
   constellationLineScale?: number;
+  /** Skip outer mat fill on export/preview — sky clip only (minimal tier). */
+  transparentBackground?: boolean;
+  /** Subtle degree ring overlay (polished tier accent). */
+  showTechnicalRing?: boolean;
 }
 
 export interface EditorState {
@@ -154,6 +163,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   ],
   selectedStyle: "navyGold",
   renderOptions: {
+    mapLookTier: "polished",
     visualMode: "enhanced",
     starIntensity: "normal",
     starGlow: true,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type PurchaseTrustPanelProps = {
   heading: string;
@@ -29,9 +29,7 @@ export default function PurchaseTrustPanel({
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
   );
-  const printAutoConfirm = /^(1|true|yes)$/i.test(
-    (process.env.PRINTFUL_AUTO_CONFIRM || "").trim(),
-  );
+  const productionReviewPoint = getPrintProductionReviewDisclosure();
   const shippingDisclosure = getPrintShippingDisclosure();
 
   return (
@@ -62,11 +60,7 @@ export default function PurchaseTrustPanel({
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             <li>{shippingDisclosure}</li>
             <li>Most buyers start with the framed print path; unframed and HD stay available if a different route fits better.</li>
-            <li>
-              {printAutoConfirm
-                ? "Production begins after payment once the order is submitted for fulfillment."
-                : "Physical orders are reviewed before production while manual approval is enabled."}
-            </li>
+            <li>{productionReviewPoint}</li>
             <li>If a print arrives damaged, contact support@starmapco.com and we will help resolve it.</li>
           </ul>
         </div>
@@ -74,6 +68,9 @@ export default function PurchaseTrustPanel({
       <div className="flex flex-wrap gap-3 text-sm">
         <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
           {guideLabel}
+        </Link>
+        <Link href="/how-accurate-are-star-maps" className="text-amber-700 underline hover:text-amber-800">
+          Star map accuracy
         </Link>
         <Link href="/shipping" className="text-amber-700 underline hover:text-amber-800">
           {shippingLabel}

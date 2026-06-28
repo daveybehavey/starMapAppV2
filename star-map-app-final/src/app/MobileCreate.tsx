@@ -10,7 +10,8 @@ import EditorFontShell from "@/components/EditorFontShell";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
-import { styles, fontOptions, visualModes, shapes, constellationPresets } from "@/lib/config";
+import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
+import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
@@ -20,9 +21,12 @@ import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
+  paywallPrintCheckoutRowKey,
   paywallPrintSkuButtonClassesMobile,
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 
@@ -41,11 +45,17 @@ interface MobileCreateProps {
   currentPlan?: CheckoutPlan | null;
   printCheckoutEnabled?: boolean;
   preferredPrintVariant?: PrintVariant;
+  preferredIncludeDigitalAddOn?: boolean;
   printShippingCountry?: string | null;
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
   printCheckoutInFlight?: boolean;
-  onStartPrintCheckout?: (options: { variant: PrintVariant; includeDigitalAddOn: boolean }) => void;
+  onStartPrintCheckout?: (options: {
+    variant: PrintVariant;
+    includeDigitalAddOn: boolean;
+    includeCardAddOn?: boolean;
+  }) => void;
+  onIntensityPaywall?: () => void;
 }
 
 export function MobileCreate({
@@ -60,11 +70,13 @@ export function MobileCreate({
   currentPlan = null,
   printCheckoutEnabled = false,
   preferredPrintVariant = "poster_framed",
+  preferredIncludeDigitalAddOn = false,
   printShippingCountry,
   printShippingCountries = [],
   onPrintShippingCountryChange,
   printCheckoutInFlight = false,
   onStartPrintCheckout,
+  onIntensityPaywall,
 }: MobileCreateProps) {
   // Use shared editor logic hook
   const {
@@ -118,6 +130,15 @@ export function MobileCreate({
     () => getPaywallPrintCheckoutPresentation(printShippingCountry),
     [printShippingCountry],
   );
+  const primaryPrintRow = useMemo(
+    () => printCheckoutRows.find((row) => row.recommended) ?? printCheckoutRows[0] ?? null,
+    [printCheckoutRows],
+  );
+  const alternatePrintRows = useMemo(
+    () => (primaryPrintRow ? printCheckoutRows.filter((row) => row !== primaryPrintRow) : printCheckoutRows),
+    [printCheckoutRows, primaryPrintRow],
+  );
+  const posterAspectMismatch = aspectRatio !== "square";
 
   const isQuick = variant === "quick";
   const [showAdvancedState, setShowAdvancedState] = useState(!isQuick);
@@ -136,6 +157,11 @@ export function MobileCreate({
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
+  const [showIntensityBanner, setShowIntensityBanner] = useState(false);
+  const [showRenderModeBanner, setShowRenderModeBanner] = useState(false);
+  const renderModeBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showFontBanner, setShowFontBanner] = useState(false);
+  const fontBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
@@ -155,19 +181,25 @@ export function MobileCreate({
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
-  const revealBlockedMessage = !hasDate && !hasLocation
-    ? "Add your date and place to unlock preview."
+  const previewLockedMessage = !hasDate && !hasLocation
+    ? "Add your date and place to unlock preview. Presets optional."
     : !hasDate
-      ? "Add your date to unlock preview."
-      : !hasLocation
-        ? "Add your place to unlock preview."
-        : "Presets optional.";
+      ? "Add your date to unlock preview. Presets optional."
+      : "Add your place to unlock preview. Presets optional.";
+  const previewReadyMessage = "Preview is ready. Presets optional.";
+  const previewUnlockButtonLabel = !hasDate && !hasLocation
+    ? "Add date + place to unlock preview"
+    : !hasDate
+      ? "Add your date to unlock preview"
+      : "Add your place to unlock preview";
   const hdCreditLabel =
-    currentPlan === "subscription"
-      ? "Unlimited HD"
-      : typeof creditsRemaining === "number"
-        ? `${creditsRemaining} HD left`
-        : null;
+    !paid
+      ? null
+      : currentPlan === "subscription"
+        ? "Unlimited HD"
+        : typeof creditsRemaining === "number" && creditsRemaining > 0
+          ? `${creditsRemaining} HD left`
+          : null;
 
   useEffect(() => {
     setCollapsedTextBoxes((prev) => {
@@ -251,13 +283,17 @@ export function MobileCreate({
       if (!paid && value > 60) {
         setIntensityDisplay(60);
         track("paywall_intensity_blocked", { attemptedValue: value });
+        if (!showIntensityBanner) {
+          setShowIntensityBanner(true);
+          track("mobile_intensity_upsell_shown", { attemptedValue: value });
+        }
         return;
       }
       setIntensityDisplay(value);
       setIntensity(value);
       applyVisualOptions(renderMode, value);
     },
-    [applyVisualOptions, paid, renderMode, setIntensity, setIntensityDisplay],
+    [applyVisualOptions, paid, renderMode, setIntensity, setIntensityDisplay, showIntensityBanner],
   );
 
   // Handle render mode change
@@ -265,6 +301,10 @@ export function MobileCreate({
     (mode: RenderModeId) => {
       if ((mode === "cinematic" || mode === "luxe") && !paid) {
         track("paywall_render_mode_blocked", { mode });
+        if (!showRenderModeBanner) {
+          setShowRenderModeBanner(true);
+          track("mobile_render_mode_upsell_shown", { mode });
+        }
         return;
       }
       setRenderMode(mode);
@@ -274,7 +314,7 @@ export function MobileCreate({
       applyVisualOptions(mode, targetLevel);
       track("render_mode_changed", { mode });
     },
-    [applyVisualOptions, intensityDisplay, paid, setIntensity, setIntensityDisplay, setRenderMode],
+    [applyVisualOptions, intensityDisplay, paid, setIntensity, setIntensityDisplay, setRenderMode, showRenderModeBanner],
   );
 
   const handleStartPreset = useCallback(() => {
@@ -371,6 +411,42 @@ export function MobileCreate({
     };
   }, []);
 
+  // Auto-dismiss render mode upsell banner after 20 seconds
+  useEffect(() => {
+    if (!showRenderModeBanner) return;
+    if (renderModeBannerTimerRef.current) {
+      clearTimeout(renderModeBannerTimerRef.current);
+    }
+    renderModeBannerTimerRef.current = setTimeout(() => {
+      setShowRenderModeBanner(false);
+      renderModeBannerTimerRef.current = null;
+    }, 20000);
+    return () => {
+      if (renderModeBannerTimerRef.current) {
+        clearTimeout(renderModeBannerTimerRef.current);
+        renderModeBannerTimerRef.current = null;
+      }
+    };
+  }, [showRenderModeBanner]);
+
+  // Auto-dismiss font upsell banner after 20 seconds
+  useEffect(() => {
+    if (!showFontBanner) return;
+    if (fontBannerTimerRef.current) {
+      clearTimeout(fontBannerTimerRef.current);
+    }
+    fontBannerTimerRef.current = setTimeout(() => {
+      setShowFontBanner(false);
+      fontBannerTimerRef.current = null;
+    }, 20000);
+    return () => {
+      if (fontBannerTimerRef.current) {
+        clearTimeout(fontBannerTimerRef.current);
+        fontBannerTimerRef.current = null;
+      }
+    };
+  }, [showFontBanner]);
+
   useEffect(() => {
     if (!canReveal || revealed) {
       setShowStickyCTA(false);
@@ -423,15 +499,23 @@ export function MobileCreate({
   const handleStyleChange = useCallback(
     (styleId: typeof selectedStyle) => {
       setStyle(styleId);
+      const tier: MapLookTier =
+        renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
+      const tierOptions = tier === "custom" ? {} : applyMapLookTier(tier, styleId);
       const defaults = applyStyleDefaults(styleId, textBoxes);
-      if (Object.keys(defaults.renderOptions).length) {
-        setRenderOptions(defaults.renderOptions);
+      const mergedOptions = { ...defaults.renderOptions, ...tierOptions };
+      if (Object.keys(mergedOptions).length) {
+        setRenderOptions(mergedOptions);
       }
-      if (defaults.textBoxes !== textBoxes) {
-        setTextBoxes(defaults.textBoxes);
+      const nextText =
+        tier === "custom"
+          ? defaults.textBoxes
+          : applyTierTypography(tier, styleId, defaults.textBoxes);
+      if (nextText !== textBoxes) {
+        setTextBoxes(nextText);
       }
     },
-    [setRenderOptions, setStyle, setTextBoxes, textBoxes],
+    [renderOptions, selectedStyle, setRenderOptions, setStyle, setTextBoxes, textBoxes],
   );
 
   return (
@@ -464,25 +548,25 @@ export function MobileCreate({
               </span>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
             <button
               type="button"
               onClick={applySampleMoment}
-              className="rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
+              className="w-full rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md sm:w-auto"
             >
               Try a sample moment
             </button>
             <button
               type="button"
               onClick={handleStartPreset}
-              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
+              className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10 sm:w-auto"
             >
               Browse occasion presets
             </button>
             <button
               type="button"
               onClick={handleStartScratch}
-              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10"
+              className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:border-white/30 hover:bg-white/10 sm:w-auto"
             >
               Start empty
             </button>
@@ -650,6 +734,34 @@ export function MobileCreate({
             ))}
           </div>
 
+          {!paid && showRenderModeBanner && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+              <p className="text-[11px] font-semibold text-amber-100">
+                This render mode requires HD access — unlock to apply it
+              </p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    track("mobile_render_mode_upsell_clicked");
+                    onIntensityPaywall?.();
+                  }}
+                  className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                >
+                  Unlock HD →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRenderModeBanner(false)}
+                  aria-label="Dismiss render mode upsell"
+                  className="text-amber-100/60 hover:text-amber-100 text-[14px] leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-white">Intensity</label>
@@ -665,6 +777,33 @@ export function MobileCreate({
               aria-valuetext={`Intensity: ${intensityDisplay}%`}
               className="w-full accent-amber-400"
             />
+            {!paid && showIntensityBanner && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+                <p className="text-[11px] font-semibold text-amber-100">
+                  Intensity locked at 60% — unlock more with HD access
+                </p>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      track("mobile_intensity_upsell_clicked");
+                      onIntensityPaywall?.();
+                    }}
+                    className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                  >
+                    Unlock HD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowIntensityBanner(false)}
+                    aria-label="Dismiss intensity upsell"
+                    className="text-amber-100/60 hover:text-amber-100 text-[14px] leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -696,22 +835,32 @@ export function MobileCreate({
             type="button"
             onClick={handleReveal}
             disabled={!canReveal || isRevealing}
-            aria-label="Generate preview"
+            aria-label={
+              isRevealing
+                ? "Revealing your sky"
+                : canReveal
+                  ? "Generate preview"
+                  : previewUnlockButtonLabel
+            }
             className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] ${
               canReveal && !isRevealing
                 ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                 : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
             }`}
           >
-            {isRevealing ? "Revealing your sky..." : "Generate preview"}
+            {isRevealing ? "Revealing your sky..." : canReveal ? "Generate preview" : previewUnlockButtonLabel}
           </button>
           <div className="text-xs text-neutral-400">
             <p>
               {isRevealing
                 ? revealStage.description
-                : revealBlockedMessage}
+                : canReveal
+                  ? previewReadyMessage
+                  : previewLockedMessage}
             </p>
-            <p className="text-[11px] text-neutral-500">Free preview, HD optional.</p>
+            <p className="text-[11px] text-neutral-500">
+              {canReveal ? "Free preview, HD optional." : "Free preview, HD optional after you add date + place."}
+            </p>
           </div>
         </div>
       )}
@@ -771,7 +920,7 @@ export function MobileCreate({
                                 [box.id]: !isCollapsed,
                               }))
                             }
-                            aria-expanded={!isCollapsed}
+                            aria-expanded={isCollapsed ? "false" : "true"}
                             aria-controls={`text-style-${box.id}`}
                             className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
                           >
@@ -800,6 +949,10 @@ export function MobileCreate({
                                   const fontMeta = fontOptions.find((opt) => opt.id === next);
                                   if (fontMeta?.premium && !paid) {
                                     track("paywall_font_blocked", { font: next });
+                                    if (!showFontBanner) {
+                                      setShowFontBanner(true);
+                                      track("mobile_font_upsell_shown", { font: next });
+                                    }
                                     return;
                                   }
                                   updateTextBox(box.id, { fontFamily: next });
@@ -861,7 +1014,7 @@ export function MobileCreate({
                                   : "border-white/15 bg-white/10 text-white"
                               }`}
                               aria-label={`Toggle shadow for ${box.label}`}
-                              aria-pressed={box.textShadow}
+                            aria-pressed={box.textShadow ? "true" : "false"}
                             >
                               Shadow
                             </button>
@@ -874,7 +1027,7 @@ export function MobileCreate({
                                   : "border-white/15 bg-white/10 text-white"
                               }`}
                               aria-label={`Toggle glow for ${box.label}`}
-                              aria-pressed={box.textGlow}
+                            aria-pressed={box.textGlow ? "true" : "false"}
                             >
                               Glow
                             </button>
@@ -884,6 +1037,33 @@ export function MobileCreate({
                     </div>
                   );
                 })}
+                {!paid && showFontBanner && (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+                    <p className="text-[11px] font-semibold text-amber-100">
+                      This font style requires HD access — unlock to apply it
+                    </p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          track("mobile_font_upsell_clicked");
+                          onIntensityPaywall?.();
+                        }}
+                        className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                      >
+                        Unlock HD →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowFontBanner(false)}
+                        aria-label="Dismiss font upsell"
+                        className="text-amber-100/60 hover:text-amber-100 text-[14px] leading-none"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={addTextBox}
@@ -896,6 +1076,52 @@ export function MobileCreate({
 
             {/* Style */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 id="mobile-map-look-label" className="text-xs font-semibold text-white">
+                  Map look
+                </h3>
+                {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tier = resolveMapLookTier(renderOptions, selectedStyle);
+                      setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
+                    }}
+                    className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90"
+                  >
+                    Reset typography
+                  </button>
+                )}
+              </div>
+              <div
+                role="radiogroup"
+                aria-labelledby="mobile-map-look-label"
+                className="mb-3 grid grid-cols-3 gap-1.5"
+              >
+                {mapLookTiers.map((tier) => {
+                  const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+                  return (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={activeTier === tier.id ? "true" : "false"}
+                      aria-label={`${tier.label}: ${tier.description}`}
+                      onClick={() => {
+                        setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
+                        setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
+                      }}
+                      className={`min-h-[2.75rem] rounded-md border px-2 py-2 text-left transition ${
+                        activeTier === tier.id
+                          ? "!text-midnight border-amber-300 bg-amber-100"
+                          : "border-white/15 bg-white/10 text-white"
+                      }`}
+                    >
+                      <div className="text-[11px] font-semibold">{tier.label}</div>
+                    </button>
+                  );
+                })}
+              </div>
               <h3 className="text-xs font-semibold text-white mb-2">Style</h3>
               <div className="grid grid-cols-2 gap-2">
                 {styles.map((style) => {
@@ -1037,6 +1263,8 @@ export function MobileCreate({
                         type="color"
                         value={renderOptions.constellationColor || "#ffffff"}
                         onChange={(e) => setRenderOptions({ constellationColor: e.target.value })}
+                        aria-label="Constellation line color"
+                        title="Constellation line color"
                         className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
                       />
                     </div>
@@ -1195,7 +1423,9 @@ export function MobileCreate({
                   <p>
                     {isRevealing
                       ? "Locking in your sky details..."
-                      : "Add date + location to reveal your sky. Presets optional."}
+                      : canReveal
+                        ? "Preview is ready. Tap Generate preview to reveal your sky."
+                        : previewLockedMessage}
                   </p>
                   {canReveal ? (
                     isRevealing ? (
@@ -1257,14 +1487,18 @@ export function MobileCreate({
                       type="button"
                       onClick={handleReveal}
                       disabled
-                      aria-label="Generate preview"
+                      aria-label={previewUnlockButtonLabel}
                       className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
                     >
-                      Generate preview
+                      {previewUnlockButtonLabel}
                     </button>
                   )}
                   <p className="text-[10px] text-neutral-300">
-                    {isRevealing ? "This usually takes about a second." : "Free preview, HD optional."}
+                    {isRevealing
+                      ? "This usually takes about a second."
+                      : canReveal
+                        ? "Free preview, HD optional."
+                        : "Free preview, HD optional after you add date + place."}
                   </p>
                   {printCheckoutEnabled && (
                     <p className="text-[10px] text-amber-100/90">
@@ -1307,21 +1541,30 @@ export function MobileCreate({
           )}
             {printCheckoutEnabled && onStartPrintCheckout && (
               <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-2.5">
-                <p className="text-[11px] font-semibold text-amber-100">Buy a printed or framed gift</p>
-                <p className="mt-1 text-[10px] text-amber-100/80">
-                  Secure checkout collects shipping details, shows shipping before payment, and creates your print
-                  order right after payment. {shippingDisclosure}
-                </p>
-                <div className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2 text-[10px] text-amber-100/85">
-                  <span className="font-semibold text-amber-100">Best gift:</span> framed print.{" "}
-                  <span className="font-semibold text-amber-100">Lower total:</span> unframed poster.
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] font-semibold text-amber-100">Buy a physical gift from this exact preview</p>
+                  <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-100">
+                    Framed + HD recommended
+                  </span>
                 </div>
+                <p className="mt-1 text-[10px] text-amber-100/80">
+                  Start with the framed gift-ready path. Shipping shows before payment, and your print order is created
+                  right after checkout. {shippingDisclosure}
+                </p>
+                {posterAspectMismatch && (
+                  <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
+                )}
                 {printShippingCountries.length > 0 && (
                   <div className="mt-2">
-                    <label className="text-[10px] font-semibold text-amber-100/80">Shipping country</label>
+                    <label htmlFor="mobile-print-shipping-country" className="text-[10px] font-semibold text-amber-100/80">
+                      Shipping country
+                    </label>
                     <select
+                      id="mobile-print-shipping-country"
                       value={printShippingCountry ?? ""}
                       onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                      aria-label="Shipping country"
+                      title="Shipping country"
                       className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
                       style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
@@ -1341,39 +1584,79 @@ export function MobileCreate({
                         Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}
                       </p>
                     ) : null}
+                    <PrintGiftDecisionPanel
+                      printShippingCountry={printShippingCountry}
+                      sizingVariant={preferredPrintVariant}
+                      compact
+                      showGiftLadder={false}
+                    />
                   </div>
                 )}
-                <div className="mt-2 flex flex-col gap-2">
-                  {printCheckoutRows.map((row) => (
-                    <button
-                      key={`${row.variant}-${row.includeDigitalAddOn ? "hd" : "print"}`}
-                      type="button"
-                      onClick={() =>
-                        onStartPrintCheckout({
-                          variant: row.variant,
-                          includeDigitalAddOn: row.includeDigitalAddOn,
-                        })
-                      }
-                      disabled={!printShippingCountry || printCheckoutInFlight}
-                      className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant)}
-                    >
-                      {printCheckoutInFlight ? (
-                        "Opening secure checkout..."
-                      ) : (
-                        <span className="text-center leading-tight">
-                          <span className="block text-[11px] font-semibold">
-                            {row.recommended ? "🖼️ " : ""}
-                            {row.headline}
-                          </span>
-                          <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
+                {primaryPrintRow && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onStartPrintCheckout({
+                        variant: primaryPrintRow.variant,
+                        includeDigitalAddOn: primaryPrintRow.includeDigitalAddOn,
+                        includeCardAddOn: primaryPrintRow.includeCardAddOn,
+                      })
+                    }
+                    disabled={!printShippingCountry || printCheckoutInFlight}
+                    className={`${paywallPrintSkuButtonClassesMobile(primaryPrintRow, preferredPrintVariant, preferredIncludeDigitalAddOn)} mt-2 w-full`}
+                  >
+                    {printCheckoutInFlight ? (
+                      "Opening secure checkout..."
+                    ) : (
+                      <span className="text-center leading-tight">
+                        <span className="block text-[11px] font-semibold">
+                          {primaryPrintRow.recommended ? "🖼️ " : ""}
+                          {primaryPrintRow.headline}
                         </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                        <span className="block text-[10px] text-amber-100/95">{primaryPrintRow.secondaryLine}</span>
+                      </span>
+                    )}
+                  </button>
+                )}
+                {alternatePrintRows.length > 0 && (
+                  <details className="mt-2 rounded-lg border border-amber-300/30 bg-black/15 px-3 py-2">
+                    <summary className="cursor-pointer list-none text-[10px] font-semibold text-amber-100">
+                      Other print options
+                    </summary>
+                    <div className="mt-2 flex flex-col gap-2">
+                      {alternatePrintRows.map((row) => (
+                        <button
+                          key={paywallPrintCheckoutRowKey(row)}
+                          type="button"
+                          onClick={() =>
+                            onStartPrintCheckout({
+                              variant: row.variant,
+                              includeDigitalAddOn: row.includeDigitalAddOn,
+                              includeCardAddOn: row.includeCardAddOn,
+                            })
+                          }
+                          disabled={!printShippingCountry || printCheckoutInFlight}
+                          className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant, preferredIncludeDigitalAddOn)}
+                        >
+                          {printCheckoutInFlight ? (
+                            "Opening secure checkout..."
+                          ) : (
+                            <span className="text-center leading-tight">
+                              <span className="block text-[11px] font-semibold">
+                                {row.recommended ? "🖼️ " : ""}
+                                {row.headline}
+                              </span>
+                              <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                )}
                 {!printShippingCountry && (
                   <p className="mt-2 text-[10px] font-semibold text-amber-100/85">
-                    Choose your shipping country to unlock print checkout buttons.
+                    Choose your shipping country to show shipping pricing and unlock print checkout.
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
@@ -1417,7 +1700,7 @@ export function MobileCreate({
               <button
                 type="button"
                 onClick={handleCustomizeMore}
-                aria-expanded={showEditor}
+                aria-expanded={showEditor ? "true" : "false"}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95"
               >
                 {showEditor ? "Less options" : "Customize more"}
@@ -1430,9 +1713,9 @@ export function MobileCreate({
         <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 rounded-2xl border border-amber-200/40 bg-[#0b0f24]/95 px-4 py-3 shadow-xl shadow-black/30 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold text-white">Ready to reveal your sky?</p>
+              <p className="text-xs font-semibold text-white">Preview is ready</p>
               <p className="text-[10px] text-neutral-300">
-                {isRevealing ? "Rendering your reveal..." : "Free preview, HD optional."}
+                Free preview. HD export is optional.
               </p>
             </div>
             <button
@@ -1440,13 +1723,9 @@ export function MobileCreate({
               onClick={handleReveal}
               data-testid="mobile-sticky-generate"
               disabled={isRevealing}
-              className={`rounded-full px-3 py-2 text-xs font-semibold text-midnight shadow-md transition ${
-                isRevealing
-                  ? "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
-                  : "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:-translate-y-[1px] hover:shadow-lg"
-              }`}
+              className="rounded-full px-3 py-2 text-xs font-semibold text-midnight shadow-md transition bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:-translate-y-[1px] hover:shadow-lg"
             >
-              {isRevealing ? "Revealing..." : "Generate preview"}
+              Reveal preview
             </button>
           </div>
         </div>

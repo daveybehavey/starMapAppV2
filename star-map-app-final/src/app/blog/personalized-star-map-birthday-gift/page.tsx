@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 import Link from "next/link";
 
 const title = "Personalized Birthday Star Map Gift Guide";
@@ -121,7 +122,11 @@ export default function PersonalizedBirthdayPost() {
             <h3 className="text-xl font-semibold text-amber-100">Astronomical Data</h3>
             <p>
               Using catalogs like the Yale Bright Star Catalog, software calculates precise star positions based on date,
-              time, and coordinates.
+              time, and coordinates. If you want to understand what inputs matter most before you buy, read{" "}
+              <Link href="/how-accurate-are-star-maps?source=blog-birthday" className="text-amber-300 hover:underline">
+                how accurate star maps are
+              </Link>
+              .
             </p>
             <h3 className="text-xl font-semibold text-amber-100">Customization Layer</h3>
             <p>Add text, styles, and frames; real-time previews ensure it looks right before finalizing.</p>
@@ -211,9 +216,13 @@ export default function PersonalizedBirthdayPost() {
               Where to Get a Personalized Star Map Birthday Gift
             </h2>
             <p>
-              Look for providers with accurate data, HD options, and easy customization. Ready to make one?{" "}
+              Look for providers with accurate data, HD options, and easy customization. Start on the{" "}
+              <Link href="/birthday?source=blog-birthday" className="text-amber-300 hover:underline">
+                birthday star map gift page
+              </Link>{" "}
+              for a preview-first path, or{" "}
               <Link href="/editor?mode=quick&source=blog-birthday-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with framed print preview
+                jump straight to a framed print preview
               </Link>
               .
             </p>
@@ -256,6 +265,8 @@ export default function PersonalizedBirthdayPost() {
               story. Perfect for creating lasting memories.
             </p>
           </section>
+
+          <BlogPostConversionLinks source="birthday-star-map-gift" postSlug="personalized-star-map-birthday-gift" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

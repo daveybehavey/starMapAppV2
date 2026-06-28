@@ -10,6 +10,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
+import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -223,7 +224,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         rightPoints={[
           "Unframed and framed print paths are available after preview",
           shippingDisclosure,
-          "Physical orders stay in manual review before production starts",
+          getPrintPhysicalOrderSummaryLine(),
           "Support is available at support@starmapco.com",
         ]}
         guideLabel="Print and frame guide"

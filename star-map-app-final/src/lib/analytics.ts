@@ -1,9 +1,17 @@
 import type { FunnelStep } from "./funnelSteps";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
+import { pushDataLayer } from "./googleTagManager";
+import { buildGa4MarketingParams } from "./marketingAttributionGa4";
+import {
+  trackPinterestAddToCart,
+  trackPinterestCheckout,
+  trackPinterestPageView,
+} from "./pinterestTag";
 
 export type EventProps = Record<string, string | number | boolean | undefined | null>;
 
 export const ANALYTICS_STORAGE_KEY = "analytics-consent";
+export const PENDING_GA4_PURCHASE_KEY = "ga4:pending-purchase";
 
 let posthogPromise: Promise<typeof import("posthog-js").default> | null = null;
 
@@ -12,6 +20,7 @@ type CheckoutAnalyticsInput = {
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant | null;
   includeDigitalAddOn?: boolean;
+  includeCardAddOn?: boolean;
   value?: number | null;
   currency?: string | null;
 };
@@ -110,6 +119,21 @@ export function runWhenIdle(task: () => void, timeout = 1200) {
   }
 }
 
+function capturePosthog(event: string, props?: EventProps) {
+  if (!canTrackAnalytics()) return;
+  const payload = removeUndefinedValues({
+    ...props,
+    route: window.location.pathname,
+  });
+  try {
+    void loadPosthogClient().then((posthog) => {
+      posthog.capture?.(event, payload);
+    });
+  } catch {
+    // silently ignore tracking errors
+  }
+}
+
 export function track(event: string, props?: EventProps) {
   if (!canTrackAnalytics()) return;
   const payload = removeUndefinedValues({
@@ -157,7 +181,9 @@ function getCheckoutItemName(input: CheckoutAnalyticsInput) {
 }
 
 function estimateCheckoutValue(input: CheckoutAnalyticsInput) {
-  if (typeof input.value === "number" && Number.isFinite(input.value)) return input.value;
+  if (typeof input.value === "number" && Number.isFinite(input.value) && input.value > 0) {
+    return input.value;
+  }
   if (input.orderType === "print") {
     const variant = input.printVariant ?? "poster_unframed";
     const base = PRINT_VARIANT_BASE_CENTS[variant] ?? PRINT_VARIANT_BASE_CENTS.poster_unframed;
@@ -213,21 +239,168 @@ export function trackSelectItem(input: ItemSelectionAnalyticsInput) {
 }
 
 export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: string }) {
+  const value = estimateCheckoutValue(input);
+  const currency = getCheckoutCurrency(input);
+  const items = [buildGaItem(input)];
+  const marketing = buildGa4MarketingParams();
   sendGaEvent("begin_checkout", {
-    currency: getCheckoutCurrency(input),
-    value: estimateCheckoutValue(input),
-    items: [buildGaItem(input)],
+    currency,
+    value,
+    items,
+    source: input.source,
+    ...marketing,
+  });
+  pushDataLayer({
+    event: "begin_checkout",
+    currency,
+    value,
+    source: input.source,
+    order_type: input.orderType ?? "digital",
+    print_variant: input.printVariant ?? undefined,
+    ...marketing,
+  });
+  if (canTrackAnalytics()) {
+    trackPinterestAddToCart({ value, currency });
+  }
+  track("checkout_started", {
+    currency,
+    value,
+    order_type: input.orderType ?? "digital",
+    plan: input.plan ?? undefined,
+    print_variant: input.printVariant ?? undefined,
+    include_digital_add_on: input.includeDigitalAddOn ?? undefined,
     source: input.source,
   });
 }
 
-export function trackPurchaseCompleted(input: PurchaseAnalyticsInput) {
+function persistPendingGa4Purchase(input: PurchaseAnalyticsInput) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(PENDING_GA4_PURCHASE_KEY, JSON.stringify(input));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function ga4ServerPurchaseTrackingEnabled() {
+  return process.env.NEXT_PUBLIC_GA4_SERVER_PURCHASES === "true";
+}
+
+export function trackPurchaseCompleted(
+  input: PurchaseAnalyticsInput,
+  options?: { skipAnalytics?: boolean },
+) {
+  if (options?.skipAnalytics) return;
+
+  const paidTotal =
+    typeof input.value === "number" && Number.isFinite(input.value) ? input.value : null;
+  const serverOnly =
+    ga4ServerPurchaseTrackingEnabled() && (paidTotal === null || paidTotal > 0);
+
+  if (serverOnly) {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
+      } catch {
+        // Ignore storage failures.
+      }
+    }
+    const marketing = buildGa4MarketingParams();
+    // PostHog revenue still fires client-side when consent is granted (server has no PostHog secret).
+    if (canTrackAnalytics()) {
+      const value = estimateCheckoutValue(input);
+      const currency = getCheckoutCurrency(input);
+      capturePosthog("purchase", {
+        transaction_id: input.transactionId,
+        revenue: value,
+        currency: getCheckoutCurrency(input),
+        value,
+        order_type: input.orderType ?? "digital",
+        plan: input.plan ?? undefined,
+        print_variant: input.printVariant ?? undefined,
+        include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+        ga4_server_primary: true,
+        ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
+        ...marketing,
+      });
+      pushDataLayer({
+        event: "purchase",
+        transaction_id: input.transactionId,
+        currency,
+        value,
+        order_type: input.orderType ?? "digital",
+        print_variant: input.printVariant ?? undefined,
+        ga4_server_primary: true,
+        ...marketing,
+      });
+      trackPinterestCheckout({ value, currency, orderId: input.transactionId });
+    }
+    return;
+  }
+
+  if (!canTrackAnalytics()) {
+    persistPendingGa4Purchase(input);
+    return;
+  }
+
+  const value = estimateCheckoutValue(input);
+  const currency = getCheckoutCurrency(input);
+  const items = [buildGaItem({ ...input, value })];
+  const marketing = buildGa4MarketingParams();
   sendGaEvent("purchase", {
     transaction_id: input.transactionId,
-    currency: getCheckoutCurrency(input),
-    value: estimateCheckoutValue(input),
-    items: [buildGaItem(input)],
+    currency,
+    value,
+    ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
+    items,
+    ...marketing,
   });
+  pushDataLayer({
+    event: "purchase",
+    transaction_id: input.transactionId,
+    currency,
+    value,
+    order_type: input.orderType ?? "digital",
+    print_variant: input.printVariant ?? undefined,
+    ...marketing,
+  });
+  trackPinterestCheckout({ value, currency, orderId: input.transactionId });
+  track("purchase", {
+    transaction_id: input.transactionId,
+    revenue: value,
+    currency,
+    value,
+    order_type: input.orderType ?? "digital",
+    plan: input.plan ?? undefined,
+    print_variant: input.printVariant ?? undefined,
+    include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+    ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
+  });
+  try {
+    sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+/** Fire a purchase saved on /success when the user grants analytics consent afterward. */
+export function flushPendingGa4Purchase() {
+  if (ga4ServerPurchaseTrackingEnabled() || !canTrackAnalytics() || typeof window === "undefined") return;
+  try {
+    const raw = sessionStorage.getItem(PENDING_GA4_PURCHASE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as PurchaseAnalyticsInput;
+    if (!parsed?.transactionId) return;
+    const dedupeKey = `ga4:purchase:${parsed.transactionId}`;
+    if (sessionStorage.getItem(dedupeKey) === "true") {
+      sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
+      return;
+    }
+    trackPurchaseCompleted(parsed);
+    sessionStorage.setItem(dedupeKey, "true");
+  } catch {
+    // Ignore parse/storage failures.
+  }
 }
 
 export function trackPageView(input?: {
@@ -247,6 +420,15 @@ export function trackPageView(input?: {
     page_title: input?.title || document.title,
     page_location: location,
   });
+  pushDataLayer({
+    event: "page_view",
+    page_path: path,
+    page_title: input?.title || document.title,
+    page_location: location,
+  });
+  if (canTrackAnalytics()) {
+    trackPinterestPageView();
+  }
 }
 
 function postFunnelCounter(payload: {
@@ -435,4 +617,35 @@ export function hasAnalyticsConsent() {
   } catch {
     return false;
   }
+}
+
+export function isAnalyticsConsentUnset() {
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = localStorage.getItem(ANALYTICS_STORAGE_KEY);
+    return stored !== "true" && stored !== "false";
+  } catch {
+    return true;
+  }
+}
+
+export function hasPendingGa4Purchase() {
+  if (typeof window === "undefined") return false;
+  try {
+    return Boolean(sessionStorage.getItem(PENDING_GA4_PURCHASE_KEY));
+  } catch {
+    return false;
+  }
+}
+
+/** Grant consent from an inline nudge (e.g. /success) and replay any deferred purchase event. */
+export function grantAnalyticsConsentFromUi() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ANALYTICS_STORAGE_KEY, "true");
+  } catch {
+    // Ignore storage failures.
+  }
+  window.dispatchEvent(new CustomEvent("starmap:analytics-consent"));
+  flushPendingGa4Purchase();
 }

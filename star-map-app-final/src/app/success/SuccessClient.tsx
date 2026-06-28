@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
@@ -21,6 +20,7 @@ import {
   type CheckoutPlan,
   type PrintVariant,
 } from "@/lib/pricing";
+import { getPrintFulfillmentProgressSteps, getPrintOrderIncludesDigitalNote } from "@/lib/commerceFacts";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   buildReferralShareUrl,
@@ -32,6 +32,7 @@ import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
 import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
+import { buildDownloadPath } from "@/lib/stripeCheckoutNavigation";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -69,6 +70,16 @@ const referralRewardCredits = (() => {
 })();
 const referralRewardCreditsLabel = `${referralRewardCredits} HD credit${referralRewardCredits === 1 ? "" : "s"}`;
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim() || "support@starmapco.com";
+
+type PrintOrderSummary = {
+  kvStatus: "pending" | "sent" | "failed" | null;
+  printfulOrderId: string | number | null;
+  confirmationEmailSent: boolean;
+  shippingNotificationSent: boolean;
+};
+
+const printFulfillmentSteps = getPrintFulfillmentProgressSteps();
+const printOrderIncludesDigitalNote = getPrintOrderIncludesDigitalNote();
 
 function readStoredMapId() {
   if (typeof window === "undefined") return null;
@@ -108,6 +119,8 @@ export default function SuccessClient() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [referralPostCopied, setReferralPostCopied] = useState(false);
   const [referralSummary, setReferralSummary] = useState<ReferralSummary>(DEFAULT_REFERRAL_SUMMARY);
+  const [printSummary, setPrintSummary] = useState<PrintOrderSummary | null>(null);
+  const [printLinkCopied, setPrintLinkCopied] = useState(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRedirectRef = useRef(true);
   const printUpsellTrackedRef = useRef(false);
@@ -121,6 +134,17 @@ export default function SuccessClient() {
       priceLine: `${formatPrice(printTiers[card.variant].amountCents, printTiers[card.variant].currency)} + shipping shown at checkout`,
     }));
   }, [printTiers]);
+  const successPrintRecommendedCard = useMemo(
+    () => successPrintUpsellCards.find((card) => card.variant === "poster_framed") ?? successPrintUpsellCards[0] ?? null,
+    [successPrintUpsellCards],
+  );
+  const successPrintSecondaryCards = useMemo(
+    () =>
+      successPrintRecommendedCard
+        ? successPrintUpsellCards.filter((card) => card.variant !== successPrintRecommendedCard.variant)
+        : successPrintUpsellCards,
+    [successPrintRecommendedCard, successPrintUpsellCards],
+  );
 
   const pauseRedirect = useCallback(() => {
     autoRedirectRef.current = false;
@@ -196,7 +220,7 @@ export default function SuccessClient() {
         throw new Error(payload?.error ?? "request_failed");
       }
       setAccessEmailStatus("sent");
-      setAccessEmailMessage("Sent. Check your email for the secure access link.");
+      setAccessEmailMessage("Sent. Check your email to open all downloads in My Downloads.");
       track("access_link_email_requested", { source: "success", outcome: "sent" });
     } catch {
       setAccessEmailStatus("error");
@@ -204,13 +228,6 @@ export default function SuccessClient() {
       track("access_link_email_requested", { source: "success", outcome: "error" });
     }
   }, [pauseRedirect]);
-
-  const handleOpenAccessLink = useCallback(() => {
-    if (!accessLink) return;
-    pauseRedirect();
-    track("success_recovery_action", { action: "open_access_link" });
-    window.open(accessLink, "_blank", "noopener,noreferrer");
-  }, [accessLink, pauseRedirect]);
 
   const handleManageBilling = useCallback(async () => {
     if (portalLoading) return;
@@ -263,7 +280,7 @@ export default function SuccessClient() {
         const code = (data as { code?: string } | null)?.code;
         if (code === "map_required") throw new Error("map_required");
         if (code === "map_not_found") throw new Error("map_not_found");
-        throw new Error(data?.error ?? "checkout_failed");
+        throw new Error(code ?? data?.error ?? "checkout_failed");
       }
       track("digital_addon_started", {
         source: "success",
@@ -530,6 +547,7 @@ export default function SuccessClient() {
             orderType?: CheckoutOrderType;
             printVariant?: PrintVariant | null;
             includesDigitalAddOn?: boolean;
+            printSummary?: PrintOrderSummary | null;
           } | null;
           if (data?.paid) {
             const verifiedPlan =
@@ -568,6 +586,9 @@ export default function SuccessClient() {
             setCurrentPlan(verifiedPlan);
             setOrderType(verifiedOrderType);
             setPrintVariant(verifiedPrintVariant);
+            if (verifiedOrderType === "print" && data.printSummary) {
+              setPrintSummary(data.printSummary);
+            }
             const resolvedMapId = mapIdParam || (typeof data.mapId === "string" ? data.mapId : null);
             setResolvedMapId(resolvedMapId);
             if (hasDigitalEntitlement) {
@@ -589,10 +610,9 @@ export default function SuccessClient() {
             if (hasDigitalEntitlement) {
               redirectTimerRef.current = setTimeout(() => {
                 if (!autoRedirectRef.current) return;
-                const nextUrl = resolvedMapId
-                  ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                  : "/download";
-                router.replace(nextUrl);
+                router.replace(
+                  buildDownloadPath({ sessionId, mapId: resolvedMapId ?? undefined }),
+                );
               }, 3500);
             }
             return;
@@ -619,6 +639,64 @@ export default function SuccessClient() {
   const hasDigitalEntitlement =
     currentPlan === "single" || currentPlan === "pack3" || currentPlan === "subscription";
   const isPrintOrder = orderType === "print";
+  const sessionIdParam = searchParams.get("session_id")?.trim() || "";
+  const printProductLabel = useMemo(() => {
+    if (!printVariant) return "Custom star map print";
+    return printTiers[printVariant]?.label ?? "Custom star map print";
+  }, [printTiers, printVariant]);
+  const printOrderReference = useMemo(() => {
+    const sessionSuffix = sessionIdParam.length > 8 ? sessionIdParam.slice(-8) : sessionIdParam;
+    if (printSummary?.printfulOrderId) {
+      return `#${String(printSummary.printfulOrderId)} (···${sessionSuffix})`;
+    }
+    return sessionSuffix ? `···${sessionSuffix}` : null;
+  }, [printSummary?.printfulOrderId, sessionIdParam]);
+
+  const handleCopyPrintConfirmationLink = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    pauseRedirect();
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setPrintLinkCopied(true);
+      window.setTimeout(() => setPrintLinkCopied(false), 2500);
+    } catch {
+      setPrintLinkCopied(false);
+    }
+  }, [pauseRedirect]);
+
+  useEffect(() => {
+    if (status !== "success" || !isPrintOrder || !sessionIdParam) return;
+    if (printSummary?.kvStatus === "sent") return;
+
+    let active = true;
+    let attempts = 0;
+    const poll = async () => {
+      if (!active || attempts >= 3) return;
+      attempts += 1;
+      try {
+        const res = await fetch(`/api/stripe/verify?session_id=${encodeURIComponent(sessionIdParam)}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as { printSummary?: PrintOrderSummary | null } | null;
+        if (data?.printSummary) {
+          setPrintSummary(data.printSummary);
+          if (data.printSummary.kvStatus === "sent") return;
+        }
+      } catch {
+        // ignore transient verify errors during fulfillment polling
+      }
+      if (active && attempts < 3) {
+        window.setTimeout(() => void poll(), 3000);
+      }
+    };
+
+    const timer = window.setTimeout(() => void poll(), 3000);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [isPrintOrder, printSummary?.kvStatus, sessionIdParam, status]);
 
   useEffect(() => {
     if (status !== "success" || !hasDigitalEntitlement) return;
@@ -704,7 +782,7 @@ export default function SuccessClient() {
               ? isPrintOrder
                 ? hasDigitalEntitlement
                   ? "Your print order is placed and your HD file is unlocked."
-                  : "Your print order is placed. We'll review it and email updates before production begins."
+                  : "Payment received. We are preparing your print order now."
                 : "We are preparing your print-ready star map. This will only take a moment."
               : "Confirming your payment with Stripe. This can take up to 45 seconds."}
         </p>
@@ -726,8 +804,10 @@ export default function SuccessClient() {
               <p className="relative mt-2 text-xs text-amber-100/80">
                 {isPrintOrder
                   ? hasDigitalEntitlement
-                  ? "Print order + HD digital add-on unlocked."
-                    : "Print order received. We'll email updates after review."
+                    ? "Print order + HD digital add-on unlocked."
+                    : printSummary?.confirmationEmailSent
+                      ? "Confirmation email sent. Tracking arrives when your order ships."
+                      : "Confirmation email on its way. Tracking arrives when your order ships."
                   : currentPlan === "subscription"
                     ? "Unlimited HD exports unlocked."
                     : currentPlan === "pack3"
@@ -742,6 +822,49 @@ export default function SuccessClient() {
                   : "Order confirmation complete"
                 : "Redirecting once your payment is confirmed"}
             </p>
+            {status === "success" && isPrintOrder && (
+              <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
+                <p className="text-sm font-semibold text-white">What happens next</p>
+                <p className="mt-1 text-xs text-amber-100/80">
+                  {printProductLabel}
+                  {printOrderReference ? ` · Ref ${printOrderReference}` : ""}
+                </p>
+                <ol className="mt-3 space-y-2 text-left text-xs text-amber-100/85">
+                  {printFulfillmentSteps.map((step) => (
+                    <li key={step} className="flex gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" aria-hidden />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-3 text-xs text-amber-100/80">
+                  Questions? Email{" "}
+                  <a href={`mailto:${supportEmail}`} className="font-semibold text-amber-200 underline">
+                    {supportEmail}
+                  </a>{" "}
+                  and include the email you used at checkout.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyPrintConfirmationLink()}
+                    className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                  >
+                    {printLinkCopied ? "Link copied" : "Save this page (copy link)"}
+                  </button>
+                  {printSummary?.kvStatus === "sent" && (
+                    <span className="rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+                      Submitted to production
+                    </span>
+                  )}
+                  {printSummary?.shippingNotificationSent && (
+                    <span className="rounded-full border border-sky-300/40 bg-sky-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-100">
+                      Tracking email sent
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             {status === "success" && (
               <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -756,7 +879,7 @@ export default function SuccessClient() {
                     </p>
                   </div>
                   {hasDigitalEntitlement ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={handleCopyAccessLink}
@@ -779,28 +902,6 @@ export default function SuccessClient() {
                           {accessEmailStatus === "sending" ? "Sending..." : "Email me link"}
                         </button>
                       )}
-                      {accessLink && accessLinkStatus === "ready" && (
-                        <button
-                          type="button"
-                          onClick={handleOpenAccessLink}
-                          className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
-                        >
-                          Open link
-                        </button>
-                      )}
-                      {accessLink && accessLinkStatus === "ready" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            pauseRedirect();
-                            track("success_recovery_action", { action: "new_access_link" });
-                            void createAccessLink(true);
-                          }}
-                          className="rounded-full border border-white/20 px-3 py-2 text-[11px] font-semibold text-amber-100/80 transition hover:border-white/40 hover:text-amber-100"
-                        >
-                          New link
-                        </button>
-                      )}
                     </div>
                   ) : (
                     <button
@@ -816,22 +917,14 @@ export default function SuccessClient() {
                 {hasDigitalEntitlement ? (
                   <>
                     <p className="mt-2 text-[11px] text-amber-100/70">
-                      Keep this link private — anyone with it can access your downloads.
-                    </p>
-                    {accessLink && accessLinkStatus === "ready" && (
-                      <p className="mt-1 break-all text-[11px] text-amber-100/85">{accessLink}</p>
-                    )}
-                    <p className="mt-1 text-[11px] text-amber-100/70">
-                      Mobile tip: on iPhone, downloaded files are in <strong>Files → Downloads</strong> (not Photos).
+                      Keep this link private — anyone with it can access your downloads, and My Downloads can reopen it later.
                     </p>
                     <p className="mt-1 text-[11px] text-amber-100/70">
-                      If your download page says map not found, open the editor once to create/load the map, then return to
-                      download.
+                      If you need the file on another device, copy or email the access link above.
                     </p>
                     {currentPlan === "pack3" && (
                       <p className="mt-1 text-[11px] text-amber-100/70">
-                        3-credit pack reminder: each HD export is for one map at a time. To use all 3 credits, edit/create
-                        your next map between downloads.
+                        3-credit pack: each HD export is for one map at a time.
                       </p>
                     )}
                     {accessLinkStatus === "error" && (
@@ -855,10 +948,12 @@ export default function SuccessClient() {
                       onClick={() => {
                         pauseRedirect();
                         track("success_recovery_action", { action: "go_to_download_now" });
-                        const nextUrl = resolvedMapId
-                          ? `/download?map_id=${encodeURIComponent(resolvedMapId)}`
-                          : "/download";
-                        router.replace(nextUrl);
+                        router.replace(
+                          buildDownloadPath({
+                            sessionId: searchParams.get("session_id"),
+                            mapId: resolvedMapId,
+                          }),
+                        );
                       }}
                       className="rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
                     >
@@ -920,68 +1015,88 @@ export default function SuccessClient() {
                           Print this map next
                         </p>
                         <p className="mt-1 text-xs text-amber-100/80">
-                          Turn this download into a premium gift. Your map stays attached and framed is the
-                          best-looking option. {printShippingDisclosure}
+                          Turn this download into a premium gift. Framed is the cleanest gift-ready finish. {printShippingDisclosure}
                         </p>
                       </div>
                       <span className="rounded-full border border-amber-200/40 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
                         Framed recommended
                       </span>
                     </div>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {successPrintUpsellCards.map((option) => (
-                        <div key={option.variant} className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                          <div className="p-3 pb-0">
+                    {successPrintRecommendedCard && (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                        <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+                          <div className="p-3 pb-0 lg:p-4 lg:pr-0 lg:pb-4">
                             <div className="relative aspect-[4/3] overflow-hidden rounded-[1.35rem]">
-                              <div className={option.sceneClass}>
+                              <div className={successPrintRecommendedCard.sceneClass}>
                                 <ResilientImage
-                                  src={option.imageSrc}
-                                  fallbackSrc={option.fallbackSrc}
-                                  alt={option.label}
+                                  src={successPrintRecommendedCard.imageSrc}
+                                  fallbackSrc={successPrintRecommendedCard.fallbackSrc}
+                                  alt={successPrintRecommendedCard.label}
                                   fill
-                                  sizes="(max-width: 768px) 100vw, 33vw"
-                                  className={option.imageClass}
+                                  sizes="(max-width: 768px) 100vw, 42vw"
+                                  className={successPrintRecommendedCard.imageClass}
                                 />
                               </div>
                               <span className="absolute left-4 top-4 rounded-full border border-black/10 bg-white/88 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-midnight shadow-sm">
-                                {option.sceneLabel}
+                                {successPrintRecommendedCard.sceneLabel}
                               </span>
                             </div>
                           </div>
-                          <div className="space-y-1 p-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-white">{option.label}</p>
-                              <span className="rounded-full border border-amber-200/35 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                                {option.badge}
-                              </span>
+                          <div className="flex flex-col justify-between gap-4 p-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                  Recommended
+                                </span>
+                                <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/80">
+                                  Gift-ready
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                <h5 className="text-base font-semibold text-white">{successPrintRecommendedCard.label}</h5>
+                                <p className="text-xs text-neutral-200">{successPrintRecommendedCard.detail}</p>
+                              </div>
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/85">
+                                {successPrintRecommendedCard.bestFor}
+                              </p>
+                              <p className="text-sm font-semibold text-amber-100">{successPrintRecommendedCard.priceLine}</p>
                             </div>
-                            <p className="text-[11px] text-amber-100/80">{option.detail}</p>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/75">{option.bestFor}</p>
-                            <p className="text-[11px] font-semibold text-amber-100">{option.priceLine}</p>
+                            <button
+                              type="button"
+                              onClick={() => void handleOpenPrintUpsell(successPrintRecommendedCard.variant)}
+                              className="inline-flex w-full items-center justify-center rounded-full border border-amber-100 bg-amber-300 px-4 py-2 text-xs font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] hover:bg-amber-200"
+                            >
+                              Start framed checkout
+                            </button>
                           </div>
                         </div>
-                      ))}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {PAYWALL_PRINT_VARIANT_ORDER.map((variant, idx) => (
-                        <button
-                          key={variant}
-                          type="button"
-                          onClick={() => handleOpenPrintUpsell(variant)}
-                          className={
-                            idx === 0
-                              ? "rounded-full bg-amber-400 px-4 py-2 text-[11px] font-semibold text-midnight shadow transition hover:-translate-y-[1px] hover:shadow-lg"
-                              : "rounded-full border border-white/25 px-4 py-2 text-[11px] font-semibold text-amber-100 transition hover:border-white/50 hover:text-white"
-                          }
-                        >
-                          {idx === 0 ? "Add " : ""}
-                          {printTiers[variant].label} (
-                          {formatPrice(printTiers[variant].amountCents, printTiers[variant].currency)} + shipping)
-                        </button>
-                      ))}
-                    </div>
+                    )}
+                    {successPrintSecondaryCards.length > 0 && (
+                      <details className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-semibold text-white/90">Other print formats</summary>
+                        <div className="mt-3 grid gap-2">
+                          {successPrintSecondaryCards.map((option) => (
+                            <button
+                              key={option.variant}
+                              type="button"
+                              onClick={() => void handleOpenPrintUpsell(option.variant)}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/5 px-3 py-2 text-left text-xs transition hover:-translate-y-[1px] hover:border-white/25 hover:bg-white/8"
+                            >
+                              <div className="min-w-0">
+                                <p className="font-semibold text-white">{option.label}</p>
+                                <p className="mt-0.5 text-[11px] text-neutral-300">{option.bestFor}</p>
+                              </div>
+                              <span className="shrink-0 rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                {option.priceLine}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                     <p className="mt-2 text-[11px] text-amber-100/70">
-                      Physical orders are reviewed before production begins, but your digital file stays available right away. {printShippingDisclosure}
+                      {printOrderIncludesDigitalNote}
                     </p>
                   </div>
                 )}
@@ -989,11 +1104,8 @@ export default function SuccessClient() {
                   <div className="mt-4 rounded-xl border border-violet-200/35 bg-violet-500/15 p-3 text-left">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-violet-100/90">
-                        Want stickers or apparel too?
+                        Stickers & apparel
                       </p>
-                      <span className="rounded-full border border-violet-200/40 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
-                        Merch beta
-                      </span>
                     </div>
                     <p className="mt-1 text-xs text-violet-100/85">
                       Turn this sky into kiss-cut stickers, magnets, pins, or DTG apparel — options ship like prints through
@@ -1010,45 +1122,21 @@ export default function SuccessClient() {
                       >
                         Open editor with merch
                       </button>
-                      <Link
-                        href="/shop#merch-beta"
-                        prefetch={false}
-                        onClick={() => track("success_merch_teaser_clicked", { destination: "shop" })}
-                        className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 text-[11px] font-semibold text-white transition hover:border-white/50 hover:bg-white/10"
-                      >
-                        Browse shop merch
-                      </Link>
                     </div>
                   </div>
                 ) : null}
                 {hasDigitalEntitlement && (
-                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85">
-                        Referral bonus
-                      </p>
-                      <p className="text-[11px] text-amber-100/70">
-                        {referralSummary.rewardsGranted} bonus credit{referralSummary.rewardsGranted === 1 ? "" : "s"}
-                      </p>
-                    </div>
-                    <p className="mt-1 text-xs text-amber-100/80">
-                      Share your link on social. Friends get {referralFriendOfferLabel} and each paid checkout adds{" "}
-                      {referralRewardCreditsLabel}.
+                  <div className="mt-4 rounded-xl border border-amber-300/45 bg-amber-400/10 p-4 text-left">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100">
+                      Share & earn {referralRewardCreditsLabel}
                     </p>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
-                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-                        <p className="text-amber-100/60">Visits</p>
-                        <p className="font-semibold text-white">{referralSummary.visits}</p>
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-                        <p className="text-amber-100/60">Sales</p>
-                        <p className="font-semibold text-white">{referralSummary.conversions}</p>
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-                        <p className="text-amber-100/60">Rewards</p>
-                        <p className="font-semibold text-white">{referralSummary.rewardsGranted}</p>
-                      </div>
-                    </div>
+                    <p className="mt-2 text-xs text-amber-50/90">
+                      Know someone planning a gift? Send your link — friends get {referralFriendOfferLabel}, and you earn{" "}
+                      {referralRewardCreditsLabel} when they checkout.
+                    </p>
+                    <p className="mt-2 text-[11px] text-amber-100/70">
+                      Referral credits earned so far: {referralSummary.rewardsGranted}.
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -1081,56 +1169,10 @@ export default function SuccessClient() {
                           >
                             Share link
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("x")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share X
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("facebook")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share Facebook
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareReferralLink("pinterest")}
-                            className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
-                          >
-                            Share Pinterest
-                          </button>
                         </>
                       )}
                     </div>
-                    {referralSummary.lastConvertedAt ? (
-                      <p className="mt-2 text-[11px] text-amber-100/70">
-                        Last reward: {new Date(referralSummary.lastConvertedAt).toLocaleDateString()}
-                      </p>
-                    ) : null}
-                    {referralSummary.topVisitSources.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Top social traffic:{" "}
-                        {referralSummary.topVisitSources
-                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {referralSummary.topConversionSources.length > 0 ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Top referral sales:{" "}
-                        {referralSummary.topConversionSources
-                          .map((entry) => `${entry.source.toUpperCase()} (${entry.visits})`)
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {referralLink ? (
-                      <p className="mt-1 text-[11px] text-amber-100/70">
-                        Suggested social caption: {referralShareMessage}
-                      </p>
-                    ) : null}
+                    {referralLink ? <p className="mt-1 text-[11px] text-amber-100/70">Share the link from any device.</p> : null}
                     {referralStatus === "loading" && (
                       <p className="mt-2 text-[11px] text-amber-100/70">Loading referral stats...</p>
                     )}

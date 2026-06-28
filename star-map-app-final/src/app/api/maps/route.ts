@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   };
 
   const id = crypto.randomUUID();
-  const ttlSeconds = 30 * 24 * 60 * 60; // 30 days
+  const ttlSeconds = 90 * 24 * 60 * 60; // 90 days — share links and return visits
   await kv.set<StoredRecipe>(`map:${id}`, sanitized, { ex: ttlSeconds });
   return NextResponse.json({ id });
 }
@@ -217,6 +217,7 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     "backgroundColor",
     "constellationColor",
     "constellationLineScale",
+    "mapLookTier",
   ]);
 
   const sanitized: Record<string, unknown> = {};

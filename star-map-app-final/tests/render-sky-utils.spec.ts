@@ -29,4 +29,28 @@ test.describe("renderSky utility regressions", () => {
     expect(fallback).not.toBeNull();
     expect(fallback?.toISOString()).toBe("2024-06-01T02:30:00.000Z");
   });
+
+  test("keeps wide text away from canvas edges on export", () => {
+    const wide = __testUtils.resolveTextCenterNormalized(
+      { x: 0, y: 0.5 },
+      0,
+      800,
+      40,
+      1200,
+      1200,
+    );
+    expect(wide.x).toBeGreaterThan(0.3);
+    expect(wide.x).toBeLessThan(0.5);
+
+    const tall = __testUtils.resolveTextCenterNormalized(
+      { x: 0.5, y: 1 },
+      0,
+      200,
+      120,
+      1200,
+      1200,
+    );
+    expect(tall.y).toBeLessThanOrEqual(0.95);
+    expect(tall.y).toBeGreaterThan(0.85);
+  });
 });

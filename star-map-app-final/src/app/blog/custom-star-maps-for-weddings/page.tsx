@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
+import { buildPrintEditorCheckoutHref } from "@/lib/printCheckoutConfig";
 
 const title = "Custom Star Maps for Weddings Guide";
 const description =
@@ -34,6 +36,11 @@ export const metadata: Metadata = {
 };
 
 export default function WeddingsPostPage() {
+  const framedHdHref = buildPrintEditorCheckoutHref({
+    source: "blog-wedding-framed-hd",
+    variant: "poster_framed",
+    includeDigitalAddOn: true,
+  });
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -82,7 +89,11 @@ export default function WeddingsPostPage() {
               Set your map to the precise date, time, and venue coordinates. Even a few minutes can shift the layout of
               constellations, so match the moment you said “I do,” your first dance, or the sparkler exit. For
               destination weddings, capture the city or venue address; for outdoor ceremonies, use exact latitude and
-              longitude.
+              longitude. When you are ready to build, the{" "}
+              <Link href="/star-map-generator?source=blog-wedding" className="text-amber-300 hover:underline">
+                star map generator
+              </Link>{" "}
+              lets you preview the ceremony sky before checkout.
             </p>
             <ul className="list-disc space-y-2 pl-5">
               <li>Use the ceremony start or first dance for emotional resonance.</li>
@@ -130,7 +141,11 @@ export default function WeddingsPostPage() {
             <p>
               Download a high-resolution file for printing (6000px recommended). Pair with a matted frame in warm wood
               or black to keep focus on the map. For digital sharing, export a watermark preview to post on social or
-              send to guests.
+              send to guests. Compare{" "}
+              <Link href="/star-map-gift-formats?source=blog-wedding" className="text-amber-300 hover:underline">
+                framed, unframed, and HD digital formats
+              </Link>{" "}
+              if you are deciding between wall art and instant delivery.
             </p>
             <div className="overflow-x-auto">
               <table className="min-w-full border border-amber-200/40 text-left text-sm text-neutral-100">
@@ -172,7 +187,11 @@ export default function WeddingsPostPage() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">FAQs for Wedding Star Maps</h2>
             <ol className="space-y-2 pl-5">
               <li>
-                <strong>How accurate are the maps?</strong> They use astronomy-engine calculations and star catalog data for the selected date, time, timezone, and location.
+                <strong>How accurate are the maps?</strong> They use astronomy-engine calculations and star catalog data for the selected date, time, timezone, and location. See{" "}
+                <Link href="/how-accurate-are-star-maps?source=blog-wedding" className="text-amber-300 hover:underline">
+                  how accurate star maps are
+                </Link>{" "}
+                for a plain-language breakdown.
               </li>
               <li>
                 <strong>Can we add our vows or song lyrics?</strong> Yes—add custom text, coordinates, and shapes like a
@@ -197,13 +216,19 @@ export default function WeddingsPostPage() {
               Create Your Wedding Star Map Today
             </h2>
             <p>
-              Capture the sky from your ceremony, first dance, or proposal. Start free preview and{" "}
-              <Link href="/editor?mode=quick&source=blog-wedding-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
-                start with framed print preview
+              Capture the sky from your ceremony, first dance, or proposal.{" "}
+              <Link href="/wedding?source=blog-wedding-landing" className="font-semibold text-amber-300 hover:underline">
+                Start on the wedding gift page
+              </Link>{" "}
+              for framed + HD pricing, or{" "}
+              <Link href={framedHdHref} className="font-semibold text-amber-300 hover:underline">
+                jump straight into a framed + HD preview
               </Link>{" "}
               in minutes.
             </p>
           </section>
+
+          <BlogPostConversionLinks source="custom-star-maps-weddings" postSlug="custom-star-maps-for-weddings" />
 
           <div className="grid gap-6 sm:grid-cols-2">
             <Image

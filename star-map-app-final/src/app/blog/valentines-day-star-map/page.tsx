@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 
 const title = "Valentine's Day Star Map Gift Guide";
 const description =
@@ -95,7 +96,12 @@ export default function ValentinesStarMapPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Choose the moment that matters most</h2>
           <p className="text-neutral-200">
-            Don’t feel pressured to pick only anniversaries. Romantic star map ideas for Valentine’s Day include:
+            Don&apos;t feel pressured to pick only anniversaries. Romantic star map ideas for Valentine&apos;s Day include
+            proposal nights, first dates, and shared milestones — browse the{" "}
+            <Link href="/anniversary?source=blog-valentines" className="font-semibold text-amber-200 underline-offset-4 hover:underline">
+              anniversary star map gift page
+            </Link>{" "}
+            if your moment is a wedding or relationship milestone:
           </p>
           <div className="grid gap-4 text-sm text-neutral-200 sm:grid-cols-2">
             <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -146,8 +152,12 @@ export default function ValentinesStarMapPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">When to order & how to present it</h2>
           <p className="text-neutral-200">
-            Physical shipping availability depends on the destination shown at checkout, and Valentine's Day production
-            windows tighten fast. Finish your design by early February, then frame it before wrapping. For an in-person
+            Physical shipping availability depends on the destination shown at checkout, and Valentine&apos;s Day production
+            windows tighten fast. Finish your design by early February, then frame it before wrapping. Check{" "}
+            <Link href="/shipping?source=blog-valentines" className="font-semibold text-amber-200 underline-offset-4 hover:underline">
+              shipping timelines
+            </Link>{" "}
+            before you choose framed print. For an in-person
             reveal, pair the print with a handwritten note or the playlist you fell in love to.
           </p>
           <p className="text-sm text-neutral-400">
@@ -157,12 +167,25 @@ export default function ValentinesStarMapPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Real love, real proof</h2>
-          <blockquote className="rounded-2xl border-l-4 border-amber-300/80 bg-white/5 p-4 text-sm text-neutral-200">
-            “We sent a star map for Valentine’s and she cried—said it looked like the exact night the fireworks
-            burst. The print still hangs in our kitchen.” — Jordan & Alex
-          </blockquote>
+          <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Share your real Valentine&apos;s story</h2>
+          <p className="text-neutral-200">
+            We only feature real customer photos and quotes—with written permission. If your StarMapCo map made
+            Valentine&apos;s Day special, email{" "}
+            <a
+              href="mailto:support@starmapco.com?subject=StarMapCo%20Valentine%27s%20proof"
+              className="font-semibold text-amber-200 underline-offset-4 hover:underline"
+            >
+              support@starmapco.com
+            </a>{" "}
+            with a photo, a short note about the moment, and whether we may publish it later. After checkout, the success
+            and download pages include a ready-made email draft for the same request.
+          </p>
+          <p className="text-sm text-neutral-400">
+            This guide does not use placeholder testimonials—we update it when verified submissions are approved.
+          </p>
         </section>
+
+        <BlogPostConversionLinks source="valentines-day-star-map" postSlug="valentines-day-star-map" />
 
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Your Valentine’s Day, elevated</h2>

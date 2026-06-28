@@ -1,20 +1,23 @@
 import Link from "next/link";
 import FramedProofSection from "@/components/FramedProofSection";
+import GiftFormatLadder from "@/components/GiftFormatLadder";
 import HomeOfferStack from "@/components/HomeOfferStack";
-import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import PromotionSignup from "@/components/PromotionSignup";
 import ResilientImage from "@/components/ResilientImage";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
-import { getFramedProofImage, getUnframedProofImage } from "@/lib/printProofAssets";
+import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import {
   formatPrintPriceWithShipping,
+  getFramedHdBundlePriceLine,
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getPrintDeliveryTimingFaqAnswer, getPrintPhysicalOrderSummaryLine, getPrintUrgentHdUpsellLine } from "@/lib/commerceFacts";
+import { getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
 
 type PriceLabels = {
   single: string;
@@ -43,14 +46,48 @@ export default function HomeStaticSections({
   };
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
+  const bundlePriceLine = getFramedHdBundlePriceLine();
   const proofImages = {
-    framed: getFramedProofImage(),
-    unframed: getUnframedProofImage(),
+    framed: HOME_MOCKUPS.framedBedroom,
+    unframed: HOME_MOCKUPS.unframedPoster,
   };
 
   return (
     <>
-      <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} proofImages={proofImages} />
+      <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} />
+
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 pt-6 sm:px-6 lg:px-8">
+        <GiftFormatLadder
+          sourcePrefix="home-ladder"
+          heading="Pick your gift format"
+          intro={getGiftLadderIntro()}
+          includeCanvas
+          className="shadow-2xl shadow-black/20"
+        />
+        <p className="mt-3 text-center text-xs text-neutral-300 sm:text-sm">
+          Most buyers choose framed + HD ({bundlePriceLine}). Browse by occasion:{" "}
+          <Link href="/wedding" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            wedding
+          </Link>
+          ,{" "}
+          <Link href="/anniversary" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            anniversary
+          </Link>
+          ,{" "}
+          <Link href="/birthday" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            birthday
+          </Link>
+          ,{" "}
+          <Link href="/hd-star-map" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            instant HD
+          </Link>
+          , or{" "}
+          <Link href="/star-map-for/new-baby" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+            new baby
+          </Link>
+          .
+        </p>
+      </section>
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <PromotionSignup promoStatus={promoStatus} promoCode={promoCode} />
@@ -72,7 +109,8 @@ export default function HomeStaticSections({
           rightPoints={[
             "Most gift buyers start with framed print; unframed stays available if you already have a frame plan",
             shippingDisclosure,
-            "Physical orders stay in manual review before production starts",
+            getPrintPhysicalOrderSummaryLine(),
+            getPrintUrgentHdUpsellLine(),
             `Optional HD digital add-on is available on print orders for ${printLabels.digitalAddOn}`,
             "If a print arrives damaged, support@starmapco.com handles it",
           ]}
@@ -120,11 +158,6 @@ export default function HomeStaticSections({
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
         <FramedProofSection sourcePrefix="home-proof" />
-        <PhysicalProductGallerySection
-          heading="What the physical gift actually looks like"
-          intro="Use real framed and unframed proof imagery to judge the finish before you ever enter checkout. These mockups come from current StarMapCo artwork rather than generic stock placeholders."
-          sourcePrefix="home-physical-proof"
-        />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
@@ -169,15 +202,15 @@ export default function HomeStaticSections({
                 key={`${item.imageSrc}-${idx}`}
                 className="card-hover-glow group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30"
               >
-                <div className="relative aspect-square overflow-hidden">
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#0a1228]">
                   <ResilientImage
                     src={item.imageSrc}
-                    fallbackSrc="/custom-star-map-anniversary.webp"
+                    fallbackSrc={HOME_MOCKUPS.framedBedroom}
                     alt={`${item.occasion} · ${item.renderMode}`}
                     width={900}
-                    height={900}
+                    height={675}
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="h-full w-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-105"
+                    className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:brightness-105"
                   />
                 </div>
                 <div className="border-t border-white/10 px-4 py-3 text-white">
@@ -202,7 +235,10 @@ export default function HomeStaticSections({
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
+      <section
+        id="how-it-works"
+        className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible scroll-mt-24"
+      >
         <div className="space-y-8">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">How it works</p>
@@ -276,7 +312,7 @@ export default function HomeStaticSections({
               },
               {
                 q: "When do I see shipping cost and delivery timing?",
-                a: `${shippingDisclosure} Production starts after order review while manual approval is enabled.`,
+                a: getPrintDeliveryTimingFaqAnswer(shippingDisclosure),
               },
               {
                 q: "What if a print arrives damaged?",
@@ -319,6 +355,7 @@ export default function HomeStaticSections({
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
             {[
+              { href: "/hd-star-map", label: "Instant HD star map" },
               { href: "/star-map-generator", label: "Star map generator" },
               { href: "/star-map-for", label: "Star map by occasion" },
               { href: "/star-map-in", label: "Star map by city" },

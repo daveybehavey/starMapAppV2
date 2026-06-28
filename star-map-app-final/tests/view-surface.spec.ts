@@ -7,7 +7,7 @@ const waitForViewReady = async (page: { getByText: (text: string | RegExp) => an
   if (await loading.isVisible().catch(() => false)) {
     await expect(loading).toHaveCount(0, { timeout: 15000 });
   }
-  await expect(page.locator("canvas")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator("canvas").first()).toBeVisible({ timeout: 15000 });
 };
 
 test.describe("View Surface (/m/[id])", () => {
@@ -45,6 +45,10 @@ test.describe("View Surface (/m/[id])", () => {
     await waitForViewReady(page);
     await expect(page.getByRole("button", { name: /Share this map/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Save & Remix/i })).toHaveCount(0);
+    await expect(page.locator("#shop-this-map")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Order from this exact design/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /HD digital download/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Edit this design/i })).toBeVisible();
   });
 
   test("handles 404 gracefully", async ({ page }) => {

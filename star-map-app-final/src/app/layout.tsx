@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import { Playfair_Display } from "next/font/google";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
+import UtmAttributionClient from "@/components/UtmAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
 import SiteTopNav from "@/components/SiteTopNav";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
@@ -120,7 +121,18 @@ export const metadata: Metadata = {
     template: "%s",
   },
   description:
-    "Create a custom star map or constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery at StarMapCo.",
+    "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed print, or HD digital delivery at StarMapCo.",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   keywords: [
     "custom star map",
     "star map",
@@ -134,7 +146,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed print, or HD digital delivery.",
     url: siteUrl,
     siteName: "StarMapCo",
     images: [
@@ -156,7 +168,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
-      "Create a custom star map or constellation map for any date and location. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+      "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed print, or HD digital delivery.",
     images: [`${siteUrl}/custom-star-map-anniversary.png`],
   },
   verification: {
@@ -212,6 +224,7 @@ export default function RootLayout({
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable}`}>
         <Suspense fallback={null}>
           <ReferralAttributionClient />
+          <UtmAttributionClient />
         </Suspense>
         <AnalyticsConsentManager />
         <div className="cosmic-backdrop">

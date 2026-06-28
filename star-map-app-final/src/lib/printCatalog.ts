@@ -112,10 +112,16 @@ export function getPrintCatalogRow(id: PrintVariant): PrintCatalogRow {
   return row;
 }
 
-/** Stripe Checkout success URLs + analytics ordering */
-export const PAYWALL_PRINT_VARIANT_ORDER: readonly PrintVariant[] = [
+/** Posters + canvas on paywall/checkout; mug stays shop-only until pilot proof */
+export const PAYWALL_LIVE_PRINT_VARIANTS: readonly PrintVariant[] = [
   "poster_framed",
   "poster_unframed",
+  "canvas_wrap",
+];
+
+/** Stripe Checkout success URLs + download upsell ordering (live SKUs first) */
+export const PAYWALL_PRINT_VARIANT_ORDER: readonly PrintVariant[] = [
+  ...PAYWALL_LIVE_PRINT_VARIANTS,
   "canvas_wrap",
   "mug_11oz",
   "card_4x6",
@@ -124,6 +130,8 @@ export const PAYWALL_PRINT_VARIANT_ORDER: readonly PrintVariant[] = [
 export type PaywallPrintCheckoutRow = {
   variant: PrintVariant;
   includeDigitalAddOn: boolean;
+  /** Bundled 4×6 greeting card (framed print only; see C1). */
+  includeCardAddOn?: boolean;
   /** Falls back to catalog tier label when omitted */
   headline?: string;
   recommended?: boolean;
@@ -138,10 +146,18 @@ export const PAYWALL_PRINT_CHECKOUT_ROWS: readonly PaywallPrintCheckoutRow[] = [
     recommended: true,
   },
   { variant: "poster_framed", includeDigitalAddOn: false, headline: "Framed print" },
+  {
+    variant: "poster_framed",
+    includeDigitalAddOn: false,
+    includeCardAddOn: true,
+    headline: "Framed + keepsake card",
+  },
   { variant: "poster_unframed", includeDigitalAddOn: false, headline: "Unframed poster" },
-  { variant: "canvas_wrap", includeDigitalAddOn: false },
-  { variant: "mug_11oz", includeDigitalAddOn: false },
-  { variant: "card_4x6", includeDigitalAddOn: false },
+  {
+    variant: "canvas_wrap",
+    includeDigitalAddOn: false,
+    headline: "Canvas gallery wrap (premium)",
+  },
 ] as const;
 
 export type PrintShippingProfile = "poster_unframed" | "poster_framed";
