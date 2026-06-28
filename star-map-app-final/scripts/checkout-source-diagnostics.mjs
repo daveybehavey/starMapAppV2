@@ -172,8 +172,13 @@ function summarizeDuplicateClusters(sessions) {
   };
 }
 
+function stripeCreatedGteForFunnelWindow(days) {
+  const now = new Date();
+  return Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1)) / 1000);
+}
+
 async function loadSessions(stripe, days) {
-  const createdGte = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
+  const createdGte = stripeCreatedGteForFunnelWindow(days);
   const sessions = [];
   let startingAfter;
 
@@ -218,8 +223,9 @@ function pct(numerator, denominator) {
 
 function buildReport(args, sessions, funnel) {
   const duplicateSummary = summarizeDuplicateClusters(sessions);
-  const safeContextIds = new Set(sessions.map(getSafeContextId).filter(Boolean));
-  const blankContextCount = sessions.length - safeContextIds.size;
+  const safeContextValues = sessions.map(getSafeContextId);
+  const safeContextIds = new Set(safeContextValues.filter(Boolean));
+  const blankContextCount = safeContextValues.filter((value) => !value).length;
   const paidSessions = sessions.filter(
     (session) => session.payment_status === "paid" || session.payment_status === "no_payment_required",
   );

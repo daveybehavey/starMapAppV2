@@ -8,23 +8,23 @@ Scope: Server-side checkout session volume, unique-vs-raw Stripe Checkout sessio
 
 Confirmed: The high server-side checkout volume is real Stripe Checkout session creation volume, not a reporting-only artifact.
 
-Confirmed: In the current rolling 14-day window, Stripe sessions reconcile exactly with funnel `checkout_session_created`.
+Confirmed: In the current UTC-day aligned 14-day window, Stripe sessions reconcile exactly with funnel `checkout_session_created`.
 
-- `checkout_session_created=117`
-- Stripe Checkout sessions found for StarMapCo in the same window: `117`
+- `checkout_session_created=113`
+- Stripe Checkout sessions found for StarMapCo in the same UTC-day window: `113`
 - Coverage: `100%`
 
 Likely: The sessions are mostly unique abandoned digital checkout attempts, not duplicate-click session spam.
 
-- Raw Stripe Checkout sessions: `117`
-- Unique safe context IDs: `117`
+- Raw Stripe Checkout sessions: `113`
+- Unique safe context IDs: `113`
 - Duplicate context clusters detected: `0`
-- Digital sessions: `114`
+- Digital sessions: `110`
 - Print sessions: `3`
-- Expired sessions: `112`
+- Expired sessions: `108`
 - Open sessions: `4`
 - Paid sessions: `1`
-- Unpaid sessions: `116`
+- Unpaid sessions: `112`
 
 Blocked: Historical sessions do not include route/method/source metadata, so this audit cannot prove whether those unique checkout sessions came from normal browser users, bots, probes, QA/internal testing, or another source. Future sessions now include sanitized `checkout_source` metadata to make that breakdown possible.
 
@@ -51,13 +51,20 @@ Confirmed limits:
 - Existing funnel source dimensions are useful for counters, but the public dashboard endpoint does not expose per-source checkout session breakdown.
 - Legacy Stripe Checkout sessions did not store a route/method source label.
 
-## 3. Best current explanation for the 151/117 server sessions
+Needs manual check:
+
+- The diagnostic script identifies StarMapCo sessions using existing Stripe metadata signals such as `order_type`, `plan`, `print_variant`, `map_id`, and `client_reference_id`.
+- This is acceptable if the Stripe account/key used by the script is StarMapCo-only or if other projects do not use the same metadata shape.
+- If the Stripe account is shared across projects with similar checkout metadata, future diagnostics should add a tighter project marker such as `metadata.project=starmapco` before relying on cross-project comparisons.
+
+## 3. Best current explanation for the 151/117/113 server sessions
 
 Confirmed:
 
 - STAR-001/STAR-002 saw `151` server checkout sessions in the then-current 14-day window.
-- The current rolling 14-day window now shows `117` server checkout sessions.
-- The number changed because the audit window is rolling, not because STAR-003 altered live data.
+- The original STAR-003 diagnostic showed `117` Stripe sessions using an exact rolling 14x24h Stripe window.
+- The patched diagnostic now aligns Stripe to the funnel endpoint's UTC-day window and shows `113` server checkout sessions.
+- The number changed because the audit window moved and the diagnostic window alignment was clarified, not because STAR-003 altered live data.
 - Current Stripe Checkout sessions reconcile exactly with funnel `checkout_session_created`.
 
 Likely:
@@ -76,15 +83,15 @@ Confirmed from `qa:checkout-source-diagnostics -- --days 14`:
 
 | Metric | Count |
 | --- | ---: |
-| Raw Stripe Checkout sessions | 117 |
-| Unique safe context IDs | 117 |
+| Raw Stripe Checkout sessions | 113 |
+| Unique safe context IDs | 113 |
 | Blank safe context IDs | 0 |
 | Duplicate context clusters | 0 |
 | Paid sessions | 1 |
-| Unpaid sessions | 116 |
+| Unpaid sessions | 112 |
 | Funnel `checkout_started` | 3 |
-| Funnel `checkout_request_received` | 117 |
-| Funnel `checkout_session_created` | 117 |
+| Funnel `checkout_request_received` | 113 |
+| Funnel `checkout_session_created` | 113 |
 | Funnel `payment_verified` | 1 |
 
 Interpretation:
@@ -102,8 +109,8 @@ Interpretation:
 | Retry/session spam | Needs manual check | No duplicate context clusters, but route/method source was missing on legacy sessions |
 | Bots/probes | Unknown | No user agent, IP class, or bot-safe metadata is available in legacy Stripe sessions |
 | QA/internal testing | Unknown | Legacy sessions do not identify source as QA/internal |
-| Real unique buyer attempts | Likely | `117` raw sessions and `117` unique safe context IDs |
-| Abandoned checkout attempts | Likely | `112` expired and `4` open sessions, with only `1` paid session |
+| Real unique buyer attempts | Likely | `113` raw sessions and `113` unique safe context IDs |
+| Abandoned checkout attempts | Likely | `108` expired and `4` open sessions, with only `1` paid session |
 
 ## 6. Privacy-safe fields used
 
@@ -160,7 +167,7 @@ Confirmed healthy:
 
 Confirmed concerning:
 
-- Only `1` paid session out of `117` Stripe Checkout sessions in the current 14-day window.
+- Only `1` paid session out of `113` Stripe Checkout sessions in the current UTC-day aligned 14-day window.
 - `checkout_started` remains far below server checkout session volume.
 - Historical sessions lack source metadata, blocking route/method/user-quality diagnosis.
 
