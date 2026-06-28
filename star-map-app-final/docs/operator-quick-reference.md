@@ -33,7 +33,13 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
   - `npm run qa:commerce-digest -- --days 7`
+  - `npm run qa:checkout-source-diagnostics -- --days 14`
   - `qa:commerce-digest` now includes paid `referral_offer_variant` mix to validate referral offer tests
+- **Checkout source diagnostics**:
+  - use `qa:checkout-source-diagnostics` when server checkout sessions exceed client checkout intent
+  - the command compares raw Stripe Checkout sessions with safe unique context counts and funnel `checkout_session_created`
+  - future Checkout sessions include sanitized `checkout_source` metadata such as `checkout_api_digital_post`
+  - do not export customer emails, full IPs, card details, or secrets for funnel debugging
   - `GET /api/analytics/checkout-diagnostics` is now available behind `PRINT_ADMIN_TOKEN` for checkout blocker counts
 - **Google Search Console (read-only query)**:
   - CLI (writes `reports/search-console.query.json`): `npm run seo:gsc:query` — defaults to last **28 days** ending today; override with `--start` / `--end` (YYYY-MM-DD). Site URL: `GSC_SITE_URL` or `GOOGLE_SEARCH_CONSOLE_SITE_URL` or `--site`.

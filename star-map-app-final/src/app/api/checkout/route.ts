@@ -556,6 +556,7 @@ async function createCheckoutSession(
     referralAttribution?: ReferralAttribution | null;
     promotionSource?: PromotionSource;
     referralAutoOfferVariant?: ReferralAutoOfferVariant;
+    checkoutSource?: string;
     idempotencyKey?: string;
   },
 ): Promise<CheckoutSessionResult> {
@@ -576,6 +577,7 @@ async function createCheckoutSession(
     referralAttribution,
     promotionSource = "none",
     referralAutoOfferVariant,
+    checkoutSource,
     idempotencyKey,
   } = input;
   if (!stripe) {
@@ -633,6 +635,8 @@ async function createCheckoutSession(
   const useGeoDigitalSinglePricing = Boolean(geoDigitalSingle?.amountCents);
 
   const metadata: Record<string, string> = { order_type: normalizedOrderType };
+  const normalizedCheckoutSource = normalizeIdempotencyToken(checkoutSource, 48);
+  if (normalizedCheckoutSource) metadata.checkout_source = normalizedCheckoutSource;
   if (mapId) metadata.map_id = mapId;
   if (isPrintOrder) {
     metadata.print_variant = normalizedPrintVariant;
@@ -1006,6 +1010,7 @@ export async function GET(req: NextRequest) {
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      checkoutSource: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
     });
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
@@ -1198,6 +1203,7 @@ export async function POST(req: NextRequest) {
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      checkoutSource: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       idempotencyKey: idempotencyKey ?? undefined,
     });
     if (promoCode && session.discountRejected) {
