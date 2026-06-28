@@ -94,11 +94,12 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
   const lastStep = dashboard.rows[dashboard.rows.length - 1];
   const landingTotal = dashboard.rows.find((row) => row.step === "landing_view")?.total ?? 0;
   const landingConvertedPct = landingTotal > 0 ? (lastStep?.total ?? 0) / landingTotal : 0;
+  const previewStarted = findStepTotal(dashboard.rows, "preview_started");
   const checkoutStarted = findStepTotal(dashboard.rows, "checkout_started");
   const checkoutRequests = findStepTotal(dashboard.rows, "checkout_request_received");
   const checkoutSessions = findStepTotal(dashboard.rows, "checkout_session_created");
   const paymentsVerified = findStepTotal(dashboard.rows, "payment_verified");
-  const requestShare = percentage(checkoutRequests, checkoutStarted);
+  const clientIntentShare = percentage(checkoutStarted, previewStarted);
   const sessionShare = percentage(checkoutSessions, checkoutRequests);
   const paidShare = percentage(paymentsVerified, checkoutSessions);
   const topCheckoutBlocker = checkoutDiagnostics.rows[0] ?? null;
@@ -162,12 +163,12 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
             </div>
           ) : null}
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Checkout handoff</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Client checkout intent</p>
             <p className="text-2xl font-bold">
-              {requestShare === null ? "—" : `${requestShare.toFixed(1)}%`}
+              {clientIntentShare === null ? "—" : `${clientIntentShare.toFixed(1)}%`}
             </p>
             <p className="text-sm text-neutral-400">
-              {checkoutRequests.toLocaleString()} requests from {checkoutStarted.toLocaleString()} checkout starts
+              {checkoutStarted.toLocaleString()} browser starts from {previewStarted.toLocaleString()} previews
             </p>
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4">

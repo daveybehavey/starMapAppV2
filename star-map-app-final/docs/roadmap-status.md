@@ -353,7 +353,7 @@ Recent status:
 - Tightened checkout intent semantics (March 18, 2026):
   - `checkout_started` now records on the client at real checkout initiation points (editor, simplified editor, success add-on, download print)
   - `/api/checkout` now records `checkout_request_received` + `checkout_session_created` without duplicating `checkout_started`
-  - this makes `checkout_started -> checkout_request_received` a true pre-API handoff metric instead of a blended server proxy
+  - `checkout_started` remains browser/DNT-gated, while request/session events are server-side operational milestones; compare them only when source/gating alignment is confirmed
 - Hardened the promo signup system:
   - signed unsubscribe links are now included in promo emails
   - `/unsubscribe` now records opt-outs instead of only claiming unsubscribe support
@@ -363,8 +363,8 @@ Recent status:
   - checkout API failures now record reason counts in KV
   - `/api/analytics/checkout-diagnostics` exposes read-only blocker totals behind admin auth
   - `qa:commerce-digest` now shows:
-    - `checkout_started -> checkout_request_received`
-    - `checkout_started -> checkout_session_created`
+    - client checkout intent as a browser/DNT-gated signal
+    - server checkout API/session volume as operational signals
     - `checkout_request_received -> checkout_session_created`
     - `checkout_session_created -> payment_verified`
     - top checkout blocker reasons
@@ -390,8 +390,8 @@ Recent status:
   - users on the digital tab are now pushed to the print tab to select shipping country before print checkout if shipping country is missing
   - this avoids sending print-intent users into a missing-country error
 - Expanded the internal funnel page so it now shows:
-  - checkout handoff rate
-  - Stripe session creation rate
+  - client checkout intent rate from preview
+  - server-side Stripe session creation rate
   - paid-after-Stripe rate
   - promo signup counts
   - top checkout blockers
@@ -603,7 +603,7 @@ Recent status:
    - framed-focused friend/checkout offer with explicit margin protection
    - compare against current HD-starter baseline
 5. Keep paywall/editor handoff cleanup tied to diagnostics:
-   - prioritize fixes where `checkout_started` does not become `checkout_request_received`
+   - prioritize fixes where confirmed client intent, checkout diagnostics, or manual QA show checkout handoff failures
 6. Build proof intake operations:
    - process incoming proof requests from success/download flows
    - keep a permission checklist and publishing queue

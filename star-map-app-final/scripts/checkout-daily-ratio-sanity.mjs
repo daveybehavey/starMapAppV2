@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * Daily checkout funnel ratio check: preview_started → checkout_session_created → payment_verified.
+ * Daily checkout funnel ratio check: preview_started, server checkout sessions, and payment_verified.
  * preview_started is contextual only; some checkout entrypoints bypass a fresh preview.
+ * Server checkout sessions are operational volume, not buyer-intent truth.
  * Uses GET /api/analytics/funnel (same KV-backed daily counts as qa:commerce-digest).
  */
 
@@ -74,7 +75,7 @@ function parseArgs(argv) {
     if (token === "-h" || token === "--help") {
       console.log(`Usage: node scripts/checkout-daily-ratio-sanity.mjs [--site <url>] [--days <n>] [--json]
 
-Prints per-UTC-day preview → Stripe session → paid ratios from funnel KV (read-only).
+Prints per-UTC-day preview, server Stripe session, and paid ratios from funnel KV (read-only).
 
 Typical cadence: run once daily with --days 7 for a week context, or --days 1 for a fast pulse.
 
@@ -156,7 +157,7 @@ async function main() {
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
-    console.log("Checkout daily ratio sanity (preview → session → paid)");
+    console.log("Checkout daily ratio sanity (preview, server session, paid)");
     console.log(`Site: ${report.site}`);
     console.log(`Window: last ${report.days} UTC day(s), funnel snapshot: ${report.funnelGeneratedAt || "unknown"}`);
     console.log("");

@@ -11,11 +11,12 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:commerce-digest -- --days 7`
   - Latest snapshot: `landing_view=151`, `preview_started=111`, `checkout_started=110`, `payment_verified=0`
 - **Funnel truth note**:
-  - treat `checkout_started` as checkout intent
-  - treat `checkout_request_received` as requests that actually reached `/api/checkout`
-  - treat `checkout_session_created` as successful Stripe session creation
+  - treat `checkout_started` as client-side checkout intent recorded before `/api/checkout`; it is browser-executed and Do Not Track gated
+  - treat `checkout_request_received` as server-side `/api/checkout` request volume; it may include GET and POST checkout paths and is not directly comparable to browser-gated intent
+  - treat `checkout_session_created` as server-side successful Stripe session creation; it is operational volume, not proof of unique buyer intent
   - treat `payment_verified` as the paid truth metric
-  - On March 18, 2026, `checkout_started` was tightened to client intent only (before `/api/checkout`), so expect one transition window of skew while old counts roll out of 14-day comparisons
+  - On March 18, 2026, `checkout_started` was tightened to client intent only (before `/api/checkout`), so historical comparisons can be skewed while old counts roll out of reporting windows
+  - do not calculate `checkout_started -> checkout_request_received` or `checkout_started -> checkout_session_created` as a conversion rate when server volume exceeds client intent
   - if `checkout_started` is high but `checkout_request_received` is low, the drop is before the checkout API handoff
   - if `checkout_request_received` is healthy but `checkout_session_created` is low, the drop is inside checkout preparation
   - if `checkout_session_created` is healthy but `payment_verified` is low, the drop is inside or after Checkout
@@ -32,8 +33,14 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
   - `npm run qa:commerce-digest -- --days 7`
+  - `npm run qa:checkout-source-diagnostics -- --days 14`
 - **Funnel vs Stripe health**: reconcile is healthy when `Delta (Stripe - Funnel): 0`. Weekly: `npm run qa:funnel-reconcile -- --days 14` then `npm run qa:commerce-digest -- --days 14`. If delta is not zero, run `npm run qa:funnel-reconcile -- --days 14 --repair` (requires `PRINT_ADMIN_TOKEN`).
-  - `qa:commerce-digest` now includes paid `referral_offer_variant` mix to validate referral offer tests
+- **Commerce digest note**: `qa:commerce-digest` includes paid `referral_offer_variant` mix to validate referral offer tests.
+- **Checkout source diagnostics**:
+  - use `qa:checkout-source-diagnostics` when server checkout sessions exceed client checkout intent
+  - the command compares raw Stripe Checkout sessions with safe unique context counts and funnel `checkout_session_created`
+  - future Checkout sessions include sanitized `checkout_source` metadata such as `checkout_api_digital_post`
+  - do not export customer emails, full IPs, card details, or secrets for funnel debugging
   - `GET /api/analytics/checkout-diagnostics` is now available behind `PRINT_ADMIN_TOKEN` for checkout blocker counts
 - **Google Search Console (read-only query)**:
   - CLI (writes `reports/search-console.query.json`): `npm run seo:gsc:query` — defaults to last **28 days** ending today; override with `--start` / `--end` (YYYY-MM-DD). Site URL: `GSC_SITE_URL` or `GOOGLE_SEARCH_CONSOLE_SITE_URL` or `--site`.
@@ -155,7 +162,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - Open `/funnel?token=<FUNNEL_DASHBOARD_TOKEN>`
 - The page now shows:
   - landing conversion
-  - checkout handoff (`checkout_started` -> `checkout_request_received`)
+  - client checkout intent (`checkout_started` from `preview_started`)
   - Stripe session creation (`checkout_request_received` -> `checkout_session_created`)
   - paid-after-Stripe conversion
   - promo signup counts
