@@ -7,6 +7,7 @@ import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { Shape } from "@/lib/types";
 import {
+  createCheckoutHandoffToken,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -1403,7 +1404,8 @@ export function EditorExperience({
           recipeFingerprint?: string;
           shippingCountry?: string;
           referralCode?: string;
-        } = { plan };
+          checkoutHandoff?: string;
+        } = { plan, checkoutHandoff: createCheckoutHandoffToken() };
         if (mapId) checkoutPayload.mapId = mapId;
         if (promoCode) checkoutPayload.promoCode = promoCode;
         if (referralCode) checkoutPayload.referralCode = referralCode;

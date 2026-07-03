@@ -30,7 +30,11 @@ import {
   isValidIsoDateInput,
   toISODate,
 } from "@/lib/dateInput";
-import { trackCheckoutClientDiagnostic, trackFunnelStep } from "@/lib/analytics";
+import {
+  createCheckoutHandoffToken,
+  trackCheckoutClientDiagnostic,
+  trackFunnelStep,
+} from "@/lib/analytics";
 import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 // Lazy load the canvas for better initial load
@@ -598,8 +602,14 @@ export function SimplifiedEditor() {
         return undefined;
       })() as "test" | "live" | undefined;
 
-      const checkoutPayload: { mapId?: string; plan: string; stripeMode?: "test" | "live" } = {
+      const checkoutPayload: {
+        mapId?: string;
+        plan: string;
+        stripeMode?: "test" | "live";
+        checkoutHandoff?: string;
+      } = {
         plan: "single",
+        checkoutHandoff: createCheckoutHandoffToken(),
       };
       if (mapId) checkoutPayload.mapId = mapId;
       if (stripeMode) checkoutPayload.stripeMode = stripeMode;

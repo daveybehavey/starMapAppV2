@@ -588,6 +588,16 @@ function normalizeIdempotencyToken(raw: unknown, maxLen = 64) {
   return token;
 }
 
+/** STAR-006: presence-only browser handoff signal. Never stores the raw token. */
+const CHECKOUT_HANDOFF_TOKEN_RE = /^b[a-f0-9]{16}$/i;
+
+function resolveCheckoutHandoff(raw: unknown): "browser" | "missing" {
+  if (typeof raw !== "string") return "missing";
+  const token = raw.trim();
+  if (!token || token.length > 32) return "missing";
+  return CHECKOUT_HANDOFF_TOKEN_RE.test(token) ? "browser" : "missing";
+}
+
 function checkoutIdempotencyKey(input: {
   mapId?: string;
   plan: CheckoutPlan;
@@ -639,6 +649,8 @@ async function createCheckoutSession(
     promotionSource?: PromotionSource;
     referralAutoOfferVariant?: ReferralAutoOfferVariant;
     checkoutSource?: string;
+    /** Presence-only: `browser` or `missing`. Never a raw client token. */
+    checkoutHandoff?: "browser" | "missing";
     idempotencyKey?: string;
     merchFamily?: MerchFamilyId;
     merchOptions?: { size?: string; color?: string };
@@ -664,6 +676,7 @@ async function createCheckoutSession(
     promotionSource = "none",
     referralAutoOfferVariant,
     checkoutSource,
+    checkoutHandoff = "missing",
     idempotencyKey,
     merchFamily,
     merchOptions,
@@ -736,6 +749,7 @@ async function createCheckoutSession(
   const metadata: Record<string, string> = { order_type: normalizedOrderType };
   const normalizedCheckoutSource = normalizeIdempotencyToken(checkoutSource, 48);
   if (normalizedCheckoutSource) metadata.checkout_source = normalizedCheckoutSource;
+  metadata.checkout_handoff = checkoutHandoff === "browser" ? "browser" : "missing";
   if (mapId) metadata.map_id = mapId;
   if (isPrintOrder) {
     metadata.print_variant = normalizedPrintVariant;
@@ -1207,6 +1221,7 @@ export async function GET(req: NextRequest) {
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       checkoutSource: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+      checkoutHandoff: "missing",
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
     });
@@ -1281,6 +1296,7 @@ export async function POST(req: NextRequest) {
     let promoCode: string | undefined;
     let referralCode: string | undefined;
     let shippingCountry: string | undefined;
+    let checkoutHandoff: "browser" | "missing" = "missing";
     try {
       const body = (await req.json()) as {
         mapId?: string;
@@ -1297,8 +1313,10 @@ export async function POST(req: NextRequest) {
         recipeFingerprint?: string;
         shippingCountry?: string;
         referralCode?: string;
+        checkoutHandoff?: string;
       } | null;
       mapId = parseCheckoutMapId(body?.mapId);
+      checkoutHandoff = resolveCheckoutHandoff(body?.checkoutHandoff);
       if (body?.plan && ["single", "pack3", "subscription"].includes(body.plan)) {
         plan = body.plan;
       }
@@ -1476,6 +1494,7 @@ export async function POST(req: NextRequest) {
       referralAttribution,
       referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       checkoutSource: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+      checkoutHandoff,
       idempotencyKey: idempotencyKey ?? undefined,
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,

@@ -112,10 +112,40 @@ function getCheckoutSource(session) {
   return firstMetadataValue(session.metadata || {}, ["checkout_source"]) || "unknown_legacy";
 }
 
+function getCheckoutHandoff(session) {
+  const value = firstMetadataValue(session.metadata || {}, ["checkout_handoff"]).toLowerCase();
+  if (value === "browser") return "browser";
+  if (value === "missing") return "missing";
+  // Pre-STAR-006 sessions have no handoff metadata.
+  return "unknown_legacy";
+}
+
 function classifyMethod(source) {
   if (source.endsWith("_get")) return "GET";
   if (source.endsWith("_post")) return "POST";
   return "unknown";
+}
+
+function isPaidSession(session) {
+  return session.payment_status === "paid" || session.payment_status === "no_payment_required";
+}
+
+function countHandoffBreakdown(sessions) {
+  const rows = [];
+  for (const handoff of ["browser", "missing", "unknown_legacy"]) {
+    const subset = sessions.filter((session) => getCheckoutHandoff(session) === handoff);
+    if (!subset.length) continue;
+    rows.push({
+      value: handoff,
+      count: subset.length,
+      paid: subset.filter(isPaidSession).length,
+      unpaid: subset.filter((session) => !isPaidSession(session)).length,
+      digital: subset.filter((session) => classifyOrder(session) === "digital").length,
+      print: subset.filter((session) => classifyOrder(session) === "print").length,
+      sources: countBy(subset, getCheckoutSource),
+    });
+  }
+  return rows;
 }
 
 function getSafeContextId(session) {
@@ -226,11 +256,14 @@ function buildReport(args, sessions, funnel) {
   const safeContextValues = sessions.map(getSafeContextId);
   const safeContextIds = new Set(safeContextValues.filter(Boolean));
   const blankContextCount = safeContextValues.filter((value) => !value).length;
-  const paidSessions = sessions.filter(
-    (session) => session.payment_status === "paid" || session.payment_status === "no_payment_required",
-  );
+  const paidSessions = sessions.filter(isPaidSession);
   const sourceCounts = countBy(sessions, getCheckoutSource);
   const unknownLegacy = sourceCounts.find((row) => row.value === "unknown_legacy")?.count || 0;
+  const handoffBreakdown = countHandoffBreakdown(sessions);
+  const browserHandoffCount = handoffBreakdown.find((row) => row.value === "browser")?.count || 0;
+  const missingHandoffCount = handoffBreakdown.find((row) => row.value === "missing")?.count || 0;
+  const unknownHandoffCount = handoffBreakdown.find((row) => row.value === "unknown_legacy")?.count || 0;
+  const labeledHandoffCount = browserHandoffCount + missingHandoffCount;
   const funnelSessionCreated = funnel.ok ? Number(funnel.steps.checkout_session_created || 0) : null;
 
   return {
@@ -251,6 +284,11 @@ function buildReport(args, sessions, funnel) {
       paymentStatus: countBy(sessions, (session) => session.payment_status),
       checkoutSources: sourceCounts,
       methods: countBy(sessions, (session) => classifyMethod(getCheckoutSource(session))),
+      checkoutHandoff: countBy(sessions, getCheckoutHandoff),
+      checkoutHandoffBreakdown: handoffBreakdown,
+      browserHandoffSessions: browserHandoffCount,
+      missingHandoffSessions: missingHandoffCount,
+      unknownHandoffSessions: unknownHandoffCount,
       plans: countBy(sessions, getPlan),
       printVariants: countBy(sessions, getPrintVariant),
       shippingCountries: countBy(
@@ -288,6 +326,14 @@ function buildReport(args, sessions, funnel) {
         sessions.length > 0 && safeContextIds.size === sessions.length
           ? "raw_sessions_match_unique_safe_contexts"
           : "raw_sessions_do_not_match_unique_safe_contexts",
+      handoffSignal:
+        labeledHandoffCount === 0
+          ? "handoff_metadata_not_yet_available"
+          : missingHandoffCount > browserHandoffCount
+            ? "missing_handoff_dominates"
+            : browserHandoffCount > missingHandoffCount
+              ? "browser_handoff_dominates"
+              : "handoff_mix_mixed",
     },
   };
 }
@@ -328,6 +374,18 @@ function printHuman(report) {
   printBucket("Order types", report.stripe.orderTypes);
   printBucket("Checkout sources", report.stripe.checkoutSources);
   printBucket("Methods", report.stripe.methods);
+  printBucket("Checkout handoff", report.stripe.checkoutHandoff);
+  if (report.stripe.checkoutHandoffBreakdown?.length) {
+    console.log("Checkout handoff detail");
+    for (const row of report.stripe.checkoutHandoffBreakdown) {
+      console.log(
+        `  ${row.value}: ${row.count} (paid=${row.paid} unpaid=${row.unpaid} digital=${row.digital} print=${row.print})`,
+      );
+      for (const source of row.sources.slice(0, 4)) {
+        console.log(`    source ${source.value}: ${source.count}`);
+      }
+    }
+  }
   printBucket("Stripe session status", report.stripe.status);
   printBucket("Payment status", report.stripe.paymentStatus);
   printBucket("Plans", report.stripe.plans);
@@ -338,6 +396,7 @@ function printHuman(report) {
   console.log(`  source quality: ${report.interpretation.sourceQuality}`);
   console.log(`  duplicate signal: ${report.interpretation.duplicateSignal}`);
   console.log(`  buyer-attempt signal: ${report.interpretation.buyerAttemptSignal}`);
+  console.log(`  handoff signal: ${report.interpretation.handoffSignal}`);
 }
 
 async function main() {

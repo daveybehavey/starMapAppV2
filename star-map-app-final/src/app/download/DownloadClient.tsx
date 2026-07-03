@@ -10,6 +10,7 @@ import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { Shape } from "@/lib/types";
 import {
+  createCheckoutHandoffToken,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -1181,6 +1182,7 @@ export default function DownloadClient() {
             printAssetId: uploadedAssetId,
             mapId: mapId ?? undefined,
             shippingCountry,
+            checkoutHandoff: createCheckoutHandoffToken(),
           }),
         });
         checkoutApiResponseReceived = true;

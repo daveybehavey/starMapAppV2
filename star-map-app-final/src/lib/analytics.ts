@@ -548,6 +548,22 @@ export function trackFunnelStep(step: FunnelStep, props?: FunnelEventProps) {
   }
 }
 
+/**
+ * Short non-sensitive browser handoff token for STAR-006 origin diagnostics.
+ * Server records only presence (`checkout_handoff=browser|missing`), never the token.
+ */
+export function createCheckoutHandoffToken(): string {
+  const bytes = new Uint8Array(8);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return `b${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export function trackCheckoutClientDiagnostic(input: {
   reason: string;
   source?: string;

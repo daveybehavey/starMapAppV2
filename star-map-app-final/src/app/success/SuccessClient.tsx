@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
+  createCheckoutHandoffToken,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -272,6 +273,7 @@ export default function SuccessClient() {
           plan: "single",
           orderType: "digital",
           mapId: checkoutMapId,
+          checkoutHandoff: createCheckoutHandoffToken(),
         }),
       });
       checkoutApiResponseReceived = true;
