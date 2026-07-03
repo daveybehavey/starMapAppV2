@@ -221,7 +221,88 @@ Interpretation:
 
 Paid ads remain no-go for scaling during the observation window.
 
-## 6. Observation plan
+## 6. Day 6 daily observation
+
+Date: 2026-07-03
+
+Commands run:
+
+- `npm.cmd run qa:checkout-source-diagnostics -- --days 1`
+- `npm.cmd run qa:commerce-digest -- --days 1`
+- `npm.cmd run qa:funnel-reconcile -- --days 1`
+
+Checkout source diagnostics:
+
+| Metric | Count |
+| --- | ---: |
+| Raw Stripe Checkout sessions | 3 |
+| Unique safe context IDs | 3 |
+| Blank safe context IDs | 0 |
+| Duplicate context clusters | 0 |
+| Paid sessions | 0 |
+| Unpaid sessions | 3 |
+| Funnel `checkout_started` | 0 |
+| Funnel `checkout_request_received` | 3 |
+| Funnel `checkout_session_created` | 3 |
+| Funnel `payment_verified` | 0 |
+| Stripe sessions / funnel sessions | 100% |
+
+Checkout sources:
+
+| Source | Count |
+| --- | ---: |
+| `checkout_api_digital_post` | 3 |
+
+Method and product mix:
+
+| Dimension | Count |
+| --- | ---: |
+| POST | 3 |
+| GET | 0 |
+| Digital | 3 |
+| Print | 0 |
+
+Stripe session status:
+
+| Status | Count |
+| --- | ---: |
+| Open | 3 |
+| Expired | 0 |
+| Paid | 0 |
+| Unpaid | 3 |
+
+Commerce digest:
+
+| Metric | Count |
+| --- | ---: |
+| Production paid sessions | 0 |
+| Production revenue | `$0.00` |
+| Landing views | 5 |
+| Preview started | 8 |
+| Checkout started | 0 |
+| Checkout request received | 3 |
+| Checkout session created | 3 |
+| Payment verified | 0 |
+| Server checkout blockers in last day | 0 |
+
+Funnel reconcile:
+
+- Exit code: 0 (success; no reconciliation errors reported).
+
+Interpretation:
+
+- Passed: All three sessions in the 1-day window carried `checkout_api_digital_post` source metadata.
+- Passed: No blank safe context IDs or duplicate context clusters were detected.
+- Passed: Stripe sessions reconciled 100% with funnel `checkout_session_created`.
+- Passed: All sessions were POST digital flows; no GET or print checkout volume observed.
+- Confirmed: All three sessions remain open and unpaid; no paid conversions in this window.
+- Confirmed: No server-side checkout blockers in the last day.
+- Confirmed: Preview activity increased (8) while `checkout_started` remains 0 with 3 server checkout sessions — the client-side tracking gap vs server checkout volume persists.
+- Unknown: Still cannot distinguish real abandonment, low-quality traffic, QA/internal activity, bots/probes, pricing friction, or checkout trust friction.
+
+Paid ads remain no-go for scaling during the observation window.
+
+## 7. Observation plan
 
 Run daily for seven days:
 
@@ -239,7 +320,7 @@ Track:
 - Any server-side checkout blocker increase.
 - Whether legacy unknowns fall away as the post-deploy window matures.
 
-## 7. Decision questions
+## 8. Decision questions
 
 At the end of the observation window, decide:
 
@@ -249,7 +330,7 @@ At the end of the observation window, decide:
 - Are unpaid sessions likely human abandonment, low-quality traffic, bots/probes, QA/internal activity, or UX/pricing friction?
 - Is there enough evidence to prioritize cancel recovery, bot/probe filtering, checkout UX work, pricing/offer work, or source attribution improvements?
 
-## 8. Paid ads status
+## 9. Paid ads status
 
 No-go for scaling paid ads.
 
@@ -259,7 +340,7 @@ Reason:
 - The first post-deploy checks show the source metadata working.
 - The platform still needs seven days of source-aware evidence before deciding whether paid traffic would be useful or wasteful.
 
-## 9. Recommended next action
+## 10. Recommended next action
 
 Continue the STAR-004 observation window for seven days, then create the next decision report from source-aware checkout evidence.
 
