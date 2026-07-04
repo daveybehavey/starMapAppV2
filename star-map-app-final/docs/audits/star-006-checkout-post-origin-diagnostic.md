@@ -278,3 +278,67 @@ No `missing` handoff appeared for this test (expected — instrumented browser p
 1. Continue daily `qa:checkout-source-diagnostics -- --days 1` on real traffic.
 2. Once enough labeled sessions accumulate, apply section 7 decision table.
 3. Do not start pricing, UX, recovery, bot filtering, or NoteBill until real-traffic mix is clear.
+
+## 14. Real-traffic origin observation (first pass)
+
+Date/time: 2026-07-04 (local afternoon, UTC ~18:30)
+
+### Command run
+
+- `npm.cmd run qa:checkout-source-diagnostics -- --days 1`
+
+### Raw counts (1-day window)
+
+| Metric | Count |
+| --- | ---: |
+| Raw Stripe Checkout sessions | 5 |
+| `checkout_handoff=browser` | 1 |
+| `checkout_handoff=missing` | 0 |
+| `unknown_legacy` | 4 |
+| Paid / unpaid | 0 / 5 |
+| Digital / print | 5 / 0 |
+| `interpretation.handoffSignal` | `browser_handoff_dominates` |
+
+Checkout sources by handoff:
+
+| Handoff | Source | Count |
+| --- | --- | ---: |
+| `browser` | `checkout_api_digital_post` | 1 |
+| `unknown_legacy` | `checkout_api_digital_post` | 4 |
+
+UTC hour buckets: `04:00Z`, `09:00Z`, `14:00Z`, `17:00Z`, `18:00Z` (one session each).
+
+### Excluding known STAR-006A smoke test
+
+The diagnostics script cannot exclude sessions automatically. Manual exclusion applied using the known smoke-test fingerprint from section 13:
+
+- Handoff: `browser`
+- Source: `checkout_api_digital_post`
+- UTC hour: `2026-07-04T18:00Z`
+- Unpaid digital
+
+| Metric | All sessions | Excluding smoke test |
+| --- | ---: | ---: |
+| Labeled `browser` | 1 | **0** |
+| Labeled `missing` | 0 | **0** |
+| `unknown_legacy` | 4 | 4 |
+| New non-smoke labeled sessions | — | **0** |
+
+### Interpretation
+
+- **No new non-smoke labeled sessions** appeared since STAR-006A validation.
+- The only `checkout_handoff=browser` session in the window is the controlled smoke test.
+- Four sessions remain `unknown_legacy` (pre-STAR-006); do not treat as missing-handoff evidence.
+- **`browser_handoff_dominates` is misleading for real-traffic decisions** — it reflects the smoke test only.
+
+### Origin mix decision-ready?
+
+**No.** Only the known smoke-test browser session is labeled. Real-traffic origin mix is undetermined.
+
+### Paid ads status
+
+**No-go.**
+
+### Recommended next action
+
+Keep observing with daily `qa:checkout-source-diagnostics -- --days 1`. Re-run when real traffic has had more time to create post-deploy sessions. Do not overinterpret until labeled non-smoke `browser` or `missing` sessions appear.
