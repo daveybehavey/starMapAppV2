@@ -1,8 +1,9 @@
 # STAR-006 Checkout POST Origin Diagnostic
 
-Status: Deployed — observation in progress
+Status: Deployed — validated via STAR-006A smoke test
 Date: 2026-07-03
 Deployed: 2026-07-04
+Validated: 2026-07-04
 Scope: Minimal diagnostic to distinguish instrumented browser checkout POSTs from bare/direct API checkout POSTs.
 
 ## 1. Executive summary
@@ -120,16 +121,16 @@ Do not treat `unknown_legacy` (pre-STAR-006) sessions as missing-handoff evidenc
 
 **No-go.**
 
-Origin mix is not yet measured from post-deploy labeled sessions. Continue observation before choosing the next revenue-focused ticket.
+STAR-006 browser handoff is validated, but real-traffic origin mix is not yet decided. Continue observing labeled `browser` vs `missing` sessions from organic traffic before choosing the next revenue-focused ticket.
 
 ## 11. Recommended next step
 
-1. Continue daily `qa:checkout-source-diagnostics -- --days 1` until labeled `browser` / `missing` sessions exist.
-2. Re-run with `--days 7` once enough post-deploy volume accumulates.
-3. Use only sessions with `checkout_handoff=browser` or `checkout_handoff=missing` for origin decisions.
-4. Pick the next implementation ticket from the decision table above.
+1. Continue daily `qa:checkout-source-diagnostics -- --days 1` to accumulate labeled post-deploy sessions from real traffic.
+2. Re-run with `--days 7` once enough labeled volume exists.
+3. Use only sessions with `checkout_handoff=browser` or `checkout_handoff=missing` for origin decisions (ignore `unknown_legacy`).
+4. Pick the next implementation ticket from the decision table in section 7.
 
-Do not start pricing, UX redesign, recovery, bot filtering, or NoteBill until origin mix is observed.
+Do not start pricing, UX redesign, recovery, bot filtering, or NoteBill until real-traffic origin mix is measured.
 
 ## 12. Post-deploy observation (first pass)
 
@@ -199,3 +200,81 @@ Checkout sources (all `unknown_legacy` bucket): `checkout_api_digital_post` × 4
 ### Next observation action
 
 Re-run `npm.cmd run qa:checkout-source-diagnostics -- --days 1` daily until labeled post-deploy sessions appear, then apply the decision table in section 7.
+
+## 13. STAR-006A controlled browser-handoff smoke test
+
+Date/time: 2026-07-04 (UTC ~18:00)
+
+### Purpose
+
+Actively verify that a known production browser checkout attempt records `checkout_handoff=browser` on the live Stripe session — not passively wait for traffic.
+
+### Baseline (before smoke test)
+
+Command: `npm.cmd run qa:checkout-source-diagnostics -- --days 1`
+
+| Metric | Count |
+| --- | ---: |
+| Raw Stripe Checkout sessions | 4 |
+| `checkout_handoff=browser` | 0 |
+| `checkout_handoff=missing` | 0 |
+| `unknown_legacy` | 4 |
+| Paid / unpaid | 0 / 4 |
+| Digital / print | 4 / 0 |
+| Checkout sources | `checkout_api_digital_post` × 4 |
+| `checkout_started` | 0 |
+| `interpretation.handoffSignal` | `handoff_metadata_not_yet_available` |
+
+### Controlled browser action
+
+Production URL flow (no direct API script):
+
+1. Opened `https://starmapco.com/editor?mode=quick&source=star006a-smoke&checkout=digital&date=2020-06-15&location=Seattle`
+2. Digital paywall auto-opened (`checkout=digital` param).
+3. Clicked **Buy this map in HD** once (normal editor paywall → digital checkout).
+4. Confirmed redirect to Stripe Checkout (`checkout.stripe.com/c/pay/cs_live_...`).
+5. Did **not** pay; stopped at Stripe Checkout page.
+
+### Post-test diagnostics
+
+Command: `npm.cmd run qa:checkout-source-diagnostics -- --days 1`
+
+| Metric | Before | After | Delta |
+| --- | ---: | ---: | ---: |
+| Raw sessions | 4 | 5 | +1 |
+| `browser` | 0 | 1 | **+1** |
+| `missing` | 0 | 0 | 0 |
+| `unknown_legacy` | 4 | 4 | 0 |
+| Paid / unpaid | 0 / 4 | 0 / 5 | +1 unpaid |
+| Digital / print | 4 / 0 | 5 / 0 | +1 digital |
+| `checkout_started` | 0 | 1 | +1 |
+| `checkout_request_received` | 4 | 5 | +1 |
+| `checkout_session_created` | 4 | 5 | +1 |
+
+New session detail:
+
+- Handoff: `browser` (paid=0, unpaid=1, digital=1, print=0)
+- Source: `checkout_api_digital_post`
+- UTC hour bucket: `2026-07-04T18:00Z`
+
+`interpretation.handoffSignal`: `browser_handoff_dominates` (among labeled sessions: 1 browser, 0 missing)
+
+### STAR-006 validated?
+
+**Yes.** The controlled browser checkout increased `checkout_handoff=browser` by exactly 1. The instrument works in production for the main editor digital checkout path.
+
+No `missing` handoff appeared for this test (expected — instrumented browser path was used).
+
+### Enough to choose next ticket from real traffic?
+
+**Not yet.** This validates the diagnostic instrument only. Real-traffic origin mix still needs more labeled `browser` vs `missing` sessions from organic/API volume.
+
+### Paid ads status
+
+**No-go** until real-traffic origin mix is measured.
+
+### Next recommendation
+
+1. Continue daily `qa:checkout-source-diagnostics -- --days 1` on real traffic.
+2. Once enough labeled sessions accumulate, apply section 7 decision table.
+3. Do not start pricing, UX, recovery, bot filtering, or NoteBill until real-traffic mix is clear.
