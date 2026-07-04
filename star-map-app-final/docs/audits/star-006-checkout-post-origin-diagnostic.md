@@ -1,7 +1,8 @@
 # STAR-006 Checkout POST Origin Diagnostic
 
-Status: Implemented (awaiting deploy + observation)
+Status: Deployed — observation in progress
 Date: 2026-07-03
+Deployed: 2026-07-04
 Scope: Minimal diagnostic to distinguish instrumented browser checkout POSTs from bare/direct API checkout POSTs.
 
 ## 1. Executive summary
@@ -119,13 +120,82 @@ Do not treat `unknown_legacy` (pre-STAR-006) sessions as missing-handoff evidenc
 
 **No-go.**
 
-Origin mix is not yet measured in production. Deploy STAR-006, observe labeled sessions, then choose the next revenue-focused ticket from the decision table.
+Origin mix is not yet measured from post-deploy labeled sessions. Continue observation before choosing the next revenue-focused ticket.
 
 ## 11. Recommended next step
 
-1. Deploy this change through the normal production deploy path.
-2. Run `npm.cmd run qa:checkout-source-diagnostics -- --days 1` (and later `--days 7`) after deploy.
+1. Continue daily `qa:checkout-source-diagnostics -- --days 1` until labeled `browser` / `missing` sessions exist.
+2. Re-run with `--days 7` once enough post-deploy volume accumulates.
 3. Use only sessions with `checkout_handoff=browser` or `checkout_handoff=missing` for origin decisions.
 4. Pick the next implementation ticket from the decision table above.
 
 Do not start pricing, UX redesign, recovery, bot filtering, or NoteBill until origin mix is observed.
+
+## 12. Post-deploy observation (first pass)
+
+Date: 2026-07-04
+
+### Deployment status
+
+| Item | Value |
+| --- | --- |
+| Deployed commit | `84666bb` (`feat: add STAR-006 checkout POST origin handoff diagnostic`) |
+| Deploy method | GitHub Actions `deploy-production.yml` via `npm run deploy:remote` |
+| Workflow run | [28713886693](https://github.com/daveybehavey/starMapAppV2/actions/runs/28713886693) |
+| Run head SHA | `84666bb7d98a4eec77c905fdcc1f1d7412d69de7` |
+| Conclusion | success |
+| Started (UTC) | 2026-07-04T17:22:18Z |
+| Finished (UTC) | 2026-07-04T17:24:37Z |
+| Steps passed | `npm ci`, `npm run test:unit`, `npm run deploy:inner`, `npm run qa:live-critical` |
+
+### Commands run (post-deploy)
+
+- `npm.cmd run qa:checkout-source-diagnostics -- --days 1`
+- `npm.cmd run qa:commerce-digest -- --days 1`
+- `npm.cmd run qa:funnel-reconcile -- --days 1`
+
+### Handoff counts (last 1 day)
+
+| Handoff | Count | Paid | Unpaid | Digital | Print |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `browser` | 0 | 0 | 0 | 0 | 0 |
+| `missing` | 0 | 0 | 0 | 0 | 0 |
+| `unknown_legacy` | 4 | 0 | 4 | 4 | 0 |
+
+Checkout sources (all `unknown_legacy` bucket): `checkout_api_digital_post` × 4.
+
+`interpretation.handoffSignal`: **`handoff_metadata_not_yet_available`**
+
+### Supporting funnel/commerce (last 1 day)
+
+| Metric | Count |
+| --- | ---: |
+| Raw Stripe Checkout sessions | 4 |
+| `checkout_started` | 0 |
+| `checkout_request_received` | 4 |
+| `checkout_session_created` | 4 |
+| `payment_verified` | 0 |
+| Production revenue | $0.00 |
+| Landing views | 13 |
+| Preview started | 10 |
+| Server checkout blockers | 0 |
+| Funnel reconcile | exit 0 |
+
+### Interpretation
+
+- Deploy succeeded; production is on STAR-006 commit `84666bb`.
+- First post-deploy observation is **too early** for origin-mix decisions: all four sessions in the 1-day window are **`unknown_legacy`** (created before handoff metadata was live).
+- Do **not** treat `unknown_legacy` as missing-handoff evidence.
+- Wait for new checkout sessions created after deploy before judging browser vs missing dominance.
+
+### Enough to choose next ticket?
+
+**No.** Need more post-deploy labeled sessions (`browser` or `missing`).
+
+### Paid ads status
+
+**No-go** until labeled origin mix is measured.
+
+### Next observation action
+
+Re-run `npm.cmd run qa:checkout-source-diagnostics -- --days 1` daily until labeled post-deploy sessions appear, then apply the decision table in section 7.
