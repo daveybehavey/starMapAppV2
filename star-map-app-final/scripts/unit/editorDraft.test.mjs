@@ -4,7 +4,9 @@ import {
   EDITOR_DRAFT_SCHEMA_VERSION,
   parseEditorDraft,
   readEditorDraft,
+  readEditorDraftFromHost,
   writeEditorDraft,
+  writeEditorDraftToHost,
 } from "../../src/lib/editorDraft.ts";
 
 const makeDraft = () => ({
@@ -136,6 +138,13 @@ test("corrupt JSON is rejected safely", () => {
   });
 });
 
+test("a stored empty string is malformed rather than an empty draft", () => {
+  assert.deepEqual(readEditorDraft({ getItem: () => "" }), {
+    status: "invalid",
+    reason: "malformed_json",
+  });
+});
+
 test("missing required fields are rejected", () => {
   const draft = makeDraft();
   delete draft.location;
@@ -220,6 +229,24 @@ test("storage read and write failures return typed outcomes without throwing", (
     ),
     { status: "storage-unavailable", operation: "write" }
   );
+});
+
+test("a throwing localStorage property getter returns typed outcomes", () => {
+  const host = {};
+  Object.defineProperty(host, "localStorage", {
+    get() {
+      throw new DOMException("Access denied", "SecurityError");
+    },
+  });
+
+  assert.deepEqual(readEditorDraftFromHost(host), {
+    status: "storage-unavailable",
+    operation: "read",
+  });
+  assert.deepEqual(writeEditorDraftToHost(host, makeDraft()), {
+    status: "storage-unavailable",
+    operation: "write",
+  });
 });
 
 test("an invalid draft exposes no data and cannot be partially restored", () => {

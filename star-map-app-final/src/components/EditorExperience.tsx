@@ -77,7 +77,7 @@ import {
   type HydratableMapRecipe,
 } from "@/lib/mapRecipeHydration";
 import { parseMapIdParam } from "@/lib/mapId";
-import { readEditorDraft, writeEditorDraft } from "@/lib/editorDraft";
+import { readEditorDraftFromHost, writeEditorDraftToHost } from "@/lib/editorDraft";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -652,7 +652,7 @@ export function EditorExperience({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const draftOutcome = readEditorDraft(window.localStorage);
+    const draftOutcome = readEditorDraftFromHost(window);
     if (draftOutcome.status === "restored") {
       const draft = draftOutcome.data;
       const currentState = useStore.getState();
@@ -955,7 +955,7 @@ export function EditorExperience({
       renderOptions,
     });
     const draft = { ...recipe, selectedOccasion };
-    const saveOutcome = writeEditorDraft(window.localStorage, draft);
+    const saveOutcome = writeEditorDraftToHost(window, draft);
     if (saveOutcome.status === "saved") {
       setLastDraftSavedAt(
         new Date(saveOutcome.savedAt).toLocaleTimeString([], {

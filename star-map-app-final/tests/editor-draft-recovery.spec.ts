@@ -78,6 +78,16 @@ const persistedState = {
   },
 } as const;
 
+async function seedDraftOnLoad(page: Page, raw: string) {
+  await page.addInitScript((draft) => {
+    localStorage.clear();
+    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+    localStorage.setItem("cookiesAccepted", "true");
+    localStorage.setItem("analytics-consent", "true");
+    localStorage.setItem("star-map-draft", draft);
+  }, raw);
+}
+
 async function openCleanEditor(page: Page, force: "desktop" | "mobile") {
   await page.goto(`/editor?force=${force}`, { waitUntil: "domcontentloaded" });
   await page.evaluate(() => {
@@ -170,6 +180,9 @@ async function expectPersistedState(page: Page, isDesktop: boolean) {
 for (const force of ["desktop", "mobile"] as const) {
   test(`${force} editor restores all major draft fields after refresh`, async ({ page }) => {
     test.setTimeout(90_000);
+    if (force === "mobile") {
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
     await openCleanEditor(page, force);
     await applyPersistedState(page);
 
@@ -189,13 +202,7 @@ test("valid legacy draft restores and is migrated to the versioned envelope", as
     aspectRatio: persistedState.aspectRatio,
     renderOptions: { ...persistedState.renderOptions, shapeMask: "diamond" },
   };
-  await page.addInitScript((raw) => {
-    localStorage.clear();
-    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
-    localStorage.setItem("cookiesAccepted", "true");
-    localStorage.setItem("analytics-consent", "true");
-    localStorage.setItem("star-map-draft", raw);
-  }, JSON.stringify(legacy));
+  await seedDraftOnLoad(page, JSON.stringify(legacy));
 
   await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
   await waitForEditor(page, true);
@@ -225,16 +232,12 @@ test("valid legacy draft restores and is migrated to the versioned envelope", as
       shape: "diamond",
       title: persistedState.textBoxes[0].text,
     });
+  await expectPersistedState(page, true);
 });
 
 test("corrupt local storage leaves a usable editor with default state", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.clear();
-    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
-    localStorage.setItem("cookiesAccepted", "true");
-    localStorage.setItem("analytics-consent", "true");
-    localStorage.setItem("star-map-draft", '{"datetimeISO":');
-  });
+  const corruptRaw = '{"datetimeISO":';
+  await seedDraftOnLoad(page, corruptRaw);
 
   await page.goto("/editor?force=mobile", { waitUntil: "domcontentloaded" });
   await waitForEditor(page, false);
@@ -251,5 +254,61 @@ test("corrupt local storage leaves a usable editor with default state", async ({
   expect(state).toEqual({ locationName: "", title: "Our Night Sky", shape: "rectangle" });
   await expect(page.locator("#editor")).toBeVisible();
   await page.waitForTimeout(500);
-  expect(await page.evaluate(() => localStorage.getItem("star-map-draft"))).toBe('{"datetimeISO":');
+  expect(await page.evaluate(() => localStorage.getItem("star-map-draft"))).toBe(corruptRaw);
+});
+
+for (const invalidCase of [
+  { name: "empty-string corruption", raw: "" },
+  {
+    name: "unsupported schema version",
+    raw: JSON.stringify({
+      ...persistedState,
+      version: 1,
+      seed: "future-version-test",
+      datetimeISO: persistedState.dateTime,
+      schemaVersion: 999,
+      savedAt: "2026-07-17T18:00:00.000Z",
+    }),
+  },
+]) {
+  test(`${invalidCase.name} is preserved without an automatic default overwrite`, async ({ page }) => {
+    await seedDraftOnLoad(page, invalidCase.raw);
+    await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page, true);
+    await page.waitForTimeout(500);
+
+    expect(await page.evaluate(() => localStorage.getItem("star-map-draft"))).toBe(invalidCase.raw);
+  });
+}
+
+test("an intentional editor change replaces a preserved invalid draft", async ({ page }) => {
+  const corruptRaw = '{"datetimeISO":';
+  await seedDraftOnLoad(page, corruptRaw);
+  await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
+  await waitForEditor(page, true);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => localStorage.getItem("star-map-draft"))).toBe(corruptRaw);
+
+  const dateInput = page.locator("#star-date");
+  await expect(dateInput).toBeVisible();
+  const nextDate = (await dateInput.inputValue()) === "2024-01-02" ? "2024-01-03" : "2024-01-02";
+  await dateInput.fill(nextDate);
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem("star-map-draft");
+        if (!raw) return null;
+        try {
+          const parsed = JSON.parse(raw) as { schemaVersion?: number; datetimeISO?: string };
+          return {
+            schemaVersion: parsed.schemaVersion,
+            date: parsed.datetimeISO?.slice(0, 10),
+          };
+        } catch {
+          return null;
+        }
+      })
+    )
+    .toEqual({ schemaVersion: 1, date: nextDate });
 });

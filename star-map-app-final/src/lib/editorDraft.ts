@@ -58,6 +58,10 @@ export interface EditorDraftStorage {
   setItem(key: string, value: string): void;
 }
 
+export interface EditorDraftStorageHost {
+  readonly localStorage: EditorDraftStorage;
+}
+
 type ValidationResult<T> = { ok: true; value: T } | { ok: false; reason: EditorDraftInvalidReason };
 
 type UnknownRecord = Record<string, unknown>;
@@ -438,10 +442,21 @@ export function readEditorDraft(
   } catch {
     return { status: "storage-unavailable", operation: "read" };
   }
-  if (!raw) {
+  if (raw === null) {
     return { status: "empty" };
   }
   return parseEditorDraft(raw);
+}
+
+export function readEditorDraftFromHost(
+  host: EditorDraftStorageHost,
+  key = EDITOR_DRAFT_STORAGE_KEY
+): EditorDraftReadOutcome {
+  try {
+    return readEditorDraft(host.localStorage, key);
+  } catch {
+    return { status: "storage-unavailable", operation: "read" };
+  }
 }
 
 export function writeEditorDraft(
@@ -471,4 +486,16 @@ export function writeEditorDraft(
     return { status: "storage-unavailable", operation: "write" };
   }
   return { status: "saved", savedAt, envelope };
+}
+
+export function writeEditorDraftToHost(
+  host: EditorDraftStorageHost,
+  data: unknown,
+  options: { key?: string; now?: () => Date } = {}
+): EditorDraftWriteOutcome {
+  try {
+    return writeEditorDraft(host.localStorage, data, options);
+  } catch {
+    return { status: "storage-unavailable", operation: "write" };
+  }
 }
