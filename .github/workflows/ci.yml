@@ -8,6 +8,9 @@ on:
       - ".github/workflows/ci.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: star-map-app-final
@@ -18,6 +21,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -49,8 +54,6 @@ jobs:
   render-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions:
-      contents: read
     concurrency:
       group: render-smoke-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -81,7 +84,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Render Playwright smoke
-        run: npm run qa:smoke:render
+        run: npm run qa:smoke:render -- --reporter=line,html --trace=retain-on-failure
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
 
       - name: Upload render-smoke artifacts
         if: ${{ always() && !cancelled() }}
@@ -91,5 +96,5 @@ jobs:
           path: |
             star-map-app-final/playwright-report/
             star-map-app-final/test-results/
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 14
