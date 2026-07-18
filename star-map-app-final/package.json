@@ -100,7 +100,7 @@
     "qa:go-no-go:strict": "node scripts/qa-go-no-go.mjs --strict-wrangler-parity",
     "qa:smoke:ui": "node scripts/run-playwright-with-ci.mjs tests/ui-smoke.spec.ts --workers=1",
     "qa:smoke:render": "node scripts/run-playwright-with-ci.mjs tests/export-functionality.spec.ts tests/premium-rendering.spec.ts --workers=1",
-    "qa:smoke:commerce": "node scripts/run-playwright-with-ci.mjs tests/checkout-security.spec.ts tests/api-route-regressions.spec.ts tests/map-hub-editor.spec.ts --workers=1",
+    "qa:smoke:commerce": "node scripts/run-playwright-with-ci.mjs tests/checkout-security.spec.ts tests/api-route-regressions.spec.ts tests/map-hub-editor.spec.ts tests/editor-draft-recovery.spec.ts --workers=1",
     "qa:smoke": "node scripts/run-playwright-with-ci.mjs tests/ui-smoke.spec.ts tests/export-functionality.spec.ts tests/api-route-regressions.spec.ts tests/checkout-security.spec.ts tests/premium-rendering.spec.ts --workers=1",
     "ci:pr": "npm run lint && npm run typecheck && npm run test:unit && npm run check:static-home && npm run build && npm run qa:smoke:commerce",
     "qa:release-gate": "node scripts/qa-release-gate.mjs",

@@ -5,7 +5,6 @@ import { TextBox, useStore } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
 import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
-import type { Shape } from "@/lib/types";
 import {
   createCheckoutHandoffToken,
   track,
@@ -78,6 +77,7 @@ import {
   type HydratableMapRecipe,
 } from "@/lib/mapRecipeHydration";
 import { parseMapIdParam } from "@/lib/mapId";
+import { readEditorDraftFromHost, writeEditorDraftToHost } from "@/lib/editorDraft";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -122,7 +122,6 @@ const AdvancedPanel = dynamic(() => import("@/components/AdvancedPanel").then((m
   loading: () => <div className="mt-2 h-40 rounded-xl border border-white/15 bg-white/5" />,
 });
 
-const DRAFT_KEY = "star-map-draft";
 const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
@@ -374,6 +373,7 @@ export function EditorExperience({
   const mapFromUrlHandledRef = useRef(false);
   const loadedMapIdRef = useRef<string | null>(null);
   const loadedMapFingerprintRef = useRef<string | null>(null);
+  const draftWritesBlockedRef = useRef(false);
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
   const mapIdFromQuery = useMemo(() => parseMapIdParam(searchParams.get("map_id")), [searchParams]);
@@ -652,47 +652,30 @@ export function EditorExperience({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const draft = localStorage.getItem(DRAFT_KEY);
-      if (draft) {
-        try {
-          // Draft may be from older versions with shapeMask in renderOptions
-          type DraftData = ReturnType<typeof buildRecipeFromState> & {
-            shape?: Shape;
-            selectedOccasion?: string | null;
-            renderOptions?: ReturnType<typeof buildRecipeFromState>["renderOptions"] & {
-              shapeMask?: string;
-            };
-          };
-          const parsed = JSON.parse(draft) as DraftData;
-          if (parsed.datetimeISO) setDateTime(parsed.datetimeISO);
-          if (parsed.location) setLocation(parsed.location);
-          if (parsed.textBoxes?.length) setTextBoxes(parsed.textBoxes);
-          if (parsed.selectedStyle) setStyle(parsed.selectedStyle);
-          if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
-          if (parsed.selectedOccasion) {
-            setSelectedOccasion(parsed.selectedOccasion);
-            setCustomOccasion(false);
-          } else if (parsed.location?.name) {
-            setCustomOccasion(true);
-          }
-          // Handle both new (shape) and legacy (renderOptions.shapeMask) formats
-          const shapeValue = parsed.shape ?? parsed.renderOptions?.shapeMask;
-          if (shapeValue && ["rectangle", "heart", "circle", "star", "diamond"].includes(shapeValue)) {
-            setShape(shapeValue as Shape);
-          }
-          if (parsed.renderOptions) setRenderOptions(parsed.renderOptions);
-          if (parsed.location?.name) {
-            setRevealed(true);
-          } else {
-            setRevealed(false);
-          }
-        } catch {
-          // ignore bad drafts
-        }
-      }
-    } catch {
-      // ignore storage errors (e.g. private browsing)
+    const draftOutcome = readEditorDraftFromHost(window);
+    if (draftOutcome.status === "restored") {
+      const draft = draftOutcome.data;
+      const currentState = useStore.getState();
+
+      // Validate the complete draft before atomically applying editor state.
+      useStore.setState({
+        dateTime: draft.datetimeISO,
+        location: draft.location,
+        textBoxes: draft.textBoxes,
+        selectedStyle: draft.selectedStyle,
+        aspectRatio: draft.aspectRatio,
+        shape: draft.shape,
+        renderOptions: { ...currentState.renderOptions, ...draft.renderOptions },
+        revealed: Boolean(draft.location.name.trim()),
+      });
+      setSelectedOccasion(draft.selectedOccasion);
+      setCustomOccasion(draft.selectedOccasion ? false : Boolean(draft.location.name.trim()));
+    } else if (
+      draftOutcome.status === "invalid" ||
+      draftOutcome.status === "storage-unavailable"
+    ) {
+      // Do not replace an unreadable or forward-version draft with defaults.
+      draftWritesBlockedRef.current = true;
     }
     try {
       const revealedFlag = localStorage.getItem(REVEALED_FLAG);
@@ -709,18 +692,26 @@ export function EditorExperience({
     setRestored(true);
     void refreshPaidStatus();
   }, [
-    setDateTime,
-    setLocation,
-    setRenderOptions,
     setRevealed,
     setCustomOccasion,
     setSelectedOccasion,
-    setStyle,
-    setTextBoxes,
-    setAspectRatio,
-    setShape,
     refreshPaidStatus,
   ]);
+
+  useEffect(() => {
+    if (!restored || !draftWritesBlockedRef.current) return;
+
+    const unblockDraftWrites = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Node) || !editorSectionRef.current?.contains(target)) return;
+      draftWritesBlockedRef.current = false;
+    };
+    const eventNames = ["input", "change", "click", "keydown"] as const;
+    eventNames.forEach((eventName) => window.addEventListener(eventName, unblockDraftWrites, true));
+    return () => {
+      eventNames.forEach((eventName) => window.removeEventListener(eventName, unblockDraftWrites, true));
+    };
+  }, [editorSectionRef, restored]);
 
   useEffect(() => {
     if (!restored || prefillAppliedRef.current) return;
@@ -862,6 +853,7 @@ export function EditorExperience({
         const data = (await res.json()) as unknown;
         if (!isHydratableMapRecipe(data)) return;
 
+        draftWritesBlockedRef.current = false;
         applyHydratedMapRecipe(data);
         loadedMapIdRef.current = mapIdFromQuery;
         loadedMapFingerprintRef.current = stableMapRecipeFingerprint(
@@ -952,6 +944,7 @@ export function EditorExperience({
 
   useEffect(() => {
     if (typeof window === "undefined" || !restored) return;
+    if (draftWritesBlockedRef.current) return;
     const recipe = buildRecipeFromState({
       dateTime,
       location,
@@ -962,16 +955,14 @@ export function EditorExperience({
       renderOptions,
     });
     const draft = { ...recipe, selectedOccasion };
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    const saveOutcome = writeEditorDraftToHost(window, draft);
+    if (saveOutcome.status === "saved") {
       setLastDraftSavedAt(
-        new Date().toLocaleTimeString([], {
+        new Date(saveOutcome.savedAt).toLocaleTimeString([], {
           hour: "numeric",
           minute: "2-digit",
         }),
       );
-    } catch {
-      // ignore storage errors (e.g. private browsing)
     }
   }, [
     aspectRatio,
