@@ -1,4 +1,4 @@
-# PR gate: lint, production build, commerce Playwright smoke (checkout + API regressions).
+# PR gate: lint, production build, commerce smoke, and browser-backed render/export smoke.
 name: CI
 
 on:
@@ -45,3 +45,51 @@ jobs:
 
       - name: Commerce Playwright smoke
         run: npm run qa:smoke:commerce
+
+  render-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    concurrency:
+      group: render-smoke-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: star-map-app-final/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Report browser-test versions
+        run: |
+          node --version
+          npm --version
+          npx playwright --version
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Render Playwright smoke
+        run: npm run qa:smoke:render
+
+      - name: Upload render-smoke artifacts
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            star-map-app-final/playwright-report/
+            star-map-app-final/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
