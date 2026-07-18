@@ -1,0 +1,4 @@
+{
+  "name": "starMapAppV2",
+  "install": "cd star-map-app-final && npm ci"
+}

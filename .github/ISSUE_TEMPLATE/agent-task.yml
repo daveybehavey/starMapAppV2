@@ -1,0 +1,127 @@
+name: Agent task
+description: Structured work item for Cursor Cloud Agents / Codex with risk and approval gates
+title: "[agent] "
+labels: []
+body:
+  - type: textarea
+    id: business-objective
+    attributes:
+      label: Business objective
+      description: What outcome should this work produce for StarMapCo?
+      placeholder: e.g. Reduce editor draft loss by persisting recovery state across refresh.
+    validations:
+      required: true
+
+  - type: textarea
+    id: confirmed-evidence
+    attributes:
+      label: Confirmed evidence
+      description: Links, repro steps, screenshots, failing tests, or audit notes that justify the work.
+      placeholder: Issue links, URLs, commands, or observed behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: exact-scope
+    attributes:
+      label: Exact scope
+      description: What the implementation agent is allowed to change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: exclusions
+    attributes:
+      label: Exclusions
+      description: Explicitly out of scope (files, systems, behaviors).
+      placeholder: e.g. No Stripe/Printful changes. No workflow changes. No deploy.
+    validations:
+      required: true
+
+  - type: textarea
+    id: likely-files
+    attributes:
+      label: Likely files
+      description: Best-guess paths the agent should inspect first.
+      placeholder: star-map-app-final/src/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Checklist of observable done conditions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: required-tests
+    attributes:
+      label: Required tests
+      description: Commands the agent must run (from star-map-app-final unless noted).
+      value: |
+        - npm ci
+        - npm run lint
+        - npm run typecheck
+        - npm run test:unit
+        - npm run build
+        - npm run qa:smoke:commerce (if commerce/editor/API touched)
+        - npm run qa:smoke:render (if render/export touched)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk-level
+    attributes:
+      label: Risk level
+      description: See docs/AGENT_OPERATING_MODEL.md
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+
+  - type: dropdown
+    id: preferred-agent
+    attributes:
+      label: Preferred agent
+      options:
+        - Cursor Cloud Agent
+        - Codex
+        - Human
+    validations:
+      required: true
+
+  - type: dropdown
+    id: fallback-agent
+    attributes:
+      label: Fallback agent
+      options:
+        - Codex
+        - Cursor Cloud Agent
+        - Human
+        - None
+    validations:
+      required: true
+
+  - type: textarea
+    id: approval-requirements
+    attributes:
+      label: Approval requirements
+      description: Who must approve before implementation, merge, and/or deployment.
+      value: |
+        - Low: independent review before merge; no auto-merge
+        - Medium: human approval before merge
+        - High: human approval before implementation and before deployment
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollback-considerations
+    attributes:
+      label: Rollback considerations
+      description: How to reverse the change if it lands incorrectly.
+    validations:
+      required: true
