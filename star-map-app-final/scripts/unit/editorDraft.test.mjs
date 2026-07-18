@@ -106,8 +106,111 @@ test("an existing versioned envelope parses without migration", () => {
   assert.equal(result.needsMigration, false);
 });
 
+test("datetimeISO accepts only the supported precise ISO variants without conversion", () => {
+  const validDateTimes = [
+    "2024-06-15T20:30:00.000Z",
+    "2024-06-15T20:30:00Z",
+    "2024-02-29T23:59:59.999Z",
+    "2024-01-01T00:00:00+00:00",
+    "2024-04-30T23:59:59Z",
+    "2024-12-31T23:59:59-08:00",
+    "2024-06-15T20:30:00.250+05:30",
+    "2024-06-15T20:30:00-14:00",
+    "2024-06-15T20:30:00+14:00",
+  ];
+
+  for (const datetimeISO of validDateTimes) {
+    const result = parseEditorDraft(JSON.stringify({ ...makeDraft(), datetimeISO }));
+    assert.equal(result.status, "restored", datetimeISO);
+    assert.equal(result.data.datetimeISO, datetimeISO);
+  }
+});
+
+test("datetimeISO rejects malformed, impossible, normalized, and out-of-range values", () => {
+  const invalidDateTimes = [
+    "2024-02-31T20:30:00.000Z",
+    "2023-02-29T20:30:00.000Z",
+    "2024-13-01T20:30:00.000Z",
+    "2024-00-01T20:30:00.000Z",
+    "2024-01-00T20:30:00.000Z",
+    "2024-04-31T20:30:00.000Z",
+    "2024-06-15T24:00:00.000Z",
+    "2024-06-15T20:60:00.000Z",
+    "2024-06-15T20:30:60.000Z",
+    "2024-06-15T20:30:00+14:01",
+    "2024-06-15T20:30:00+15:00",
+    "2024-06-15T20:30:00+05:60",
+    "March 1, 2024",
+    "0",
+    "2024-06-15T20:30:00.000Z trailing",
+    "2024-06-15T20:30:00.000",
+    "2024-06-15",
+  ];
+
+  for (const datetimeISO of invalidDateTimes) {
+    const result = parseEditorDraft(JSON.stringify({ ...makeDraft(), datetimeISO }));
+    assert.deepEqual(result, { status: "invalid", reason: "invalid_datetime" }, datetimeISO);
+    assert.equal("data" in result, false);
+  }
+});
+
+test("savedAt accepts only the canonical internally generated UTC representation", () => {
+  const validSavedAt = [
+    "2026-07-17T18:00:00.000Z",
+    "2024-02-29T23:59:59.999Z",
+    "2024-01-01T00:00:00.000Z",
+    "2024-12-31T23:59:59.999Z",
+  ];
+
+  for (const savedAt of validSavedAt) {
+    const result = parseEditorDraft(
+      JSON.stringify({
+        ...makeDraft(),
+        schemaVersion: EDITOR_DRAFT_SCHEMA_VERSION,
+        savedAt,
+      })
+    );
+    assert.equal(result.status, "restored", savedAt);
+    assert.equal(result.savedAt, savedAt);
+  }
+});
+
+test("savedAt rejects noncanonical and impossible values", () => {
+  const invalidSavedAtValues = [
+    "2024-02-31T20:30:00.000Z",
+    "2023-02-29T20:30:00.000Z",
+    "2024-13-01T20:30:00.000Z",
+    "2024-00-01T20:30:00.000Z",
+    "2024-01-00T20:30:00.000Z",
+    "2024-04-31T20:30:00.000Z",
+    "2024-06-15T24:00:00.000Z",
+    "2024-06-15T20:60:00.000Z",
+    "2024-06-15T20:30:60.000Z",
+    "2024-06-15T20:30:00.000+15:00",
+    "March 1, 2024",
+    "0",
+    "2024-06-15T20:30:00.000Z trailing",
+    "2024-06-15T20:30:00.000",
+    "2024-06-15T20:30:00Z",
+    "2024-06-15T20:30:00.000+00:00",
+  ];
+
+  for (const savedAt of invalidSavedAtValues) {
+    const result = parseEditorDraft(
+      JSON.stringify({
+        ...makeDraft(),
+        schemaVersion: EDITOR_DRAFT_SCHEMA_VERSION,
+        savedAt,
+      })
+    );
+    assert.deepEqual(result, { status: "invalid", reason: "invalid_envelope" }, savedAt);
+    assert.equal("data" in result, false);
+  }
+});
+
 test("legacy raw recipe restores and can be migrated without deleting its data", () => {
   const legacy = makeDraft();
+  legacy.datetimeISO = "2024-06-15T20:30:00Z";
   delete legacy.selectedOccasion;
   delete legacy.shape;
   legacy.renderOptions.shapeMask = "diamond";
@@ -118,6 +221,7 @@ test("legacy raw recipe restores and can be migrated without deleting its data",
   assert.equal(parsed.needsMigration, true);
   assert.equal(parsed.data.shape, "diamond");
   assert.equal(parsed.data.selectedOccasion, null);
+  assert.equal(parsed.data.datetimeISO, legacy.datetimeISO);
   assert.equal(parsed.data.textBoxes[0].text, "Our Paris Night");
 
   let migratedRaw = null;
@@ -128,6 +232,7 @@ test("legacy raw recipe restores and can be migrated without deleting its data",
   const reparsed = parseEditorDraft(migratedRaw);
   assert.equal(reparsed.status, "restored");
   assert.equal(reparsed.source, "versioned");
+  assert.equal(reparsed.data.datetimeISO, legacy.datetimeISO);
   assert.equal(reparsed.data.textBoxes[0].text, "Our Paris Night");
 });
 

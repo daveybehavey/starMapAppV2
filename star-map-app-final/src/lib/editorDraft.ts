@@ -88,6 +88,97 @@ const VALID_FONT_FAMILIES = new Set<TextBox["fontFamily"]>([
 ]);
 const VALID_TEXT_ALIGNMENTS = new Set<TextBox["align"]>(["left", "center", "right"]);
 
+/**
+ * Editor recipes use an extended ISO timestamp with seconds, optional
+ * millisecond precision, and either `Z` or an explicit `+/-HH:mm` offset.
+ * `savedAt` is generated with Date#toISOString and therefore has a narrower,
+ * canonical UTC representation with exactly three fractional digits.
+ */
+const EDITOR_DATETIME_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+const CANONICAL_SAVED_AT_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+type StrictIsoTimestamp = {
+  instantMs: number;
+};
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function daysInMonth(year: number, month: number): number {
+  const monthLengths = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return monthLengths[month - 1] ?? 0;
+}
+
+function parseStrictEditorTimestamp(value: string): StrictIsoTimestamp | null {
+  const match = EDITOR_DATETIME_PATTERN.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const millisecond = match[7] ? Number(match[7]) : 0;
+  const zone = match[8];
+  const offsetHour = zone === "Z" ? 0 : Number(match[10]);
+  const offsetMinute = zone === "Z" ? 0 : Number(match[11]);
+
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth(year, month) ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 14 ||
+    offsetMinute > 59 ||
+    (offsetHour === 14 && offsetMinute !== 0)
+  ) {
+    return null;
+  }
+
+  const offsetDirection = zone === "Z" || match[9] === "+" ? 1 : -1;
+  const offsetMs = offsetDirection * (offsetHour * 60 + offsetMinute) * 60_000;
+
+  // Construct the local timestamp without Date's string parser, then verify
+  // every component after applying and reversing the declared offset.
+  const local = new Date(0);
+  local.setUTCFullYear(year, month - 1, day);
+  local.setUTCHours(hour, minute, second, millisecond);
+  const instantMs = local.getTime() - offsetMs;
+  if (!Number.isFinite(instantMs)) return null;
+
+  const roundTrip = new Date(instantMs + offsetMs);
+  if (
+    roundTrip.getUTCFullYear() !== year ||
+    roundTrip.getUTCMonth() !== month - 1 ||
+    roundTrip.getUTCDate() !== day ||
+    roundTrip.getUTCHours() !== hour ||
+    roundTrip.getUTCMinutes() !== minute ||
+    roundTrip.getUTCSeconds() !== second ||
+    roundTrip.getUTCMilliseconds() !== millisecond
+  ) {
+    return null;
+  }
+
+  return { instantMs };
+}
+
+function isValidEditorTimestamp(value: string): boolean {
+  return parseStrictEditorTimestamp(value) !== null;
+}
+
+function isCanonicalSavedAt(value: string): boolean {
+  if (!CANONICAL_SAVED_AT_PATTERN.test(value)) return false;
+  const parsed = parseStrictEditorTimestamp(value);
+  return parsed !== null && new Date(parsed.instantMs).toISOString() === value;
+}
+
 const FALLBACK_TEXT_BOXES: ReadonlyArray<TextBox> = [
   {
     id: "title",
@@ -329,7 +420,7 @@ export function normalizeEditorDraftData(value: unknown): ValidationResult<Edito
     return { ok: false, reason: "invalid_envelope" };
   }
 
-  if (typeof value.datetimeISO !== "string" || !Number.isFinite(Date.parse(value.datetimeISO))) {
+  if (typeof value.datetimeISO !== "string" || !isValidEditorTimestamp(value.datetimeISO)) {
     return { ok: false, reason: "invalid_datetime" };
   }
   const location = normalizeLocation(value.location);
@@ -413,7 +504,7 @@ export function parseEditorDraft(raw: string): EditorDraftParseOutcome {
     if (parsed.schemaVersion !== EDITOR_DRAFT_SCHEMA_VERSION) {
       return { status: "invalid", reason: "unsupported_schema_version" };
     }
-    if (typeof parsed.savedAt !== "string" || !Number.isFinite(Date.parse(parsed.savedAt))) {
+    if (typeof parsed.savedAt !== "string" || !isCanonicalSavedAt(parsed.savedAt)) {
       return { status: "invalid", reason: "invalid_envelope" };
     }
     savedAt = parsed.savedAt;

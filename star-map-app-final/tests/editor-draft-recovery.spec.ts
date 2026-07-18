@@ -257,6 +257,51 @@ test("corrupt local storage leaves a usable editor with default state", async ({
   expect(await page.evaluate(() => localStorage.getItem("star-map-draft"))).toBe(corruptRaw);
 });
 
+test("an impossible datetime rejects the entire draft without partial restoration", async ({ page }) => {
+  const invalidDraft = JSON.stringify({
+    version: 1,
+    seed: "invalid-date-test",
+    datetimeISO: "2024-02-31T20:30:00.000Z",
+    location: persistedState.location,
+    textBoxes: persistedState.textBoxes,
+    selectedStyle: persistedState.selectedStyle,
+    aspectRatio: persistedState.aspectRatio,
+    shape: persistedState.shape,
+    renderOptions: persistedState.renderOptions,
+    selectedOccasion: "anniversary",
+    schemaVersion: 1,
+    savedAt: "2026-07-17T18:00:00.000Z",
+  });
+  await seedDraftOnLoad(page, invalidDraft);
+
+  await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
+  await waitForEditor(page, true);
+  await getDraftStore(page);
+
+  const state = await page.evaluate(() => {
+    const current = (window as unknown as { __ZUSTAND_STORE__: DraftTestStore }).__ZUSTAND_STORE__.getState();
+    return {
+      restoredInvalidDate: current.dateTime === "2024-02-31T20:30:00.000Z",
+      locationName: current.location.name,
+      title: current.textBoxes.find((box) => box.id === "title")?.text,
+      selectedStyle: current.selectedStyle,
+      aspectRatio: current.aspectRatio,
+      shape: current.shape,
+    };
+  });
+  expect(state).toEqual({
+    restoredInvalidDate: false,
+    locationName: "",
+    title: "Our Night Sky",
+    selectedStyle: "navyGold",
+    aspectRatio: "square",
+    shape: "rectangle",
+  });
+  await expect(page.locator("#editor")).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => localStorage.getItem("star-map-draft"))).toBe(invalidDraft);
+});
+
 for (const invalidCase of [
   { name: "empty-string corruption", raw: "" },
   {
