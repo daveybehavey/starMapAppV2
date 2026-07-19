@@ -9,6 +9,12 @@
  *   https://www.cursor.com/schemas/environment.schema.json
  *   Reconfirmed 2026-07-19 against the published Cloud Agents schema.
  *
+ * JSON syntax flags from that schema:
+ *   - allowComments: true  → parse via stripJsonComments + JSON.parse
+ *     (native JSON.parse alone is NOT sufficient and is not used for
+ *     .cursor/environment.json)
+ *   - allowTrailingCommas: false → rejected by JSON.parse after comment strip
+ *
  * Property closure (must match the official schema exactly):
  *   - Top-level: closed (`unevaluatedProperties: false`)
  *   - `build`: closed (`unevaluatedProperties: false`)
@@ -72,6 +78,74 @@ const ENV_TOP_LEVEL = new Set([
   "snapshot",
   "agentCanUpdateSnapshot",
 ]);
+
+/**
+ * Strip // and /* *\/ comments outside of JSON strings.
+ * Implements schema allowComments:true without adding a dependency.
+ * Does not permit trailing commas (left for JSON.parse to reject).
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripJsonComments(text) {
+  let out = "";
+  let i = 0;
+  let inString = false;
+  let escaped = false;
+  while (i < text.length) {
+    const c = text[i];
+    const next = text[i + 1];
+    if (inString) {
+      out += c;
+      if (escaped) {
+        escaped = false;
+      } else if (c === "\\") {
+        escaped = true;
+      } else if (c === '"') {
+        inString = false;
+      }
+      i += 1;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      out += c;
+      i += 1;
+      continue;
+    }
+    if (c === "/" && next === "/") {
+      i += 2;
+      while (i < text.length && text[i] !== "\n" && text[i] !== "\r") {
+        i += 1;
+      }
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      i += 2;
+      while (i < text.length) {
+        if (text[i] === "*" && text[i + 1] === "/") {
+          i += 2;
+          break;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    out += c;
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Parse Cursor environment.json per official schema JSON flags:
+ * allowComments:true, allowTrailingCommas:false.
+ * @param {string} text
+ * @returns {unknown}
+ */
+export function parseCursorEnvironmentJson(text) {
+  const withoutComments = stripJsonComments(text);
+  return JSON.parse(withoutComments);
+}
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -308,6 +382,83 @@ function runSchemaFidelityFixtures() {
   );
 }
 
+function runParseFidelityFixtures() {
+  // Official schema: allowComments:true, allowTrailingCommas:false.
+  const withComments = `{
+  // line comment
+  "name": "starMapAppV2",
+  /* block comment */
+  "install": "cd star-map-app-final && npm ci"
+}
+`;
+  try {
+    const parsed = parseCursorEnvironmentJson(withComments);
+    if (parsed?.name !== "starMapAppV2" || !parsed?.install) {
+      fail(
+        "parse fidelity: commented environment JSON did not yield expected fields",
+      );
+    } else {
+      console.log("OK parse fidelity: comments are accepted");
+    }
+    // Prove native JSON.parse alone is insufficient for the same input.
+    let nativeFailed = false;
+    try {
+      JSON.parse(withComments);
+    } catch {
+      nativeFailed = true;
+    }
+    if (!nativeFailed) {
+      fail(
+        "parse fidelity: expected native JSON.parse to reject commented JSON (validator must not rely on it alone)",
+      );
+    } else {
+      console.log(
+        "OK parse fidelity: native JSON.parse rejects comments (strip+parse required)",
+      );
+    }
+  } catch (e) {
+    fail(
+      `parse fidelity: commented environment JSON should parse: ${e.message}`,
+    );
+  }
+
+  const withTrailingComma = `{
+  "name": "starMapAppV2",
+  "install": "cd star-map-app-final && npm ci",
+}
+`;
+  let trailingRejected = false;
+  try {
+    parseCursorEnvironmentJson(withTrailingComma);
+  } catch {
+    trailingRejected = true;
+  }
+  if (!trailingRejected) {
+    fail(
+      "parse fidelity: trailing commas must be rejected (allowTrailingCommas:false)",
+    );
+  } else {
+    console.log("OK parse fidelity: trailing commas are rejected");
+  }
+
+  // Comments inside strings must be preserved, not stripped.
+  const commentInString = `{
+  "name": "has // not a comment",
+  "install": "npm ci"
+}
+`;
+  try {
+    const parsed = parseCursorEnvironmentJson(commentInString);
+    if (parsed?.name !== "has // not a comment") {
+      fail("parse fidelity: // inside a string was incorrectly stripped");
+    } else {
+      console.log("OK parse fidelity: // inside strings preserved");
+    }
+  } catch (e) {
+    fail(`parse fidelity: string with // should parse: ${e.message}`);
+  }
+}
+
 async function checkPrettierFormatting() {
   for (const { file, parser } of GOVERNANCE_FILES) {
     const abs = path.join(repoRoot, file);
@@ -316,19 +467,58 @@ async function checkPrettierFormatting() {
       continue;
     }
     const source = fs.readFileSync(abs, "utf8");
-    let formatted;
     try {
-      formatted = await prettier.format(source, { parser, filepath: abs });
+      if (file === ".cursor/environment.json") {
+        // Schema allowComments:true — format-check the comment-stripped JSON body.
+        // When comments are present, do not require byte identity with Prettier output
+        // (comment removal can leave blank lines). When comments are absent, keep
+        // strict byte-for-byte Prettier --check behavior.
+        const stripped = stripJsonComments(source);
+        // Ensure Cursor parse path works before formatting (comments allowed).
+        parseCursorEnvironmentJson(source);
+        const formatted = await prettier.format(stripped, {
+          parser,
+          filepath: abs,
+        });
+        if (stripped === source) {
+          if (source !== formatted) {
+            fail(
+              `${file} is not correctly formatted by Prettier ${prettier.version} (parser=${parser}). Run formatting with the lockfile Prettier from star-map-app-final.`,
+            );
+          } else {
+            console.log(`OK Prettier --check equivalent: ${file}`);
+          }
+        } else {
+          const again = await prettier.format(formatted, {
+            parser,
+            filepath: abs,
+          });
+          if (formatted !== again) {
+            fail(
+              `${file} comment-stripped JSON body is not stably formatted by Prettier ${prettier.version}`,
+            );
+          } else {
+            console.log(
+              `OK Prettier check on comment-stripped ${file} body (comments permitted by schema)`,
+            );
+          }
+        }
+        continue;
+      }
+
+      const formatted = await prettier.format(source, {
+        parser,
+        filepath: abs,
+      });
+      if (source !== formatted) {
+        fail(
+          `${file} is not correctly formatted by Prettier ${prettier.version} (parser=${parser}). Run formatting with the lockfile Prettier from star-map-app-final.`,
+        );
+      } else {
+        console.log(`OK Prettier --check equivalent: ${file}`);
+      }
     } catch (e) {
       fail(`${file} failed Prettier ${parser} format: ${e.message}`);
-      continue;
-    }
-    if (source !== formatted) {
-      fail(
-        `${file} is not correctly formatted by Prettier ${prettier.version} (parser=${parser}). Run formatting with the lockfile Prettier from star-map-app-final.`,
-      );
-    } else {
-      console.log(`OK Prettier --check equivalent: ${file}`);
     }
   }
 }
@@ -338,10 +528,15 @@ function validateEnvironmentFile() {
   const abs = path.join(repoRoot, rel);
   let env;
   try {
-    env = JSON.parse(fs.readFileSync(abs, "utf8"));
-    console.log("OK JSON parse:", rel);
+    env = parseCursorEnvironmentJson(fs.readFileSync(abs, "utf8"));
+    console.log(
+      "OK Cursor environment JSON parse (comments allowed; trailing commas rejected):",
+      rel,
+    );
   } catch (e) {
-    fail(`${rel} is not valid JSON: ${e.message}`);
+    fail(
+      `${rel} is not valid Cursor environment JSON (allowComments:true, allowTrailingCommas:false): ${e.message}`,
+    );
     return;
   }
 
@@ -478,6 +673,7 @@ async function main() {
   await checkPrettierFormatting();
   validateEnvironmentFile();
   runSchemaFidelityFixtures();
+  runParseFidelityFixtures();
   validateDocumentedScripts();
   validatePolicyAssertions();
   validateWorkflowSafety();
