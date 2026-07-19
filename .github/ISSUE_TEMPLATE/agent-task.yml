@@ -112,9 +112,9 @@ body:
       label: Approval requirements
       description: Who must approve before implementation, merge, and/or deployment.
       value: |
-        - Low: independent review before merge; no auto-merge
+        - Low: independent review before merge; no auto-merge enabled by this operating model
         - Medium: human approval before merge
-        - High: human approval before implementation and before deployment
+        - High: explicit human approval required (1) before implementation, (2) before merge, and (3) before production deployment, when deployment applies
     validations:
       required: true
 
