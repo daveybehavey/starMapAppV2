@@ -40,16 +40,16 @@ All commands below run from `star-map-app-final/` unless noted.
 
 These scripts exist in `star-map-app-final/package.json` and are **directly invoked** by `.github/workflows/ci.yml` and/or `.github/workflows/nightly-e2e.yml`:
 
-| Purpose | Command | Workflow |
-| --- | --- | --- |
-| Install | `npm ci` | `ci.yml`, `nightly-e2e.yml` |
-| Lint | `npm run lint` | `ci.yml` |
-| Typecheck | `npm run typecheck` | `ci.yml` |
-| Unit tests | `npm run test:unit` | `ci.yml` |
-| Production build | `npm run build` | `ci.yml` |
-| Commerce / recovery smoke | `npm run qa:smoke:commerce` | `ci.yml` |
-| Render smoke | `npm run qa:smoke:render` | `ci.yml` |
-| Full Playwright smoke | `npm run qa:smoke` | `nightly-e2e.yml` |
+| Purpose                   | Command                     | Workflow                    |
+| ------------------------- | --------------------------- | --------------------------- |
+| Install                   | `npm ci`                    | `ci.yml`, `nightly-e2e.yml` |
+| Lint                      | `npm run lint`              | `ci.yml`                    |
+| Typecheck                 | `npm run typecheck`         | `ci.yml`                    |
+| Unit tests                | `npm run test:unit`         | `ci.yml`                    |
+| Production build          | `npm run build`             | `ci.yml`                    |
+| Commerce / recovery smoke | `npm run qa:smoke:commerce` | `ci.yml`                    |
+| Render smoke              | `npm run qa:smoke:render`   | `ci.yml`                    |
+| Full Playwright smoke     | `npm run qa:smoke`          | `nightly-e2e.yml`           |
 
 Playwright Chromium (installed by those workflows when needed):
 
@@ -61,12 +61,12 @@ npx playwright install --with-deps chromium
 
 These scripts also exist in `star-map-app-final/package.json` and are useful locally or in cloud agent sessions. They are **not** directly invoked by `ci.yml` or `nightly-e2e.yml`:
 
-| Purpose | Command |
-| --- | --- |
-| Next.js dev server (`http://localhost:3000`) | `npm run dev` |
-| Env var presence check | `npm run check:env` |
-| Playwright full local runner helper | `npm run test:ui` |
-| PR-local composite helper | `npm run ci:pr` |
+| Purpose                                      | Command             |
+| -------------------------------------------- | ------------------- |
+| Next.js dev server (`http://localhost:3000`) | `npm run dev`       |
+| Env var presence check                       | `npm run check:env` |
+| Playwright full local runner helper          | `npm run test:ui`   |
+| PR-local composite helper                    | `npm run ci:pr`     |
 
 Governance-only validation: `.github/workflows/governance-ci.yml` (does not deploy; does not contact production).
 
@@ -117,13 +117,13 @@ PATH="$(nvm which 22 | xargs dirname):$PATH" npm run test:unit
 
 ## Agent roles
 
-| Role | Responsibility |
-| --- | --- |
-| ChatGPT Work | Audits, prioritization, structured issue creation, progress reporting, approval coordination. Not the default implementer when Cursor or Codex is available. |
-| Cursor Cloud Agents | Primary implementation agent for bounded features, UI, tests, docs, SEO, routine fixes, small refactors, small CI changes. |
-| Codex | Fallback implementer; independent reviewer of Cursor-authored PRs; preferred for architecture/security-sensitive work. |
-| GitHub Actions | Authoritative validation (lint, typecheck, unit tests, build, Playwright commerce/render/full smoke, governance checks). |
-| BugBot | Not part of the initial setup. |
+| Role                | Responsibility                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ChatGPT Work        | Audits, prioritization, structured issue creation, progress reporting, approval coordination. Not the default implementer when Cursor or Codex is available. |
+| Cursor Cloud Agents | Primary implementation agent for bounded features, UI, tests, docs, SEO, routine fixes, small refactors, small CI changes.                                   |
+| Codex               | Fallback implementer; independent reviewer of Cursor-authored PRs; preferred for architecture/security-sensitive work.                                       |
+| GitHub Actions      | Authoritative validation (lint, typecheck, unit tests, build, Playwright commerce/render/full smoke, governance checks).                                     |
+| BugBot              | Not part of the initial setup.                                                                                                                               |
 
 ### Routing
 

@@ -20,17 +20,17 @@ Fixes #
 
 ## Tests run and results
 
-| Command | Result |
-| --- | --- |
-| `npm ci` | |
-| `npm run lint` | |
-| `npm run typecheck` | |
-| `npm run test:unit` | |
-| `npm run build` | |
-| `npm run qa:smoke:commerce` (if applicable) | |
-| `npm run qa:smoke:render` (if applicable) | |
-| Governance CI (if governance files touched) | |
-| Other | |
+| Command                                     | Result |
+| ------------------------------------------- | ------ |
+| `npm ci`                                    |        |
+| `npm run lint`                              |        |
+| `npm run typecheck`                         |        |
+| `npm run test:unit`                         |        |
+| `npm run build`                             |        |
+| `npm run qa:smoke:commerce` (if applicable) |        |
+| `npm run qa:smoke:render` (if applicable)   |        |
+| Governance CI (if governance files touched) |        |
+| Other                                       |        |
 
 ## Independent review status
 

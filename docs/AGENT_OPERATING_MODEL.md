@@ -24,13 +24,13 @@ Rules:
 
 ## Sources of truth
 
-| Concern | Authority |
-| --- | --- |
-| Work queue | GitHub Issues |
-| Implementation | Cursor Cloud Agents (primary), Codex (fallback) |
-| Coordination / audits / prioritization / approvals | ChatGPT Work |
-| Validation | GitHub Actions |
-| Review and merge boundary | GitHub pull requests + human policy by risk class |
+| Concern                                            | Authority                                         |
+| -------------------------------------------------- | ------------------------------------------------- |
+| Work queue                                         | GitHub Issues                                     |
+| Implementation                                     | Cursor Cloud Agents (primary), Codex (fallback)   |
+| Coordination / audits / prioritization / approvals | ChatGPT Work                                      |
+| Validation                                         | GitHub Actions                                    |
+| Review and merge boundary                          | GitHub pull requests + human policy by risk class |
 
 BugBot is **not** part of the initial setup.
 
