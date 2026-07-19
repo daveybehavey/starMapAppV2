@@ -7,19 +7,26 @@
  *
  * Cursor environment schema source (frozen for CI; do not fetch at runtime):
  *   https://www.cursor.com/schemas/environment.schema.json
- *   Confirmed 2026-07-19 against the published Cloud Agents schema.
+ *   Reconfirmed 2026-07-19 against the published Cloud Agents schema.
  *
- * Official top-level properties (schema is closed via unevaluatedProperties:false):
+ * Property closure (must match the official schema exactly):
+ *   - Top-level: closed (`unevaluatedProperties: false`)
+ *   - `build`: closed (`unevaluatedProperties: false`)
+ *   - `ports[]` items: open (known `name`/`port` typed; additional props allowed)
+ *   - `terminals[]` items / nested terminal objects: open
+ *     (known `name`/`command`/`description` typed; additional props allowed)
+ *
+ * Official top-level properties:
  *   From definitions.common:
  *     name (string)
  *     user (string)
  *     install (string)
  *     start (string)
  *     repositoryDependencies (string[])
- *     ports ({ name?: string, port: integer 1..65535 }[])
+ *     ports ({ name?: string, port: integer 1..65535, ... }[])
  *     terminals (array of terminal objects or nested terminal-object arrays)
  *   From definitions.container:
- *     build ({ dockerfile: string, context?: string } with closed properties)
+ *     build ({ dockerfile: string, context?: string } only; closed)
  *     snapshot (string)
  *     agentCanUpdateSnapshot (boolean)
  *   No top-level required properties.
@@ -70,167 +77,235 @@ function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function assertString(value, label) {
+function createReporter(bucket) {
+  return (msg) => bucket.push(msg);
+}
+
+function assertString(value, label, report) {
   if (typeof value !== "string") {
-    fail(`${label} must be a string`);
+    report(`${label} must be a string`);
     return false;
   }
   return true;
 }
 
-function assertBoolean(value, label) {
+function assertBoolean(value, label, report) {
   if (typeof value !== "boolean") {
-    fail(`${label} must be a boolean`);
+    report(`${label} must be a boolean`);
     return false;
   }
   return true;
 }
 
-function assertIntegerPort(value, label) {
+function assertIntegerPort(value, label, report) {
   if (!Number.isInteger(value) || value < 1 || value > 65535) {
-    fail(`${label} must be an integer between 1 and 65535`);
+    report(`${label} must be an integer between 1 and 65535`);
     return false;
   }
   return true;
 }
 
-function validateTerminalObject(value, label) {
+function validateTerminalObject(value, label, report) {
   if (!isPlainObject(value)) {
-    fail(`${label} must be an object`);
+    report(`${label} must be an object`);
     return;
   }
-  const keys = Object.keys(value);
-  const allowed = new Set(["name", "command", "description"]);
-  for (const key of keys) {
-    if (!allowed.has(key)) {
-      fail(`${label} has unsupported property "${key}"`);
-    }
-  }
+  // Official schema leaves terminal objects open (no additionalProperties /
+  // unevaluatedProperties:false). Validate known fields only; allow extras.
   if (!Object.prototype.hasOwnProperty.call(value, "command")) {
-    fail(`${label} requires property "command"`);
+    report(`${label} requires property "command"`);
   } else {
-    assertString(value.command, `${label}.command`);
+    assertString(value.command, `${label}.command`, report);
   }
-  if (value.name !== undefined) assertString(value.name, `${label}.name`);
+  if (value.name !== undefined)
+    assertString(value.name, `${label}.name`, report);
   if (value.description !== undefined) {
-    assertString(value.description, `${label}.description`);
+    assertString(value.description, `${label}.description`, report);
   }
 }
 
-function validatePorts(ports, label) {
+function validatePorts(ports, label, report) {
   if (!Array.isArray(ports)) {
-    fail(`${label} must be an array`);
+    report(`${label} must be an array`);
     return;
   }
   ports.forEach((item, index) => {
     const itemLabel = `${label}[${index}]`;
     if (!isPlainObject(item)) {
-      fail(`${itemLabel} must be an object`);
+      report(`${itemLabel} must be an object`);
       return;
     }
-    const keys = Object.keys(item);
-    const allowed = new Set(["name", "port"]);
-    for (const key of keys) {
-      if (!allowed.has(key)) {
-        fail(`${itemLabel} has unsupported property "${key}"`);
-      }
-    }
+    // Official schema leaves ports[] items open. Validate known fields only.
     if (!Object.prototype.hasOwnProperty.call(item, "port")) {
-      fail(`${itemLabel} requires property "port"`);
+      report(`${itemLabel} requires property "port"`);
     } else {
-      assertIntegerPort(item.port, `${itemLabel}.port`);
+      assertIntegerPort(item.port, `${itemLabel}.port`, report);
     }
-    if (item.name !== undefined) assertString(item.name, `${itemLabel}.name`);
+    if (item.name !== undefined)
+      assertString(item.name, `${itemLabel}.name`, report);
   });
 }
 
-function validateTerminals(terminals, label) {
+function validateTerminals(terminals, label, report) {
   if (!Array.isArray(terminals)) {
-    fail(`${label} must be an array`);
+    report(`${label} must be an array`);
     return;
   }
   terminals.forEach((item, index) => {
     const itemLabel = `${label}[${index}]`;
     if (Array.isArray(item)) {
       item.forEach((nested, nestedIndex) => {
-        validateTerminalObject(nested, `${itemLabel}[${nestedIndex}]`);
+        validateTerminalObject(nested, `${itemLabel}[${nestedIndex}]`, report);
       });
       return;
     }
-    validateTerminalObject(item, itemLabel);
+    validateTerminalObject(item, itemLabel, report);
   });
 }
 
-function validateBuild(build, label) {
+function validateBuild(build, label, report) {
   if (!isPlainObject(build)) {
-    fail(`${label} must be an object`);
+    report(`${label} must be an object`);
     return;
   }
   const keys = Object.keys(build);
   const allowed = new Set(["dockerfile", "context"]);
   for (const key of keys) {
     if (!allowed.has(key)) {
-      fail(`${label} has unsupported property "${key}"`);
+      report(`${label} has unsupported property "${key}"`);
     }
   }
   if (!Object.prototype.hasOwnProperty.call(build, "dockerfile")) {
-    fail(`${label} requires property "dockerfile"`);
+    report(`${label} requires property "dockerfile"`);
   } else {
-    assertString(build.dockerfile, `${label}.dockerfile`);
+    assertString(build.dockerfile, `${label}.dockerfile`, report);
   }
-  if (build.context !== undefined)
-    assertString(build.context, `${label}.context`);
+  if (build.context !== undefined) {
+    assertString(build.context, `${label}.context`, report);
+  }
 }
 
 /**
  * Validate Cursor Cloud Agents environment.json against the frozen official schema.
+ * Returns an array of schema error strings (does not touch the global errors list).
  * @param {unknown} env
  * @param {string} label
+ * @returns {string[]}
  */
 export function validateCursorEnvironment(
   env,
   label = ".cursor/environment.json",
 ) {
+  const schemaErrors = [];
+  const report = createReporter(schemaErrors);
+
   if (!isPlainObject(env)) {
-    fail(`${label} must be a JSON object`);
-    return;
+    report(`${label} must be a JSON object`);
+    return schemaErrors;
   }
 
   for (const key of Object.keys(env)) {
     if (!ENV_TOP_LEVEL.has(key)) {
-      fail(
+      report(
         `${label} has unsupported top-level property "${key}" (official schema unevaluatedProperties:false; allowed: ${[...ENV_TOP_LEVEL].join(", ")})`,
       );
     }
   }
 
-  if (env.name !== undefined) assertString(env.name, `${label}.name`);
-  if (env.user !== undefined) assertString(env.user, `${label}.user`);
-  if (env.install !== undefined) assertString(env.install, `${label}.install`);
-  if (env.start !== undefined) assertString(env.start, `${label}.start`);
+  if (env.name !== undefined) assertString(env.name, `${label}.name`, report);
+  if (env.user !== undefined) assertString(env.user, `${label}.user`, report);
+  if (env.install !== undefined)
+    assertString(env.install, `${label}.install`, report);
+  if (env.start !== undefined)
+    assertString(env.start, `${label}.start`, report);
   if (env.snapshot !== undefined)
-    assertString(env.snapshot, `${label}.snapshot`);
+    assertString(env.snapshot, `${label}.snapshot`, report);
   if (env.agentCanUpdateSnapshot !== undefined) {
     assertBoolean(
       env.agentCanUpdateSnapshot,
       `${label}.agentCanUpdateSnapshot`,
+      report,
     );
   }
 
   if (env.repositoryDependencies !== undefined) {
     if (!Array.isArray(env.repositoryDependencies)) {
-      fail(`${label}.repositoryDependencies must be an array`);
+      report(`${label}.repositoryDependencies must be an array`);
     } else {
       env.repositoryDependencies.forEach((item, index) => {
-        assertString(item, `${label}.repositoryDependencies[${index}]`);
+        assertString(item, `${label}.repositoryDependencies[${index}]`, report);
       });
     }
   }
 
-  if (env.ports !== undefined) validatePorts(env.ports, `${label}.ports`);
-  if (env.terminals !== undefined)
-    validateTerminals(env.terminals, `${label}.terminals`);
-  if (env.build !== undefined) validateBuild(env.build, `${label}.build`);
+  if (env.ports !== undefined)
+    validatePorts(env.ports, `${label}.ports`, report);
+  if (env.terminals !== undefined) {
+    validateTerminals(env.terminals, `${label}.terminals`, report);
+  }
+  if (env.build !== undefined)
+    validateBuild(env.build, `${label}.build`, report);
+
+  return schemaErrors;
+}
+
+function expectSchema(name, env, { pass }) {
+  const found = validateCursorEnvironment(env, `fixture:${name}`);
+  if (pass) {
+    if (found.length) {
+      fail(
+        `schema fidelity fixture "${name}" should pass but failed: ${found.join("; ")}`,
+      );
+    } else {
+      console.log(`OK schema fidelity pass: ${name}`);
+    }
+  } else if (!found.length) {
+    fail(`schema fidelity fixture "${name}" should fail but passed`);
+  } else {
+    console.log(`OK schema fidelity fail: ${name} -> ${found[0]}`);
+  }
+}
+
+function runSchemaFidelityFixtures() {
+  // In-memory fixtures matching Codex schema-fidelity examples (not written to disk).
+  expectSchema(
+    "ports-extra-open",
+    {
+      name: "x",
+      install: "npm ci",
+      ports: [{ port: 3000, extra: "schema-permitted" }],
+    },
+    { pass: true },
+  );
+  expectSchema(
+    "terminals-extra-open",
+    {
+      name: "x",
+      install: "npm ci",
+      terminals: [{ name: "dev", command: "npm run dev", extra: true }],
+    },
+    { pass: true },
+  );
+  expectSchema(
+    "unsupported-top-level",
+    { unsupportedField: true },
+    { pass: false },
+  );
+  expectSchema(
+    "unsupported-build-field",
+    { build: { unsupportedBuildField: true } },
+    { pass: false },
+  );
+  expectSchema(
+    "invalid-known-port-type",
+    { name: "x", install: "npm ci", ports: [{ port: "nope", extra: 1 }] },
+    { pass: false },
+  );
+  expectSchema(
+    "missing-terminal-command",
+    { name: "x", install: "npm ci", terminals: [{ name: "dev", extra: true }] },
+    { pass: false },
+  );
 }
 
 async function checkPrettierFormatting() {
@@ -270,7 +345,8 @@ function validateEnvironmentFile() {
     return;
   }
 
-  validateCursorEnvironment(env, rel);
+  const schemaErrors = validateCursorEnvironment(env, rel);
+  for (const e of schemaErrors) fail(e);
 
   // Repo policy: minimal install-only config (no auto-start / deploy / secrets)
   if (env.start !== undefined || env.terminals !== undefined) {
@@ -401,6 +477,7 @@ async function main() {
 
   await checkPrettierFormatting();
   validateEnvironmentFile();
+  runSchemaFidelityFixtures();
   validateDocumentedScripts();
   validatePolicyAssertions();
   validateWorkflowSafety();
