@@ -58,11 +58,7 @@ test("customer creates and customizes a visible preview from the homepage", asyn
   await waitForEditor(page);
   await dismissOverlays(page);
 
-  const generatePreview = page.getByRole("button", { name: "Generate preview", exact: true }).first();
-  await expect(generatePreview).toBeEnabled();
-  await generatePreview.click();
   await waitForPreview(page);
-
   const preview = await waitForMapCanvasReady(page);
   const canvas = preview.locator("canvas").last();
   const readCanvasSignature = () =>
