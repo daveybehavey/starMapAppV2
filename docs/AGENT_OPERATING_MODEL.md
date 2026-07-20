@@ -34,6 +34,13 @@ Rules:
 
 BugBot is **not** part of the initial setup.
 
+## End-to-end implementation workflow
+
+1. An approved GitHub issue is dispatched to the primary Cursor Cloud Agent with `/cursor-run`.
+2. Cursor creates an issue-linked feature branch, implements only the approved scope, and runs the applicable checks.
+3. Cursor opens a draft pull request linked to the issue, reports the exact files changed and validation results, and stops before merge or deployment.
+4. GitHub Actions remains the authoritative validator. Independent review and any human approval required by the risk rules remain mandatory before merge.
+
 ## Roles
 
 ### ChatGPT Work
