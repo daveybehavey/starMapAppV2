@@ -1,0 +1,46 @@
+# Governance-only checks for agent operating foundation files.
+# Does not deploy, does not contact production, and uses no secrets.
+name: Governance CI
+
+on:
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - ".cursor/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
+      - "docs/AGENT_OPERATING_MODEL.md"
+      - ".github/workflows/governance-ci.yml"
+      - ".github/scripts/validate-governance.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  governance-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: star-map-app-final/package-lock.json
+
+      - name: Install dependencies (lockfile Prettier)
+        working-directory: star-map-app-final
+        run: npm ci
+
+      - name: Validate governance foundation
+        run: node .github/scripts/validate-governance.mjs
