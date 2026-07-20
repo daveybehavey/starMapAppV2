@@ -114,10 +114,12 @@ test.describe("Editor keyboard accessibility", () => {
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("Keyboard Night Sky");
 
-    const generatePreviewButton = editor.getByRole("button", {
-      name: "Generate preview",
-      exact: true,
-    });
+    const generatePreviewButton = editor
+      .getByRole("button", {
+        name: "Generate preview",
+        exact: true,
+      })
+      .first();
     const generateUnfocusedShadow = await generatePreviewButton.evaluate(
       (element) => getComputedStyle(element).boxShadow,
     );
