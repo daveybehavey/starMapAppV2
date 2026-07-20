@@ -35,7 +35,7 @@ test("customer creates and customizes a visible preview from the homepage", asyn
 
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 60_000 });
   await dismissOverlays(page);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(/night sky exactly/i);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("The night you became everything.");
 
   const heroForm = page.locator("form[action='/editor']").first();
   const heroDate = heroForm.locator("input[name='date']");
