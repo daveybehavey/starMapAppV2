@@ -80,9 +80,31 @@ const ENV_TOP_LEVEL = new Set([
 ]);
 
 /**
- * Strip // and /* *\/ comments outside of JSON strings.
+ * Convert a 0-based string index to 1-based line/column.
+ * @param {string} text
+ * @param {number} index
+ * @returns {{ line: number, column: number }}
+ */
+function indexToLineColumn(text, index) {
+  let line = 1;
+  let column = 1;
+  const end = Math.min(Math.max(index, 0), text.length);
+  for (let j = 0; j < end; j += 1) {
+    if (text[j] === "\n") {
+      line += 1;
+      column = 1;
+    } else {
+      column += 1;
+    }
+  }
+  return { line, column };
+}
+
+/**
+ * Strip // and block comments outside of JSON strings.
  * Implements schema allowComments:true without adding a dependency.
  * Does not permit trailing commas (left for JSON.parse to reject).
+ * Throws if a block comment is still open at EOF (before JSON.parse).
  * @param {string} text
  * @returns {string}
  */
@@ -120,13 +142,22 @@ export function stripJsonComments(text) {
       continue;
     }
     if (c === "/" && next === "*") {
+      const commentStart = i;
       i += 2;
+      let closed = false;
       while (i < text.length) {
         if (text[i] === "*" && text[i + 1] === "/") {
           i += 2;
+          closed = true;
           break;
         }
         i += 1;
+      }
+      if (!closed) {
+        const { line, column } = indexToLineColumn(text, commentStart);
+        throw new Error(
+          `Unterminated block comment in .cursor/environment.json at line ${line}, column ${column}`,
+        );
       }
       continue;
     }
@@ -456,6 +487,112 @@ function runParseFidelityFixtures() {
     }
   } catch (e) {
     fail(`parse fidelity: string with // should parse: ${e.message}`);
+  }
+
+  const blockInString = `{
+  "install": "echo \\"/* not a comment */\\""
+}
+`;
+  try {
+    const parsed = parseCursorEnvironmentJson(blockInString);
+    if (parsed?.install !== 'echo "/* not a comment */"') {
+      fail(
+        `parse fidelity: /* */ inside a string was incorrectly stripped (got ${JSON.stringify(parsed?.install)})`,
+      );
+    } else {
+      console.log("OK parse fidelity: /* */ inside strings preserved");
+    }
+  } catch (e) {
+    fail(`parse fidelity: string with /* */ should parse: ${e.message}`);
+  }
+
+  const closedBlockSuffix = `{"name":"ok"} /* closed */`;
+  try {
+    const parsed = parseCursorEnvironmentJson(closedBlockSuffix);
+    if (parsed?.name !== "ok") {
+      fail("parse fidelity: closed trailing block comment should parse");
+    } else {
+      console.log("OK parse fidelity: closed trailing block comment");
+    }
+  } catch (e) {
+    fail(
+      `parse fidelity: closed trailing block comment should parse: ${e.message}`,
+    );
+  }
+
+  const closedBlockInterior = `{
+  /* closed */
+  "name": "ok"
+}
+`;
+  try {
+    const parsed = parseCursorEnvironmentJson(closedBlockInterior);
+    if (parsed?.name !== "ok") {
+      fail("parse fidelity: closed interior block comment should parse");
+    } else {
+      console.log("OK parse fidelity: closed interior block comment");
+    }
+  } catch (e) {
+    fail(
+      `parse fidelity: closed interior block comment should parse: ${e.message}`,
+    );
+  }
+
+  /** @type {Array<{ name: string, text: string }>} */
+  const unterminatedBlockFixtures = [
+    {
+      name: "unterminated-after-complete-object",
+      text: `{"name":"ok"} /* never closed`,
+    },
+    {
+      name: "unterminated-after-pretty-object",
+      text: `{
+  "name": "ok"
+}
+/* never closed
+`,
+    },
+    {
+      name: "unterminated-before-property",
+      text: `{
+  /* never closed
+  "name": "ok"
+}
+`,
+    },
+  ];
+
+  for (const fixture of unterminatedBlockFixtures) {
+    let threw = null;
+    try {
+      // Must throw from stripJsonComments before JSON.parse can succeed on a prefix.
+      stripJsonComments(fixture.text);
+    } catch (e) {
+      threw = e;
+    }
+    if (!threw) {
+      fail(
+        `parse fidelity: ${fixture.name} must throw Unterminated block comment before JSON.parse`,
+      );
+      continue;
+    }
+    const message = String(threw.message || threw);
+    if (!/Unterminated block comment/i.test(message)) {
+      fail(
+        `parse fidelity: ${fixture.name} must identify unterminated block comment, got: ${message}`,
+      );
+      continue;
+    }
+    // Ensure failure is not merely incomplete JSON from a later JSON.parse.
+    if (/JSON\.parse|Unexpected end|Expected property/i.test(message)) {
+      fail(
+        `parse fidelity: ${fixture.name} must fail as unterminated block comment, not JSON.parse: ${message}`,
+      );
+      continue;
+    }
+    console.log(
+      `OK parse fidelity fail: ${fixture.name} -> ${message.split(" at ")[0]}`,
+    );
   }
 }
 
