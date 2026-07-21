@@ -58,6 +58,7 @@ test("customer creates and customizes a visible preview from the homepage", asyn
   await waitForEditor(page);
   await dismissOverlays(page);
 
+  await page.getByRole("button", { name: /Customize more/i }).click();
   const geocodeResponsePromise = page.waitForResponse((response) => {
     const responseUrl = new URL(response.url());
     return responseUrl.pathname === "/api/geocode" && responseUrl.searchParams.get("q") === "Paris";
@@ -129,7 +130,6 @@ test("customer creates and customizes a visible preview from the homepage", asyn
   const initialCanvasSignature = await readCanvasSignature();
   expect(initialCanvasSignature).not.toBe("not-rendered");
 
-  await page.getByRole("button", { name: /Customize more/i }).click();
   await page.getByRole("heading", { name: "Style", exact: true }).locator("..").click();
   const vintageStyle = page.getByRole("button", { name: /^Vintage Engraving/ });
   await expect(vintageStyle).toBeVisible();
