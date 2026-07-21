@@ -58,6 +58,55 @@ test("customer creates and customizes a visible preview from the homepage", asyn
   await waitForEditor(page);
   await dismissOverlays(page);
 
+  const geocodeResponsePromise = page.waitForResponse((response) => {
+    const responseUrl = new URL(response.url());
+    return responseUrl.pathname === "/api/geocode" && responseUrl.searchParams.get("q") === "Paris";
+  });
+  const locationSearch = page.getByRole("combobox", { name: /Location search/i });
+  await locationSearch.fill("Paris");
+  const geocodeResponse = await geocodeResponsePromise;
+  expect(geocodeResponse.ok()).toBe(true);
+  expect(await geocodeResponse.json()).toEqual([
+    {
+      id: 1,
+      name: "Paris, France",
+      latitude: 48.8566,
+      longitude: 2.3522,
+      timezone: "Europe/Paris",
+    },
+  ]);
+  const parisOption = page.getByRole("option", { name: /Paris, France/ });
+  await expect(parisOption).toBeVisible();
+  await parisOption.click();
+  await expect(locationSearch).toHaveValue("Paris, France");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const store = (
+          window as unknown as {
+            __ZUSTAND_STORE__?: {
+              getState: () => {
+                location: {
+                  name: string;
+                  latitude: number;
+                  longitude: number;
+                  timezone: string;
+                };
+              };
+            };
+          }
+        ).__ZUSTAND_STORE__;
+        if (!store) throw new Error("Missing __ZUSTAND_STORE__");
+        return store.getState().location;
+      }),
+    )
+    .toEqual({
+      name: "Paris, France",
+      latitude: 48.8566,
+      longitude: 2.3522,
+      timezone: "Europe/Paris",
+    });
+
   await waitForPreview(page);
   const preview = await waitForMapCanvasReady(page);
   const canvas = preview.locator("canvas").last();
