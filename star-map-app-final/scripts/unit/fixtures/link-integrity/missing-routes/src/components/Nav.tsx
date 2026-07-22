@@ -1,3 +1,3 @@
 export function Nav() {
-  return <a href="/">Home</a>;
+  return <nav>Fixture without an App Router source</nav>;
 }

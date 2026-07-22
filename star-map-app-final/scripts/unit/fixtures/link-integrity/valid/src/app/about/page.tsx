@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function AboutPage() {
-  return <a href="/">Home</a>;
+  return <Link href="/">Home</Link>;
 }
