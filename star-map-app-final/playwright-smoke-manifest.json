@@ -1,0 +1,45 @@
+{
+  "criticalSuites": [
+    {
+      "command": "qa:smoke:ui",
+      "specs": ["tests/ui-smoke.spec.ts"]
+    },
+    {
+      "command": "qa:smoke:render",
+      "specs": ["tests/export-functionality.spec.ts", "tests/premium-rendering.spec.ts"]
+    },
+    {
+      "command": "qa:smoke:commerce",
+      "specs": [
+        "tests/checkout-security.spec.ts",
+        "tests/api-route-regressions.spec.ts",
+        "tests/map-hub-editor.spec.ts",
+        "tests/editor-draft-recovery.spec.ts"
+      ]
+    },
+    {
+      "command": "qa:smoke",
+      "specs": [
+        "tests/ui-smoke.spec.ts",
+        "tests/export-functionality.spec.ts",
+        "tests/api-route-regressions.spec.ts",
+        "tests/checkout-security.spec.ts",
+        "tests/premium-rendering.spec.ts"
+      ]
+    }
+  ],
+  "exemptions": [
+    {
+      "spec": "tests/manual-flow.spec.ts",
+      "reason": "Intentional operator-driven end-to-end walkthrough; it is not a deterministic critical smoke selector."
+    },
+    {
+      "spec": "tests/stripe-qa.spec.ts",
+      "reason": "Live, headed Stripe QA gated by PLAYWRIGHT_STRIPE_QA=true; it must not run in repository validation."
+    },
+    {
+      "spec": "tests/map-tier-visual.snap.spec.ts",
+      "reason": "Targeted visual snapshot verification with intentionally operator-controlled baseline refreshes; it is not a general smoke selector."
+    }
+  ]
+}

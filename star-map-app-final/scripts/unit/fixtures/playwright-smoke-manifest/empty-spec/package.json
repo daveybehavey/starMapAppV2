@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "qa:smoke:ui": "playwright test tests/empty.spec.mjs --workers=1",
+    "qa:smoke:render": "playwright test tests/valid.spec.mjs --workers=1",
+    "qa:smoke:commerce": "playwright test tests/valid.spec.mjs --workers=1",
+    "qa:smoke": "playwright test tests/valid.spec.mjs --workers=1"
+  }
+}
