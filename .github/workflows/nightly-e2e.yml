@@ -31,4 +31,17 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Full Playwright smoke
-        run: npm run qa:smoke
+        run: npm run qa:smoke -- --reporter=line,html --trace=retain-on-failure
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+
+      - name: Upload nightly Playwright artifacts
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            star-map-app-final/playwright-report/
+            star-map-app-final/test-results/
+          if-no-files-found: error
+          retention-days: 14
