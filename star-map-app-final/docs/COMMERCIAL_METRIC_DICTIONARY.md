@@ -539,11 +539,13 @@ Create separately reviewed child issues (do **not** expand this PR into implemen
 
 ## 9. Audited SHA and files inspected
 
-| Role                                          | SHA                                        |
-| --------------------------------------------- | ------------------------------------------ |
-| Initial discovery audit                       | `67ede17f35de9ee23e7278e209c11983aa7da4d8` |
-| Current `main` base (non-destructive refresh) | `f8f47ff7733fc2e419d03c746b8836770a1593bc` |
-| This branch head                              | `f705fdaa65e8a3340c37f69e26ee9b94447d3cce` |
+| Role                                          | SHA                                                                |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| Initial discovery audit                       | `67ede17f35de9ee23e7278e209c11983aa7da4d8`                         |
+| Current `main` base (non-destructive refresh) | `f8f47ff7733fc2e419d03c746b8836770a1593bc`                         |
+| Review correction commit                      | `f705fdaa65e8a3340c37f69e26ee9b94447d3cce`                         |
+| Prettier format commit                        | `2db526a3b0f77b61670d3af7bb6f83edceb5c748`                         |
+| Branch tip                                    | Recorded in PR body / `git rev-parse HEAD` (avoid self-hash churn) |
 
 Funnel-reconcile emptiness and checkout-diagnostics shape re-confirmed against `main` `f8f47ff…` (`scripts/funnel-reconcile.mjs` still 0 bytes).
 
