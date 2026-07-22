@@ -21,10 +21,14 @@ function isolatedTestIp(testInfo: TestInfo) {
 
 function assertLocalApiPath(baseURL: string, path: string): asserts path is LocalApiPath {
   const baseOrigin = new URL(baseURL).origin;
+  if (baseOrigin !== TEST_ORIGIN) {
+    throw new Error(`External network access blocked for API regression base URL: ${baseOrigin}`);
+  }
+
   const target = new URL(path, baseURL);
   const isCoveredRoute = target.pathname === "/api/maps" || target.pathname === "/api/checkout";
 
-  if (target.origin !== baseOrigin || !isCoveredRoute) {
+  if (target.origin !== TEST_ORIGIN || !isCoveredRoute) {
     throw new Error(`External network access blocked for API regression test: ${target.href}`);
   }
 }
@@ -191,6 +195,9 @@ test.describe("API route regressions", () => {
   });
 
   test("network guard blocks production and external API targets before dispatch", async () => {
+    expect(() => assertLocalApiPath("https://starmapco.com", "/api/maps")).toThrow(
+      "External network access blocked",
+    );
     expect(() => assertLocalApiPath(TEST_ORIGIN, "https://starmapco.com/api/maps")).toThrow(
       "External network access blocked",
     );
