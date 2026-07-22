@@ -125,7 +125,7 @@ export function normalizeRecordFieldKey(key) {
 }
 
 const SENSITIVE_FIELD_SET = new Set(
-  SENSITIVE_RECORD_FIELDS.flatMap((k) => [k.toLowerCase(), normalizeRecordFieldKey(k)]),
+  SENSITIVE_RECORD_FIELDS.flatMap((k) => [k.toLowerCase(), normalizeRecordFieldKey(k)])
 );
 
 /**
@@ -209,8 +209,7 @@ export function containsSensitiveOperatorText(text) {
 
 export function writeOperatorError(stderr, message) {
   const candidate = String(message ?? "").trim();
-  const safe =
-    candidate && !containsSensitiveOperatorText(candidate) ? candidate : GENERIC_OPERATOR_FAILURE;
+  const safe = candidate && !containsSensitiveOperatorText(candidate) ? candidate : GENERIC_OPERATOR_FAILURE;
   const stream = stderr && typeof stderr.write === "function" ? stderr : process.stderr;
   stream.write(`${safe}\n`);
   return safe;
@@ -241,7 +240,10 @@ export function assertScriptIsNotNoOp(scriptPath = fileURLToPath(import.meta.url
   if (!source.includes("estimateStripeFeeCents")) {
     throw new Error("Product contribution script does not use shared Stripe fee estimates");
   }
-  if (!source.includes("getConfiguredPrintProductCostCents") && !source.includes("getConfiguredShippingCostCents")) {
+  if (
+    !source.includes("getConfiguredPrintProductCostCents") &&
+    !source.includes("getConfiguredShippingCostCents")
+  ) {
     throw new Error("Product contribution script does not use configured product/shipping costs");
   }
   if (!/--input/.test(source)) {
@@ -251,8 +253,7 @@ export function assertScriptIsNotNoOp(scriptPath = fileURLToPath(import.meta.url
   const hasContributionFormula =
     source.includes("revenueCents - stripeFeeCents - productCostCents - shipping.amountCents") ||
     source.includes("revenueCents - stripeFeeCents");
-  const hasCostSide =
-    source.includes("productCostCents") && source.includes("shipping.amountCents");
+  const hasCostSide = source.includes("productCostCents") && source.includes("shipping.amountCents");
   if (!hasContributionFormula || !hasCostSide) {
     throw new Error("Product contribution script appears to be gross-revenue-only or incomplete");
   }
@@ -353,9 +354,7 @@ export function sanitizeRecord(raw, index) {
   for (const key of Object.keys(raw)) {
     // Sensitive detection must fail closed before unknown-field stripping.
     if (isSensitiveRecordFieldKey(key)) {
-      throw new Error(
-        `records[${index}] contains sensitive or row-identifying field "${key}" (rejected)`,
-      );
+      throw new Error(`records[${index}] contains sensitive or row-identifying field "${key}" (rejected)`);
     }
     if (!ALLOWED_RECORD_FIELD_SET.has(key)) {
       warnings.push(`records[${index}]: stripped unknown field "${key}"`);
@@ -377,8 +376,7 @@ export function sanitizeRecord(raw, index) {
       ? null
       : String(raw.order_type).trim().toLowerCase();
 
-  const planRaw =
-    raw.plan === undefined || raw.plan === null ? null : String(raw.plan).trim().toLowerCase();
+  const planRaw = raw.plan === undefined || raw.plan === null ? null : String(raw.plan).trim().toLowerCase();
   const plan = planRaw || null;
 
   const printVariant =
@@ -418,11 +416,11 @@ export function sanitizeRecord(raw, index) {
     shipping_country: shippingCountry,
     shipping_charge_cents: assertNonNegativeIntegerCents(
       raw.shipping_charge_cents,
-      `records[${index}].shipping_charge_cents`,
+      `records[${index}].shipping_charge_cents`
     ),
     shipping_subsidy_cents: assertNonNegativeIntegerCents(
       raw.shipping_subsidy_cents,
-      `records[${index}].shipping_subsidy_cents`,
+      `records[${index}].shipping_subsidy_cents`
     ),
     discount_cents: assertNonNegativeIntegerCents(raw.discount_cents, `records[${index}].discount_cents`),
     qa_run: raw.qa_run === undefined ? undefined : raw.qa_run,
@@ -455,7 +453,7 @@ export function parseSanitizedDocument(document) {
 
   if (document.schema_version !== PRODUCT_CONTRIBUTION_CONTRACT.schemaVersion) {
     throw new Error(
-      `schema_version must be ${PRODUCT_CONTRIBUTION_CONTRACT.schemaVersion} (got ${JSON.stringify(document.schema_version)})`,
+      `schema_version must be ${PRODUCT_CONTRIBUTION_CONTRACT.schemaVersion} (got ${JSON.stringify(document.schema_version)})`
     );
   }
   if (!Array.isArray(document.records)) {
@@ -477,8 +475,7 @@ export function isExcludedQaRecord(record) {
   return isQaStripeSession({
     metadata: {
       qa_run: record.qa_run === undefined ? undefined : String(record.qa_run),
-      qa_ops_checkout:
-        record.qa_ops_checkout === undefined ? undefined : String(record.qa_ops_checkout),
+      qa_ops_checkout: record.qa_ops_checkout === undefined ? undefined : String(record.qa_ops_checkout),
       qa_source: record.qa_source,
     },
   });
@@ -592,7 +589,7 @@ export function estimateRecordContribution(record, feeConfig, env = process.env)
       printVariant: record.print_variant,
       includeCard: Boolean(record.include_card),
     },
-    env,
+    env
   );
   if (productCostCents === null) {
     return {
@@ -654,8 +651,7 @@ export function estimateRecordContribution(record, feeConfig, env = process.env)
 
   // amount_total already reflects discounts and customer shipping charge (incl. free-shipping waiver).
   // Do not subtract discount_cents or shipping_subsidy_cents again.
-  const contributionCents =
-    revenueCents - stripeFeeCents - productCostCents - shipping.amountCents;
+  const contributionCents = revenueCents - stripeFeeCents - productCostCents - shipping.amountCents;
 
   return {
     resolved: true,
@@ -696,7 +692,7 @@ function emptyGroup(groupKey, groupLabel, kind) {
 function finalizeGroup(group) {
   if (group.resolved_order_count > 0) {
     group.contribution_per_order_cents = Math.round(
-      group.estimated_pre_fixed_cost_contribution_cents / group.resolved_order_count,
+      group.estimated_pre_fixed_cost_contribution_cents / group.resolved_order_count
     );
     const denom = group.collected_revenue_cents - group.unresolved_revenue_cents;
     if (denom > 0) {
@@ -777,7 +773,7 @@ export function buildProductContributionReport(records, { env = process.env } = 
     if (!section.groups.has(classification.groupKey)) {
       section.groups.set(
         classification.groupKey,
-        emptyGroup(classification.groupKey, classification.groupLabel, classification.kind),
+        emptyGroup(classification.groupKey, classification.groupLabel, classification.kind)
       );
     }
     const group = section.groups.get(classification.groupKey);
@@ -827,9 +823,7 @@ export function buildProductContributionReport(records, { env = process.env } = 
     let contributionMarginPercent = null;
     const resolvedOrders = groups.reduce((sum, g) => sum + g.resolved_order_count, 0);
     if (resolvedOrders > 0) {
-      contributionPerOrder = Math.round(
-        section.estimated_pre_fixed_cost_contribution_cents / resolvedOrders,
-      );
+      contributionPerOrder = Math.round(section.estimated_pre_fixed_cost_contribution_cents / resolvedOrders);
       const denom = section.collected_revenue_cents - section.unresolved_revenue_cents;
       if (denom > 0) {
         contributionMarginPercent =
@@ -850,8 +844,7 @@ export function buildProductContributionReport(records, { env = process.env } = 
       shipping_charge_cents: section.shipping_charge_cents,
       shipping_subsidy_cents: section.shipping_subsidy_cents,
       discount_cents_reported: section.discount_cents_reported,
-      estimated_pre_fixed_cost_contribution_cents:
-        section.estimated_pre_fixed_cost_contribution_cents,
+      estimated_pre_fixed_cost_contribution_cents: section.estimated_pre_fixed_cost_contribution_cents,
       contribution_per_order_cents: contributionPerOrder,
       contribution_margin_percent: contributionMarginPercent,
       unresolved_count: section.unresolved_count,
@@ -871,10 +864,8 @@ export function buildProductContributionReport(records, { env = process.env } = 
       stripe_fees: "configured_estimate",
       product_cogs: "configured_estimate",
       shipping_cost: "configured_printful_shipping_matrix",
-      shipping_subsidy_and_discount:
-        "informational_only_not_subtracted_again_from_amount_total",
-      formula:
-        "collected_revenue − estimated_stripe_fees − estimated_product_cost − estimated_shipping_cost",
+      shipping_subsidy_and_discount: "informational_only_not_subtracted_again_from_amount_total",
+      formula: "collected_revenue − estimated_stripe_fees − estimated_product_cost − estimated_shipping_cost",
       stripe_fee_defaults: {
         percent: DEFAULT_STRIPE_PERCENT,
         fixed_cents: DEFAULT_STRIPE_FIXED_CENTS,
@@ -904,7 +895,7 @@ export function formatTableReport(report) {
   lines.push("Product contribution (estimated pre-fixed-cost)");
   lines.push("NOTE: configured estimates — not accounting profit or cash remaining.");
   lines.push(
-    `fee_config: percent=${report.fee_config_used.percent} fixed_cents=${report.fee_config_used.fixed_cents}`,
+    `fee_config: percent=${report.fee_config_used.percent} fixed_cents=${report.fee_config_used.fixed_cents}`
   );
   lines.push(`formula: ${report.disclaimer.formula}`);
   lines.push("");
@@ -912,21 +903,21 @@ export function formatTableReport(report) {
   for (const section of report.currency_sections) {
     lines.push(`currency: ${section.currency}`);
     lines.push(
-      `  input=${section.input_record_count} paid=${section.paid_order_count} excluded_qa=${section.excluded_qa_count} unresolved=${section.unresolved_count}`,
+      `  input=${section.input_record_count} paid=${section.paid_order_count} excluded_qa=${section.excluded_qa_count} unresolved=${section.unresolved_count}`
     );
     lines.push(
-      `  revenue_cents=${section.collected_revenue_cents} fees_est=${section.estimated_stripe_fees_cents} product_est=${section.estimated_product_cost_cents} ship_cost_est=${section.estimated_shipping_cost_cents}`,
+      `  revenue_cents=${section.collected_revenue_cents} fees_est=${section.estimated_stripe_fees_cents} product_est=${section.estimated_product_cost_cents} ship_cost_est=${section.estimated_shipping_cost_cents}`
     );
     lines.push(
-      `  ship_charge=${section.shipping_charge_cents} ship_subsidy=${section.shipping_subsidy_cents} discount_reported=${section.discount_cents_reported}`,
+      `  ship_charge=${section.shipping_charge_cents} ship_subsidy=${section.shipping_subsidy_cents} discount_reported=${section.discount_cents_reported}`
     );
     lines.push(
-      `  contribution_cents=${section.estimated_pre_fixed_cost_contribution_cents} per_order=${formatCents(section.contribution_per_order_cents)} margin_pct=${formatCents(section.contribution_margin_percent)}`,
+      `  contribution_cents=${section.estimated_pre_fixed_cost_contribution_cents} per_order=${formatCents(section.contribution_per_order_cents)} margin_pct=${formatCents(section.contribution_margin_percent)}`
     );
     lines.push("  groups:");
     for (const group of section.groups) {
       lines.push(
-        `    - ${group.group_key} | orders=${group.paid_order_count} revenue=${group.collected_revenue_cents} contrib=${group.estimated_pre_fixed_cost_contribution_cents} per_order=${formatCents(group.contribution_per_order_cents)} margin_pct=${formatCents(group.contribution_margin_percent)} unresolved=${group.unresolved_count}`,
+        `    - ${group.group_key} | orders=${group.paid_order_count} revenue=${group.collected_revenue_cents} contrib=${group.estimated_pre_fixed_cost_contribution_cents} per_order=${formatCents(group.contribution_per_order_cents)} margin_pct=${formatCents(group.contribution_margin_percent)} unresolved=${group.unresolved_count}`
       );
     }
     lines.push("");
@@ -948,14 +939,7 @@ export function assertAggregateOnly(report) {
   if (containsSensitiveOperatorText(json)) {
     throw new Error("Aggregate report failed sensitive-output check");
   }
-  const forbiddenKeys = [
-    "records",
-    "session_id",
-    "customer_email",
-    "email",
-    "metadata",
-    "payment_intent",
-  ];
+  const forbiddenKeys = ["records", "session_id", "customer_email", "email", "metadata", "payment_intent"];
   for (const key of forbiddenKeys) {
     if (Object.prototype.hasOwnProperty.call(report, key)) {
       throw new Error(`Aggregate report must not include top-level "${key}"`);
@@ -1052,8 +1036,7 @@ export function runProductContribution({
       return 1;
     }
 
-    const output =
-      args.format === "json" ? formatJsonReport(report) : formatTableReport(report);
+    const output = args.format === "json" ? formatJsonReport(report) : formatTableReport(report);
     try {
       assertSafeOutput(output);
     } catch {
@@ -1068,8 +1051,7 @@ export function runProductContribution({
   }
 }
 
-const isDirectRun =
-  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isDirectRun) {
   const code = runProductContribution();

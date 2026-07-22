@@ -380,20 +380,20 @@ Do **not** count sessions where Stripe metadata indicates QA (`qa_run=true`, `qa
 
 ### 2.9 Product-level contribution
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Definition**       | Estimated pre-fixed-cost contribution by product/SKU group (HD digital plans, each print variant, supported print+digital/card bundles, plus explicit unknown / excluded / unresolved buckets).                                                                                                                                       |
-| **Formula**          | Per resolved paid order: `collected revenue (amount_total) − estimated Stripe fees − configured product COGS − configured shipping cost`. Discounts and shipping subsidies are **informational only** (already reflected in `amount_total`); do not subtract again. Do **not** label as accounting profit or cash remaining.           |
-| **Primary source**   | Offline sanitized export + `npm run qa:product-contribution` (`scripts/product-contribution.mjs`) using shared configured estimates from `scripts/lib/commerceCostEstimates.mjs` (aligned with `printMargin.ts` fee defaults, `printCatalog.ts` COGS, `printful-shipping.json`)                                                         |
-| **Secondary**        | Actual Stripe fees / Printful invoices — **human export** (H1/H2); not ingested by this CLI                                                                                                                                                                                                                                           |
-| **Unit / grain**     | Aggregate by currency section × product group; minor units (cents)                                                                                                                                                                                                                                                                    |
-| **QA exclusion**     | Same markers as `commerceAnalyticsQa.mjs` (`qa_run`, `qa_ops_checkout`, `qa_source` prefixes). Excluded counts/revenue reported separately.                                                                                                                                                                                           |
-| **Currency**         | Fail-safe: **never combine currencies**. CLI emits separate deterministic `currency_sections`.                                                                                                                                                                                                                                        |
-| **Unresolved**       | Missing shipping country, unavailable shipping estimate, shipping-matrix currency mismatch, unknown product metadata → counted as unresolved with reason; contribution/margin not fabricated.                                                                                                                                          |
-| **Privacy**          | aggregate only; sanitized input schema rejects session/payment IDs, emails, names, addresses, raw metadata, Stripe objects                                                                                                                                                                                                              |
-| **Availability**     | `available` (offline estimate report) / actual fee & invoice reconciliation still `requires human authorization/export`                                                                                                                                                                                                               |
-| **Confidence**       | medium for ranking SKUs with configured estimates; low vs true P&L until H1/H2 reconcile                                                                                                                                                                                                                                              |
-| **Owner / reviewer** | Owner: product; Reviewer: Codex on PRs that change the schema or formula                                                                                                                                                                                                                                                              |
+| Field                | Value                                                                                                                                                                                                                                                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Definition**       | Estimated pre-fixed-cost contribution by product/SKU group (HD digital plans, each print variant, supported print+digital/card bundles, plus explicit unknown / excluded / unresolved buckets).                                                                                                                              |
+| **Formula**          | Per resolved paid order: `collected revenue (amount_total) − estimated Stripe fees − configured product COGS − configured shipping cost`. Discounts and shipping subsidies are **informational only** (already reflected in `amount_total`); do not subtract again. Do **not** label as accounting profit or cash remaining. |
+| **Primary source**   | Offline sanitized export + `npm run qa:product-contribution` (`scripts/product-contribution.mjs`) using shared configured estimates from `scripts/lib/commerceCostEstimates.mjs` (aligned with `printMargin.ts` fee defaults, `printCatalog.ts` COGS, `printful-shipping.json`)                                              |
+| **Secondary**        | Actual Stripe fees / Printful invoices — **human export** (H1/H2); not ingested by this CLI                                                                                                                                                                                                                                  |
+| **Unit / grain**     | Aggregate by currency section × product group; minor units (cents)                                                                                                                                                                                                                                                           |
+| **QA exclusion**     | Same markers as `commerceAnalyticsQa.mjs` (`qa_run`, `qa_ops_checkout`, `qa_source` prefixes). Excluded counts/revenue reported separately.                                                                                                                                                                                  |
+| **Currency**         | Fail-safe: **never combine currencies**. CLI emits separate deterministic `currency_sections`.                                                                                                                                                                                                                               |
+| **Unresolved**       | Missing shipping country, unavailable shipping estimate, shipping-matrix currency mismatch, unknown product metadata → counted as unresolved with reason; contribution/margin not fabricated.                                                                                                                                |
+| **Privacy**          | aggregate only; sanitized input schema rejects session/payment IDs, emails, names, addresses, raw metadata, Stripe objects                                                                                                                                                                                                   |
+| **Availability**     | `available` (offline estimate report) / actual fee & invoice reconciliation still `requires human authorization/export`                                                                                                                                                                                                      |
+| **Confidence**       | medium for ranking SKUs with configured estimates; low vs true P&L until H1/H2 reconcile                                                                                                                                                                                                                                     |
+| **Owner / reviewer** | Owner: product; Reviewer: Codex on PRs that change the schema or formula                                                                                                                                                                                                                                                     |
 
 **Operator usage**
 
@@ -413,27 +413,29 @@ Document shape:
 {
   "schema_version": 1,
   "notes": "optional operator note (no PII)",
-  "records": [ /* objects below */ ]
+  "records": [
+    /* objects below */
+  ]
 }
 ```
 
 Allowed record fields only:
 
-| Field                     | Required | Notes                                                                 |
-| ------------------------- | -------- | --------------------------------------------------------------------- |
-| `paid_at`                 | no       | ISO timestamp/date for operator context; not printed in aggregates    |
-| `currency`                | yes      | 3-letter ISO, lowercased                                              |
-| `amount_total`            | yes      | integer minor units (≥ 0)                                             |
-| `order_type`              | yes\*    | `digital` \| `print` (missing/other → unknown bucket)                 |
-| `plan`                    | digital\* | `single` \| `pack3` \| `subscription` (missing/blank/unsupported → unknown; never default to single) |
-| `print_variant`           | print    | catalog id (`poster_framed`, …)                                       |
-| `include_digital`         | no       | boolean — print + HD digital bundle                                   |
-| `include_card`            | no       | boolean — print + card bundle                                         |
-| `shipping_country`        | print\*  | ISO-2; required to resolve shipping cost                              |
-| `shipping_charge_cents`   | no       | customer shipping charged (informational)                             |
-| `shipping_subsidy_cents`  | no       | waived shipping (informational; do not double-count)                  |
-| `discount_cents`          | no       | reported discount (informational; `amount_total` already net)         |
-| `qa_run` / `qa_ops_checkout` / `qa_source` | no | QA exclusion markers                                      |
+| Field                                      | Required  | Notes                                                                                                |
+| ------------------------------------------ | --------- | ---------------------------------------------------------------------------------------------------- |
+| `paid_at`                                  | no        | ISO timestamp/date for operator context; not printed in aggregates                                   |
+| `currency`                                 | yes       | 3-letter ISO, lowercased                                                                             |
+| `amount_total`                             | yes       | integer minor units (≥ 0)                                                                            |
+| `order_type`                               | yes\*     | `digital` \| `print` (missing/other → unknown bucket)                                                |
+| `plan`                                     | digital\* | `single` \| `pack3` \| `subscription` (missing/blank/unsupported → unknown; never default to single) |
+| `print_variant`                            | print     | catalog id (`poster_framed`, …)                                                                      |
+| `include_digital`                          | no        | boolean — print + HD digital bundle                                                                  |
+| `include_card`                             | no        | boolean — print + card bundle                                                                        |
+| `shipping_country`                         | print\*   | ISO-2; required to resolve shipping cost                                                             |
+| `shipping_charge_cents`                    | no        | customer shipping charged (informational)                                                            |
+| `shipping_subsidy_cents`                   | no        | waived shipping (informational; do not double-count)                                                 |
+| `discount_cents`                           | no        | reported discount (informational; `amount_total` already net)                                        |
+| `qa_run` / `qa_ops_checkout` / `qa_source` | no        | QA exclusion markers                                                                                 |
 
 \*Unknown/missing product fields go to the **unknown** group (not silently reassigned). Missing shipping country on print → **unresolved**.
 
@@ -448,11 +450,11 @@ The CLI **rejects** sensitive/row-identifying fields with a nonzero exit and nev
 
 **Estimate vs actual / remaining human work**
 
-| This report measures                         | Still require human exports                          |
-| -------------------------------------------- | ---------------------------------------------------- |
-| Estimated Stripe fees (env/defaults)         | Actual processor fees (H1)                           |
-| Configured print COGS + shipping matrix      | Printful invoice COGS (H2)                           |
-| Pre-fixed-cost contribution by product group | Refunds, disputes, paid acquisition, fixed opex      |
+| This report measures                         | Still require human exports                     |
+| -------------------------------------------- | ----------------------------------------------- |
+| Estimated Stripe fees (env/defaults)         | Actual processor fees (H1)                      |
+| Configured print COGS + shipping matrix      | Printful invoice COGS (H2)                      |
+| Pre-fixed-cost contribution by product group | Refunds, disputes, paid acquisition, fixed opex |
 
 See §7 checklist H1/H2. Private monthly targets stay out of the repository.
 
@@ -547,12 +549,12 @@ Channel labels for paid-session and traffic attribution. Prefer **one** primary 
 
 ### Known instrumentation gaps affecting reconciliation
 
-| Gap                                                                                                                            | Impact                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Gap                                                                | Impact                                                                                                                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ~~`scripts/funnel-reconcile.mjs` empty no-op~~ **resolved (#184)** | CLI restored: dry-run default against `POST /api/analytics/funnel/reconcile`; apply double-gated; missing config / endpoint failure exits nonzero |
-| `preview_checkout_nudge_*` steps defined, not emitted                                                                          | Nudge conversion unmeasurable in KV                                                                                                     |
-| Recovery email → paid not tagged                                                                                               | Recovery ROI unknown                                                                                                                    |
-| No net-of-refunds in `qa:revenue-goal`                                                                                         | North-star overstates economic revenue if refunds occur                                                                                 |
+| `preview_checkout_nudge_*` steps defined, not emitted              | Nudge conversion unmeasurable in KV                                                                                                               |
+| Recovery email → paid not tagged                                   | Recovery ROI unknown                                                                                                                              |
+| No net-of-refunds in `qa:revenue-goal`                             | North-star overstates economic revenue if refunds occur                                                                                           |
 
 ---
 

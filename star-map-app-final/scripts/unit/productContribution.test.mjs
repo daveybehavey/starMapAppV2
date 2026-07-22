@@ -33,7 +33,7 @@ import {
 
 const SCRIPT_PATH = fileURLToPath(new URL("../product-contribution.mjs", import.meta.url));
 const FIXTURE_PATH = fileURLToPath(
-  new URL("./fixtures/product-contribution/synthetic-paid-sessions.json", import.meta.url),
+  new URL("./fixtures/product-contribution/synthetic-paid-sessions.json", import.meta.url)
 );
 const PRINT_MARGIN_TS = fileURLToPath(new URL("../../src/lib/printMargin.ts", import.meta.url));
 const PRINT_CATALOG_TS = fileURLToPath(new URL("../../src/lib/printCatalog.ts", import.meta.url));
@@ -80,10 +80,7 @@ test("negative control: empty/no-op/gross-only stub is detected", () => {
     fs.unlinkSync(stub);
   }
 
-  const grossOnly = path.join(
-    path.dirname(SCRIPT_PATH),
-    `.product-contribution-gross-${process.pid}.mjs`,
-  );
+  const grossOnly = path.join(path.dirname(SCRIPT_PATH), `.product-contribution-gross-${process.pid}.mjs`);
   fs.writeFileSync(
     grossOnly,
     `
@@ -91,7 +88,7 @@ export const estimated_pre_fixed_cost_contribution_cents = true;
 export function estimateStripeFeeCents() { return 0; }
 --input
 collected_revenue_cents only
-`,
+`
   );
   try {
     assert.throws(() => assertScriptIsNotNoOp(grossOnly), /gross-revenue-only|incomplete|configured product/);
@@ -117,11 +114,11 @@ test("shared print COGS defaults align with printCatalog.ts", () => {
     assert.ok(source.includes(`cogsEnv: "${row.cogsEnv}"`), `cogsEnv drift for ${variant}`);
     assert.ok(
       source.includes(`defaultCogsCents: ${row.defaultCogsCents}`),
-      `defaultCogsCents drift for ${variant}`,
+      `defaultCogsCents drift for ${variant}`
     );
     assert.ok(
       source.includes(`shippingProfile: "${row.shippingProfile}"`),
-      `shippingProfile drift for ${variant}`,
+      `shippingProfile drift for ${variant}`
     );
     assert.equal(getConfiguredProductCostCents(variant, {}), row.defaultCogsCents);
   }
@@ -139,7 +136,7 @@ test("correct grouping of digital, print, and bundle records", () => {
   assert.equal(classifyProductGroup({ order_type: "digital", plan: "pack3" }).groupKey, "digital:pack3");
   assert.equal(
     classifyProductGroup({ order_type: "print", print_variant: "poster_unframed" }).groupKey,
-    "print:poster_unframed",
+    "print:poster_unframed"
   );
   assert.equal(
     classifyProductGroup({
@@ -147,7 +144,7 @@ test("correct grouping of digital, print, and bundle records", () => {
       print_variant: "poster_framed",
       include_digital: true,
     }).groupKey,
-    "print:poster_framed+digital",
+    "print:poster_framed+digital"
   );
   assert.equal(
     classifyProductGroup({
@@ -155,11 +152,11 @@ test("correct grouping of digital, print, and bundle records", () => {
       print_variant: "poster_framed",
       include_card: true,
     }).groupKey,
-    "print:poster_framed+card",
+    "print:poster_framed+card"
   );
   assert.equal(
     classifyProductGroup({ order_type: "print", print_variant: "mystery_sku" }).groupKey,
-    "unknown",
+    "unknown"
   );
 });
 
@@ -178,12 +175,12 @@ test("Codex regression: missing/blank/unsupported digital plan must not default 
     const estimate = estimateRecordContribution(
       {
         order_type: "digital",
-        plan: typeof plan === "string" ? plan.trim().toLowerCase() || null : plan ?? null,
+        plan: typeof plan === "string" ? plan.trim().toLowerCase() || null : (plan ?? null),
         currency: "usd",
         amount_total: 2900,
       },
       getStripeFeeConfig({}),
-      {},
+      {}
     );
     assert.equal(estimate.resolved, false);
     assert.equal(estimate.unresolvedReason, "unknown_product_metadata");
@@ -197,7 +194,7 @@ test("Codex regression: missing/blank/unsupported digital plan must not default 
       { currency: "usd", amount_total: 3300, order_type: "digital", plan: "not_a_plan" },
       { currency: "usd", amount_total: 2900, order_type: "digital", plan: "single" },
     ],
-    { env: {} },
+    { env: {} }
   );
   const usd = report.currency_sections[0];
   const unknown = usd.groups.find((g) => g.group_key === "unknown");
@@ -239,9 +236,9 @@ test("Codex regression: camelCase/snake_case sensitive fields fail closed before
             plan: "single",
             [field]: "SENSITIVE_VALUE_MUST_NOT_LEAK",
           },
-          0,
+          0
         ),
-      /sensitive|row-identifying/,
+      /sensitive|row-identifying/
     );
   }
 
@@ -356,7 +353,7 @@ test("mixed currencies produce separate sections and are never summed together",
   const report = buildProductContributionReport(records, { env: {} });
   assert.deepEqual(
     report.currency_sections.map((s) => s.currency),
-    ["eur", "usd"],
+    ["eur", "usd"]
   );
   const usd = report.currency_sections.find((s) => s.currency === "usd");
   const eur = report.currency_sections.find((s) => s.currency === "eur");
@@ -378,7 +375,7 @@ test("unknown product metadata goes to exception bucket", () => {
       shipping_country: "US",
     },
     getStripeFeeConfig({}),
-    {},
+    {}
   );
   assert.equal(estimate.resolved, false);
   assert.equal(estimate.unresolvedReason, "unknown_product_metadata");
@@ -396,7 +393,7 @@ test("missing required cost inputs produce unresolved counts rather than fabrica
         shipping_country: null,
       },
     ],
-    { env: {} },
+    { env: {} }
   );
   const usd = report.currency_sections[0];
   const group = usd.groups[0];
@@ -416,7 +413,7 @@ test("shipping matrix currency mismatch is unresolved (never mixed into contribu
       shipping_country: "CA",
     },
     getStripeFeeConfig({}),
-    {},
+    {}
   );
   assert.equal(estimate.resolved, false);
   assert.equal(estimate.unresolvedReason, "shipping_currency_mismatch");
@@ -437,7 +434,7 @@ test("discounts and shipping subsidies are informational and not double-counted"
       discount_cents: 500,
     },
     feeConfig,
-    {},
+    {}
   );
   assert.equal(withMeta.resolved, true);
   const expectedFee = estimateStripeFeeCents(10000, feeConfig);
@@ -452,11 +449,11 @@ test("discounts and shipping subsidies are informational and not double-counted"
 test("invalid/negative/non-integer minor-unit amounts fail", () => {
   assert.throws(
     () => sanitizeRecord({ currency: "usd", amount_total: -1, order_type: "digital", plan: "single" }, 0),
-    /non-negative/,
+    /non-negative/
   );
   assert.throws(
     () => sanitizeRecord({ currency: "usd", amount_total: 10.5, order_type: "digital", plan: "single" }, 0),
-    /integer/,
+    /integer/
   );
   assert.throws(
     () =>
@@ -468,9 +465,9 @@ test("invalid/negative/non-integer minor-unit amounts fail", () => {
           plan: "single",
           discount_cents: 1.2,
         },
-        0,
+        0
       ),
-    /integer/,
+    /integer/
   );
   assert.throws(
     () =>
@@ -482,9 +479,9 @@ test("invalid/negative/non-integer minor-unit amounts fail", () => {
           plan: "single",
           shipping_charge_cents: -5,
         },
-        0,
+        0
       ),
-    /non-negative/,
+    /non-negative/
   );
 });
 
@@ -500,9 +497,9 @@ test("customer/session/payment fields are rejected and never printed", () => {
             plan: "single",
             [field]: "should-not-appear",
           },
-          0,
+          0
         ),
-      /sensitive|row-identifying/,
+      /sensitive|row-identifying/
     );
   }
 
@@ -618,9 +615,9 @@ test("impossible metadata combinations fail closed", () => {
           plan: "single",
           print_variant: "poster_framed",
         },
-        0,
+        0
       ),
-    /cannot include print_variant/,
+    /cannot include print_variant/
   );
 });
 
@@ -647,7 +644,7 @@ test("contribution is not gross-revenue-only (negative control on numbers)", () 
   const digital = estimateRecordContribution(
     { currency: "usd", amount_total: 2900, order_type: "digital", plan: "single" },
     feeConfig,
-    {},
+    {}
   );
   assert.ok(digital.resolved);
   assert.ok(digital.contributionCents < 2900);
@@ -662,7 +659,7 @@ test("contribution is not gross-revenue-only (negative control on numbers)", () 
       shipping_country: "US",
     },
     feeConfig,
-    {},
+    {}
   );
   assert.ok(print.resolved);
   assert.ok(print.productCostCents > 0);
