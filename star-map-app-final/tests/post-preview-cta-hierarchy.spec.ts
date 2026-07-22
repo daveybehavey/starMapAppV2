@@ -9,7 +9,7 @@ const WIDTHS = [320, 375, 430, 768, 1280, 1440] as const;
 const PAYWALL_HEADING_PATTERN =
   /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
 const PRINT_ENABLED = /^(1|true|yes)$/i.test(
-  String(process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  String(process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
 );
 
 const GOLD_PRIMARY_CLASS_FRAGMENT = "from-amber-400";
@@ -26,9 +26,7 @@ async function mockPremium(page: Page, paid: boolean) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(
-        paid
-          ? { paid: true, creditsRemaining: 2, plan: "credits" }
-          : { paid: false, creditsRemaining: 0 },
+        paid ? { paid: true, creditsRemaining: 2, plan: "credits" } : { paid: false, creditsRemaining: 0 }
       ),
     });
   });
@@ -64,26 +62,23 @@ async function expectActionable(locator: Locator) {
 
 async function countVisiblePrimaryDigitalCtas(page: Page, scope?: Locator) {
   const root = scope ?? page.locator("body");
-  return root.locator('[data-cta-priority="primary"]').evaluateAll((nodes) =>
-    nodes.filter((el) => {
-      const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      return (
-        style.display !== "none" &&
-        style.visibility !== "hidden" &&
-        rect.width > 0 &&
-        rect.height > 0 &&
-        el.className.toString().includes("from-amber-400")
-      );
-    }).length,
+  return root.locator('[data-cta-priority="primary"]').evaluateAll(
+    (nodes) =>
+      nodes.filter((el) => {
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          el.className.toString().includes("from-amber-400")
+        );
+      }).length
   );
 }
 
-async function openEditorContext(
-  browser: Browser,
-  width: number,
-  paid: boolean,
-) {
+async function openEditorContext(browser: Browser, width: number, paid: boolean) {
   const force = forceForWidth(width);
   const isMobile = force === "mobile";
   const context = await browser.newContext({
@@ -108,17 +103,17 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
   test.setTimeout(120_000);
 
   for (const width of WIDTHS) {
-    test(`exactly one dominant digital purchase CTA at ${width}px (unpaid)`, async ({
-      browser,
-    }) => {
+    test(`exactly one dominant digital purchase CTA at ${width}px (unpaid)`, async ({ browser }) => {
       const { context, page, force } = await openEditorContext(browser, width, false);
-      const primaryLabel = page.getByRole("button", { name: /Unlock HD/i }).first();
-      await expect(primaryLabel).toBeVisible();
+      const primary =
+        force === "mobile" ? page.getByTestId("mobile-unlock-hd") : page.getByTestId("desktop-unlock-hd");
+      await expect(primary).toBeVisible();
+      await expect(primary).toHaveText(/Unlock HD/i);
 
       const primaryCount = await countVisiblePrimaryDigitalCtas(page);
       expect(primaryCount).toBe(1);
 
-      const primary = page.locator('[data-cta-priority="primary"]').first();
+      await expect(primary).toHaveAttribute("data-cta-priority", "primary");
       await expect(primary).toHaveClass(new RegExp(GOLD_PRIMARY_CLASS_FRAGMENT));
       await expect(primary).toHaveAccessibleName(/Unlock HD|HD export|HD download/i);
 
@@ -144,10 +139,13 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
 
   for (const width of [375, 1280] as const) {
     test(`paid state shows HD download as sole primary at ${width}px`, async ({ browser }) => {
-      const { context, page } = await openEditorContext(browser, width, true);
-      await expect(page.getByRole("button", { name: /HD download/i }).first()).toBeVisible();
+      const { context, page, force } = await openEditorContext(browser, width, true);
+      const primary =
+        force === "mobile" ? page.getByTestId("mobile-unlock-hd") : page.getByTestId("desktop-unlock-hd");
+      await expect(primary).toBeVisible();
+      await expect(primary).toHaveText(/HD download/i);
       expect(await countVisiblePrimaryDigitalCtas(page)).toBe(1);
-      const primary = page.locator('[data-cta-priority="primary"]').first();
+      await expect(primary).toHaveAttribute("data-cta-priority", "primary");
       await expect(primary).toHaveAccessibleName(/HD download|HD export/i);
       await context.close();
     });
@@ -185,16 +183,15 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
       const unlockBox = await stickyUnlock.boundingBox();
       expect(lessBox!.x).toBeLessThan(unlockBox!.x);
 
-      // Secondary Save & Remix remains available while customize is open.
-      await expect(page.getByRole("button", { name: /Save & Remix/i }).first()).toBeVisible();
+      // Secondary Share / Save & Remix remain available while customize is open.
+      await expect(page.getByRole("button", { name: /Share star map/i }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /Save and remix/i }).first()).toBeVisible();
 
       await context.close();
     });
   }
 
-  test("representative actions produce established outcomes (375 mobile unpaid)", async ({
-    browser,
-  }) => {
+  test("representative actions produce established outcomes (375 mobile unpaid)", async ({ browser }) => {
     const { context, page } = await openEditorContext(browser, 375, false);
 
     // Free preview → real download.
@@ -203,7 +200,8 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.png$/i);
 
-    // Unlock HD → unpaid paywall.
+    // In-flow Unlock HD → unpaid paywall.
+    await dismissNextjsDevOverlay(page);
     await page.getByTestId("mobile-unlock-hd").click();
     await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN }).first()).toBeVisible({
       timeout: 8_000,
@@ -211,30 +209,36 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
     await page.getByRole("button", { name: /Close purchase options/i }).click();
     await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN })).toHaveCount(0);
 
-    // Customize more → dialog; sticky Unlock HD still opens paywall.
+    // Customize more opens dialog; Less options restores in-flow purchase CTA.
+    await dismissNextjsDevOverlay(page);
     await page.getByTestId("mobile-customize-more").click();
+    const drawer = page.getByRole("dialog", { name: /Date and details editor/i });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByTestId("mobile-sticky-unlock-hd")).toBeVisible();
+    await drawer.getByTestId("mobile-sticky-less-options").click();
+    await expect(page.getByTestId("mobile-purchase-action-bar")).toHaveCount(0);
+    await expect(page.getByTestId("mobile-unlock-hd")).toBeVisible();
+
+    // Share remains actionable.
+    await expectActionable(page.getByRole("button", { name: /Share star map/i }).first());
+
+    await context.close();
+  });
+
+  test("sticky Unlock HD still opens unpaid paywall (375)", async ({ browser }) => {
+    const { context, page } = await openEditorContext(browser, 375, false);
+    await page.getByTestId("mobile-customize-more").click();
+    await dismissNextjsDevOverlay(page);
     const drawer = page.getByRole("dialog", { name: /Date and details editor/i });
     await expect(drawer).toBeVisible();
     await drawer.getByTestId("mobile-sticky-unlock-hd").click();
     await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN }).first()).toBeVisible({
       timeout: 8_000,
     });
-    await page.getByRole("button", { name: /Close purchase options/i }).click();
-
-    // Less options restores in-flow purchase CTA.
-    await drawer.getByTestId("mobile-sticky-less-options").click();
-    await expect(page.getByTestId("mobile-purchase-action-bar")).toHaveCount(0);
-    await expect(page.getByTestId("mobile-unlock-hd")).toBeVisible();
-
-    // Share remains actionable (opens native share or falls back without throwing).
-    await expectActionable(page.getByRole("button", { name: /Share/i }).first());
-
     await context.close();
   });
 
-  test("desktop keyboard order keeps Unlock HD before demoted Customize more", async ({
-    browser,
-  }) => {
+  test("desktop keyboard order keeps Unlock HD before demoted Customize more", async ({ browser }) => {
     const { context, page } = await openEditorContext(browser, 1280, false);
     const free = page.getByLabel("Free export").first();
     const unlock = page.getByTestId("desktop-unlock-hd");
@@ -250,7 +254,6 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
     await expect(customize).toHaveAccessibleName(/Customize more/i);
 
     const order = await page.evaluate(() => {
-      const ids = ["Free export", "HD export", "Customize more", "Share"];
       const buttons = [...document.querySelectorAll("button")].filter((btn) => {
         const name = (btn.getAttribute("aria-label") || btn.textContent || "").trim();
         return /Free export|HD export|Customize more|Share/i.test(name);
@@ -284,7 +287,7 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
   test("print-enabled presentation stays secondary to digital primary", async ({ browser }) => {
     test.skip(
       !PRINT_ENABLED,
-      "Set NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=true (and restart Playwright webServer) for print coverage",
+      "Set NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=true (and restart Playwright webServer) for print coverage"
     );
 
     const { context, page } = await openEditorContext(browser, 1280, false);

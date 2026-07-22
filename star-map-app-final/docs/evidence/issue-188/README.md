@@ -37,6 +37,8 @@ Demote **Customize more / Less options (in-flow)** to the same neutral secondary
 
 See `inventory-after.md` and screenshots under `after/`.
 
+After inventory confirms **no competing primary-like controls** — Customize more is `neutral-secondary` at all required viewports; only Unlock HD / HD download uses gold-gradient primary.
+
 ## Handlers preserved
 
 | Action | Handler / outcome |
