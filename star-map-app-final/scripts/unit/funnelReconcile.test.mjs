@@ -8,10 +8,12 @@ import {
   FUNNEL_RECONCILE_CONTRACT,
   assertApplyAllowed,
   assertScriptIsNotNoOp,
+  containsSensitiveOperatorText,
   formatAggregateReport,
   parseArgs,
   resolveSiteOrigin,
   runFunnelReconcile,
+  writeOperatorError,
 } from "../funnel-reconcile.mjs";
 
 const SCRIPT_PATH = fileURLToPath(new URL("../funnel-reconcile.mjs", import.meta.url));
@@ -443,6 +445,186 @@ test("assertApplyAllowed is fail-closed", () => {
   assert.throws(() => assertApplyAllowed({ apply: true }, {}), /FUNNEL_RECONCILE_ALLOW_APPLY=1/);
   assert.throws(() => assertApplyAllowed({ apply: true }, { FUNNEL_RECONCILE_ALLOW_APPLY: "true" }), /FUNNEL_RECONCILE_ALLOW_APPLY=1/);
   assert.doesNotThrow(() => assertApplyAllowed({ apply: true }, { FUNNEL_RECONCILE_ALLOW_APPLY: "1" }));
+});
+
+test("failure paths never echo sensitive remote/exception text", async () => {
+  const leak = [
+    "cs_test_LEAKEDSESSION999",
+    "buyer@example.com",
+    "PRINT_ADMIN_TOKEN=super-secret-token-value",
+    "Authorization: Bearer leaked-auth-token",
+    '"results":[{"sessionId":"cs_live_ALSO_LEAK"}]',
+  ].join(" | ");
+
+  function assertNoLeak(io, label) {
+    const combined = `${io.getStdout()}\n${io.getStderr()}`;
+    assert.doesNotMatch(combined, /cs_test_LEAKEDSESSION999/, label);
+    assert.doesNotMatch(combined, /cs_live_ALSO_LEAK/, label);
+    assert.doesNotMatch(combined, /buyer@example.com/, label);
+    assert.doesNotMatch(combined, /super-secret-token-value/, label);
+    assert.doesNotMatch(combined, /leaked-auth-token/, label);
+    assert.doesNotMatch(combined, /"results"\s*:/, label);
+    assert.doesNotMatch(combined, /Authorization:\s*Bearer/i, label);
+  }
+
+  // HTTP 503 with sensitive body.error
+  await withMockServer(
+    async (req, res) => {
+      await readJsonBody(req);
+      res.statusCode = 503;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ ok: false, error: leak }));
+    },
+    async (origin) => {
+      const io = createIo();
+      const code = await runFunnelReconcile({
+        argv: ["--days", "14"],
+        env: baseEnv({ FUNNEL_RECONCILE_SITE: origin }),
+        stdout: io.stdout,
+        stderr: io.stderr,
+        loadEnv: false,
+      });
+      assert.equal(code, 1);
+      assert.match(io.getStderr(), /HTTP 503/);
+      assert.match(io.getStderr(), /unavailable/i);
+      assertNoLeak(io, "503");
+    },
+  );
+
+  // Generic non-2xx with sensitive body.error
+  await withMockServer(
+    async (req, res) => {
+      await readJsonBody(req);
+      res.statusCode = 500;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ ok: false, error: leak }));
+    },
+    async (origin) => {
+      const io = createIo();
+      const code = await runFunnelReconcile({
+        argv: ["--days", "14"],
+        env: baseEnv({ FUNNEL_RECONCILE_SITE: origin }),
+        stdout: io.stdout,
+        stderr: io.stderr,
+        loadEnv: false,
+      });
+      assert.equal(code, 1);
+      assert.match(io.getStderr(), /HTTP 500/);
+      assertNoLeak(io, "500");
+    },
+  );
+
+  // { ok: false } on HTTP 200 with sensitive body.error
+  await withMockServer(
+    async (req, res) => {
+      await readJsonBody(req);
+      res.statusCode = 200;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ ok: false, error: leak }));
+    },
+    async (origin) => {
+      const io = createIo();
+      const code = await runFunnelReconcile({
+        argv: ["--days", "14"],
+        env: baseEnv({ FUNNEL_RECONCILE_SITE: origin }),
+        stdout: io.stdout,
+        stderr: io.stderr,
+        loadEnv: false,
+      });
+      assert.equal(code, 1);
+      assert.match(io.getStderr(), /ok: false/);
+      assertNoLeak(io, "ok:false");
+    },
+  );
+
+  // Network failure with sensitive exception message
+  {
+    const io = createIo();
+    const code = await runFunnelReconcile({
+      argv: ["--site", "https://example.com", "--days", "14"],
+      env: baseEnv({ FUNNEL_RECONCILE_SITE: undefined, NEXT_PUBLIC_SITE_URL: undefined }),
+      fetchImpl: async () => {
+        throw new Error(`ECONNREFUSED ${leak}`);
+      },
+      stdout: io.stdout,
+      stderr: io.stderr,
+      loadEnv: false,
+    });
+    assert.equal(code, 1);
+    assert.match(io.getStderr(), /network failure/i);
+    assertNoLeak(io, "network");
+  }
+
+  // Response-body read failure with sensitive exception message
+  {
+    const io = createIo();
+    const code = await runFunnelReconcile({
+      argv: ["--site", "https://example.com", "--days", "14"],
+      env: baseEnv({ FUNNEL_RECONCILE_SITE: undefined, NEXT_PUBLIC_SITE_URL: undefined }),
+      fetchImpl: async () => ({
+        status: 200,
+        async text() {
+          throw new Error(`body-read-failed ${leak}`);
+        },
+      }),
+      stdout: io.stdout,
+      stderr: io.stderr,
+      loadEnv: false,
+    });
+    assert.equal(code, 1);
+    assert.match(io.getStderr(), /reading response body/i);
+    assertNoLeak(io, "body-read");
+  }
+
+  // Unexpected top-level failure (stdout.write throws with sensitive text)
+  {
+    const io = createIo();
+    const code = await runFunnelReconcile({
+      argv: ["--site", "https://example.com", "--days", "14"],
+      env: baseEnv({ FUNNEL_RECONCILE_SITE: undefined, NEXT_PUBLIC_SITE_URL: undefined }),
+      fetchImpl: async () => ({
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            dryRun: true,
+            days: 14,
+            scanned: 0,
+            eligible: 0,
+            alreadyRecorded: 0,
+            repaired: 0,
+            sync: null,
+            results: [],
+          });
+        },
+      }),
+      stdout: {
+        write() {
+          throw new Error(`unexpected-write ${leak}`);
+        },
+      },
+      stderr: io.stderr,
+      loadEnv: false,
+    });
+    assert.equal(code, 1);
+    assert.match(io.getStderr(), /Funnel reconcile failed/i);
+    assertNoLeak(io, "top-level");
+  }
+});
+
+test("writeOperatorError redacts unsafe messages via shared boundary", () => {
+  const io = createIo();
+  const written = writeOperatorError(
+    io.stderr,
+    "boom cs_test_LEAK buyer@example.com PRINT_ADMIN_TOKEN=secret Authorization: Bearer abc results",
+  );
+  assert.match(written, /Funnel reconcile failed/);
+  assert.doesNotMatch(written, /cs_test_LEAK/);
+  assert.doesNotMatch(written, /buyer@example.com/);
+  assert.doesNotMatch(written, /PRINT_ADMIN_TOKEN=secret/);
+  assert.doesNotMatch(io.getStderr(), /Bearer abc/);
+  assert.equal(containsSensitiveOperatorText("safe fixed message"), false);
+  assert.equal(containsSensitiveOperatorText("see buyer@example.com"), true);
 });
 
 test("contract constants document the restore surface", () => {

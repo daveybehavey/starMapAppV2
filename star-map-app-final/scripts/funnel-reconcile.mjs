@@ -231,20 +231,43 @@ export function formatAggregateReport(args, body) {
   return `${lines.join("\n")}\n`;
 }
 
+/** Patterns that must never appear in operator-visible output (stdout or stderr). */
+const SENSITIVE_OUTPUT_PATTERNS = Object.freeze([
+  /authorization\s*:\s*\S+/i,
+  /x-print-admin-token\s*[:=]\s*\S+/i,
+  /x-admin-token\s*[:=]\s*\S+/i,
+  /PRINT_ADMIN_TOKEN\s*=\s*\S+/i,
+  /Bearer\s+[A-Za-z0-9._\-]+/i,
+  /"results"\s*:/,
+  /\bcs_(test|live)_[A-Za-z0-9]+/i,
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+]);
+
+const GENERIC_OPERATOR_FAILURE =
+  "Funnel reconcile failed. Check site origin, admin token configuration, and connectivity; then retry.";
+
+export function containsSensitiveOperatorText(text) {
+  const value = String(text ?? "");
+  return SENSITIVE_OUTPUT_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+/**
+ * Shared safe/redacted stderr boundary for every failure path.
+ * Only fixed, locally authored messages should be passed in. If a message still
+ * matches sensitive patterns, it is replaced with a generic actionable string.
+ */
+export function writeOperatorError(stderr, message) {
+  const candidate = String(message ?? "").trim();
+  const safe =
+    candidate && !containsSensitiveOperatorText(candidate) ? candidate : GENERIC_OPERATOR_FAILURE;
+  const stream = stderr && typeof stderr.write === "function" ? stderr : process.stderr;
+  stream.write(`${safe}\n`);
+  return safe;
+}
+
 export function assertSafeOutput(text) {
-  const blocked = [
-    /authorization\s*:/i,
-    /x-print-admin-token/i,
-    /x-admin-token/i,
-    /PRINT_ADMIN_TOKEN\s*=/i,
-    /Bearer\s+[A-Za-z0-9._-]+/i,
-    /"results"\s*:/,
-    /\bcs_(test|live)_[A-Za-z0-9]+/i,
-  ];
-  for (const pattern of blocked) {
-    if (pattern.test(text)) {
-      throw new Error(`Refusing to print sensitive or detailed reconcile output matching ${pattern}`);
-    }
+  if (containsSensitiveOperatorText(text)) {
+    throw new Error("Refusing to print sensitive or detailed reconcile output");
   }
 }
 
@@ -279,137 +302,152 @@ export async function runFunnelReconcile({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   loadEnv = true,
 } = {}) {
-  if (loadEnv) {
-    loadDotenv();
-  }
-
-  let args;
   try {
-    args = parseArgs(argv, env);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    stderr.write(`${message}\n`);
-    return 1;
-  }
-
-  if (args.help) {
-    stdout.write(`${usage()}\n`);
-    return 0;
-  }
-
-  try {
-    assertApplyAllowed(args, env);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    stderr.write(`${message}\n`);
-    return 1;
-  }
-
-  const token = String(env.PRINT_ADMIN_TOKEN || "").trim();
-  if (!token) {
-    stderr.write("Missing PRINT_ADMIN_TOKEN. Set it in the environment (never commit secrets).\n");
-    return 1;
-  }
-
-  if (typeof fetchImpl !== "function") {
-    stderr.write("fetch is unavailable in this runtime.\n");
-    return 1;
-  }
-
-  const url = `${args.site}${FUNNEL_RECONCILE_CONTRACT.endpointPath}`;
-  const requestBody = {
-    days: args.days,
-    limit: args.limit,
-    dryRun: args.dryRun,
-  };
-
-  let response;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      response = await fetchImpl(url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          accept: "application/json",
-          "x-print-admin-token": token,
-        },
-        body: JSON.stringify(requestBody),
-        cache: "no-store",
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timer);
+    if (loadEnv) {
+      loadDotenv();
     }
-  } catch (error) {
-    if (isAbortError(error)) {
-      stderr.write(
-        `Funnel reconcile timed out after ${timeoutMs}ms contacting ${args.site}${FUNNEL_RECONCILE_CONTRACT.endpointPath}. Check network connectivity and retry.\n`,
+
+    let args;
+    try {
+      args = parseArgs(argv, env);
+    } catch (error) {
+      // Local validation messages are fixed strings authored by parseArgs.
+      writeOperatorError(stderr, error instanceof Error ? error.message : GENERIC_OPERATOR_FAILURE);
+      return 1;
+    }
+
+    if (args.help) {
+      stdout.write(`${usage()}\n`);
+      return 0;
+    }
+
+    try {
+      assertApplyAllowed(args, env);
+    } catch (error) {
+      writeOperatorError(stderr, error instanceof Error ? error.message : GENERIC_OPERATOR_FAILURE);
+      return 1;
+    }
+
+    const token = String(env.PRINT_ADMIN_TOKEN || "").trim();
+    if (!token) {
+      writeOperatorError(
+        stderr,
+        "Missing PRINT_ADMIN_TOKEN. Set it in the environment (never commit secrets).",
       );
       return 1;
     }
-    const message = error instanceof Error ? error.message : String(error);
-    stderr.write(
-      `Funnel reconcile network failure contacting ${args.site}${FUNNEL_RECONCILE_CONTRACT.endpointPath}: ${message}\n`,
-    );
-    return 1;
-  }
 
-  const status = response.status;
-  let text = "";
-  try {
-    text = await response.text();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    stderr.write(`Funnel reconcile failed reading response body (HTTP ${status}): ${message}\n`);
-    return 1;
-  }
+    if (typeof fetchImpl !== "function") {
+      writeOperatorError(stderr, "fetch is unavailable in this runtime.");
+      return 1;
+    }
 
-  let body;
-  try {
-    body = text ? JSON.parse(text) : null;
+    const endpoint = `${args.site}${FUNNEL_RECONCILE_CONTRACT.endpointPath}`;
+    const requestBody = {
+      days: args.days,
+      limit: args.limit,
+      dryRun: args.dryRun,
+    };
+
+    let response;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        response = await fetchImpl(endpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            accept: "application/json",
+            "x-print-admin-token": token,
+          },
+          body: JSON.stringify(requestBody),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error) {
+      if (isAbortError(error)) {
+        writeOperatorError(
+          stderr,
+          `Funnel reconcile timed out after ${timeoutMs}ms contacting ${endpoint}. Check network connectivity and retry.`,
+        );
+        return 1;
+      }
+      // Never interpolate arbitrary exception messages (may contain PII/secrets).
+      writeOperatorError(
+        stderr,
+        `Funnel reconcile network failure contacting ${endpoint}. Check connectivity and retry.`,
+      );
+      return 1;
+    }
+
+    const status = Number(response?.status) || 0;
+    let text = "";
+    try {
+      text = await response.text();
+    } catch {
+      writeOperatorError(
+        stderr,
+        `Funnel reconcile failed reading response body (HTTP ${status}) from ${endpoint}.`,
+      );
+      return 1;
+    }
+
+    let body;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      writeOperatorError(
+        stderr,
+        `Funnel reconcile returned malformed JSON (HTTP ${status}) from ${endpoint}. Check the site origin and that ${FUNNEL_RECONCILE_CONTRACT.endpointPath} is reachable.`,
+      );
+      return 1;
+    }
+
+    if (status === 401 || status === 403) {
+      writeOperatorError(
+        stderr,
+        `Funnel reconcile unauthorized (HTTP ${status}) at ${endpoint}. Verify PRINT_ADMIN_TOKEN matches the deployed admin token.`,
+      );
+      return 1;
+    }
+    if (status === 503) {
+      // Do not echo body.error — remote text is untrusted.
+      writeOperatorError(
+        stderr,
+        `Funnel reconcile unavailable (HTTP 503) at ${endpoint}. Stripe or dependent services may be unconfigured on the target site.`,
+      );
+      return 1;
+    }
+    if (status < 200 || status >= 300) {
+      writeOperatorError(stderr, `Funnel reconcile failed (HTTP ${status}) at ${endpoint}.`);
+      return 1;
+    }
+    if (!body || body.ok !== true) {
+      writeOperatorError(
+        stderr,
+        `Funnel reconcile reported failure ({ ok: false }) at ${endpoint}.`,
+      );
+      return 1;
+    }
+
+    const report = formatAggregateReport(args, body);
+    try {
+      assertSafeOutput(report);
+    } catch {
+      writeOperatorError(stderr, "Funnel reconcile refused to print unsafe aggregate output.");
+      return 1;
+    }
+    stdout.write(report);
+    return 0;
   } catch {
-    stderr.write(
-      `Funnel reconcile returned malformed JSON (HTTP ${status}). Check the site origin and that /api/analytics/funnel/reconcile is reachable.\n`,
-    );
+    // Top-level safety net: never print arbitrary exception text.
+    writeOperatorError(stderr, GENERIC_OPERATOR_FAILURE);
     return 1;
   }
-
-  if (status === 401 || status === 403) {
-    stderr.write(
-      `Funnel reconcile unauthorized (HTTP ${status}). Verify PRINT_ADMIN_TOKEN matches the deployed admin token.\n`,
-    );
-    return 1;
-  }
-  if (status === 503) {
-    const hint = typeof body?.error === "string" ? ` (${body.error})` : "";
-    stderr.write(
-      `Funnel reconcile unavailable (HTTP 503)${hint}. Stripe or dependent services may be unconfigured on the target site.\n`,
-    );
-    return 1;
-  }
-  if (status < 200 || status >= 300) {
-    const hint = typeof body?.error === "string" ? `: ${body.error}` : "";
-    stderr.write(`Funnel reconcile failed (HTTP ${status})${hint}\n`);
-    return 1;
-  }
-  if (!body || body.ok !== true) {
-    const hint = typeof body?.error === "string" ? `: ${body.error}` : "";
-    stderr.write(`Funnel reconcile reported failure ({ ok: false })${hint}\n`);
-    return 1;
-  }
-
-  const report = formatAggregateReport(args, body);
-  try {
-    assertSafeOutput(report);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    stderr.write(`${message}\n`);
-    return 1;
-  }
-  stdout.write(report);
-  return 0;
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -419,8 +457,8 @@ if (isDirectRun) {
     .then((code) => {
       process.exitCode = code;
     })
-    .catch((error) => {
-      console.error(error instanceof Error ? error.message : String(error));
+    .catch(() => {
+      writeOperatorError(process.stderr, GENERIC_OPERATOR_FAILURE);
       process.exitCode = 1;
     });
 }
