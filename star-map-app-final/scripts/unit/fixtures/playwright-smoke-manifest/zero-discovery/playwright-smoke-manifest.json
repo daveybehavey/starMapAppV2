@@ -1,0 +1,21 @@
+{
+  "criticalSuites": [
+    {
+      "command": "qa:smoke:ui",
+      "specs": ["tests/no-tests.spec.mjs", "tests/valid.spec.mjs"]
+    },
+    {
+      "command": "qa:smoke:render",
+      "specs": ["tests/valid.spec.mjs"]
+    },
+    {
+      "command": "qa:smoke:commerce",
+      "specs": ["tests/valid.spec.mjs"]
+    },
+    {
+      "command": "qa:smoke",
+      "specs": ["tests/valid.spec.mjs"]
+    }
+  ],
+  "exemptions": []
+}
