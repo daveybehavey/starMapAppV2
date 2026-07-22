@@ -394,8 +394,10 @@ export function sanitizeRecord(raw, index) {
   if (orderType === "digital" && (includeDigital || includeCard)) {
     throw new Error(`records[${index}]: digital order_type cannot include print bundle flags`);
   }
-  if (orderType === "print" && plan && !includeDigital && plan !== "single") {
-    // print + digital add-on may set plan=single in checkout; other plans on print are impossible
+  if (orderType === "print" && plan && plan !== "single") {
+    // Print checkout may set plan=single with the HD add-on; pack3/subscription (or any
+    // other nonblank plan) on print is an impossible metadata combination — fail closed
+    // regardless of include_digital / include_card.
     throw new Error(`records[${index}]: print order_type has unsupported plan "${plan}"`);
   }
 

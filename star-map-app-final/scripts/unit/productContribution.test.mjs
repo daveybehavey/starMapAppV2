@@ -621,6 +621,105 @@ test("impossible metadata combinations fail closed", () => {
   );
 });
 
+test("Codex regression: print rows reject non-single plans regardless of include_digital", () => {
+  // Pre-fix bug: guard was `plan && !includeDigital && plan !== "single"`, so
+  // print+include_digital+pack3/subscription silently resolved into print:<variant>+digital.
+  const badPlans = ["pack3", "subscription"];
+  const includeDigitalFlags = [true, false];
+
+  for (const plan of badPlans) {
+    for (const include_digital of includeDigitalFlags) {
+      assert.throws(
+        () =>
+          sanitizeRecord(
+            {
+              currency: "usd",
+              amount_total: 10600,
+              order_type: "print",
+              print_variant: "poster_framed",
+              plan,
+              include_digital,
+              shipping_country: "US",
+            },
+            0
+          ),
+        /unsupported plan/,
+        `plan=${plan} include_digital=${include_digital}`
+      );
+    }
+  }
+
+  // Allowed: missing/blank plan, or plan=single (with or without HD add-on).
+  for (const plan of [undefined, null, "", "single"]) {
+    for (const include_digital of [true, false]) {
+      const { record } = sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 10600,
+          order_type: "print",
+          print_variant: "poster_framed",
+          ...(plan === undefined ? {} : { plan }),
+          include_digital,
+          shipping_country: "US",
+        },
+        0
+      );
+      assert.equal(record.order_type, "print");
+      assert.equal(record.plan, plan === "" || plan == null ? null : "single");
+    }
+  }
+
+  // CLI must exit nonzero and produce no aggregate contribution / no value leakage.
+  for (const plan of badPlans) {
+    for (const include_digital of includeDigitalFlags) {
+      const io = createIo();
+      const bad = {
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 10600,
+            order_type: "print",
+            print_variant: "poster_framed",
+            plan,
+            include_digital,
+            shipping_country: "US",
+          },
+          // Would otherwise contribute if the bad row were only stripped:
+          {
+            currency: "usd",
+            amount_total: 2900,
+            order_type: "digital",
+            plan: "single",
+          },
+        ],
+      };
+      const tmp = path.join(
+        path.dirname(FIXTURE_PATH),
+        `.bad-print-plan-${plan}-${include_digital}-${process.pid}.json`
+      );
+      fs.writeFileSync(tmp, JSON.stringify(bad));
+      try {
+        const code = runProductContribution({
+          argv: ["--input", tmp, "--format", "json"],
+          stdout: io.stdout,
+          stderr: io.stderr,
+          env: {},
+        });
+        assert.equal(code, 1, `cli exit plan=${plan} include_digital=${include_digital}`);
+        assert.equal(io.getStdout().trim(), "");
+        assert.doesNotMatch(io.getStdout(), /print:poster_framed\+digital/);
+        assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+        assert.doesNotMatch(io.getStdout() + io.getStderr(), /cs_/);
+        assert.doesNotMatch(io.getStdout() + io.getStderr(), /@/);
+        assert.match(io.getStderr(), /unsupported plan|Product contribution failed/);
+      } finally {
+        fs.unlinkSync(tmp);
+      }
+    }
+  }
+});
+
 test("invalid JSON exits nonzero", () => {
   const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-json-${process.pid}.json`);
   fs.writeFileSync(tmp, "{ not json");
