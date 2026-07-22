@@ -74,12 +74,18 @@ export const SENSITIVE_RECORD_FIELDS = Object.freeze([
   "sessionId",
   "checkout_session_id",
   "client_reference_id",
+  "clientReferenceId",
   "customer",
   "customer_id",
   "customer_email",
   "customer_details",
   "email",
   "name",
+  "first_name",
+  "last_name",
+  "full_name",
+  "buyer_name",
+  "buyerName",
   "phone",
   "address",
   "shipping_details",
@@ -87,21 +93,84 @@ export const SENSITIVE_RECORD_FIELDS = Object.freeze([
   "billing_address",
   "payment_intent",
   "payment_intent_id",
+  "paymentIntentId",
   "payment_method",
   "payment_method_details",
   "charge_id",
+  "chargeId",
+  "order_id",
+  "orderId",
   "map_id",
   "print_asset_id",
   "metadata",
   "raw",
   "stripe",
+  "printful",
   "token",
   "secret",
   "authorization",
   "password",
 ]);
 
-const SENSITIVE_FIELD_SET = new Set(SENSITIVE_RECORD_FIELDS.map((k) => k.toLowerCase()));
+/**
+ * Normalize camelCase / PascalCase / mixed keys to snake_case lower for matching.
+ * @param {string} key
+ */
+export function normalizeRecordFieldKey(key) {
+  return String(key)
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .replace(/[-\s]+/g, "_")
+    .toLowerCase();
+}
+
+const SENSITIVE_FIELD_SET = new Set(
+  SENSITIVE_RECORD_FIELDS.flatMap((k) => [k.toLowerCase(), normalizeRecordFieldKey(k)]),
+);
+
+/**
+ * Fail-closed sensitive / row-identifying field detection (before unknown stripping).
+ * Covers snake_case, camelCase, and PascalCase variants.
+ * @param {string} key
+ */
+export function isSensitiveRecordFieldKey(key) {
+  if (typeof key !== "string" || !key) return false;
+  if (ALLOWED_RECORD_FIELD_SET.has(key)) return false;
+
+  const lower = key.toLowerCase();
+  const normalized = normalizeRecordFieldKey(key);
+
+  if (SENSITIVE_FIELD_SET.has(lower) || SENSITIVE_FIELD_SET.has(normalized) || SENSITIVE_FIELD_SET.has(key)) {
+    return true;
+  }
+
+  // Broad patterns on normalized snake_case (and original) — never match allowed schema keys.
+  const patterns = [
+    /email/,
+    /phone/,
+    /address/,
+    /(^|_)(first|last|full|buyer)_?name(s)?(_|$)/,
+    /(^|_)name(s)?(_|$)/,
+    /customer/,
+    /session/,
+    /client_reference/,
+    /payment_intent/,
+    /payment_method/,
+    /payment/,
+    /charge/,
+    /(^|_)order_id(_|$)/,
+    /token/,
+    /secret/,
+    /password/,
+    /authorization/,
+    /metadata/,
+    /(^|_)raw(_|$)/,
+    /(^|_)stripe(_|$)/,
+    /(^|_)printful(_|$)/,
+  ];
+
+  return patterns.some((pattern) => pattern.test(normalized) || pattern.test(lower));
+}
 
 const GENERIC_OPERATOR_FAILURE =
   "Product contribution failed. Check the sanitized input path and schema; then retry.";
@@ -282,14 +351,8 @@ export function sanitizeRecord(raw, index) {
 
   const warnings = [];
   for (const key of Object.keys(raw)) {
-    const lower = key.toLowerCase();
-    if (SENSITIVE_FIELD_SET.has(lower) || SENSITIVE_FIELD_SET.has(key)) {
-      throw new Error(
-        `records[${index}] contains sensitive or row-identifying field "${key}" (rejected)`,
-      );
-    }
-    // Heuristic: keys that look like secrets / PII
-    if (/(email|phone|address|token|secret|password|customer|session_id|payment_intent)/i.test(key)) {
+    // Sensitive detection must fail closed before unknown-field stripping.
+    if (isSensitiveRecordFieldKey(key)) {
       throw new Error(
         `records[${index}] contains sensitive or row-identifying field "${key}" (rejected)`,
       );
@@ -314,8 +377,9 @@ export function sanitizeRecord(raw, index) {
       ? null
       : String(raw.order_type).trim().toLowerCase();
 
-  const plan =
+  const planRaw =
     raw.plan === undefined || raw.plan === null ? null : String(raw.plan).trim().toLowerCase();
+  const plan = planRaw || null;
 
   const printVariant =
     raw.print_variant === undefined || raw.print_variant === null
@@ -382,7 +446,7 @@ export function parseSanitizedDocument(document) {
 
   for (const key of Object.keys(document)) {
     if (!ALLOWED_DOCUMENT_KEYS.has(key)) {
-      if (SENSITIVE_FIELD_SET.has(key.toLowerCase()) || /(email|token|secret|customer|session)/i.test(key)) {
+      if (isSensitiveRecordFieldKey(key)) {
         throw new Error(`Input contains sensitive top-level field "${key}" (rejected)`);
       }
       throw new Error(`Input contains unknown top-level field "${key}" (rejected)`);
@@ -428,8 +492,9 @@ export function classifyProductGroup(record) {
   const orderType = record.order_type;
 
   if (orderType === "digital") {
-    const plan = record.plan || "single";
-    if (!isSupportedDigitalPlan(plan)) {
+    // Missing / blank / unsupported plan must NOT default to digital:single.
+    const plan = typeof record.plan === "string" ? record.plan.trim().toLowerCase() : record.plan;
+    if (!plan || !isSupportedDigitalPlan(plan)) {
       return { groupKey: "unknown", groupLabel: "unknown / unclassified", kind: "unknown" };
     }
     const labels = {

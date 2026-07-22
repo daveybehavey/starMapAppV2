@@ -23,6 +23,8 @@ import {
   estimateRecordContribution,
   formatJsonReport,
   formatTableReport,
+  isSensitiveRecordFieldKey,
+  normalizeRecordFieldKey,
   parseArgs,
   parseSanitizedDocument,
   runProductContribution,
@@ -159,6 +161,149 @@ test("correct grouping of digital, print, and bundle records", () => {
     classifyProductGroup({ order_type: "print", print_variant: "mystery_sku" }).groupKey,
     "unknown",
   );
+});
+
+test("Codex regression: missing/blank/unsupported digital plan must not default to digital:single", () => {
+  // Pre-fix bug: `record.plan || "single"` silently classified these as HD single.
+  for (const plan of [null, undefined, "", "   ", "enterprise", "SINGLE_PACK"]) {
+    const classification = classifyProductGroup({
+      order_type: "digital",
+      plan: plan === undefined ? undefined : plan,
+      currency: "usd",
+      amount_total: 2900,
+    });
+    assert.equal(classification.groupKey, "unknown", `plan=${JSON.stringify(plan)}`);
+    assert.equal(classification.kind, "unknown");
+
+    const estimate = estimateRecordContribution(
+      {
+        order_type: "digital",
+        plan: typeof plan === "string" ? plan.trim().toLowerCase() || null : plan ?? null,
+        currency: "usd",
+        amount_total: 2900,
+      },
+      getStripeFeeConfig({}),
+      {},
+    );
+    assert.equal(estimate.resolved, false);
+    assert.equal(estimate.unresolvedReason, "unknown_product_metadata");
+    assert.equal(estimate.contributionCents, null);
+  }
+
+  const report = buildProductContributionReport(
+    [
+      { currency: "usd", amount_total: 2900, order_type: "digital" },
+      { currency: "usd", amount_total: 3100, order_type: "digital", plan: "" },
+      { currency: "usd", amount_total: 3300, order_type: "digital", plan: "not_a_plan" },
+      { currency: "usd", amount_total: 2900, order_type: "digital", plan: "single" },
+    ],
+    { env: {} },
+  );
+  const usd = report.currency_sections[0];
+  const unknown = usd.groups.find((g) => g.group_key === "unknown");
+  const digitalSingle = usd.groups.find((g) => g.group_key === "digital:single");
+  assert.ok(unknown);
+  assert.equal(unknown.paid_order_count, 3);
+  assert.equal(unknown.unresolved_count, 3);
+  assert.equal(unknown.estimated_pre_fixed_cost_contribution_cents, 0);
+  assert.equal(unknown.contribution_margin_percent, null);
+  assert.ok(digitalSingle);
+  assert.equal(digitalSingle.paid_order_count, 1);
+  assert.equal(digitalSingle.resolved_order_count, 1);
+});
+
+test("Codex regression: camelCase/snake_case sensitive fields fail closed before unknown stripping", () => {
+  const sensitiveExamples = [
+    "first_name",
+    "last_name",
+    "buyerName",
+    "BuyerEmail",
+    "paymentIntentId",
+    "clientReferenceId",
+    "orderId",
+    "chargeId",
+    "FullName",
+    "shippingAddress",
+    "customerPhone",
+  ];
+
+  for (const field of sensitiveExamples) {
+    assert.equal(isSensitiveRecordFieldKey(field), true, field);
+    assert.throws(
+      () =>
+        sanitizeRecord(
+          {
+            currency: "usd",
+            amount_total: 100,
+            order_type: "digital",
+            plan: "single",
+            [field]: "SENSITIVE_VALUE_MUST_NOT_LEAK",
+          },
+          0,
+        ),
+      /sensitive|row-identifying/,
+    );
+  }
+
+  // Allowed schema keys must never be treated as sensitive.
+  for (const field of [
+    "shipping_country",
+    "shipping_charge_cents",
+    "shipping_subsidy_cents",
+    "discount_cents",
+    "print_variant",
+    "include_digital",
+  ]) {
+    assert.equal(isSensitiveRecordFieldKey(field), false, field);
+  }
+
+  assert.equal(normalizeRecordFieldKey("paymentIntentId"), "payment_intent_id");
+  assert.equal(normalizeRecordFieldKey("clientReferenceId"), "client_reference_id");
+  assert.equal(normalizeRecordFieldKey("buyerName"), "buyer_name");
+
+  const io = createIo();
+  const bad = {
+    schema_version: 1,
+    records: [
+      {
+        currency: "usd",
+        amount_total: 100,
+        order_type: "digital",
+        plan: "single",
+        first_name: "Ada",
+        last_name: "Lovelace",
+        buyerName: "Ada Lovelace",
+        paymentIntentId: "pi_test_should_not_leak",
+        clientReferenceId: "cref_should_not_leak",
+      },
+    ],
+  };
+  const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-camel-sensitive-${process.pid}.json`);
+  fs.writeFileSync(tmp, JSON.stringify(bad));
+  try {
+    const code = runProductContribution({
+      argv: ["--input", tmp, "--format", "json"],
+      stdout: io.stdout,
+      stderr: io.stderr,
+      env: {},
+    });
+    assert.equal(code, 1);
+    // Must reject (fail closed) — not strip-and-continue.
+    assert.equal(containsSensitiveOperatorText(io.getStdout()), false);
+    assert.equal(containsSensitiveOperatorText(io.getStderr()), false);
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /Ada/);
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /Lovelace/);
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /pi_test_should_not_leak/);
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /cref_should_not_leak/);
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /SENSITIVE_VALUE/);
+    assert.match(io.getStderr(), /sensitive|row-identifying|Product contribution failed/);
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+
+  assert.ok(SENSITIVE_RECORD_FIELDS.includes("first_name"));
+  assert.ok(SENSITIVE_RECORD_FIELDS.includes("clientReferenceId"));
+  assert.ok(SENSITIVE_RECORD_FIELDS.includes("paymentIntentId"));
 });
 
 test("fixture report groups digital/print/bundle and excludes QA", () => {

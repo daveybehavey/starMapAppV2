@@ -425,7 +425,7 @@ Allowed record fields only:
 | `currency`                | yes      | 3-letter ISO, lowercased                                              |
 | `amount_total`            | yes      | integer minor units (≥ 0)                                             |
 | `order_type`              | yes\*    | `digital` \| `print` (missing/other → unknown bucket)                 |
-| `plan`                    | digital  | `single` \| `pack3` \| `subscription`                                 |
+| `plan`                    | digital\* | `single` \| `pack3` \| `subscription` (missing/blank/unsupported → unknown; never default to single) |
 | `print_variant`           | print    | catalog id (`poster_framed`, …)                                       |
 | `include_digital`         | no       | boolean — print + HD digital bundle                                   |
 | `include_card`            | no       | boolean — print + card bundle                                         |
