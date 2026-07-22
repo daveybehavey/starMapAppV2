@@ -465,7 +465,38 @@ Owner-approved commercial analysis may use **read-only** Stripe / Printful / ana
 - Document which live sources were read, fields/time range used, and limitations — in aggregate or structural terms only.
 - The `qa:product-contribution` CLI remains **local-file-only** and must not gain a network/production path.
 
-If live credentials are unavailable in the agent environment, skip the cross-check and rely on synthetic fixtures + unit coverage; do not invent production samples.
+If live credentials are unavailable in the agent environment, skip store/session pulls and rely on synthetic fixtures + unit coverage; do not invent production samples. Public (unauthenticated) catalog endpoints may still be used for aggregate SKU/base-price checks.
+
+##### Live cross-check log (2026-07-22, aggregate / structural only)
+
+| Source | Access | Fields / range | Result |
+| ------ | ------ | -------------- | ------ |
+| Printful public catalog `GET /products/variant/{id}` | **Available** (no store token) | Variant IDs `6242`, `4654`, `19291`, `9323`, `14457`; base wholesale `price` only | Snapshot frozen in `scripts/lib/commerceCostEstimates.mjs` → `PRINTFUL_PUBLIC_CATALOG_BASE_REFERENCE`; exposed on JSON report as `public_catalog_base_reference` (**not** used in contribution math) |
+| Repo `wrangler.toml` `[vars]` COGS / fee defaults | Read-only repo config | `PRINT_COGS_*`, `PRINT_MARGIN_STRIPE_*` | Matches `printCatalog.ts` / CLI defaults used by the report |
+| Repo `docs/upsell-rollout-matrix.md` (2026-03-12) | Read-only repo doc | Per-SKU US/CA/GB cost+ship projections | Confirms canvas variant `19291` is intentional **6×6 entry size**; regional landed costs exceed public catalog base |
+| Stripe secret API / Balance Transactions / paid sessions | **Unavailable** in this environment | — | No `.env.local`; `STRIPE_SECRET_KEY` unset; Stripe MCP `needsAuth`; no Stripe CLI |
+| Printful store API (orders / invoices) | **Unavailable** | — | `PRINTFUL_API_TOKEN` unset |
+| PostHog / Wrangler secrets / GitHub Actions secrets | **Unavailable** | — | MCP needsAuth / Wrangler not logged in / secrets API 403 |
+
+**Configured COGS vs public catalog base (USD cents, defaults / no env override):**
+
+| Variant | Catalog base | Configured COGS | Configured − catalog |
+| ------- | -----------: | --------------: | -------------------: |
+| poster_unframed (18×18) | 1239 | 1300 | +61 |
+| poster_framed (14×14 black) | 3315 | 5200 | +1885 |
+| canvas_wrap (6×6 entry) | 1372 | 2800 | +1428 |
+| mug_11oz | 795 | 1200 | +405 |
+| card_4x6 | 250 | 450 | +200 |
+
+Interpretation: configured estimates are **at or above** public catalog base (conservative vs list wholesale). They are **not** proof of invoice COGS — March upsell-matrix US “cost” rows were higher than catalog base for several SKUs (regional/landed). **Do not** change live `PRINT_COGS_*` / margin guard from this snapshot without a separate approved COGS reconciliation (H2).
+
+Stripe fee model `2.9% + 30¢` matches the published US card default used in `printMargin.ts`; actual blended fees (international, wallets, disputes) still need H1 Balance Transaction exports.
+
+**Minimum read scopes still needed for a paid-session / invoice cross-check (not granted here):**
+
+1. **Stripe (read-only):** List Checkout Sessions (`status=complete`, narrow UTC window) with metadata fields only; Balance Transaction `fee` aggregates — **no** customer PII in exports committed to git.
+2. **Printful (read-only):** Store order/invoice lines for the same SKU set to average actual COGS vs `PRINT_COGS_*`.
+3. Optional: Analytics purchase aggregates for volume sanity (already secondary to Stripe money).
 
 ### 2.10 Pre-fixed-cost net contribution
 

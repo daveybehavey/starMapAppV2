@@ -21,6 +21,7 @@ import {
   estimateStripeFeeCents,
   getConfiguredPrintProductCostCents,
   getConfiguredShippingCostCents,
+  getConfiguredVsPublicCatalogBaseDeltas,
   getStripeFeeConfig,
   isSupportedDigitalPlan,
   isSupportedPrintVariant,
@@ -821,6 +822,11 @@ export function buildProductContributionReport(records, { env = process.env } = 
       percent: feeConfig.percent,
       fixed_cents: feeConfig.fixedCents,
     },
+    /**
+     * Offline snapshot only — never fetched at runtime. Contribution math still uses
+     * configured PRINT_COGS_* / defaults (aligned with live margin guard).
+     */
+    public_catalog_base_reference: getConfiguredVsPublicCatalogBaseDeltas(env),
     currency_sections: currencySections,
   };
 }

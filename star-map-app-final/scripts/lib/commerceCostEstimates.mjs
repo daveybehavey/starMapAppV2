@@ -30,30 +30,79 @@ export const PRINT_VARIANT_COST_ROWS = Object.freeze({
     cogsEnv: "PRINT_COGS_POSTER_UNFRAMED_CENTS",
     defaultCogsCents: 1300,
     shippingProfile: "poster_unframed",
+    printfulVariantId: 6242,
   }),
   poster_framed: Object.freeze({
     cogsEnv: "PRINT_COGS_POSTER_FRAMED_CENTS",
     defaultCogsCents: 5200,
     shippingProfile: "poster_framed",
+    printfulVariantId: 4654,
   }),
   canvas_wrap: Object.freeze({
     cogsEnv: "PRINT_COGS_CANVAS_WRAP_CENTS",
     defaultCogsCents: 2800,
     shippingProfile: "poster_framed",
+    printfulVariantId: 19291,
   }),
   mug_11oz: Object.freeze({
     cogsEnv: "PRINT_COGS_MUG_11OZ_CENTS",
     defaultCogsCents: 1200,
     shippingProfile: "poster_unframed",
+    printfulVariantId: 9323,
   }),
   card_4x6: Object.freeze({
     cogsEnv: "PRINT_COGS_CARD_4X6_CENTS",
     defaultCogsCents: 450,
     shippingProfile: "poster_unframed",
+    printfulVariantId: 14457,
   }),
 });
 
 export const SUPPORTED_PRINT_VARIANTS = Object.freeze(Object.keys(PRINT_VARIANT_COST_ROWS).sort());
+
+/**
+ * Offline snapshot of Printful **public catalog base** wholesale prices (USD minor units).
+ *
+ * Observed via unauthenticated `GET https://api.printful.com/products/variant/{id}`
+ * on 2026-07-22. These are NOT used in contribution math — configured `PRINT_COGS_*`
+ * / catalog defaults remain the estimate source so live margin guard stays aligned.
+ *
+ * Public catalog base ≠ landed regional Printful invoice cost (taxes, region surcharges,
+ * packaging). Prefer H2 invoice reconciliation for actuals.
+ */
+export const PRINTFUL_PUBLIC_CATALOG_BASE_REFERENCE = Object.freeze({
+  observed_at: "2026-07-22",
+  source: "printful_public_catalog_variant_endpoint",
+  currency: "USD",
+  used_in_contribution_math: false,
+  variants: Object.freeze({
+    poster_unframed: Object.freeze({
+      printfulVariantId: 6242,
+      catalog_label: "Enhanced Matte Paper Poster 18″×18″",
+      public_catalog_base_cents: 1239,
+    }),
+    poster_framed: Object.freeze({
+      printfulVariantId: 4654,
+      catalog_label: "Enhanced Matte Paper Framed Poster (Black/14″×14″)",
+      public_catalog_base_cents: 3315,
+    }),
+    canvas_wrap: Object.freeze({
+      printfulVariantId: 19291,
+      catalog_label: "Canvas (in) (6″×6″) — entry size per upsell matrix",
+      public_catalog_base_cents: 1372,
+    }),
+    mug_11oz: Object.freeze({
+      printfulVariantId: 9323,
+      catalog_label: "Black Glossy Mug (11 oz)",
+      public_catalog_base_cents: 795,
+    }),
+    card_4x6: Object.freeze({
+      printfulVariantId: 14457,
+      catalog_label: "Greeting Card (4″×6″)",
+      public_catalog_base_cents: 250,
+    }),
+  }),
+});
 
 const DIGITAL_PLANS = new Set(["single", "pack3", "subscription"]);
 
@@ -174,4 +223,37 @@ export function getConfiguredPrintProductCostCents(input, env = process.env) {
     total += card;
   }
   return total;
+}
+
+/**
+ * Aggregate-only comparison of configured COGS defaults vs public catalog base snapshot.
+ * Does not change contribution math; for operator diagnostics / JSON report footnotes.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ */
+export function getConfiguredVsPublicCatalogBaseDeltas(env = process.env) {
+  /** @type {Array<Record<string, unknown>>} */
+  const rows = [];
+  for (const variant of SUPPORTED_PRINT_VARIANTS) {
+    const configured = getConfiguredProductCostCents(variant, env);
+    const ref = PRINTFUL_PUBLIC_CATALOG_BASE_REFERENCE.variants[variant];
+    if (configured === null || !ref) continue;
+    rows.push({
+      print_variant: variant,
+      printful_variant_id: ref.printfulVariantId,
+      configured_cogs_cents: configured,
+      public_catalog_base_cents: ref.public_catalog_base_cents,
+      configured_minus_catalog_base_cents: configured - ref.public_catalog_base_cents,
+      catalog_label: ref.catalog_label,
+    });
+  }
+  return {
+    observed_at: PRINTFUL_PUBLIC_CATALOG_BASE_REFERENCE.observed_at,
+    source: PRINTFUL_PUBLIC_CATALOG_BASE_REFERENCE.source,
+    currency: PRINTFUL_PUBLIC_CATALOG_BASE_REFERENCE.currency,
+    used_in_contribution_math: false,
+    note:
+      "Public catalog base is wholesale list price only; contribution uses configured PRINT_COGS_* estimates aligned with printMargin/printCatalog.",
+    rows,
+  };
 }

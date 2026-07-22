@@ -28,7 +28,7 @@ Covers **$10k goal scorecard** (`qa:revenue-goal`), referral-loop, loop scorecar
 
 **Funnel reconcile (truthful CLI):** `npm run qa:funnel-reconcile` calls authenticated `POST /api/analytics/funnel/reconcile` and prints **aggregate totals only** (site, mode, days/limit, scanned, eligible, already recorded, would repair / repaired, optional sync aggregates). It does **not** print tokens, session IDs, customer data, or the API `results` array.
 
-**Product contribution (offline estimate):** `npm run qa:product-contribution -- --input <sanitized.json> [--format table|json]` reads a **local sanitized** paid-session export only (no network). It reports estimated pre-fixed-cost contribution by product group using configured Stripe fee / print COGS / shipping-matrix assumptions. Output is aggregates only — not accounting profit or cash remaining. See `COMMERCIAL_METRIC_DICTIONARY.md` §2.9.
+**Product contribution (offline estimate):** `npm run qa:product-contribution -- --input <sanitized.json> [--format table|json]` reads a **local sanitized** paid-session export only (no network). It reports estimated pre-fixed-cost contribution by product group using configured Stripe fee / print COGS / shipping-matrix assumptions. JSON footnotes include an offline public-catalog-base reference (not used in math). Output is aggregates only — not accounting profit or cash remaining. See `COMMERCIAL_METRIC_DICTIONARY.md` §2.9 / §2.9.2.
 
 - **Default is dry-run / read-only** (`dryRun: true`). `--dry-run` is an explicit alias for that safe default.
 - **Required env:** `PRINT_ADMIN_TOKEN`, plus a site origin via `--site` or `FUNNEL_RECONCILE_SITE` / `NEXT_PUBLIC_SITE_URL`.

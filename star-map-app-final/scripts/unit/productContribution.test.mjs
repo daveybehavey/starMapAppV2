@@ -10,6 +10,7 @@ import {
   estimateStripeFeeCents,
   getConfiguredProductCostCents,
   getConfiguredShippingCostCents,
+  getConfiguredVsPublicCatalogBaseDeltas,
   getStripeFeeConfig,
 } from "../lib/commerceCostEstimates.mjs";
 import {
@@ -121,8 +122,39 @@ test("shared print COGS defaults align with printCatalog.ts", () => {
       source.includes(`shippingProfile: "${row.shippingProfile}"`),
       `shippingProfile drift for ${variant}`,
     );
+    assert.ok(
+      source.includes(`printfulVariantId: ${row.printfulVariantId}`),
+      `printfulVariantId drift for ${variant}`,
+    );
     assert.equal(getConfiguredProductCostCents(variant, {}), row.defaultCogsCents);
   }
+});
+
+test("public catalog base reference is offline footnote only and stays above/at catalog for defaults", () => {
+  const deltas = getConfiguredVsPublicCatalogBaseDeltas({});
+  assert.equal(deltas.used_in_contribution_math, false);
+  assert.equal(deltas.currency, "USD");
+  assert.ok(deltas.rows.length >= 5);
+
+  const byVariant = Object.fromEntries(deltas.rows.map((row) => [row.print_variant, row]));
+  assert.equal(byVariant.poster_unframed.public_catalog_base_cents, 1239);
+  assert.equal(byVariant.poster_framed.public_catalog_base_cents, 3315);
+  assert.equal(byVariant.canvas_wrap.public_catalog_base_cents, 1372);
+  assert.equal(byVariant.mug_11oz.public_catalog_base_cents, 795);
+  assert.equal(byVariant.card_4x6.public_catalog_base_cents, 250);
+
+  for (const row of deltas.rows) {
+    assert.ok(
+      row.configured_cogs_cents >= row.public_catalog_base_cents,
+      `${row.print_variant} configured COGS should not undercut public catalog base snapshot`,
+    );
+  }
+
+  const report = buildProductContributionReport([], { env: {} });
+  assert.equal(report.public_catalog_base_reference.used_in_contribution_math, false);
+  assert.equal(report.public_catalog_base_reference.rows.length, deltas.rows.length);
+  // Contribution math still uses configured estimates — reference must not replace fees/COGS
+  assert.equal(report.disclaimer.product_cogs, "configured_estimate");
 });
 
 test("shipping estimate matches printful matrix for US framed poster", () => {
