@@ -74,7 +74,7 @@ Phase A exit needs **evidence of print checkout from wedding/editor**, not only 
 ```powershell
 cd C:\Code\starMapAppV2\star-map-app-final
 npm run qa:growth-weekly
-npm run qa:funnel-reconcile -- --days 14   # needs STRIPE_SECRET_KEY
+npm run qa:funnel-reconcile -- --days 14   # needs PRINT_ADMIN_TOKEN + site origin; dry-run default
 node scripts/commerce-digest.mjs --days 14
 node scripts/loop-scorecard.mjs --days 14
 ```
