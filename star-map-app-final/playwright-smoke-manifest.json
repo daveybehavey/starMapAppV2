@@ -6,10 +6,7 @@
     },
     {
       "command": "qa:smoke:render",
-      "specs": [
-        "tests/export-functionality.spec.ts",
-        "tests/premium-rendering.spec.ts"
-      ]
+      "specs": ["tests/export-functionality.spec.ts", "tests/premium-rendering.spec.ts"]
     },
     {
       "command": "qa:smoke:commerce",

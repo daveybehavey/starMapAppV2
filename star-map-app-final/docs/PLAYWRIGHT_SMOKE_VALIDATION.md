@@ -25,10 +25,10 @@ diagnostic command.
 
 These specs are not critical smoke selectors:
 
-| Spec | Why it is exempt |
-| --- | --- |
-| `tests/manual-flow.spec.ts` | Operator-driven end-to-end walkthrough; intentionally kept out of deterministic critical smoke selection. |
-| `tests/stripe-qa.spec.ts` | Live, headed Stripe QA gated by `PLAYWRIGHT_STRIPE_QA=true`; repository validation must not contact production. |
+| Spec                                 | Why it is exempt                                                                                                      |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `tests/manual-flow.spec.ts`          | Operator-driven end-to-end walkthrough; intentionally kept out of deterministic critical smoke selection.             |
+| `tests/stripe-qa.spec.ts`            | Live, headed Stripe QA gated by `PLAYWRIGHT_STRIPE_QA=true`; repository validation must not contact production.       |
 | `tests/map-tier-visual.snap.spec.ts` | Targeted visual snapshot verification. Baseline refreshes are intentional operator actions, not a general smoke gate. |
 
 The exemptions are also recorded in `playwright-smoke-manifest.json`, and the
