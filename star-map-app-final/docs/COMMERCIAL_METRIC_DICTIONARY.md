@@ -2,7 +2,7 @@
 
 **Parent program:** GitHub #173 (measured revenue operating program)  
 **Issue:** #179  
-**Base `main` SHA (refreshed):** `f8f47ff7733fc2e419d03c746b8836770a1593bc`  
+**Base `main` SHA (refreshed):** `48acf57bbc0224d05dd6f14c88495cb7b2178082`  
 **Initial discovery audit SHA:** `67ede17f35de9ee23e7278e209c11983aa7da4d8`  
 **Scope:** Discovery and documentation only. No production data access. No invented financial values.  
 **Aligns with:** `PURCHASE_ANALYTICS.md`, `GOAL_10K_2026.md`, `GROWTH_OPS_WEEKLY.md`, `block-1.5-funnel-read.md`, STAR-001–006 audits, #173 Phase 1.
@@ -542,12 +542,12 @@ Create separately reviewed child issues (do **not** expand this PR into implemen
 | Role                                          | SHA                                                                |
 | --------------------------------------------- | ------------------------------------------------------------------ |
 | Initial discovery audit                       | `67ede17f35de9ee23e7278e209c11983aa7da4d8`                         |
-| Current `main` base (non-destructive refresh) | `f8f47ff7733fc2e419d03c746b8836770a1593bc`                         |
+| Current `main` base (non-destructive refresh) | `48acf57bbc0224d05dd6f14c88495cb7b2178082`                         |
 | Review correction commit                      | `f705fdaa65e8a3340c37f69e26ee9b94447d3cce`                         |
 | Prettier format commit                        | `2db526a3b0f77b61670d3af7bb6f83edceb5c748`                         |
 | Branch tip                                    | Recorded in PR body / `git rev-parse HEAD` (avoid self-hash churn) |
 
-Funnel-reconcile emptiness and checkout-diagnostics shape re-confirmed against `main` `f8f47ff…` (`scripts/funnel-reconcile.mjs` still 0 bytes).
+Funnel-reconcile emptiness and checkout-diagnostics shape re-confirmed against `main` `48acf57…` (`scripts/funnel-reconcile.mjs` still 0 bytes).
 
 ### Inspected (evidence; not all modified)
 
