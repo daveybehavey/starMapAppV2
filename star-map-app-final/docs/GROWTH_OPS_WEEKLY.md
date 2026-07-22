@@ -24,9 +24,14 @@ cd C:\Users\david\dev\starMapAppV2\star-map-app-final
 npm run qa:growth-weekly
 ```
 
-Covers **$10k goal scorecard** (`qa:revenue-goal`), referral-loop, loop scorecard, and commerce digest (14d). See **`docs/GOAL_10K_2026.md`** for monthly milestones and **`docs/COMMERCIAL_METRIC_DICTIONARY.md`** for metric definitions and human-only export gates.
+Covers **$10k goal scorecard** (`qa:revenue-goal`), referral-loop, loop scorecard, commerce digest (14d), and **funnel reconcile** (`qa:funnel-reconcile -- --days 14`). See **`docs/GOAL_10K_2026.md`** for monthly milestones and **`docs/COMMERCIAL_METRIC_DICTIONARY.md`** for metric definitions and human-only export gates.
 
-**Funnel reconcile caveat:** `qa:growth-weekly` still invokes `npm run qa:funnel-reconcile -- --days 14`, but `scripts/funnel-reconcile.mjs` is currently an **empty no-op** (0 bytes). That step does **not** reconcile Stripe vs funnel counters today even when the npm command exits successfully. Treat reconciliation as **unavailable** until the restore-or-retire follow-up in `COMMERCIAL_METRIC_DICTIONARY.md` §8 item 6 lands (repair API `POST /api/analytics/funnel/reconcile` still exists separately).
+**Funnel reconcile (truthful CLI):** `npm run qa:funnel-reconcile` calls authenticated `POST /api/analytics/funnel/reconcile` and prints **aggregate totals only** (site, mode, days/limit, scanned, eligible, already recorded, would repair / repaired, optional sync aggregates). It does **not** print tokens, session IDs, customer data, or the API `results` array.
+
+- **Default is dry-run / read-only** (`dryRun: true`). `--dry-run` is an explicit alias for that safe default.
+- **Required env:** `PRINT_ADMIN_TOKEN`, plus a site origin via `--site` or `FUNNEL_RECONCILE_SITE` / `NEXT_PUBLIC_SITE_URL`.
+- **Failure behavior:** missing config, invalid args, HTTP 401/403/503, `{ ok: false }`, malformed JSON, timeout, or network failure exits **nonzero** — so `qa:growth-weekly` cannot report success from a silent no-op.
+- **Apply / repair (mutation):** only with `--apply` **and** `FUNNEL_RECONCILE_ALLOW_APPLY=1`. Omit apply for weekly reads. Never set the apply gate in automation unless an operator intentionally repairs.
 
 **If behind pace:** pick one acquisition action that week (ads tweak, GSC title pass, or funnel fix) — do not open new SKUs.
 
