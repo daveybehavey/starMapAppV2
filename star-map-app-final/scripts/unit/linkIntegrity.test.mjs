@@ -39,9 +39,11 @@ test("reports an actionable error when the Next.js routes source is missing", ()
   assert.match(result.stderr, /Required link-audit directory is missing: src\/app \(Next\.js routes\)/);
 });
 
-test("does not treat an obsolete static homepage as Next.js route coverage", () => {
+test("does not treat obsolete public HTML as extensionless Next.js route coverage", () => {
   const result = runFixture("obsolete-static-home");
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /No Next\.js page routes found under src\/app/);
+  assert.match(result.stderr, /Found 1 potential broken internal links:/);
+  assert.match(result.stderr, /- src\/app\/page\.tsx:\d+ -> \/landing/);
+  assert.doesNotMatch(result.stderr, /-> \/logo\.svg/);
 });

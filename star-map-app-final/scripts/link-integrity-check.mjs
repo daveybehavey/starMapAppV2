@@ -168,10 +168,7 @@ function matchesRoute(pathname, routeMatchers) {
 
 function matchesPublicFile(pathname, publicPaths) {
   if (pathname === "/") return false;
-  if (publicPaths.has(pathname)) return true;
-  if (publicPaths.has(`${pathname}.html`)) return true;
-  if (publicPaths.has(path.join(pathname, "index.html").replace(/\\/g, "/"))) return true;
-  return false;
+  return publicPaths.has(pathname);
 }
 
 async function main() {
