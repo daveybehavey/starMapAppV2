@@ -105,8 +105,5 @@ async function expectClickableAtCenter(page: Page, locator: Locator) {
       topTag: top?.tagName || null,
     };
   }, handle!);
-  expect(
-    result.clickable,
-    `center hit target was <${result.topTag}> "${result.topText}"`,
-  ).toBe(true);
+  expect(result.clickable, `center hit target was <${result.topTag}> "${result.topText}"`).toBe(true);
 }
