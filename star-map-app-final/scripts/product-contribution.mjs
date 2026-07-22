@@ -572,6 +572,21 @@ export function estimateRecordContribution(record, feeConfig, env = process.env)
     };
   }
 
+  // Fail closed when the shipping matrix currency does not match the paid session currency.
+  if (shipping.currency.toLowerCase() !== record.currency.toLowerCase()) {
+    return {
+      resolved: false,
+      unresolvedReason: "shipping_currency_mismatch",
+      stripeFeeCents,
+      productCostCents,
+      shippingCostCents: shipping.amountCents,
+      shippingChargeCents,
+      shippingSubsidyCents,
+      discountCents,
+      contributionCents: null,
+    };
+  }
+
   // amount_total already reflects discounts and customer shipping charge (incl. free-shipping waiver).
   // Do not subtract discount_cents or shipping_subsidy_cents again.
   const contributionCents =

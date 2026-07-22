@@ -150,12 +150,16 @@ Agents must **never** automatically:
 
 - merge pull requests
 - deploy or trigger production deployment
-- change billing, Stripe, or Printful configuration
+- change billing, Stripe, or Printful configuration (mutations)
 - change Cloudflare or Vercel configuration
 - access, add, expose, or rotate production secrets
 - change repository permissions or branch protection
 - modify production data
 - perform destructive migrations
+
+### Commercial analysis — read-only exception (owner-approved)
+
+For commercial analysis work, agents **may** use **read-only** Stripe / Printful / analytics / order inspection when credentials are already available and the access is necessary for validation, reconciliation, or analysis. Prefer minimum fields and smallest windows. Never publish PII, session/payment IDs, tokens, secrets, or raw service objects in GitHub, fixtures, logs, or PR evidence. Do not mutate production systems under this permission. Offline operator CLIs must not require production access; optional live cross-checks remain aggregate-only. Full rules: [`docs/AGENT_OPERATING_MODEL.md`](docs/AGENT_OPERATING_MODEL.md).
 
 ## Further reading
 

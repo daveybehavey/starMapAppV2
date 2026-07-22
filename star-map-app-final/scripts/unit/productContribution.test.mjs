@@ -261,6 +261,23 @@ test("missing required cost inputs produce unresolved counts rather than fabrica
   assert.equal(group.contribution_per_order_cents, null);
 });
 
+test("shipping matrix currency mismatch is unresolved (never mixed into contribution)", () => {
+  const estimate = estimateRecordContribution(
+    {
+      currency: "cad",
+      amount_total: 12000,
+      order_type: "print",
+      print_variant: "poster_framed",
+      shipping_country: "CA",
+    },
+    getStripeFeeConfig({}),
+    {},
+  );
+  assert.equal(estimate.resolved, false);
+  assert.equal(estimate.unresolvedReason, "shipping_currency_mismatch");
+  assert.equal(estimate.contributionCents, null);
+});
+
 test("discounts and shipping subsidies are informational and not double-counted", () => {
   const feeConfig = getStripeFeeConfig({});
   const withMeta = estimateRecordContribution(

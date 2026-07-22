@@ -389,7 +389,7 @@ Do **not** count sessions where Stripe metadata indicates QA (`qa_run=true`, `qa
 | **Unit / grain**     | Aggregate by currency section × product group; minor units (cents)                                                                                                                                                                                                                                                                    |
 | **QA exclusion**     | Same markers as `commerceAnalyticsQa.mjs` (`qa_run`, `qa_ops_checkout`, `qa_source` prefixes). Excluded counts/revenue reported separately.                                                                                                                                                                                           |
 | **Currency**         | Fail-safe: **never combine currencies**. CLI emits separate deterministic `currency_sections`.                                                                                                                                                                                                                                        |
-| **Unresolved**       | Missing shipping country, unavailable shipping estimate, unknown product metadata → counted as unresolved with reason; contribution/margin not fabricated.                                                                                                                                                                             |
+| **Unresolved**       | Missing shipping country, unavailable shipping estimate, shipping-matrix currency mismatch, unknown product metadata → counted as unresolved with reason; contribution/margin not fabricated.                                                                                                                                          |
 | **Privacy**          | aggregate only; sanitized input schema rejects session/payment IDs, emails, names, addresses, raw metadata, Stripe objects                                                                                                                                                                                                              |
 | **Availability**     | `available` (offline estimate report) / actual fee & invoice reconciliation still `requires human authorization/export`                                                                                                                                                                                                               |
 | **Confidence**       | medium for ranking SKUs with configured estimates; low vs true P&L until H1/H2 reconcile                                                                                                                                                                                                                                              |
@@ -455,6 +455,17 @@ The CLI **rejects** sensitive/row-identifying fields with a nonzero exit and nev
 | Pre-fixed-cost contribution by product group | Refunds, disputes, paid acquisition, fixed opex      |
 
 See §7 checklist H1/H2. Private monthly targets stay out of the repository.
+
+#### 2.9.2 Optional read-only live cross-check (not required by the CLI)
+
+Owner-approved commercial analysis may use **read-only** Stripe / Printful / analytics inspection when credentials already exist, to validate that sanitized exports and configured estimates are directionally sane. Constraints:
+
+- Prefer the smallest paid-session window and aggregate field set needed (currency, `amount_total`, `order_type`, plan/variant flags, shipping country/charge/subsidy, QA markers).
+- Never copy customer names, emails, phones, addresses, session/payment IDs, tokens, secrets, or raw Stripe/Printful objects into the repository, fixtures, logs, screenshots, or PR text.
+- Document which live sources were read, fields/time range used, and limitations — in aggregate or structural terms only.
+- The `qa:product-contribution` CLI remains **local-file-only** and must not gain a network/production path.
+
+If live credentials are unavailable in the agent environment, skip the cross-check and rely on synthetic fixtures + unit coverage; do not invent production samples.
 
 ### 2.10 Pre-fixed-cost net contribution
 
