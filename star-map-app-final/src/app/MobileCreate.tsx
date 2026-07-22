@@ -156,6 +156,10 @@ export function MobileCreate({
   const presetRailRef = useRef<HTMLDivElement>(null);
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
+  const unlockHdRef = useRef<HTMLButtonElement>(null);
+  const customizeMoreRef = useRef<HTMLButtonElement>(null);
+  const lessOptionsStickyRef = useRef<HTMLButtonElement>(null);
+  const wasShowEditorRef = useRef(false);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
   const [showIntensityBanner, setShowIntensityBanner] = useState(false);
   const [showRenderModeBanner, setShowRenderModeBanner] = useState(false);
@@ -480,21 +484,29 @@ export function MobileCreate({
     applyVisualOptions("cinematic", lockedIntensity);
   }, [applyVisualOptions, isQuick, setIntensity, setIntensityDisplay, setRenderMode]);
 
+  const handleLessOptions = useCallback(() => {
+    setShowAdvancedState(false);
+  }, []);
+
   const handleCustomizeMore = useCallback(() => {
     if (isQuick && !allowAdvancedInQuick) {
       onCustomizeMore?.();
       return;
     }
-    setShowAdvancedState((prev) => {
-      const next = !prev;
-      if (next) {
-        requestAnimationFrame(() => {
-          dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
-      return next;
-    });
+    setShowAdvancedState((prev) => !prev);
   }, [allowAdvancedInQuick, isQuick, onCustomizeMore]);
+
+  // Restore purchase-CTA focus after leaving Customize more (issue #180).
+  useEffect(() => {
+    const wasOpen = wasShowEditorRef.current;
+    wasShowEditorRef.current = showEditor;
+    if (!wasOpen || showEditor) return;
+    const frame = requestAnimationFrame(() => {
+      previewSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      unlockHdRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [showEditor]);
 
   const handleStyleChange = useCallback(
     (styleId: typeof selectedStyle) => {
@@ -867,7 +879,31 @@ export function MobileCreate({
 
       {/* Section 4: Drawer with Secondary Controls */}
       {showEditor && (
-        <EditorDrawer defaultOpen={true}>
+        <EditorDrawer
+          defaultOpen={true}
+          footer={
+            <div className="mx-auto flex w-full max-w-md gap-2">
+              <button
+                ref={lessOptionsStickyRef}
+                type="button"
+                onClick={handleLessOptions}
+                data-testid="mobile-sticky-less-options"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+              >
+                Less options
+              </button>
+              <button
+                type="button"
+                onClick={() => void onExport("hd")}
+                aria-label={paid ? "HD download" : "Unlock HD"}
+                data-testid="mobile-sticky-unlock-hd"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+              >
+                {paid ? "HD download" : "Unlock HD"}
+              </button>
+            </div>
+          }
+        >
           <div className="space-y-3">
             {/* Date & Location */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
@@ -1524,9 +1560,11 @@ export function MobileCreate({
               Free preview
             </button>
             <button
+              ref={unlockHdRef}
               type="button"
               onClick={() => void onExport("hd")}
               aria-label="HD export"
+              data-testid="mobile-unlock-hd"
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
             >
               {paid ? "HD download" : "Unlock HD"}
@@ -1698,9 +1736,11 @@ export function MobileCreate({
                 )}
               </div>
               <button
+                ref={customizeMoreRef}
                 type="button"
                 onClick={handleCustomizeMore}
                 aria-expanded={showEditor ? "true" : "false"}
+                data-testid="mobile-customize-more"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95"
               >
                 {showEditor ? "Less options" : "Customize more"}
