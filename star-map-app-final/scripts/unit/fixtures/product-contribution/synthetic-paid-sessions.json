@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "notes": "SYNTHETIC FIXTURE ONLY — not production data. Fake amounts and countries for unit/CLI demos.",
+  "records": [
+    {
+      "paid_at": "2026-01-02T10:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 2900,
+      "order_type": "digital",
+      "plan": "single"
+    },
+    {
+      "paid_at": "2026-01-03T11:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 6900,
+      "order_type": "digital",
+      "plan": "pack3"
+    },
+    {
+      "paid_at": "2026-01-04T12:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 9900,
+      "order_type": "print",
+      "print_variant": "poster_framed",
+      "include_digital": false,
+      "include_card": false,
+      "shipping_country": "US",
+      "shipping_charge_cents": 977,
+      "shipping_subsidy_cents": 0,
+      "discount_cents": 0
+    },
+    {
+      "paid_at": "2026-01-05T13:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 10600,
+      "order_type": "print",
+      "print_variant": "poster_framed",
+      "include_digital": true,
+      "include_card": false,
+      "shipping_country": "US",
+      "shipping_charge_cents": 0,
+      "shipping_subsidy_cents": 977,
+      "discount_cents": 500
+    },
+    {
+      "paid_at": "2026-01-06T14:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 11800,
+      "order_type": "print",
+      "print_variant": "poster_framed",
+      "include_digital": false,
+      "include_card": true,
+      "shipping_country": "US",
+      "shipping_charge_cents": 977,
+      "shipping_subsidy_cents": 0
+    },
+    {
+      "paid_at": "2026-01-07T15:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 4900,
+      "order_type": "print",
+      "print_variant": "poster_unframed",
+      "shipping_country": "US",
+      "shipping_charge_cents": 462
+    },
+    {
+      "paid_at": "2026-01-08T16:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 2900,
+      "order_type": "digital",
+      "plan": "single",
+      "qa_run": true
+    },
+    {
+      "paid_at": "2026-01-09T17:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 5500,
+      "order_type": "print",
+      "print_variant": "mystery_sku",
+      "shipping_country": "US"
+    },
+    {
+      "paid_at": "2026-01-10T18:00:00.000Z",
+      "currency": "usd",
+      "amount_total": 5900,
+      "order_type": "print",
+      "print_variant": "canvas_wrap",
+      "shipping_country": null
+    },
+    {
+      "paid_at": "2026-01-11T19:00:00.000Z",
+      "currency": "cad",
+      "amount_total": 3200,
+      "order_type": "digital",
+      "plan": "single"
+    }
+  ]
+}

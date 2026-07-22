@@ -380,14 +380,81 @@ Do **not** count sessions where Stripe metadata indicates QA (`qa_run=true`, `qa
 
 ### 2.9 Product-level contribution
 
-| Field                | Value                                                                                                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Definition**       | Per product (HD digital, unframed print, framed print, HD add-on/bundles): revenue − variable costs for that SKU mix.                                                                |
-| **Formula**          | Segment paid sessions by `order_type` / `plan` / `print_variant` / `print_include_digital`; apply fee estimate + COGS + subsidy. **Model not yet implemented** as a standing report. |
-| **Primary source**   | Stripe metadata + COGS envs                                                                                                                                                          |
-| **Availability**     | `partial` inputs / `missing` product contribution report                                                                                                                             |
-| **Confidence**       | low until Phase 1 child issue ships                                                                                                                                                  |
-| **Owner / reviewer** | Owner: product                                                                                                                                                                       |
+| Field                | Value                                                                                                                                                                                                                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Definition**       | Estimated pre-fixed-cost contribution by product/SKU group (HD digital plans, each print variant, supported print+digital/card bundles, plus explicit unknown / excluded / unresolved buckets).                                                                                                                                       |
+| **Formula**          | Per resolved paid order: `collected revenue (amount_total) − estimated Stripe fees − configured product COGS − configured shipping cost`. Discounts and shipping subsidies are **informational only** (already reflected in `amount_total`); do not subtract again. Do **not** label as accounting profit or cash remaining.           |
+| **Primary source**   | Offline sanitized export + `npm run qa:product-contribution` (`scripts/product-contribution.mjs`) using shared configured estimates from `scripts/lib/commerceCostEstimates.mjs` (aligned with `printMargin.ts` fee defaults, `printCatalog.ts` COGS, `printful-shipping.json`)                                                         |
+| **Secondary**        | Actual Stripe fees / Printful invoices — **human export** (H1/H2); not ingested by this CLI                                                                                                                                                                                                                                           |
+| **Unit / grain**     | Aggregate by currency section × product group; minor units (cents)                                                                                                                                                                                                                                                                    |
+| **QA exclusion**     | Same markers as `commerceAnalyticsQa.mjs` (`qa_run`, `qa_ops_checkout`, `qa_source` prefixes). Excluded counts/revenue reported separately.                                                                                                                                                                                           |
+| **Currency**         | Fail-safe: **never combine currencies**. CLI emits separate deterministic `currency_sections`.                                                                                                                                                                                                                                        |
+| **Unresolved**       | Missing shipping country, unavailable shipping estimate, unknown product metadata → counted as unresolved with reason; contribution/margin not fabricated.                                                                                                                                                                             |
+| **Privacy**          | aggregate only; sanitized input schema rejects session/payment IDs, emails, names, addresses, raw metadata, Stripe objects                                                                                                                                                                                                              |
+| **Availability**     | `available` (offline estimate report) / actual fee & invoice reconciliation still `requires human authorization/export`                                                                                                                                                                                                               |
+| **Confidence**       | medium for ranking SKUs with configured estimates; low vs true P&L until H1/H2 reconcile                                                                                                                                                                                                                                              |
+| **Owner / reviewer** | Owner: product; Reviewer: Codex on PRs that change the schema or formula                                                                                                                                                                                                                                                              |
+
+**Operator usage**
+
+```text
+npm run qa:product-contribution -- --input <sanitized.json> [--format table|json]
+```
+
+- Local file input only; no network; no service credentials.
+- Synthetic fixture: `scripts/unit/fixtures/product-contribution/synthetic-paid-sessions.json`.
+- Full sanitized schema, export preparation, and limitations: see §2.9.1 below and `docs/operator-quick-reference.md`.
+
+#### 2.9.1 Sanitized export schema (offline input)
+
+Document shape:
+
+```json
+{
+  "schema_version": 1,
+  "notes": "optional operator note (no PII)",
+  "records": [ /* objects below */ ]
+}
+```
+
+Allowed record fields only:
+
+| Field                     | Required | Notes                                                                 |
+| ------------------------- | -------- | --------------------------------------------------------------------- |
+| `paid_at`                 | no       | ISO timestamp/date for operator context; not printed in aggregates    |
+| `currency`                | yes      | 3-letter ISO, lowercased                                              |
+| `amount_total`            | yes      | integer minor units (≥ 0)                                             |
+| `order_type`              | yes\*    | `digital` \| `print` (missing/other → unknown bucket)                 |
+| `plan`                    | digital  | `single` \| `pack3` \| `subscription`                                 |
+| `print_variant`           | print    | catalog id (`poster_framed`, …)                                       |
+| `include_digital`         | no       | boolean — print + HD digital bundle                                   |
+| `include_card`            | no       | boolean — print + card bundle                                         |
+| `shipping_country`        | print\*  | ISO-2; required to resolve shipping cost                              |
+| `shipping_charge_cents`   | no       | customer shipping charged (informational)                             |
+| `shipping_subsidy_cents`  | no       | waived shipping (informational; do not double-count)                  |
+| `discount_cents`          | no       | reported discount (informational; `amount_total` already net)         |
+| `qa_run` / `qa_ops_checkout` / `qa_source` | no | QA exclusion markers                                      |
+
+\*Unknown/missing product fields go to the **unknown** group (not silently reassigned). Missing shipping country on print → **unresolved**.
+
+**Preparing an export without PII**
+
+1. From Stripe (or an approved read-only export), select **paid** Checkout Sessions only.
+2. Map metadata `order_type`, `plan`, `print_variant`, `print_include_digital`, `print_include_card`, `print_shipping_country`, `print_shipping_charge_cents`, `print_shipping_subsidy_cents`, QA flags, and `amount_total` / `currency` / `created`.
+3. **Strip** session IDs, customer objects, emails, names, phones, addresses, payment intents/methods, `client_reference_id`, raw `metadata` blobs, and any tokens/secrets.
+4. Save as `schema_version: 1` JSON. Never commit production exports.
+
+The CLI **rejects** sensitive/row-identifying fields with a nonzero exit and never prints them.
+
+**Estimate vs actual / remaining human work**
+
+| This report measures                         | Still require human exports                          |
+| -------------------------------------------- | ---------------------------------------------------- |
+| Estimated Stripe fees (env/defaults)         | Actual processor fees (H1)                           |
+| Configured print COGS + shipping matrix      | Printful invoice COGS (H2)                           |
+| Pre-fixed-cost contribution by product group | Refunds, disputes, paid acquisition, fixed opex      |
+
+See §7 checklist H1/H2. Private monthly targets stay out of the repository.
 
 ### 2.10 Pre-fixed-cost net contribution
 
@@ -491,7 +558,7 @@ Channel labels for paid-session and traffic attribution. Prefer **one** primary 
 9. **Shipping subsidy ledger** — metadata not scorecarded.
 10. **Paid acquisition cost in-app** — external/company-os only.
 11. **Other variable costs** — undefined.
-12. **Product-level contribution report** — inputs partial.
+12. **Product-level contribution report** — **available offline** via `qa:product-contribution` (#189); actual fee/invoice reconciliation still human (H1/H2).
 13. **Pre-fixed and post-fixed net contribution** — blocked.
 14. **Reprint/damage** — missing.
 15. **Support burden** — missing.
@@ -529,7 +596,7 @@ Agents must **not** perform these without explicit approval and least privilege.
 Create separately reviewed child issues (do **not** expand this PR into implementation):
 
 1. **30/60/90-day funnel baseline (read-only exports)** — Freeze definitions from §1; produce UTC windows using approved Stripe + funnel API + GA4 aggregates; explicitly document sample sizes and QA exclusion. Depends on H1/H4.
-2. **Product contribution model (HD / unframed / framed / add-on)** — Spreadsheet or script design using Stripe metadata + env COGS + fee estimate; label estimates vs invoice-reconciled; no price changes.
+2. **Product contribution model (HD / unframed / framed / add-on)** — **Done (#189):** offline `qa:product-contribution` CLI from sanitized paid-session exports; configured fee/COGS/shipping estimates; aggregate-only output.
 3. **Loss and exception baseline** — Human Stripe refund/dispute export + print `failed` counts + `checkout_expired` (separate from checkout-diagnostics failure reasons); define reprint/support as unresolved until process exists.
 4. **Acquisition baseline by channel** — Map `marketing_*` + GA4 channels + referral program separately; attach spend only where H3 available.
 5. **Recovery attribution stub (spec only)** — Propose minimal Stripe metadata or digest rule for recovery→paid **without** shipping email copy changes until approved.
