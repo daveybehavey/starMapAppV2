@@ -2,7 +2,7 @@
   "criticalSuites": [
     {
       "command": "qa:smoke:ui",
-      "specs": ["tests/no-tests.spec.mjs"]
+      "specs": ["tests/no-tests.spec.mjs", "tests/valid.spec.mjs"]
     },
     {
       "command": "qa:smoke:render",
