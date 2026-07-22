@@ -24,7 +24,9 @@ cd C:\Users\david\dev\starMapAppV2\star-map-app-final
 npm run qa:growth-weekly
 ```
 
-Covers **$10k goal scorecard** (`qa:revenue-goal`), loop scorecard, commerce digest (14d), funnel reconcile (14d). See **`docs/GOAL_10K_2026.md`** for monthly milestones and **`docs/COMMERCIAL_METRIC_DICTIONARY.md`** for metric definitions and human-only export gates.
+Covers **$10k goal scorecard** (`qa:revenue-goal`), referral-loop, loop scorecard, and commerce digest (14d). See **`docs/GOAL_10K_2026.md`** for monthly milestones and **`docs/COMMERCIAL_METRIC_DICTIONARY.md`** for metric definitions and human-only export gates.
+
+**Funnel reconcile caveat:** `qa:growth-weekly` still invokes `npm run qa:funnel-reconcile -- --days 14`, but `scripts/funnel-reconcile.mjs` is currently an **empty no-op** (0 bytes). That step does **not** reconcile Stripe vs funnel counters today even when the npm command exits successfully. Treat reconciliation as **unavailable** until the restore-or-retire follow-up in `COMMERCIAL_METRIC_DICTIONARY.md` §8 item 6 lands (repair API `POST /api/analytics/funnel/reconcile` still exists separately).
 
 **If behind pace:** pick one acquisition action that week (ads tweak, GSC title pass, or funnel fix) — do not open new SKUs.
 

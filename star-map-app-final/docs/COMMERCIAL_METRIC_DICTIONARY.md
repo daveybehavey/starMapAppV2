@@ -2,7 +2,8 @@
 
 **Parent program:** GitHub #173 (measured revenue operating program)  
 **Issue:** #179  
-**Audited repository SHA:** `67ede17f35de9ee23e7278e209c11983aa7da4d8`  
+**Base `main` SHA (refreshed):** `f8f47ff7733fc2e419d03c746b8836770a1593bc`  
+**Initial discovery audit SHA:** `67ede17f35de9ee23e7278e209c11983aa7da4d8`  
 **Scope:** Discovery and documentation only. No production data access. No invented financial values.  
 **Aligns with:** `PURCHASE_ANALYTICS.md`, `GOAL_10K_2026.md`, `GROWTH_OPS_WEEKLY.md`, `block-1.5-funnel-read.md`, STAR-001–006 audits, #173 Phase 1.
 
@@ -412,9 +413,12 @@ Do **not** count sessions where Stripe metadata indicates QA (`qa_run=true`, `qa
 
 ## 3. Quality and exception metrics
 
+Do **not** combine checkout expiry with checkout failure. They have different sources and availability.
+
 | Metric | Definition | Primary source | Availability | Confidence |
 | --- | --- | --- | --- | --- |
-| **Failed/expired checkout** | Stripe session expired without pay; funnel `checkout_expired` | Webhook + funnel KV | `available` | high |
+| **Expired checkout** | Stripe Checkout Session expired without payment | Funnel KV `checkout_expired` (session-deduped) via webhook `checkout.session.expired` | `available` | high |
+| **Failed checkout (API / session creation / redirect)** | Checkout handoff fails before a paid session (API error, no session URL, client/network abort, margin/promo blockers, etc.) | **No** first-class `FUNNEL_STEPS` aggregate. Partial signals: `POST/GET /api/analytics/checkout-diagnostics` reason counters (incl. `checkout_failed`, `no_checkout_url`, `network_error`, …) surfaced in `qa:commerce-digest`; PostHog `checkout_failed` when consented. Server `checkout_request_received` / `checkout_session_created` are operational volume, not failure counts. | `partial` | medium for diagnostic reasons; **missing** as a single funnel-step failure rate |
 | **Render failure** | HD/print render fails for download or print asset | Funnel `download_failed` (`reason=render_failed`); checkout diagnostics `print_render_failed`; PostHog | `partial` | medium |
 | **Recovery failure** | Recovery email send error or customer cannot regain access | Session `recoveryEmailError`; success/download recovery PostHog events; support paths | `partial` | low–medium |
 | **Reprint / damage** | Replacement print due to damage/quality | **No app metric** | `missing` | n/a |
@@ -467,7 +471,7 @@ Channel labels for paid-session and traffic attribution. Prefer **one** primary 
 
 | Gap | Impact |
 | --- | --- |
-| `scripts/funnel-reconcile.mjs` is **empty (0 bytes)** at audited SHA while `npm run qa:funnel-reconcile` and docs still reference it | CLI reconcile broken; repair API `POST /api/analytics/funnel/reconcile` still exists |
+| `scripts/funnel-reconcile.mjs` is **empty (0 bytes)** while `npm run qa:funnel-reconcile` / `qa:growth-weekly` still invoke it | CLI exits as a **no-op** (false sense of reconciliation); repair API `POST /api/analytics/funnel/reconcile` still exists; see §8 item 6 |
 | `preview_checkout_nudge_*` steps defined, not emitted | Nudge conversion unmeasurable in KV |
 | Recovery email → paid not tagged | Recovery ROI unknown |
 | No net-of-refunds in `qa:revenue-goal` | North-star overstates economic revenue if refunds occur |
@@ -491,9 +495,11 @@ Channel labels for paid-session and traffic attribution. Prefer **one** primary 
 13. **Pre-fixed and post-fixed net contribution** — blocked.
 14. **Reprint/damage** — missing.
 15. **Support burden** — missing.
-16. **Funnel CLI reconcile script** — empty file.
+16. **Funnel CLI reconcile script** — empty file; `qa:growth-weekly` still calls it as a no-op.
 17. **Referral (program) vs referral (traffic)** — naming collision risk.
 18. **`$10k` goal (`GOAL_10K_2026.md`)** — tracks **gross Stripe production revenue**, not #173 net contribution; treat as acquisition north star, not unit-economics success.
+19. **Failed checkout aggregate** — diagnostics/PostHog exist (`partial`); no first-class `FUNNEL_STEPS` failure step comparable to `checkout_expired`. Do not report a combined “failed/expired” availability of `available`.
+20. **Checkout redirect failure rate** — no dedicated server funnel counter for failed redirect after `checkout_session_created`.
 
 ---
 
@@ -524,7 +530,7 @@ Create separately reviewed child issues (do **not** expand this PR into implemen
 
 1. **30/60/90-day funnel baseline (read-only exports)** — Freeze definitions from §1; produce UTC windows using approved Stripe + funnel API + GA4 aggregates; explicitly document sample sizes and QA exclusion. Depends on H1/H4.
 2. **Product contribution model (HD / unframed / framed / add-on)** — Spreadsheet or script design using Stripe metadata + env COGS + fee estimate; label estimates vs invoice-reconciled; no price changes.
-3. **Loss and exception baseline** — Human Stripe refund/dispute export + print `failed` counts + `checkout_expired`; define reprint/support as unresolved until process exists.
+3. **Loss and exception baseline** — Human Stripe refund/dispute export + print `failed` counts + `checkout_expired` (separate from checkout-diagnostics failure reasons); define reprint/support as unresolved until process exists.
 4. **Acquisition baseline by channel** — Map `marketing_*` + GA4 channels + referral program separately; attach spend only where H3 available.
 5. **Recovery attribution stub (spec only)** — Propose minimal Stripe metadata or digest rule for recovery→paid **without** shipping email copy changes until approved.
 6. **Restore or retire `qa:funnel-reconcile` CLI** — Either reimplement empty `scripts/funnel-reconcile.mjs` against reconcile API or remove npm script/docs references (reliability lane; coordinate with #178 if overlapping).
@@ -533,22 +539,28 @@ Create separately reviewed child issues (do **not** expand this PR into implemen
 
 ## 9. Audited SHA and files inspected
 
-**SHA:** `67ede17f35de9ee23e7278e209c11983aa7da4d8`
+| Role | SHA |
+| --- | --- |
+| Initial discovery audit | `67ede17f35de9ee23e7278e209c11983aa7da4d8` |
+| Current `main` base (non-destructive refresh) | `f8f47ff7733fc2e419d03c746b8836770a1593bc` |
+| This branch head | see git / PR after commit (docs-only correction on top of merge) |
+
+Funnel-reconcile emptiness and checkout-diagnostics shape re-confirmed against `main` `f8f47ff…` (`scripts/funnel-reconcile.mjs` still 0 bytes).
 
 ### Inspected (evidence; not all modified)
 
 **Docs:** `PURCHASE_ANALYTICS.md`, `PURCHASE_FUNNEL_AUDIT.md`, `GOAL_10K_2026.md`, `GROWTH_OPS_WEEKLY.md`, `BIG_MOVES_ROADMAP.md`, `LEVERAGE_ROADMAP.md`, `block-1.5-funnel-read.md`, `post-purchase-access-architecture.md`, `PRODUCT_EXECUTION_QUEUE.md`, `OPS_RUNBOOK.md`, `ADS_UTM_REFERENCE.md`, `ADS_RELAUNCH_SETUP.md`, `audits/star-001`…`star-006`, `docs/AGENT_OPERATING_MODEL.md` (repo root), GitHub issues #173 / #179.
 
-**Code:** `src/lib/funnelSteps.ts`, `funnel.ts`, `analytics.ts`, `analyticsEventConvention.ts`, `commerceAnalytics.ts`, `commerceAnalyticsQa.mjs`, `marketingAttributionGa4.ts`, `ga4MeasurementProtocol.ts`, `printMargin.ts`, `printFreeShipping.ts`, `printOrders.ts`, `printfulWebhookOrderEvents.ts`, `pinterestTag.ts`, `EditorExperience.tsx`, `PaywallModal.tsx`, `SuccessClient.tsx`, `DownloadClient.tsx`, `app/api/checkout/route.ts`, `app/api/stripe/webhook/route.ts`, `app/api/stripe/verify/route.ts`, `app/api/printful/webhook/route.ts`, `app/api/analytics/funnel/**`, `app/api/marketing-attribution/route.ts`.
+**Code:** `src/lib/funnelSteps.ts`, `funnel.ts`, `analytics.ts`, `analyticsEventConvention.ts`, `commerceAnalytics.ts`, `commerceAnalyticsQa.mjs`, `marketingAttributionGa4.ts`, `ga4MeasurementProtocol.ts`, `printMargin.ts`, `printFreeShipping.ts`, `printOrders.ts`, `printfulWebhookOrderEvents.ts`, `pinterestTag.ts`, `checkoutDiagnostics` (via `/api/analytics/checkout-diagnostics`), `EditorExperience.tsx`, `PaywallModal.tsx`, `SuccessClient.tsx`, `DownloadClient.tsx`, `app/api/checkout/route.ts`, `app/api/stripe/webhook/route.ts`, `app/api/stripe/verify/route.ts`, `app/api/printful/webhook/route.ts`, `app/api/analytics/funnel/**`, `app/api/marketing-attribution/route.ts`.
 
 **Scripts / package:** `scripts/commerce-digest.mjs`, `revenue-goal-scorecard.mjs`, `loop-scorecard.mjs`, `funnel-reconcile.mjs` (empty), `recovery-email-diag.mjs`, `package.json` script entries.
 
-### Changed in this deliverable
+### Changed in this deliverable (effective PR diff)
 
 - `star-map-app-final/docs/COMMERCIAL_METRIC_DICTIONARY.md` (this file)
 - `star-map-app-final/docs/PURCHASE_ANALYTICS.md` (related link)
 - `star-map-app-final/docs/GOAL_10K_2026.md` (related link)
-- `star-map-app-final/docs/GROWTH_OPS_WEEKLY.md` (related link)
+- `star-map-app-final/docs/GROWTH_OPS_WEEKLY.md` (related link + funnel-reconcile no-op caveat)
 
 ---
 
