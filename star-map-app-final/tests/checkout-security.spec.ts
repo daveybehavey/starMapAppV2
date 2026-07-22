@@ -1,5 +1,5 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
-import { primeLocalStorage } from "./test-helpers";
+import { applySampleMoment, primeLocalStorage } from "./test-helpers";
 
 type PremiumRequestObservation = {
   method: string;
@@ -81,6 +81,7 @@ test.describe("Checkout Security", () => {
       console.log("→ Going to editor...");
       await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded", timeout: 120_000 });
       await page.locator("#editor").waitFor({ state: "visible", timeout: 120_000 });
+      await applySampleMoment(page);
 
       console.log("→ Looking for HD export button...");
       const hdBtn = page.getByRole("button", { name: /unlock hd|hd/i }).first();
