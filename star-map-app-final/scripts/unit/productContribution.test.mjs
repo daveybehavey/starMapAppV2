@@ -15,6 +15,7 @@ import {
 import {
   PRODUCT_CONTRIBUTION_CONTRACT,
   SENSITIVE_RECORD_FIELDS,
+  UNSUPPORTED_MERCH_RECORD_FIELDS,
   assertAggregateOnly,
   assertScriptIsNotNoOp,
   buildProductContributionReport,
@@ -24,6 +25,7 @@ import {
   formatJsonReport,
   formatTableReport,
   isSensitiveRecordFieldKey,
+  isUnsupportedMerchFieldKey,
   normalizeRecordFieldKey,
   parseArgs,
   parseSanitizedDocument,
@@ -718,6 +720,205 @@ test("Codex regression: print rows reject non-single plans regardless of include
       }
     }
   }
+});
+
+test("Codex regression: print_card_asset_id and asset-id variants fail closed before unknown stripping", () => {
+  const assetFields = [
+    "print_card_asset_id",
+    "printCardAssetId",
+    "PrintCardAssetId",
+    "print_asset_id",
+    "printAssetId",
+    "card_print_asset_id",
+    "cardPrintAssetId",
+    "map_id",
+    "mapId",
+  ];
+
+  for (const field of assetFields) {
+    assert.equal(isSensitiveRecordFieldKey(field), true, field);
+    assert.throws(
+      () =>
+        sanitizeRecord(
+          {
+            currency: "usd",
+            amount_total: 11800,
+            order_type: "print",
+            print_variant: "poster_framed",
+            include_card: true,
+            shipping_country: "US",
+            [field]: "ASSET_VALUE_MUST_NOT_LEAK_xyz",
+          },
+          0
+        ),
+      /sensitive|row-identifying/,
+      field
+    );
+  }
+
+  assert.ok(SENSITIVE_RECORD_FIELDS.includes("print_card_asset_id"));
+  assert.ok(SENSITIVE_RECORD_FIELDS.includes("printCardAssetId"));
+
+  const io = createIo();
+  const bad = {
+    schema_version: 1,
+    records: [
+      {
+        currency: "usd",
+        amount_total: 11800,
+        order_type: "print",
+        print_variant: "poster_framed",
+        include_card: true,
+        shipping_country: "US",
+        print_card_asset_id: "ASSET_VALUE_MUST_NOT_LEAK_xyz",
+      },
+      {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+      },
+    ],
+  };
+  const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-card-asset-${process.pid}.json`);
+  fs.writeFileSync(tmp, JSON.stringify(bad));
+  try {
+    const code = runProductContribution({
+      argv: ["--input", tmp, "--format", "json"],
+      stdout: io.stdout,
+      stderr: io.stderr,
+      env: {},
+    });
+    assert.equal(code, 1);
+    assert.equal(io.getStdout().trim(), "");
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /ASSET_VALUE_MUST_NOT_LEAK/);
+    assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+    assert.match(io.getStderr(), /sensitive|row-identifying|Product contribution failed/);
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+});
+
+test("Codex regression: print_merch_* markers fail closed and never contribute as print variants", () => {
+  const merchFields = [
+    "print_merch_family",
+    "printMerchFamily",
+    "print_merch_catalog_variant_id",
+    "printMerchCatalogVariantId",
+    "print_merch_size",
+    "printMerchSize",
+    "print_merch_color",
+    "printMerchColor",
+  ];
+
+  for (const field of merchFields) {
+    assert.equal(isUnsupportedMerchFieldKey(field), true, field);
+    // Must not be treated as a silent unknown strip path.
+    assert.throws(
+      () =>
+        sanitizeRecord(
+          {
+            currency: "usd",
+            amount_total: 2500,
+            order_type: "print",
+            print_variant: "poster_framed",
+            shipping_country: "US",
+            [field]: "sticker_kisscut_MUST_NOT_LEAK",
+          },
+          0
+        ),
+      /unsupported merch|merch contribution/,
+      field
+    );
+  }
+
+  for (const field of UNSUPPORTED_MERCH_RECORD_FIELDS) {
+    assert.equal(isUnsupportedMerchFieldKey(field), true, field);
+  }
+
+  // Each marker: CLI nonzero, empty aggregate stdout, no print:<variant> contribution.
+  for (const field of [
+    "print_merch_family",
+    "print_merch_catalog_variant_id",
+    "print_merch_size",
+    "print_merch_color",
+  ]) {
+    const io = createIo();
+    const bad = {
+      schema_version: 1,
+      records: [
+        {
+          currency: "usd",
+          amount_total: 2500,
+          order_type: "print",
+          print_variant: "poster_framed",
+          shipping_country: "US",
+          [field]: "sticker_kisscut_MUST_NOT_LEAK",
+        },
+        {
+          currency: "usd",
+          amount_total: 2900,
+          order_type: "digital",
+          plan: "single",
+        },
+      ],
+    };
+    const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-merch-${field}-${process.pid}.json`);
+    fs.writeFileSync(tmp, JSON.stringify(bad));
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmp, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1, field);
+      assert.equal(io.getStdout().trim(), "");
+      assert.doesNotMatch(io.getStdout(), /print:poster_framed/);
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.doesNotMatch(io.getStdout() + io.getStderr(), /sticker_kisscut_MUST_NOT_LEAK/);
+      assert.match(io.getStderr(), /unsupported merch|Product contribution failed/);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  }
+
+  // Ordinary supported print/digital rows remain unchanged (no merch/asset keys).
+  const { record: printOk } = sanitizeRecord(
+    {
+      currency: "usd",
+      amount_total: 9900,
+      order_type: "print",
+      print_variant: "poster_framed",
+      shipping_country: "US",
+      include_digital: false,
+      plan: "single",
+    },
+    0
+  );
+  assert.equal(classifyProductGroup(printOk).groupKey, "print:poster_framed");
+  const printEst = estimateRecordContribution(printOk, getStripeFeeConfig({}), {});
+  assert.equal(printEst.resolved, true);
+  assert.ok(printEst.contributionCents !== null);
+
+  const { record: digitalOk } = sanitizeRecord(
+    {
+      currency: "usd",
+      amount_total: 2900,
+      order_type: "digital",
+      plan: "single",
+    },
+    0
+  );
+  assert.equal(classifyProductGroup(digitalOk).groupKey, "digital:single");
+
+  const fixtureReport = buildProductContributionReport(parseSanitizedDocument(loadFixture()).records, {
+    env: {},
+  });
+  assert.ok(fixtureReport.currency_sections.some((s) => s.currency === "usd"));
+  const usd = fixtureReport.currency_sections.find((s) => s.currency === "usd");
+  assert.ok(usd.groups.some((g) => g.group_key === "print:poster_framed"));
+  assert.ok(usd.groups.some((g) => g.group_key === "digital:single"));
 });
 
 test("invalid JSON exits nonzero", () => {

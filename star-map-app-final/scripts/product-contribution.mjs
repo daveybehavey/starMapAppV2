@@ -101,7 +101,13 @@ export const SENSITIVE_RECORD_FIELDS = Object.freeze([
   "order_id",
   "orderId",
   "map_id",
+  "mapId",
   "print_asset_id",
+  "printAssetId",
+  "print_card_asset_id",
+  "printCardAssetId",
+  "card_print_asset_id",
+  "cardPrintAssetId",
   "metadata",
   "raw",
   "stripe",
@@ -110,6 +116,18 @@ export const SENSITIVE_RECORD_FIELDS = Object.freeze([
   "secret",
   "authorization",
   "password",
+]);
+
+/** Known merch checkout metadata keys (unsupported by this contribution report). */
+export const UNSUPPORTED_MERCH_RECORD_FIELDS = Object.freeze([
+  "print_merch_family",
+  "printMerchFamily",
+  "print_merch_catalog_variant_id",
+  "printMerchCatalogVariantId",
+  "print_merch_size",
+  "printMerchSize",
+  "print_merch_color",
+  "printMerchColor",
 ]);
 
 /**
@@ -126,6 +144,10 @@ export function normalizeRecordFieldKey(key) {
 
 const SENSITIVE_FIELD_SET = new Set(
   SENSITIVE_RECORD_FIELDS.flatMap((k) => [k.toLowerCase(), normalizeRecordFieldKey(k)])
+);
+
+const UNSUPPORTED_MERCH_FIELD_SET = new Set(
+  UNSUPPORTED_MERCH_RECORD_FIELDS.flatMap((k) => [k.toLowerCase(), normalizeRecordFieldKey(k)])
 );
 
 /**
@@ -159,6 +181,9 @@ export function isSensitiveRecordFieldKey(key) {
     /payment/,
     /charge/,
     /(^|_)order_id(_|$)/,
+    /(^|_)map_id(_|$)/,
+    /asset_id/,
+    /print_.*_asset/,
     /token/,
     /secret/,
     /password/,
@@ -170,6 +195,30 @@ export function isSensitiveRecordFieldKey(key) {
   ];
 
   return patterns.some((pattern) => pattern.test(normalized) || pattern.test(lower));
+}
+
+/**
+ * Merch checkout identity markers are unsupported by this report (no merch COGS model yet).
+ * Fail closed — never strip and reclassify as poster/canvas contribution.
+ * @param {string} key
+ */
+export function isUnsupportedMerchFieldKey(key) {
+  if (typeof key !== "string" || !key) return false;
+  if (ALLOWED_RECORD_FIELD_SET.has(key)) return false;
+
+  const lower = key.toLowerCase();
+  const normalized = normalizeRecordFieldKey(key);
+
+  if (
+    UNSUPPORTED_MERCH_FIELD_SET.has(lower) ||
+    UNSUPPORTED_MERCH_FIELD_SET.has(normalized) ||
+    UNSUPPORTED_MERCH_FIELD_SET.has(key)
+  ) {
+    return true;
+  }
+
+  // Any print_merch_* marker (snake or camel PrintMerch*) distinguishes merch from print SKUs.
+  return /^print_merch(_|$)/.test(normalized) || /^printmerch/.test(lower);
 }
 
 const GENERIC_OPERATOR_FAILURE =
@@ -355,6 +404,12 @@ export function sanitizeRecord(raw, index) {
     // Sensitive detection must fail closed before unknown-field stripping.
     if (isSensitiveRecordFieldKey(key)) {
       throw new Error(`records[${index}] contains sensitive or row-identifying field "${key}" (rejected)`);
+    }
+    // Merch identity must fail closed — never strip and reclassify as poster/canvas COGS.
+    if (isUnsupportedMerchFieldKey(key)) {
+      throw new Error(
+        `records[${index}] contains unsupported merch field "${key}" (merch contribution model not supported; rejected)`
+      );
     }
     if (!ALLOWED_RECORD_FIELD_SET.has(key)) {
       warnings.push(`records[${index}]: stripped unknown field "${key}"`);

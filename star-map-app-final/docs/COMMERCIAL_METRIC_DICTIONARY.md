@@ -439,14 +439,20 @@ Allowed record fields only:
 
 \*Unknown/missing product fields go to the **unknown** group (not silently reassigned). Missing shipping country on print → **unresolved**.
 
+**Asset identifiers and merch (fail closed)**
+
+- **Must strip before export** (or the CLI rejects): `print_asset_id`, `print_card_asset_id`, `map_id`, and camelCase/PascalCase variants (`printCardAssetId`, …). These are row-identifying fulfillment keys — never leave them in the sanitized file.
+- **Merch is unsupported** by this report. Any `print_merch_*` marker (`print_merch_family`, `print_merch_catalog_variant_id`, `print_merch_size`, `print_merch_color`, …) causes a nonzero schema/unsupported-product failure. Do **not** strip merch fields and treat the fallback `print_variant` as poster/canvas contribution. A separately reviewed merch contribution model is required before merch rows can be included.
+
 **Preparing an export without PII**
 
 1. From Stripe (or an approved read-only export), select **paid** Checkout Sessions only.
 2. Map metadata `order_type`, `plan`, `print_variant`, `print_include_digital`, `print_include_card`, `print_shipping_country`, `print_shipping_charge_cents`, `print_shipping_subsidy_cents`, QA flags, and `amount_total` / `currency` / `created`.
-3. **Strip** session IDs, customer objects, emails, names, phones, addresses, payment intents/methods, `client_reference_id`, raw `metadata` blobs, and any tokens/secrets.
-4. Save as `schema_version: 1` JSON. Never commit production exports.
+3. **Strip** session IDs, customer objects, emails, names, phones, addresses, payment intents/methods, `client_reference_id`, `print_asset_id`, `print_card_asset_id`, `map_id`, raw `metadata` blobs, and any tokens/secrets.
+4. **Exclude** merch checkouts (`print_merch_*` present) until a dedicated merch contribution model exists — do not map them as poster/canvas rows.
+5. Save as `schema_version: 1` JSON. Never commit production exports.
 
-The CLI **rejects** sensitive/row-identifying fields with a nonzero exit and never prints them.
+The CLI **rejects** sensitive/row-identifying fields and unsupported merch markers with a nonzero exit and never prints secret/PII/asset values.
 
 **Estimate vs actual / remaining human work**
 
