@@ -7,6 +7,8 @@ import { applySampleMoment, gotoEditor, mockGeocode } from "./test-helpers";
  */
 const WIDTHS = [320, 375, 430] as const;
 const HEIGHT = 720;
+const PAYWALL_HEADING_PATTERN =
+  /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
 
 test.describe("mobile Unlock HD remains reachable after Customize more", () => {
   test.describe.configure({ mode: "serial" });
@@ -47,13 +49,38 @@ test.describe("mobile Unlock HD remains reachable after Customize more", () => {
       await expect(drawer).toBeVisible();
       await expect(drawer).toHaveAttribute("aria-modal", "true");
 
-      const purchaseBar = page.getByTestId("mobile-purchase-action-bar");
-      const stickyUnlock = page.getByTestId("mobile-sticky-unlock-hd");
-      const stickyLess = page.getByTestId("mobile-sticky-less-options");
+      // Opening customization places focus on the dialog handle.
+      await expect(page.getByRole("button", { name: /Collapse date and details panel/i })).toBeFocused({
+        timeout: 5_000,
+      });
 
+      const purchaseBar = drawer.getByTestId("mobile-purchase-action-bar");
+      const stickyUnlock = drawer.getByTestId("mobile-sticky-unlock-hd");
+      const stickyLess = drawer.getByTestId("mobile-sticky-less-options");
+
+      // Purchase actions live inside the modal dialog subtree (a11y-correct).
       await expect(purchaseBar).toBeVisible();
       await expect(stickyUnlock).toBeVisible();
       await expect(stickyLess).toBeVisible();
+      expect(await stickyUnlock.evaluate((el) => Boolean(el.closest('[role="dialog"]')))).toBe(true);
+      expect(await stickyLess.evaluate((el) => Boolean(el.closest('[role="dialog"]')))).toBe(true);
+
+      // Meaningful accessible names + logical LTR order (Less options, then Unlock HD).
+      await expect(stickyLess).toHaveAccessibleName(/Less options/i);
+      await expect(stickyUnlock).toHaveAccessibleName(/Unlock HD/i);
+      const lessBox = await stickyLess.boundingBox();
+      const unlockBox = await stickyUnlock.boundingBox();
+      expect(lessBox).toBeTruthy();
+      expect(unlockBox).toBeTruthy();
+      expect(lessBox!.x).toBeLessThan(unlockBox!.x);
+      const lessBeforeUnlock = await stickyLess.evaluate((less, unlockTestId) => {
+        const unlock = less.parentElement?.querySelector(`[data-testid="${unlockTestId}"]`);
+        if (!unlock || !less.parentElement) return false;
+        const children = [...less.parentElement.children];
+        return children.indexOf(less) < children.indexOf(unlock);
+      }, "mobile-sticky-unlock-hd");
+      expect(lessBeforeUnlock).toBe(true);
+
       await expect(stickyUnlock).toBeInViewport();
       await expect(stickyLess).toBeInViewport();
       await expectActionable(stickyUnlock);
@@ -61,16 +88,30 @@ test.describe("mobile Unlock HD remains reachable after Customize more", () => {
       await expectClickableAtCenter(page, stickyUnlock);
       await expectClickableAtCenter(page, stickyLess);
 
-      // Drawer must sit above the sticky purchase bar (no overlap of Unlock HD).
-      const drawerBox = await drawer.boundingBox();
-      const barBox = await purchaseBar.boundingBox();
-      expect(drawerBox).toBeTruthy();
-      expect(barBox).toBeTruthy();
-      expect(drawerBox!.y + drawerBox!.height).toBeLessThanOrEqual(barBox!.y + 1);
+      // Details content must not overlap the purchase footer.
+      const noContentOverlap = await drawer.evaluate((dialog) => {
+        const bar = dialog.querySelector('[data-testid="mobile-purchase-action-bar"]');
+        if (!bar) return false;
+        const content = bar.previousElementSibling as HTMLElement | null;
+        if (!content || content.hasAttribute("hidden")) return true;
+        const contentBottom = content.getBoundingClientRect().bottom;
+        const barTop = bar.getBoundingClientRect().top;
+        return contentBottom <= barTop + 1;
+      });
+      expect(noContentOverlap).toBe(true);
 
-      // One-interaction return to the purchase action.
+      // Real unpaid HD purchase path from the sticky CTA.
+      await stickyUnlock.click();
+      await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN }).first()).toBeVisible({
+        timeout: 8_000,
+      });
+      await page.getByRole("button", { name: /Close purchase options/i }).click();
+      await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN })).toHaveCount(0);
+
+      // One-interaction return to the in-flow purchase action with focus restore.
+      await expect(purchaseBar).toBeVisible();
       await stickyLess.click();
-      await expect(purchaseBar).toHaveCount(0);
+      await expect(page.getByTestId("mobile-purchase-action-bar")).toHaveCount(0);
       await expect(page.getByTestId("mobile-customize-more")).toBeVisible();
       await expect(inlineUnlock).toBeVisible();
       await expect(inlineUnlock).toBeInViewport({ timeout: 5_000 });

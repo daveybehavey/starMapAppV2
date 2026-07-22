@@ -5,17 +5,15 @@ import { useEffect, useId, useRef, useState } from "react";
 interface EditorDrawerProps {
   children: React.ReactNode;
   defaultOpen?: boolean;
-  /** Lifts the sheet above a sticky action bar (e.g. Unlock HD). */
-  bottomOffset?: string;
+  /**
+   * Persistent footer rendered inside the dialog subtree (e.g. Unlock HD).
+   * Stays visible while the drawer is mounted, including when details are collapsed.
+   */
+  footer?: React.ReactNode;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function EditorDrawer({
-  children,
-  defaultOpen = false,
-  bottomOffset = "0px",
-  onOpenChange,
-}: EditorDrawerProps) {
+export function EditorDrawer({ children, defaultOpen = false, footer, onOpenChange }: EditorDrawerProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const handleRef = useRef<HTMLButtonElement>(null);
   const contentId = useId();
@@ -25,7 +23,7 @@ export function EditorDrawer({
     onOpenChange?.(next);
   };
 
-  // Handle Escape key to close drawer (sheet only; sticky purchase actions remain).
+  // Escape collapses details only; footer purchase actions remain in the dialog.
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -51,18 +49,15 @@ export function EditorDrawer({
     <div className="md:hidden">
       {/* Backdrop */}
       {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40"
-          style={{ bottom: bottomOffset }}
-          onClick={() => setOpen(false)}
-          aria-hidden="true"
-        />
+        <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setOpen(false)} aria-hidden="true" />
       )}
 
-      {/* Bottom sheet */}
+      {/*
+        Bottom sheet + purchase footer share one dialog subtree so aria-modal
+        remains truthful while Unlock HD / Less options stay reachable.
+      */}
       <div
-        className={`fixed right-0 left-0 z-50 transform rounded-t-2xl bg-[#0b0f24] shadow-2xl transition-transform duration-300 ${isOpen ? "translate-y-0" : "translate-y-[calc(100%-60px)]"} `}
-        style={{ bottom: bottomOffset }}
+        className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-[#0b0f24] shadow-2xl"
         role="dialog"
         aria-modal={isOpen}
         aria-label="Date and details editor"
@@ -81,17 +76,29 @@ export function EditorDrawer({
           <span className="text-xs font-medium text-white">{isOpen ? "Hide details" : "Date & Details"}</span>
         </button>
 
-        {/* Content */}
+        {/* Scrollable details — hidden when collapsed; footer stays mounted */}
         <div
           id={contentId}
-          className="overflow-y-auto px-4 pb-6"
+          className="overflow-y-auto px-4 pb-4"
           style={{
-            maxHeight: isOpen ? `min(70vh, calc(100dvh - ${bottomOffset} - 5.5rem))` : undefined,
+            maxHeight: isOpen
+              ? "min(70vh, calc(100dvh - 9.5rem - env(safe-area-inset-bottom, 0px)))"
+              : undefined,
           }}
           hidden={!isOpen}
         >
           {children}
         </div>
+
+        {footer ? (
+          <div
+            data-testid="mobile-purchase-action-bar"
+            className="border-t border-amber-200/35 bg-[#0b0f24]/95 px-3 pt-2 shadow-[0_-8px_24px_rgba(0,0,0,0.35)]"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}
+          >
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -161,8 +161,6 @@ export function MobileCreate({
   const lessOptionsStickyRef = useRef<HTMLButtonElement>(null);
   const wasShowEditorRef = useRef(false);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
-  /** Keeps Unlock HD reachable while the details drawer is open (issue #180). */
-  const PURCHASE_ACTION_BAR_OFFSET = "calc(4.25rem + env(safe-area-inset-bottom, 0px))";
   const [showIntensityBanner, setShowIntensityBanner] = useState(false);
   const [showRenderModeBanner, setShowRenderModeBanner] = useState(false);
   const renderModeBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -881,7 +879,31 @@ export function MobileCreate({
 
       {/* Section 4: Drawer with Secondary Controls */}
       {showEditor && (
-        <EditorDrawer defaultOpen={true} bottomOffset={PURCHASE_ACTION_BAR_OFFSET}>
+        <EditorDrawer
+          defaultOpen={true}
+          footer={
+            <div className="mx-auto flex w-full max-w-md gap-2">
+              <button
+                ref={lessOptionsStickyRef}
+                type="button"
+                onClick={handleLessOptions}
+                data-testid="mobile-sticky-less-options"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+              >
+                Less options
+              </button>
+              <button
+                type="button"
+                onClick={() => void onExport("hd")}
+                aria-label={paid ? "HD download" : "Unlock HD"}
+                data-testid="mobile-sticky-unlock-hd"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+              >
+                {paid ? "HD download" : "Unlock HD"}
+              </button>
+            </div>
+          }
+        >
           <div className="space-y-3">
             {/* Date & Location */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
@@ -1727,34 +1749,6 @@ export function MobileCreate({
           </>
         )}
       </section>
-      {revealed && showEditor && (
-        <div
-          data-testid="mobile-purchase-action-bar"
-          className="fixed inset-x-0 bottom-0 z-[60] border-t border-amber-200/35 bg-[#0b0f24]/95 px-3 pt-2 shadow-[0_-8px_24px_rgba(0,0,0,0.35)] backdrop-blur"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}
-        >
-          <div className="mx-auto flex w-full max-w-md gap-2">
-            <button
-              ref={lessOptionsStickyRef}
-              type="button"
-              onClick={handleLessOptions}
-              data-testid="mobile-sticky-less-options"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
-            >
-              Less options
-            </button>
-            <button
-              type="button"
-              onClick={() => void onExport("hd")}
-              aria-label="HD export"
-              data-testid="mobile-sticky-unlock-hd"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
-            >
-              {paid ? "HD download" : "Unlock HD"}
-            </button>
-          </div>
-        </div>
-      )}
       {canReveal && !revealed && showStickyCTA && !isRevealing && (
         <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 rounded-2xl border border-amber-200/40 bg-[#0b0f24]/95 px-4 py-3 shadow-xl shadow-black/30 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
