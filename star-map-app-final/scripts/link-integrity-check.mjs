@@ -3,15 +3,18 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const ROUTES_ROOT = path.join(process.cwd(), "src", "app");
-const SOURCE_ROOTS = [
-  path.join(process.cwd(), "src"),
-  path.join(process.cwd(), "public", "index.html"),
-  path.join(process.cwd(), "public", "landing.html"),
+const PROJECT_ROOT = process.cwd();
+const SOURCE_ROOT = path.join(PROJECT_ROOT, "src");
+const ROUTES_ROOT = path.join(SOURCE_ROOT, "app");
+const PUBLIC_ROOT = path.join(PROJECT_ROOT, "public");
+const REQUIRED_DIRECTORIES = [
+  { directory: SOURCE_ROOT, description: "application sources" },
+  { directory: ROUTES_ROOT, description: "Next.js routes" },
+  { directory: PUBLIC_ROOT, description: "public assets" },
 ];
-const PUBLIC_ROOT = path.join(process.cwd(), "public");
 
 const SOURCE_FILE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".html"]);
+const PAGE_FILE_REGEX = /^page\.(?:ts|tsx|js|jsx)$/;
 const LINK_ATTR_REGEX =
   /(?:href|to)\s*=\s*(?:"([^"]+)"|'([^']+)'|\{\s*"([^"]+)"\s*\}|\{\s*'([^']+)'\s*\}|\{\s*`([^`]+)`\s*\})/g;
 
@@ -28,14 +31,11 @@ function normalizeRouteFolderSegment(segment) {
 
 function toRoutePath(filePath) {
   const rel = path.relative(ROUTES_ROOT, filePath).replace(/\\/g, "/");
-  if (!rel.endsWith("/page.tsx")) return null;
-  const withoutSuffix = rel.slice(0, -"/page.tsx".length);
-  if (withoutSuffix === "") return "/";
-  const parts = withoutSuffix
-    .split("/")
-    .map((segment) => normalizeRouteFolderSegment(segment))
-    .filter(Boolean);
-  return `/${parts.join("/")}`;
+  const parts = rel.split("/");
+  const fileName = parts.pop();
+  if (!fileName || !PAGE_FILE_REGEX.test(fileName)) return null;
+  const routeParts = parts.map((segment) => normalizeRouteFolderSegment(segment)).filter(Boolean);
+  return routeParts.length === 0 ? "/" : `/${routeParts.join("/")}`;
 }
 
 function routePathToRegex(routePath) {
@@ -59,6 +59,7 @@ async function walkFiles(startPath) {
   const stats = await fs.stat(startPath);
   if (stats.isFile()) return [startPath];
   const entries = await fs.readdir(startPath, { withFileTypes: true });
+  entries.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
   const files = [];
   for (const entry of entries) {
     const entryPath = path.join(startPath, entry.name);
@@ -69,6 +70,25 @@ async function walkFiles(startPath) {
     files.push(entryPath);
   }
   return files;
+}
+
+async function assertRequiredDirectories() {
+  for (const { directory, description } of REQUIRED_DIRECTORIES) {
+    let stats;
+    try {
+      stats = await fs.stat(directory);
+    } catch (error) {
+      if (error && typeof error === "object" && error.code === "ENOENT") {
+        const relativePath = path.relative(PROJECT_ROOT, directory).replace(/\\/g, "/");
+        throw new Error(`Required link-audit directory is missing: ${relativePath} (${description})`);
+      }
+      throw error;
+    }
+    if (!stats.isDirectory()) {
+      const relativePath = path.relative(PROJECT_ROOT, directory).replace(/\\/g, "/");
+      throw new Error(`Required link-audit path is not a directory: ${relativePath} (${description})`);
+    }
+  }
 }
 
 function stripQueryAndHash(link) {
@@ -112,7 +132,10 @@ async function loadRouteMatchers() {
     routes.push(routePath);
   }
 
-  const uniqueRoutes = Array.from(new Set(routes));
+  const uniqueRoutes = Array.from(new Set(routes)).sort();
+  if (uniqueRoutes.length === 0) {
+    throw new Error("No Next.js page routes found under src/app.");
+  }
   return uniqueRoutes.map((routePath) => ({
     routePath,
     regex: routePathToRegex(routePath),
@@ -131,12 +154,10 @@ async function loadPublicPaths() {
 
 async function collectSourceFiles() {
   const files = [];
-  for (const root of SOURCE_ROOTS) {
-    const rootFiles = await walkFiles(root);
-    for (const filePath of rootFiles) {
-      if (!SOURCE_FILE_EXTENSIONS.has(path.extname(filePath))) continue;
-      files.push(filePath);
-    }
+  const rootFiles = await walkFiles(SOURCE_ROOT);
+  for (const filePath of rootFiles) {
+    if (!SOURCE_FILE_EXTENSIONS.has(path.extname(filePath))) continue;
+    files.push(filePath);
   }
   return files;
 }
@@ -146,14 +167,12 @@ function matchesRoute(pathname, routeMatchers) {
 }
 
 function matchesPublicFile(pathname, publicPaths) {
-  if (publicPaths.has(pathname)) return true;
-  if (pathname === "/") return true;
-  if (publicPaths.has(`${pathname}.html`)) return true;
-  if (publicPaths.has(path.join(pathname, "index.html").replace(/\\/g, "/"))) return true;
-  return false;
+  if (pathname === "/") return false;
+  return publicPaths.has(pathname);
 }
 
 async function main() {
+  await assertRequiredDirectories();
   const [routeMatchers, publicPaths, sourceFiles] = await Promise.all([
     loadRouteMatchers(),
     loadPublicPaths(),
@@ -182,7 +201,10 @@ async function main() {
   }
 
   if (issues.length === 0) {
-    console.log("Link integrity check passed.");
+    const publicFileLabel = publicPaths.size === 1 ? "public file" : "public files";
+    console.log(
+      `Link integrity check passed. Audited ${sourceFiles.length} source files against ${routeMatchers.length} Next.js routes and ${publicPaths.size} ${publicFileLabel}.`,
+    );
     return;
   }
 
