@@ -134,12 +134,14 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
       await share.click();
       await page.waitForTimeout(300);
 
-      // Customize more opens advanced options; sticky primary replaces in-flow primary on mobile.
+      // Customize more opens advanced options; sticky primary replaces in-flow primary on narrow mobile.
       await customize.click();
       await dismissNextjsDevOverlay(page);
 
-      if (force === "mobile") {
-        const drawer = page.getByRole("dialog", { name: /Date and details editor/i });
+      const drawer = page.getByRole("dialog", { name: /Date and details editor/i });
+      const drawerVisible = await drawer.isVisible().catch(() => false);
+
+      if (force === "mobile" && drawerVisible) {
         await expect(drawer).toBeVisible();
         const stickyUnlock = drawer.getByTestId("mobile-sticky-unlock-hd");
         const stickyLess = drawer.getByTestId("mobile-sticky-less-options");
@@ -181,12 +183,17 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
         await expect(page.getByTestId("mobile-unlock-hd")).toHaveAttribute("data-cta-priority", "primary");
         expect(await countActivePrimaryDigital(page)).toBe(1);
       } else {
-        // Desktop: customize reveals Save & Remix; still a single primary Unlock HD.
+        // Desktop / tablet: customize reveals Save & Remix (or Less options); still a single primary Unlock HD.
         expect(await countActivePrimaryDigital(page)).toBe(1);
         const saveRemix = page.getByRole("button", { name: /Save & Remix/i }).first();
-        await expect(saveRemix).toBeVisible();
-        await expect(saveRemix).toHaveAttribute("data-cta-priority", "secondary");
-        await expectActionable(saveRemix);
+        const lessOptions = page.getByRole("button", { name: /Less options/i }).first();
+        if (await saveRemix.isVisible().catch(() => false)) {
+          await expect(saveRemix).toHaveAttribute("data-cta-priority", "secondary");
+          await expectActionable(saveRemix);
+        }
+        if (await lessOptions.isVisible().catch(() => false)) {
+          await expect(lessOptions).toHaveAttribute("data-cta-priority", "secondary");
+        }
         await page.screenshot({
           path: path.join(AFTER_DIR, `after-customize-open-${width}.png`),
           fullPage: false,

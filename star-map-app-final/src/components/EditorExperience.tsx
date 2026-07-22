@@ -1196,32 +1196,32 @@ export function EditorExperience({
         hdExportInFlightRef.current = true;
         setHdExportInFlight(true);
       }
-      let hasAccess = paid;
-      if (isHd && !paid) {
-        hasAccess = await refreshPaidStatus();
-        if (!hasAccess) {
-          setPendingExport(mode);
-          setPaywallIntent("digital");
-          setPaywallOpen(true);
-          setCheckoutError(null);
-          track("paywall_view", {
-            visualMode: renderOptions.visualMode,
-            experiment: PAYWALL_COPY_EXPERIMENT,
-            variant: paywallVariant,
-          });
-          trackPaywallOpenedEvent("digital", "hd_export_gate");
-          if (typeof window !== "undefined") {
-            try {
-              localStorage.setItem(AUTO_EXPORT_KEY, mode);
-              if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
-            } catch {
-              // ignore storage errors (e.g. private browsing)
-            }
-          }
-          return;
-        }
-      }
       try {
+        let hasAccess = paid;
+        if (isHd && !paid) {
+          hasAccess = await refreshPaidStatus();
+          if (!hasAccess) {
+            setPendingExport(mode);
+            setPaywallIntent("digital");
+            setPaywallOpen(true);
+            setCheckoutError(null);
+            track("paywall_view", {
+              visualMode: renderOptions.visualMode,
+              experiment: PAYWALL_COPY_EXPERIMENT,
+              variant: paywallVariant,
+            });
+            trackPaywallOpenedEvent("digital", "hd_export_gate");
+            if (typeof window !== "undefined") {
+              try {
+                localStorage.setItem(AUTO_EXPORT_KEY, mode);
+                if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
+              } catch {
+                // ignore storage errors (e.g. private browsing)
+              }
+            }
+            return;
+          }
+        }
         if (isHd) {
           const rendered = await renderExportFile("hd", true);
           const triggered = triggerDownload(rendered.blob, rendered.filename);

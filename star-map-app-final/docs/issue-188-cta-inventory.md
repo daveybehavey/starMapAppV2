@@ -46,3 +46,7 @@ At mobile 375 and desktop 1280, both **Unlock HD** and **Customize more** used s
 2. Customize more / Less options / Free preview / Share / Save & Remix: neutral secondary (`bg-white/10`).
 3. Print & frame remains amber-soft secondary (`data-cta-kind="print-purchase"`), not digital primary.
 4. When mobile customize drawer is open, only sticky Unlock HD carries `data-cta-priority="primary"`; in-flow purchase row is `inert`.
+
+## Related fix included
+
+Unpaid HD export opened the paywall via an early return that left `hdExportInFlight` stuck `true`, so a second Unlock HD click was a no-op. The in-flight flag now clears in `finally` so the dominant purchase CTA remains repeatable (handlers/analytics unchanged).
