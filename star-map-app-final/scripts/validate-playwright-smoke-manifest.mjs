@@ -38,6 +38,12 @@ function discoveryCommand(command) {
   return `npm run ${command} -- --list`;
 }
 
+function discoveredSpec(output, spec) {
+  const relativeSpec = spec.replace(/^tests\//, "");
+  const escapedSpec = relativeSpec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^\\s+${escapedSpec}:\\d+:\\d+\\s+›`, "m").test(output.replaceAll("\\", "/"));
+}
+
 function discover(root, suite) {
   const npm = process.platform === "win32" ? "npm.cmd" : "npm";
   const result = spawnSync(npm, ["run", "--silent", suite.command, "--", "--list", "--reporter=line"], {
@@ -56,10 +62,18 @@ function discover(root, suite) {
   const lastTotal = totals.at(-1);
   const tests = lastTotal ? Number(lastTotal[1]) : 0;
   const files = lastTotal ? Number(lastTotal[2]) : 0;
+  const zeroDiscoverySpecs = suite.specs.filter((spec) => !discoveredSpec(output, spec));
 
   if (result.error) {
     return {
       error: `could not run ${discoveryCommand(suite.command)}: ${result.error.message}`,
+      tests,
+      files,
+    };
+  }
+  if (zeroDiscoverySpecs.length > 0) {
+    return {
+      error: `"${suite.command}" spec "${zeroDiscoverySpecs[0]}" discovered 0 tests. Run: ${discoveryCommand(suite.command)}`,
       tests,
       files,
     };
