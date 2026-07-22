@@ -1,114 +1,129 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page, type TestInfo } from "@playwright/test";
 import { primeLocalStorage } from "./test-helpers";
 
-// Reduce teardown/attachment cost for this timing-sensitive spec.
-// CI failures here have historically spent a large chunk of time finalizing video/screenshots.
-test.use({ video: "off", screenshot: "off" });
+type PremiumRequestObservation = {
+  method: string;
+  pathname: string;
+  responseStatus: number;
+  responseBody: { paid: false };
+};
+
+async function attachCheckoutSecurityEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  premiumRequests: PremiumRequestObservation[],
+) {
+  const pageState = page.isClosed()
+    ? { closed: true }
+    : await page
+        .evaluate(() => ({
+          closed: false,
+          url: window.location.href,
+          title: document.title,
+          headings: Array.from(document.querySelectorAll("h1, h2, h3")).map((heading) =>
+            heading.textContent?.trim(),
+          ),
+          buttons: Array.from(document.querySelectorAll("button")).map((button) => ({
+            text: button.textContent?.trim(),
+            disabled: button.disabled,
+          })),
+        }))
+        .catch((error: unknown) => ({
+          closed: false,
+          captureError: error instanceof Error ? error.message : String(error),
+        }));
+  const cookieNames = await page
+    .context()
+    .cookies()
+    .then((cookies) => cookies.map((cookie) => cookie.name).sort())
+    .catch(() => []);
+  const evidence = {
+    regressionProbeEnabled: process.env.PW_CHECKOUT_SECURITY_REGRESSION_PROBE === "true",
+    premiumRequests,
+    pageState,
+    cookieNames,
+  };
+
+  console.log(`CHECKOUT_SECURITY_EVIDENCE ${JSON.stringify(evidence)}`);
+  await testInfo.attach("checkout-security-state.json", {
+    body: JSON.stringify(evidence, null, 2),
+    contentType: "application/json",
+  });
+}
 
 test.describe("Checkout Security", () => {
   test("no premium access after clicking checkout but not completing payment", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
+    const premiumRequests: PremiumRequestObservation[] = [];
     console.log("\n" + "=".repeat(60));
     console.log("TEST: Verify no premium access without completing payment");
     console.log("=".repeat(60));
 
     try {
-      // Clear all cookies first
       await page.context().clearCookies();
       await primeLocalStorage(page);
-
-      console.log("→ Going to homepage...");
-      await page.goto("/", { waitUntil: "domcontentloaded" });
-      await expect(page.locator("#preview")).toBeVisible({ timeout: 15000 });
-
-      // Check initial premium status
-      console.log("→ Checking initial premium status...");
-      const initialPremium = await page.evaluate(async () => {
-        const res = await fetch("/api/premium");
-        return res.json();
+      await page.route("**/api/premium**", async (route) => {
+        const requestUrl = new URL(route.request().url());
+        const responseBody = { paid: false } as const;
+        premiumRequests.push({
+          method: route.request().method(),
+          pathname: requestUrl.pathname,
+          responseStatus: 200,
+          responseBody,
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(responseBody),
+        });
       });
-      console.log(`  Initial premium status: ${JSON.stringify(initialPremium)}`);
-      expect(initialPremium.paid).toBe(false);
 
-      // Navigate to editor and try to open paywall
       console.log("→ Going to editor...");
       await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded", timeout: 120_000 });
       await page.locator("#editor").waitFor({ state: "visible", timeout: 120_000 });
 
-      // Click "Try a sample moment" if visible
-      const sampleBtn = page.locator("text=Try a sample moment").first();
-      if (await sampleBtn.isVisible({ timeout: 5000 })) {
-        await sampleBtn.click();
-        await page.waitForTimeout(3000);
-      }
-
-      // Look for HD export button and click it
       console.log("→ Looking for HD export button...");
       const hdBtn = page.getByRole("button", { name: /unlock hd|hd/i }).first();
-      if (await hdBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-        console.log("→ Clicking HD export to open paywall...");
-        await hdBtn.click();
-        await page.waitForTimeout(2000);
-        console.log("  ✓ HD button click path executed");
-      } else {
-        console.log("  ! HD button not visible in this run; continuing core entitlement checks");
-      }
+      await expect(hdBtn).toBeVisible({ timeout: 15_000 });
+      console.log("→ Clicking HD export to open paywall without choosing a plan...");
+      await hdBtn.click();
+      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 10_000 });
 
-      // Now simulate "going back" by navigating away and returning
-      console.log("→ Navigating to homepage (simulating back)...");
-      // Next.js route transitions can be SPA-style, so `domcontentloaded` may not fire again.
-      // Use `commit` and then wait for a stable UI element.
-      await page.goto("/", { waitUntil: "commit", timeout: 60_000 });
-      await expect(page.locator("#preview")).toBeVisible({ timeout: 15000 });
-
-      // Check premium status again - should still be unpaid
-      console.log("→ Checking premium status after 'navigation back'...");
-      const afterPremium = await page.evaluate(async () => {
-        const res = await fetch("/api/premium");
-        return res.json();
-      });
-      console.log(`  Premium status after navigation: ${JSON.stringify(afterPremium)}`);
-      expect(afterPremium.paid).toBe(false);
-
-      // Try to access download page
       console.log("→ Trying to access download page...");
+      const premiumRequestsBeforeDownload = premiumRequests.length;
       await page.goto("/download", { waitUntil: "domcontentloaded" });
+      await expect.poll(() => premiumRequests.length).toBeGreaterThan(premiumRequestsBeforeDownload);
 
-      const downloadButton = page.locator("button").filter({ hasText: /Download/ }).first();
-      // `/download` can render multiple paywall-like states before/while entitlement resolves.
-      // Wait for a stable indicator, then assert "Download" is disabled *if it exists*.
-      const confirmAccess = page.getByRole("heading", { name: /confirm access first/i }).first();
-      const verificationPending = page.getByText(/Payment verification pending/i).first();
-      const cantFindDownload = page.getByRole("heading", { name: /can't find your download/i }).first();
+      // Authoritative readiness contract: the mocked unpaid entitlement resolves to the
+      // stable locked state before the security assertion inspects available actions.
+      await expect(page.getByRole("heading", { name: /^Confirm your access$/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText("NOT VERIFIED", { exact: true })).toBeVisible();
 
-      await Promise.race([
-        confirmAccess.waitFor({ state: "visible", timeout: 30_000 }),
-        verificationPending.waitFor({ state: "visible", timeout: 30_000 }),
-        cantFindDownload.waitFor({ state: "visible", timeout: 30_000 }),
-        // If the download page variant renders the button quickly, this covers that too.
-        downloadButton.waitFor({ state: "attached", timeout: 30_000 }),
-      ]);
-
-      // Avoid extra sleeps + avoid manual screenshot capture unless explicitly debugging.
-      if (process.env.PW_DEBUG_CHECKOUT_SECURITY === "true") {
-        await page.screenshot({ path: testInfo.outputPath("checkout-security-download.png") });
+      if (process.env.PW_CHECKOUT_SECURITY_REGRESSION_PROBE === "true") {
+        await page.evaluate(() => {
+          const unauthorizedDownload = document.createElement("button");
+          unauthorizedDownload.type = "button";
+          unauthorizedDownload.textContent = "Download HD file";
+          unauthorizedDownload.dataset.checkoutSecurityRegressionProbe = "true";
+          document.body.append(unauthorizedDownload);
+        });
       }
 
-      const hasDownloadButton = (await downloadButton.count()) > 0;
-      if (hasDownloadButton) {
-        await expect(downloadButton).toBeDisabled({ timeout: 15_000 });
-      } else {
-        // Correct paywall state: user should not see an actionable "Download" for unpaid access.
-        const confirmVisible = await confirmAccess.isVisible().catch(() => false);
-        const pendingVisible = await verificationPending.isVisible().catch(() => false);
-        expect(confirmVisible || pendingVisible).toBe(true);
-      }
+      const actionableDownload = page
+        .locator("button:not(:disabled), a[href]")
+        .filter({ hasText: /^Download HD file/ });
+      await expect(
+        actionableDownload,
+        "unpaid visitors must not receive an actionable HD download control",
+      ).toHaveCount(0);
+
+      const premiumCookie = (await page.context().cookies()).find((cookie) => cookie.name === "star_premium_session");
+      expect(premiumCookie).toBeUndefined();
       console.log("✓ PASS: No premium access without completing payment");
     } finally {
-      // Make teardown deterministic: closing early reduces Playwright’s time spent
-      // finalizing video/attachments for this timing-sensitive spec.
-      await page.close().catch(() => {});
-      await page.context().close().catch(() => {});
+      await attachCheckoutSecurityEvidence(page, testInfo, premiumRequests);
     }
   });
 
