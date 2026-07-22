@@ -39,9 +39,12 @@ function discoveryCommand(command) {
 }
 
 function discoveredSpec(output, spec) {
-  const relativeSpec = spec.replace(/^tests\//, "");
-  const escapedSpec = relativeSpec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^\\s+${escapedSpec}:\\d+:\\d+\\s+›`, "m").test(output.replaceAll("\\", "/"));
+  const displayedPaths = new Set([spec, spec.replace(/^tests\//, "")]);
+  const normalizedOutput = output.replaceAll("\\", "/");
+  return [...displayedPaths].some((displayedPath) => {
+    const escapedPath = displayedPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`^\\s+${escapedPath}:\\d+:\\d+\\s+›`, "m").test(normalizedOutput);
+  });
 }
 
 function discover(root, suite) {
