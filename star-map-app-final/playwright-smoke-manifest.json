@@ -14,7 +14,8 @@
         "tests/checkout-security.spec.ts",
         "tests/api-route-regressions.spec.ts",
         "tests/map-hub-editor.spec.ts",
-        "tests/editor-draft-recovery.spec.ts"
+        "tests/editor-draft-recovery.spec.ts",
+        "tests/error-handling.spec.ts"
       ]
     },
     {
