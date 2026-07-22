@@ -87,7 +87,7 @@ test.describe("API route regressions", () => {
     const response = await fetchLocalApi(request, baseURL ?? TEST_ORIGIN, "/api/maps", testInfo, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      data: "{",
+      data: Buffer.from("{", "utf8"),
     });
 
     expect(response.status()).toBe(400);
