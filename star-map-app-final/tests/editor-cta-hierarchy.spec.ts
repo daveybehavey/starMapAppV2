@@ -152,7 +152,10 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
 
         // Only one active primary digital purchase marker in the page.
         expect(await countActivePrimaryDigital(page)).toBe(1);
-        await expect(page.getByTestId("mobile-unlock-hd")).not.toHaveAttribute("data-cta-priority", "primary");
+        await expect(page.getByTestId("mobile-unlock-hd")).not.toHaveAttribute(
+          "data-cta-priority",
+          "primary"
+        );
 
         // Accessible names + Less → Unlock order preserved (#180).
         await expect(stickyLess).toHaveAccessibleName(/Less options/i);
@@ -224,7 +227,10 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
     await expect(primary).toHaveAttribute("data-cta-priority", "primary");
     await expect(primary).toContainText(/HD download/i);
     expect(await countActivePrimaryDigital(page)).toBe(1);
-    await expect(page.getByTestId("desktop-customize-more")).toHaveAttribute("data-cta-priority", "secondary");
+    await expect(page.getByTestId("desktop-customize-more")).toHaveAttribute(
+      "data-cta-priority",
+      "secondary"
+    );
     await context.close();
   });
 

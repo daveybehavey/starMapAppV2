@@ -14,24 +14,24 @@ At mobile 375 and desktop 1280, both **Unlock HD** and **Customize more** used s
 
 ### Mobile post-preview (in-flow)
 
-| Order | Label | Treatment (before) | Handler / outcome | Sticky duplicate |
-| --- | --- | --- | --- | --- |
-| 1 | Free preview | neutral secondary | `onExport("preview")` | no |
-| 2 | Unlock HD | **primary gold** | `onExport("hd")` → paywall when unpaid | yes, when Customize more opens (`mobile-sticky-unlock-hd`) |
-| 3 | Customize more | **primary gold (competes)** | toggles advanced drawer | Less options in sticky bar |
-| 4 | Share | neutral secondary | `onShareImage` | no |
-| — | Save & Remix | neutral secondary (when advanced open) | `onShare` | no |
+| Order | Label          | Treatment (before)                     | Handler / outcome                      | Sticky duplicate                                           |
+| ----- | -------------- | -------------------------------------- | -------------------------------------- | ---------------------------------------------------------- |
+| 1     | Free preview   | neutral secondary                      | `onExport("preview")`                  | no                                                         |
+| 2     | Unlock HD      | **primary gold**                       | `onExport("hd")` → paywall when unpaid | yes, when Customize more opens (`mobile-sticky-unlock-hd`) |
+| 3     | Customize more | **primary gold (competes)**            | toggles advanced drawer                | Less options in sticky bar                                 |
+| 4     | Share          | neutral secondary                      | `onShareImage`                         | no                                                         |
+| —     | Save & Remix   | neutral secondary (when advanced open) | `onShare`                              | no                                                         |
 
 ### Desktop post-preview
 
-| Order | Label | Treatment (before) | Handler / outcome |
-| --- | --- | --- | --- |
-| 1 | Free preview | neutral secondary | `handleExport("preview")` |
-| 2 | Unlock HD | **primary gold** | `handleExport("hd")` |
-| 3 | Print & frame | amber-soft secondary (when print enabled) | opens print paywall intent |
-| 4 | Customize more | **primary gold (competes)** | `handleCustomizeMore` |
-| 5 | Share | neutral secondary | `handleShareImage` |
-| 6 | Save & Remix | neutral secondary (after customize) | `handleShare` |
+| Order | Label          | Treatment (before)                        | Handler / outcome          |
+| ----- | -------------- | ----------------------------------------- | -------------------------- |
+| 1     | Free preview   | neutral secondary                         | `handleExport("preview")`  |
+| 2     | Unlock HD      | **primary gold**                          | `handleExport("hd")`       |
+| 3     | Print & frame  | amber-soft secondary (when print enabled) | opens print paywall intent |
+| 4     | Customize more | **primary gold (competes)**               | `handleCustomizeMore`      |
+| 5     | Share          | neutral secondary                         | `handleShareImage`         |
+| 6     | Save & Remix   | neutral secondary (after customize)       | `handleShare`              |
 
 ## Evidence
 
