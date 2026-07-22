@@ -92,5 +92,6 @@ Server MP logs `GA4 Measurement Protocol skipped: missing NEXT_PUBLIC_GA_ID or G
 
 ## Related
 
+- `docs/COMMERCIAL_METRIC_DICTIONARY.md` — commercial metric definitions, reconciliation matrix, and #173 Phase 1 measurement contract
 - `docs/PURCHASE_FUNNEL_AUDIT.md` — access/checkout P0–P2
 - `docs/ADS_RELAUNCH_SETUP.md` — Ads ↔ GA4 import
