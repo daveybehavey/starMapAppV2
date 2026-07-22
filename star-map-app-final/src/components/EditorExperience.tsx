@@ -2330,7 +2330,7 @@ export function EditorExperience({
                                       ? "Generate preview"
                                       : previewUnlockButtonLabel
                                 }
-                                className={`text-midnight focus:ring-gold inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
+                                className={`text-midnight inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
                                   canReveal && !isRevealing
                                     ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
                                     : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
