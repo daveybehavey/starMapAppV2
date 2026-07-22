@@ -4,13 +4,13 @@ How paid conversions are recorded across GA4, PostHog, internal funnel counters,
 
 ## Source of truth
 
-| Layer | Primary trigger | Dedupe key |
-| --- | --- | --- |
-| **Entitlements** | Stripe `checkout.session.completed` webhook | `stripe:session:{id}` in KV |
-| **GA4 `purchase` (server)** | `recordPaymentVerifiedOnce` → `recordGa4PurchaseOnce` (webhook or `/api/stripe/verify`) | KV `ga4:mp:purchase:{session_id}` |
-| **GA4 `purchase` (browser)** | `/success` → `trackPurchaseCompleted` when server MP is **off** or **$0** paid total | `sessionStorage` `ga4:purchase:{session_id}` |
-| **PostHog `purchase`** | Client on `/success` (always when consent; never duplicates GA4 when `NEXT_PUBLIC_GA4_SERVER_PURCHASES=true` for paid orders) | Same sessionStorage key as client GA4 |
-| **Internal funnel `payment_verified`** | Same as GA4 server path | KV `funnel:payment_verified:session:{id}` |
+| Layer                                  | Primary trigger                                                                                                               | Dedupe key                                   |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **Entitlements**                       | Stripe `checkout.session.completed` webhook                                                                                   | `stripe:session:{id}` in KV                  |
+| **GA4 `purchase` (server)**            | `recordPaymentVerifiedOnce` → `recordGa4PurchaseOnce` (webhook or `/api/stripe/verify`)                                       | KV `ga4:mp:purchase:{session_id}`            |
+| **GA4 `purchase` (browser)**           | `/success` → `trackPurchaseCompleted` when server MP is **off** or **$0** paid total                                          | `sessionStorage` `ga4:purchase:{session_id}` |
+| **PostHog `purchase`**                 | Client on `/success` (always when consent; never duplicates GA4 when `NEXT_PUBLIC_GA4_SERVER_PURCHASES=true` for paid orders) | Same sessionStorage key as client GA4        |
+| **Internal funnel `payment_verified`** | Same as GA4 server path                                                                                                       | KV `funnel:payment_verified:session:{id}`    |
 
 Webhook is authoritative for entitlements. GA4 Measurement Protocol runs on first successful `recordPaymentVerifiedOnce` (webhook or verify, whichever wins dedupe). Client GA4 is suppressed for **paid** checkouts when `NEXT_PUBLIC_GA4_SERVER_PURCHASES=true` (see `wrangler.toml`); **$0** promos still fire browser `purchase` so free conversions appear in Realtime.
 
@@ -18,22 +18,22 @@ Webhook is authoritative for entitlements. GA4 Measurement Protocol runs on firs
 
 ### GA4 (Realtime → Events)
 
-| Event | When |
-| --- | --- |
-| `begin_checkout` | Paywall / editor handoff (`trackBeginCheckout`) |
-| `purchase` | Paid conversion (server MP and/or browser per rules above) |
-| `page_view` | SPA navigations with consent |
+| Event            | When                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| `begin_checkout` | Paywall / editor handoff (`trackBeginCheckout`)            |
+| `purchase`       | Paid conversion (server MP and/or browser per rules above) |
+| `page_view`      | SPA navigations with consent                               |
 
 Imported to Google Ads as **Purchase** — event name must stay `purchase` (see `docs/ADS_RELAUNCH_SETUP.md`).
 
 ### PostHog
 
-| Event | Properties |
-| --- | --- |
-| `checkout_started` | `value`, `currency`, `order_type`, `plan`, `print_variant`, `source` |
-| `purchase` | `transaction_id`, `revenue`, `value`, `currency`, `order_type`, … |
+| Event              | Properties                                                                        |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `checkout_started` | `value`, `currency`, `order_type`, `plan`, `print_variant`, `source`              |
+| `purchase`         | `transaction_id`, `revenue`, `value`, `currency`, `order_type`, …                 |
 | `purchase_success` | Legacy success-page signal (`isPaid`, `orderType`) — keep for existing dashboards |
-| `funnel_step` | Internal step names from `funnelSteps.ts` |
+| `funnel_step`      | Internal step names from `funnelSteps.ts`                                         |
 
 Enable **Revenue analytics** on the `purchase` event using the `revenue` property.
 
@@ -57,13 +57,13 @@ Referral-program fields (`referral_*`) still require a referral code.
 
 ## Env vars (no secrets in docs)
 
-| Variable | Role |
-| --- | --- |
-| `NEXT_PUBLIC_GA_ID` | GA4 measurement ID (browser + MP) |
-| `GA4_API_SECRET` | Measurement Protocol (Wrangler secret) |
-| `NEXT_PUBLIC_GA4_SERVER_PURCHASES` | `true` → paid purchases server-primary |
-| `NEXT_PUBLIC_POSTHOG_KEY` | Browser PostHog |
-| `FUNNEL_DASHBOARD_TOKEN` | Optional auth for `GET /api/analytics/funnel` |
+| Variable                           | Role                                          |
+| ---------------------------------- | --------------------------------------------- |
+| `NEXT_PUBLIC_GA_ID`                | GA4 measurement ID (browser + MP)             |
+| `GA4_API_SECRET`                   | Measurement Protocol (Wrangler secret)        |
+| `NEXT_PUBLIC_GA4_SERVER_PURCHASES` | `true` → paid purchases server-primary        |
+| `NEXT_PUBLIC_POSTHOG_KEY`          | Browser PostHog                               |
+| `FUNNEL_DASHBOARD_TOKEN`           | Optional auth for `GET /api/analytics/funnel` |
 
 Missing GA4/PostHog keys: checkout and webhooks **still succeed**; analytics calls no-op with console warn (MP only).
 
@@ -80,13 +80,13 @@ If the customer completes checkout before choosing **Allow** on the cookie banne
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| Internal funnel shows paid, GA4 shows 0–1 `purchase` | Missing/wrong `GA4_API_SECRET` on Worker | `npx wrangler secret list`; set secret; `npm run qa:ga4-mp-probe` locally |
-| GA4 Realtime empty after $0 promo | Browser `purchase` only with **analytics consent** | Accept cookies on site; or rely on server MP (uses catalog value when total is $0) |
-| `npm run qa:live-conversion` but no GA4 spike | Expected — `qa_run` metadata excludes QA | Use **manual** checkout to validate Realtime |
-| PostHog has no `purchase` | Consent off | `localStorage.setItem('analytics-consent','true')` or accept banner |
-| Ads shows clicks, GA4 shows 0 `google/cpc` purchases | Import/linking/UTM | `docs/ADS_RELAUNCH_SETUP.md`, `docs/TIER0_VALIDATION.md` |
+| Symptom                                              | Likely cause                                       | Fix                                                                                |
+| ---------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Internal funnel shows paid, GA4 shows 0–1 `purchase` | Missing/wrong `GA4_API_SECRET` on Worker           | `npx wrangler secret list`; set secret; `npm run qa:ga4-mp-probe` locally          |
+| GA4 Realtime empty after $0 promo                    | Browser `purchase` only with **analytics consent** | Accept cookies on site; or rely on server MP (uses catalog value when total is $0) |
+| `npm run qa:live-conversion` but no GA4 spike        | Expected — `qa_run` metadata excludes QA           | Use **manual** checkout to validate Realtime                                       |
+| PostHog has no `purchase`                            | Consent off                                        | `localStorage.setItem('analytics-consent','true')` or accept banner                |
+| Ads shows clicks, GA4 shows 0 `google/cpc` purchases | Import/linking/UTM                                 | `docs/ADS_RELAUNCH_SETUP.md`, `docs/TIER0_VALIDATION.md`                           |
 
 Server MP logs `GA4 Measurement Protocol skipped: missing NEXT_PUBLIC_GA_ID or GA4_API_SECRET` when misconfigured — checkout still completes.
 
