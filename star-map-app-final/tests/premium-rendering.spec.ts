@@ -116,7 +116,7 @@ test.describe("Premium Rendering Features", () => {
   test("constellation lines render correctly", async ({ page }, testInfo) => {
     await setupWithSampleMoment(page);
     const preview = await waitForMapCanvasReady(page);
-    const canvas = preview.locator("canvas").last();
+    const canvas = preview.locator("canvas").first();
     const advancedPanel = await openAdvancedPanel(page);
     const constellationControls = advancedPanel.getByText("Constellations", { exact: true }).locator("..").locator("..");
     const lineOptions = ["Off", "Thin", "Bold"] as const;
@@ -139,7 +139,7 @@ test.describe("Premium Rendering Features", () => {
   test("visual mode selector affects rendering", async ({ page }, testInfo) => {
     await setupWithSampleMoment(page);
     const preview = await waitForMapCanvasReady(page);
-    const canvas = preview.locator("canvas").last();
+    const canvas = preview.locator("canvas").first();
     const advancedPanel = await openAdvancedPanel(page);
     const visualModeControls = advancedPanel.getByText("Visual Mode", { exact: true }).locator("..");
     const visualModes = ["Astronomical", "Enhanced", "Illustrated"] as const;
