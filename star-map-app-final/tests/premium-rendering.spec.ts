@@ -22,7 +22,7 @@ const openAdvancedPanel = async (page: Page) => {
 
   const advancedLabel = page.getByText("Advanced controls", { exact: true });
   await expect(advancedLabel).toBeVisible({ timeout: 15_000 });
-  return advancedLabel.locator("..").locator("..");
+  return advancedToggle.locator("..");
 };
 
 const readCanvasSignature = (canvas: Locator) =>
