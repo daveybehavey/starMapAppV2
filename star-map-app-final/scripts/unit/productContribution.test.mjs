@@ -725,11 +725,94 @@ test("Codex regression: print rows reject non-single plans regardless of include
         assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
         assert.doesNotMatch(io.getStdout() + io.getStderr(), /cs_/);
         assert.doesNotMatch(io.getStdout() + io.getStderr(), /@/);
+        // Rejected plan value must never appear in operator output.
+        assert.doesNotMatch(io.getStdout() + io.getStderr(), new RegExp(plan, "i"));
         assert.match(io.getStderr(), /unsupported plan|Product contribution failed/);
       } finally {
         fs.unlinkSync(tmp);
       }
     }
+  }
+});
+
+test("Codex regression: unsupported print plan errors never echo the rejected value", () => {
+  // Distinctive sensitive-looking + log-injection style plan — must fail closed without leakage.
+  const toxicPlan =
+    "pack3\nAuthorization: Bearer sk_live_fake_token_do_not_leak\nalice.buyer@example.com\rcs_test_leakprobe";
+
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 10600,
+          order_type: "print",
+          print_variant: "poster_framed",
+          plan: toxicPlan,
+          include_digital: true,
+          shipping_country: "US",
+        },
+        7
+      ),
+    (err) => {
+      assert.match(String(err?.message ?? ""), /records\[7\]: print order_type has unsupported plan/);
+      assert.doesNotMatch(String(err?.message ?? ""), /sk_live_fake_token_do_not_leak/);
+      assert.doesNotMatch(String(err?.message ?? ""), /alice\.buyer@example\.com/);
+      assert.doesNotMatch(String(err?.message ?? ""), /cs_test_leakprobe/);
+      assert.doesNotMatch(String(err?.message ?? ""), /Authorization/);
+      assert.doesNotMatch(String(err?.message ?? ""), /Bearer/);
+      assert.doesNotMatch(String(err?.message ?? ""), /pack3/);
+      return true;
+    }
+  );
+
+  const io = createIo();
+  const tmp = path.join(path.dirname(FIXTURE_PATH), `.toxic-print-plan-${process.pid}.json`);
+  fs.writeFileSync(
+    tmp,
+    JSON.stringify({
+      schema_version: 1,
+      records: [
+        {
+          currency: "usd",
+          amount_total: 10600,
+          order_type: "print",
+          print_variant: "poster_framed",
+          plan: toxicPlan,
+          include_digital: false,
+          shipping_country: "US",
+        },
+        {
+          currency: "usd",
+          amount_total: 2900,
+          order_type: "digital",
+          plan: "single",
+        },
+      ],
+    })
+  );
+  try {
+    const code = runProductContribution({
+      argv: ["--input", tmp, "--format", "json"],
+      stdout: io.stdout,
+      stderr: io.stderr,
+      env: {},
+    });
+    assert.equal(code, 1);
+    assert.equal(io.getStdout().trim(), "");
+    assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+    assert.doesNotMatch(io.getStdout(), /print:poster_framed/);
+    assert.doesNotMatch(io.getStdout(), /digital:single/);
+    const combined = io.getStdout() + io.getStderr();
+    assert.doesNotMatch(combined, /sk_live_fake_token_do_not_leak/);
+    assert.doesNotMatch(combined, /alice\.buyer@example\.com/);
+    assert.doesNotMatch(combined, /cs_test_leakprobe/);
+    assert.doesNotMatch(combined, /Authorization:\s*Bearer/);
+    assert.doesNotMatch(combined, /pack3/);
+    assert.match(io.getStderr(), /unsupported plan|Product contribution failed/);
+    assert.equal(containsSensitiveOperatorText(combined), false);
+  } finally {
+    fs.unlinkSync(tmp);
   }
 });
 

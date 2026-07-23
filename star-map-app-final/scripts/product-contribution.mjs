@@ -666,7 +666,9 @@ export function sanitizeRecord(raw, index) {
     // Print checkout may set plan=single with the HD add-on; pack3/subscription (or any
     // other nonblank plan) on print is an impossible metadata combination — fail closed
     // regardless of include_digital / include_card.
-    throw new Error(`records[${index}]: print order_type has unsupported plan "${plan}"`);
+    // Field/category only — never interpolate the rejected plan value (under-sanitized
+    // exports may embed PII, tokens, or log-injection text in that field).
+    throw new Error(`records[${index}]: print order_type has unsupported plan`);
   }
   // Checkout only sets print_include_card when print + poster_framed + !digital add-on.
   if (includeCard) {
