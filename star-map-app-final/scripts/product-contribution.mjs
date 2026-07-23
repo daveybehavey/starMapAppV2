@@ -75,7 +75,7 @@ export const CHECKOUT_ADDON_ALIAS_NORMALIZED = Object.freeze({
 
 /**
  * Stripe checkout metadata alias for canonical shipping_country.
- * Checkout writes `metadata.print_shipping_country` (see checkout route).
+ * Checkout writes `metadata.print_shipping_country` on paid print sessions (see checkout route).
  */
 export const CHECKOUT_SHIPPING_ALIAS_NORMALIZED = Object.freeze({
   shipping_country: "print_shipping_country",
