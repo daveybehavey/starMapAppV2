@@ -921,6 +921,96 @@ test("Codex regression: print_merch_* markers fail closed and never contribute a
   assert.ok(usd.groups.some((g) => g.group_key === "digital:single"));
 });
 
+test("Codex regression: printMerchant* context keys are not treated as print_merch markers", () => {
+  // Pre-fix bug: /^printmerch/.test(lower) matched printMerchantCountry → unsupported merch.
+  const unrelatedMerchantKeys = [
+    "printMerchantCountry",
+    "printMerchantLabel",
+    "printMerchantId",
+    "PrintMerchantProcessor",
+  ];
+
+  for (const field of unrelatedMerchantKeys) {
+    assert.equal(isUnsupportedMerchFieldKey(field), false, field);
+    assert.equal(isSensitiveRecordFieldKey(field), false, field);
+    // Normalized form is print_merchant_*, not print_merch_*.
+    assert.match(normalizeRecordFieldKey(field), /^print_merchant/);
+    assert.doesNotMatch(normalizeRecordFieldKey(field), /^print_merch(_|$)/);
+
+    const { record, warnings } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+        [field]: "merchant_context_must_not_fail_as_merch",
+      },
+      0
+    );
+    assert.equal(record.order_type, "digital");
+    assert.equal(record.plan, "single");
+    assert.ok(
+      warnings.some((w) => w.includes(`stripped unknown field "${field}"`)),
+      `expected unknown-field strip warning for ${field}`
+    );
+  }
+
+  // Real merch markers still fail closed (including PascalCase).
+  for (const field of ["print_merch_family", "printMerchFamily", "PrintMerchCatalogVariantId"]) {
+    assert.equal(isUnsupportedMerchFieldKey(field), true, field);
+    assert.throws(
+      () =>
+        sanitizeRecord(
+          {
+            currency: "usd",
+            amount_total: 2500,
+            order_type: "print",
+            print_variant: "poster_framed",
+            shipping_country: "US",
+            [field]: "MERCH_VALUE_MUST_NOT_LEAK",
+          },
+          0
+        ),
+      /unsupported merch|merch contribution/
+    );
+  }
+
+  // CLI: unrelated merchant key strips; report still aggregates; no value leakage.
+  const io = createIo();
+  const doc = {
+    schema_version: 1,
+    records: [
+      {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+        printMerchantCountry: "US_MERCHANT_CONTEXT_SECRET",
+      },
+    ],
+  };
+  const tmp = path.join(path.dirname(FIXTURE_PATH), `.merchant-context-${process.pid}.json`);
+  fs.writeFileSync(tmp, JSON.stringify(doc));
+  try {
+    const code = runProductContribution({
+      argv: ["--input", tmp, "--format", "json"],
+      stdout: io.stdout,
+      stderr: io.stderr,
+      env: {},
+    });
+    assert.equal(code, 0, io.getStderr());
+    assert.match(io.getStderr(), /stripped unknown field "printMerchantCountry"/);
+    assert.doesNotMatch(io.getStderr(), /unsupported merch/);
+    const parsed = JSON.parse(io.getStdout());
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.currency_sections[0].groups[0].group_key, "digital:single");
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /US_MERCHANT_CONTEXT_SECRET/);
+    assert.doesNotMatch(io.getStdout() + io.getStderr(), /MERCH_VALUE_MUST_NOT_LEAK/);
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+});
+
 test("invalid JSON exits nonzero", () => {
   const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-json-${process.pid}.json`);
   fs.writeFileSync(tmp, "{ not json");

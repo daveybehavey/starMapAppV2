@@ -217,8 +217,10 @@ export function isUnsupportedMerchFieldKey(key) {
     return true;
   }
 
-  // Any print_merch_* marker (snake or camel PrintMerch*) distinguishes merch from print SKUs.
-  return /^print_merch(_|$)/.test(normalized) || /^printmerch/.test(lower);
+  // Any print_merch_* marker after camelCase→snake normalization.
+  // Do NOT match raw lowercase `printmerch…` — that incorrectly treats unrelated
+  // merchant/processor keys like printMerchantCountry as merch.
+  return /^print_merch(_|$)/.test(normalized);
 }
 
 const GENERIC_OPERATOR_FAILURE =
