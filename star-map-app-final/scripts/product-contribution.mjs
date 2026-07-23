@@ -74,6 +74,14 @@ export const CHECKOUT_ADDON_ALIAS_NORMALIZED = Object.freeze({
 });
 
 /**
+ * Stripe checkout metadata alias for canonical shipping_country.
+ * Checkout writes `metadata.print_shipping_country` (see checkout route).
+ */
+export const CHECKOUT_SHIPPING_ALIAS_NORMALIZED = Object.freeze({
+  shipping_country: "print_shipping_country",
+});
+
+/**
  * @param {string} key
  */
 export function isCheckoutAddonAliasKey(key) {
@@ -83,6 +91,22 @@ export function isCheckoutAddonAliasKey(key) {
     normalized === CHECKOUT_ADDON_ALIAS_NORMALIZED.include_digital ||
     normalized === CHECKOUT_ADDON_ALIAS_NORMALIZED.include_card
   );
+}
+
+/**
+ * @param {string} key
+ */
+export function isCheckoutShippingAliasKey(key) {
+  if (typeof key !== "string" || !key) return false;
+  return normalizeRecordFieldKey(key) === CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_country;
+}
+
+/**
+ * Any documented Stripe checkout metadata alias that must not be stripped as unknown.
+ * @param {string} key
+ */
+export function isCheckoutMetadataAliasKey(key) {
+  return isCheckoutAddonAliasKey(key) || isCheckoutShippingAliasKey(key);
 }
 
 /**
@@ -150,6 +174,54 @@ export function resolveCanonicalBoolWithAlias(raw, index, canonicalKey, aliasNor
         ? canonicalKey
         : aliasNormalizedKey;
     return parseStrictIncludeBool(entry.value, index, label);
+  });
+  const first = parsed[0];
+  if (parsed.some((value) => value !== first)) {
+    throw new Error(`records[${index}]: conflicting values for ${canonicalKey} and ${aliasNormalizedKey}`);
+  }
+  return first;
+}
+
+/**
+ * Normalize a shipping-country field value (ISO-2 after trim/upper).
+ * Errors name the field only — never echo the input value.
+ * @param {unknown} value
+ * @param {number} index
+ * @param {string} fieldLabel
+ */
+export function normalizeShippingCountryValue(value, index, fieldLabel) {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string" || typeof value === "number") {
+    const normalized = String(value).trim().toUpperCase();
+    return normalized || null;
+  }
+  throw new Error(`records[${index}]: invalid value for ${fieldLabel}`);
+}
+
+/**
+ * Resolve canonical shipping_country from the canonical key and/or checkout alias
+ * `print_shipping_country` (snake/camel/Pascal). Matching values succeed; conflicts fail closed.
+ * @param {Record<string, unknown>} raw
+ * @param {number} index
+ */
+export function resolveCanonicalShippingCountryWithAlias(raw, index) {
+  const canonicalKey = "shipping_country";
+  const aliasNormalizedKey = CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_country;
+  /** @type {{ key: string; value: unknown }[]} */
+  const present = [];
+  for (const key of Object.keys(raw)) {
+    if (key === canonicalKey || normalizeRecordFieldKey(key) === aliasNormalizedKey) {
+      present.push({ key, value: raw[key] });
+    }
+  }
+  if (present.length === 0) return null;
+
+  const parsed = present.map((entry) => {
+    const label =
+      entry.key === canonicalKey || normalizeRecordFieldKey(entry.key) === canonicalKey
+        ? canonicalKey
+        : aliasNormalizedKey;
+    return normalizeShippingCountryValue(entry.value, index, label);
   });
   const first = parsed[0];
   if (parsed.some((value) => value !== first)) {
@@ -496,8 +568,8 @@ export function sanitizeRecord(raw, index) {
         `records[${index}] contains unsupported merch field "${key}" (merch contribution model not supported; rejected)`
       );
     }
-    // Checkout add-on aliases are normalized below — never strip as unknown.
-    if (ALLOWED_RECORD_FIELD_SET.has(key) || isCheckoutAddonAliasKey(key)) {
+    // Checkout metadata aliases are normalized below — never strip as unknown.
+    if (ALLOWED_RECORD_FIELD_SET.has(key) || isCheckoutMetadataAliasKey(key)) {
       continue;
     }
     warnings.push(`records[${index}]: stripped unknown field "${key}"`);
@@ -562,10 +634,7 @@ export function sanitizeRecord(raw, index) {
     }
   }
 
-  const shippingCountry =
-    raw.shipping_country === undefined || raw.shipping_country === null
-      ? null
-      : String(raw.shipping_country).trim().toUpperCase() || null;
+  const shippingCountry = resolveCanonicalShippingCountryWithAlias(raw, index);
 
   const record = {
     paid_at: raw.paid_at === undefined || raw.paid_at === null ? null : String(raw.paid_at),

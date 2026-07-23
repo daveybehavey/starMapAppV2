@@ -14,6 +14,7 @@ import {
 } from "../lib/commerceCostEstimates.mjs";
 import {
   CHECKOUT_ADDON_ALIAS_NORMALIZED,
+  CHECKOUT_SHIPPING_ALIAS_NORMALIZED,
   PRODUCT_CONTRIBUTION_CONTRACT,
   SENSITIVE_RECORD_FIELDS,
   UNSUPPORTED_MERCH_RECORD_FIELDS,
@@ -26,12 +27,15 @@ import {
   formatJsonReport,
   formatTableReport,
   isCheckoutAddonAliasKey,
+  isCheckoutMetadataAliasKey,
+  isCheckoutShippingAliasKey,
   isSensitiveRecordFieldKey,
   isUnsupportedMerchFieldKey,
   normalizeRecordFieldKey,
   parseArgs,
   parseSanitizedDocument,
   resolveCanonicalBoolWithAlias,
+  resolveCanonicalShippingCountryWithAlias,
   runProductContribution,
   sanitizeRecord,
   parseStrictIncludeBool,
@@ -1534,6 +1538,210 @@ test("Codex regression: malformed include flag values fail closed (never coerce 
       assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
     } finally {
       fs.unlinkSync(tmp);
+    }
+  }
+});
+
+test("Codex regression: preserve Stripe print_shipping_country alias before stripping", () => {
+  assert.equal(CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_country, "print_shipping_country");
+  for (const key of ["print_shipping_country", "printShippingCountry", "PrintShippingCountry"]) {
+    assert.equal(isCheckoutShippingAliasKey(key), true, key);
+    assert.equal(isCheckoutMetadataAliasKey(key), true, key);
+    assert.equal(isSensitiveRecordFieldKey(key), false, key);
+    assert.equal(isCheckoutAddonAliasKey(key), false, key);
+  }
+
+  const canonicalBase = {
+    currency: "usd",
+    amount_total: 9900,
+    order_type: "print",
+    print_variant: "poster_framed",
+    shipping_country: "US",
+  };
+  const { record: canonicalRecord } = sanitizeRecord(canonicalBase, 0);
+  const feeConfig = getStripeFeeConfig({});
+  const canonicalEstimate = estimateRecordContribution(canonicalRecord, feeConfig, {});
+  assert.equal(canonicalEstimate.resolved, true);
+  assert.ok(canonicalEstimate.shippingCostCents > 0);
+  assert.equal(canonicalEstimate.unresolvedReason, null);
+
+  // Positive: alias-only snake_case resolves identically to canonical
+  {
+    const { record, warnings } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 9900,
+        order_type: "print",
+        print_variant: "poster_framed",
+        print_shipping_country: "US",
+      },
+      0
+    );
+    assert.equal(record.shipping_country, "US");
+    assert.equal(
+      warnings.some((w) => w.includes("print_shipping_country")),
+      false,
+      "alias must not be stripped as unknown"
+    );
+    const estimate = estimateRecordContribution(record, feeConfig, {});
+    assert.equal(estimate.resolved, true);
+    assert.equal(estimate.shippingCostCents, canonicalEstimate.shippingCostCents);
+    assert.equal(estimate.contributionCents, canonicalEstimate.contributionCents);
+    assert.equal(classifyProductGroup(record).groupKey, "print:poster_framed");
+  }
+
+  // Positive: camelCase / PascalCase aliases
+  for (const key of ["printShippingCountry", "PrintShippingCountry"]) {
+    const { record, warnings } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 9900,
+        order_type: "print",
+        print_variant: "poster_framed",
+        [key]: "us",
+      },
+      0
+    );
+    assert.equal(record.shipping_country, "US", key);
+    assert.equal(
+      warnings.some((w) => w.toLowerCase().includes("printshippingcountry")),
+      false,
+      key
+    );
+    const estimate = estimateRecordContribution(record, feeConfig, {});
+    assert.equal(estimate.contributionCents, canonicalEstimate.contributionCents, key);
+  }
+
+  // Positive: matching canonical + alias (case-insensitive after normalize)
+  {
+    assert.equal(
+      resolveCanonicalShippingCountryWithAlias(
+        { shipping_country: "US", printShippingCountry: "us" },
+        0
+      ),
+      "US"
+    );
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 9900,
+        order_type: "print",
+        print_variant: "poster_framed",
+        shipping_country: "US",
+        print_shipping_country: "US",
+      },
+      0
+    );
+    assert.equal(record.shipping_country, "US");
+    assert.equal(
+      estimateRecordContribution(record, feeConfig, {}).contributionCents,
+      canonicalEstimate.contributionCents
+    );
+  }
+
+  // Negative: conflicting canonical + alias fails closed
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 9900,
+          order_type: "print",
+          print_variant: "poster_framed",
+          shipping_country: "US",
+          print_shipping_country: "CA",
+        },
+        0
+      ),
+    /conflicting values for shipping_country and print_shipping_country/
+  );
+  assert.throws(
+    () =>
+      resolveCanonicalShippingCountryWithAlias(
+        { shipping_country: "US", print_shipping_country: "GB" },
+        4
+      ),
+    /records\[4\]: conflicting values for shipping_country and print_shipping_country/
+  );
+
+  // CLI positive: alias-only contributes (not missing_shipping_country)
+  {
+    const io = createIo();
+    const tmpOk = path.join(path.dirname(FIXTURE_PATH), `.ship-alias-ok-${process.pid}.json`);
+    fs.writeFileSync(
+      tmpOk,
+      JSON.stringify({
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 9900,
+            order_type: "print",
+            print_variant: "poster_framed",
+            print_shipping_country: "US",
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmpOk, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 0, io.getStderr());
+      const parsed = JSON.parse(io.getStdout());
+      const section = parsed.currency_sections[0];
+      assert.equal(section.unresolved_count, 0);
+      const framed = section.groups.find((g) => g.group_key === "print:poster_framed");
+      assert.ok(framed);
+      assert.equal(framed.paid_order_count, 1);
+      assert.equal(framed.unresolved_count, 0);
+      assert.equal(framed.estimated_pre_fixed_cost_contribution_cents, canonicalEstimate.contributionCents);
+    } finally {
+      fs.unlinkSync(tmpOk);
+    }
+  }
+
+  // CLI negative: conflict → nonzero, empty stdout, no leakage of country codes as conflict payload
+  {
+    const io = createIo();
+    const tmpBad = path.join(path.dirname(FIXTURE_PATH), `.ship-alias-conflict-${process.pid}.json`);
+    fs.writeFileSync(
+      tmpBad,
+      JSON.stringify({
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 9900,
+            order_type: "print",
+            print_variant: "poster_framed",
+            shipping_country: "US",
+            print_shipping_country: "CA",
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmpBad, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1);
+      assert.equal(io.getStdout().trim(), "");
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.doesNotMatch(io.getStdout(), /print:poster_framed/);
+      assert.match(io.getStderr(), /conflicting values|Product contribution failed/);
+      // Must not echo conflicting country values from the export.
+      assert.doesNotMatch(io.getStdout() + io.getStderr(), /"CA"/);
+      assert.doesNotMatch(io.getStdout() + io.getStderr(), /"US"/);
+      assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
+    } finally {
+      fs.unlinkSync(tmpBad);
     }
   }
 });
