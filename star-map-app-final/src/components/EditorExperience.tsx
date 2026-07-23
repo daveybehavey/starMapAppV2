@@ -3246,7 +3246,8 @@ export function EditorExperience({
                                   setPaywallOpen(true);
                                   track("free_export_upsell_clicked", { action: "hd" });
                                 }}
-                                className="rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-300"
+                                data-cta-priority="secondary"
+                                className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
                               >
                                 Unlock HD &rarr;
                               </button>

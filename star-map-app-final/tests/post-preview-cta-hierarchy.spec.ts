@@ -4,6 +4,9 @@ import { applySampleMoment, gotoEditor, mockGeocode } from "./test-helpers";
 /**
  * Issue #188: Post-preview CTA hierarchy — one dominant digital purchase treatment,
  * demoted secondary actions, sticky/in-flow exclusivity, real outcomes.
+ *
+ * Dominance is proven by inspecting visible button treatment/text, not only by
+ * trusting `data-cta-priority` markers.
  */
 const WIDTHS = [320, 375, 430, 768, 1280, 1440] as const;
 const PAYWALL_HEADING_PATTERN =
@@ -13,6 +16,16 @@ const PRINT_ENABLED = /^(1|true|yes)$/i.test(
 );
 
 const GOLD_PRIMARY_CLASS_FRAGMENT = "from-amber-400";
+
+type PrimaryLikePurchaseControl = {
+  text: string;
+  ariaLabel: string | null;
+  testId: string | null;
+  className: string;
+  ctaPriority: string | null;
+  inDialog: boolean;
+  treatment: "gold-gradient" | "solid-amber-primary-like";
+};
 
 async function dismissNextjsDevOverlay(page: Page) {
   await page.evaluate(() => {
@@ -60,22 +73,102 @@ async function expectActionable(locator: Locator) {
   await locator.click({ trial: true });
 }
 
-async function countVisiblePrimaryDigitalCtas(page: Page, scope?: Locator) {
-  const root = scope ?? page.locator("body");
-  return root.locator('[data-cta-priority="primary"]').evaluateAll(
-    (nodes) =>
-      nodes.filter((el) => {
-        const style = window.getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
-        return (
-          style.display !== "none" &&
-          style.visibility !== "hidden" &&
-          rect.width > 0 &&
-          rect.height > 0 &&
-          el.className.toString().includes("from-amber-400")
-        );
-      }).length
+/**
+ * Inventory visible interactive purchase-looking controls that use primary-like
+ * chrome (gold gradient or solid `bg-amber-400`), regardless of data attributes.
+ */
+async function inventoryPrimaryLikePurchaseControls(
+  page: Page,
+  scopeSelector?: string
+): Promise<PrimaryLikePurchaseControl[]> {
+  return page.evaluate((scopeSel) => {
+    const root = scopeSel ? document.querySelector(scopeSel) : document;
+    if (!root) return [];
+
+    const isVisible = (el: Element) => {
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const isPurchaseLooking = (el: Element) => {
+      const label = `${el.getAttribute("aria-label") || ""} ${(el.textContent || "").replace(/\s+/g, " ")}`;
+      return /Unlock HD|HD download|HD export/i.test(label);
+    };
+
+    const classifyTreatment = (className: string): "gold-gradient" | "solid-amber-primary-like" | null => {
+      if (className.includes("from-amber-400") && className.includes("via-amber-500")) {
+        return "gold-gradient";
+      }
+      // Solid amber primary-like (not translucent /15 /20 /25 /35 tokens).
+      if (/\bbg-amber-400\b/.test(className) && !className.includes("bg-amber-400/")) {
+        return "solid-amber-primary-like";
+      }
+      return null;
+    };
+
+    return [...root.querySelectorAll("button, a[href], [role='button']")]
+      .filter((el) => isVisible(el) && isPurchaseLooking(el) && !(el as HTMLButtonElement).disabled)
+      .map((el) => {
+        const className = el.className?.toString?.() || "";
+        const treatment = classifyTreatment(className);
+        if (!treatment) return null;
+        return {
+          text: (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+          ariaLabel: el.getAttribute("aria-label"),
+          testId: el.getAttribute("data-testid"),
+          className,
+          ctaPriority: el.getAttribute("data-cta-priority"),
+          inDialog: Boolean(el.closest('[role="dialog"]')),
+          treatment,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  }, scopeSelector);
+}
+
+async function expectSoleDominantDigitalPurchaseCta(
+  page: Page,
+  options: {
+    scopeSelector?: string;
+    expectedTestId?: string | RegExp;
+    expectedText?: RegExp;
+  } = {}
+) {
+  const controls = await inventoryPrimaryLikePurchaseControls(page, options.scopeSelector);
+  expect(
+    controls,
+    `expected exactly one primary-like purchase control, found ${JSON.stringify(controls, null, 2)}`
+  ).toHaveLength(1);
+
+  const sole = controls[0]!;
+  expect(sole.ctaPriority, "dominant purchase control must declare data-cta-priority=primary").toBe(
+    "primary"
   );
+  expect(sole.treatment).toBe("gold-gradient");
+  if (options.expectedText) {
+    expect(`${sole.text} ${sole.ariaLabel || ""}`).toMatch(options.expectedText);
+  }
+  if (options.expectedTestId) {
+    if (typeof options.expectedTestId === "string") {
+      expect(sole.testId).toBe(options.expectedTestId);
+    } else {
+      expect(sole.testId || "").toMatch(options.expectedTestId);
+    }
+  }
+
+  // Negative control: no other visible purchase-looking control may use primary chrome
+  // without the primary marker (already implied by length===1 + marker check).
+  const unmarkedPrimaryLike = controls.filter((c) => c.ctaPriority !== "primary");
+  expect(unmarkedPrimaryLike).toEqual([]);
+
+  return sole;
 }
 
 async function openEditorContext(browser: Browser, width: number, paid: boolean) {
@@ -110,8 +203,10 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
       await expect(primary).toBeVisible();
       await expect(primary).toHaveText(/Unlock HD/i);
 
-      const primaryCount = await countVisiblePrimaryDigitalCtas(page);
-      expect(primaryCount).toBe(1);
+      await expectSoleDominantDigitalPurchaseCta(page, {
+        expectedTestId: force === "mobile" ? "mobile-unlock-hd" : "desktop-unlock-hd",
+        expectedText: /Unlock HD|HD export/i,
+      });
 
       await expect(primary).toHaveAttribute("data-cta-priority", "primary");
       await expect(primary).toHaveClass(new RegExp(GOLD_PRIMARY_CLASS_FRAGMENT));
@@ -144,7 +239,10 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
         force === "mobile" ? page.getByTestId("mobile-unlock-hd") : page.getByTestId("desktop-unlock-hd");
       await expect(primary).toBeVisible();
       await expect(primary).toHaveText(/HD download/i);
-      expect(await countVisiblePrimaryDigitalCtas(page)).toBe(1);
+      await expectSoleDominantDigitalPurchaseCta(page, {
+        expectedTestId: force === "mobile" ? "mobile-unlock-hd" : "desktop-unlock-hd",
+        expectedText: /HD download|HD export/i,
+      });
       await expect(primary).toHaveAttribute("data-cta-priority", "primary");
       await expect(primary).toHaveAccessibleName(/HD download|HD export/i);
       await context.close();
@@ -175,8 +273,12 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
       await expect(stickyUnlock).toHaveAccessibleName(/Unlock HD/i);
       await expect(stickyLess).toHaveAccessibleName(/Less options/i);
 
-      // Exactly one primary inside the active dialog interaction context.
-      expect(await countVisiblePrimaryDigitalCtas(page, drawer)).toBe(1);
+      // Exactly one primary-like purchase treatment inside the active dialog context.
+      await expectSoleDominantDigitalPurchaseCta(page, {
+        scopeSelector: '[role="dialog"][aria-label="Date and details editor"]',
+        expectedTestId: "mobile-sticky-unlock-hd",
+        expectedText: /Unlock HD/i,
+      });
 
       // Logical LTR order: Less options then Unlock HD.
       const lessBox = await stickyLess.boundingBox();
@@ -190,6 +292,64 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
       await context.close();
     });
   }
+
+  test("advanced-panel Unlock HD upsells stay secondary beside sole primary (768)", async ({ browser }) => {
+    // At 768px EditorDrawer is `md:hidden`, so Customize more exposes the in-flow
+    // advanced Render Style panel (the Codex-identified upsell surface) without a sticky dialog.
+    const { context, page } = await openEditorContext(browser, 768, false);
+    await page.getByTestId("mobile-customize-more").click();
+    await dismissNextjsDevOverlay(page);
+    await expect(page.getByRole("button", { name: /Less options/i }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Render Style/i })).toBeVisible();
+
+    await expectSoleDominantDigitalPurchaseCta(page, {
+      expectedTestId: "mobile-unlock-hd",
+      expectedText: /Unlock HD|HD export/i,
+    });
+
+    // Trigger intensity lock banner (unpaid) which previously used solid amber Unlock HD.
+    const intensity = page.getByLabel("Star intensity");
+    await intensity.scrollIntoViewIfNeeded();
+    await intensity.evaluate((el) => {
+      const input = el as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+      setter?.call(input, "80");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(page.getByText(/Intensity locked/i)).toBeVisible({ timeout: 5_000 });
+
+    const intensityUpsell = page.getByRole("button", { name: /^Unlock HD$/i });
+    await expect(intensityUpsell).toBeVisible();
+    await expect(intensityUpsell).toHaveAttribute("data-cta-priority", "secondary");
+    const upsellClass = await intensityUpsell.getAttribute("class");
+    expect(upsellClass || "").not.toMatch(/\bbg-amber-400\b/);
+    expect(upsellClass || "").not.toContain("from-amber-400");
+
+    // Trigger render-mode premium upsell.
+    await page.getByRole("button", { name: /Enhanced/i }).click();
+    await expect(page.getByText(/This render mode requires HD access/i)).toBeVisible({
+      timeout: 5_000,
+    });
+    const renderUpsell = page.getByRole("button", { name: /Unlock HD →/i }).first();
+    await expect(renderUpsell).toBeVisible();
+    await expect(renderUpsell).toHaveAttribute("data-cta-priority", "secondary");
+    const renderClass = await renderUpsell.getAttribute("class");
+    expect(renderClass || "").not.toMatch(/\bbg-amber-400\b/);
+
+    // Visible purchase-like inventory still finds exactly one primary-like control.
+    await expectSoleDominantDigitalPurchaseCta(page, {
+      expectedTestId: "mobile-unlock-hd",
+    });
+
+    // Upsell still opens the real unpaid HD purchase path.
+    await intensityUpsell.click();
+    await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN }).first()).toBeVisible({
+      timeout: 8_000,
+    });
+
+    await context.close();
+  });
 
   test("representative actions produce established outcomes (375 mobile unpaid)", async ({ browser }) => {
     const { context, page } = await openEditorContext(browser, 375, false);
@@ -293,7 +453,9 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
     const { context, page } = await openEditorContext(browser, 1280, false);
     await expect(page.getByTestId("desktop-unlock-hd")).toBeVisible();
     await expect(page.getByTestId("desktop-print-frame")).toBeVisible();
-    expect(await countVisiblePrimaryDigitalCtas(page)).toBe(1);
+    await expectSoleDominantDigitalPurchaseCta(page, {
+      expectedTestId: "desktop-unlock-hd",
+    });
 
     const printClass = await page.getByTestId("desktop-print-frame").getAttribute("class");
     expect(printClass || "").not.toContain("from-amber-400");
@@ -304,7 +466,9 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
       timeout: 8_000,
     });
     // Print intent should surface print-oriented paywall copy without promoting a second gold digital CTA.
-    await expect(page.locator('[data-cta-priority="primary"]')).toHaveCount(1);
+    await expectSoleDominantDigitalPurchaseCta(page, {
+      expectedTestId: "desktop-unlock-hd",
+    });
 
     await context.close();
   });

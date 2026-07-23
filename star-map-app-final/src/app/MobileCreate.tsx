@@ -758,7 +758,8 @@ export function MobileCreate({
                     track("mobile_render_mode_upsell_clicked");
                     onIntensityPaywall?.();
                   }}
-                  className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                  data-cta-priority="secondary"
+                  className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-white/15 active:scale-95"
                 >
                   Unlock HD →
                 </button>
@@ -801,7 +802,8 @@ export function MobileCreate({
                       track("mobile_intensity_upsell_clicked");
                       onIntensityPaywall?.();
                     }}
-                    className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                    data-cta-priority="secondary"
+                    className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-white/15 active:scale-95"
                   >
                     Unlock HD
                   </button>
@@ -1087,7 +1089,8 @@ export function MobileCreate({
                           track("mobile_font_upsell_clicked");
                           onIntensityPaywall?.();
                         }}
-                        className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-midnight transition hover:bg-amber-300 active:scale-95"
+                        data-cta-priority="secondary"
+                        className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-white/15 active:scale-95"
                       >
                         Unlock HD →
                       </button>
