@@ -13,6 +13,7 @@ import {
   getStripeFeeConfig,
 } from "../lib/commerceCostEstimates.mjs";
 import {
+  CHECKOUT_ADDON_ALIAS_NORMALIZED,
   PRODUCT_CONTRIBUTION_CONTRACT,
   SENSITIVE_RECORD_FIELDS,
   UNSUPPORTED_MERCH_RECORD_FIELDS,
@@ -24,11 +25,13 @@ import {
   estimateRecordContribution,
   formatJsonReport,
   formatTableReport,
+  isCheckoutAddonAliasKey,
   isSensitiveRecordFieldKey,
   isUnsupportedMerchFieldKey,
   normalizeRecordFieldKey,
   parseArgs,
   parseSanitizedDocument,
+  resolveCanonicalBoolWithAlias,
   runProductContribution,
   sanitizeRecord,
 } from "../product-contribution.mjs";
@@ -1126,6 +1129,217 @@ test("Codex regression: include_card only valid for print poster_framed without 
       assert.match(io.getStderr(), /include_card|print bundle flags|Product contribution failed/);
     } finally {
       fs.unlinkSync(tmp);
+    }
+  }
+});
+
+test("Codex regression: preserve Stripe print_include_* checkout aliases before stripping", () => {
+  assert.equal(CHECKOUT_ADDON_ALIAS_NORMALIZED.include_digital, "print_include_digital");
+  assert.equal(CHECKOUT_ADDON_ALIAS_NORMALIZED.include_card, "print_include_card");
+  for (const key of [
+    "print_include_digital",
+    "printIncludeDigital",
+    "PrintIncludeDigital",
+    "print_include_card",
+    "printIncludeCard",
+    "PrintIncludeCard",
+  ]) {
+    assert.equal(isCheckoutAddonAliasKey(key), true, key);
+    assert.equal(isSensitiveRecordFieldKey(key), false, key);
+  }
+
+  // 1) framed + HD via alias only
+  {
+    const { record, warnings } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 10600,
+        order_type: "print",
+        print_variant: "poster_framed",
+        print_include_digital: true,
+        shipping_country: "US",
+      },
+      0
+    );
+    assert.equal(record.include_digital, true);
+    assert.equal(record.include_card, false);
+    assert.equal(classifyProductGroup(record).groupKey, "print:poster_framed+digital");
+    assert.equal(
+      warnings.some((w) => w.includes("print_include_digital")),
+      false,
+      "alias must not be stripped as unknown"
+    );
+  }
+
+  // 2) framed + card via alias only
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 11800,
+        order_type: "print",
+        print_variant: "poster_framed",
+        print_include_card: true,
+        shipping_country: "US",
+      },
+      0
+    );
+    assert.equal(record.include_card, true);
+    assert.equal(record.include_digital, false);
+    assert.equal(classifyProductGroup(record).groupKey, "print:poster_framed+card");
+  }
+
+  // 3) explicit false aliases
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 9900,
+        order_type: "print",
+        print_variant: "poster_framed",
+        print_include_digital: false,
+        print_include_card: "false",
+        shipping_country: "US",
+      },
+      0
+    );
+    assert.equal(record.include_digital, false);
+    assert.equal(record.include_card, false);
+    assert.equal(classifyProductGroup(record).groupKey, "print:poster_framed");
+  }
+
+  // 4) matching canonical + alias
+  {
+    assert.equal(
+      resolveCanonicalBoolWithAlias(
+        { include_digital: true, printIncludeDigital: "true" },
+        0,
+        "include_digital",
+        "print_include_digital"
+      ),
+      true
+    );
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 10600,
+        order_type: "print",
+        print_variant: "poster_framed",
+        include_digital: true,
+        print_include_digital: true,
+        shipping_country: "US",
+      },
+      0
+    );
+    assert.equal(record.include_digital, true);
+    assert.equal(classifyProductGroup(record).groupKey, "print:poster_framed+digital");
+  }
+
+  // 5) conflicting canonical + alias fails closed
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 10600,
+          order_type: "print",
+          print_variant: "poster_framed",
+          include_digital: false,
+          print_include_digital: true,
+          shipping_country: "US",
+        },
+        0
+      ),
+    /conflicting values for include_digital and print_include_digital/
+  );
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 11800,
+          order_type: "print",
+          print_variant: "poster_framed",
+          include_card: true,
+          printIncludeCard: false,
+          shipping_country: "US",
+        },
+        0
+      ),
+    /conflicting values for include_card and print_include_card/
+  );
+
+  // 6) CLI: alias-only succeeds; conflict fails with empty stdout and no value leakage
+  {
+    const io = createIo();
+    const okDoc = {
+      schema_version: 1,
+      records: [
+        {
+          currency: "usd",
+          amount_total: 10600,
+          order_type: "print",
+          print_variant: "poster_framed",
+          print_include_digital: true,
+          shipping_country: "US",
+        },
+      ],
+    };
+    const tmpOk = path.join(path.dirname(FIXTURE_PATH), `.alias-ok-${process.pid}.json`);
+    fs.writeFileSync(tmpOk, JSON.stringify(okDoc));
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmpOk, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 0, io.getStderr());
+      const parsed = JSON.parse(io.getStdout());
+      assert.ok(
+        parsed.currency_sections[0].groups.some((g) => g.group_key === "print:poster_framed+digital")
+      );
+    } finally {
+      fs.unlinkSync(tmpOk);
+    }
+  }
+  {
+    const io = createIo();
+    const tmpBad = path.join(path.dirname(FIXTURE_PATH), `.alias-conflict-${process.pid}.json`);
+    fs.writeFileSync(
+      tmpBad,
+      JSON.stringify({
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 10600,
+            order_type: "print",
+            print_variant: "poster_framed",
+            include_digital: false,
+            print_include_digital: "yes",
+            shipping_country: "US",
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmpBad, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1);
+      assert.equal(io.getStdout().trim(), "");
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.doesNotMatch(io.getStdout(), /print:poster_framed\+digital/);
+      // Must not echo the alias value token from the export.
+      assert.doesNotMatch(io.getStdout() + io.getStderr(), /"yes"/);
+      assert.match(io.getStderr(), /conflicting values|Product contribution failed/);
+      assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
+    } finally {
+      fs.unlinkSync(tmpBad);
     }
   }
 });

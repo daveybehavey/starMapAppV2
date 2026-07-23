@@ -65,6 +65,53 @@ export const ALLOWED_RECORD_FIELDS = Object.freeze([
 const ALLOWED_RECORD_FIELD_SET = new Set(ALLOWED_RECORD_FIELDS);
 
 /**
+ * Stripe checkout metadata aliases for canonical include_digital / include_card.
+ * Recognized in snake/camel/Pascal forms via normalizeRecordFieldKey.
+ */
+export const CHECKOUT_ADDON_ALIAS_NORMALIZED = Object.freeze({
+  include_digital: "print_include_digital",
+  include_card: "print_include_card",
+});
+
+/**
+ * @param {string} key
+ */
+export function isCheckoutAddonAliasKey(key) {
+  if (typeof key !== "string" || !key) return false;
+  const normalized = normalizeRecordFieldKey(key);
+  return (
+    normalized === CHECKOUT_ADDON_ALIAS_NORMALIZED.include_digital ||
+    normalized === CHECKOUT_ADDON_ALIAS_NORMALIZED.include_card
+  );
+}
+
+/**
+ * Resolve a canonical boolean from the canonical key and/or its checkout alias.
+ * Conflicting present values fail closed (field names only — never echo values).
+ * @param {Record<string, unknown>} raw
+ * @param {number} index
+ * @param {string} canonicalKey
+ * @param {string} aliasNormalizedKey
+ */
+export function resolveCanonicalBoolWithAlias(raw, index, canonicalKey, aliasNormalizedKey) {
+  /** @type {{ key: string; value: unknown }[]} */
+  const present = [];
+  for (const key of Object.keys(raw)) {
+    if (key === canonicalKey || normalizeRecordFieldKey(key) === aliasNormalizedKey) {
+      present.push({ key, value: raw[key] });
+    }
+  }
+  if (present.length === 0) return false;
+
+  const parsed = present.map((entry) => parseBoolish(entry.value));
+  const first = parsed[0];
+  if (parsed.some((value) => value !== first)) {
+    throw new Error(`records[${index}]: conflicting values for ${canonicalKey} and ${aliasNormalizedKey}`);
+  }
+  return first;
+}
+
+/**
  * Known sensitive / row-identifying keys. Presence fails closed.
  * (Do not list allowed QA markers here.)
  */
@@ -413,9 +460,11 @@ export function sanitizeRecord(raw, index) {
         `records[${index}] contains unsupported merch field "${key}" (merch contribution model not supported; rejected)`
       );
     }
-    if (!ALLOWED_RECORD_FIELD_SET.has(key)) {
-      warnings.push(`records[${index}]: stripped unknown field "${key}"`);
+    // Checkout add-on aliases are normalized below — never strip as unknown.
+    if (ALLOWED_RECORD_FIELD_SET.has(key) || isCheckoutAddonAliasKey(key)) {
+      continue;
     }
+    warnings.push(`records[${index}]: stripped unknown field "${key}"`);
   }
 
   const amountTotal = assertRequiredAmountTotal(raw.amount_total);
@@ -441,8 +490,18 @@ export function sanitizeRecord(raw, index) {
       ? null
       : String(raw.print_variant).trim().toLowerCase();
 
-  const includeDigital = parseBoolish(raw.include_digital);
-  const includeCard = parseBoolish(raw.include_card);
+  const includeDigital = resolveCanonicalBoolWithAlias(
+    raw,
+    index,
+    "include_digital",
+    CHECKOUT_ADDON_ALIAS_NORMALIZED.include_digital
+  );
+  const includeCard = resolveCanonicalBoolWithAlias(
+    raw,
+    index,
+    "include_card",
+    CHECKOUT_ADDON_ALIAS_NORMALIZED.include_card
+  );
 
   // Impossible metadata combinations — fail closed.
   if (orderType === "digital" && printVariant) {
