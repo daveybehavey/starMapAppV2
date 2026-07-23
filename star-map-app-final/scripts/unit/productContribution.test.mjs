@@ -1615,10 +1615,7 @@ test("Codex regression: preserve Stripe print_shipping_country alias before stri
   // Positive: matching canonical + alias (case-insensitive after normalize)
   {
     assert.equal(
-      resolveCanonicalShippingCountryWithAlias(
-        { shipping_country: "US", printShippingCountry: "us" },
-        0
-      ),
+      resolveCanonicalShippingCountryWithAlias({ shipping_country: "US", printShippingCountry: "us" }, 0),
       "US"
     );
     const { record } = sanitizeRecord(
@@ -1657,10 +1654,7 @@ test("Codex regression: preserve Stripe print_shipping_country alias before stri
   );
   assert.throws(
     () =>
-      resolveCanonicalShippingCountryWithAlias(
-        { shipping_country: "US", print_shipping_country: "GB" },
-        4
-      ),
+      resolveCanonicalShippingCountryWithAlias({ shipping_country: "US", print_shipping_country: "GB" }, 4),
     /records\[4\]: conflicting values for shipping_country and print_shipping_country/
   );
 
