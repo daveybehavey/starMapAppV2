@@ -3247,6 +3247,7 @@ export function EditorExperience({
                                   track("free_export_upsell_clicked", { action: "hd" });
                                 }}
                                 data-cta-priority="secondary"
+                                data-testid="desktop-free-export-hd-upsell"
                                 className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
                               >
                                 Unlock HD &rarr;
@@ -3260,6 +3261,8 @@ export function EditorExperience({
                                     setPaywallOpen(true);
                                     track("free_export_upsell_clicked", { action: "print" });
                                   }}
+                                  data-cta-priority="secondary"
+                                  data-testid="desktop-free-export-print-upsell"
                                   className="rounded-full border border-amber-300/50 bg-transparent px-3 py-1 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-amber-200"
                                 >
                                   Get it framed &rarr;

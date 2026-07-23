@@ -74,8 +74,10 @@ async function expectActionable(locator: Locator) {
 }
 
 /**
- * Inventory visible interactive purchase-looking controls that use primary-like
- * chrome (gold gradient or solid `bg-amber-400`), regardless of data attributes.
+ * Inventory visible interactive controls that use primary-like chrome first
+ * (gold gradient or solid `bg-amber-400`), then keep purchase-looking ones
+ * (digital HD + print purchase actions). Markers are validated afterwards —
+ * they are not the discovery mechanism.
  */
 async function inventoryPrimaryLikePurchaseControls(
   page: Page,
@@ -97,11 +99,6 @@ async function inventoryPrimaryLikePurchaseControls(
       );
     };
 
-    const isPurchaseLooking = (el: Element) => {
-      const label = `${el.getAttribute("aria-label") || ""} ${(el.textContent || "").replace(/\s+/g, " ")}`;
-      return /Unlock HD|HD download|HD export/i.test(label);
-    };
-
     const classifyTreatment = (className: string): "gold-gradient" | "solid-amber-primary-like" | null => {
       if (className.includes("from-amber-400") && className.includes("via-amber-500")) {
         return "gold-gradient";
@@ -113,14 +110,37 @@ async function inventoryPrimaryLikePurchaseControls(
       return null;
     };
 
-    return [...root.querySelectorAll("button, a[href], [role='button']")]
-      .filter((el) => isVisible(el) && isPurchaseLooking(el) && !(el as HTMLButtonElement).disabled)
+    const isPurchaseLooking = (el: Element) => {
+      const label = `${el.getAttribute("aria-label") || ""} ${(el.textContent || "").replace(/\s+/g, " ")}`;
+      // Digital purchase CTAs
+      if (/Unlock HD|HD download|HD export/i.test(label)) return true;
+      // Print purchase CTAs (chip, free-export print nudge, and SKU checkout rows)
+      if (
+        /Print\s*&\s*frame|Get it framed|framed|unframed|poster|physical gift|Opening secure checkout/i.test(
+          label
+        )
+      ) {
+        return true;
+      }
+      return false;
+    };
+
+    // 1) Primary-like interactive treatment first (independent of purchase labels / markers).
+    const primaryLikeInteractive = [...root.querySelectorAll("button, a[href], [role='button']")].filter(
+      (el) => {
+        if (!isVisible(el) || (el as HTMLButtonElement).disabled) return false;
+        return Boolean(classifyTreatment(el.className?.toString?.() || ""));
+      }
+    );
+
+    // 2) Keep purchase-looking subset so print CTAs promoted to gold/primary also fail.
+    return primaryLikeInteractive
+      .filter((el) => isPurchaseLooking(el))
       .map((el) => {
         const className = el.className?.toString?.() || "";
-        const treatment = classifyTreatment(className);
-        if (!treatment) return null;
+        const treatment = classifyTreatment(className)!;
         return {
-          text: (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+          text: (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 120),
           ariaLabel: el.getAttribute("aria-label"),
           testId: el.getAttribute("data-testid"),
           className,
@@ -128,9 +148,13 @@ async function inventoryPrimaryLikePurchaseControls(
           inDialog: Boolean(el.closest('[role="dialog"]')),
           treatment,
         };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+      });
   }, scopeSelector);
+}
+
+function isPermittedDominantDigitalPurchase(control: PrimaryLikePurchaseControl) {
+  const label = `${control.text} ${control.ariaLabel || ""}`;
+  return /Unlock HD|HD download|HD export/i.test(label);
 }
 
 async function expectSoleDominantDigitalPurchaseCta(
@@ -144,10 +168,14 @@ async function expectSoleDominantDigitalPurchaseCta(
   const controls = await inventoryPrimaryLikePurchaseControls(page, options.scopeSelector);
   expect(
     controls,
-    `expected exactly one primary-like purchase control, found ${JSON.stringify(controls, null, 2)}`
+    `expected exactly one primary-like purchase control (digital or print), found ${JSON.stringify(controls, null, 2)}`
   ).toHaveLength(1);
 
   const sole = controls[0]!;
+  expect(
+    isPermittedDominantDigitalPurchase(sole),
+    `sole primary-like purchase control must be Unlock HD / HD download, got ${JSON.stringify(sole)}`
+  ).toBe(true);
   expect(sole.ctaPriority, "dominant purchase control must declare data-cta-priority=primary").toBe(
     "primary"
   );
@@ -169,6 +197,22 @@ async function expectSoleDominantDigitalPurchaseCta(
   expect(unmarkedPrimaryLike).toEqual([]);
 
   return sole;
+}
+
+/** Negative control helper: assert a visible control is purchase-looking but not primary-like. */
+async function expectPurchaseControlRemainsSecondary(
+  locator: Locator,
+  options: { nameHint: string; requireSecondaryMarker?: boolean } = { nameHint: "purchase control" }
+) {
+  await expect(locator, options.nameHint).toBeVisible();
+  const className = (await locator.getAttribute("class")) || "";
+  expect(className, `${options.nameHint} must not use gold gradient primary`).not.toContain("from-amber-400");
+  expect(className, `${options.nameHint} must not use solid amber primary-like`).not.toMatch(
+    /\bbg-amber-400\b(?!\/)/
+  );
+  if (options.requireSecondaryMarker !== false) {
+    await expect(locator).toHaveAttribute("data-cta-priority", "secondary");
+  }
 }
 
 async function openEditorContext(browser: Browser, width: number, paid: boolean) {
@@ -385,6 +429,45 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
     await context.close();
   });
 
+  test("desktop free-export upsell stays secondary after Free preview download", async ({ browser }) => {
+    // Codex P2: unpaid desktop Free preview shows showFreeExportUpsell; hierarchy must
+    // be re-checked so a restored gold/primary Unlock HD upsell fails hosted smoke.
+    const { context, page } = await openEditorContext(browser, 1280, false);
+
+    await expectSoleDominantDigitalPurchaseCta(page, {
+      expectedTestId: "desktop-unlock-hd",
+      expectedText: /Unlock HD|HD export/i,
+    });
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByLabel("Free export").first().click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.png$/i);
+
+    await expect(page.getByText(/watermarked preview/i)).toBeVisible({ timeout: 8_000 });
+    const freeExportHdUpsell = page.getByTestId("desktop-free-export-hd-upsell");
+    await expectPurchaseControlRemainsSecondary(freeExportHdUpsell, {
+      nameHint: "free-export Unlock HD upsell",
+    });
+
+    // Negative control: inventory after free export still finds exactly one primary-like
+    // purchase control (in-flow Unlock HD), not the upsell.
+    await expectSoleDominantDigitalPurchaseCta(page, {
+      expectedTestId: "desktop-unlock-hd",
+      expectedText: /Unlock HD|HD export/i,
+    });
+    const afterControls = await inventoryPrimaryLikePurchaseControls(page);
+    expect(afterControls.every((c) => c.testId !== "desktop-free-export-hd-upsell")).toBe(true);
+
+    // Upsell still opens the unpaid HD purchase path.
+    await freeExportHdUpsell.click();
+    await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN }).first()).toBeVisible({
+      timeout: 8_000,
+    });
+
+    await context.close();
+  });
+
   test("sticky Unlock HD still opens unpaid paywall (375)", async ({ browser }) => {
     const { context, page } = await openEditorContext(browser, 375, false);
     await page.getByTestId("mobile-customize-more").click();
@@ -452,16 +535,48 @@ test.describe("post-preview CTA hierarchy (#188)", () => {
 
     const { context, page } = await openEditorContext(browser, 1280, false);
     await expect(page.getByTestId("desktop-unlock-hd")).toBeVisible();
-    await expect(page.getByTestId("desktop-print-frame")).toBeVisible();
+    const printChip = page.getByTestId("desktop-print-frame");
+    await expect(printChip).toBeVisible();
+
+    // Print chip must remain non-primary; inventory includes print purchase labels so a
+    // promoted gold Print & frame would fail the sole-dominant assertion below.
+    await expectPurchaseControlRemainsSecondary(printChip, {
+      nameHint: "Print & frame chip",
+      requireSecondaryMarker: true,
+    });
     await expectSoleDominantDigitalPurchaseCta(page, {
       expectedTestId: "desktop-unlock-hd",
     });
 
-    const printClass = await page.getByTestId("desktop-print-frame").getAttribute("class");
-    expect(printClass || "").not.toContain("from-amber-400");
-    expect(printClass || "").toMatch(/bg-amber-300\//);
+    // Print panel SKU rows (framed / unframed purchase buttons) must not use primary chrome.
+    const printSkuButtons = page.locator(
+      "button:has-text('Framed'), button:has-text('Unframed'), button:has-text('poster'), button:has-text('HD')"
+    );
+    const skuCount = await printSkuButtons.count();
+    // Panel may render several SKU rows; assert each visible enabled SKU lacks primary treatment.
+    for (let i = 0; i < skuCount; i += 1) {
+      const sku = printSkuButtons.nth(i);
+      if (!(await sku.isVisible().catch(() => false))) continue;
+      const className = (await sku.getAttribute("class")) || "";
+      const label = ((await sku.textContent()) || "").replace(/\s+/g, " ");
+      if (!/framed|unframed|poster|physical|checkout|HD/i.test(label)) continue;
+      if (/Unlock HD|HD download|HD export/i.test(label) && className.includes("from-amber-400")) {
+        // The permitted digital primary may also match the broad locator; skip it.
+        continue;
+      }
+      expect(className, `print SKU "${label}" must not use gold gradient`).not.toContain("from-amber-400");
+      expect(className, `print SKU "${label}" must not use solid amber primary-like`).not.toMatch(
+        /\bbg-amber-400\b(?!\/)/
+      );
+    }
 
-    await page.getByTestId("desktop-print-frame").click();
+    // Negative control: no print purchase control appears in the primary-like inventory.
+    const inventory = await inventoryPrimaryLikePurchaseControls(page);
+    expect(inventory.filter((c) => /Print\s*&\s*frame|Get it framed|framed|unframed/i.test(c.text))).toEqual(
+      []
+    );
+
+    await printChip.click();
     await expect(page.getByRole("heading", { name: PAYWALL_HEADING_PATTERN }).first()).toBeVisible({
       timeout: 8_000,
     });
