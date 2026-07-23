@@ -1011,6 +1011,125 @@ test("Codex regression: printMerchant* context keys are not treated as print_mer
   }
 });
 
+test("Codex regression: include_card only valid for print poster_framed without digital", () => {
+  // Checkout only sets print_include_card when poster_framed && !include_digital.
+  const impossible = [
+    {
+      label: "poster_unframed+card",
+      row: {
+        currency: "usd",
+        amount_total: 5500,
+        order_type: "print",
+        print_variant: "poster_unframed",
+        include_card: true,
+        shipping_country: "US",
+      },
+    },
+    {
+      label: "canvas_wrap+card",
+      row: {
+        currency: "usd",
+        amount_total: 6500,
+        order_type: "print",
+        print_variant: "canvas_wrap",
+        include_card: true,
+        shipping_country: "US",
+      },
+    },
+    {
+      label: "poster_framed+digital+card",
+      row: {
+        currency: "usd",
+        amount_total: 12500,
+        order_type: "print",
+        print_variant: "poster_framed",
+        include_digital: true,
+        include_card: true,
+        shipping_country: "US",
+      },
+    },
+    {
+      label: "digital+card",
+      row: {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+        include_card: true,
+      },
+    },
+    {
+      label: "unknown_order+card",
+      row: {
+        currency: "usd",
+        amount_total: 4000,
+        order_type: "gift",
+        include_card: true,
+      },
+    },
+  ];
+
+  for (const { label, row } of impossible) {
+    assert.throws(() => sanitizeRecord(row, 0), /include_card|print bundle flags/, label);
+  }
+
+  // Valid framed + card path remains.
+  const { record: validCard } = sanitizeRecord(
+    {
+      currency: "usd",
+      amount_total: 11800,
+      order_type: "print",
+      print_variant: "poster_framed",
+      include_digital: false,
+      include_card: true,
+      shipping_country: "US",
+    },
+    0
+  );
+  assert.equal(classifyProductGroup(validCard).groupKey, "print:poster_framed+card");
+  const est = estimateRecordContribution(validCard, getStripeFeeConfig({}), {});
+  assert.equal(est.resolved, true);
+  assert.ok(est.contributionCents !== null);
+
+  for (const { label, row } of impossible) {
+    const io = createIo();
+    const bad = {
+      schema_version: 1,
+      records: [
+        row,
+        {
+          currency: "usd",
+          amount_total: 2900,
+          order_type: "digital",
+          plan: "single",
+        },
+      ],
+    };
+    const tmp = path.join(
+      path.dirname(FIXTURE_PATH),
+      `.bad-card-combo-${label.replace(/\+/g, "-")}-${process.pid}.json`
+    );
+    fs.writeFileSync(tmp, JSON.stringify(bad));
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmp, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1, label);
+      assert.equal(io.getStdout().trim(), "");
+      assert.doesNotMatch(io.getStdout(), /print:poster_unframed\+card/);
+      assert.doesNotMatch(io.getStdout(), /print:canvas_wrap\+card/);
+      assert.doesNotMatch(io.getStdout(), /print:poster_framed\+digital\+card/);
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.match(io.getStderr(), /include_card|print bundle flags|Product contribution failed/);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  }
+});
+
 test("invalid JSON exits nonzero", () => {
   const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-json-${process.pid}.json`);
   fs.writeFileSync(tmp, "{ not json");

@@ -457,6 +457,15 @@ export function sanitizeRecord(raw, index) {
     // regardless of include_digital / include_card.
     throw new Error(`records[${index}]: print order_type has unsupported plan "${plan}"`);
   }
+  // Checkout only sets print_include_card when print + poster_framed + !digital add-on.
+  if (includeCard) {
+    const cardAllowed = orderType === "print" && printVariant === "poster_framed" && !includeDigital;
+    if (!cardAllowed) {
+      throw new Error(
+        `records[${index}]: include_card is only valid for print poster_framed without include_digital`
+      );
+    }
+  }
 
   const shippingCountry =
     raw.shipping_country === undefined || raw.shipping_country === null
