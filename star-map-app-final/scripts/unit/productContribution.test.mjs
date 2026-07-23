@@ -34,6 +34,9 @@ import {
   resolveCanonicalBoolWithAlias,
   runProductContribution,
   sanitizeRecord,
+  parseStrictIncludeBool,
+  STRICT_INCLUDE_BOOL_TRUE_STRINGS,
+  STRICT_INCLUDE_BOOL_FALSE_STRINGS,
 } from "../product-contribution.mjs";
 
 const SCRIPT_PATH = fileURLToPath(new URL("../product-contribution.mjs", import.meta.url));
@@ -1340,6 +1343,197 @@ test("Codex regression: preserve Stripe print_include_* checkout aliases before 
       assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
     } finally {
       fs.unlinkSync(tmpBad);
+    }
+  }
+});
+
+test("Codex regression: malformed include flag values fail closed (never coerce to false)", () => {
+  // Valid documented forms
+  for (const [raw, expected] of [
+    [true, true],
+    [false, false],
+    [1, true],
+    [0, false],
+    ["true", true],
+    ["FALSE", false],
+    ["1", true],
+    ["0", false],
+    ["yes", true],
+    ["No", false],
+    ["  true  ", true],
+  ]) {
+    assert.equal(parseStrictIncludeBool(raw, 0, "include_digital"), expected, String(raw));
+  }
+  for (const s of STRICT_INCLUDE_BOOL_TRUE_STRINGS) {
+    assert.equal(parseStrictIncludeBool(s, 0, "include_digital"), true, s);
+  }
+  for (const s of STRICT_INCLUDE_BOOL_FALSE_STRINGS) {
+    assert.equal(parseStrictIncludeBool(s, 0, "include_card"), false, s);
+  }
+
+  const malformed = [
+    "tru",
+    "yes!",
+    "",
+    " ",
+    2,
+    -1,
+    1.5,
+    NaN,
+    null,
+    undefined,
+    {},
+    [],
+    { true: true },
+    ["true"],
+  ];
+  for (const bad of malformed) {
+    assert.throws(
+      () => parseStrictIncludeBool(bad, 3, "include_digital"),
+      /records\[3\]: invalid boolean value for include_digital/,
+      `must reject ${Object.prototype.toString.call(bad)}`
+    );
+  }
+
+  // Canonical malformed → schema error; must not classify as plain framed print
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 10600,
+          order_type: "print",
+          print_variant: "poster_framed",
+          include_digital: "tru",
+          shipping_country: "US",
+        },
+        0
+      ),
+    /invalid boolean value for include_digital/
+  );
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 9900,
+          order_type: "print",
+          print_variant: "poster_framed",
+          include_card: 2,
+          shipping_country: "US",
+        },
+        0
+      ),
+    /invalid boolean value for include_card/
+  );
+
+  // Alias malformed (checkout key names)
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 10600,
+          order_type: "print",
+          print_variant: "poster_framed",
+          print_include_digital: "tru",
+          shipping_country: "US",
+        },
+        1
+      ),
+    /invalid boolean value for print_include_digital/
+  );
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 11800,
+          order_type: "print",
+          print_variant: "poster_framed",
+          printIncludeCard: null,
+          shipping_country: "US",
+        },
+        2
+      ),
+    /invalid boolean value for print_include_card/
+  );
+
+  // Matching valid string forms still succeed via alias
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 10600,
+        order_type: "print",
+        print_variant: "poster_framed",
+        print_include_digital: "YES",
+        shipping_country: "US",
+      },
+      0
+    );
+    assert.equal(record.include_digital, true);
+    assert.equal(classifyProductGroup(record).groupKey, "print:poster_framed+digital");
+  }
+
+  // Conflict still preferred when both valid but disagree; malformed still fails first
+  assert.throws(
+    () =>
+      resolveCanonicalBoolWithAlias(
+        { include_digital: true, print_include_digital: "tru" },
+        0,
+        "include_digital",
+        "print_include_digital"
+      ),
+    /invalid boolean value for print_include_digital/
+  );
+
+  // CLI negative controls: nonzero exit, empty aggregate stdout, no grouping, no leakage
+  const cases = [
+    { field: "include_digital", value: "tru", leak: "tru" },
+    { field: "print_include_digital", value: "tru", leak: "tru" },
+    { field: "include_card", value: 2, leak: null },
+    { field: "print_include_card", value: { ok: true }, leak: "ok" },
+    { field: "include_digital", value: ["true"], leak: null },
+  ];
+  for (const { field, value, leak } of cases) {
+    const io = createIo();
+    const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-include-${field}-${process.pid}.json`);
+    fs.writeFileSync(
+      tmp,
+      JSON.stringify({
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 10600,
+            order_type: "print",
+            print_variant: "poster_framed",
+            shipping_country: "US",
+            [field]: value,
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmp, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1, `cli exit field=${field}`);
+      assert.equal(io.getStdout().trim(), "", `empty stdout field=${field}`);
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.doesNotMatch(io.getStdout(), /print:poster_framed/);
+      assert.doesNotMatch(io.getStdout(), /print:poster_framed\+digital/);
+      assert.match(io.getStderr(), /invalid boolean value|Product contribution failed/);
+      if (leak) {
+        assert.doesNotMatch(io.getStdout() + io.getStderr(), new RegExp(leak));
+      }
+      assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
+    } finally {
+      fs.unlinkSync(tmp);
     }
   }
 });

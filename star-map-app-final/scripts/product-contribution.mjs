@@ -86,7 +86,48 @@ export function isCheckoutAddonAliasKey(key) {
 }
 
 /**
+ * Documented valid forms for include_digital / include_card and their checkout aliases.
+ * Malformed values must fail closed — never coerce to false.
+ */
+export const STRICT_INCLUDE_BOOL_TRUE_STRINGS = Object.freeze(["1", "true", "yes"]);
+export const STRICT_INCLUDE_BOOL_FALSE_STRINGS = Object.freeze(["0", "false", "no"]);
+
+/**
+ * Strict boolean parse for include flags only (not QA markers).
+ * Accepts: boolean; integer 0|1; trimmed case-insensitive strings 1/true/yes/0/false/no.
+ * Rejects: malformed strings (e.g. "tru"), other numbers, objects, arrays, null, etc.
+ * Errors name the field only — never echo the input value.
+ *
+ * @param {unknown} value
+ * @param {number} index
+ * @param {string} fieldLabel
+ */
+export function parseStrictIncludeBool(value, index, fieldLabel) {
+  const err = () => {
+    throw new Error(`records[${index}]: invalid boolean value for ${fieldLabel}`);
+  };
+
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "number") {
+    if (Object.is(value, 1)) return true;
+    if (Object.is(value, 0)) return false;
+    err();
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (STRICT_INCLUDE_BOOL_TRUE_STRINGS.includes(normalized)) return true;
+    if (STRICT_INCLUDE_BOOL_FALSE_STRINGS.includes(normalized)) return false;
+    err();
+  }
+
+  err();
+}
+
+/**
  * Resolve a canonical boolean from the canonical key and/or its checkout alias.
+ * Present values use strict include-bool parsing (malformed → schema error).
  * Conflicting present values fail closed (field names only — never echo values).
  * @param {Record<string, unknown>} raw
  * @param {number} index
@@ -103,7 +144,13 @@ export function resolveCanonicalBoolWithAlias(raw, index, canonicalKey, aliasNor
   }
   if (present.length === 0) return false;
 
-  const parsed = present.map((entry) => parseBoolish(entry.value));
+  const parsed = present.map((entry) => {
+    const label =
+      entry.key === canonicalKey || normalizeRecordFieldKey(entry.key) === canonicalKey
+        ? canonicalKey
+        : aliasNormalizedKey;
+    return parseStrictIncludeBool(entry.value, index, label);
+  });
   const first = parsed[0];
   if (parsed.some((value) => value !== first)) {
     throw new Error(`records[${index}]: conflicting values for ${canonicalKey} and ${aliasNormalizedKey}`);
@@ -405,17 +452,6 @@ function assertLocalInputPath(inputPath, cwd = process.cwd()) {
     throw new Error("Input path must be a local file");
   }
   return absolute;
-}
-
-function parseBoolish(value) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return value === 1;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["1", "true", "yes"].includes(normalized)) return true;
-    if (["0", "false", "no", ""].includes(normalized)) return false;
-  }
-  return false;
 }
 
 function assertNonNegativeIntegerCents(value, label) {
