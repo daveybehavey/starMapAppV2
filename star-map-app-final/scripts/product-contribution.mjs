@@ -74,11 +74,14 @@ export const CHECKOUT_ADDON_ALIAS_NORMALIZED = Object.freeze({
 });
 
 /**
- * Stripe checkout metadata alias for canonical shipping_country.
- * Checkout writes `metadata.print_shipping_country` on paid print sessions (see checkout route).
+ * Stripe checkout metadata aliases for canonical shipping fields.
+ * Checkout writes `metadata.print_shipping_country` / `print_shipping_charge_cents` /
+ * `print_shipping_subsidy_cents` on paid print sessions (see checkout route).
  */
 export const CHECKOUT_SHIPPING_ALIAS_NORMALIZED = Object.freeze({
   shipping_country: "print_shipping_country",
+  shipping_charge_cents: "print_shipping_charge_cents",
+  shipping_subsidy_cents: "print_shipping_subsidy_cents",
 });
 
 /**
@@ -98,7 +101,12 @@ export function isCheckoutAddonAliasKey(key) {
  */
 export function isCheckoutShippingAliasKey(key) {
   if (typeof key !== "string" || !key) return false;
-  return normalizeRecordFieldKey(key) === CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_country;
+  const normalized = normalizeRecordFieldKey(key);
+  return (
+    normalized === CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_country ||
+    normalized === CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_charge_cents ||
+    normalized === CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_subsidy_cents
+  );
 }
 
 /**
@@ -231,6 +239,39 @@ export function resolveCanonicalShippingCountryWithAlias(raw, index) {
 }
 
 /**
+ * Resolve a non-negative integer cents field from the canonical key and/or checkout alias.
+ * Reuses assertNonNegativeIntegerCents (no broadened accepted forms).
+ * Conflicting present values fail closed (field names only — never echo values).
+ * @param {Record<string, unknown>} raw
+ * @param {number} index
+ * @param {string} canonicalKey
+ * @param {string} aliasNormalizedKey
+ */
+export function resolveCanonicalCentsWithAlias(raw, index, canonicalKey, aliasNormalizedKey) {
+  /** @type {{ key: string; value: unknown }[]} */
+  const present = [];
+  for (const key of Object.keys(raw)) {
+    if (key === canonicalKey || normalizeRecordFieldKey(key) === aliasNormalizedKey) {
+      present.push({ key, value: raw[key] });
+    }
+  }
+  if (present.length === 0) return null;
+
+  const parsed = present.map((entry) => {
+    const label =
+      entry.key === canonicalKey || normalizeRecordFieldKey(entry.key) === canonicalKey
+        ? canonicalKey
+        : aliasNormalizedKey;
+    return assertNonNegativeIntegerCents(entry.value, `records[${index}].${label}`);
+  });
+  const first = parsed[0];
+  if (parsed.some((value) => value !== first)) {
+    throw new Error(`records[${index}]: conflicting values for ${canonicalKey} and ${aliasNormalizedKey}`);
+  }
+  return first;
+}
+
+/**
  * Known sensitive / row-identifying keys. Presence fails closed.
  * (Do not list allowed QA markers here.)
  */
@@ -324,6 +365,9 @@ const UNSUPPORTED_MERCH_FIELD_SET = new Set(
 export function isSensitiveRecordFieldKey(key) {
   if (typeof key !== "string" || !key) return false;
   if (ALLOWED_RECORD_FIELD_SET.has(key)) return false;
+  // Documented Stripe checkout metadata aliases are not PII — normalize them instead.
+  // (e.g. print_shipping_charge_cents would otherwise match the broad /charge/ pattern.)
+  if (isCheckoutMetadataAliasKey(key)) return false;
 
   const lower = key.toLowerCase();
   const normalized = normalizeRecordFieldKey(key);
@@ -558,6 +602,10 @@ export function sanitizeRecord(raw, index) {
 
   const warnings = [];
   for (const key of Object.keys(raw)) {
+    // Documented checkout aliases are normalized below — never treat as sensitive/unknown.
+    if (ALLOWED_RECORD_FIELD_SET.has(key) || isCheckoutMetadataAliasKey(key)) {
+      continue;
+    }
     // Sensitive detection must fail closed before unknown-field stripping.
     if (isSensitiveRecordFieldKey(key)) {
       throw new Error(`records[${index}] contains sensitive or row-identifying field "${key}" (rejected)`);
@@ -567,10 +615,6 @@ export function sanitizeRecord(raw, index) {
       throw new Error(
         `records[${index}] contains unsupported merch field "${key}" (merch contribution model not supported; rejected)`
       );
-    }
-    // Checkout metadata aliases are normalized below — never strip as unknown.
-    if (ALLOWED_RECORD_FIELD_SET.has(key) || isCheckoutMetadataAliasKey(key)) {
-      continue;
     }
     warnings.push(`records[${index}]: stripped unknown field "${key}"`);
   }
@@ -635,6 +679,18 @@ export function sanitizeRecord(raw, index) {
   }
 
   const shippingCountry = resolveCanonicalShippingCountryWithAlias(raw, index);
+  const shippingChargeCents = resolveCanonicalCentsWithAlias(
+    raw,
+    index,
+    "shipping_charge_cents",
+    CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_charge_cents
+  );
+  const shippingSubsidyCents = resolveCanonicalCentsWithAlias(
+    raw,
+    index,
+    "shipping_subsidy_cents",
+    CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_subsidy_cents
+  );
 
   const record = {
     paid_at: raw.paid_at === undefined || raw.paid_at === null ? null : String(raw.paid_at),
@@ -646,14 +702,8 @@ export function sanitizeRecord(raw, index) {
     include_digital: includeDigital,
     include_card: includeCard,
     shipping_country: shippingCountry,
-    shipping_charge_cents: assertNonNegativeIntegerCents(
-      raw.shipping_charge_cents,
-      `records[${index}].shipping_charge_cents`
-    ),
-    shipping_subsidy_cents: assertNonNegativeIntegerCents(
-      raw.shipping_subsidy_cents,
-      `records[${index}].shipping_subsidy_cents`
-    ),
+    shipping_charge_cents: shippingChargeCents,
+    shipping_subsidy_cents: shippingSubsidyCents,
     discount_cents: assertNonNegativeIntegerCents(raw.discount_cents, `records[${index}].discount_cents`),
     qa_run: raw.qa_run === undefined ? undefined : raw.qa_run,
     qa_ops_checkout: raw.qa_ops_checkout === undefined ? undefined : raw.qa_ops_checkout,

@@ -35,6 +35,7 @@ import {
   parseArgs,
   parseSanitizedDocument,
   resolveCanonicalBoolWithAlias,
+  resolveCanonicalCentsWithAlias,
   resolveCanonicalShippingCountryWithAlias,
   runProductContribution,
   sanitizeRecord,
@@ -1733,6 +1734,314 @@ test("Codex regression: preserve Stripe print_shipping_country alias before stri
       // Must not echo conflicting country values from the export.
       assert.doesNotMatch(io.getStdout() + io.getStderr(), /"CA"/);
       assert.doesNotMatch(io.getStdout() + io.getStderr(), /"US"/);
+      assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
+    } finally {
+      fs.unlinkSync(tmpBad);
+    }
+  }
+});
+
+test("Codex regression: preserve Stripe print_shipping_charge/subsidy cents aliases", () => {
+  assert.equal(CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_charge_cents, "print_shipping_charge_cents");
+  assert.equal(CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_subsidy_cents, "print_shipping_subsidy_cents");
+  for (const key of [
+    "print_shipping_charge_cents",
+    "printShippingChargeCents",
+    "PrintShippingChargeCents",
+    "print_shipping_subsidy_cents",
+    "printShippingSubsidyCents",
+    "PrintShippingSubsidyCents",
+  ]) {
+    assert.equal(isCheckoutShippingAliasKey(key), true, key);
+    assert.equal(isCheckoutMetadataAliasKey(key), true, key);
+    assert.equal(isSensitiveRecordFieldKey(key), false, `must not hit /charge/ or strip: ${key}`);
+  }
+
+  const feeConfig = getStripeFeeConfig({});
+  const canonicalBase = {
+    currency: "usd",
+    amount_total: 9900,
+    order_type: "print",
+    print_variant: "poster_framed",
+    shipping_country: "US",
+    shipping_charge_cents: 0,
+    shipping_subsidy_cents: 977,
+  };
+  const { record: canonicalRecord } = sanitizeRecord(canonicalBase, 0);
+  const canonicalEstimate = estimateRecordContribution(canonicalRecord, feeConfig, {});
+  assert.equal(canonicalRecord.shipping_charge_cents, 0);
+  assert.equal(canonicalRecord.shipping_subsidy_cents, 977);
+  assert.equal(canonicalEstimate.resolved, true);
+  // Informational only — contribution arithmetic unchanged vs omitting these fields.
+  const { record: bareRecord } = sanitizeRecord(
+    {
+      currency: "usd",
+      amount_total: 9900,
+      order_type: "print",
+      print_variant: "poster_framed",
+      shipping_country: "US",
+    },
+    0
+  );
+  assert.equal(
+    estimateRecordContribution(bareRecord, feeConfig, {}).contributionCents,
+    canonicalEstimate.contributionCents
+  );
+
+  // Positive: alias-only parity with canonical
+  {
+    const { record, warnings } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 9900,
+        order_type: "print",
+        print_variant: "poster_framed",
+        shipping_country: "US",
+        print_shipping_charge_cents: 0,
+        print_shipping_subsidy_cents: 977,
+      },
+      0
+    );
+    assert.equal(record.shipping_charge_cents, 0);
+    assert.equal(record.shipping_subsidy_cents, 977);
+    assert.equal(
+      warnings.some((w) => /print_shipping_(charge|subsidy)_cents/.test(w)),
+      false,
+      "aliases must not be stripped"
+    );
+    const estimate = estimateRecordContribution(record, feeConfig, {});
+    assert.equal(estimate.shippingChargeCents, canonicalEstimate.shippingChargeCents);
+    assert.equal(estimate.shippingSubsidyCents, canonicalEstimate.shippingSubsidyCents);
+    assert.equal(estimate.contributionCents, canonicalEstimate.contributionCents);
+  }
+
+  // Positive: camelCase / PascalCase charge+subsidy aliases
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 9900,
+        order_type: "print",
+        print_variant: "poster_framed",
+        printShippingCountry: "US",
+        printShippingChargeCents: 977,
+        PrintShippingSubsidyCents: 0,
+      },
+      0
+    );
+    assert.equal(record.shipping_charge_cents, 977);
+    assert.equal(record.shipping_subsidy_cents, 0);
+  }
+
+  // Positive: matching canonical + alias
+  assert.equal(
+    resolveCanonicalCentsWithAlias(
+      { shipping_charge_cents: 500, printShippingChargeCents: 500 },
+      0,
+      "shipping_charge_cents",
+      "print_shipping_charge_cents"
+    ),
+    500
+  );
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 9900,
+        order_type: "print",
+        print_variant: "poster_framed",
+        shipping_country: "US",
+        shipping_subsidy_cents: 977,
+        print_shipping_subsidy_cents: 977,
+        shipping_charge_cents: 0,
+        print_shipping_charge_cents: 0,
+      },
+      0
+    );
+    assert.equal(record.shipping_charge_cents, 0);
+    assert.equal(record.shipping_subsidy_cents, 977);
+  }
+
+  // Negative: conflicting canonical + alias
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 9900,
+          order_type: "print",
+          print_variant: "poster_framed",
+          shipping_country: "US",
+          shipping_charge_cents: 0,
+          print_shipping_charge_cents: 977,
+        },
+        0
+      ),
+    /conflicting values for shipping_charge_cents and print_shipping_charge_cents/
+  );
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 9900,
+          order_type: "print",
+          print_variant: "poster_framed",
+          shipping_country: "US",
+          shipping_subsidy_cents: 100,
+          printShippingSubsidyCents: 200,
+        },
+        1
+      ),
+    /conflicting values for shipping_subsidy_cents and print_shipping_subsidy_cents/
+  );
+
+  // Negative: malformed alias values (reuse canonical numeric validation; no broadening)
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 9900,
+          order_type: "print",
+          print_variant: "poster_framed",
+          shipping_country: "US",
+          print_shipping_charge_cents: "0",
+        },
+        2
+      ),
+    /print_shipping_charge_cents must be an integer minor-unit amount/
+  );
+  assert.throws(
+    () =>
+      sanitizeRecord(
+        {
+          currency: "usd",
+          amount_total: 9900,
+          order_type: "print",
+          print_variant: "poster_framed",
+          shipping_country: "US",
+          print_shipping_subsidy_cents: -1,
+        },
+        3
+      ),
+    /print_shipping_subsidy_cents must be a non-negative integer/
+  );
+
+  // CLI positive: alias-only reports informational aggregates; contribution unchanged
+  {
+    const io = createIo();
+    const tmpOk = path.join(path.dirname(FIXTURE_PATH), `.ship-cents-alias-ok-${process.pid}.json`);
+    fs.writeFileSync(
+      tmpOk,
+      JSON.stringify({
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 9900,
+            order_type: "print",
+            print_variant: "poster_framed",
+            print_shipping_country: "US",
+            print_shipping_charge_cents: 0,
+            print_shipping_subsidy_cents: 977,
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmpOk, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 0, io.getStderr());
+      const parsed = JSON.parse(io.getStdout());
+      const section = parsed.currency_sections[0];
+      assert.equal(section.unresolved_count, 0);
+      assert.equal(section.shipping_charge_cents, 0);
+      assert.equal(section.shipping_subsidy_cents, 977);
+      const framed = section.groups.find((g) => g.group_key === "print:poster_framed");
+      assert.ok(framed);
+      assert.equal(framed.estimated_pre_fixed_cost_contribution_cents, canonicalEstimate.contributionCents);
+    } finally {
+      fs.unlinkSync(tmpOk);
+    }
+  }
+
+  // CLI negative: conflict → nonzero, empty stdout, no value leakage
+  {
+    const io = createIo();
+    const tmpBad = path.join(path.dirname(FIXTURE_PATH), `.ship-cents-conflict-${process.pid}.json`);
+    fs.writeFileSync(
+      tmpBad,
+      JSON.stringify({
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 9900,
+            order_type: "print",
+            print_variant: "poster_framed",
+            shipping_country: "US",
+            shipping_charge_cents: 0,
+            print_shipping_charge_cents: 4242,
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmpBad, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1);
+      assert.equal(io.getStdout().trim(), "");
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.doesNotMatch(io.getStdout(), /print:poster_framed/);
+      assert.match(io.getStderr(), /conflicting values|Product contribution failed/);
+      assert.doesNotMatch(io.getStdout() + io.getStderr(), /4242/);
+      assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
+    } finally {
+      fs.unlinkSync(tmpBad);
+    }
+  }
+
+  // CLI negative: malformed alias → nonzero, empty stdout, no leakage
+  {
+    const io = createIo();
+    const tmpBad = path.join(path.dirname(FIXTURE_PATH), `.ship-cents-malformed-${process.pid}.json`);
+    fs.writeFileSync(
+      tmpBad,
+      JSON.stringify({
+        schema_version: 1,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 9900,
+            order_type: "print",
+            print_variant: "poster_framed",
+            shipping_country: "US",
+            print_shipping_subsidy_cents: "977",
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmpBad, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1);
+      assert.equal(io.getStdout().trim(), "");
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.match(io.getStderr(), /integer minor-unit amount|Product contribution failed/);
+      assert.doesNotMatch(io.getStdout() + io.getStderr(), /"977"/);
       assert.equal(containsSensitiveOperatorText(io.getStdout() + io.getStderr()), false);
     } finally {
       fs.unlinkSync(tmpBad);
