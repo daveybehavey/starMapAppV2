@@ -55,12 +55,18 @@ const setupPaidEditor = async (page: Page): Promise<PaidEditorCounters> => {
   return counters;
 };
 
-/** Re-enable the native control briefly so a second React onClick can reach handleExport. */
+/**
+ * Native disabled buttons do not invoke React onClick. Briefly clear disabled so a
+ * second click reaches handleExport / hdExportInFlightRef, then restore the prior
+ * disabled flag so UI assertions still observe the in-flight control state.
+ */
 const triggerHandlerCapableHdExport = async (page: Page) => {
   await hdExportButton(page).evaluate((node) => {
     const button = node as HTMLButtonElement;
+    const wasDisabled = button.disabled;
     button.disabled = false;
     button.click();
+    button.disabled = wasDisabled;
   });
 };
 
@@ -101,7 +107,7 @@ test.describe("HD export in-flight guard lifecycle", () => {
       HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
         window.setTimeout(() => {
           originalToBlob.call(this, callback, type, quality);
-        }, 1_500);
+        }, 2_500);
       };
     });
 
