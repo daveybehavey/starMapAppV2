@@ -9,6 +9,11 @@ const paywallDialog = (page: Page) => page.getByRole("dialog");
 const closePaywallButton = (page: Page) =>
   page.getByRole("button", { name: "Close purchase options" });
 
+type PaidEditorCounters = {
+  consumeCalls: number;
+  downloadCount: number;
+};
+
 const setupUnpaidEditor = async (page: Page) => {
   await mockGeocode(page);
   await page.route("**/api/premium**", async (route) => {
@@ -22,7 +27,13 @@ const setupUnpaidEditor = async (page: Page) => {
   await applySampleMoment(page);
 };
 
-const setupPaidEditor = async (page: Page) => {
+const setupPaidEditor = async (page: Page): Promise<PaidEditorCounters> => {
+  const counters: PaidEditorCounters = { consumeCalls: 0, downloadCount: 0 };
+
+  page.on("download", () => {
+    counters.downloadCount += 1;
+  });
+
   await mockGeocode(page);
   await page.route("**/api/premium**", async (route) => {
     await route.fulfill({
@@ -32,6 +43,7 @@ const setupPaidEditor = async (page: Page) => {
     });
   });
   await page.route("**/api/entitlements/consume", async (route) => {
+    counters.consumeCalls += 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -40,6 +52,16 @@ const setupPaidEditor = async (page: Page) => {
   });
   await gotoEditor(page, { path: "/editor", force: "desktop" });
   await applySampleMoment(page);
+  return counters;
+};
+
+/** Re-enable the native control briefly so a second React onClick can reach handleExport. */
+const triggerHandlerCapableHdExport = async (page: Page) => {
+  await hdExportButton(page).evaluate((node) => {
+    const button = node as HTMLButtonElement;
+    button.disabled = false;
+    button.click();
+  });
 };
 
 test.describe("HD export in-flight guard lifecycle", () => {
@@ -73,7 +95,7 @@ test.describe("HD export in-flight guard lifecycle", () => {
   });
 
   test("paid HD export blocks genuine concurrent duplicate exports", async ({ page }) => {
-    await setupPaidEditor(page);
+    const counters = await setupPaidEditor(page);
     await page.evaluate(() => {
       const originalToBlob = HTMLCanvasElement.prototype.toBlob;
       HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
@@ -91,7 +113,8 @@ test.describe("HD export in-flight guard lifecycle", () => {
     await expect(hdButton).toBeDisabled();
     await expect(hdButton).toHaveText(/Preparing/i);
 
-    await hdButton.click({ force: true });
+    // Second attempt must reach handleExport / hdExportInFlightRef (not a no-op on disabled).
+    await triggerHandlerCapableHdExport(page);
     await expect(hdButton).toBeDisabled();
     await expect(hdButton).toHaveText(/Preparing/i);
 
@@ -99,10 +122,13 @@ test.describe("HD export in-flight guard lifecycle", () => {
     expect(download.suggestedFilename()).toMatch(/\.png$/i);
     await expect(hdButton).toBeEnabled({ timeout: 20_000 });
     await expect(hdButton).toHaveText(/HD download/i);
+
+    expect(counters.downloadCount).toBe(1);
+    expect(counters.consumeCalls).toBe(1);
   });
 
   test("paid HD export failure clears the in-flight guard for retry", async ({ page }) => {
-    await setupPaidEditor(page);
+    const counters = await setupPaidEditor(page);
 
     if (process.env.HD_EXPORT_GUARD_LIFECYCLE_NEGATIVE_CONTROL !== "omit-render-failure") {
       await page.evaluate(() => {
@@ -126,9 +152,17 @@ test.describe("HD export in-flight guard lifecycle", () => {
     await expect(hdButton).toHaveText(/HD download/i);
     await expect(hdButton).not.toHaveText(/Preparing/i);
 
+    // First-failure proof: no download and no credit consume on the failed attempt.
+    // Negative control omit-render-failure makes this fail (first click succeeds).
+    expect(counters.downloadCount).toBe(0);
+    expect(counters.consumeCalls).toBe(0);
+
     const downloadPromise = page.waitForEvent("download");
     await hdButton.click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.png$/i);
+
+    expect(counters.downloadCount).toBe(1);
+    expect(counters.consumeCalls).toBe(1);
   });
 });
