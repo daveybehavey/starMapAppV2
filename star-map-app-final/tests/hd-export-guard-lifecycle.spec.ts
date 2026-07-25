@@ -1,0 +1,137 @@
+import { test, expect, type Page } from "@playwright/test";
+import { applySampleMoment, gotoEditor, mockGeocode } from "./test-helpers";
+
+const paywallHeadingPattern =
+  /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
+
+const hdExportButton = (page: Page) => page.getByLabel("HD export").first();
+const paywallDialog = (page: Page) => page.getByRole("dialog");
+const closePaywallButton = (page: Page) =>
+  page.getByRole("button", { name: "Close purchase options" });
+
+const setupUnpaidEditor = async (page: Page) => {
+  await mockGeocode(page);
+  await page.route("**/api/premium**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ paid: false, creditsRemaining: 0, plan: null }),
+    });
+  });
+  await gotoEditor(page, { path: "/editor", force: "desktop" });
+  await applySampleMoment(page);
+};
+
+const setupPaidEditor = async (page: Page) => {
+  await mockGeocode(page);
+  await page.route("**/api/premium**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ paid: true, creditsRemaining: 1, plan: "single" }),
+    });
+  });
+  await page.route("**/api/entitlements/consume", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, creditsRemaining: 0, plan: "single" }),
+    });
+  });
+  await gotoEditor(page, { path: "/editor", force: "desktop" });
+  await applySampleMoment(page);
+};
+
+test.describe("HD export in-flight guard lifecycle", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("unpaid Unlock HD opens paywall, dismissal restores action, and repeat click reopens paywall", async ({
+    page,
+  }) => {
+    await setupUnpaidEditor(page);
+    const hdButton = hdExportButton(page);
+    await expect(hdButton).toBeEnabled();
+    await expect(hdButton).toHaveText(/Unlock HD/i);
+
+    await hdButton.click();
+    await expect(paywallDialog(page)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: paywallHeadingPattern })).toBeVisible();
+
+    await closePaywallButton(page).click();
+    await expect(paywallDialog(page)).toHaveCount(0);
+    await expect(hdButton).toBeEnabled();
+    await expect(hdButton).toHaveText(/Unlock HD/i);
+    await expect(hdButton).not.toBeDisabled();
+
+    if (process.env.HD_EXPORT_GUARD_LIFECYCLE_NEGATIVE_CONTROL === "omit-repeat-paywall") {
+      return;
+    }
+
+    await hdButton.click();
+    await expect(paywallDialog(page)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: paywallHeadingPattern })).toBeVisible();
+  });
+
+  test("paid HD export blocks genuine concurrent duplicate exports", async ({ page }) => {
+    await setupPaidEditor(page);
+    await page.evaluate(() => {
+      const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+        window.setTimeout(() => {
+          originalToBlob.call(this, callback, type, quality);
+        }, 1_500);
+      };
+    });
+
+    const hdButton = hdExportButton(page);
+    await expect(hdButton).toHaveText(/HD download/i);
+
+    const downloadPromise = page.waitForEvent("download");
+    await hdButton.click();
+    await expect(hdButton).toBeDisabled();
+    await expect(hdButton).toHaveText(/Preparing/i);
+
+    await hdButton.click({ force: true });
+    await expect(hdButton).toBeDisabled();
+    await expect(hdButton).toHaveText(/Preparing/i);
+
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.png$/i);
+    await expect(hdButton).toBeEnabled({ timeout: 20_000 });
+    await expect(hdButton).toHaveText(/HD download/i);
+  });
+
+  test("paid HD export failure clears the in-flight guard for retry", async ({ page }) => {
+    await setupPaidEditor(page);
+
+    if (process.env.HD_EXPORT_GUARD_LIFECYCLE_NEGATIVE_CONTROL !== "omit-render-failure") {
+      await page.evaluate(() => {
+        const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+        let failNextHdExport = true;
+        HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+          if (failNextHdExport) {
+            failNextHdExport = false;
+            callback(null);
+            return;
+          }
+          originalToBlob.call(this, callback, type, quality);
+        };
+      });
+    }
+
+    const hdButton = hdExportButton(page);
+    await hdButton.click();
+
+    const errorMessage = page.getByText(
+      /We couldn't complete the HD export\. Your credit was not used/i,
+    );
+    await expect(errorMessage).toBeVisible({ timeout: 20_000 });
+    await expect(hdButton).toBeEnabled({ timeout: 10_000 });
+    await expect(hdButton).toHaveText(/HD download/i);
+
+    const downloadPromise = page.waitForEvent("download");
+    await hdButton.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.png$/i);
+  });
+});

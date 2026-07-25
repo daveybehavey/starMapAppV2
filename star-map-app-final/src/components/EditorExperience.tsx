@@ -1218,6 +1218,8 @@ export function EditorExperience({
               // ignore storage errors (e.g. private browsing)
             }
           }
+          hdExportInFlightRef.current = false;
+          setHdExportInFlight(false);
           return;
         }
       }
