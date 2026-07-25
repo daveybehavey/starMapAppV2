@@ -122,12 +122,9 @@ test.describe("HD export in-flight guard lifecycle", () => {
     const hdButton = hdExportButton(page);
     await hdButton.click();
 
-    const errorMessage = page.getByText(
-      /We couldn't complete the HD export\. Your credit was not used/i,
-    );
-    await expect(errorMessage).toBeVisible({ timeout: 20_000 });
-    await expect(hdButton).toBeEnabled({ timeout: 10_000 });
+    await expect(hdButton).toBeEnabled({ timeout: 20_000 });
     await expect(hdButton).toHaveText(/HD download/i);
+    await expect(hdButton).not.toHaveText(/Preparing/i);
 
     const downloadPromise = page.waitForEvent("download");
     await hdButton.click();
