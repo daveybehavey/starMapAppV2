@@ -2150,6 +2150,105 @@ test("invalid JSON exits nonzero", () => {
   }
 });
 
+test("Codex regression: invalid schema_version errors never echo the supplied value", () => {
+  const cases = [
+    {
+      label: "sensitive-looking-string",
+      schema_version: "sk_live_fake_schema_token\nalice.buyer@example.com\nAuthorization: Bearer leakprobe",
+      leaks: [
+        /sk_live_fake_schema_token/,
+        /alice\.buyer@example\.com/,
+        /Authorization:\s*Bearer/,
+        /leakprobe/,
+      ],
+    },
+    {
+      label: "nested-object",
+      schema_version: {
+        customer_name: "Ada Lovelace",
+        api_key: "rk_test_nested_secret_value",
+        nested: { email: "nested.pii@example.org" },
+      },
+      leaks: [
+        /Ada Lovelace/,
+        /rk_test_nested_secret_value/,
+        /nested\.pii@example\.org/,
+        /customer_name/,
+        /api_key/,
+        /"nested"/,
+      ],
+    },
+    {
+      label: "nested-array",
+      schema_version: ["token_array_leak_xyz", { phone: "+1-555-0100" }],
+      leaks: [/token_array_leak_xyz/, /\+1-555-0100/, /phone/],
+    },
+    {
+      label: "unsupported-numeric",
+      schema_version: 99,
+      leaks: [/\b99\b/, /"99"/, /\(got/, /JSON\.stringify/i],
+    },
+  ];
+
+  for (const { label, schema_version, leaks } of cases) {
+    assert.throws(
+      () =>
+        parseSanitizedDocument({
+          schema_version,
+          records: [],
+        }),
+      (err) => {
+        const message = String(err?.message ?? "");
+        assert.match(message, /schema_version is invalid or unsupported/);
+        assert.doesNotMatch(message, /got /i);
+        for (const pattern of leaks) {
+          assert.doesNotMatch(message, pattern, `${label} unit message must not leak ${pattern}`);
+        }
+        return true;
+      },
+      label
+    );
+
+    const io = createIo();
+    const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-schema-${label}-${process.pid}.json`);
+    fs.writeFileSync(
+      tmp,
+      JSON.stringify({
+        schema_version,
+        records: [
+          {
+            currency: "usd",
+            amount_total: 2900,
+            order_type: "digital",
+            plan: "single",
+          },
+        ],
+      })
+    );
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmp, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1, `cli exit ${label}`);
+      assert.equal(io.getStdout().trim(), "", `empty stdout ${label}`);
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.doesNotMatch(io.getStdout(), /digital:single/);
+      assert.match(io.getStderr(), /schema_version is invalid or unsupported|Product contribution failed/);
+      const combined = io.getStdout() + io.getStderr();
+      assert.doesNotMatch(combined, /got /i);
+      for (const pattern of leaks) {
+        assert.doesNotMatch(combined, pattern, `${label} cli must not leak ${pattern}`);
+      }
+      assert.equal(containsSensitiveOperatorText(combined), false, label);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  }
+});
+
 test("contribution is not gross-revenue-only (negative control on numbers)", () => {
   const feeConfig = getStripeFeeConfig({});
   const digital = estimateRecordContribution(

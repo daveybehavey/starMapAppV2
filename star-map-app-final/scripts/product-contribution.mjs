@@ -736,9 +736,9 @@ export function parseSanitizedDocument(document) {
   }
 
   if (document.schema_version !== PRODUCT_CONTRIBUTION_CONTRACT.schemaVersion) {
-    throw new Error(
-      `schema_version must be ${PRODUCT_CONTRIBUTION_CONTRACT.schemaVersion} (got ${JSON.stringify(document.schema_version)})`
-    );
+    // Field/category only — never interpolate, stringify, or echo the supplied value
+    // (under-sanitized files may place PII, tokens, or nested objects here).
+    throw new Error("schema_version is invalid or unsupported");
   }
   if (!Array.isArray(document.records)) {
     throw new Error("records must be an array");
