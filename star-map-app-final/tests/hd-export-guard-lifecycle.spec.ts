@@ -168,6 +168,12 @@ test.describe("HD export in-flight guard lifecycle", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.png$/i);
 
+    await expect
+      .poll(() => counters.consumeCalls, {
+        message: "retry should consume exactly one credit after the download starts",
+        timeout: 10_000,
+      })
+      .toBe(1);
     expect(counters.downloadCount).toBe(1);
     expect(counters.consumeCalls).toBe(1);
   });
