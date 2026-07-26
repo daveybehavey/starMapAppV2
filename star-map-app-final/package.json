@@ -89,7 +89,7 @@
     "qa:loop-scorecard": "node scripts/loop-scorecard.mjs",
     "qa:revenue-goal": "node scripts/revenue-goal-scorecard.mjs",
     "qa:growth-weekly": "npm run qa:revenue-goal && npm run qa:referral-loop -- --days 14 && npm run qa:loop-scorecard -- --days 14 && npm run qa:commerce-digest -- --days 14 && npm run qa:funnel-reconcile -- --days 14",
-    "qa:funnel-reconcile": "node scripts/funnel-reconcile.mjs --days 14",
+    "qa:funnel-reconcile": "node scripts/funnel-reconcile.mjs",
     "qa:funnel-post-release": "npm run qa:funnel-reconcile -- --days 14",
     "qa:commerce-digest": "node scripts/commerce-digest.mjs",
     "qa:checkout-daily-ratio": "node scripts/checkout-daily-ratio-sanity.mjs",
