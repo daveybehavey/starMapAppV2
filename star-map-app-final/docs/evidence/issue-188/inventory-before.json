@@ -1,0 +1,810 @@
+{
+  "phase": "before",
+  "printEnabled": false,
+  "capturedAt": "2026-07-22T21:58:30.234Z",
+  "states": [
+    {
+      "viewport": 320,
+      "force": "mobile",
+      "paid": false,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/320px-unpaid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 336,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Unlock HD",
+          "ariaLabel": "HD export",
+          "testId": "mobile-unlock-hd",
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 336,
+          "x": 164,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": "Share star map",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 394,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": "mobile-customize-more",
+          "href": null,
+          "className": "inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 446,
+          "x": 16,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 982,
+          "x": 168,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": {
+        "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/320px-unpaid-customize-open.png",
+        "dialogButtons": [
+          {
+            "text": "Less options",
+            "ariaLabel": null,
+            "testId": "mobile-sticky-less-options",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 12,
+            "treatment": "neutral-secondary",
+            "sticky": true
+          },
+          {
+            "text": "Unlock HD",
+            "ariaLabel": "Unlock HD",
+            "testId": "mobile-sticky-unlock-hd",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 164,
+            "treatment": "gold-gradient-primary",
+            "sticky": true
+          }
+        ]
+      }
+    },
+    {
+      "viewport": 375,
+      "force": "mobile",
+      "paid": false,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/375px-unpaid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 391,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Unlock HD",
+          "ariaLabel": "HD export",
+          "testId": "mobile-unlock-hd",
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 391,
+          "x": 192,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": "Share star map",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 449,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": "mobile-customize-more",
+          "href": null,
+          "className": "inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 501,
+          "x": 16,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 982,
+          "x": 196,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": {
+        "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/375px-unpaid-customize-open.png",
+        "dialogButtons": [
+          {
+            "text": "Less options",
+            "ariaLabel": null,
+            "testId": "mobile-sticky-less-options",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 12,
+            "treatment": "neutral-secondary",
+            "sticky": true
+          },
+          {
+            "text": "Unlock HD",
+            "ariaLabel": "Unlock HD",
+            "testId": "mobile-sticky-unlock-hd",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 192,
+            "treatment": "gold-gradient-primary",
+            "sticky": true
+          }
+        ]
+      }
+    },
+    {
+      "viewport": 375,
+      "force": "mobile",
+      "paid": true,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/375px-paid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 391,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "HD download",
+          "ariaLabel": "HD export",
+          "testId": "mobile-unlock-hd",
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 391,
+          "x": 192,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": "Share star map",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 486,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": "mobile-customize-more",
+          "href": null,
+          "className": "inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 538,
+          "x": 16,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 982,
+          "x": 196,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": {
+        "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/375px-paid-customize-open.png",
+        "dialogButtons": [
+          {
+            "text": "Less options",
+            "ariaLabel": null,
+            "testId": "mobile-sticky-less-options",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 12,
+            "treatment": "neutral-secondary",
+            "sticky": true
+          },
+          {
+            "text": "HD download",
+            "ariaLabel": "HD download",
+            "testId": "mobile-sticky-unlock-hd",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 192,
+            "treatment": "gold-gradient-primary",
+            "sticky": true
+          }
+        ]
+      }
+    },
+    {
+      "viewport": 430,
+      "force": "mobile",
+      "paid": false,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/430px-unpaid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 446,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Unlock HD",
+          "ariaLabel": "HD export",
+          "testId": "mobile-unlock-hd",
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 446,
+          "x": 219,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": "Share star map",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 504,
+          "x": 16,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": "mobile-customize-more",
+          "href": null,
+          "className": "inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 556,
+          "x": 16,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 969,
+          "x": 223,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": {
+        "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/430px-unpaid-customize-open.png",
+        "dialogButtons": [
+          {
+            "text": "Less options",
+            "ariaLabel": null,
+            "testId": "mobile-sticky-less-options",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 12,
+            "treatment": "neutral-secondary",
+            "sticky": true
+          },
+          {
+            "text": "Unlock HD",
+            "ariaLabel": "Unlock HD",
+            "testId": "mobile-sticky-unlock-hd",
+            "href": null,
+            "className": "inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70",
+            "ctaPriority": null,
+            "inDialog": true,
+            "y": 664,
+            "x": 219,
+            "treatment": "gold-gradient-primary",
+            "sticky": true
+          }
+        ]
+      }
+    },
+    {
+      "viewport": 768,
+      "force": "mobile",
+      "paid": false,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/768px-unpaid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 674,
+          "x": 32,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Unlock HD",
+          "ariaLabel": "HD export",
+          "testId": "mobile-unlock-hd",
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 674,
+          "x": 388,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": "Share star map",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 732,
+          "x": 32,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": "mobile-customize-more",
+          "href": null,
+          "className": "inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 778,
+          "x": 32,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 1081,
+          "x": 443,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": {
+        "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/768px-unpaid-customize-open.png",
+        "dialogButtons": [],
+        "note": "md+ hides sticky EditorDrawer"
+      }
+    },
+    {
+      "viewport": 768,
+      "force": "mobile",
+      "paid": true,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/768px-paid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 674,
+          "x": 32,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "HD download",
+          "ariaLabel": "HD export",
+          "testId": "mobile-unlock-hd",
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 674,
+          "x": 388,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": "Share star map",
+          "testId": null,
+          "href": null,
+          "className": "flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 769,
+          "x": 32,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": "mobile-customize-more",
+          "href": null,
+          "className": "inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg active:scale-95",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 815,
+          "x": 32,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 1118,
+          "x": 443,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": {
+        "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/768px-paid-customize-open.png",
+        "dialogButtons": [],
+        "note": "md+ hides sticky EditorDrawer"
+      }
+    },
+    {
+      "viewport": 1280,
+      "force": "desktop",
+      "paid": false,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/1280px-unpaid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 333,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Unlock HD",
+          "ariaLabel": "HD export",
+          "testId": null,
+          "href": null,
+          "className": "text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 443,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": null,
+          "href": null,
+          "className": "text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 546,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": null,
+          "testId": null,
+          "href": null,
+          "className": "focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 673,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 755,
+          "x": 796,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": null
+    },
+    {
+      "viewport": 1280,
+      "force": "desktop",
+      "paid": true,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/1280px-paid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 333,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "HD download",
+          "ariaLabel": "HD export",
+          "testId": null,
+          "href": null,
+          "className": "text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 443,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": null,
+          "href": null,
+          "className": "text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 563,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": null,
+          "testId": null,
+          "href": null,
+          "className": "focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 793,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 755,
+          "x": 796,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": null
+    },
+    {
+      "viewport": 1440,
+      "force": "desktop",
+      "paid": false,
+      "printEnabled": false,
+      "screenshot": "/opt/cursor/artifacts/issue-188-cta-hierarchy/before/1440px-unpaid.png",
+      "postPreviewActions": [
+        {
+          "text": "Free preview",
+          "ariaLabel": "Free export",
+          "testId": null,
+          "href": null,
+          "className": "focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 413,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Unlock HD",
+          "ariaLabel": "HD export",
+          "testId": null,
+          "href": null,
+          "className": "text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 523,
+          "treatment": "gold-gradient-primary",
+          "sticky": false
+        },
+        {
+          "text": "Customize more",
+          "ariaLabel": null,
+          "testId": null,
+          "href": null,
+          "className": "text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 626,
+          "treatment": "solid-amber-primary-like",
+          "sticky": false
+        },
+        {
+          "text": "🔗 Share",
+          "ariaLabel": null,
+          "testId": null,
+          "href": null,
+          "className": "focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 383,
+          "x": 753,
+          "treatment": "neutral-secondary",
+          "sticky": false
+        },
+        {
+          "text": "Shipping Policy",
+          "ariaLabel": null,
+          "testId": null,
+          "href": "/shipping",
+          "className": "w-fit text-[#e5ebfb] transition hover:text-white",
+          "ctaPriority": null,
+          "inDialog": false,
+          "y": 755,
+          "x": 876,
+          "treatment": "other",
+          "sticky": false
+        }
+      ],
+      "customizeOpen": null
+    }
+  ]
+}

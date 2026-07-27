@@ -2,7 +2,7 @@
   "criticalSuites": [
     {
       "command": "qa:smoke:ui",
-      "specs": ["tests/ui-smoke.spec.ts"]
+      "specs": ["tests/ui-smoke.spec.ts", "tests/post-preview-cta-hierarchy.spec.ts"]
     },
     {
       "command": "qa:smoke:render",
@@ -15,7 +15,8 @@
         "tests/api-route-regressions.spec.ts",
         "tests/map-hub-editor.spec.ts",
         "tests/editor-draft-recovery.spec.ts",
-        "tests/error-handling.spec.ts"
+        "tests/error-handling.spec.ts",
+        "tests/hd-export-guard-lifecycle.spec.ts"
       ]
     },
     {

@@ -1218,6 +1218,8 @@ export function EditorExperience({
               // ignore storage errors (e.g. private browsing)
             }
           }
+          hdExportInFlightRef.current = false;
+          setHdExportInFlight(false);
           return;
         }
       }
@@ -3114,6 +3116,7 @@ export function EditorExperience({
                             type="button"
                             onClick={() => void handleExport("preview")}
                             aria-label="Free export"
+                            data-cta-priority="secondary"
                             className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                           >
                             Free preview
@@ -3122,6 +3125,8 @@ export function EditorExperience({
                             type="button"
                             onClick={() => void handleExport("hd")}
                             aria-label="HD export"
+                            data-testid="desktop-unlock-hd"
+                            data-cta-priority="primary"
                             disabled={hdExportInFlight}
                             className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                             title="Unlock to export HD without watermark; preview stays free."
@@ -3142,6 +3147,8 @@ export function EditorExperience({
                                   includeDigitalAddOn: false,
                                 });
                               }}
+                              data-cta-priority="secondary"
+                              data-testid="desktop-print-frame"
                               className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-300/25 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/35 focus:ring-2 focus:ring-offset-2 focus:outline-none"
                               title="Buy a printed star map with framing options."
                             >
@@ -3152,7 +3159,9 @@ export function EditorExperience({
                             <button
                               type="button"
                               onClick={handleCustomizeMore}
-                              className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:bg-amber-300 hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              data-testid="desktop-customize-more"
+                              data-cta-priority="secondary"
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                             >
                               Customize more
                             </button>
@@ -3165,6 +3174,7 @@ export function EditorExperience({
                           <button
                             type="button"
                             onClick={handleShareImage}
+                            data-cta-priority="secondary"
                             className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                           >
                             🔗 Share
@@ -3173,6 +3183,7 @@ export function EditorExperience({
                             <button
                               type="button"
                               onClick={handleShare}
+                              data-cta-priority="secondary"
                               className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
                             >
                               💾 Save & Remix
@@ -3237,7 +3248,9 @@ export function EditorExperience({
                                   setPaywallOpen(true);
                                   track("free_export_upsell_clicked", { action: "hd" });
                                 }}
-                                className="rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-300"
+                                data-cta-priority="secondary"
+                                data-testid="desktop-free-export-hd-upsell"
+                                className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
                               >
                                 Unlock HD &rarr;
                               </button>
@@ -3250,6 +3263,8 @@ export function EditorExperience({
                                     setPaywallOpen(true);
                                     track("free_export_upsell_clicked", { action: "print" });
                                   }}
+                                  data-cta-priority="secondary"
+                                  data-testid="desktop-free-export-print-upsell"
                                   className="rounded-full border border-amber-300/50 bg-transparent px-3 py-1 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:border-amber-200"
                                 >
                                   Get it framed &rarr;
