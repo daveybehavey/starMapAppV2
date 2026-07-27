@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 
 const PHASE = process.env.PHASE === "after" ? "after" : "before";
 const PRINT = ["1", "true", "yes"].includes(String(process.env.PRINT || "").toLowerCase());
@@ -24,7 +25,10 @@ const OUT_DIR =
   path.resolve(`/opt/cursor/artifacts/issue-188-cta-hierarchy/${PHASE}`);
 const DOCS_DIR = path.resolve("docs/evidence/issue-188");
 
-const WIDTHS = [
+/** Tailwind `md` breakpoint (px). EditorDrawer is wrapped in `md:hidden`. */
+export const EDITOR_DRAWER_MD_BREAKPOINT_PX = 768;
+
+export const WIDTHS = [
   { width: 320, height: 720, force: "mobile", isMobile: true },
   { width: 375, height: 720, force: "mobile", isMobile: true },
   { width: 430, height: 720, force: "mobile", isMobile: true },
@@ -33,8 +37,117 @@ const WIDTHS = [
   { width: 1440, height: 900, force: "desktop", isMobile: false },
 ];
 
-fs.mkdirSync(OUT_DIR, { recursive: true });
-fs.mkdirSync(DOCS_DIR, { recursive: true });
+/** Sticky EditorDrawer is only mounted below Tailwind `md` (768px). */
+export function stickyDialogExpected(width) {
+  return Number(width) < EDITOR_DRAWER_MD_BREAKPOINT_PX;
+}
+
+/**
+ * Whether the inventory helper should wait for / inventory the sticky drawer.
+ * Matches Playwright discovery: force=mobile alone is not enough at exactly 768.
+ */
+export function shouldAttemptStickyDrawer(cfg) {
+  return cfg?.force === "mobile" && stickyDialogExpected(cfg.width);
+}
+
+export function expectedInventoryCaseCount(widths = WIDTHS) {
+  let count = 0;
+  for (const cfg of widths) {
+    for (const paid of [false, true]) {
+      if (paid && ![375, 768, 1280].includes(cfg.width)) continue;
+      count += 1;
+    }
+  }
+  return count;
+}
+
+export function assertInventoryComplete(states, expectedCount = expectedInventoryCaseCount()) {
+  const actual = Array.isArray(states) ? states.length : 0;
+  if (actual !== expectedCount) {
+    throw new Error(
+      `Issue #188 inventory incomplete: expected ${expectedCount} viewport/paid cases, got ${actual}`,
+    );
+  }
+}
+
+function writeFileAtomic(filePath, contents) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmpPath = path.join(
+    dir,
+    `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`,
+  );
+  fs.writeFileSync(tmpPath, contents);
+  fs.renameSync(tmpPath, filePath);
+}
+
+/**
+ * Fail-closed evidence writer: refuses to overwrite canonical JSON/Markdown unless
+ * the inventory is marked complete and has the required case count.
+ */
+export function writeInventoryEvidence({
+  inventory,
+  outDir,
+  docsDir,
+  phase,
+  printEnabled,
+  complete,
+}) {
+  if (!complete) {
+    throw new Error(
+      "Refusing to write Issue #188 inventory evidence: capture sequence incomplete",
+    );
+  }
+  assertInventoryComplete(inventory?.states);
+
+  const suffix = printEnabled ? "-print" : "";
+  const jsonName = `inventory-${phase}${suffix}.json`;
+  const mdName = `inventory-${phase}${suffix}.md`;
+  const jsonBody = `${JSON.stringify(inventory, null, 2)}\n`;
+
+  const mdLines = [
+    `# Issue #188 CTA inventory (${phase}${printEnabled ? ", print enabled" : ", print disabled"})`,
+    "",
+    `Captured: ${inventory.capturedAt}`,
+    "",
+    "| Viewport | Paid | Actions (label → treatment) | Sticky when customize open |",
+    "| --- | --- | --- | --- |",
+  ];
+  for (const state of inventory.states) {
+    const actions = state.postPreviewActions
+      .map((a) => `\`${a.text || a.ariaLabel}\` → **${a.treatment}**`)
+      .join("<br>");
+    const sticky =
+      state.customizeOpen?.dialogButtons
+        ?.map((a) => `\`${a.text || a.ariaLabel}\` → **${a.treatment}**`)
+        .join("<br>") || "—";
+    mdLines.push(`| ${state.viewport} | ${state.paid} | ${actions || "—"} | ${sticky} |`);
+  }
+  mdLines.push("");
+  mdLines.push("## Competing primary-like controls");
+  mdLines.push("");
+  for (const state of inventory.states) {
+    const competitors = state.postPreviewActions.filter((a) =>
+      ["gold-gradient-primary", "solid-amber-primary-like"].includes(a.treatment),
+    );
+    if (competitors.length > 1) {
+      mdLines.push(
+        `- **${state.viewport}px / paid=${state.paid}**: ${competitors
+          .map((c) => `${c.text} (${c.treatment})`)
+          .join(", ")}`,
+      );
+    }
+  }
+  const mdBody = `${mdLines.join("\n")}\n`;
+
+  const artifactJson = path.join(outDir, jsonName);
+  const docsJson = path.join(docsDir, jsonName);
+  const docsMd = path.join(docsDir, mdName);
+  writeFileAtomic(artifactJson, jsonBody);
+  writeFileAtomic(docsJson, jsonBody);
+  writeFileAtomic(docsMd, mdBody);
+  return { artifactJson, docsJson, docsMd };
+}
 
 function startServer() {
   const nextCli = path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
@@ -224,27 +337,38 @@ async function captureState(browser, cfg, paid, labelSuffix) {
     }));
 
   let customizeState = null;
+  // force=mobile at exactly 768 still uses mobile chrome, but EditorDrawer is
+  // `md:hidden` — only wait for the sticky dialog below the md breakpoint.
   if (cfg.force === "mobile") {
     const customize = page.getByTestId("mobile-customize-more");
     if (await customize.isVisible().catch(() => false)) {
       await customize.click();
-      await page.getByRole("dialog", { name: /Date and details editor/i }).waitFor({
-        state: "visible",
-        timeout: 10_000,
-      });
       const customizeShot = path.join(OUT_DIR, `${slug}-customize-open.png`);
-      await page.screenshot({ path: customizeShot, fullPage: false });
-      const stickyButtons = await inventoryVisibleButtons(page, '[role="dialog"]');
-      customizeState = {
-        screenshot: customizeShot,
-        dialogButtons: stickyButtons
-          .filter((b) => /Unlock HD|HD download|Less options/i.test(`${b.text} ${b.ariaLabel || ""}`))
-          .map((b) => ({
-            ...b,
-            treatment: classifyTreatment(b.className),
-            sticky: true,
-          })),
-      };
+      if (shouldAttemptStickyDrawer(cfg)) {
+        await page.getByRole("dialog", { name: /Date and details editor/i }).waitFor({
+          state: "visible",
+          timeout: 10_000,
+        });
+        await page.screenshot({ path: customizeShot, fullPage: false });
+        const stickyButtons = await inventoryVisibleButtons(page, '[role="dialog"]');
+        customizeState = {
+          screenshot: customizeShot,
+          dialogButtons: stickyButtons
+            .filter((b) => /Unlock HD|HD download|Less options/i.test(`${b.text} ${b.ariaLabel || ""}`))
+            .map((b) => ({
+              ...b,
+              treatment: classifyTreatment(b.className),
+              sticky: true,
+            })),
+        };
+      } else {
+        await page.screenshot({ path: customizeShot, fullPage: false });
+        customizeState = {
+          screenshot: customizeShot,
+          dialogButtons: [],
+          note: "md+ hides sticky EditorDrawer",
+        };
+      }
     }
   }
 
@@ -260,71 +384,76 @@ async function captureState(browser, cfg, paid, labelSuffix) {
   };
 }
 
-const { child, getLog } = startServer();
-const inventory = {
-  phase: PHASE,
-  printEnabled: PRINT,
-  baseCommitHint: "issue-188 discovery",
-  capturedAt: new Date().toISOString(),
-  states: [],
-};
+export async function runInventoryCapture({
+  widths = WIDTHS,
+  outDir = OUT_DIR,
+  docsDir = DOCS_DIR,
+  phase = PHASE,
+  printEnabled = PRINT,
+  launchBrowser = () => chromium.launch({ headless: true }),
+  capture = captureState,
+  startDevServer = startServer,
+  waitReady = waitForServer,
+} = {}) {
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.mkdirSync(docsDir, { recursive: true });
 
-try {
-  await waitForServer();
-  const browser = await chromium.launch({ headless: true });
-  for (const cfg of WIDTHS) {
-    for (const paid of [false, true]) {
-      // Paid matrix only at representative widths to keep discovery bounded.
-      if (paid && ![375, 768, 1280].includes(cfg.width)) continue;
-      console.log(`Capturing ${cfg.width} paid=${paid} print=${PRINT}`);
-      inventory.states.push(await captureState(browser, cfg, paid, ""));
+  const inventory = {
+    phase,
+    printEnabled,
+    baseCommitHint: "issue-188 discovery",
+    capturedAt: new Date().toISOString(),
+    states: [],
+  };
+
+  const { child, getLog } = startDevServer();
+  let complete = false;
+  let written = null;
+
+  try {
+    await waitReady();
+    const browser = await launchBrowser();
+    try {
+      for (const cfg of widths) {
+        for (const paid of [false, true]) {
+          if (paid && ![375, 768, 1280].includes(cfg.width)) continue;
+          console.log(`Capturing ${cfg.width} paid=${paid} print=${printEnabled}`);
+          inventory.states.push(await capture(browser, cfg, paid, ""));
+        }
+      }
+    } finally {
+      await browser.close().catch(() => undefined);
     }
-  }
-  await browser.close();
-} catch (error) {
-  console.error(error);
-  console.error(getLog().slice(-4000));
-  process.exitCode = 1;
-} finally {
-  child.kill("SIGTERM");
-}
 
-const jsonPath = path.join(OUT_DIR, `inventory-${PHASE}${PRINT ? "-print" : ""}.json`);
-const docsJson = path.join(DOCS_DIR, `inventory-${PHASE}${PRINT ? "-print" : ""}.json`);
-fs.writeFileSync(jsonPath, JSON.stringify(inventory, null, 2));
-fs.writeFileSync(docsJson, JSON.stringify(inventory, null, 2));
-
-const mdLines = [
-  `# Issue #188 CTA inventory (${PHASE}${PRINT ? ", print enabled" : ", print disabled"})`,
-  "",
-  `Captured: ${inventory.capturedAt}`,
-  "",
-  "| Viewport | Paid | Actions (label → treatment) | Sticky when customize open |",
-  "| --- | --- | --- | --- |",
-];
-for (const state of inventory.states) {
-  const actions = state.postPreviewActions
-    .map((a) => `\`${a.text || a.ariaLabel}\` → **${a.treatment}**`)
-    .join("<br>");
-  const sticky = state.customizeOpen?.dialogButtons
-    ?.map((a) => `\`${a.text || a.ariaLabel}\` → **${a.treatment}**`)
-    .join("<br>") || "—";
-  mdLines.push(`| ${state.viewport} | ${state.paid} | ${actions || "—"} | ${sticky} |`);
-}
-mdLines.push("");
-mdLines.push("## Competing primary-like controls");
-mdLines.push("");
-for (const state of inventory.states) {
-  const competitors = state.postPreviewActions.filter((a) =>
-    ["gold-gradient-primary", "solid-amber-primary-like"].includes(a.treatment),
-  );
-  if (competitors.length > 1) {
-    mdLines.push(
-      `- **${state.viewport}px / paid=${state.paid}**: ${competitors.map((c) => `${c.text} (${c.treatment})`).join(", ")}`,
-    );
+    assertInventoryComplete(inventory.states, expectedInventoryCaseCount(widths));
+    complete = true;
+    written = writeInventoryEvidence({
+      inventory,
+      outDir,
+      docsDir,
+      phase,
+      printEnabled,
+      complete,
+    });
+    console.log(`Wrote ${written.artifactJson}`);
+    console.log(`Wrote ${written.docsMd}`);
+    return { inventory, written, complete: true };
+  } catch (error) {
+    console.error(error);
+    console.error(getLog().slice(-4000));
+    throw error;
+  } finally {
+    child.kill("SIGTERM");
   }
 }
-const mdPath = path.join(DOCS_DIR, `inventory-${PHASE}${PRINT ? "-print" : ""}.md`);
-fs.writeFileSync(mdPath, mdLines.join("\n"));
-console.log(`Wrote ${jsonPath}`);
-console.log(`Wrote ${mdPath}`);
+
+const isDirectRun =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  try {
+    await runInventoryCapture();
+  } catch {
+    process.exitCode = 1;
+  }
+}
