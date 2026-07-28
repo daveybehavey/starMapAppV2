@@ -85,6 +85,58 @@ export const CHECKOUT_SHIPPING_ALIAS_NORMALIZED = Object.freeze({
 });
 
 /**
+ * Exact legacy QA Checkout Session marker (never retained, printed, or persisted
+ * on sanitized records). Matches `commerceAnalyticsQa.mjs` /
+ * `isQaStripeSession`.
+ */
+export const LEGACY_QA_CLIENT_REFERENCE_VALUE = "qa-live-conversion";
+
+/**
+ * Non-identifying QA flag derived when the only legacy marker was
+ * `client_reference_id=qa-live-conversion`. Safe to keep on sanitized rows;
+ * `isQaStripeSession` treats `qa_source` prefixes `live_conversion*` as QA.
+ */
+export const LEGACY_QA_DERIVED_SOURCE = "live_conversion_legacy";
+
+/**
+ * Before sensitive-field rejection strips `client_reference_id`, recognize the
+ * exact legacy QA marker and derive a non-identifying `qa_source` so the row
+ * can be excluded. The raw client-reference value is never retained or echoed.
+ *
+ * Any other client-reference value remains fail-closed via the sensitive path.
+ *
+ * @param {Record<string, unknown>} raw
+ * @returns {{
+ *   derivedQaSource: string | null,
+ *   consumedKeys: string[],
+ * }}
+ */
+export function consumeLegacyQaClientReference(raw) {
+  /** @type {string[]} */
+  const consumedKeys = [];
+  let sawExactLegacy = false;
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (normalizeRecordFieldKey(key) !== "client_reference_id") continue;
+
+    const asText = typeof value === "string" ? value.trim() : null;
+    if (asText === LEGACY_QA_CLIENT_REFERENCE_VALUE) {
+      sawExactLegacy = true;
+      consumedKeys.push(key);
+      continue;
+    }
+
+    // Non-legacy / malformed client_reference stays on the record so the
+    // sensitive-field gate fails closed without this helper echoing the value.
+  }
+
+  return {
+    derivedQaSource: sawExactLegacy ? LEGACY_QA_DERIVED_SOURCE : null,
+    consumedKeys,
+  };
+}
+
+/**
  * @param {string} key
  */
 export function isCheckoutAddonAliasKey(key) {
@@ -600,8 +652,17 @@ export function sanitizeRecord(raw, index) {
     throw new Error(`records[${index}] must be an object`);
   }
 
+  // Classify legacy QA (client_reference_id=qa-live-conversion) before the
+  // row-identifying field is rejected/stripped. Never retain or echo the value.
+  const { derivedQaSource, consumedKeys } = consumeLegacyQaClientReference(raw);
+  /** @type {Record<string, unknown>} */
+  const working = { ...raw };
+  for (const key of consumedKeys) {
+    delete working[key];
+  }
+
   const warnings = [];
-  for (const key of Object.keys(raw)) {
+  for (const key of Object.keys(working)) {
     // Documented checkout aliases are normalized below — never treat as sensitive/unknown.
     if (ALLOWED_RECORD_FIELD_SET.has(key) || isCheckoutMetadataAliasKey(key)) {
       continue;
@@ -619,8 +680,8 @@ export function sanitizeRecord(raw, index) {
     warnings.push(`records[${index}]: stripped unknown field "${key}"`);
   }
 
-  const amountTotal = assertRequiredAmountTotal(raw.amount_total);
-  const currencyRaw = raw.currency;
+  const amountTotal = assertRequiredAmountTotal(working.amount_total);
+  const currencyRaw = working.currency;
   if (typeof currencyRaw !== "string" || !currencyRaw.trim()) {
     throw new Error(`records[${index}].currency is required`);
   }
@@ -630,26 +691,27 @@ export function sanitizeRecord(raw, index) {
   }
 
   const orderType =
-    raw.order_type === undefined || raw.order_type === null
+    working.order_type === undefined || working.order_type === null
       ? null
-      : String(raw.order_type).trim().toLowerCase();
+      : String(working.order_type).trim().toLowerCase();
 
-  const planRaw = raw.plan === undefined || raw.plan === null ? null : String(raw.plan).trim().toLowerCase();
+  const planRaw =
+    working.plan === undefined || working.plan === null ? null : String(working.plan).trim().toLowerCase();
   const plan = planRaw || null;
 
   const printVariant =
-    raw.print_variant === undefined || raw.print_variant === null
+    working.print_variant === undefined || working.print_variant === null
       ? null
-      : String(raw.print_variant).trim().toLowerCase();
+      : String(working.print_variant).trim().toLowerCase();
 
   const includeDigital = resolveCanonicalBoolWithAlias(
-    raw,
+    working,
     index,
     "include_digital",
     CHECKOUT_ADDON_ALIAS_NORMALIZED.include_digital
   );
   const includeCard = resolveCanonicalBoolWithAlias(
-    raw,
+    working,
     index,
     "include_card",
     CHECKOUT_ADDON_ALIAS_NORMALIZED.include_card
@@ -680,22 +742,31 @@ export function sanitizeRecord(raw, index) {
     }
   }
 
-  const shippingCountry = resolveCanonicalShippingCountryWithAlias(raw, index);
+  const shippingCountry = resolveCanonicalShippingCountryWithAlias(working, index);
   const shippingChargeCents = resolveCanonicalCentsWithAlias(
-    raw,
+    working,
     index,
     "shipping_charge_cents",
     CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_charge_cents
   );
   const shippingSubsidyCents = resolveCanonicalCentsWithAlias(
-    raw,
+    working,
     index,
     "shipping_subsidy_cents",
     CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_subsidy_cents
   );
 
+  const existingQaSource =
+    working.qa_source === undefined || working.qa_source === null
+      ? undefined
+      : String(working.qa_source);
+  const qaSource =
+    existingQaSource !== undefined && existingQaSource.trim() !== ""
+      ? existingQaSource
+      : derivedQaSource || undefined;
+
   const record = {
-    paid_at: raw.paid_at === undefined || raw.paid_at === null ? null : String(raw.paid_at),
+    paid_at: working.paid_at === undefined || working.paid_at === null ? null : String(working.paid_at),
     currency,
     amount_total: amountTotal,
     order_type: orderType,
@@ -706,10 +777,10 @@ export function sanitizeRecord(raw, index) {
     shipping_country: shippingCountry,
     shipping_charge_cents: shippingChargeCents,
     shipping_subsidy_cents: shippingSubsidyCents,
-    discount_cents: assertNonNegativeIntegerCents(raw.discount_cents, `records[${index}].discount_cents`),
-    qa_run: raw.qa_run === undefined ? undefined : raw.qa_run,
-    qa_ops_checkout: raw.qa_ops_checkout === undefined ? undefined : raw.qa_ops_checkout,
-    qa_source: raw.qa_source === undefined || raw.qa_source === null ? undefined : String(raw.qa_source),
+    discount_cents: assertNonNegativeIntegerCents(working.discount_cents, `records[${index}].discount_cents`),
+    qa_run: working.qa_run === undefined ? undefined : working.qa_run,
+    qa_ops_checkout: working.qa_ops_checkout === undefined ? undefined : working.qa_ops_checkout,
+    qa_source: qaSource,
   };
 
   return { record, warnings };

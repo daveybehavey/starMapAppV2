@@ -15,6 +15,8 @@ import {
 import {
   CHECKOUT_ADDON_ALIAS_NORMALIZED,
   CHECKOUT_SHIPPING_ALIAS_NORMALIZED,
+  LEGACY_QA_CLIENT_REFERENCE_VALUE,
+  LEGACY_QA_DERIVED_SOURCE,
   PRODUCT_CONTRIBUTION_CONTRACT,
   SENSITIVE_RECORD_FIELDS,
   UNSUPPORTED_MERCH_RECORD_FIELDS,
@@ -22,6 +24,7 @@ import {
   assertScriptIsNotNoOp,
   buildProductContributionReport,
   classifyProductGroup,
+  consumeLegacyQaClientReference,
   containsSensitiveOperatorText,
   estimateRecordContribution,
   formatJsonReport,
@@ -29,6 +32,7 @@ import {
   isCheckoutAddonAliasKey,
   isCheckoutMetadataAliasKey,
   isCheckoutShippingAliasKey,
+  isExcludedQaRecord,
   isSensitiveRecordFieldKey,
   isUnsupportedMerchFieldKey,
   normalizeRecordFieldKey,
@@ -355,6 +359,224 @@ test("fixture report groups digital/print/bundle and excludes QA", () => {
   assert.equal(cad.paid_order_count, 1);
   // Currencies are never combined
   assert.notEqual(usd.collected_revenue_cents, usd.collected_revenue_cents + cad.collected_revenue_cents);
+});
+
+test("Codex regression: legacy QA client_reference is classified before strip; production and raw ids unchanged", () => {
+  assert.equal(LEGACY_QA_CLIENT_REFERENCE_VALUE, "qa-live-conversion");
+  assert.equal(LEGACY_QA_DERIVED_SOURCE, "live_conversion_legacy");
+  assert.ok(LEGACY_QA_DERIVED_SOURCE.startsWith("live_conversion"));
+
+  // Positive: exact legacy marker → derive non-identifying qa_source, drop identifier, exclude.
+  for (const key of ["client_reference_id", "clientReferenceId", "ClientReferenceId"]) {
+    const { derivedQaSource, consumedKeys } = consumeLegacyQaClientReference({
+      [key]: LEGACY_QA_CLIENT_REFERENCE_VALUE,
+      currency: "usd",
+      amount_total: 2900,
+    });
+    assert.equal(derivedQaSource, LEGACY_QA_DERIVED_SOURCE, key);
+    assert.deepEqual(consumedKeys, [key], key);
+
+    const { record, warnings } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+        [key]: `  ${LEGACY_QA_CLIENT_REFERENCE_VALUE}  `,
+      },
+      3
+    );
+    assert.equal(record.qa_source, LEGACY_QA_DERIVED_SOURCE, key);
+    assert.equal(record.client_reference_id, undefined, key);
+    assert.equal(record.clientReferenceId, undefined, key);
+    assert.equal(Object.prototype.hasOwnProperty.call(record, key), false, key);
+    assert.equal(isExcludedQaRecord(record), true, key);
+    assert.equal(warnings.some((w) => w.includes("client_reference")), false, key);
+    assert.doesNotMatch(JSON.stringify(record), new RegExp(LEGACY_QA_CLIENT_REFERENCE_VALUE));
+  }
+
+  // Existing nonblank qa_source is preserved; legacy marker still consumed.
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+        qa_source: "live_conversion_qa",
+        client_reference_id: LEGACY_QA_CLIENT_REFERENCE_VALUE,
+      },
+      4
+    );
+    assert.equal(record.qa_source, "live_conversion_qa");
+    assert.equal(isExcludedQaRecord(record), true);
+    assert.equal(Object.prototype.hasOwnProperty.call(record, "client_reference_id"), false);
+  }
+
+  // Aggregate: legacy-only QA row is excluded and does not contribute to digital:single.
+  {
+    const production = {
+      currency: "usd",
+      amount_total: 2900,
+      order_type: "digital",
+      plan: "single",
+    };
+    const legacyQa = {
+      currency: "usd",
+      amount_total: 5000,
+      order_type: "digital",
+      plan: "single",
+      client_reference_id: LEGACY_QA_CLIENT_REFERENCE_VALUE,
+    };
+    const { records } = parseSanitizedDocument({
+      schema_version: 1,
+      records: [production, legacyQa],
+    });
+    assert.equal(records.length, 2);
+    assert.equal(isExcludedQaRecord(records[0]), false);
+    assert.equal(isExcludedQaRecord(records[1]), true);
+    assert.equal(records[1].qa_source, LEGACY_QA_DERIVED_SOURCE);
+    assert.equal(Object.prototype.hasOwnProperty.call(records[1], "client_reference_id"), false);
+
+    const report = buildProductContributionReport(records, { env: {} });
+    const usd = report.currency_sections.find((s) => s.currency === "usd");
+    assert.equal(usd.excluded_qa_count, 1);
+    assert.equal(usd.excluded_qa_revenue_cents, 5000);
+    const digital = usd.groups.find((g) => g.group_key === "digital:single");
+    assert.equal(digital.paid_order_count, 1);
+    assert.equal(digital.collected_revenue_cents, 2900);
+  }
+
+  // Negative: ordinary production row (no QA markers) is not excluded.
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+      },
+      0
+    );
+    assert.equal(record.qa_source, undefined);
+    assert.equal(isExcludedQaRecord(record), false);
+  }
+
+  // Negative: non-legacy client_reference values still fail closed; value never leaked.
+  const leakValues = [
+    "cref_prod_must_not_leak",
+    "123e4567-e89b-42d3-a456-426614174000",
+    "qa-live-conversion-extra",
+    "CUSTOMER_NAME_TOKEN",
+  ];
+  for (const value of leakValues) {
+    assert.throws(
+      () =>
+        sanitizeRecord(
+          {
+            currency: "usd",
+            amount_total: 100,
+            order_type: "digital",
+            plan: "single",
+            client_reference_id: value,
+          },
+          9
+        ),
+      (err) => {
+        const message = String(err?.message ?? "");
+        assert.match(message, /sensitive|row-identifying/);
+        assert.match(message, /client_reference_id/);
+        assert.doesNotMatch(message, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+        return true;
+      },
+      value
+    );
+  }
+
+  // CLI: legacy QA excluded with empty identifier leakage; production counted.
+  {
+    const io = createIo();
+    const doc = {
+      schema_version: 1,
+      records: [
+        {
+          currency: "usd",
+          amount_total: 2900,
+          order_type: "digital",
+          plan: "single",
+        },
+        {
+          currency: "usd",
+          amount_total: 4100,
+          order_type: "digital",
+          plan: "single",
+          clientReferenceId: LEGACY_QA_CLIENT_REFERENCE_VALUE,
+        },
+      ],
+    };
+    const tmp = path.join(path.dirname(FIXTURE_PATH), `.legacy-qa-cref-${process.pid}.json`);
+    fs.writeFileSync(tmp, JSON.stringify(doc));
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmp, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 0);
+      const combined = io.getStdout() + io.getStderr();
+      assert.doesNotMatch(combined, new RegExp(LEGACY_QA_CLIENT_REFERENCE_VALUE));
+      assert.doesNotMatch(combined, /client_reference/i);
+      assert.doesNotMatch(combined, /clientReferenceId/);
+      const parsed = JSON.parse(io.getStdout());
+      const usd = parsed.currency_sections.find((s) => s.currency === "usd");
+      assert.equal(usd.excluded_qa_count, 1);
+      assert.equal(usd.excluded_qa_revenue_cents, 4100);
+      const digital = usd.groups.find((g) => g.group_key === "digital:single");
+      assert.equal(digital.paid_order_count, 1);
+      assert.equal(digital.collected_revenue_cents, 2900);
+      assert.equal(containsSensitiveOperatorText(combined), false);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  }
+
+  // CLI negative: non-legacy client_reference fails closed with empty aggregate stdout.
+  {
+    const io = createIo();
+    const leak = "map-uuid-or-customer-token-LEAK";
+    const doc = {
+      schema_version: 1,
+      records: [
+        {
+          currency: "usd",
+          amount_total: 2900,
+          order_type: "digital",
+          plan: "single",
+          client_reference_id: leak,
+        },
+      ],
+    };
+    const tmp = path.join(path.dirname(FIXTURE_PATH), `.bad-cref-${process.pid}.json`);
+    fs.writeFileSync(tmp, JSON.stringify(doc));
+    try {
+      const code = runProductContribution({
+        argv: ["--input", tmp, "--format", "json"],
+        stdout: io.stdout,
+        stderr: io.stderr,
+        env: {},
+      });
+      assert.equal(code, 1);
+      assert.equal(io.getStdout().trim(), "");
+      assert.doesNotMatch(io.getStdout(), /estimated_pre_fixed_cost_contribution_cents/);
+      assert.doesNotMatch(io.getStdout(), /digital:single/);
+      const combined = io.getStdout() + io.getStderr();
+      assert.doesNotMatch(combined, new RegExp(leak));
+      assert.match(io.getStderr(), /sensitive|row-identifying|Product contribution failed/);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  }
 });
 
 test("mixed currencies produce separate sections and are never summed together", () => {
