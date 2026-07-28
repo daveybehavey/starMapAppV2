@@ -191,13 +191,30 @@ Agents must never automatically:
 - deploy
 - trigger production deployment
 - change billing
-- change Stripe or Printful
+- change Stripe or Printful configuration or records (mutations)
 - change Cloudflare or Vercel
 - access, add, expose, or rotate production secrets
 - change repository permissions
 - change branch protection
 - modify production data
 - perform destructive migrations
+
+### Commercial analysis — read-only exception (owner-approved)
+
+For StarMapCo commercial analysis (for example product contribution, reconciliation, revenue baselines), agents **may** inspect Stripe, Printful, analytics, and customer/order data in **read-only mode** when:
+
+1. credentials/connections are already available in the environment, and
+2. the access materially improves accuracy or usefulness of the approved issue work.
+
+Rules for that exception:
+
+- Prefer the minimum fields and smallest time range needed.
+- Avoid retrieving raw PII unless it is directly required to resolve a specific ambiguity.
+- Never commit, paste into GitHub, include in PR artifacts, screenshots, logs, fixtures, or chat output any customer names, emails, phone numbers, street addresses, session/payment identifiers, tokens, secrets, or raw service objects.
+- Reports, tests, documentation, and PR evidence must remain aggregate, redacted, synthetic, or structurally described.
+- Do **not** mutate Stripe, Printful, customer records, orders, fulfillment, refunds, disputes, subscriptions, metadata, analytics, production configuration, secrets, or external services unless the owner explicitly authorizes that specific mutation.
+- No refunds, cancellations, captures, fulfillment actions, customer contact, webhook replays, metadata edits, secret rotation, or other production writes under this permission.
+- Offline-capable operator tools (for example `qa:product-contribution`) must **not** depend on production access; live read-only cross-checks are optional validation only.
 
 Production secrets must not be committed to the repository or written into `AGENTS.md`, `.cursor/environment.json`, issue templates, or this document.
 

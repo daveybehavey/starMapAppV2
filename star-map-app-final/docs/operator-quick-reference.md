@@ -32,9 +32,11 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 - **Quick local verification**:
   - `npm run qa:ga4-smoke`
   - `npm run qa:funnel-reconcile -- --days 14`
+  - `npm run qa:product-contribution -- --input scripts/unit/fixtures/product-contribution/synthetic-paid-sessions.json`
   - `npm run qa:commerce-digest -- --days 7`
   - `npm run qa:checkout-source-diagnostics -- --days 14`
 - **Funnel vs Stripe health**: weekly dry-run: `npm run qa:funnel-reconcile -- --days 14` (requires `PRINT_ADMIN_TOKEN` + site origin via `--site` or `FUNNEL_RECONCILE_SITE` / `NEXT_PUBLIC_SITE_URL`), then `npm run qa:commerce-digest -- --days 14`. Default is **read-only** (`dryRun: true`); output is aggregates only (`scanned` / `eligible` / `already_recorded` / `would_repair`). To apply repairs: `FUNNEL_RECONCILE_ALLOW_APPLY=1 npm run qa:funnel-reconcile -- --days 14 --apply` (double-gated; never use apply in automation by default).
+- **Product contribution (offline)**: `npm run qa:product-contribution -- --input <sanitized.json> [--format table|json]` — local file only; estimated pre-fixed-cost contribution by digital/print/bundle group using configured fee/COGS/shipping estimates. Rejects PII/session fields. For legacy QA whose only marker is `client_reference_id=qa-live-conversion`, derive a non-identifying QA flag (or exclude the row) **before** stripping that identifier — see `COMMERCIAL_METRIC_DICTIONARY.md` §2.9.1. Not net profit. Schema + limitations: §2.9. Synthetic demo: `scripts/unit/fixtures/product-contribution/synthetic-paid-sessions.json`. Optional owner-approved **read-only** live cross-check of sanitized exports is allowed when credentials exist (§2.9.2) — never wire production into this CLI; never publish row-level data.
 - **Commerce digest note**: `qa:commerce-digest` includes paid `referral_offer_variant` mix to validate referral offer tests.
 - **Checkout source diagnostics**:
   - use `qa:checkout-source-diagnostics` when server checkout sessions exceed client checkout intent
