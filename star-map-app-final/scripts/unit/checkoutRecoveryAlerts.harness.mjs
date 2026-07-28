@@ -111,6 +111,24 @@ export function isCheckoutRecoveryDeliveredMarker(value) {
 }
 
 /**
+ * @param {string} [bodySnippet]
+ * @returns {string | null}
+ */
+export function extractResendErrorName(bodySnippet) {
+  if (typeof bodySnippet !== "string" || !bodySnippet.trim()) return null;
+  try {
+    const parsed = JSON.parse(bodySnippet);
+    if (parsed && typeof parsed === "object" && typeof parsed.name === "string") {
+      const name = parsed.name.trim();
+      return name || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
  * @param {"resend"|"sendgrid"} provider
  * @param {number} status
  * @param {string} [bodySnippet]
@@ -120,14 +138,31 @@ export function classifyCheckoutRecoveryHttpResult(provider, status, bodySnippet
     return { delivered: true, provider, status, retryability: "delivered" };
   }
   if (provider === "resend" && status === 409) {
-    const concurrent =
-      typeof bodySnippet === "string" && bodySnippet.includes("concurrent_idempotent_requests");
+    const errorName = extractResendErrorName(bodySnippet);
+    if (errorName === "concurrent_idempotent_requests") {
+      return {
+        delivered: false,
+        provider,
+        status,
+        retryability: "retryable",
+        errorCode: "concurrent_idempotent_requests",
+      };
+    }
+    if (errorName === "invalid_idempotent_request") {
+      return {
+        delivered: false,
+        provider,
+        status,
+        retryability: "terminal",
+        errorCode: "invalid_idempotent_request",
+      };
+    }
     return {
       delivered: false,
       provider,
       status,
-      retryability: "retryable",
-      errorCode: concurrent ? "concurrent_idempotent_requests" : "provider_conflict",
+      retryability: "terminal",
+      errorCode: "provider_conflict",
     };
   }
   if (status === 429) {

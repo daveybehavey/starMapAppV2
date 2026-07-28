@@ -251,9 +251,32 @@ function notConfiguredResult(): CheckoutRecoveryAlertResult {
 }
 
 /**
+ * Safely extract Resend's machine-readable error `name` from a JSON body snippet.
+ * Never returns or persists the raw body.
+ */
+export function extractResendErrorName(bodySnippet?: string): string | null {
+  if (typeof bodySnippet !== "string" || !bodySnippet.trim()) return null;
+  try {
+    const parsed = JSON.parse(bodySnippet) as unknown;
+    if (parsed && typeof parsed === "object" && typeof (parsed as { name?: unknown }).name === "string") {
+      const name = (parsed as { name: string }).name.trim();
+      return name || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
  * Classify an HTTP provider response into a bounded delivery result.
- * May inspect a body snippet for Resend concurrent-idempotency detection only;
+ * May inspect a body snippet for exact Resend 409 name extraction only;
  * never returns or persists the raw body.
+ *
+ * Resend 409 taxonomy (official Idempotency Keys docs):
+ * - concurrent_idempotent_requests → retryable
+ * - invalid_idempotent_request → terminal (retrying unchanged is useless)
+ * - unknown/malformed 409 → terminal provider_conflict
  */
 export function classifyCheckoutRecoveryHttpResult(
   provider: "resend" | "sendgrid",
@@ -265,14 +288,31 @@ export function classifyCheckoutRecoveryHttpResult(
   }
 
   if (provider === "resend" && status === 409) {
-    const concurrent =
-      typeof bodySnippet === "string" && bodySnippet.includes("concurrent_idempotent_requests");
+    const errorName = extractResendErrorName(bodySnippet);
+    if (errorName === "concurrent_idempotent_requests") {
+      return {
+        delivered: false,
+        provider,
+        status,
+        retryability: "retryable",
+        errorCode: "concurrent_idempotent_requests",
+      };
+    }
+    if (errorName === "invalid_idempotent_request") {
+      return {
+        delivered: false,
+        provider,
+        status,
+        retryability: "terminal",
+        errorCode: "invalid_idempotent_request",
+      };
+    }
     return {
       delivered: false,
       provider,
       status,
-      retryability: "retryable",
-      errorCode: concurrent ? "concurrent_idempotent_requests" : "provider_conflict",
+      retryability: "terminal",
+      errorCode: "provider_conflict",
     };
   }
 

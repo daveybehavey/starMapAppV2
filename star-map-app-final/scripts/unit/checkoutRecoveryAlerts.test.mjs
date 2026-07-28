@@ -165,12 +165,61 @@ test("classify: Resend concurrent_idempotent_requests is retryable and never del
   const result = classifyCheckoutRecoveryHttpResult(
     "resend",
     409,
-    '{"name":"concurrent_idempotent_requests"}'
+    '{"name":"concurrent_idempotent_requests","message":"in progress secret"}'
   );
   assert.equal(result.delivered, false);
   assert.equal(result.retryability, "retryable");
   assert.equal(result.errorCode, "concurrent_idempotent_requests");
-  assert.equal(JSON.stringify(result).includes("name"), false);
+  assert.equal(JSON.stringify(result).includes("secret"), false);
+  assert.equal(JSON.stringify(result).includes("in progress"), false);
+});
+
+test("classify: Resend invalid_idempotent_request is terminal", () => {
+  const result = classifyCheckoutRecoveryHttpResult(
+    "resend",
+    409,
+    '{"name":"invalid_idempotent_request","message":"payload mismatch for cs_live_x"}'
+  );
+  assert.equal(result.delivered, false);
+  assert.equal(result.retryability, "terminal");
+  assert.equal(result.errorCode, "invalid_idempotent_request");
+  assert.equal(JSON.stringify(result).includes("cs_live_x"), false);
+  assert.equal(JSON.stringify(result).includes("payload mismatch"), false);
+});
+
+test("classify: unknown/malformed Resend 409 is terminal provider_conflict", () => {
+  const unknown = classifyCheckoutRecoveryHttpResult(
+    "resend",
+    409,
+    '{"name":"some_other_conflict","detail":"raw body cs_live_y"}'
+  );
+  assert.equal(unknown.retryability, "terminal");
+  assert.equal(unknown.errorCode, "provider_conflict");
+  assert.equal(JSON.stringify(unknown).includes("cs_live_y"), false);
+  assert.equal(JSON.stringify(unknown).includes("some_other_conflict"), false);
+
+  const malformed = classifyCheckoutRecoveryHttpResult("resend", 409, "not-json <<<cs_live_z>>>");
+  assert.equal(malformed.retryability, "terminal");
+  assert.equal(malformed.errorCode, "provider_conflict");
+  assert.equal(JSON.stringify(malformed).includes("cs_live_z"), false);
+
+  const empty = classifyCheckoutRecoveryHttpResult("resend", 409);
+  assert.equal(empty.retryability, "terminal");
+  assert.equal(empty.errorCode, "provider_conflict");
+});
+
+test("negative control: generic status===409 must not be automatically retryable", () => {
+  const bare409 = classifyCheckoutRecoveryHttpResult("resend", 409, '{"ok":true}');
+  assert.notEqual(bare409.retryability, "retryable");
+  assert.equal(bare409.retryability, "terminal");
+  // Substring presence of concurrent_* in unrelated text must not force retryable.
+  const decoy = classifyCheckoutRecoveryHttpResult(
+    "resend",
+    409,
+    '{"message":"mentions concurrent_idempotent_requests but wrong shape"}'
+  );
+  assert.equal(decoy.retryability, "terminal");
+  assert.equal(decoy.errorCode, "provider_conflict");
 });
 
 test("classify: Resend 5xx / 429 are retryable with sanitized codes", () => {
@@ -344,6 +393,40 @@ test("delivery: Resend concurrent-idempotency response stays pending without del
   assert.equal(result.session.recoveryEmailSentAt, undefined);
   assert.equal(result.session.recoveryEmailErrorCode, "concurrent_idempotent_requests");
   assert.equal(result.eventFinalized, false);
+});
+
+test("delivery: Resend invalid_idempotent_request is terminal 2xx with event finalized", async () => {
+  const rawBody = '{"name":"invalid_idempotent_request","message":"different payload for cs_live_invalid"}';
+  const result = await simulateExpiredCheckoutRecoveryPass({
+    sessionId: "cs_test_invalid_409",
+    eventId: "evt_invalid_409",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 409, rawBody),
+  });
+  assert.equal(result.httpStatus, 200);
+  assert.equal(result.eventFinalized, true);
+  assert.equal(result.deliveredMarker, null);
+  assert.equal(result.session.recoveryEmailRetryability, "terminal");
+  assert.equal(result.session.recoveryEmailErrorCode, "invalid_idempotent_request");
+  assert.equal(JSON.stringify(result.session).includes("cs_live_invalid"), false);
+  assert.equal(JSON.stringify(result.session).includes("different payload"), false);
+});
+
+test("delivery: unknown Resend 409 is terminal 2xx with event finalized", async () => {
+  const result = await simulateExpiredCheckoutRecoveryPass({
+    sessionId: "cs_test_unknown_409",
+    eventId: "evt_unknown_409",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 409, "garbage body with pi_live_secret"),
+  });
+  assert.equal(result.httpStatus, 200);
+  assert.equal(result.eventFinalized, true);
+  assert.equal(result.deliveredMarker, null);
+  assert.equal(result.session.recoveryEmailRetryability, "terminal");
+  assert.equal(result.session.recoveryEmailErrorCode, "provider_conflict");
+  assert.equal(JSON.stringify(result.session).includes("pi_live_secret"), false);
 });
 
 test("delivery: terminal provider response records state and acknowledges without endless retry", async () => {
