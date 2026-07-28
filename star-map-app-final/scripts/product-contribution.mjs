@@ -757,9 +757,7 @@ export function sanitizeRecord(raw, index) {
   );
 
   const existingQaSource =
-    working.qa_source === undefined || working.qa_source === null
-      ? undefined
-      : String(working.qa_source);
+    working.qa_source === undefined || working.qa_source === null ? undefined : String(working.qa_source);
   const qaSource =
     existingQaSource !== undefined && existingQaSource.trim() !== ""
       ? existingQaSource

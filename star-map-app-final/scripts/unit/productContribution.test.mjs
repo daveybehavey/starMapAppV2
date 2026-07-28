@@ -391,7 +391,11 @@ test("Codex regression: legacy QA client_reference is classified before strip; p
     assert.equal(record.clientReferenceId, undefined, key);
     assert.equal(Object.prototype.hasOwnProperty.call(record, key), false, key);
     assert.equal(isExcludedQaRecord(record), true, key);
-    assert.equal(warnings.some((w) => w.includes("client_reference")), false, key);
+    assert.equal(
+      warnings.some((w) => w.includes("client_reference")),
+      false,
+      key
+    );
     assert.doesNotMatch(JSON.stringify(record), new RegExp(LEGACY_QA_CLIENT_REFERENCE_VALUE));
   }
 
