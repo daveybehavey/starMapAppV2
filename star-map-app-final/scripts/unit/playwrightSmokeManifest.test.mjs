@@ -43,3 +43,14 @@ test("fails with the exact command and spec when Playwright discovers zero tests
   assert.match(result.stderr, /discovered 0 tests/);
   assert.match(result.stderr, /npm run qa:smoke:ui -- --list/);
 });
+
+test("fails when package script specs drift from the smoke manifest", () => {
+  const result = runFixture("command-manifest-drift");
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /qa:smoke:ui/);
+  assert.match(result.stderr, /tests\/valid\.spec\.mjs/);
+  assert.match(result.stderr, /tests\/extra\.spec\.mjs/);
+  assert.match(result.stderr, /playwright-smoke-manifest\.json/);
+  assert.match(result.stderr, /npm run qa:smoke:ui -- --list/);
+});

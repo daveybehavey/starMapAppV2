@@ -2,7 +2,7 @@
   "criticalSuites": [
     {
       "command": "qa:smoke:ui",
-      "specs": ["tests/ui-smoke.spec.ts"]
+      "specs": ["tests/ui-smoke.spec.ts", "tests/post-preview-cta-hierarchy.spec.ts"]
     },
     {
       "command": "qa:smoke:render",
