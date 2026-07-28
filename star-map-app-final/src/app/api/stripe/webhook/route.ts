@@ -28,7 +28,15 @@ import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
-import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
+import {
+  applyCheckoutRecoveryAlertToSessionFields,
+  checkoutRecoveryEmailDeliveredKey,
+  CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS,
+  isCheckoutRecoveryDeliveredMarker,
+  isCheckoutRecoveryWebhookRetryable,
+  sendCheckoutRecoveryAlert,
+  type CheckoutRecoveryRetryability,
+} from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
 import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
@@ -110,6 +118,10 @@ type SessionRecord = {
   recoveryEmailSentAt?: number;
   recoveryEmailProvider?: string;
   recoveryEmailError?: string;
+  recoveryEmailErrorCode?: string;
+  recoveryEmailRetryability?: CheckoutRecoveryRetryability;
+  recoveryEmailLastAttemptAt?: number;
+  recoveryEmailAttemptCount?: number;
   accessEmailSentAt?: number;
   accessEmailProvider?: string;
   accessEmailError?: string;
@@ -144,8 +156,6 @@ const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
-const recoveryEmailKey = (id: string) => `stripe:checkout_recovery:email:${id}`;
-const RECOVERY_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 const accessEmailKey = (id: string) => ENTITLEMENT_KV.accessEmailDedupe(id);
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 const WEBHOOK_EVENT_DEDUPE_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -1079,8 +1089,11 @@ async function hydrateExpiredSession(session: Stripe.Checkout.Session) {
   }
 }
 
-async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, eventCreated: number) {
-  if (!session.id) return;
+async function handleExpiredCheckoutSession(
+  session: Stripe.Checkout.Session,
+  eventCreated: number,
+): Promise<{ retryable: boolean }> {
+  if (!session.id) return { retryable: false };
 
   const hydrated = await hydrateExpiredSession(session);
   const orderType = getOrderType(hydrated);
@@ -1117,9 +1130,21 @@ async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, ev
     recoveryUrl,
   };
 
-  if (recoveryUrl && customerEmail && !existing?.recoveryEmailSentAt) {
-    const shouldSend = await kv.incr(recoveryEmailKey(hydrated.id), 1, { ex: RECOVERY_EMAIL_TTL_SECONDS });
-    if (shouldSend === 1) {
+  let recoveryOutcome: CheckoutRecoveryRetryability | "skipped" | "already_delivered" = "skipped";
+
+  if (recoveryUrl && customerEmail) {
+    const deliveredMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
+    const alreadyDelivered =
+      Boolean(existing?.recoveryEmailSentAt) || isCheckoutRecoveryDeliveredMarker(deliveredMarker);
+
+    if (alreadyDelivered) {
+      recoveryOutcome = "already_delivered";
+      if (!nextRecord.recoveryEmailSentAt) {
+        nextRecord.recoveryEmailSentAt =
+          existing?.recoveryEmailSentAt ??
+          (isCheckoutRecoveryDeliveredMarker(deliveredMarker) ? deliveredMarker.at : Date.now());
+      }
+    } else {
       const alertResult = await sendCheckoutRecoveryAlert({
         sessionId: hydrated.id,
         email: customerEmail,
@@ -1131,13 +1156,23 @@ async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, ev
         amountTotal: hydrated.amount_total,
         currency: hydrated.currency,
       });
+      recoveryOutcome = alertResult.retryability;
+      Object.assign(
+        nextRecord,
+        applyCheckoutRecoveryAlertToSessionFields(
+          {
+            recoveryEmailAttemptCount: existing?.recoveryEmailAttemptCount,
+            recoveryEmailSentAt: existing?.recoveryEmailSentAt,
+          },
+          alertResult,
+        ),
+      );
       if (alertResult.delivered) {
-        nextRecord.recoveryEmailSentAt = Date.now();
-        nextRecord.recoveryEmailProvider = alertResult.provider;
-        nextRecord.recoveryEmailError = undefined;
-      } else {
-        nextRecord.recoveryEmailProvider = alertResult.provider;
-        nextRecord.recoveryEmailError = alertResult.error;
+        await kv.set(
+          checkoutRecoveryEmailDeliveredKey(hydrated.id),
+          { delivered: true as const, at: nextRecord.recoveryEmailSentAt ?? Date.now() },
+          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+        );
       }
     }
   }
@@ -1149,6 +1184,8 @@ async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, ev
     plan: orderType === "print" ? printVariant : plan,
     occurredAt: expiresAtMs,
   });
+
+  return { retryable: isCheckoutRecoveryWebhookRetryable(recoveryOutcome) };
 }
 
 export async function POST(req: Request) {
@@ -1170,12 +1207,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const dedupeCount = await kv.incr(ENTITLEMENT_KV.stripeWebhookEvent(event.id), 1, {
-    ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
-  });
-  if (dedupeCount > 1) {
-    return NextResponse.json({ received: true, duplicate: true });
+  const eventDedupeKey = ENTITLEMENT_KV.stripeWebhookEvent(event.id);
+  const isExpiredCheckoutEvent = event.type === "checkout.session.expired";
+
+  // Unrelated Stripe event types keep pre-processing dedupe.
+  // checkout.session.expired finalizes dedupe only after delivered / already-delivered / terminal
+  // handling so retryable provider failures remain eligible for Stripe redelivery.
+  if (!isExpiredCheckoutEvent) {
+    const dedupeCount = await kv.incr(eventDedupeKey, 1, {
+      ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
+    });
+    if (dedupeCount > 1) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+  } else {
+    const existingEvent = await kv.get(eventDedupeKey);
+    if (existingEvent) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
   }
+
+  let expiredRecoveryRetryable = false;
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -1187,7 +1239,12 @@ export async function POST(req: Request) {
     }
     case "checkout.session.expired": {
       const session = event.data.object as Stripe.Checkout.Session;
-      await handleExpiredCheckoutSession(session, event.created);
+      const outcome = await handleExpiredCheckoutSession(session, event.created);
+      if (outcome.retryable) {
+        expiredRecoveryRetryable = true;
+      } else {
+        await kv.set(eventDedupeKey, { received: true }, { ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS });
+      }
       break;
     }
     case "customer.subscription.updated":
@@ -1253,6 +1310,10 @@ export async function POST(req: Request) {
     }
     default:
       break;
+  }
+
+  if (expiredRecoveryRetryable) {
+    return NextResponse.json({ error: "checkout_recovery_retryable" }, { status: 503 });
   }
 
   return NextResponse.json({ received: true });

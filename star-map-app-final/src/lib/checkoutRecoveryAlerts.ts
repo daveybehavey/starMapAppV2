@@ -1,7 +1,14 @@
+import { createHash } from "node:crypto";
 import type { PrintVariant } from "@/lib/pricing";
 import { getPrintPricingTiers } from "@/lib/pricing";
 
 type CheckoutRecoveryAlertProvider = "resend" | "sendgrid" | "none";
+
+export type CheckoutRecoveryRetryability =
+  | "delivered"
+  | "retryable"
+  | "terminal"
+  | "not_configured";
 
 export type CheckoutRecoveryAlertInput = {
   sessionId: string;
@@ -18,8 +25,61 @@ export type CheckoutRecoveryAlertInput = {
 export type CheckoutRecoveryAlertResult = {
   delivered: boolean;
   provider: CheckoutRecoveryAlertProvider;
-  error?: string;
+  status?: number;
+  retryability: CheckoutRecoveryRetryability;
+  /** Sanitized category-only code. Never a raw provider body or customer identifier. */
+  errorCode?: string;
 };
+
+export type CheckoutRecoveryDeliveredMarker = {
+  delivered: true;
+  at: number;
+};
+
+/**
+ * SendGrid fallback has no provider idempotency key equivalent to Resend.
+ * Concurrent duplicate protection is best-effort only under current Workers KV.
+ */
+export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE =
+  "best_effort_no_provider_idempotency" as const;
+
+/** Long-lived delivered marker TTL (matches prior successful-send window). */
+export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
+
+/** Authoritative delivered marker — written only after confirmed provider success. */
+export function checkoutRecoveryEmailDeliveredKey(sessionId: string): string {
+  return `stripe:checkout_recovery:email_delivered:${sessionId}`;
+}
+
+/**
+ * Legacy pre-send counter key. Must not be used as authoritative email dedupe;
+ * retaining a failed-send lock here was the #203 defect.
+ */
+export function checkoutRecoveryEmailLegacyPreSendKey(sessionId: string): string {
+  return `stripe:checkout_recovery:email:${sessionId}`;
+}
+
+/**
+ * Deterministic opaque Resend Idempotency-Key for a checkout.
+ * Same session → same key; different sessions → different keys.
+ * Never embeds the raw Stripe session identifier.
+ */
+export function buildCheckoutRecoveryResendIdempotencyKey(sessionId: string): string {
+  const digest = createHash("sha256")
+    .update(`starmapco:checkout-recovery-email:v1:${sessionId}`)
+    .digest("hex");
+  return `cre_${digest.slice(0, 48)}`;
+}
+
+export function isCheckoutRecoveryDeliveredMarker(
+  value: unknown,
+): value is CheckoutRecoveryDeliveredMarker {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      (value as CheckoutRecoveryDeliveredMarker).delivered === true,
+  );
+}
 
 type ParsedEmailAddress = {
   email: string;
@@ -190,11 +250,135 @@ function getCopy(input: CheckoutRecoveryAlertInput) {
   return { subject, text, html };
 }
 
+function notConfiguredResult(): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: "not_configured",
+    errorCode: "checkout_recovery_not_configured",
+  };
+}
+
+/**
+ * Classify an HTTP provider response into a bounded delivery result.
+ * May inspect a body snippet for Resend concurrent-idempotency detection only;
+ * never returns or persists the raw body.
+ */
+export function classifyCheckoutRecoveryHttpResult(
+  provider: "resend" | "sendgrid",
+  status: number,
+  bodySnippet?: string,
+): CheckoutRecoveryAlertResult {
+  if (status >= 200 && status < 300) {
+    return { delivered: true, provider, status, retryability: "delivered" };
+  }
+
+  if (provider === "resend" && status === 409) {
+    const concurrent =
+      typeof bodySnippet === "string" && bodySnippet.includes("concurrent_idempotent_requests");
+    return {
+      delivered: false,
+      provider,
+      status,
+      retryability: "retryable",
+      errorCode: concurrent ? "concurrent_idempotent_requests" : "provider_conflict",
+    };
+  }
+
+  if (status === 429) {
+    return {
+      delivered: false,
+      provider,
+      status,
+      retryability: "retryable",
+      errorCode: "provider_rate_limited",
+    };
+  }
+
+  if (status >= 500) {
+    return {
+      delivered: false,
+      provider,
+      status,
+      retryability: "retryable",
+      errorCode: "provider_server_error",
+    };
+  }
+
+  let errorCode = "provider_client_error";
+  if (status === 401 || status === 403) errorCode = "provider_auth_error";
+  else if (status === 422) errorCode = "provider_validation_error";
+
+  return {
+    delivered: false,
+    provider,
+    status,
+    retryability: "terminal",
+    errorCode,
+  };
+}
+
+export function classifyCheckoutRecoveryNetworkFailure(
+  provider: CheckoutRecoveryAlertProvider = "none",
+): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider,
+    retryability: "retryable",
+    errorCode: "provider_network_error",
+  };
+}
+
+/** Whether Stripe should redeliver a checkout.session.expired event after this outcome. */
+export function isCheckoutRecoveryWebhookRetryable(
+  retryability: CheckoutRecoveryRetryability | "skipped" | "already_delivered",
+): boolean {
+  return retryability === "retryable";
+}
+
+export type CheckoutRecoverySessionEmailFields = {
+  recoveryEmailSentAt?: number;
+  recoveryEmailProvider?: string;
+  recoveryEmailError?: string;
+  recoveryEmailErrorCode?: string;
+  recoveryEmailRetryability?: CheckoutRecoveryRetryability;
+  recoveryEmailLastAttemptAt?: number;
+  recoveryEmailAttemptCount?: number;
+};
+
+export function applyCheckoutRecoveryAlertToSessionFields(
+  previous: Pick<CheckoutRecoverySessionEmailFields, "recoveryEmailAttemptCount" | "recoveryEmailSentAt">,
+  result: CheckoutRecoveryAlertResult,
+  now = Date.now(),
+): CheckoutRecoverySessionEmailFields {
+  const attemptCount = (previous.recoveryEmailAttemptCount ?? 0) + 1;
+  if (result.delivered) {
+    return {
+      recoveryEmailSentAt: now,
+      recoveryEmailProvider: result.provider,
+      recoveryEmailError: undefined,
+      recoveryEmailErrorCode: undefined,
+      recoveryEmailRetryability: "delivered",
+      recoveryEmailLastAttemptAt: now,
+      recoveryEmailAttemptCount: attemptCount,
+    };
+  }
+  return {
+    recoveryEmailSentAt: previous.recoveryEmailSentAt,
+    recoveryEmailProvider: result.provider,
+    recoveryEmailError: result.errorCode,
+    recoveryEmailErrorCode: result.errorCode,
+    recoveryEmailRetryability: result.retryability,
+    recoveryEmailLastAttemptAt: now,
+    recoveryEmailAttemptCount: attemptCount,
+  };
+}
+
 async function sendWithResend(input: CheckoutRecoveryAlertInput) {
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || "";
   const from = getAlertFrom();
   if (!resendApiKey || !from) {
-    return { delivered: false, provider: "none" as const, error: "checkout_recovery_not_configured" };
+    return notConfiguredResult();
   }
 
   const replyTo = getAlertReplyTo();
@@ -217,32 +401,32 @@ async function sendWithResend(input: CheckoutRecoveryAlertInput) {
     payload.reply_to = parsed?.email || replyTo;
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const idempotencyKey = buildCheckoutRecoveryResendIdempotencyKey(input.sessionId);
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    return {
-      delivered: false,
-      provider: "resend" as const,
-      error: body.slice(0, 280) || `resend_${response.status}`,
-    };
+  let response: Response;
+  try {
+    response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return classifyCheckoutRecoveryNetworkFailure("resend");
   }
 
-  return { delivered: true, provider: "resend" as const };
+  const body = response.ok ? "" : await response.text().catch(() => "");
+  return classifyCheckoutRecoveryHttpResult("resend", response.status, body);
 }
 
 async function sendWithSendgrid(input: CheckoutRecoveryAlertInput) {
   const sendgridApiKey = process.env.SENDGRID_API_KEY?.trim() || "";
   const from = parseEmailAddress(getAlertFrom());
   if (!sendgridApiKey || !from) {
-    return { delivered: false, provider: "none" as const, error: "checkout_recovery_not_configured" };
+    return notConfiguredResult();
   }
 
   const replyTo = parseEmailAddress(getAlertReplyTo());
@@ -258,25 +442,26 @@ async function sendWithSendgrid(input: CheckoutRecoveryAlertInput) {
     ...(replyTo ? { reply_to: replyTo } : {}),
   };
 
-  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${sendgridApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    return {
-      delivered: false,
-      provider: "sendgrid" as const,
-      error: body.slice(0, 280) || `sendgrid_${response.status}`,
-    };
+  let response: Response;
+  try {
+    response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sendgridApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return classifyCheckoutRecoveryNetworkFailure("sendgrid");
   }
 
-  return { delivered: true, provider: "sendgrid" as const };
+  // Intentionally no Idempotency-Key: SendGrid Mail Send has no equivalent guarantee.
+  // Concurrent duplicate protection is best-effort under current Workers KV only.
+  // See SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE.
+
+  const body = response.ok ? "" : await response.text().catch(() => "");
+  return classifyCheckoutRecoveryHttpResult("sendgrid", response.status, body);
 }
 
 export async function sendCheckoutRecoveryAlert(
@@ -289,12 +474,13 @@ export async function sendCheckoutRecoveryAlert(
     const sendgridResult = await sendWithSendgrid(input);
     if (sendgridResult.provider !== "none") return sendgridResult;
 
-    return { delivered: false, provider: "none", error: "checkout_recovery_not_configured" };
-  } catch (error) {
+    return notConfiguredResult();
+  } catch {
     return {
       delivered: false,
       provider: "none",
-      error: error instanceof Error ? error.message.slice(0, 280) : "checkout_recovery_unknown_error",
+      retryability: "retryable",
+      errorCode: "checkout_recovery_unknown_error",
     };
   }
 }

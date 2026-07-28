@@ -52,6 +52,7 @@ GitHub Actions: **CI** (PR) runs lint + build + commerce smoke; **Nightly E2E** 
 
 - Customer-facing contact: **support@starmapco.com** (see paywall and legal pages). Ensure transactional/provider emails match live product copy after pricing or fulfillment changes.
 - Magic links / downloads: see **`/api/account/*`** and download flows; test **`/my-downloads`** after auth changes.
+- **Checkout recovery email (`checkout.session.expired`):** Resend is the preferred path and uses a deterministic opaque `Idempotency-Key`. A long-lived **delivered marker** is written only after provider success; retryable provider failures return **503** so Stripe can redeliver. Session fields use sanitized `recoveryEmailErrorCode` / `recoveryEmailRetryability` only (no raw provider bodies). **SendGrid** remains a fallback without provider idempotency — concurrent duplicate protection there is best-effort under Workers KV (`SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE`). Diagnostic-only: `scripts/recovery-email-diag.mjs` (no resend execution path).
 
 ## Performance
 
