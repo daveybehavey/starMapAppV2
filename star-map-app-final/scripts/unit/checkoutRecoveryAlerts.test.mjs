@@ -15,6 +15,8 @@ import {
   getOfferLabel,
   getSubject,
   isCheckoutRecoveryWebhookRetryable,
+  naiveOverwriteConfirmedDeliveryWithFailure,
+  resolveNonDeliveredRecoveryPersistState,
   SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE,
   simulateExpiredCheckoutRecoveryPass,
 } from "./checkoutRecoveryAlerts.harness.mjs";
@@ -395,6 +397,90 @@ test("delivery: Resend concurrent-idempotency response stays pending without del
   assert.equal(result.eventFinalized, false);
 });
 
+test("race: concurrent loser must not overwrite confirmed delivery after concurrent_idempotent_requests", async () => {
+  const store = new Map();
+  const winner = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId: "cs_test_race_persist",
+    eventId: "evt_race_winner",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    now: 1_700_000_000_100,
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 200),
+  });
+  assert.equal(typeof winner.session.recoveryEmailSentAt, "number");
+  assert.equal(isCheckoutRecoveryDeliveredMarkerShape(winner.deliveredMarker), true);
+  const sentAt = winner.session.recoveryEmailSentAt;
+
+  // Loser already passed the initial delivered-state check, receives concurrent 409,
+  // then re-reads and observes the winner's delivered marker/session before persist.
+  const loser = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId: "cs_test_race_persist",
+    eventId: "evt_race_loser",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    existingSession: {
+      // Snapshot before winner wrote success — models the stale pre-send view.
+      paid: false,
+      recoveryUrl: "https://example.test/recover",
+      customerEmail: "buyer@example.test",
+    },
+    assumePassedInitialDeliveryCheck: true,
+    now: 1_700_000_000_200,
+    send: async () =>
+      classifyCheckoutRecoveryHttpResult("resend", 409, '{"name":"concurrent_idempotent_requests"}'),
+  });
+
+  assert.equal(loser.providerCalls, 1);
+  assert.equal(loser.httpStatus, 200);
+  assert.equal(loser.eventFinalized, true);
+  assert.equal(loser.recoveryOutcome, "already_delivered");
+  assert.equal(loser.session.recoveryEmailSentAt, sentAt);
+  assert.equal(loser.session.recoveryEmailProvider, "resend");
+  assert.equal(loser.session.recoveryEmailError, undefined);
+  assert.equal(loser.session.recoveryEmailErrorCode, undefined);
+  assert.equal(loser.session.recoveryEmailRetryability, "delivered");
+  assert.equal(isCheckoutRecoveryDeliveredMarkerShape(loser.deliveredMarker), true);
+  assert.ok(
+    (loser.session.recoveryEmailAttemptCount ?? 0) >= (winner.session.recoveryEmailAttemptCount ?? 0)
+  );
+});
+
+test("negative control: naive overwrite would replace confirmed delivery with retryable failure", () => {
+  const confirmed = {
+    recoveryEmailSentAt: 1_700_000_000_100,
+    recoveryEmailProvider: "resend",
+    recoveryEmailRetryability: "delivered",
+    recoveryEmailAttemptCount: 1,
+    recoveryEmailError: undefined,
+    recoveryEmailErrorCode: undefined,
+  };
+  const concurrentFailure = classifyCheckoutRecoveryHttpResult(
+    "resend",
+    409,
+    '{"name":"concurrent_idempotent_requests"}'
+  );
+  const naive = naiveOverwriteConfirmedDeliveryWithFailure(confirmed, concurrentFailure, 1_700_000_000_200);
+  assert.equal(naive.recoveryEmailSentAt, undefined);
+  assert.equal(naive.recoveryEmailRetryability, "retryable");
+  assert.equal(naive.recoveryEmailErrorCode, "concurrent_idempotent_requests");
+
+  const merged = resolveNonDeliveredRecoveryPersistState({
+    draftSession: { paid: false },
+    existingAttemptCount: 0,
+    latestSession: confirmed,
+    latestDeliveredMarker: { delivered: true, at: confirmed.recoveryEmailSentAt },
+    alertResult: concurrentFailure,
+    now: 1_700_000_000_200,
+  });
+  assert.equal(merged.recoveryOutcome, "already_delivered");
+  assert.equal(merged.sessionFields.recoveryEmailSentAt, confirmed.recoveryEmailSentAt);
+  assert.equal(merged.sessionFields.recoveryEmailRetryability, "delivered");
+  assert.equal(merged.sessionFields.recoveryEmailError, undefined);
+  assert.equal(merged.sessionFields.recoveryEmailErrorCode, undefined);
+});
+
 test("delivery: Resend invalid_idempotent_request is terminal 2xx with event finalized", async () => {
   const rawBody = '{"name":"invalid_idempotent_request","message":"different payload for cs_live_invalid"}';
   const result = await simulateExpiredCheckoutRecoveryPass({
@@ -555,6 +641,7 @@ test("source: webhook uses delivered marker after success and does not pre-incr 
   assert.match(webhookSource, /CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS/);
   assert.match(webhookSource, /isCheckoutRecoveryWebhookRetryable/);
   assert.match(webhookSource, /checkout_recovery_retryable/);
+  assert.match(webhookSource, /confirmedAfterSend|Recheck before persisting a non-delivered result/);
   assert.equal(webhookSource.includes("kv.incr(recoveryEmailKey"), false);
   assert.equal(/stripe:checkout_recovery:email:\$\{/.test(webhookSource), false);
   assert.match(recoveryAlertsSource, /email_delivered/);

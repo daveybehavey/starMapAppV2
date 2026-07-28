@@ -1156,23 +1156,68 @@ async function handleExpiredCheckoutSession(
         amountTotal: hydrated.amount_total,
         currency: hydrated.currency,
       });
-      recoveryOutcome = alertResult.retryability;
-      Object.assign(
-        nextRecord,
-        applyCheckoutRecoveryAlertToSessionFields(
-          {
-            recoveryEmailAttemptCount: existing?.recoveryEmailAttemptCount,
-            recoveryEmailSentAt: existing?.recoveryEmailSentAt,
-          },
-          alertResult,
-        ),
-      );
+
       if (alertResult.delivered) {
+        recoveryOutcome = alertResult.retryability;
+        Object.assign(
+          nextRecord,
+          applyCheckoutRecoveryAlertToSessionFields(
+            {
+              recoveryEmailAttemptCount: existing?.recoveryEmailAttemptCount,
+              recoveryEmailSentAt: existing?.recoveryEmailSentAt,
+            },
+            alertResult,
+          ),
+        );
         await kv.set(
           checkoutRecoveryEmailDeliveredKey(hydrated.id),
           { delivered: true as const, at: nextRecord.recoveryEmailSentAt ?? Date.now() },
           { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
         );
+      } else {
+        // Recheck before persisting a non-delivered result so a concurrent winner's
+        // confirmed delivery cannot be overwritten by this invocation's stale failure.
+        const latestMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
+        const latestSession = await kv.get<SessionRecord>(sessionKey(hydrated.id));
+        const confirmedAfterSend =
+          Boolean(latestSession?.recoveryEmailSentAt) || isCheckoutRecoveryDeliveredMarker(latestMarker);
+
+        if (confirmedAfterSend) {
+          recoveryOutcome = "already_delivered";
+          const confirmedSentAt =
+            (typeof latestSession?.recoveryEmailSentAt === "number" &&
+            Number.isFinite(latestSession.recoveryEmailSentAt)
+              ? latestSession.recoveryEmailSentAt
+              : undefined) ??
+            (isCheckoutRecoveryDeliveredMarker(latestMarker) ? latestMarker.at : undefined);
+          if (typeof confirmedSentAt === "number" && Number.isFinite(confirmedSentAt)) {
+            nextRecord.recoveryEmailSentAt = confirmedSentAt;
+          }
+          if (latestSession?.recoveryEmailProvider) {
+            nextRecord.recoveryEmailProvider = latestSession.recoveryEmailProvider;
+          }
+          nextRecord.recoveryEmailError = undefined;
+          nextRecord.recoveryEmailErrorCode = undefined;
+          nextRecord.recoveryEmailRetryability = "delivered";
+          nextRecord.recoveryEmailAttemptCount = Math.max(
+            latestSession?.recoveryEmailAttemptCount ?? 0,
+            (existing?.recoveryEmailAttemptCount ?? 0) + 1,
+          );
+          const latestAttemptAt = latestSession?.recoveryEmailLastAttemptAt ?? 0;
+          nextRecord.recoveryEmailLastAttemptAt = Math.max(latestAttemptAt, Date.now());
+        } else {
+          recoveryOutcome = alertResult.retryability;
+          Object.assign(
+            nextRecord,
+            applyCheckoutRecoveryAlertToSessionFields(
+              {
+                recoveryEmailAttemptCount: existing?.recoveryEmailAttemptCount,
+                recoveryEmailSentAt: existing?.recoveryEmailSentAt,
+              },
+              alertResult,
+            ),
+          );
+        }
       }
     }
   }
