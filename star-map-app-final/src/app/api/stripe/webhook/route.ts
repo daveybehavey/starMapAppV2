@@ -43,14 +43,8 @@ import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
 import { hasRecoverableAccess } from "@/lib/accountAccessLinks";
 import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
 import { resolveCheckoutMapIdFromStripeSession } from "@/lib/checkoutMapId";
-import {
-  buildGa4PurchaseFromStripeSession,
-  isQaStripeSession,
-} from "@/lib/commerceAnalytics";
-import {
-  ENTITLEMENT_KV,
-  refreshEntitledMapRecipeTtl,
-} from "@/lib/entitlementsStore";
+import { buildGa4PurchaseFromStripeSession, isQaStripeSession } from "@/lib/commerceAnalytics";
+import { ENTITLEMENT_KV, refreshEntitledMapRecipeTtl } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -58,7 +52,7 @@ const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const printFulfillmentWebhookUrl = process.env.PRINT_FULFILLMENT_WEBHOOK_URL?.trim() || "";
 const printOrderSubmissionEnabled = /^(1|true|yes)$/i.test(
-  (process.env.PRINT_ORDER_SUBMISSION_ENABLED || "").trim(),
+  (process.env.PRINT_ORDER_SUBMISSION_ENABLED || "").trim()
 );
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 const referralRewardCredits = (() => {
@@ -184,14 +178,17 @@ function includesCardAddOn(session: Stripe.Checkout.Session): boolean {
 }
 
 function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
-  const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
+  const raw =
+    typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
   return raw;
 }
 
 function getPrintCardAssetId(session: Stripe.Checkout.Session): string | undefined {
   const raw =
-    typeof session.metadata?.print_card_asset_id === "string" ? session.metadata.print_card_asset_id.trim() : "";
+    typeof session.metadata?.print_card_asset_id === "string"
+      ? session.metadata.print_card_asset_id.trim()
+      : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
   return raw;
 }
@@ -208,16 +205,21 @@ function getMerchCatalogVariantId(session: Stripe.Checkout.Session): number | un
 }
 
 function getMerchSize(session: Stripe.Checkout.Session): string | undefined {
-  const raw = typeof session.metadata?.print_merch_size === "string" ? session.metadata.print_merch_size.trim() : "";
+  const raw =
+    typeof session.metadata?.print_merch_size === "string" ? session.metadata.print_merch_size.trim() : "";
   return raw || undefined;
 }
 
 function getMerchColor(session: Stripe.Checkout.Session): string | undefined {
-  const raw = typeof session.metadata?.print_merch_color === "string" ? session.metadata.print_merch_color.trim() : "";
+  const raw =
+    typeof session.metadata?.print_merch_color === "string" ? session.metadata.print_merch_color.trim() : "";
   return raw || undefined;
 }
 
-function getReferralAttributionValue(session: Stripe.Checkout.Session, field: "source" | "medium" | "campaign" | "content") {
+function getReferralAttributionValue(
+  session: Stripe.Checkout.Session,
+  field: "source" | "medium" | "campaign" | "content"
+) {
   const key = `referral_${field}` as const;
   const raw = typeof session.metadata?.[key] === "string" ? session.metadata[key] : "";
   const value = raw.trim().toLowerCase();
@@ -225,7 +227,10 @@ function getReferralAttributionValue(session: Stripe.Checkout.Session, field: "s
 }
 
 function getReferralOfferVariant(session: Stripe.Checkout.Session) {
-  const raw = typeof session.metadata?.referral_offer_variant === "string" ? session.metadata.referral_offer_variant : "";
+  const raw =
+    typeof session.metadata?.referral_offer_variant === "string"
+      ? session.metadata.referral_offer_variant
+      : "";
   const value = raw.trim().toLowerCase();
   return value || undefined;
 }
@@ -244,7 +249,9 @@ function getRecoveryUrl(session: Stripe.Checkout.Session): string | null {
   return session.after_expiration?.recovery?.url ?? null;
 }
 
-function extractShippingDetails(session: Stripe.Checkout.Session): Stripe.Checkout.Session.ShippingDetails | null {
+function extractShippingDetails(
+  session: Stripe.Checkout.Session
+): Stripe.Checkout.Session.ShippingDetails | null {
   if (session.shipping_details) return session.shipping_details;
   const collected = (
     session as Stripe.Checkout.Session & {
@@ -257,7 +264,7 @@ function extractShippingDetails(session: Stripe.Checkout.Session): Stripe.Checko
 function getPlan(
   session: Stripe.Checkout.Session,
   orderType: CheckoutOrderType,
-  hasDigitalAddOn: boolean,
+  hasDigitalAddOn: boolean
 ): CheckoutPlan | undefined {
   if (orderType === "print" && !hasDigitalAddOn) {
     return undefined;
@@ -272,7 +279,8 @@ function getPlan(
 function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan | undefined): number {
   if (!plan) return 0;
   if (plan === "subscription") return 0;
-  const raw = typeof session.metadata?.credits === "string" ? Number.parseInt(session.metadata.credits, 10) : NaN;
+  const raw =
+    typeof session.metadata?.credits === "string" ? Number.parseInt(session.metadata.credits, 10) : NaN;
   if (Number.isFinite(raw) && raw > 0) return raw;
   return plan === "pack3" ? 3 : 1;
 }
@@ -301,7 +309,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
       : plan === "subscription" || credits > 0;
   if (paymentIntentId) {
     const revokedRecord = await kv.get<{ revoked?: boolean; reason?: string }>(
-      revokedPaymentIntentKey(paymentIntentId),
+      revokedPaymentIntentKey(paymentIntentId)
     );
     if (revokedRecord?.revoked) {
       await markSessionRevoked(session.id, revokedRecord.reason ?? "refund");
@@ -464,7 +472,9 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
 
   const referralCode = normalizeReferralCode(session.metadata?.referral_code);
   const referrerSessionId =
-    typeof session.metadata?.referrer_session_id === "string" ? session.metadata.referrer_session_id.trim() : "";
+    typeof session.metadata?.referrer_session_id === "string"
+      ? session.metadata.referrer_session_id.trim()
+      : "";
   if (!referralCode || !referrerSessionId) return;
   if (referrerSessionId === session.id) return;
 
@@ -540,9 +550,13 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const sameCustomerId = Boolean(referrer.customerId && checkoutCustomerId && referrer.customerId === checkoutCustomerId);
+  const sameCustomerId = Boolean(
+    referrer.customerId && checkoutCustomerId && referrer.customerId === checkoutCustomerId
+  );
   const referrerEmail = normalizeEmail(referrer.customerEmail);
-  const sameEmail = Boolean(referrerEmail && checkoutCustomerEmail && referrerEmail === checkoutCustomerEmail);
+  const sameEmail = Boolean(
+    referrerEmail && checkoutCustomerEmail && referrerEmail === checkoutCustomerEmail
+  );
   if (sameCustomerId || sameEmail) {
     await appendReferralEvent({
       code: referralCode,
@@ -570,7 +584,7 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
         const recentRewardCount24h = await countRecentReferralRewards(
           referralCode,
           REFERRAL_REWARD_CAP_WINDOW_24H_MS,
-          timestamp,
+          timestamp
         );
         if (recentRewardCount24h >= referralMaxRewardsPerReferrer24h) {
           rewardSkipReason = "reward_cap_24h_reached";
@@ -580,7 +594,7 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
         const recentRewardCount30d = await countRecentReferralRewards(
           referralCode,
           REFERRAL_REWARD_CAP_WINDOW_30D_MS,
-          timestamp,
+          timestamp
         );
         if (recentRewardCount30d >= referralMaxRewardsPerReferrer30d) {
           rewardSkipReason = "reward_cap_30d_reached";
@@ -612,7 +626,7 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   await kv.set(rewardStateKey, {
     ...stateBase,
     rewardGranted,
-    rewardSkipReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
+    rewardSkipReason: rewardGranted > 0 ? undefined : (rewardSkipReason ?? "not_eligible"),
     conversionRecorded: true,
   });
 
@@ -696,11 +710,11 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
     ...referralRecord,
     conversions:
       conversionAlreadyReversed || rewardState.conversionRecorded !== true
-        ? referralRecord.conversions ?? 0
+        ? (referralRecord.conversions ?? 0)
         : Math.max(0, (referralRecord.conversions ?? 0) - 1),
     rewardsGranted:
       rewardAlreadyReversed || rewardGranted <= 0
-        ? referralRecord.rewardsGranted ?? 0
+        ? (referralRecord.rewardsGranted ?? 0)
         : Math.max(0, (referralRecord.rewardsGranted ?? 0) - rewardGranted),
   };
   await kv.set(referralKey(referralCode), nextReferralRecord);
@@ -724,10 +738,7 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
     conversionReversed: true,
     conversionReversedAt: conversionAlreadyReversed ? rewardState.conversionReversedAt : timestamp,
     rewardReversed: rewardAlreadyReversed ? rewardState.rewardReversed : rewardGranted > 0,
-    rewardReversedAt:
-      rewardAlreadyReversed || rewardGranted <= 0
-        ? rewardState.rewardReversedAt
-        : timestamp,
+    rewardReversedAt: rewardAlreadyReversed || rewardGranted <= 0 ? rewardState.rewardReversedAt : timestamp,
     reversalReason: reason,
     rewardReclaimed:
       rewardAlreadyReversed || rewardGranted <= 0 ? rewardState.rewardReclaimed : rewardReclaimed,
@@ -868,9 +879,10 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         amountTotal:
           typeof latest.amount_total === "number" && Number.isFinite(latest.amount_total)
             ? latest.amount_total
-            : payload.amountTotal ?? null,
+            : (payload.amountTotal ?? null),
         currency: latest.currency ?? payload.currency ?? null,
-        customerEmail: latest.customer_details?.email ?? latest.customer_email ?? payload.customerEmail ?? null,
+        customerEmail:
+          latest.customer_details?.email ?? latest.customer_email ?? payload.customerEmail ?? null,
         customerName: latest.customer_details?.name ?? payload.customerName ?? null,
         shippingDetails: extractShippingDetails(latest),
       };
@@ -1091,7 +1103,7 @@ async function hydrateExpiredSession(session: Stripe.Checkout.Session) {
 
 async function handleExpiredCheckoutSession(
   session: Stripe.Checkout.Session,
-  eventCreated: number,
+  eventCreated: number
 ): Promise<{ retryable: boolean }> {
   if (!session.id) return { retryable: false };
 
@@ -1114,9 +1126,12 @@ async function handleExpiredCheckoutSession(
     paid: false,
     created:
       existing?.created ??
-      (typeof hydrated.created === "number" && Number.isFinite(hydrated.created) ? hydrated.created * 1000 : Date.now()),
+      (typeof hydrated.created === "number" && Number.isFinite(hydrated.created)
+        ? hydrated.created * 1000
+        : Date.now()),
     mapId: resolveCheckoutMapIdFromStripeSession(hydrated),
-    paymentIntentId: typeof hydrated.payment_intent === "string" ? hydrated.payment_intent : existing?.paymentIntentId,
+    paymentIntentId:
+      typeof hydrated.payment_intent === "string" ? hydrated.payment_intent : existing?.paymentIntentId,
     amountTotal: hydrated.amount_total ?? existing?.amountTotal ?? null,
     currency: hydrated.currency ?? existing?.currency ?? null,
     plan,
@@ -1164,14 +1179,14 @@ async function handleExpiredCheckoutSession(
             recoveryEmailAttemptCount: existing?.recoveryEmailAttemptCount,
             recoveryEmailSentAt: existing?.recoveryEmailSentAt,
           },
-          alertResult,
-        ),
+          alertResult
+        )
       );
       if (alertResult.delivered) {
         await kv.set(
           checkoutRecoveryEmailDeliveredKey(hydrated.id),
           { delivered: true as const, at: nextRecord.recoveryEmailSentAt ?? Date.now() },
-          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS }
         );
       }
     }
@@ -1268,8 +1283,7 @@ export async function POST(req: Request) {
     case "charge.refunded": {
       const charge = event.data.object as Stripe.Charge;
       if ((charge.amount_refunded ?? 0) <= 0 && !charge.refunded) break;
-      let paymentIntentId =
-        typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+      let paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
       const sessionId =
         (await resolveSessionIdFromPaymentIntent(paymentIntentId)) ??
         (await resolveSessionIdFromCharge(charge.id));
@@ -1289,8 +1303,7 @@ export async function POST(req: Request) {
     case "charge.dispute.created":
     case "charge.dispute.funds_withdrawn": {
       const dispute = event.data.object as Stripe.Dispute;
-      let paymentIntentId =
-        typeof dispute.payment_intent === "string" ? dispute.payment_intent : null;
+      let paymentIntentId = typeof dispute.payment_intent === "string" ? dispute.payment_intent : null;
       const chargeId = typeof dispute.charge === "string" ? dispute.charge : null;
       const sessionId =
         (await resolveSessionIdFromPaymentIntent(paymentIntentId)) ??

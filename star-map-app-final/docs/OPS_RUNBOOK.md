@@ -28,12 +28,12 @@ Prefer WSL for production releases when possible (`docs/TIER0_VALIDATION.md`).
 
 ## Quick verification (local / CI)
 
-| Command | Purpose |
-| --- | --- |
-| `npm run qa:live-canary` | Same as **`scripts/live-smoke.mjs`** against production (money path, APIs, sitemap). |
-| `npm run qa:smoke:commerce` | Playwright: checkout security + API regressions. |
-| `npm run qa:smoke` | Full Playwright smoke (UI + export + commerce + premium render). |
-| `npm run qa:funnel-post-release` | Funnel reconcile (14 days); run after releases or checkout changes. |
+| Command                          | Purpose                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `npm run qa:live-canary`         | Same as **`scripts/live-smoke.mjs`** against production (money path, APIs, sitemap). |
+| `npm run qa:smoke:commerce`      | Playwright: checkout security + API regressions.                                     |
+| `npm run qa:smoke`               | Full Playwright smoke (UI + export + commerce + premium render).                     |
+| `npm run qa:funnel-post-release` | Funnel reconcile (14 days); run after releases or checkout changes.                  |
 
 GitHub Actions: **CI** (PR) runs lint + build + commerce smoke; **Nightly E2E** runs full smoke; **Live canary** runs `live-smoke.mjs` on a schedule.
 

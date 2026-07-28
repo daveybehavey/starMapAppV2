@@ -315,8 +315,8 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
             recoveryEmailSentAt: existing.recoveryEmailSentAt,
           },
           alertResult,
-          now,
-        ),
+          now
+        )
       );
       if (alertResult.delivered) {
         store.set(deliveredKey, { delivered: true, at: nextRecord.recoveryEmailSentAt ?? now });

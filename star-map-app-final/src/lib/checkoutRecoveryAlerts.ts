@@ -4,11 +4,7 @@ import { getPrintPricingTiers } from "@/lib/pricing";
 
 type CheckoutRecoveryAlertProvider = "resend" | "sendgrid" | "none";
 
-export type CheckoutRecoveryRetryability =
-  | "delivered"
-  | "retryable"
-  | "terminal"
-  | "not_configured";
+export type CheckoutRecoveryRetryability = "delivered" | "retryable" | "terminal" | "not_configured";
 
 export type CheckoutRecoveryAlertInput = {
   sessionId: string;
@@ -40,8 +36,7 @@ export type CheckoutRecoveryDeliveredMarker = {
  * SendGrid fallback has no provider idempotency key equivalent to Resend.
  * Concurrent duplicate protection is best-effort only under current Workers KV.
  */
-export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE =
-  "best_effort_no_provider_idempotency" as const;
+export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE = "best_effort_no_provider_idempotency" as const;
 
 /** Long-lived delivered marker TTL (matches prior successful-send window). */
 export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
@@ -71,13 +66,9 @@ export function buildCheckoutRecoveryResendIdempotencyKey(sessionId: string): st
   return `cre_${digest.slice(0, 48)}`;
 }
 
-export function isCheckoutRecoveryDeliveredMarker(
-  value: unknown,
-): value is CheckoutRecoveryDeliveredMarker {
+export function isCheckoutRecoveryDeliveredMarker(value: unknown): value is CheckoutRecoveryDeliveredMarker {
   return Boolean(
-    value &&
-      typeof value === "object" &&
-      (value as CheckoutRecoveryDeliveredMarker).delivered === true,
+    value && typeof value === "object" && (value as CheckoutRecoveryDeliveredMarker).delivered === true
   );
 }
 
@@ -267,7 +258,7 @@ function notConfiguredResult(): CheckoutRecoveryAlertResult {
 export function classifyCheckoutRecoveryHttpResult(
   provider: "resend" | "sendgrid",
   status: number,
-  bodySnippet?: string,
+  bodySnippet?: string
 ): CheckoutRecoveryAlertResult {
   if (status >= 200 && status < 300) {
     return { delivered: true, provider, status, retryability: "delivered" };
@@ -319,7 +310,7 @@ export function classifyCheckoutRecoveryHttpResult(
 }
 
 export function classifyCheckoutRecoveryNetworkFailure(
-  provider: CheckoutRecoveryAlertProvider = "none",
+  provider: CheckoutRecoveryAlertProvider = "none"
 ): CheckoutRecoveryAlertResult {
   return {
     delivered: false,
@@ -331,7 +322,7 @@ export function classifyCheckoutRecoveryNetworkFailure(
 
 /** Whether Stripe should redeliver a checkout.session.expired event after this outcome. */
 export function isCheckoutRecoveryWebhookRetryable(
-  retryability: CheckoutRecoveryRetryability | "skipped" | "already_delivered",
+  retryability: CheckoutRecoveryRetryability | "skipped" | "already_delivered"
 ): boolean {
   return retryability === "retryable";
 }
@@ -349,7 +340,7 @@ export type CheckoutRecoverySessionEmailFields = {
 export function applyCheckoutRecoveryAlertToSessionFields(
   previous: Pick<CheckoutRecoverySessionEmailFields, "recoveryEmailAttemptCount" | "recoveryEmailSentAt">,
   result: CheckoutRecoveryAlertResult,
-  now = Date.now(),
+  now = Date.now()
 ): CheckoutRecoverySessionEmailFields {
   const attemptCount = (previous.recoveryEmailAttemptCount ?? 0) + 1;
   if (result.delivered) {
@@ -465,7 +456,7 @@ async function sendWithSendgrid(input: CheckoutRecoveryAlertInput) {
 }
 
 export async function sendCheckoutRecoveryAlert(
-  input: CheckoutRecoveryAlertInput,
+  input: CheckoutRecoveryAlertInput
 ): Promise<CheckoutRecoveryAlertResult> {
   try {
     const resendResult = await sendWithResend(input);

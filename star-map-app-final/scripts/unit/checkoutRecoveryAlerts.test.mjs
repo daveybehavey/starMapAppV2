@@ -22,11 +22,11 @@ import {
 const unitDir = path.dirname(fileURLToPath(import.meta.url));
 const recoveryAlertsSource = fs.readFileSync(
   path.join(unitDir, "../../src/lib/checkoutRecoveryAlerts.ts"),
-  "utf8",
+  "utf8"
 );
 const webhookSource = fs.readFileSync(
   path.join(unitDir, "../../src/app/api/stripe/webhook/route.ts"),
-  "utf8",
+  "utf8"
 );
 
 // ── getSubject ────────────────────────────────────────────────────────────────
@@ -62,12 +62,20 @@ test("subject: unknown print variant falls back gracefully", () => {
 // ── getOfferLabel ─────────────────────────────────────────────────────────────
 
 test("offerLabel: framed without addon", () => {
-  const label = getOfferLabel({ orderType: "print", printVariant: "poster_framed", includesDigitalAddOn: false });
+  const label = getOfferLabel({
+    orderType: "print",
+    printVariant: "poster_framed",
+    includesDigitalAddOn: false,
+  });
   assert.equal(label, "framed print");
 });
 
 test("offerLabel: framed with HD addon", () => {
-  const label = getOfferLabel({ orderType: "print", printVariant: "poster_framed", includesDigitalAddOn: true });
+  const label = getOfferLabel({
+    orderType: "print",
+    printVariant: "poster_framed",
+    includesDigitalAddOn: true,
+  });
   assert.equal(label, "framed print + HD download");
 });
 
@@ -89,14 +97,22 @@ test("includesBullets: digital order returns empty array", () => {
 });
 
 test("includesBullets: framed print without addon has 2 bullets", () => {
-  const bullets = getIncludesBullets({ orderType: "print", printVariant: "poster_framed", includesDigitalAddOn: false });
+  const bullets = getIncludesBullets({
+    orderType: "print",
+    printVariant: "poster_framed",
+    includesDigitalAddOn: false,
+  });
   assert.equal(bullets.length, 2);
   assert.ok(bullets[0].toLowerCase().includes("framed"), `first bullet: ${bullets[0]}`);
   assert.ok(bullets[1].includes("saved"), `last bullet mentions saved: ${bullets[1]}`);
 });
 
 test("includesBullets: framed print with HD addon has 3 bullets", () => {
-  const bullets = getIncludesBullets({ orderType: "print", printVariant: "poster_framed", includesDigitalAddOn: true });
+  const bullets = getIncludesBullets({
+    orderType: "print",
+    printVariant: "poster_framed",
+    includesDigitalAddOn: true,
+  });
   assert.equal(bullets.length, 3);
   assert.ok(bullets[1].toLowerCase().includes("hd"), `second bullet mentions HD: ${bullets[1]}`);
   assert.ok(bullets[1].includes("instantly"), `HD bullet mentions instant unlock: ${bullets[1]}`);
@@ -104,7 +120,11 @@ test("includesBullets: framed print with HD addon has 3 bullets", () => {
 
 test("includesBullets: always ends with 'saved' reminder", () => {
   for (const variant of ["poster_framed", "poster_unframed", "canvas_wrap"]) {
-    const bullets = getIncludesBullets({ orderType: "print", printVariant: variant, includesDigitalAddOn: false });
+    const bullets = getIncludesBullets({
+      orderType: "print",
+      printVariant: variant,
+      includesDigitalAddOn: false,
+    });
     assert.ok(bullets.at(-1)?.includes("saved"), `last bullet for ${variant}: ${bullets.at(-1)}`);
   }
 });
@@ -145,7 +165,7 @@ test("classify: Resend concurrent_idempotent_requests is retryable and never del
   const result = classifyCheckoutRecoveryHttpResult(
     "resend",
     409,
-    '{"name":"concurrent_idempotent_requests"}',
+    '{"name":"concurrent_idempotent_requests"}'
   );
   assert.equal(result.delivered, false);
   assert.equal(result.retryability, "retryable");
@@ -202,7 +222,7 @@ test("session fields: failure metadata is category-only and does not invent a se
       retryability: "retryable",
       errorCode: "provider_server_error",
     },
-    42,
+    42
   );
   assert.equal(fields.recoveryEmailSentAt, undefined);
   assert.equal(fields.recoveryEmailError, "provider_server_error");
@@ -438,11 +458,11 @@ test("source: Resend path sets Idempotency-Key from opaque builder; SendGrid doe
   assert.match(recoveryAlertsSource, /SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE/);
   assert.match(
     recoveryAlertsSource,
-    /Intentionally no Idempotency-Key: SendGrid Mail Send has no equivalent guarantee/,
+    /Intentionally no Idempotency-Key: SendGrid Mail Send has no equivalent guarantee/
   );
   const sendgridFn = recoveryAlertsSource.slice(
     recoveryAlertsSource.indexOf("async function sendWithSendgrid"),
-    recoveryAlertsSource.indexOf("export async function sendCheckoutRecoveryAlert"),
+    recoveryAlertsSource.indexOf("export async function sendCheckoutRecoveryAlert")
   );
   assert.equal(/"Idempotency-Key"\s*:/.test(sendgridFn), false);
 });
