@@ -756,12 +756,15 @@ export function sanitizeRecord(raw, index) {
     CHECKOUT_SHIPPING_ALIAS_NORMALIZED.shipping_subsidy_cents
   );
 
+  // Derived legacy QA marker is authoritative: an unrelated nonempty qa_source
+  // (e.g. "manual") must not neutralize exact client_reference_id=qa-live-conversion.
   const existingQaSource =
     working.qa_source === undefined || working.qa_source === null ? undefined : String(working.qa_source);
-  const qaSource =
-    existingQaSource !== undefined && existingQaSource.trim() !== ""
+  const qaSource = derivedQaSource
+    ? derivedQaSource
+    : existingQaSource !== undefined && existingQaSource.trim() !== ""
       ? existingQaSource
-      : derivedQaSource || undefined;
+      : undefined;
 
   const record = {
     paid_at: working.paid_at === undefined || working.paid_at === null ? null : String(working.paid_at),

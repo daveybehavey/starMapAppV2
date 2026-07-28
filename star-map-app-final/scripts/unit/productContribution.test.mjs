@@ -399,7 +399,7 @@ test("Codex regression: legacy QA client_reference is classified before strip; p
     assert.doesNotMatch(JSON.stringify(record), new RegExp(LEGACY_QA_CLIENT_REFERENCE_VALUE));
   }
 
-  // Existing nonblank qa_source is preserved; legacy marker still consumed.
+  // Derived legacy marker is authoritative over any existing qa_source (recognized or not).
   {
     const { record } = sanitizeRecord(
       {
@@ -412,12 +412,32 @@ test("Codex regression: legacy QA client_reference is classified before strip; p
       },
       4
     );
-    assert.equal(record.qa_source, "live_conversion_qa");
+    assert.equal(record.qa_source, LEGACY_QA_DERIVED_SOURCE);
     assert.equal(isExcludedQaRecord(record), true);
     assert.equal(Object.prototype.hasOwnProperty.call(record, "client_reference_id"), false);
   }
 
-  // Aggregate: legacy-only QA row is excluded and does not contribute to digital:single.
+  // Codex regression: unrecognized nonempty qa_source (e.g. "manual") must not
+  // neutralize exact legacy client_reference classification.
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 3700,
+        order_type: "digital",
+        plan: "single",
+        qa_source: "manual",
+        client_reference_id: LEGACY_QA_CLIENT_REFERENCE_VALUE,
+      },
+      5
+    );
+    assert.equal(record.qa_source, LEGACY_QA_DERIVED_SOURCE);
+    assert.equal(isExcludedQaRecord(record), true);
+    assert.equal(Object.prototype.hasOwnProperty.call(record, "client_reference_id"), false);
+    assert.doesNotMatch(JSON.stringify(record), /qa-live-conversion/);
+  }
+
+  // Aggregate: legacy QA (+ unrecognized qa_source) is excluded; production is not.
   {
     const production = {
       currency: "usd",
@@ -432,23 +452,44 @@ test("Codex regression: legacy QA client_reference is classified before strip; p
       plan: "single",
       client_reference_id: LEGACY_QA_CLIENT_REFERENCE_VALUE,
     };
+    const legacyQaWithUnrecognizedSource = {
+      currency: "usd",
+      amount_total: 6100,
+      order_type: "digital",
+      plan: "single",
+      qa_source: "manual",
+      client_reference_id: LEGACY_QA_CLIENT_REFERENCE_VALUE,
+    };
+    const recognizedQaOnly = {
+      currency: "usd",
+      amount_total: 1800,
+      order_type: "digital",
+      plan: "single",
+      qa_source: "live_conversion_qa",
+    };
     const { records } = parseSanitizedDocument({
       schema_version: 1,
-      records: [production, legacyQa],
+      records: [production, legacyQa, legacyQaWithUnrecognizedSource, recognizedQaOnly],
     });
-    assert.equal(records.length, 2);
+    assert.equal(records.length, 4);
     assert.equal(isExcludedQaRecord(records[0]), false);
     assert.equal(isExcludedQaRecord(records[1]), true);
+    assert.equal(isExcludedQaRecord(records[2]), true);
+    assert.equal(isExcludedQaRecord(records[3]), true);
     assert.equal(records[1].qa_source, LEGACY_QA_DERIVED_SOURCE);
+    assert.equal(records[2].qa_source, LEGACY_QA_DERIVED_SOURCE);
+    assert.equal(records[3].qa_source, "live_conversion_qa");
     assert.equal(Object.prototype.hasOwnProperty.call(records[1], "client_reference_id"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(records[2], "client_reference_id"), false);
 
     const report = buildProductContributionReport(records, { env: {} });
     const usd = report.currency_sections.find((s) => s.currency === "usd");
-    assert.equal(usd.excluded_qa_count, 1);
-    assert.equal(usd.excluded_qa_revenue_cents, 5000);
+    assert.equal(usd.excluded_qa_count, 3);
+    assert.equal(usd.excluded_qa_revenue_cents, 5000 + 6100 + 1800);
     const digital = usd.groups.find((g) => g.group_key === "digital:single");
     assert.equal(digital.paid_order_count, 1);
     assert.equal(digital.collected_revenue_cents, 2900);
+    assert.equal(digital.estimated_pre_fixed_cost_contribution_cents > 0, true);
   }
 
   // Negative: ordinary production row (no QA markers) is not excluded.
@@ -463,6 +504,22 @@ test("Codex regression: legacy QA client_reference is classified before strip; p
       0
     );
     assert.equal(record.qa_source, undefined);
+    assert.equal(isExcludedQaRecord(record), false);
+  }
+
+  // Negative: unrecognized qa_source alone (no legacy marker) is not QA-excluded.
+  {
+    const { record } = sanitizeRecord(
+      {
+        currency: "usd",
+        amount_total: 2900,
+        order_type: "digital",
+        plan: "single",
+        qa_source: "manual",
+      },
+      0
+    );
+    assert.equal(record.qa_source, "manual");
     assert.equal(isExcludedQaRecord(record), false);
   }
 
