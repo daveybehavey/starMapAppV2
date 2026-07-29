@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { PrintVariant } from "@/lib/pricing";
 import { getPrintPricingTiers } from "@/lib/pricing";
 
@@ -33,6 +33,23 @@ export type CheckoutRecoveryDeliveredMarker = {
 };
 
 /**
+ * Sanitized per-invocation attempt diagnostic. Never includes raw provider bodies,
+ * customer email, recovery URL, secrets, or message content.
+ */
+export type CheckoutRecoveryAttemptRecord = {
+  attemptId: string;
+  at: number;
+  provider: CheckoutRecoveryAlertProvider;
+  retryability: CheckoutRecoveryRetryability;
+  delivered: boolean;
+  errorCode?: string;
+  /** HTTP status when available — operational category, not customer data. */
+  status?: number;
+  /** Stripe event id when available for operator correlation. */
+  eventId?: string;
+};
+
+/**
  * SendGrid fallback has no provider idempotency key equivalent to Resend.
  * Concurrent duplicate protection is best-effort only under current Workers KV.
  */
@@ -41,9 +58,20 @@ export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE = "best_effort_no_provider_
 /** Long-lived delivered marker TTL (matches prior successful-send window). */
 export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
 
+/** Attempt diagnostic TTL — same retention window as delivered marker. */
+export const CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS = CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS;
+
 /** Authoritative delivered marker — written only after confirmed provider success. */
 export function checkoutRecoveryEmailDeliveredKey(sessionId: string): string {
   return `stripe:checkout_recovery:email_delivered:${sessionId}`;
+}
+
+/**
+ * Unique per-invocation attempt diagnostic key.
+ * One provider call → one attempt record; concurrent attempts are independently represented.
+ */
+export function checkoutRecoveryEmailAttemptKey(sessionId: string, attemptId: string): string {
+  return `stripe:checkout_recovery:attempt:${sessionId}:${attemptId}`;
 }
 
 /**
@@ -66,10 +94,37 @@ export function buildCheckoutRecoveryResendIdempotencyKey(sessionId: string): st
   return `cre_${digest.slice(0, 48)}`;
 }
 
+/** Runtime-safe opaque attempt identifier (injectable in tests). */
+export function createCheckoutRecoveryAttemptId(): string {
+  return randomUUID().replace(/-/g, "");
+}
+
 export function isCheckoutRecoveryDeliveredMarker(value: unknown): value is CheckoutRecoveryDeliveredMarker {
   return Boolean(
     value && typeof value === "object" && (value as CheckoutRecoveryDeliveredMarker).delivered === true
   );
+}
+
+export function buildCheckoutRecoveryAttemptRecord(input: {
+  attemptId: string;
+  result: CheckoutRecoveryAlertResult;
+  eventId?: string;
+  now?: number;
+}): CheckoutRecoveryAttemptRecord {
+  const now = input.now ?? Date.now();
+  const record: CheckoutRecoveryAttemptRecord = {
+    attemptId: input.attemptId,
+    at: now,
+    provider: input.result.provider,
+    retryability: input.result.retryability,
+    delivered: input.result.delivered === true,
+  };
+  if (input.result.errorCode) record.errorCode = input.result.errorCode;
+  if (typeof input.result.status === "number" && Number.isFinite(input.result.status)) {
+    record.status = input.result.status;
+  }
+  if (input.eventId) record.eventId = input.eventId;
+  return record;
 }
 
 type ParsedEmailAddress = {
@@ -370,13 +425,46 @@ export function isCheckoutRecoveryWebhookRetryable(
 export type CheckoutRecoverySessionEmailFields = {
   recoveryEmailSentAt?: number;
   recoveryEmailProvider?: string;
+  /** @deprecated Historical failure field — new failures write separate attempt records. */
   recoveryEmailError?: string;
+  /** @deprecated Historical failure field — new failures write separate attempt records. */
   recoveryEmailErrorCode?: string;
+  /** @deprecated Historical aggregate — new attempts use unique attempt records. */
   recoveryEmailRetryability?: CheckoutRecoveryRetryability;
+  /** @deprecated Historical aggregate — new attempts use unique attempt records. */
   recoveryEmailLastAttemptAt?: number;
+  /** @deprecated Historical aggregate — new attempts use unique attempt records. */
   recoveryEmailAttemptCount?: number;
 };
 
+/**
+ * Success-only session fields. Non-delivered results must not use this path —
+ * they persist via {@link buildCheckoutRecoveryAttemptRecord} instead.
+ */
+export function applyCheckoutRecoveryDeliveredSessionFields(
+  result: CheckoutRecoveryAlertResult,
+  now = Date.now()
+): Pick<
+  CheckoutRecoverySessionEmailFields,
+  | "recoveryEmailSentAt"
+  | "recoveryEmailProvider"
+  | "recoveryEmailError"
+  | "recoveryEmailErrorCode"
+  | "recoveryEmailRetryability"
+> {
+  return {
+    recoveryEmailSentAt: now,
+    recoveryEmailProvider: result.provider,
+    recoveryEmailError: undefined,
+    recoveryEmailErrorCode: undefined,
+    recoveryEmailRetryability: "delivered",
+  };
+}
+
+/**
+ * @deprecated Prefer {@link applyCheckoutRecoveryDeliveredSessionFields} for success and
+ * separate attempt records for failures. Retained for harness negative controls.
+ */
 export function applyCheckoutRecoveryAlertToSessionFields(
   previous: Pick<CheckoutRecoverySessionEmailFields, "recoveryEmailAttemptCount" | "recoveryEmailSentAt">,
   result: CheckoutRecoveryAlertResult,
@@ -385,11 +473,7 @@ export function applyCheckoutRecoveryAlertToSessionFields(
   const attemptCount = (previous.recoveryEmailAttemptCount ?? 0) + 1;
   if (result.delivered) {
     return {
-      recoveryEmailSentAt: now,
-      recoveryEmailProvider: result.provider,
-      recoveryEmailError: undefined,
-      recoveryEmailErrorCode: undefined,
-      recoveryEmailRetryability: "delivered",
+      ...applyCheckoutRecoveryDeliveredSessionFields(result, now),
       recoveryEmailLastAttemptAt: now,
       recoveryEmailAttemptCount: attemptCount,
     };

@@ -76,6 +76,7 @@ export function getIncludesBullets(input) {
 }
 
 export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
+export const CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS = CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS;
 
 export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE = "best_effort_no_provider_idempotency";
 
@@ -98,6 +99,14 @@ export function checkoutRecoveryEmailDeliveredKey(sessionId) {
 
 /**
  * @param {string} sessionId
+ * @param {string} attemptId
+ */
+export function checkoutRecoveryEmailAttemptKey(sessionId, attemptId) {
+  return `stripe:checkout_recovery:attempt:${sessionId}:${attemptId}`;
+}
+
+/**
+ * @param {string} sessionId
  */
 export function checkoutRecoveryEmailLegacyPreSendKey(sessionId) {
   return `stripe:checkout_recovery:email:${sessionId}`;
@@ -108,6 +117,46 @@ export function checkoutRecoveryEmailLegacyPreSendKey(sessionId) {
  */
 export function isCheckoutRecoveryDeliveredMarker(value) {
   return Boolean(value && typeof value === "object" && value.delivered === true);
+}
+
+/**
+ * @param {{
+ *   attemptId: string;
+ *   result: { delivered: boolean; provider: string; retryability: string; errorCode?: string; status?: number };
+ *   eventId?: string;
+ *   now?: number;
+ * }} input
+ */
+export function buildCheckoutRecoveryAttemptRecord(input) {
+  const now = input.now ?? Date.now();
+  /** @type {Record<string, unknown>} */
+  const record = {
+    attemptId: input.attemptId,
+    at: now,
+    provider: input.result.provider,
+    retryability: input.result.retryability,
+    delivered: input.result.delivered === true,
+  };
+  if (input.result.errorCode) record.errorCode = input.result.errorCode;
+  if (typeof input.result.status === "number" && Number.isFinite(input.result.status)) {
+    record.status = input.result.status;
+  }
+  if (input.eventId) record.eventId = input.eventId;
+  return record;
+}
+
+/**
+ * @param {{ delivered: boolean; provider: string; retryability: string }} result
+ * @param {number} [now]
+ */
+export function applyCheckoutRecoveryDeliveredSessionFields(result, now = Date.now()) {
+  return {
+    recoveryEmailSentAt: now,
+    recoveryEmailProvider: result.provider,
+    recoveryEmailError: undefined,
+    recoveryEmailErrorCode: undefined,
+    recoveryEmailRetryability: "delivered",
+  };
 }
 
 /**
@@ -203,6 +252,7 @@ export function isCheckoutRecoveryWebhookRetryable(retryability) {
 }
 
 /**
+ * @deprecated Negative-control / historical helper — new failures use attempt records.
  * @param {{ recoveryEmailAttemptCount?: number; recoveryEmailSentAt?: number }} previous
  * @param {{ delivered: boolean; provider: string; retryability: string; errorCode?: string }} result
  * @param {number} [now]
@@ -211,11 +261,7 @@ export function applyCheckoutRecoveryAlertToSessionFields(previous, result, now 
   const attemptCount = (previous.recoveryEmailAttemptCount ?? 0) + 1;
   if (result.delivered) {
     return {
-      recoveryEmailSentAt: now,
-      recoveryEmailProvider: result.provider,
-      recoveryEmailError: undefined,
-      recoveryEmailErrorCode: undefined,
-      recoveryEmailRetryability: "delivered",
+      ...applyCheckoutRecoveryDeliveredSessionFields(result, now),
       recoveryEmailLastAttemptAt: now,
       recoveryEmailAttemptCount: attemptCount,
     };
@@ -232,71 +278,7 @@ export function applyCheckoutRecoveryAlertToSessionFields(previous, result, now 
 }
 
 /**
- * Monotonic merge after a non-delivered provider result.
- * If a concurrent winner already confirmed delivery, preserve success and clear stale errors.
- *
- * @param {{
- *   draftSession: Record<string, unknown>;
- *   existingAttemptCount?: number;
- *   latestSession?: Record<string, unknown> | null;
- *   latestDeliveredMarker?: unknown;
- *   alertResult: { delivered: boolean; provider: string; retryability: string; errorCode?: string };
- *   now?: number;
- * }} input
- */
-export function resolveNonDeliveredRecoveryPersistState(input) {
-  const now = input.now ?? Date.now();
-  const latestSession = input.latestSession ?? null;
-  const confirmed =
-    Boolean(latestSession?.recoveryEmailSentAt) ||
-    isCheckoutRecoveryDeliveredMarker(input.latestDeliveredMarker);
-
-  if (confirmed) {
-    const confirmedSentAt =
-      (typeof latestSession?.recoveryEmailSentAt === "number" &&
-      Number.isFinite(latestSession.recoveryEmailSentAt)
-        ? latestSession.recoveryEmailSentAt
-        : undefined) ??
-      (isCheckoutRecoveryDeliveredMarker(input.latestDeliveredMarker)
-        ? input.latestDeliveredMarker.at
-        : undefined);
-    /** @type {Record<string, unknown>} */
-    const merged = { ...input.draftSession };
-    if (typeof confirmedSentAt === "number" && Number.isFinite(confirmedSentAt)) {
-      merged.recoveryEmailSentAt = confirmedSentAt;
-    }
-    if (latestSession?.recoveryEmailProvider) {
-      merged.recoveryEmailProvider = latestSession.recoveryEmailProvider;
-    }
-    merged.recoveryEmailError = undefined;
-    merged.recoveryEmailErrorCode = undefined;
-    merged.recoveryEmailRetryability = "delivered";
-    merged.recoveryEmailAttemptCount = Math.max(
-      latestSession?.recoveryEmailAttemptCount ?? 0,
-      (input.existingAttemptCount ?? 0) + 1
-    );
-    merged.recoveryEmailLastAttemptAt = Math.max(latestSession?.recoveryEmailLastAttemptAt ?? 0, now);
-    return { recoveryOutcome: "already_delivered", sessionFields: merged };
-  }
-
-  return {
-    recoveryOutcome: input.alertResult.retryability,
-    sessionFields: {
-      ...input.draftSession,
-      ...applyCheckoutRecoveryAlertToSessionFields(
-        {
-          recoveryEmailAttemptCount: input.existingAttemptCount,
-          recoveryEmailSentAt: input.draftSession.recoveryEmailSentAt,
-        },
-        input.alertResult,
-        now
-      ),
-    },
-  };
-}
-
-/**
- * Naive overwrite used only as a negative control for the concurrent-persist race.
+ * Negative control: old same-session failure write that can clobber success.
  * @param {Record<string, unknown>} confirmedSession
  * @param {{ delivered: boolean; provider: string; retryability: string; errorCode?: string }} failureResult
  * @param {number} [now]
@@ -320,6 +302,15 @@ export function naiveOverwriteConfirmedDeliveryWithFailure(
 }
 
 /**
+ * Negative control: aggregate Math.max attempt counting undercounts concurrent losers.
+ * @param {number} winnerAttemptCount
+ * @param {number} existingAttemptCount
+ */
+export function naiveMathMaxAttemptMerge(winnerAttemptCount, existingAttemptCount) {
+  return Math.max(winnerAttemptCount, existingAttemptCount + 1);
+}
+
+/**
  * @param {string} sessionId
  */
 export function buildResendRecoveryRequestHeaders(sessionId) {
@@ -331,7 +322,6 @@ export function buildResendRecoveryRequestHeaders(sessionId) {
 }
 
 /**
- * SendGrid Mail Send has no provider idempotency key equivalent.
  * @returns {Record<string, string>}
  */
 export function buildSendgridRecoveryRequestHeaders() {
@@ -342,13 +332,13 @@ export function buildSendgridRecoveryRequestHeaders() {
 }
 
 /**
- * In-memory simulation of the expired-checkout recovery email path + event dedupe.
- * Injectable send + store so tests stay deterministic without Stripe/provider calls.
+ * In-memory simulation of success-monotonic expired recovery + unique attempt records.
  *
  * @param {{
  *   store?: Map<string, unknown>;
  *   sessionId: string;
  *   eventId: string;
+ *   attemptId?: string;
  *   recoveryUrl?: string | null;
  *   customerEmail?: string | null;
  *   existingSession?: Record<string, unknown>;
@@ -356,6 +346,7 @@ export function buildSendgridRecoveryRequestHeaders() {
  *   now?: number;
  *   useLegacyPreSendLock?: boolean;
  *   assumePassedInitialDeliveryCheck?: boolean;
+ *   afterSendBeforePersist?: (store: Map<string, unknown>) => void | Promise<void>;
  * }} opts
  */
 export async function simulateExpiredCheckoutRecoveryPass(opts) {
@@ -365,6 +356,7 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
   const eventKey = `stripe:event:${opts.eventId}`;
   const deliveredKey = checkoutRecoveryEmailDeliveredKey(opts.sessionId);
   const legacyKey = checkoutRecoveryEmailLegacyPreSendKey(opts.sessionId);
+  const attemptId = opts.attemptId ?? `attempt_${now}`;
 
   const existingEvent = store.get(eventKey);
   if (existingEvent) {
@@ -375,22 +367,48 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
       store,
       session: store.get(sessionKey) ?? null,
       deliveredMarker: store.get(deliveredKey) ?? null,
+      attemptRecord: null,
       eventFinalized: true,
       legacyPreSendLock: store.get(legacyKey) ?? null,
     };
   }
 
-  const existing = { ...(opts.existingSession ?? store.get(sessionKey) ?? {}) };
+  const fromStore = store.get(sessionKey) ?? {};
+  const existing = { ...fromStore, ...(opts.existingSession ?? {}) };
+  // Never let a test existingSession override wipe an already-confirmed delivery in the shared store.
+  if (typeof fromStore.recoveryEmailSentAt === "number") {
+    existing.recoveryEmailSentAt = fromStore.recoveryEmailSentAt;
+    existing.recoveryEmailProvider = fromStore.recoveryEmailProvider;
+  }
   /** @type {Record<string, unknown>} */
-  const nextRecord = {
-    ...existing,
+  const expiredBase = {
     paid: false,
     recoveryUrl: opts.recoveryUrl ?? null,
     customerEmail: opts.customerEmail ?? null,
+    expiredAt: now,
   };
+
+  // Early expiry materialization — non-delivered paths can skip later session writes.
+  /** @type {Record<string, unknown>} */
+  const earlySession = {
+    ...fromStore,
+    ...existing,
+    ...expiredBase,
+    recoveryEmailSentAt: fromStore.recoveryEmailSentAt ?? existing.recoveryEmailSentAt,
+    recoveryEmailProvider: fromStore.recoveryEmailProvider ?? existing.recoveryEmailProvider,
+    recoveryEmailError: fromStore.recoveryEmailError ?? existing.recoveryEmailError,
+    recoveryEmailErrorCode: fromStore.recoveryEmailErrorCode ?? existing.recoveryEmailErrorCode,
+    recoveryEmailRetryability: fromStore.recoveryEmailRetryability ?? existing.recoveryEmailRetryability,
+    recoveryEmailLastAttemptAt: fromStore.recoveryEmailLastAttemptAt ?? existing.recoveryEmailLastAttemptAt,
+    recoveryEmailAttemptCount: fromStore.recoveryEmailAttemptCount ?? existing.recoveryEmailAttemptCount,
+  };
+  store.set(sessionKey, earlySession);
 
   let providerCalls = 0;
   let recoveryOutcome = "skipped";
+  /** @type {Record<string, unknown> | null} */
+  let attemptRecord = null;
+  let wroteSuccessSession = false;
   const recoveryUrl = opts.recoveryUrl ?? null;
   const customerEmail = opts.customerEmail ?? null;
 
@@ -402,25 +420,35 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
 
     if (alreadyDelivered) {
       recoveryOutcome = "already_delivered";
-      if (!nextRecord.recoveryEmailSentAt) {
-        nextRecord.recoveryEmailSentAt =
-          existing.recoveryEmailSentAt ??
-          (isCheckoutRecoveryDeliveredMarker(deliveredMarker) ? deliveredMarker.at : now);
-      }
+      const latest = store.get(sessionKey) ?? earlySession;
+      const sentAt =
+        latest.recoveryEmailSentAt ??
+        existing.recoveryEmailSentAt ??
+        (isCheckoutRecoveryDeliveredMarker(deliveredMarker) ? deliveredMarker.at : now);
+      store.set(sessionKey, {
+        ...latest,
+        ...expiredBase,
+        recoveryEmailSentAt: sentAt,
+        recoveryEmailProvider: latest.recoveryEmailProvider ?? existing.recoveryEmailProvider,
+        recoveryEmailError: undefined,
+        recoveryEmailErrorCode: undefined,
+        recoveryEmailRetryability: "delivered",
+      });
+      wroteSuccessSession = true;
     } else {
       if (opts.useLegacyPreSendLock) {
         const current = Number(store.get(legacyKey) ?? 0) + 1;
         store.set(legacyKey, current);
         if (current !== 1) {
-          store.set(sessionKey, nextRecord);
           store.set(eventKey, { received: true });
           return {
             httpStatus: 200,
             duplicate: false,
             providerCalls: 0,
             store,
-            session: nextRecord,
+            session: store.get(sessionKey),
             deliveredMarker: store.get(deliveredKey) ?? null,
+            attemptRecord: null,
             eventFinalized: true,
             legacyPreSendLock: store.get(legacyKey),
             recoveryOutcome: "legacy_lock_blocked",
@@ -431,53 +459,100 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
 
       providerCalls += 1;
       const alertResult = await opts.send();
+      if (opts.afterSendBeforePersist) {
+        await opts.afterSendBeforePersist(store);
+      }
+
+      attemptRecord = buildCheckoutRecoveryAttemptRecord({
+        attemptId,
+        result: alertResult,
+        eventId: opts.eventId,
+        now,
+      });
+      store.set(checkoutRecoveryEmailAttemptKey(opts.sessionId, attemptId), attemptRecord);
+
       if (alertResult.delivered) {
         recoveryOutcome = alertResult.retryability;
-        Object.assign(
-          nextRecord,
-          applyCheckoutRecoveryAlertToSessionFields(
-            {
-              recoveryEmailAttemptCount: existing.recoveryEmailAttemptCount,
-              recoveryEmailSentAt: existing.recoveryEmailSentAt,
-            },
-            alertResult,
-            now
-          )
-        );
-        store.set(deliveredKey, { delivered: true, at: nextRecord.recoveryEmailSentAt ?? now });
-      } else {
-        const resolved = resolveNonDeliveredRecoveryPersistState({
-          draftSession: nextRecord,
-          existingAttemptCount: existing.recoveryEmailAttemptCount,
-          latestSession: store.get(sessionKey) ?? null,
-          latestDeliveredMarker: store.get(deliveredKey) ?? null,
-          alertResult,
-          now,
+        const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult, now);
+        store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
+        const latest = store.get(sessionKey) ?? earlySession;
+        store.set(sessionKey, {
+          ...latest,
+          ...expiredBase,
+          ...deliveredFields,
         });
-        recoveryOutcome = resolved.recoveryOutcome;
-        Object.assign(nextRecord, resolved.sessionFields);
+        wroteSuccessSession = true;
+      } else {
+        const latestMarker = store.get(deliveredKey);
+        const latestSession = store.get(sessionKey) ?? null;
+        const observedDelivery =
+          Boolean(latestSession?.recoveryEmailSentAt) || isCheckoutRecoveryDeliveredMarker(latestMarker);
+        if (observedDelivery) {
+          recoveryOutcome = "already_delivered";
+          const sentAt =
+            latestSession?.recoveryEmailSentAt ??
+            (isCheckoutRecoveryDeliveredMarker(latestMarker) ? latestMarker.at : now);
+          store.set(sessionKey, {
+            ...latestSession,
+            ...expiredBase,
+            recoveryEmailSentAt: sentAt,
+            recoveryEmailProvider: latestSession?.recoveryEmailProvider,
+            recoveryEmailError: undefined,
+            recoveryEmailErrorCode: undefined,
+            recoveryEmailRetryability: "delivered",
+          });
+          wroteSuccessSession = true;
+        } else {
+          // Structurally skip session rewrite — attempt record only.
+          recoveryOutcome = alertResult.retryability;
+        }
       }
     }
   }
 
-  store.set(sessionKey, nextRecord);
+  const finalMarker = store.get(deliveredKey);
+  const finalSession = store.get(sessionKey) ?? null;
+  const deliveryVisible =
+    wroteSuccessSession ||
+    Boolean(finalSession?.recoveryEmailSentAt) ||
+    isCheckoutRecoveryDeliveredMarker(finalMarker);
 
-  const retryable = isCheckoutRecoveryWebhookRetryable(recoveryOutcome);
-  if (!retryable) {
+  const effectiveOutcome = deliveryVisible
+    ? recoveryOutcome === "skipped"
+      ? "skipped"
+      : recoveryOutcome === "delivered"
+        ? "delivered"
+        : "already_delivered"
+    : recoveryOutcome;
+  const httpRetryable = !deliveryVisible && isCheckoutRecoveryWebhookRetryable(recoveryOutcome);
+  if (!httpRetryable) {
     store.set(eventKey, { received: true });
   }
 
   return {
-    httpStatus: retryable ? 503 : 200,
+    httpStatus: httpRetryable ? 503 : 200,
     duplicate: false,
     providerCalls,
     store,
-    session: nextRecord,
+    session: store.get(sessionKey),
     deliveredMarker: store.get(deliveredKey) ?? null,
-    eventFinalized: !retryable,
+    attemptRecord,
+    attemptKey: checkoutRecoveryEmailAttemptKey(opts.sessionId, attemptId),
+    eventFinalized: !httpRetryable,
     legacyPreSendLock: store.get(legacyKey) ?? null,
-    recoveryOutcome,
+    recoveryOutcome: httpRetryable ? recoveryOutcome : effectiveOutcome,
     blockedByLegacyPreSendLock: false,
     idempotencyKey: buildCheckoutRecoveryResendIdempotencyKey(opts.sessionId),
+    skippedSessionRewriteOnFailure: Boolean(attemptRecord && !wroteSuccessSession && !deliveryVisible),
   };
+}
+
+export function listCheckoutRecoveryAttemptRecords(store, sessionId) {
+  const prefix = `stripe:checkout_recovery:attempt:${sessionId}:`;
+  /** @type {unknown[]} */
+  const records = [];
+  for (const [key, value] of store.entries()) {
+    if (key.startsWith(prefix)) records.push(value);
+  }
+  return records;
 }
