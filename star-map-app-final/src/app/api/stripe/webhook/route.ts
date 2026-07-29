@@ -1114,8 +1114,8 @@ async function handleExpiredCheckoutSession(
       : eventCreated * 1000;
   const existing = await kv.get<SessionRecord>(sessionKey(hydrated.id));
 
-  // Canonical expiry fields. Success recovery fields are preserved from any prior write;
-  // non-delivered provider results never write failure diagnostics onto this record.
+  // Success-path overlay only. Non-delivered outcomes must not write sessionKey at all —
+  // including no pre-send expiry materialization (that race erased concurrent winners).
   const expiredBase: SessionRecord = {
     paid: false,
     created:
@@ -1136,21 +1136,6 @@ async function handleExpiredCheckoutSession(
     recoveryUrl,
   };
 
-  // Materialize expiry before any provider call so a later non-delivered path can skip
-  // the session write entirely (structurally incapable of clobbering a concurrent winner).
-  const earlySession: SessionRecord = {
-    ...existing,
-    ...expiredBase,
-    recoveryEmailSentAt: existing?.recoveryEmailSentAt,
-    recoveryEmailProvider: existing?.recoveryEmailProvider,
-    recoveryEmailError: existing?.recoveryEmailError,
-    recoveryEmailErrorCode: existing?.recoveryEmailErrorCode,
-    recoveryEmailRetryability: existing?.recoveryEmailRetryability,
-    recoveryEmailLastAttemptAt: existing?.recoveryEmailLastAttemptAt,
-    recoveryEmailAttemptCount: existing?.recoveryEmailAttemptCount,
-  };
-  await kv.set(sessionKey(hydrated.id), earlySession);
-
   let recoveryOutcome: CheckoutRecoveryRetryability | "skipped" | "already_delivered" = "skipped";
   let wroteSuccessSession = false;
 
@@ -1161,7 +1146,7 @@ async function handleExpiredCheckoutSession(
 
     if (alreadyDelivered) {
       recoveryOutcome = "already_delivered";
-      const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? earlySession;
+      const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? existing ?? {};
       const sentAt =
         latest.recoveryEmailSentAt ??
         existing?.recoveryEmailSentAt ??
@@ -1207,7 +1192,7 @@ async function handleExpiredCheckoutSession(
           { delivered: true as const, at: deliveredFields.recoveryEmailSentAt ?? Date.now() },
           { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
         );
-        const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? earlySession;
+        const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? existing ?? {};
         await kv.set(sessionKey(hydrated.id), {
           ...latest,
           ...expiredBase,
@@ -1215,9 +1200,8 @@ async function handleExpiredCheckoutSession(
         });
         wroteSuccessSession = true;
       } else {
-        // Non-delivered: attempt record is the only new diagnostic write. Re-check delivery;
-        // if a concurrent winner already succeeded, repair/ack without copying failure fields.
-        // If not, skip the session write so this loser cannot clobber canonical success.
+        // Non-delivered: attempt record only. Never write sessionKey here (pre- or post-send).
+        // If a concurrent winner is visible, repair/ack with success fields only.
         const latestMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
         const latestSession = await kv.get<SessionRecord>(sessionKey(hydrated.id));
         const observedDelivery =

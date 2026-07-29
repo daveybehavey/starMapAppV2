@@ -20,6 +20,7 @@ import {
   listCheckoutRecoveryAttemptRecords,
   naiveMathMaxAttemptMerge,
   naiveOverwriteConfirmedDeliveryWithFailure,
+  naiveStaleEarlySessionWrite,
   SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE,
   simulateExpiredCheckoutRecoveryPass,
 } from "./checkoutRecoveryAlerts.harness.mjs";
@@ -304,8 +305,8 @@ test("delivery: retryable first failure writes attempt record, no delivered mark
   assert.equal(first.httpStatus, 503);
   assert.equal(first.providerCalls, 1);
   assert.equal(first.deliveredMarker, null);
-  assert.equal(first.session.recoveryEmailSentAt, undefined);
-  assert.equal(first.session.recoveryEmailErrorCode, undefined);
+  assert.equal(first.session, null);
+  assert.equal(first.wrotePreSendSession, false);
   assert.equal(first.attemptRecord.errorCode, "provider_server_error");
   assert.equal(first.attemptRecord.delivered, false);
   assert.equal(first.eventFinalized, false);
@@ -407,8 +408,8 @@ test("delivery: Resend concurrent-idempotency response stays pending without del
   });
   assert.equal(result.httpStatus, 503);
   assert.equal(result.deliveredMarker, null);
-  assert.equal(result.session.recoveryEmailSentAt, undefined);
-  assert.equal(result.session.recoveryEmailErrorCode, undefined);
+  assert.equal(result.session, null);
+  assert.equal(result.wrotePreSendSession, false);
   assert.equal(result.attemptRecord.errorCode, "concurrent_idempotent_requests");
   assert.equal(result.eventFinalized, false);
 });
@@ -475,8 +476,83 @@ test("race P1b: non-delivered loser skips session rewrite when winner not yet vi
   assert.equal(result.httpStatus, 503);
   assert.equal(result.eventFinalized, false);
   assert.equal(result.skippedSessionRewriteOnFailure, true);
-  assert.equal(result.session.recoveryEmailErrorCode, undefined);
+  assert.equal(result.wrotePreSendSession, false);
+  assert.equal(result.session, null);
   assert.equal(result.attemptRecord.errorCode, "concurrent_idempotent_requests");
+});
+
+test("race P1c: stale pre-send earlySession write must not erase winner success", async () => {
+  const store = new Map();
+  const sessionKey = "stripe:session:cs_test_race_p1c";
+  const winnerMeta = { sentAt: null, provider: null };
+  const staleExisting = { paid: false };
+
+  const loser = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId: "cs_test_race_p1c",
+    eventId: "evt_race_p1c_loser",
+    attemptId: "att_p1c_loser",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    existingSession: staleExisting,
+    // Loser already passed the initial delivery check with a stale snapshot.
+    assumePassedInitialDeliveryCheck: true,
+    now: 1_700_000_000_300,
+    afterInitialReadBeforeProvider: async (shared) => {
+      // Winner confirms delivery at the exact point the old code wrote earlySession.
+      const winner = await simulateExpiredCheckoutRecoveryPass({
+        store: shared,
+        sessionId: "cs_test_race_p1c",
+        eventId: "evt_race_p1c_winner",
+        attemptId: "att_p1c_winner",
+        recoveryUrl: "https://example.test/recover",
+        customerEmail: "buyer@example.test",
+        now: 1_700_000_000_250,
+        send: async () => classifyCheckoutRecoveryHttpResult("resend", 200),
+      });
+      assert.equal(typeof winner.session.recoveryEmailSentAt, "number");
+      winnerMeta.sentAt = winner.session.recoveryEmailSentAt;
+      winnerMeta.provider = winner.session.recoveryEmailProvider;
+      // Fixed path must not have written a pre-send session; winner success is intact.
+      assert.equal(shared.get(sessionKey).recoveryEmailSentAt, winnerMeta.sentAt);
+      assert.equal(shared.get(sessionKey).recoveryEmailRetryability, "delivered");
+    },
+    send: async () =>
+      classifyCheckoutRecoveryHttpResult("resend", 409, '{"name":"concurrent_idempotent_requests"}'),
+  });
+
+  assert.equal(loser.wrotePreSendSession, false);
+  assert.equal(loser.httpStatus, 200);
+  assert.equal(loser.eventFinalized, true);
+  assert.equal(loser.session.recoveryEmailSentAt, winnerMeta.sentAt);
+  assert.equal(loser.session.recoveryEmailProvider, winnerMeta.provider);
+  assert.equal(loser.session.recoveryEmailRetryability, "delivered");
+  assert.equal(loser.session.recoveryEmailError, undefined);
+  assert.equal(loser.session.recoveryEmailErrorCode, undefined);
+  assert.equal(loser.attemptRecord.delivered, false);
+  assert.equal(loser.attemptRecord.errorCode, "concurrent_idempotent_requests");
+});
+
+test("negative control: stale earlySession write would erase confirmed success", () => {
+  const winnerSession = {
+    paid: false,
+    recoveryEmailSentAt: 1_700_000_000_250,
+    recoveryEmailProvider: "resend",
+    recoveryEmailRetryability: "delivered",
+    recoveryEmailError: undefined,
+    recoveryEmailErrorCode: undefined,
+  };
+  const staleExisting = { paid: false };
+  const expiredBase = {
+    paid: false,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    expiredAt: 1_700_000_000_300,
+  };
+  const clobbered = naiveStaleEarlySessionWrite(winnerSession, staleExisting, expiredBase);
+  assert.equal(clobbered.recoveryEmailSentAt, undefined);
+  assert.equal(clobbered.recoveryEmailProvider, undefined);
+  assert.notEqual(clobbered.recoveryEmailRetryability, "delivered");
 });
 
 test("race P2: two concurrent invocations produce two distinct attempt records", async () => {
@@ -542,8 +618,8 @@ test("delivery: Resend invalid_idempotent_request is terminal 2xx with event fin
   assert.equal(result.httpStatus, 200);
   assert.equal(result.eventFinalized, true);
   assert.equal(result.deliveredMarker, null);
-  assert.equal(result.session.recoveryEmailRetryability, undefined);
-  assert.equal(result.session.recoveryEmailErrorCode, undefined);
+  assert.equal(result.session, null);
+  assert.equal(result.wrotePreSendSession, false);
   assert.equal(result.attemptRecord.retryability, "terminal");
   assert.equal(result.attemptRecord.errorCode, "invalid_idempotent_request");
   assert.equal(JSON.stringify(result.attemptRecord).includes("cs_live_invalid"), false);
@@ -579,7 +655,8 @@ test("delivery: terminal provider response records attempt and acknowledges with
   assert.equal(result.httpStatus, 200);
   assert.equal(result.eventFinalized, true);
   assert.equal(result.deliveredMarker, null);
-  assert.equal(result.session.recoveryEmailErrorCode, undefined);
+  assert.equal(result.session, null);
+  assert.equal(result.wrotePreSendSession, false);
   assert.equal(result.attemptRecord.retryability, "terminal");
   assert.equal(result.attemptRecord.errorCode, "provider_auth_error");
 });
@@ -700,6 +777,7 @@ test("source: webhook uses delivered marker and separate attempt records", () =>
   assert.match(webhookSource, /checkout_recovery_retryable/);
   assert.equal(webhookSource.includes("kv.incr(recoveryEmailKey"), false);
   assert.equal(webhookSource.includes("applyCheckoutRecoveryAlertToSessionFields"), false);
+  assert.equal(webhookSource.includes("earlySession"), false);
   assert.equal(/stripe:checkout_recovery:email:\$\{/.test(webhookSource), false);
   assert.match(recoveryAlertsSource, /email_delivered/);
   assert.match(recoveryAlertsSource, /checkout_recovery:attempt/);

@@ -332,7 +332,28 @@ export function buildSendgridRecoveryRequestHeaders() {
 }
 
 /**
+ * Negative control: stale pre-send earlySession write from a pre-delivery snapshot
+ * erases a concurrent winner's confirmed success fields.
+ * @param {Record<string, unknown>} winnerSession
+ * @param {Record<string, unknown>} staleExisting
+ * @param {Record<string, unknown>} expiredBase
+ */
+export function naiveStaleEarlySessionWrite(winnerSession, staleExisting, expiredBase) {
+  return {
+    ...winnerSession,
+    ...staleExisting,
+    ...expiredBase,
+    recoveryEmailSentAt: staleExisting.recoveryEmailSentAt,
+    recoveryEmailProvider: staleExisting.recoveryEmailProvider,
+    recoveryEmailError: staleExisting.recoveryEmailError,
+    recoveryEmailErrorCode: staleExisting.recoveryEmailErrorCode,
+    recoveryEmailRetryability: staleExisting.recoveryEmailRetryability,
+  };
+}
+
+/**
  * In-memory simulation of success-monotonic expired recovery + unique attempt records.
+ * Canonical session writes occur only on confirmed/observed delivery — never pre-send.
  *
  * @param {{
  *   store?: Map<string, unknown>;
@@ -346,6 +367,7 @@ export function buildSendgridRecoveryRequestHeaders() {
  *   now?: number;
  *   useLegacyPreSendLock?: boolean;
  *   assumePassedInitialDeliveryCheck?: boolean;
+ *   afterInitialReadBeforeProvider?: (store: Map<string, unknown>) => void | Promise<void>;
  *   afterSendBeforePersist?: (store: Map<string, unknown>) => void | Promise<void>;
  * }} opts
  */
@@ -388,27 +410,17 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
     expiredAt: now,
   };
 
-  // Early expiry materialization — non-delivered paths can skip later session writes.
-  /** @type {Record<string, unknown>} */
-  const earlySession = {
-    ...fromStore,
-    ...existing,
-    ...expiredBase,
-    recoveryEmailSentAt: fromStore.recoveryEmailSentAt ?? existing.recoveryEmailSentAt,
-    recoveryEmailProvider: fromStore.recoveryEmailProvider ?? existing.recoveryEmailProvider,
-    recoveryEmailError: fromStore.recoveryEmailError ?? existing.recoveryEmailError,
-    recoveryEmailErrorCode: fromStore.recoveryEmailErrorCode ?? existing.recoveryEmailErrorCode,
-    recoveryEmailRetryability: fromStore.recoveryEmailRetryability ?? existing.recoveryEmailRetryability,
-    recoveryEmailLastAttemptAt: fromStore.recoveryEmailLastAttemptAt ?? existing.recoveryEmailLastAttemptAt,
-    recoveryEmailAttemptCount: fromStore.recoveryEmailAttemptCount ?? existing.recoveryEmailAttemptCount,
-  };
-  store.set(sessionKey, earlySession);
+  // Point where the old implementation wrote a stale earlySession. Fixed path writes nothing.
+  if (opts.afterInitialReadBeforeProvider) {
+    await opts.afterInitialReadBeforeProvider(store);
+  }
 
   let providerCalls = 0;
   let recoveryOutcome = "skipped";
   /** @type {Record<string, unknown> | null} */
   let attemptRecord = null;
   let wroteSuccessSession = false;
+  let wrotePreSendSession = false;
   const recoveryUrl = opts.recoveryUrl ?? null;
   const customerEmail = opts.customerEmail ?? null;
 
@@ -420,7 +432,7 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
 
     if (alreadyDelivered) {
       recoveryOutcome = "already_delivered";
-      const latest = store.get(sessionKey) ?? earlySession;
+      const latest = store.get(sessionKey) ?? existing;
       const sentAt =
         latest.recoveryEmailSentAt ??
         existing.recoveryEmailSentAt ??
@@ -446,13 +458,14 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
             duplicate: false,
             providerCalls: 0,
             store,
-            session: store.get(sessionKey),
+            session: store.get(sessionKey) ?? null,
             deliveredMarker: store.get(deliveredKey) ?? null,
             attemptRecord: null,
             eventFinalized: true,
             legacyPreSendLock: store.get(legacyKey),
             recoveryOutcome: "legacy_lock_blocked",
             blockedByLegacyPreSendLock: true,
+            wrotePreSendSession: false,
           };
         }
       }
@@ -475,7 +488,7 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
         recoveryOutcome = alertResult.retryability;
         const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult, now);
         store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
-        const latest = store.get(sessionKey) ?? earlySession;
+        const latest = store.get(sessionKey) ?? existing;
         store.set(sessionKey, {
           ...latest,
           ...expiredBase,
@@ -534,7 +547,7 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
     duplicate: false,
     providerCalls,
     store,
-    session: store.get(sessionKey),
+    session: store.get(sessionKey) ?? null,
     deliveredMarker: store.get(deliveredKey) ?? null,
     attemptRecord,
     attemptKey: checkoutRecoveryEmailAttemptKey(opts.sessionId, attemptId),
@@ -544,6 +557,8 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
     blockedByLegacyPreSendLock: false,
     idempotencyKey: buildCheckoutRecoveryResendIdempotencyKey(opts.sessionId),
     skippedSessionRewriteOnFailure: Boolean(attemptRecord && !wroteSuccessSession && !deliveryVisible),
+    wrotePreSendSession,
+    wroteSuccessSession,
   };
 }
 
