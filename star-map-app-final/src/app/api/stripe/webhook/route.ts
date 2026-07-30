@@ -1114,8 +1114,8 @@ async function handleExpiredCheckoutSession(
       : eventCreated * 1000;
   const existing = await kv.get<SessionRecord>(sessionKey(hydrated.id));
 
-  // Success-path overlay only. Non-delivered outcomes must not write sessionKey at all —
-  // including no pre-send expiry materialization (that race erased concurrent winners).
+  // Used only for confirmed-delivery success writes. Non-delivered / already-delivered /
+  // observed-winner paths must not rewrite sessionKey (stale repairs erased provider).
   const expiredBase: SessionRecord = {
     paid: false,
     created:
@@ -1141,26 +1141,20 @@ async function handleExpiredCheckoutSession(
 
   if (recoveryUrl && customerEmail) {
     const deliveredMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
-    const alreadyDelivered =
-      Boolean(existing?.recoveryEmailSentAt) || isCheckoutRecoveryDeliveredMarker(deliveredMarker);
+    const sessionAlreadySucceeded = Boolean(existing?.recoveryEmailSentAt);
+    const markerPresent = isCheckoutRecoveryDeliveredMarker(deliveredMarker);
 
-    if (alreadyDelivered) {
+    if (sessionAlreadySucceeded || markerPresent) {
       recoveryOutcome = "already_delivered";
-      const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? existing ?? {};
-      const sentAt =
-        latest.recoveryEmailSentAt ??
-        existing?.recoveryEmailSentAt ??
-        (isCheckoutRecoveryDeliveredMarker(deliveredMarker) ? deliveredMarker.at : Date.now());
-      await kv.set(sessionKey(hydrated.id), {
-        ...latest,
-        ...expiredBase,
-        recoveryEmailSentAt: sentAt,
-        recoveryEmailProvider: latest.recoveryEmailProvider ?? existing?.recoveryEmailProvider,
-        recoveryEmailError: undefined,
-        recoveryEmailErrorCode: undefined,
-        recoveryEmailRetryability: "delivered",
-      });
-      wroteSuccessSession = true;
+      // Session success without marker: backfill marker only — never rewrite sessionKey.
+      if (sessionAlreadySucceeded && !markerPresent) {
+        await kv.set(
+          checkoutRecoveryEmailDeliveredKey(hydrated.id),
+          { delivered: true as const, at: existing!.recoveryEmailSentAt as number },
+          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+        );
+      }
+      // Marker-only (session not yet visible): acknowledge without touching sessionKey.
     } else {
       const attemptId = createCheckoutRecoveryAttemptId();
       const alertResult = await sendCheckoutRecoveryAlert({
@@ -1187,11 +1181,7 @@ async function handleExpiredCheckoutSession(
       if (alertResult.delivered) {
         recoveryOutcome = alertResult.retryability;
         const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult);
-        await kv.set(
-          checkoutRecoveryEmailDeliveredKey(hydrated.id),
-          { delivered: true as const, at: deliveredFields.recoveryEmailSentAt ?? Date.now() },
-          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
-        );
+        // Persist canonical success before the separate delivered marker.
         const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? existing ?? {};
         await kv.set(sessionKey(hydrated.id), {
           ...latest,
@@ -1199,28 +1189,26 @@ async function handleExpiredCheckoutSession(
           ...deliveredFields,
         });
         wroteSuccessSession = true;
+        await kv.set(
+          checkoutRecoveryEmailDeliveredKey(hydrated.id),
+          { delivered: true as const, at: deliveredFields.recoveryEmailSentAt ?? Date.now() },
+          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+        );
       } else {
-        // Non-delivered: attempt record only. Never write sessionKey here (pre- or post-send).
-        // If a concurrent winner is visible, repair/ack with success fields only.
+        // Non-delivered: attempt record only. Acknowledge visible winner without session rewrite.
         const latestMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
         const latestSession = await kv.get<SessionRecord>(sessionKey(hydrated.id));
-        const observedDelivery =
-          Boolean(latestSession?.recoveryEmailSentAt) || isCheckoutRecoveryDeliveredMarker(latestMarker);
-        if (observedDelivery) {
+        const observedSessionSuccess = Boolean(latestSession?.recoveryEmailSentAt);
+        const observedMarker = isCheckoutRecoveryDeliveredMarker(latestMarker);
+        if (observedSessionSuccess || observedMarker) {
           recoveryOutcome = "already_delivered";
-          const sentAt =
-            latestSession?.recoveryEmailSentAt ??
-            (isCheckoutRecoveryDeliveredMarker(latestMarker) ? latestMarker.at : Date.now());
-          await kv.set(sessionKey(hydrated.id), {
-            ...latestSession,
-            ...expiredBase,
-            recoveryEmailSentAt: sentAt,
-            recoveryEmailProvider: latestSession?.recoveryEmailProvider,
-            recoveryEmailError: undefined,
-            recoveryEmailErrorCode: undefined,
-            recoveryEmailRetryability: "delivered",
-          });
-          wroteSuccessSession = true;
+          if (observedSessionSuccess && !observedMarker) {
+            await kv.set(
+              checkoutRecoveryEmailDeliveredKey(hydrated.id),
+              { delivered: true as const, at: latestSession!.recoveryEmailSentAt as number },
+              { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+            );
+          }
         } else {
           recoveryOutcome = alertResult.retryability;
         }

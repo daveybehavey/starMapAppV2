@@ -352,8 +352,28 @@ export function naiveStaleEarlySessionWrite(winnerSession, staleExisting, expire
 }
 
 /**
+ * Negative control: marker-only stale repair overwrites a winner session with
+ * undefined provider when latestSession lacked recoveryEmailProvider.
+ * @param {Record<string, unknown> | null | undefined} latestSession
+ * @param {Record<string, unknown>} expiredBase
+ * @param {number} sentAtFromMarker
+ */
+export function naiveMarkerOnlyStaleRepair(latestSession, expiredBase, sentAtFromMarker) {
+  return {
+    ...latestSession,
+    ...expiredBase,
+    recoveryEmailSentAt: latestSession?.recoveryEmailSentAt ?? sentAtFromMarker,
+    recoveryEmailProvider: latestSession?.recoveryEmailProvider,
+    recoveryEmailError: undefined,
+    recoveryEmailErrorCode: undefined,
+    recoveryEmailRetryability: "delivered",
+  };
+}
+
+/**
  * In-memory simulation of success-monotonic expired recovery + unique attempt records.
- * Canonical session writes occur only on confirmed/observed delivery — never pre-send.
+ * Canonical session writes occur only on confirmed provider delivery (before marker).
+ * Already-delivered / observed-winner paths never rewrite sessionKey.
  *
  * @param {{
  *   store?: Map<string, unknown>;
@@ -397,7 +417,6 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
 
   const fromStore = store.get(sessionKey) ?? {};
   const existing = { ...fromStore, ...(opts.existingSession ?? {}) };
-  // Never let a test existingSession override wipe an already-confirmed delivery in the shared store.
   if (typeof fromStore.recoveryEmailSentAt === "number") {
     existing.recoveryEmailSentAt = fromStore.recoveryEmailSentAt;
     existing.recoveryEmailProvider = fromStore.recoveryEmailProvider;
@@ -410,7 +429,6 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
     expiredAt: now,
   };
 
-  // Point where the old implementation wrote a stale earlySession. Fixed path writes nothing.
   if (opts.afterInitialReadBeforeProvider) {
     await opts.afterInitialReadBeforeProvider(store);
   }
@@ -421,32 +439,29 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
   let attemptRecord = null;
   let wroteSuccessSession = false;
   let wrotePreSendSession = false;
+  let wroteSessionRepair = false;
+  let backfilledMarkerOnly = false;
   const recoveryUrl = opts.recoveryUrl ?? null;
   const customerEmail = opts.customerEmail ?? null;
+  const sessionSnapshotBefore = store.has(sessionKey) ? JSON.stringify(store.get(sessionKey)) : null;
 
   if (recoveryUrl && customerEmail) {
     const deliveredMarker = store.get(deliveredKey);
+    const sessionAlreadySucceeded = Boolean(existing.recoveryEmailSentAt);
+    const markerPresent = isCheckoutRecoveryDeliveredMarker(deliveredMarker);
     const alreadyDelivered =
-      !opts.assumePassedInitialDeliveryCheck &&
-      (Boolean(existing.recoveryEmailSentAt) || isCheckoutRecoveryDeliveredMarker(deliveredMarker));
+      !opts.assumePassedInitialDeliveryCheck && (sessionAlreadySucceeded || markerPresent);
 
     if (alreadyDelivered) {
       recoveryOutcome = "already_delivered";
-      const latest = store.get(sessionKey) ?? existing;
-      const sentAt =
-        latest.recoveryEmailSentAt ??
-        existing.recoveryEmailSentAt ??
-        (isCheckoutRecoveryDeliveredMarker(deliveredMarker) ? deliveredMarker.at : now);
-      store.set(sessionKey, {
-        ...latest,
-        ...expiredBase,
-        recoveryEmailSentAt: sentAt,
-        recoveryEmailProvider: latest.recoveryEmailProvider ?? existing.recoveryEmailProvider,
-        recoveryEmailError: undefined,
-        recoveryEmailErrorCode: undefined,
-        recoveryEmailRetryability: "delivered",
-      });
-      wroteSuccessSession = true;
+      if (sessionAlreadySucceeded && !markerPresent) {
+        store.set(deliveredKey, {
+          delivered: true,
+          at: existing.recoveryEmailSentAt,
+        });
+        backfilledMarkerOnly = true;
+      }
+      // No canonical session rewrite.
     } else {
       if (opts.useLegacyPreSendLock) {
         const current = Number(store.get(legacyKey) ?? 0) + 1;
@@ -466,6 +481,8 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
             recoveryOutcome: "legacy_lock_blocked",
             blockedByLegacyPreSendLock: true,
             wrotePreSendSession: false,
+            wroteSessionRepair: false,
+            backfilledMarkerOnly: false,
           };
         }
       }
@@ -487,7 +504,7 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
       if (alertResult.delivered) {
         recoveryOutcome = alertResult.retryability;
         const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult, now);
-        store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
+        // Session success before separate delivered marker.
         const latest = store.get(sessionKey) ?? existing;
         store.set(sessionKey, {
           ...latest,
@@ -495,28 +512,23 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
           ...deliveredFields,
         });
         wroteSuccessSession = true;
+        store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
       } else {
         const latestMarker = store.get(deliveredKey);
         const latestSession = store.get(sessionKey) ?? null;
-        const observedDelivery =
-          Boolean(latestSession?.recoveryEmailSentAt) || isCheckoutRecoveryDeliveredMarker(latestMarker);
-        if (observedDelivery) {
+        const observedSessionSuccess = Boolean(latestSession?.recoveryEmailSentAt);
+        const observedMarker = isCheckoutRecoveryDeliveredMarker(latestMarker);
+        if (observedSessionSuccess || observedMarker) {
           recoveryOutcome = "already_delivered";
-          const sentAt =
-            latestSession?.recoveryEmailSentAt ??
-            (isCheckoutRecoveryDeliveredMarker(latestMarker) ? latestMarker.at : now);
-          store.set(sessionKey, {
-            ...latestSession,
-            ...expiredBase,
-            recoveryEmailSentAt: sentAt,
-            recoveryEmailProvider: latestSession?.recoveryEmailProvider,
-            recoveryEmailError: undefined,
-            recoveryEmailErrorCode: undefined,
-            recoveryEmailRetryability: "delivered",
-          });
-          wroteSuccessSession = true;
+          if (observedSessionSuccess && !observedMarker) {
+            store.set(deliveredKey, {
+              delivered: true,
+              at: latestSession.recoveryEmailSentAt,
+            });
+            backfilledMarkerOnly = true;
+          }
+          // No session rewrite on observed winner / marker-only.
         } else {
-          // Structurally skip session rewrite — attempt record only.
           recoveryOutcome = alertResult.retryability;
         }
       }
@@ -542,6 +554,9 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
     store.set(eventKey, { received: true });
   }
 
+  const sessionSnapshotAfter = store.has(sessionKey) ? JSON.stringify(store.get(sessionKey)) : null;
+  const sessionUnchanged = !wroteSuccessSession && sessionSnapshotBefore === sessionSnapshotAfter;
+
   return {
     httpStatus: httpRetryable ? 503 : 200,
     duplicate: false,
@@ -559,6 +574,9 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
     skippedSessionRewriteOnFailure: Boolean(attemptRecord && !wroteSuccessSession && !deliveryVisible),
     wrotePreSendSession,
     wroteSuccessSession,
+    wroteSessionRepair,
+    backfilledMarkerOnly,
+    sessionUnchanged,
   };
 }
 

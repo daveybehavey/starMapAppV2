@@ -20,6 +20,7 @@ import {
   listCheckoutRecoveryAttemptRecords,
   naiveMathMaxAttemptMerge,
   naiveOverwriteConfirmedDeliveryWithFailure,
+  naiveMarkerOnlyStaleRepair,
   naiveStaleEarlySessionWrite,
   SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE,
   simulateExpiredCheckoutRecoveryPass,
@@ -449,6 +450,8 @@ test("race P1: loser persist after winner cannot clobber canonical success", asy
   assert.equal(loser.httpStatus, 200);
   assert.equal(loser.eventFinalized, true);
   assert.equal(loser.recoveryOutcome, "already_delivered");
+  assert.equal(loser.wroteSuccessSession, false);
+  assert.equal(loser.wroteSessionRepair, false);
   assert.equal(loser.session.recoveryEmailSentAt, winnerMeta.sentAt);
   assert.equal(loser.session.recoveryEmailProvider, winnerMeta.provider);
   assert.equal(loser.session.recoveryEmailError, undefined);
@@ -522,6 +525,8 @@ test("race P1c: stale pre-send earlySession write must not erase winner success"
   });
 
   assert.equal(loser.wrotePreSendSession, false);
+  assert.equal(loser.wroteSuccessSession, false);
+  assert.equal(loser.wroteSessionRepair, false);
   assert.equal(loser.httpStatus, 200);
   assert.equal(loser.eventFinalized, true);
   assert.equal(loser.session.recoveryEmailSentAt, winnerMeta.sentAt);
@@ -553,6 +558,142 @@ test("negative control: stale earlySession write would erase confirmed success",
   assert.equal(clobbered.recoveryEmailSentAt, undefined);
   assert.equal(clobbered.recoveryEmailProvider, undefined);
   assert.notEqual(clobbered.recoveryEmailRetryability, "delivered");
+});
+
+test("race P2: marker-only observe must not rewrite winner session provider", async () => {
+  const store = new Map();
+  const sessionKey = "stripe:session:cs_test_race_p2_provider";
+  const deliveredKey = checkoutRecoveryEmailDeliveredKey("cs_test_race_p2_provider");
+  const winnerMeta = { sentAt: 1_700_000_000_400, provider: "resend" };
+
+  const loser = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId: "cs_test_race_p2_provider",
+    eventId: "evt_p2_provider_loser",
+    attemptId: "att_p2_provider_loser",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    existingSession: { paid: false },
+    assumePassedInitialDeliveryCheck: true,
+    now: 1_700_000_000_450,
+    send: async () =>
+      classifyCheckoutRecoveryHttpResult("resend", 409, '{"name":"concurrent_idempotent_requests"}'),
+    afterSendBeforePersist: async (shared) => {
+      // Winner wrote session success then marker. Loser first "sees" marker while session
+      // appears empty; then winner session becomes visible before the old repair point.
+      shared.set(deliveredKey, { delivered: true, at: winnerMeta.sentAt });
+      assert.equal(shared.get(sessionKey), undefined);
+      shared.set(sessionKey, {
+        paid: false,
+        recoveryEmailSentAt: winnerMeta.sentAt,
+        recoveryEmailProvider: winnerMeta.provider,
+        recoveryEmailRetryability: "delivered",
+        recoveryEmailError: undefined,
+        recoveryEmailErrorCode: undefined,
+      });
+    },
+  });
+
+  assert.equal(loser.httpStatus, 200);
+  assert.equal(loser.eventFinalized, true);
+  assert.equal(loser.recoveryOutcome, "already_delivered");
+  assert.equal(loser.wroteSuccessSession, false);
+  assert.equal(loser.wroteSessionRepair, false);
+  assert.equal(loser.session.recoveryEmailSentAt, winnerMeta.sentAt);
+  assert.equal(loser.session.recoveryEmailProvider, winnerMeta.provider);
+  assert.equal(loser.session.recoveryEmailRetryability, "delivered");
+  assert.equal(loser.attemptRecord.delivered, false);
+  assert.equal(loser.attemptRecord.errorCode, "concurrent_idempotent_requests");
+  assert.equal(listCheckoutRecoveryAttemptRecords(store, "cs_test_race_p2_provider").length, 1);
+});
+
+test("negative control: marker-only stale repair would erase winner provider", () => {
+  const winnerSession = {
+    paid: false,
+    recoveryEmailSentAt: 1_700_000_000_400,
+    recoveryEmailProvider: "resend",
+    recoveryEmailRetryability: "delivered",
+  };
+  // Stale observation: marker visible, session snapshot empty/missing provider.
+  const staleLatestSession = { paid: false };
+  const expiredBase = {
+    paid: false,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    expiredAt: 1_700_000_000_450,
+  };
+  // If repair ran after winner session was written but used the stale empty snapshot:
+  const clobbered = {
+    ...winnerSession,
+    ...naiveMarkerOnlyStaleRepair(staleLatestSession, expiredBase, 1_700_000_000_400),
+  };
+  assert.equal(clobbered.recoveryEmailProvider, undefined);
+  assert.equal(clobbered.recoveryEmailSentAt, 1_700_000_000_400);
+});
+
+test("marker backfill: session success without marker backfills marker only", async () => {
+  const store = new Map();
+  const sessionKey = "stripe:session:cs_test_marker_backfill";
+  const successSession = {
+    paid: false,
+    recoveryEmailSentAt: 1_700_000_000_500,
+    recoveryEmailProvider: "resend",
+    recoveryEmailRetryability: "delivered",
+    recoveryEmailError: undefined,
+    recoveryEmailErrorCode: undefined,
+  };
+  store.set(sessionKey, { ...successSession });
+
+  const result = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId: "cs_test_marker_backfill",
+    eventId: "evt_marker_backfill",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    existingSession: successSession,
+    send: async () => {
+      throw new Error("provider must not be called when session already succeeded");
+    },
+  });
+
+  assert.equal(result.httpStatus, 200);
+  assert.equal(result.eventFinalized, true);
+  assert.equal(result.providerCalls, 0);
+  assert.equal(result.backfilledMarkerOnly, true);
+  assert.equal(result.wroteSuccessSession, false);
+  assert.equal(result.wroteSessionRepair, false);
+  assert.equal(isCheckoutRecoveryDeliveredMarkerShape(result.deliveredMarker), true);
+  assert.equal(result.deliveredMarker.at, 1_700_000_000_500);
+  assert.equal(result.session.recoveryEmailSentAt, 1_700_000_000_500);
+  assert.equal(result.session.recoveryEmailProvider, "resend");
+  assert.equal(result.sessionUnchanged, true);
+});
+
+test("marker-only visible: acknowledge without rewriting canonical session", async () => {
+  const store = new Map();
+  const deliveredKey = checkoutRecoveryEmailDeliveredKey("cs_test_marker_only");
+  store.set(deliveredKey, { delivered: true, at: 1_700_000_000_600 });
+
+  const result = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId: "cs_test_marker_only",
+    eventId: "evt_marker_only",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    existingSession: { paid: false },
+    send: async () => {
+      throw new Error("provider must not be called when marker already present");
+    },
+  });
+
+  assert.equal(result.httpStatus, 200);
+  assert.equal(result.eventFinalized, true);
+  assert.equal(result.providerCalls, 0);
+  assert.equal(result.wroteSuccessSession, false);
+  assert.equal(result.wroteSessionRepair, false);
+  assert.equal(result.backfilledMarkerOnly, false);
+  assert.equal(result.session, null);
+  assert.equal(isCheckoutRecoveryDeliveredMarkerShape(result.deliveredMarker), true);
 });
 
 test("race P2: two concurrent invocations produce two distinct attempt records", async () => {
@@ -778,6 +919,10 @@ test("source: webhook uses delivered marker and separate attempt records", () =>
   assert.equal(webhookSource.includes("kv.incr(recoveryEmailKey"), false);
   assert.equal(webhookSource.includes("applyCheckoutRecoveryAlertToSessionFields"), false);
   assert.equal(webhookSource.includes("earlySession"), false);
+  // Confirmed delivery persists session before marker; already-delivered/observed paths
+  // must not repair-rewrite sessionKey with a stale provider.
+  assert.match(webhookSource, /Persist canonical success before the separate delivered marker/);
+  assert.match(webhookSource, /backfill marker only/);
   assert.equal(/stripe:checkout_recovery:email:\$\{/.test(webhookSource), false);
   assert.match(recoveryAlertsSource, /email_delivered/);
   assert.match(recoveryAlertsSource, /checkout_recovery:attempt/);
