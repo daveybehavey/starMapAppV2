@@ -353,6 +353,82 @@ test("delivery: later success writes exactly one delivered marker and durable se
   assert.equal(listCheckoutRecoveryAttemptRecords(store, "cs_test_retry_flow").length, 2);
 });
 
+test("durable: provider delivery + failed durable session put leaves no marker and stays retryable", async () => {
+  const store = new Map();
+  const sessionId = "cs_test_durable_fail";
+  const first = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_durable_fail",
+    attemptId: "att_durable_fail",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 200),
+    persistSessionDurable: async () => {
+      throw new Error("cf put failed");
+    },
+  });
+
+  assert.equal(first.httpStatus, 503);
+  assert.equal(first.eventFinalized, false);
+  assert.equal(first.deliveredMarker, null);
+  assert.equal(first.wroteSuccessSession, false);
+  assert.equal(first.session, null);
+  assert.equal(first.attemptRecord.delivered, true);
+  assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
+  assert.equal(store.has(`stripe:session:${sessionId}`), false);
+  assert.equal(first.idempotencyKey, buildCheckoutRecoveryResendIdempotencyKey(sessionId));
+});
+
+test("durable: later retry with durable persistence writes session then marker and finalizes", async () => {
+  const store = new Map();
+  const sessionId = "cs_test_durable_retry";
+  let durableShouldFail = true;
+
+  const first = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_durable_retry_1",
+    attemptId: "att_durable_retry_1",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 200),
+    persistSessionDurable: async () => {
+      if (durableShouldFail) throw new Error("cf put failed");
+    },
+  });
+  assert.equal(first.httpStatus, 503);
+  assert.equal(first.eventFinalized, false);
+  assert.equal(first.deliveredMarker, null);
+
+  durableShouldFail = false;
+  store.delete(`stripe:event:evt_durable_retry_1`);
+
+  const second = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_durable_retry_1",
+    attemptId: "att_durable_retry_2",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 200),
+    persistSessionDurable: async () => {
+      if (durableShouldFail) throw new Error("cf put failed");
+    },
+  });
+
+  assert.equal(second.httpStatus, 200);
+  assert.equal(second.eventFinalized, true);
+  assert.equal(second.wroteSuccessSession, true);
+  assert.equal(typeof second.session.recoveryEmailSentAt, "number");
+  assert.equal(isCheckoutRecoveryDeliveredMarkerShape(second.deliveredMarker), true);
+  assert.equal(first.idempotencyKey, second.idempotencyKey);
+  assert.equal(second.idempotencyKey.includes(sessionId), false);
+  // Two attempt records (failed durable + successful retry); one session success; one marker.
+  assert.equal(listCheckoutRecoveryAttemptRecords(store, sessionId).length, 2);
+  assert.equal([...store.keys()].filter((k) => k.includes("email_delivered")).length, 1);
+});
+
 test("delivery: duplicate event after success performs zero additional provider sends", async () => {
   const store = new Map();
   const success = await simulateExpiredCheckoutRecoveryPass({
@@ -916,6 +992,7 @@ test("source: webhook uses delivered marker and separate attempt records", () =>
   assert.match(webhookSource, /buildCheckoutRecoveryAttemptRecord/);
   assert.match(webhookSource, /applyCheckoutRecoveryDeliveredSessionFields/);
   assert.match(webhookSource, /checkout_recovery_retryable/);
+  assert.match(webhookSource, /kv\.setDurable\(/);
   assert.equal(webhookSource.includes("kv.incr(recoveryEmailKey"), false);
   assert.equal(webhookSource.includes("applyCheckoutRecoveryAlertToSessionFields"), false);
   assert.equal(webhookSource.includes("earlySession"), false);

@@ -389,6 +389,7 @@ export function naiveMarkerOnlyStaleRepair(latestSession, expiredBase, sentAtFro
  *   assumePassedInitialDeliveryCheck?: boolean;
  *   afterInitialReadBeforeProvider?: (store: Map<string, unknown>) => void | Promise<void>;
  *   afterSendBeforePersist?: (store: Map<string, unknown>) => void | Promise<void>;
+ *   persistSessionDurable?: (session: Record<string, unknown>) => void | Promise<void>;
  * }} opts
  */
 export async function simulateExpiredCheckoutRecoveryPass(opts) {
@@ -502,17 +503,26 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
       store.set(checkoutRecoveryEmailAttemptKey(opts.sessionId, attemptId), attemptRecord);
 
       if (alertResult.delivered) {
-        recoveryOutcome = alertResult.retryability;
         const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult, now);
-        // Session success before separate delivered marker.
+        // Session success before separate delivered marker (durable path).
         const latest = store.get(sessionKey) ?? existing;
-        store.set(sessionKey, {
+        const nextSession = {
           ...latest,
           ...expiredBase,
           ...deliveredFields,
-        });
-        wroteSuccessSession = true;
-        store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
+        };
+        try {
+          if (typeof opts.persistSessionDurable === "function") {
+            await opts.persistSessionDurable(nextSession);
+          }
+          store.set(sessionKey, nextSession);
+          wroteSuccessSession = true;
+          recoveryOutcome = alertResult.retryability;
+          store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
+        } catch {
+          // Durable persistence failed: keep attempt record only; no marker; retryable.
+          recoveryOutcome = "retryable";
+        }
       } else {
         const latestMarker = store.get(deliveredKey);
         const latestSession = store.get(sessionKey) ?? null;

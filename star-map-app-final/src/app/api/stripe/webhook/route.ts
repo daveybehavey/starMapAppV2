@@ -1179,21 +1179,30 @@ async function handleExpiredCheckoutSession(
       });
 
       if (alertResult.delivered) {
-        recoveryOutcome = alertResult.retryability;
         const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult);
-        // Persist canonical success before the separate delivered marker.
+        // Persist canonical success before the separate delivered marker, using a durable
+        // write path that surfaces Cloudflare put failures (never local-only success).
         const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? existing ?? {};
-        await kv.set(sessionKey(hydrated.id), {
-          ...latest,
-          ...expiredBase,
-          ...deliveredFields,
-        });
-        wroteSuccessSession = true;
-        await kv.set(
-          checkoutRecoveryEmailDeliveredKey(hydrated.id),
-          { delivered: true as const, at: deliveredFields.recoveryEmailSentAt ?? Date.now() },
-          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
-        );
+        try {
+          await kv.setDurable(sessionKey(hydrated.id), {
+            ...latest,
+            ...expiredBase,
+            ...deliveredFields,
+          });
+        } catch (error) {
+          console.warn("Checkout recovery durable session persistence failed; deferring marker", error);
+          // Attempt record already written. Do not write delivered marker or finalize.
+          recoveryOutcome = "retryable";
+        }
+        if (recoveryOutcome !== "retryable") {
+          wroteSuccessSession = true;
+          recoveryOutcome = alertResult.retryability;
+          await kv.set(
+            checkoutRecoveryEmailDeliveredKey(hydrated.id),
+            { delivered: true as const, at: deliveredFields.recoveryEmailSentAt ?? Date.now() },
+            { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+          );
+        }
       } else {
         // Non-delivered: attempt record only. Acknowledge visible winner without session rewrite.
         const latestMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
