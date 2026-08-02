@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 /**
  * Live probe: map save, share page, merch + print checkout API (no payment).
+ * Checkout Session creation requires QA metadata headers (fail-closed).
  * Usage: node scripts/live-merch-checkout-probe.mjs [--site https://starmapco.com]
  */
+
+import {
+  assertQaCheckoutDispatchAllowed,
+  LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE,
+} from "./qa-checkout-headers.mjs";
 
 const site = (process.argv.find((a, i) => process.argv[i - 1] === "--site") || "https://starmapco.com").replace(
   /\/+$/,
@@ -10,8 +16,25 @@ const site = (process.argv.find((a, i) => process.argv[i - 1] === "--site") || "
 );
 
 function ok(name, passed, detail = "") {
-  console.log(`[${passed ? "PASS" : "FAIL"}] ${name}${detail ? ` — ${detail}` : ""}`);
+  // Aggregate/category-only details — never echo IDs or URLs.
+  const safeDetail = detail && !/(cs_|https?:\/\/|[0-9a-f]{8}-[0-9a-f]{4})/i.test(detail) ? detail : "";
+  console.log(`[${passed ? "PASS" : "FAIL"}] ${name}${safeDetail ? ` — ${safeDetail}` : ""}`);
   return passed;
+}
+
+/**
+ * @param {Record<string, unknown>} body
+ */
+function buildQaCheckoutFetchInit(body) {
+  const headers = assertQaCheckoutDispatchAllowed(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE);
+  return {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+    body: JSON.stringify(body),
+  };
 }
 
 async function main() {
@@ -20,7 +43,7 @@ async function main() {
     if (!ok(name, passed, detail)) failed = true;
   };
 
-  console.log(`Live merch checkout probe: ${site}\n`);
+  console.log("Live merch checkout probe\n");
 
   const shop = await fetch(`${site}/shop`, { cache: "no-store" }).then((r) => r.text());
   run("/shop 200", shop.length > 1000, `bytes=${shop.length}`);
@@ -48,7 +71,7 @@ async function main() {
     body: JSON.stringify(recipe),
   });
   const mapJson = await mapRes.json().catch(() => ({}));
-  run("POST /api/maps", mapRes.status === 200 && mapJson.id, `status=${mapRes.status} id=${mapJson.id || "none"}`);
+  run("POST /api/maps", mapRes.status === 200 && Boolean(mapJson.id), `status=${mapRes.status}`);
 
   if (mapJson.id) {
     const getRes = await fetch(`${site}/api/maps?id=${encodeURIComponent(mapJson.id)}`, { cache: "no-store" });
@@ -61,6 +84,7 @@ async function main() {
     run("share page HD CTA", shareHtml.includes("checkout=hd"), "map hub HD link");
     run("share page edit CTA", shareHtml.includes("map_id=") && shareHtml.includes("source=map-hub"), "editor deep links");
 
+    // Rejection path does not create a Checkout Session — safe without QA headers.
     const noAsset = await fetch(`${site}/api/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,52 +105,68 @@ async function main() {
       `status=${noAsset.status} code=${noAssetJson.code}`,
     );
 
-    const fakeAsset = "00000000-0000-4000-8000-000000000001";
-    const merchCheckout = await fetch(`${site}/api/checkout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mapId: mapJson.id,
-        plan: "single",
-        orderType: "print",
-        printVariant: "poster_framed",
-        merchFamily: "sticker_kisscut",
-        merchOptions: { size: "3×3" },
-        shippingCountry: "US",
-        printAssetId: fakeAsset,
-      }),
-    });
-    const merchJson = await merchCheckout.json().catch(() => ({}));
-    const merchUrlOk =
-      merchCheckout.status === 200 &&
-      typeof merchJson.url === "string" &&
-      merchJson.url.includes("checkout.stripe.com");
-    run(
-      "merch checkout returns Stripe URL",
-      merchUrlOk,
-      `status=${merchCheckout.status} code=${merchJson.code || "ok"}`,
-    );
+    // Session-creating paths require QA markers; stop before dispatch when unavailable.
+    let qaHeadersReady = true;
+    try {
+      assertQaCheckoutDispatchAllowed(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE);
+    } catch (error) {
+      qaHeadersReady = false;
+      run(
+        "QA marker capability before session create",
+        false,
+        error instanceof Error ? error.message : "qa_markers_unavailable",
+      );
+    }
 
-    const cardCheckout = await fetch(`${site}/api/checkout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mapId: mapJson.id,
-        plan: "single",
-        orderType: "print",
-        printVariant: "poster_framed",
-        includeCardAddOn: true,
-        includeDigitalAddOn: false,
-        shippingCountry: "US",
-        printAssetId: fakeAsset,
-      }),
-    });
-    const cardJson = await cardCheckout.json().catch(() => ({}));
-    run(
-      "card add-on checkout (fake asset)",
-      cardCheckout.status === 200 || cardCheckout.status === 400,
-      `status=${cardCheckout.status} code=${cardJson.code || (cardJson.url ? "stripe_url" : "none")}`,
-    );
+    if (qaHeadersReady) {
+      const fakeAsset = "00000000-0000-4000-8000-000000000001";
+      const merchCheckout = await fetch(
+        `${site}/api/checkout`,
+        buildQaCheckoutFetchInit({
+          mapId: mapJson.id,
+          plan: "single",
+          orderType: "print",
+          printVariant: "poster_framed",
+          merchFamily: "sticker_kisscut",
+          merchOptions: { size: "3×3" },
+          shippingCountry: "US",
+          printAssetId: fakeAsset,
+        }),
+      );
+      const merchJson = await merchCheckout.json().catch(() => ({}));
+      const merchUrlOk =
+        merchCheckout.status === 200 &&
+        typeof merchJson.url === "string" &&
+        merchJson.url.includes("checkout.stripe.com");
+      run(
+        "merch checkout returns Stripe URL",
+        merchUrlOk,
+        `status=${merchCheckout.status} code=${merchJson.code || "ok"}`,
+      );
+
+      const cardCheckout = await fetch(
+        `${site}/api/checkout`,
+        buildQaCheckoutFetchInit({
+          mapId: mapJson.id,
+          plan: "single",
+          orderType: "print",
+          printVariant: "poster_framed",
+          includeCardAddOn: true,
+          includeDigitalAddOn: false,
+          shippingCountry: "US",
+          printAssetId: fakeAsset,
+        }),
+      );
+      const cardJson = await cardCheckout.json().catch(() => ({}));
+      run(
+        "card add-on checkout (fake asset)",
+        cardCheckout.status === 200 || cardCheckout.status === 400,
+        `status=${cardCheckout.status} code=${cardJson.code || (cardJson.url ? "stripe_url" : "none")}`,
+      );
+    } else {
+      run("merch checkout session create skipped", true, "fail_closed_before_untagged_session");
+      run("card add-on checkout session create skipped", true, "fail_closed_before_untagged_session");
+    }
   }
 
   console.log(failed ? "\nProbe result: FAILED" : "\nProbe result: PASSED");
@@ -134,6 +174,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  const message = err instanceof Error ? err.message : String(err);
+  const safe = /(cs_|https?:\/\/|sk_|Bearer)/i.test(message)
+    ? "Live merch checkout probe failed (details redacted)."
+    : message;
+  console.error(safe);
   process.exit(1);
 });

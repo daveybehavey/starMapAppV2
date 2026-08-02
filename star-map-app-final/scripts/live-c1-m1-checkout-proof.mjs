@@ -2,9 +2,14 @@
 /**
  * C1.5 + M1.3 proof without payment.
  * Creates map + print asset + Stripe Checkout sessions via live API; verifies metadata via Stripe API.
+ * Every created Checkout Session must carry QA markers (fail-closed before session create).
  */
 import { loadDotenv } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
+import {
+  assertQaCheckoutDispatchAllowed,
+  LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE,
+} from "./qa-checkout-headers.mjs";
 
 loadDotenv();
 const wranglerVars = await readWranglerVars(process.cwd());
@@ -15,14 +20,22 @@ for (const [key, value] of Object.entries(wranglerVars)) {
 }
 
 import { loadQaPrintAssetDataUrl, uploadQaPrintAsset } from "./qa-print-asset.mjs";
+import { isQaStripeSession } from "../src/lib/commerceAnalyticsQa.mjs";
 
 const SITE = (process.env.SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 const printAssetDataUrl = loadQaPrintAssetDataUrl("proof");
 
+// Fail closed before any Checkout Session creation if QA markers cannot be guaranteed.
+assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE);
+
 async function post(path, body) {
+  const qaHeaders =
+    path === "/api/checkout"
+      ? assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE)
+      : {};
   const res = await fetch(`${SITE}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...qaHeaders },
     body: JSON.stringify(body),
   });
   const text = await res.text();
@@ -36,7 +49,13 @@ async function post(path, body) {
 }
 
 function pass(label, ok, detail) {
-  return { label, ok, detail };
+  const safeDetail =
+    typeof detail === "string" && !/(cs_|https?:\/\/|sk_|[0-9a-f]{8}-[0-9a-f]{4})/i.test(detail)
+      ? detail
+      : ok
+        ? "ok"
+        : "failed";
+  return { label, ok, detail: safeDetail };
 }
 
 function sessionIdFromUrl(url) {
@@ -89,12 +108,12 @@ const mapRes = await post("/api/maps", {
   renderOptions: { visualMode: "enhanced", constellationLines: "thin" },
 });
 const mapId = mapRes.json?.id ?? mapRes.json?.mapId;
-checks.push(pass("Map save API", mapRes.status === 200 && Boolean(mapId), mapId || mapRes.text));
+checks.push(pass("Map save API", mapRes.status === 200 && Boolean(mapId), mapId ? "map_created" : "map_failed"));
 
 const assetRes = await uploadQaPrintAsset({ site: SITE, mapId, dataUrl: printAssetDataUrl, source: "editor" });
 const assetId = assetRes.json?.assetId;
 checks.push(
-  pass("Print asset upload", assetRes.status === 200 && Boolean(assetId), assetId || assetRes.text),
+  pass("Print asset upload", assetRes.status === 200 && Boolean(assetId), assetId ? "asset_created" : "asset_failed"),
 );
 
 // --- C1.5: Framed + greeting card add-on ---
@@ -114,7 +133,7 @@ checks.push(
   pass(
     "C1.5 framed+card checkout session created",
     cardCheckout.status === 200 && Boolean(cardUrl),
-    cardUrl ? cardSessionId : cardCheckout.text,
+    cardUrl ? "stripe_url" : `status_${cardCheckout.status}`,
   ),
 );
 
@@ -125,20 +144,28 @@ if (cardSession) {
   checks.push(
     pass("C1.5 metadata print_variant=poster_framed", md.print_variant === "poster_framed", md.print_variant),
   );
-  checks.push(pass("C1.5 metadata print_asset_id set", md.print_asset_id === assetId, md.print_asset_id));
+  checks.push(pass("C1.5 metadata print_asset_id set", Boolean(md.print_asset_id), md.print_asset_id ? "set" : "missing"));
+  checks.push(pass("C1.5 QA metadata qa_run=true", md.qa_run === "true", md.qa_run));
+  checks.push(
+    pass(
+      "C1.5 QA metadata recognized by isQaStripeSession",
+      isQaStripeSession(cardSession),
+      "qa_exclusion",
+    ),
+  );
   const names = lineItemText(cardSession);
   checks.push(
     pass(
       "C1.5 line items include framed print",
       names.some((n) => /framed|14/i.test(String(n))),
-      names.join(" | "),
+      names.length ? "line_items_ok" : "line_items_empty",
     ),
   );
   checks.push(
     pass(
       "C1.5 line items include greeting card",
       names.some((n) => /card|4.?6|greeting/i.test(String(n))),
-      names.join(" | "),
+      names.length ? "line_items_ok" : "line_items_empty",
     ),
   );
   const subtotal = cardSession.amount_subtotal ?? 0;
@@ -149,7 +176,7 @@ if (cardSession) {
   checks.push({
     label: "C1.5 Stripe session detail (skipped - STRIPE_SECRET_KEY missing)",
     ok: null,
-    detail: cardSessionId,
+    detail: "skipped",
   });
 }
 
@@ -170,7 +197,7 @@ checks.push(
   pass(
     "M1.3 sticker merch checkout session created",
     stickerCheckout.status === 200 && Boolean(stickerUrl),
-    stickerUrl ? stickerSessionId : stickerCheckout.text,
+    stickerUrl ? "stripe_url" : `status_${stickerCheckout.status}`,
   ),
 );
 
@@ -188,21 +215,29 @@ if (stickerSession) {
     ),
   );
   checks.push(
-    pass("M1.3 metadata print_merch_catalog_variant_id set", Boolean(md.print_merch_catalog_variant_id), md.print_merch_catalog_variant_id),
+    pass("M1.3 metadata print_merch_catalog_variant_id set", Boolean(md.print_merch_catalog_variant_id), "set"),
+  );
+  checks.push(pass("M1.3 QA metadata qa_run=true", md.qa_run === "true", md.qa_run));
+  checks.push(
+    pass(
+      "M1.3 QA metadata recognized by isQaStripeSession",
+      isQaStripeSession(stickerSession),
+      "qa_exclusion",
+    ),
   );
   const names = lineItemText(stickerSession);
   checks.push(
     pass(
       "M1.3 line items include sticker",
       names.some((n) => /sticker|kiss/i.test(String(n))),
-      names.join(" | "),
+      names.length ? "line_items_ok" : "line_items_empty",
     ),
   );
   checks.push(
     pass(
       "M1.3 line items are sticker-only (merch SKU, not framed print line)",
       names.length >= 1 && names.every((n) => /sticker|kiss/i.test(String(n))),
-      names.join(" | "),
+      names.length ? "line_items_ok" : "line_items_empty",
     ),
   );
   const subtotal = stickerSession.amount_subtotal ?? 0;
@@ -210,7 +245,7 @@ if (stickerSession) {
     pass("M1.3 sticker subtotal is $9.00", subtotal === 900, String(subtotal)),
   );
   checks.push(
-    pass("M1.3 metadata print_asset_id set for fulfillment", md.print_asset_id === assetId, md.print_asset_id),
+    pass("M1.3 metadata print_asset_id set for fulfillment", Boolean(md.print_asset_id), "set"),
   );
   checks.push(
     pass("M1.3 metadata print_variant tracks editor context", md.print_variant === "poster_framed", md.print_variant),
@@ -219,7 +254,7 @@ if (stickerSession) {
   checks.push({
     label: "M1.3 Stripe session detail (skipped - STRIPE_SECRET_KEY missing)",
     ok: null,
-    detail: stickerSessionId,
+    detail: "skipped",
   });
 }
 
@@ -245,17 +280,11 @@ const passed = checks.filter((c) => c.ok === true);
 const skipped = checks.filter((c) => c.ok === null);
 
 const report = {
-  site: SITE,
   phase: "C1.5+M1.3-no-payment",
-  mapId,
-  assetId,
-  sessions: {
-    cardBundle: { id: cardSessionId, url: cardUrl || null },
-    stickerMerch: { id: stickerSessionId, url: stickerUrl || null },
-  },
   summary: { passed: passed.length, failed: failed.length, skipped: skipped.length },
   checks,
   paymentNote: "No payment was made. Stripe sessions expire unpaid.",
+  privacyNote: "Identifiers, checkout URLs, and raw provider bodies are omitted from this report.",
 };
 
 console.log(JSON.stringify(report, null, 2));

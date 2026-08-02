@@ -43,6 +43,12 @@ import {
   isValidStripeCheckoutUrl,
   stripeCheckoutHtmlRedirectBody,
 } from "@/lib/stripeCheckoutNavigation";
+import {
+  applyQaCheckoutMetadata,
+  qaCheckoutIdempotencyTag,
+  resolveQaRequestContext,
+  type QaRequestContext,
+} from "@/lib/qaSession";
 
 export const runtime = "nodejs";
 
@@ -611,6 +617,7 @@ function checkoutIdempotencyKey(input: {
   shippingCountry?: string | null;
   promoCode?: string | null;
   referralCode?: string | null;
+  qaContext?: QaRequestContext | null;
 }) {
   const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
   if (!mapId) return null;
@@ -625,7 +632,8 @@ function checkoutIdempotencyKey(input: {
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
-  return `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}:${mapId}`;
+  const qaTag = qaCheckoutIdempotencyTag(input.qaContext);
+  return `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}:${qaTag}:${mapId}`;
 }
 
 async function createCheckoutSession(
@@ -654,6 +662,7 @@ async function createCheckoutSession(
     idempotencyKey?: string;
     merchFamily?: MerchFamilyId;
     merchOptions?: { size?: string; color?: string };
+    qaContext?: QaRequestContext;
   },
 ): Promise<CheckoutSessionResult> {
   const {
@@ -680,6 +689,7 @@ async function createCheckoutSession(
     idempotencyKey,
     merchFamily,
     merchOptions,
+    qaContext = { enabled: false, source: null, status: "absent" },
   } = input;
   if (!stripe) {
     throw new Error("Stripe not configured");
@@ -790,6 +800,7 @@ async function createCheckoutSession(
   if (isPrintOrder && resolvedShippingCountry) {
     metadata.print_shipping_country = resolvedShippingCountry;
   }
+  applyQaCheckoutMetadata(metadata, qaContext);
 
   const digitalPriceId = stripePriceIds[effectivePlan]?.trim();
   const useDigitalPriceId = Boolean(digitalPriceId) && !useGeoDigitalSinglePricing;
@@ -1091,6 +1102,13 @@ export async function GET(req: NextRequest) {
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetIn);
   }
+  const qaContext = resolveQaRequestContext(req.headers, process.env.PRINT_ADMIN_TOKEN);
+  if (qaContext.status === "unauthorized") {
+    return NextResponse.json(
+      { error: "QA checkout requires a valid admin token.", code: "qa_auth_required" },
+      { status: 401 },
+    );
+  }
 
   const planParam = req.nextUrl.searchParams.get("plan");
   const mapParam = req.nextUrl.searchParams.get("map_id");
@@ -1224,20 +1242,23 @@ export async function GET(req: NextRequest) {
       checkoutHandoff: "missing",
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
+      qaContext,
     });
     if (!sessionUrl) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
-    await recordFunnelStep({
-      step: "checkout_session_created",
-      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-      plan: orderType === "print" ? printVariant : plan,
-    });
-    await recordFunnelStep({
-      step: "checkout_redirected",
-      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-      plan: orderType === "print" ? printVariant : plan,
-    });
+    if (!qaContext.enabled) {
+      await recordFunnelStep({
+        step: "checkout_session_created",
+        source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+        plan: orderType === "print" ? printVariant : plan,
+      });
+      await recordFunnelStep({
+        step: "checkout_redirected",
+        source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+        plan: orderType === "print" ? printVariant : plan,
+      });
+    }
     if (!isValidStripeCheckoutUrl(sessionUrl)) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
@@ -1281,6 +1302,13 @@ export async function POST(req: NextRequest) {
   let plan: CheckoutPlan = "single";
   let orderType: CheckoutOrderType = "digital";
   let printVariant: PrintVariant = "poster_framed";
+  const qaContext = resolveQaRequestContext(req.headers, process.env.PRINT_ADMIN_TOKEN);
+  if (qaContext.status === "unauthorized") {
+    return NextResponse.json(
+      { error: "QA checkout requires a valid admin token.", code: "qa_auth_required" },
+      { status: 401 },
+    );
+  }
 
   try {
     const clientCountry = getRequestCountry(req);
@@ -1453,6 +1481,7 @@ export async function POST(req: NextRequest) {
       shippingCountry: shippingCountry ?? null,
       promoCode: promoCode ?? null,
       referralCode: referral.code ?? null,
+      qaContext,
     });
     if (idempotencyKey) {
       const existingUrl = await kv.get<string>(idempotencyKey);
@@ -1467,11 +1496,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await recordFunnelStep({
-      step: "checkout_request_received",
-      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-      plan: orderType === "print" ? printVariant : plan,
-    });
+    if (!qaContext.enabled) {
+      await recordFunnelStep({
+        step: "checkout_request_received",
+        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+        plan: orderType === "print" ? printVariant : plan,
+      });
+    }
 
     const session = await createCheckoutSession({
       plan,
@@ -1498,6 +1529,7 @@ export async function POST(req: NextRequest) {
       idempotencyKey: idempotencyKey ?? undefined,
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
+      qaContext,
     });
     if (promoCode && session.discountRejected) {
       // Stripe rejected auto-apply (common on print + shipping). Still return checkout so the
@@ -1505,11 +1537,13 @@ export async function POST(req: NextRequest) {
       if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
         await kv.set(idempotencyKey, session.url.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
       }
-      await recordFunnelStep({
-        step: "checkout_session_created",
-        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-        plan: orderType === "print" ? printVariant : plan,
-      });
+      if (!qaContext.enabled) {
+        await recordFunnelStep({
+          step: "checkout_session_created",
+          source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+          plan: orderType === "print" ? printVariant : plan,
+        });
+      }
       const rejectedUrl = session.url?.trim() ?? "";
       if (!rejectedUrl || !isValidStripeCheckoutUrl(rejectedUrl)) {
         return NextResponse.json(
@@ -1529,25 +1563,29 @@ export async function POST(req: NextRequest) {
     if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
       await kv.set(idempotencyKey, session.url.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
     }
-    await recordFunnelStep({
-      step: "checkout_session_created",
-      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-      plan: orderType === "print" ? printVariant : plan,
-    });
-
-    await recordFunnelStep({
-      step: "checkout_redirected",
-      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-      plan: orderType === "print" ? printVariant : plan,
-    });
-
-    const checkoutUrl = session.url?.trim() ?? "";
-    if (!checkoutUrl || !isValidStripeCheckoutUrl(checkoutUrl)) {
-      await recordCheckoutFailure({
-        reason: "invalid_checkout_url",
+    if (!qaContext.enabled) {
+      await recordFunnelStep({
+        step: "checkout_session_created",
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
         plan: orderType === "print" ? printVariant : plan,
       });
+
+      await recordFunnelStep({
+        step: "checkout_redirected",
+        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+        plan: orderType === "print" ? printVariant : plan,
+      });
+    }
+
+    const checkoutUrl = session.url?.trim() ?? "";
+    if (!checkoutUrl || !isValidStripeCheckoutUrl(checkoutUrl)) {
+      if (!qaContext.enabled) {
+        await recordCheckoutFailure({
+          reason: "invalid_checkout_url",
+          source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+          plan: orderType === "print" ? printVariant : plan,
+        });
+      }
       return NextResponse.json(
         { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
         { status: 500 },

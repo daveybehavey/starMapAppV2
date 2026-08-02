@@ -28,6 +28,23 @@ test("isQaStripeSession detects qa metadata and legacy client_reference", () => 
     }),
     false,
   );
+  assert.equal(
+    isQaStripeSession({
+      metadata: {
+        qa_run: "true",
+        qa_source: "live_print_conversion_checkout_only",
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isQaStripeSession({
+      metadata: {
+        qa_ops_checkout: "true",
+      },
+    }),
+    true,
+  );
 });
 
 test("applyMarketingAttributionMetadata writes marketing_* keys", () => {
