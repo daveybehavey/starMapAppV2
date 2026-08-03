@@ -10,6 +10,7 @@ import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { formatPrintPriceWithShipping, getPrintProductionReviewDisclosure, getPrintProductionReviewTrustPoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { FRAMED_HD_RECOMMENDED_BADGE } from "@/lib/moneyPageGiftCheckout";
 import { getBusinessProfile } from "@/lib/businessProfile";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
@@ -60,9 +61,9 @@ export default function StarMapPosterPage() {
         `Yes. After preview, you can choose an unframed poster or framed print from the same approved design. ${shippingDisclosure}`,
     },
     {
-      question: "Which route do most buyers choose?",
+      question: "Which route is recommended for gifting?",
       answer:
-        `Most buyers choose the framed print route because it arrives ready to hang and feels more gift-ready. Unframed stays available if you already have a frame plan, and the same approved map can still stay digital.`,
+        "Framed is the premium ready-to-hang gift presentation. Unframed is the lower-cost option when you already have a frame plan, and the same approved map can still stay digital.",
     },
     {
       question: "Do I see shipping before paying?",
@@ -71,12 +72,12 @@ export default function StarMapPosterPage() {
     {
       question: "What happens after I approve the preview?",
       answer:
-        "After you approve the design, the same map moves into print checkout. Once payment clears, the order is reviewed, then approved for production, and support stays with StarMapCo if there is a print issue.",
+        `After you approve the design, the same map moves into print checkout. ${productionReviewDisclosure} Support stays with StarMapCo if there is a print issue.`,
     },
     {
       question: "What sizes do star map posters come in?",
       answer:
-        "StarMapCo posters are made to order from your approved design. Most buyers choose framed 14×14 for gifting or unframed 18×18 when they already have a frame plan. Preview first, then pick the format at checkout.",
+        "StarMapCo posters are made to order from your approved design. Framed 14×14 is the premium gift presentation; unframed 18×18 is the lower-cost option when you already have a frame plan. Preview first, then pick the format at checkout.",
     },
   ] as const;
   const schema = {
@@ -185,7 +186,7 @@ export default function StarMapPosterPage() {
                   <h2 className="mt-2 text-xl font-semibold text-white">Why framed is the safer default</h2>
                 </div>
                 <span className="rounded-full border border-amber-200/40 bg-amber-300/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-100">
-                  Most buyers choose this
+                  {FRAMED_HD_RECOMMENDED_BADGE}
                 </span>
               </div>
 
@@ -224,7 +225,7 @@ export default function StarMapPosterPage() {
                 <ol className="mt-3 space-y-2 text-sm text-white/80">
                   <li>1. Enter the date and location and approve the preview.</li>
                   <li>2. Move the same approved map into framed or unframed checkout.</li>
-                  <li>3. Shipping appears before payment, then the order is reviewed before production.</li>
+                  <li>3. Shipping appears before payment. {productionReviewDisclosure}</li>
                 </ol>
                 <p className="mt-3 text-xs text-white/65">
                   Digital can still stay secondary as an add-on or immediate backup, but this page stays focused on the physical gift route.
@@ -293,7 +294,7 @@ export default function StarMapPosterPage() {
               {
                 step: "03",
                 title: "See shipping before payment, then fulfillment after checkout",
-                detail: "Physical checkout shows the shipping charge before you pay, and print orders are reviewed before production starts.",
+                detail: `Physical checkout shows the shipping charge before you pay. ${productionReviewDisclosure}`,
               },
             ].map((item) => (
               <div key={item.step} className="grid gap-3 rounded-2xl border border-black/5 bg-amber-50/70 p-4 sm:grid-cols-[auto,1fr] sm:items-start">

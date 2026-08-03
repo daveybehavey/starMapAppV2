@@ -21,6 +21,8 @@ import {
 import {
   buildFramedHdCheckoutHref,
   buildStandardGiftPreviewIntents,
+  getFramedHdEditorOpenDescription,
+  getFramedHdGiftCtaLine,
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
@@ -134,13 +136,13 @@ export default function NightSkyMapGiftPage() {
       <PreviewStartForm
         source="night-sky-map-gift"
         title="Start the night-sky gift preview"
-        description={`Enter the date and place. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        description={getFramedHdEditorOpenDescription(bundlePriceLine)}
         intentOptions={previewIntents}
       />
       <StickyCtaBar
         source="sticky-night-sky-map-gift-framed-hd"
         title="Ready to preview their night sky?"
-        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        description={getFramedHdGiftCtaLine()}
         buttonLabel="Preview framed + HD"
         primaryHref={framedHdHref}
         primaryPlan="print_framed_hd"

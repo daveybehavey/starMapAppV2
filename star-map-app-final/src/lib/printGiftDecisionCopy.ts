@@ -65,7 +65,7 @@ export const PRINT_GIFT_TIER_STEPS = [
   {
     id: "framed_hd",
     label: "Framed + HD",
-    detail: `Most popular — gift-ready wall art plus instant HD file. ${getPrintFramedHdBundleTimingLine()}`,
+    detail: `Premium gift route — ready-to-hang wall art plus instant HD file. ${getPrintFramedHdBundleTimingLine()}`,
   },
   {
     id: "framed_card",

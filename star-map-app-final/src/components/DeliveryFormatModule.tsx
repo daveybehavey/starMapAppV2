@@ -17,7 +17,7 @@ type DeliveryFormatModuleProps = {
 
 export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
-  intro = "You only build the map once. After preview, most buyers choose framed + HD for the best gift value and free standard shipping on $100+ orders.",
+  intro = "You only build the map once. After preview, the recommended presentation is framed + HD for a ready-to-hang gift plus instant digital — with free standard shipping on qualifying $100+ orders.",
   sourcePrefix = "delivery-format",
 }: DeliveryFormatModuleProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(

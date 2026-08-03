@@ -20,6 +20,7 @@ import {
   getPrintAllowedCountries,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { FRAMED_HD_RECOMMENDED_BADGE } from "@/lib/moneyPageGiftCheckout";
 import FramedProofSection from "@/components/FramedProofSection";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -91,14 +92,14 @@ export default function StarMapGiftFormatsPage() {
     },
     {
       title: `${printPricing.poster_framed.label}`,
-      badge: "Most popular",
+      badge: FRAMED_HD_RECOMMENDED_BADGE,
       price: formatPrintPriceWithShipping(printPricing.poster_framed.amountCents, printPricing.poster_framed.currency),
       detail: `Premium ready-to-hang gift path. US shipping starts around ${usFramedShippingLabel}.`,
       href: "/editor?mode=quick&source=gift-formats-framed&checkout=print&print_variant=poster_framed&shipping_country=US",
       imageSrc: proofImages.framed,
       fallbackSrc: HOME_MOCKUPS.framedBedroom,
       bulletA: "Ready-to-hang framed delivery",
-      bulletB: "Highest gift conversion path",
+      bulletB: "Premium ready-to-hang presentation",
       source: "gift-formats-framed-cta",
       orderType: "print" as const,
       plan: "single" as const,

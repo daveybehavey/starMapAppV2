@@ -405,7 +405,7 @@ export default function ShopPage() {
           <p className="font-semibold text-midnight">Fulfillment note</p>
           <p className="mt-2 leading-relaxed">
             Poster and framed SKUs map to your configured Printful variants. Merch add-ons use Printful catalog variants
-            per selected options. Every order is reviewed before production starts.
+            per selected options. {productionReviewDisclosure}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/how-to-print-star-map" prefetch={false} className="font-semibold text-amber-800 underline">

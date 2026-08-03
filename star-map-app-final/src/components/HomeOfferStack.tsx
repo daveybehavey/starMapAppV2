@@ -131,16 +131,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Framed print</p>
               <span className="rounded-full border border-amber-200/70 bg-amber-200/30 px-2 py-0.5 text-[10px] font-bold text-amber-100">
-                MOST POPULAR
+                PREMIUM GIFT
               </span>
             </div>
             <p className="mt-1 inline-flex w-fit rounded-full border border-amber-300/40 bg-amber-300/16 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
-              Premium gift
+              Recommended presentation
             </p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-200">Ready-to-hang 14x14 option for the strongest premium gift presentation.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
-              <li>Most buyers pair this with the HD add-on</li>
+              <li>Pair with the HD add-on for instant digital from the same design</li>
               {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
               <li>Best-looking premium option for special occasions</li>
               <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
@@ -257,7 +257,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital HD plans</p>
-            <span className="text-[11px] text-neutral-300">Most buyers only need one finished file.</span>
+            <span className="text-[11px] text-neutral-300">One finished file covers most single-map gifts.</span>
           </div>
           <p className="mt-2 text-xs text-neutral-300">
             Start with the one-time HD checkout unless you know you need multiple exports or ongoing use.

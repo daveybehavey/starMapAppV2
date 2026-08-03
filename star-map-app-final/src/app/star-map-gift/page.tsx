@@ -152,7 +152,7 @@ export default function StarMapGiftPage() {
 
       <DeliveryFormatModule
         heading="Choose the gift format after preview"
-        intro="Most gift buyers decide between the ready-to-display framed route and the lower-total unframed route. HD digital stays available when you need same-day delivery or local printing."
+        intro="Choose between the ready-to-display framed route and the lower-cost unframed route. HD digital stays available when you need same-day delivery or local printing."
         sourcePrefix="gift-format"
       />
       <GiftFormatRoadmapModule sourcePrefix="gift-format-roadmap" />

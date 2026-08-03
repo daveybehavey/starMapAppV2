@@ -278,7 +278,7 @@ export default function BirthdayPage() {
           <div>
             <h3 className="font-semibold text-midnight">What gift format works best for a birthday star map?</h3>
             <p>
-              Framed print is the most popular birthday gift choice because it arrives ready to display. Unframed lowers
+              Framed print is the premium birthday gift route because it arrives ready to display. Unframed lowers
               the total if the recipient already has a frame. Instant HD digital is the fastest option when you need the
               gift same-day.
             </p>
@@ -320,7 +320,7 @@ export default function BirthdayPage() {
           {
             question: "What gift format works best for a birthday star map?",
             answer:
-              "Framed print is the most popular birthday gift choice because it arrives ready to display. Unframed lowers the total if the recipient already has a frame. Instant HD digital is the fastest option when you need the gift same-day.",
+              "Framed print is the premium birthday gift route because it arrives ready to display. Unframed lowers the total if the recipient already has a frame. Instant HD digital is the fastest option when you need the gift same-day.",
           },
         ]}
       />

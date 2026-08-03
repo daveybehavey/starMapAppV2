@@ -132,9 +132,9 @@ export function PaywallModal({
       : copy.title;
   const dialogSubtitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions
-      ? freeShippingOfferLine
-        ? `Most gift-givers choose framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
-        : "Most gift-givers choose framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
+        ? freeShippingOfferLine
+          ? `Recommended presentation: framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
+          : "Recommended presentation: framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
       : activeIntent === "print" && hasPrintOptions
         ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
         : copy.subtitle;
@@ -525,7 +525,7 @@ export function PaywallModal({
             >
               {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
             </button>
-            <p className="mt-2 text-[11px] text-neutral-600">Most buyers who only need this map start here.</p>
+            <p className="mt-2 text-[11px] text-neutral-600">Best when you only need this one finished map.</p>
           </div>
 
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">

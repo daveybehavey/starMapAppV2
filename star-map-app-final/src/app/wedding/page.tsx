@@ -25,6 +25,7 @@ import {
   getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getFramedHdGiftCtaLine } from "@/lib/moneyPageGiftCheckout";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
@@ -148,7 +149,7 @@ export default function WeddingPage() {
       <GiftFormatLadder
         sourcePrefix="wedding-ladder"
         heading="Choose your wedding gift format"
-        intro={`Most couples choose framed + HD (${bundlePriceLine}). Unframed lowers the total; framed + card adds a small keepsake.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}). Unframed lowers the total; framed + card adds a small keepsake.`}
         className="mt-10"
       />
 
@@ -157,7 +158,7 @@ export default function WeddingPage() {
       <PreviewStartForm
         source="wedding"
         title="Start your wedding preview"
-        description="Enter the wedding date and ceremony location. We’ll open the editor on the framed + HD gift path — the option most couples choose."
+        description="Enter the wedding date and ceremony location. We’ll open the editor on the framed + HD gift path — the recommended premium gift presentation."
         showMobileDateHelper={false}
         footerContent={
           <p className="text-center text-sm text-neutral-700">
@@ -207,7 +208,7 @@ export default function WeddingPage() {
       <StickyCtaBar
         source="sticky-wedding-framed-hd"
         title="Ready to see your ceremony sky?"
-        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        description={getFramedHdGiftCtaLine()}
         buttonLabel="Preview framed + HD"
         primaryHref={framedHdHref}
         primaryPlan="print_framed_hd"

@@ -65,7 +65,7 @@ export default function HomeStaticSections({
           className="shadow-2xl shadow-black/20"
         />
         <p className="mt-3 text-center text-xs text-neutral-300 sm:text-sm">
-          Most buyers choose framed + HD ({bundlePriceLine}). Browse by occasion:{" "}
+          Recommended presentation is framed + HD ({bundlePriceLine}). Browse by occasion:{" "}
           <Link href="/wedding" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
             wedding
           </Link>
@@ -107,7 +107,7 @@ export default function HomeStaticSections({
           ]}
           rightTitle="Print and delivery clarity"
           rightPoints={[
-            "Most gift buyers start with framed print; unframed stays available if you already have a frame plan",
+            "Framed print is the premium gift route; unframed stays available if you already have a frame plan",
             shippingDisclosure,
             getPrintPhysicalOrderSummaryLine(),
             getPrintUrgentHdUpsellLine(),
@@ -140,7 +140,7 @@ export default function HomeStaticSections({
         />
         <RevenueTrustModule
           heading="Remove the last-minute hesitation"
-          intro="Most buyers only need three things before checkout: confidence in the file, clarity on print delivery, and reassurance that support exists if anything goes wrong."
+          intro="Buyers usually need three things before checkout: confidence in the file, clarity on print delivery, and reassurance that support exists if anything goes wrong."
         />
       </section>
 

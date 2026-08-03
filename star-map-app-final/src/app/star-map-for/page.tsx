@@ -14,6 +14,7 @@ import {
 import {
   buildFramedHdCheckoutHref,
   buildStandardGiftPreviewIntents,
+  getFramedHdEditorOpenDescription,
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
@@ -162,13 +163,13 @@ export default function StarMapForOccasionsPage() {
       <PreviewStartForm
         source="star-map-for"
         title="Start your occasion preview"
-        description={`Enter the date and location. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        description={getFramedHdEditorOpenDescription(bundlePriceLine)}
         intentOptions={previewIntents}
       />
 
       <DeliveryFormatModule
         heading="Choose the format after preview"
-        intro={`Most buyers choose framed + HD (${bundlePriceLine}). Pick an occasion page above for tailored copy, or start here.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}). Pick an occasion page above for tailored copy, or start here.`}
         sourcePrefix="star-map-for-hub"
       />
 

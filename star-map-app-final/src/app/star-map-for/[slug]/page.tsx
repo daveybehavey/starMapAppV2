@@ -24,6 +24,8 @@ import {
 import {
   buildFramedHdCheckoutHref,
   buildStandardGiftPreviewIntents,
+  getFramedHdEditorOpenDescription,
+  getFramedHdGiftCtaLine,
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
 import { getOccasionPageH1, getOccasionSeoDescription, getOccasionSeoTitle } from "@/lib/occasionSeo";
@@ -147,14 +149,14 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
 
       <PreviewStartForm
         title={`Preview a ${occasion.label.toLowerCase()} star map`}
-        description={`Add the date and location. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        description={getFramedHdEditorOpenDescription(bundlePriceLine)}
         source={sourcePrefix}
         intentOptions={previewIntents}
       />
       <StickyCtaBar
         source={`sticky-${sourcePrefix}-framed-hd`}
         title={`Ready to preview your ${occasion.label.toLowerCase()} sky?`}
-        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        description={getFramedHdGiftCtaLine()}
         buttonLabel="Preview framed + HD"
         primaryHref={framedHdHref}
         primaryPlan="print_framed_hd"

@@ -24,6 +24,8 @@ import {
 import {
   buildFramedHdCheckoutHref,
   buildStandardGiftPreviewIntents,
+  getFramedHdEditorOpenDescription,
+  getFramedHdGiftCtaLine,
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
@@ -106,13 +108,13 @@ export default function PersonalizedStarMapPage() {
       <PreviewStartForm
         source="personalized-star-map"
         title="Start your personalized preview"
-        description={`Enter the date and location. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        description={getFramedHdEditorOpenDescription(bundlePriceLine)}
         intentOptions={previewIntents}
       />
       <StickyCtaBar
         source="sticky-personalized-star-map-framed-hd"
         title="Ready to preview their night sky?"
-        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        description={getFramedHdGiftCtaLine()}
         buttonLabel="Preview framed + HD"
         primaryHref={framedHdHref}
         primaryPlan="print_framed_hd"
@@ -156,7 +158,7 @@ export default function PersonalizedStarMapPage() {
 
       <DeliveryFormatModule
         heading="Pick the right format after you preview"
-        intro={`Most buyers choose framed + HD (${bundlePriceLine}) for a presentation-ready gift plus an instant file. Unframed lowers the total; canvas adds a premium wall option.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a presentation-ready gift plus an instant file. Unframed lowers the total; canvas adds a premium wall option.`}
         sourcePrefix="personalized-format"
       />
       <FramedProofSection sourcePrefix="personalized-proof" />
@@ -199,7 +201,7 @@ export default function PersonalizedStarMapPage() {
 
       <PurchaseTrustPanel
         heading="Buy with confidence"
-        intro="Preview first, then pay only when the design feels right. Most buyers start with framed print, while unframed and HD stay available from the same approved design."
+        intro="Preview first, then pay only when the design feels right. Framed print is the recommended premium presentation, while unframed and HD stay available from the same approved design."
         leftTitle="Checkout and delivery"
         leftPoints={[
           "Secure Stripe checkout",
