@@ -55,6 +55,22 @@ export type CheckoutRecoveryAttemptRecord = {
  */
 export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE = "best_effort_no_provider_idempotency" as const;
 
+/**
+ * After confirmed provider delivery, whether a durable canonical-session persist
+ * failure should leave the Stripe event retryable (503).
+ *
+ * Resend: yes — deterministic Idempotency-Key makes a safe reconcile retry.
+ * SendGrid: no — Stripe redelivery would invoke SendGrid again with no provider
+ * idempotency, risking a duplicate customer email. Prefer acknowledging /
+ * finalizing the event (delivery preserved; canonical session / delivered marker
+ * may remain absent) over duplicate delivery. See OPS_RUNBOOK.
+ */
+export function isCheckoutRecoveryDurablePersistFailureRetryable(
+  provider: CheckoutRecoveryAlertProvider
+): boolean {
+  return provider === "resend";
+}
+
 /** Long-lived delivered marker TTL (matches prior successful-send window). */
 export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
 
@@ -420,6 +436,16 @@ export function isCheckoutRecoveryWebhookRetryable(
   retryability: CheckoutRecoveryRetryability | "skipped" | "already_delivered"
 ): boolean {
   return retryability === "retryable";
+}
+
+/**
+ * Outcome after provider delivery succeeded but durable session persistence failed.
+ * Resend stays retryable; SendGrid acknowledges without claiming durable session/marker.
+ */
+export function checkoutRecoveryOutcomeAfterDurablePersistFailure(
+  provider: CheckoutRecoveryAlertProvider
+): CheckoutRecoveryRetryability {
+  return isCheckoutRecoveryDurablePersistFailureRetryable(provider) ? "retryable" : "delivered";
 }
 
 export type CheckoutRecoverySessionEmailFields = {

@@ -81,6 +81,23 @@ export const CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS = CHECKOUT_RECOVERY_EMAIL_DEL
 export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE = "best_effort_no_provider_idempotency";
 
 /**
+ * After confirmed provider delivery, whether durable session persist failure
+ * should leave the Stripe event retryable. Resend: yes (idempotent). SendGrid: no
+ * (acknowledge to avoid duplicate email — delivery-vs-observability tradeoff).
+ * @param {string} provider
+ */
+export function isCheckoutRecoveryDurablePersistFailureRetryable(provider) {
+  return provider === "resend";
+}
+
+/**
+ * @param {string} provider
+ */
+export function checkoutRecoveryOutcomeAfterDurablePersistFailure(provider) {
+  return isCheckoutRecoveryDurablePersistFailureRetryable(provider) ? "retryable" : "delivered";
+}
+
+/**
  * @param {string} sessionId
  */
 export function buildCheckoutRecoveryResendIdempotencyKey(sessionId) {
@@ -520,8 +537,9 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
           recoveryOutcome = alertResult.retryability;
           store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
         } catch {
-          // Durable persistence failed: keep attempt record only; no marker; retryable.
-          recoveryOutcome = "retryable";
+          // Durable persistence failed: keep attempt record only; no marker.
+          // Resend → retryable; SendGrid → acknowledge (no Stripe redelivery / duplicate email).
+          recoveryOutcome = checkoutRecoveryOutcomeAfterDurablePersistFailure(alertResult.provider);
         }
       } else {
         const latestMarker = store.get(deliveredKey);

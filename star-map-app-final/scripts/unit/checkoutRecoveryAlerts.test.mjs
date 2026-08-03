@@ -16,7 +16,9 @@ import {
   getIncludesBullets,
   getOfferLabel,
   getSubject,
+  isCheckoutRecoveryDurablePersistFailureRetryable,
   isCheckoutRecoveryWebhookRetryable,
+  checkoutRecoveryOutcomeAfterDurablePersistFailure,
   listCheckoutRecoveryAttemptRecords,
   naiveMathMaxAttemptMerge,
   naiveOverwriteConfirmedDeliveryWithFailure,
@@ -258,6 +260,10 @@ test("classify: SendGrid success/failure taxonomy remains truthful without idemp
   const fail = classifyCheckoutRecoveryHttpResult("sendgrid", 500);
   assert.equal(fail.retryability, "retryable");
   assert.equal(fail.errorCode, "provider_server_error");
+  assert.equal(isCheckoutRecoveryDurablePersistFailureRetryable("resend"), true);
+  assert.equal(isCheckoutRecoveryDurablePersistFailureRetryable("sendgrid"), false);
+  assert.equal(checkoutRecoveryOutcomeAfterDurablePersistFailure("resend"), "retryable");
+  assert.equal(checkoutRecoveryOutcomeAfterDurablePersistFailure("sendgrid"), "delivered");
 });
 
 test("webhook retryable helper: only retryable outcomes request Stripe redelivery", () => {
@@ -353,7 +359,7 @@ test("delivery: later success writes exactly one delivered marker and durable se
   assert.equal(listCheckoutRecoveryAttemptRecords(store, "cs_test_retry_flow").length, 2);
 });
 
-test("durable: provider delivery + failed durable session put leaves no marker and stays retryable", async () => {
+test("durable: Resend delivery + failed durable session put leaves no marker and stays retryable", async () => {
   const store = new Map();
   const sessionId = "cs_test_durable_fail";
   const first = await simulateExpiredCheckoutRecoveryPass({
@@ -378,6 +384,117 @@ test("durable: provider delivery + failed durable session put leaves no marker a
   assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
   assert.equal(store.has(`stripe:session:${sessionId}`), false);
   assert.equal(first.idempotencyKey, buildCheckoutRecoveryResendIdempotencyKey(sessionId));
+});
+
+test("durable: SendGrid delivery + failed durable session put acknowledges without marker or provider redelivery", async () => {
+  const store = new Map();
+  const sessionId = "cs_test_sendgrid_durable_fail";
+  let providerCalls = 0;
+  const first = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_sendgrid_durable_fail",
+    attemptId: "att_sendgrid_durable_fail",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => {
+      providerCalls += 1;
+      return classifyCheckoutRecoveryHttpResult("sendgrid", 202);
+    },
+    persistSessionDurable: async () => {
+      throw new Error("cf put failed");
+    },
+  });
+
+  // Delivery-vs-observability: finalize so Stripe will not redeliver / re-call SendGrid.
+  assert.equal(first.httpStatus, 200);
+  assert.equal(first.eventFinalized, true);
+  assert.equal(first.recoveryOutcome, "delivered");
+  assert.equal(first.deliveredMarker, null);
+  assert.equal(first.wroteSuccessSession, false);
+  assert.equal(first.session, null);
+  assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
+  assert.equal(store.has(`stripe:session:${sessionId}`), false);
+  assert.equal(first.attemptRecord.delivered, true);
+  assert.equal(first.attemptRecord.provider, "sendgrid");
+  assert.equal(providerCalls, 1);
+
+  // Same-event replay must not invoke SendGrid again.
+  const replay = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_sendgrid_durable_fail",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => {
+      providerCalls += 1;
+      throw new Error("SendGrid must not be called again after finalize");
+    },
+  });
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.providerCalls, 0);
+  assert.equal(providerCalls, 1);
+  assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
+  assert.equal(store.has(`stripe:session:${sessionId}`), false);
+});
+
+test("negative control: treating SendGrid durable-persist failure as retryable would allow a second provider send", async () => {
+  // Old behavior always set recoveryOutcome = "retryable" after durable fail, which for
+  // SendGrid (no Idempotency-Key) permits Stripe redelivery to call the provider again.
+  assert.equal(checkoutRecoveryOutcomeAfterDurablePersistFailure("sendgrid"), "delivered");
+  assert.equal(isCheckoutRecoveryWebhookRetryable("retryable"), true);
+  assert.equal(isCheckoutRecoveryWebhookRetryable("delivered"), false);
+
+  const store = new Map();
+  const sessionId = "cs_test_sendgrid_neg_control";
+  let providerCalls = 0;
+  const send = async () => {
+    providerCalls += 1;
+    return classifyCheckoutRecoveryHttpResult("sendgrid", 202);
+  };
+
+  // Simulate the defective path: force retryable outcome after durable fail (bypass helper).
+  const defective = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_sendgrid_neg",
+    attemptId: "att_sendgrid_neg_1",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send,
+    persistSessionDurable: async () => {
+      throw new Error("cf put failed");
+    },
+  });
+  // Correct implementation finalizes; negative control proves the opposite would be wrong.
+  assert.equal(defective.httpStatus, 200);
+  assert.equal(defective.eventFinalized, true);
+  assert.notEqual(defective.recoveryOutcome, "retryable");
+
+  // If outcome had been retryable (old bug), event would be unfinalized and a second pass
+  // with the same event id (Stripe redelivery) would call SendGrid again.
+  const wouldBeRetryable = isCheckoutRecoveryWebhookRetryable("retryable");
+  assert.equal(wouldBeRetryable, true);
+  store.delete(`stripe:event:evt_sendgrid_neg`);
+  // Without finalize, a redelivery would reach the provider again (no marker/session).
+  assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
+  assert.equal(store.has(`stripe:session:${sessionId}`), false);
+  const redeliveryIfUnfinalized = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_sendgrid_neg",
+    attemptId: "att_sendgrid_neg_2",
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send,
+    persistSessionDurable: async () => {
+      throw new Error("cf put failed");
+    },
+  });
+  // With correct finalize removed from store, second pass would hit provider — proving
+  // why retryable/503 after SendGrid delivery is unsafe.
+  assert.equal(redeliveryIfUnfinalized.providerCalls, 1);
+  assert.equal(providerCalls, 2);
 });
 
 test("durable: later retry with durable persistence writes session then marker and finalizes", async () => {
@@ -993,6 +1110,12 @@ test("source: webhook uses delivered marker and separate attempt records", () =>
   assert.match(webhookSource, /applyCheckoutRecoveryDeliveredSessionFields/);
   assert.match(webhookSource, /checkout_recovery_retryable/);
   assert.match(webhookSource, /kv\.setDurable\(/);
+  assert.match(webhookSource, /checkoutRecoveryOutcomeAfterDurablePersistFailure/);
+  assert.match(recoveryAlertsSource, /isCheckoutRecoveryDurablePersistFailureRetryable/);
+  assert.match(
+    recoveryAlertsSource,
+    /delivery-vs-observability|Delivery-vs-observability|duplicate customer email/
+  );
   assert.equal(webhookSource.includes("kv.incr(recoveryEmailKey"), false);
   assert.equal(webhookSource.includes("applyCheckoutRecoveryAlertToSessionFields"), false);
   assert.equal(webhookSource.includes("earlySession"), false);
