@@ -17,6 +17,7 @@ import {
   assertPackageScriptWired,
   assertSafeOutput,
   assertScriptIsNotNoOp,
+  assertStripeQaVerificationCapability,
   assertUntaggedLiveSessionDispatchRejected,
   buildPrintCheckoutBody,
   buildQaTaggedCheckoutRequest,
@@ -247,15 +248,67 @@ test("existing live checkout probes QA-tag or stop before session creation", () 
   assert.match(proof, /LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE|live_c1_m1_checkout_proof/);
 });
 
+test("missing Stripe verification capability fails before session creation", () => {
+  assert.throws(
+    () => assertStripeQaVerificationCapability({ PRINT_ADMIN_TOKEN: "unit-test-token" }),
+    /STRIPE_SECRET_KEY/,
+  );
+  assert.throws(() => assertStripeQaVerificationCapability({}), /STRIPE_SECRET_KEY/);
+  assert.equal(
+    assertStripeQaVerificationCapability({ STRIPE_SECRET_KEY: "sk_test_unit_only_placeholder" }),
+    "sk_test_unit_only_placeholder",
+  );
+  const source = fs.readFileSync(SCRIPT_PATH, "utf8");
+  assert.match(source, /assertStripeQaVerificationCapability/);
+  assert.match(source, /verifyCreatedSessionQaMetadata/);
+  // Must not treat Stripe verification as optional after URL return.
+  assert.equal(/if\s*\(\s*stripeSecret\s*\)/.test(source), false);
+});
+
+test("canonical QA metadata assertion accepts only exact markers", () => {
+  assert.doesNotThrow(() =>
+    assertCanonicalQaMetadata({
+      qa_run: "true",
+      qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE,
+    }),
+  );
+  assert.throws(() => assertCanonicalQaMetadata({ qa_run: "true", qa_source: "other" }), /qa_source/);
+  assert.throws(
+    () => assertCanonicalQaMetadata({ qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE }),
+    /qa_run/,
+  );
+  assert.throws(() => assertCanonicalQaMetadata({}), /qa_run/);
+});
+
 test("hosted Stripe URL validator accepts bounded handoff shape without echoing identifiers", () => {
   assert.equal(
-    assertHostedStripeCheckoutUrl(
-      "https://checkout.stripe.com/c/pay/cs_live_abc#fidfragment",
-    ),
+    assertHostedStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_live_abc#fidfragment"),
     true,
   );
   assert.throws(() => assertHostedStripeCheckoutUrl(""), /missing/);
   assert.throws(() => assertHostedStripeCheckoutUrl("https://example.com/pay"), /Stripe-hosted/);
+});
+
+test("hosted Stripe URL validator rejects HTTP, deceptive hosts, wrong paths, and missing fragments", () => {
+  const rejects = [
+    "http://checkout.stripe.com/c/pay/cs_live_abc#fidfragment",
+    "https://evil.example/checkout.stripe.com/c/pay/cs_live_abc#fidfragment",
+    "https://checkout.stripe.com.evil.example/c/pay/cs_live_abc#fidfragment",
+    "https://checkout.stripe.com/pay/cs_live_abc#fidfragment",
+    "https://checkout.stripe.com/c/pay/cs_live_abc",
+    "https://checkout.stripe.com/c/pay/cs_live_abc#",
+    "not-a-url-but-checkout.stripe.com",
+  ];
+  for (const url of rejects) {
+    assert.throws(() => assertHostedStripeCheckoutUrl(url), /Stripe-hosted|missing/, url);
+  }
+  // Negative control: permissive substring alone must not pass.
+  assert.throws(
+    () => assertHostedStripeCheckoutUrl("prefix checkout.stripe.com suffix"),
+    /Stripe-hosted/,
+  );
+  const source = fs.readFileSync(SCRIPT_PATH, "utf8");
+  assert.equal(/!isValidStripeCheckoutUrl\([^)]+\)\s*&&\s*!\/checkout\\.stripe\\.com/i.test(source), false);
 });
 
 test("parseArgs defaults to both variants in checkout-only mode", () => {

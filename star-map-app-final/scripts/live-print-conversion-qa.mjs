@@ -133,8 +133,26 @@ Options:
 
 Notes:
   Requires PRINT_ADMIN_TOKEN so /api/checkout can apply qa_run + qa_source markers.
+  Requires STRIPE_SECRET_KEY for read-only retrieval that independently verifies
+  those markers persisted on the created unpaid Checkout Session before success.
   Never creates coupons, promotion codes, payments, refunds, or fulfillment.
 `;
+}
+
+/**
+ * Fail closed before map/asset/session creation unless read-only Stripe retrieval
+ * can independently verify canonical QA metadata after checkout.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ */
+export function assertStripeQaVerificationCapability(env = process.env) {
+  const stripeSecret = typeof env.STRIPE_SECRET_KEY === "string" ? env.STRIPE_SECRET_KEY.trim() : "";
+  if (!stripeSecret) {
+    throw new Error(
+      "BLOCKER: STRIPE_SECRET_KEY is required for read-only QA metadata verification before reporting success (fail-closed).",
+    );
+  }
+  return stripeSecret;
 }
 
 /**
@@ -207,13 +225,14 @@ export function assertCanonicalQaMetadata(metadata, expectedSource = CANONICAL_Q
 
 /**
  * Validate hosted Stripe URL without echoing it.
+ * Accepts only the repository's strict HTTPS / exact-host / /c/pay/ / nonempty-fragment contract.
  * @param {unknown} url
  */
 export function assertHostedStripeCheckoutUrl(url) {
   if (typeof url !== "string" || !url.trim()) {
     throw new Error("Checkout response missing hosted Stripe URL.");
   }
-  if (!isValidStripeCheckoutUrl(url.trim()) && !/checkout\.stripe\.com/i.test(url)) {
+  if (!isValidStripeCheckoutUrl(url.trim())) {
     throw new Error("Checkout response URL is not a Stripe-hosted checkout handoff.");
   }
   return true;
@@ -295,6 +314,9 @@ export function assertScriptIsNotNoOp(scriptPath = fileURLToPath(import.meta.url
   if (!source.includes("assertQaCheckoutDispatchAllowed") && !source.includes("buildQaTaggedCheckoutRequest")) {
     throw new Error("Live print conversion QA script missing fail-closed QA dispatch guard.");
   }
+  if (!source.includes("assertStripeQaVerificationCapability") || !source.includes("verifyCreatedSessionQaMetadata")) {
+    throw new Error("Live print conversion QA script missing mandatory Stripe QA metadata verification.");
+  }
   // Ignore this guard's own needle table when scanning for forbidden capabilities.
   const scanSource = source.replace(/FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/, "FORBIDDEN_CAPABILITY_NEEDLES = [];");
   for (const needle of FORBIDDEN_CAPABILITY_NEEDLES) {
@@ -369,14 +391,41 @@ function buildSyntheticMapRecipe() {
 }
 
 /**
+ * Independently retrieve the created Checkout Session and require canonical QA metadata.
+ * Never prints identifiers.
+ *
+ * @param {string} checkoutUrl
+ * @param {string} stripeSecret
+ */
+export async function verifyCreatedSessionQaMetadata(checkoutUrl, stripeSecret) {
+  const sessionIdMatch = String(checkoutUrl).match(/(cs_(?:live|test)_[A-Za-z0-9]+)/);
+  if (!sessionIdMatch) {
+    throw new Error("BLOCKER: could not derive Stripe session for QA metadata verification.");
+  }
+  const Stripe = (await import("stripe")).default;
+  const stripe = new Stripe(stripeSecret, {
+    apiVersion: "2024-06-20",
+    httpClient: Stripe.createFetchHttpClient(),
+    timeout: 20_000,
+  });
+  const session = await stripe.checkout.sessions.retrieve(sessionIdMatch[1]);
+  assertCanonicalQaMetadata(session.metadata ?? {});
+  if (session.payment_status && session.payment_status !== "unpaid") {
+    throw new Error("BLOCKER: checkout-only probe must leave sessions unpaid.");
+  }
+  return true;
+}
+
+/**
  * @param {string} site
  * @param {string} printVariant
  * @param {string} shippingCountry
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
 export async function runVariantCheckoutOnly(site, printVariant, shippingCountry, env = process.env) {
-  // Fail closed before any network create-session call when markers cannot be guaranteed.
+  // Fail closed before any map/asset/session creation when markers or verification cannot be guaranteed.
   assertQaCheckoutDispatchAllowed(CANONICAL_QA_SOURCE, env);
+  const stripeSecret = assertStripeQaVerificationCapability(env);
 
   const mapRes = await fetch(`${site}/api/maps`, {
     method: "POST",
@@ -419,25 +468,8 @@ export async function runVariantCheckoutOnly(site, printVariant, shippingCountry
   }
   assertHostedStripeCheckoutUrl(checkoutJson?.url);
 
-  // Optional preservation check when Stripe secret is available — never prints identifiers.
-  const stripeSecret = typeof env.STRIPE_SECRET_KEY === "string" ? env.STRIPE_SECRET_KEY.trim() : "";
-  if (stripeSecret) {
-    const sessionIdMatch = String(checkoutJson.url).match(/(cs_(?:live|test)_[A-Za-z0-9]+)/);
-    if (!sessionIdMatch) {
-      throw new Error("BLOCKER: could not derive Stripe session for QA metadata verification.");
-    }
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(stripeSecret, {
-      apiVersion: "2024-06-20",
-      httpClient: Stripe.createFetchHttpClient(),
-      timeout: 20_000,
-    });
-    const session = await stripe.checkout.sessions.retrieve(sessionIdMatch[1]);
-    assertCanonicalQaMetadata(session.metadata ?? {});
-    if (session.payment_status && session.payment_status !== "unpaid") {
-      throw new Error("BLOCKER: checkout-only probe must leave sessions unpaid.");
-    }
-  }
+  // Mandatory independent verification — never report success from URL presence alone.
+  await verifyCreatedSessionQaMetadata(String(checkoutJson.url), stripeSecret);
 
   return {
     name: `variant_${printVariant}`,
