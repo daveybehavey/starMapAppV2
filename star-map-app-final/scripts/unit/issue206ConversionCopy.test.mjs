@@ -93,7 +93,15 @@ test("shared gift positioning helpers stay factual (no popularity claims)", () =
   const premium = getFramedHdPremiumPositioningLine("$99 framed + HD");
   const intentDetails = buildStandardGiftPreviewIntentDetails("$99 framed + HD");
 
-  for (const sample of [intro, occasionIntro, editorOpen, cta, premium, ...intentDetails, FRAMED_HD_RECOMMENDED_BADGE]) {
+  for (const sample of [
+    intro,
+    occasionIntro,
+    editorOpen,
+    cta,
+    premium,
+    ...intentDetails,
+    FRAMED_HD_RECOMMENDED_BADGE,
+  ]) {
     const hits = collectMatches(sample, POPULARITY_PATTERNS);
     assert.equal(hits.length, 0, `unexpected popularity claim in "${sample}": ${JSON.stringify(hits)}`);
   }
