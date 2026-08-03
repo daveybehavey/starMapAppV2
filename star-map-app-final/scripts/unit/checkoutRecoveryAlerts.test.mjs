@@ -12,19 +12,18 @@ import {
   checkoutRecoveryEmailAttemptKey,
   checkoutRecoveryEmailDeliveredKey,
   checkoutRecoveryEmailLegacyPreSendKey,
+  CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY,
   classifyCheckoutRecoveryHttpResult,
   getIncludesBullets,
   getOfferLabel,
   getSubject,
-  isCheckoutRecoveryDurablePersistFailureRetryable,
   isCheckoutRecoveryWebhookRetryable,
-  checkoutRecoveryOutcomeAfterDurablePersistFailure,
   listCheckoutRecoveryAttemptRecords,
   naiveMathMaxAttemptMerge,
   naiveOverwriteConfirmedDeliveryWithFailure,
   naiveMarkerOnlyStaleRepair,
   naiveStaleEarlySessionWrite,
-  SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE,
+  selectCheckoutRecoveryProvider,
   simulateExpiredCheckoutRecoveryPass,
 } from "./checkoutRecoveryAlerts.harness.mjs";
 
@@ -253,17 +252,49 @@ test("classify: Resend auth/validation responses are terminal", () => {
   assert.equal(validation.errorCode, "provider_validation_error");
 });
 
-test("classify: SendGrid success/failure taxonomy remains truthful without idempotency claim", () => {
-  assert.equal(SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE, "best_effort_no_provider_idempotency");
+test("policy: checkout recovery is Resend-only; absent Resend never invokes SendGrid", async () => {
+  assert.equal(CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY, "resend_only");
+
+  let sendgridCalls = 0;
+  const absentResend = await selectCheckoutRecoveryProvider({
+    resendConfigured: false,
+    sendgridConfigured: true,
+    sendSendgrid: async () => {
+      sendgridCalls += 1;
+      return classifyCheckoutRecoveryHttpResult("sendgrid", 202);
+    },
+  }).catch((err) => err);
+
+  // Provider selection must refuse to call SendGrid rather than report delivered.
+  assert.equal(absentResend instanceof Error, true);
+  assert.match(String(absentResend.message), /SendGrid must not be invoked/);
+  assert.equal(sendgridCalls, 0);
+
+  const notConfigured = await selectCheckoutRecoveryProvider({
+    resendConfigured: false,
+    sendgridConfigured: true,
+  });
+  assert.equal(notConfigured.delivered, false);
+  assert.equal(notConfigured.provider, "none");
+  assert.equal(notConfigured.retryability, "not_configured");
+  assert.equal(notConfigured.delivered, false);
+
+  const withResend = await selectCheckoutRecoveryProvider({
+    resendConfigured: true,
+    send: undefined,
+    sendResend: async () => classifyCheckoutRecoveryHttpResult("resend", 200),
+  });
+  assert.equal(withResend.delivered, true);
+  assert.equal(withResend.provider, "resend");
+});
+
+test("classify: non-idempotent SendGrid success taxonomy is not a recovery delivery path", () => {
+  // Classifier may still label a hypothetical SendGrid 2xx, but recovery never uses that path.
   const ok = classifyCheckoutRecoveryHttpResult("sendgrid", 202);
   assert.equal(ok.delivered, true);
-  const fail = classifyCheckoutRecoveryHttpResult("sendgrid", 500);
-  assert.equal(fail.retryability, "retryable");
-  assert.equal(fail.errorCode, "provider_server_error");
-  assert.equal(isCheckoutRecoveryDurablePersistFailureRetryable("resend"), true);
-  assert.equal(isCheckoutRecoveryDurablePersistFailureRetryable("sendgrid"), false);
-  assert.equal(checkoutRecoveryOutcomeAfterDurablePersistFailure("resend"), "retryable");
-  assert.equal(checkoutRecoveryOutcomeAfterDurablePersistFailure("sendgrid"), "delivered");
+  assert.equal(CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY, "resend_only");
+  assert.equal(recoveryAlertsSource.includes("sendWithSendgrid"), false);
+  assert.equal(recoveryAlertsSource.includes("api.sendgrid.com"), false);
 });
 
 test("webhook retryable helper: only retryable outcomes request Stripe redelivery", () => {
@@ -381,120 +412,24 @@ test("durable: Resend delivery + failed durable session put leaves no marker and
   assert.equal(first.wroteSuccessSession, false);
   assert.equal(first.session, null);
   assert.equal(first.attemptRecord.delivered, true);
+  assert.equal(first.attemptRecord.provider, "resend");
   assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
   assert.equal(store.has(`stripe:session:${sessionId}`), false);
   assert.equal(first.idempotencyKey, buildCheckoutRecoveryResendIdempotencyKey(sessionId));
 });
 
-test("durable: SendGrid delivery + failed durable session put acknowledges without marker or provider redelivery", async () => {
-  const store = new Map();
-  const sessionId = "cs_test_sendgrid_durable_fail";
-  let providerCalls = 0;
-  const first = await simulateExpiredCheckoutRecoveryPass({
-    store,
-    sessionId,
-    eventId: "evt_sendgrid_durable_fail",
-    attemptId: "att_sendgrid_durable_fail",
-    recoveryUrl: "https://example.test/recover",
-    customerEmail: "buyer@example.test",
-    send: async () => {
-      providerCalls += 1;
-      return classifyCheckoutRecoveryHttpResult("sendgrid", 202);
-    },
-    persistSessionDurable: async () => {
-      throw new Error("cf put failed");
-    },
-  });
+test("negative control: a non-idempotent SendGrid delivered result must not be used by recovery orchestration", async () => {
+  // If orchestration were fed a SendGrid "delivered" result (legacy fallback), durable-fail
+  // finalize-without-marker is still an incomplete duplicate guard across workers.
+  // Production forbids that provider path entirely (Resend-only).
+  assert.equal(CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY, "resend_only");
+  assert.equal(recoveryAlertsSource.includes("sendWithSendgrid"), false);
+  assert.equal(webhookSource.includes("checkoutRecoveryOutcomeAfterDurablePersistFailure"), false);
 
-  // Delivery-vs-observability: finalize so Stripe will not redeliver / re-call SendGrid.
-  assert.equal(first.httpStatus, 200);
-  assert.equal(first.eventFinalized, true);
-  assert.equal(first.recoveryOutcome, "delivered");
-  assert.equal(first.deliveredMarker, null);
-  assert.equal(first.wroteSuccessSession, false);
-  assert.equal(first.session, null);
-  assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
-  assert.equal(store.has(`stripe:session:${sessionId}`), false);
-  assert.equal(first.attemptRecord.delivered, true);
-  assert.equal(first.attemptRecord.provider, "sendgrid");
-  assert.equal(providerCalls, 1);
-
-  // Same-event replay must not invoke SendGrid again.
-  const replay = await simulateExpiredCheckoutRecoveryPass({
-    store,
-    sessionId,
-    eventId: "evt_sendgrid_durable_fail",
-    recoveryUrl: "https://example.test/recover",
-    customerEmail: "buyer@example.test",
-    send: async () => {
-      providerCalls += 1;
-      throw new Error("SendGrid must not be called again after finalize");
-    },
-  });
-  assert.equal(replay.duplicate, true);
-  assert.equal(replay.providerCalls, 0);
-  assert.equal(providerCalls, 1);
-  assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
-  assert.equal(store.has(`stripe:session:${sessionId}`), false);
-});
-
-test("negative control: treating SendGrid durable-persist failure as retryable would allow a second provider send", async () => {
-  // Old behavior always set recoveryOutcome = "retryable" after durable fail, which for
-  // SendGrid (no Idempotency-Key) permits Stripe redelivery to call the provider again.
-  assert.equal(checkoutRecoveryOutcomeAfterDurablePersistFailure("sendgrid"), "delivered");
-  assert.equal(isCheckoutRecoveryWebhookRetryable("retryable"), true);
-  assert.equal(isCheckoutRecoveryWebhookRetryable("delivered"), false);
-
-  const store = new Map();
-  const sessionId = "cs_test_sendgrid_neg_control";
-  let providerCalls = 0;
-  const send = async () => {
-    providerCalls += 1;
-    return classifyCheckoutRecoveryHttpResult("sendgrid", 202);
-  };
-
-  // Simulate the defective path: force retryable outcome after durable fail (bypass helper).
-  const defective = await simulateExpiredCheckoutRecoveryPass({
-    store,
-    sessionId,
-    eventId: "evt_sendgrid_neg",
-    attemptId: "att_sendgrid_neg_1",
-    recoveryUrl: "https://example.test/recover",
-    customerEmail: "buyer@example.test",
-    send,
-    persistSessionDurable: async () => {
-      throw new Error("cf put failed");
-    },
-  });
-  // Correct implementation finalizes; negative control proves the opposite would be wrong.
-  assert.equal(defective.httpStatus, 200);
-  assert.equal(defective.eventFinalized, true);
-  assert.notEqual(defective.recoveryOutcome, "retryable");
-
-  // If outcome had been retryable (old bug), event would be unfinalized and a second pass
-  // with the same event id (Stripe redelivery) would call SendGrid again.
-  const wouldBeRetryable = isCheckoutRecoveryWebhookRetryable("retryable");
-  assert.equal(wouldBeRetryable, true);
-  store.delete(`stripe:event:evt_sendgrid_neg`);
-  // Without finalize, a redelivery would reach the provider again (no marker/session).
-  assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
-  assert.equal(store.has(`stripe:session:${sessionId}`), false);
-  const redeliveryIfUnfinalized = await simulateExpiredCheckoutRecoveryPass({
-    store,
-    sessionId,
-    eventId: "evt_sendgrid_neg",
-    attemptId: "att_sendgrid_neg_2",
-    recoveryUrl: "https://example.test/recover",
-    customerEmail: "buyer@example.test",
-    send,
-    persistSessionDurable: async () => {
-      throw new Error("cf put failed");
-    },
-  });
-  // With correct finalize removed from store, second pass would hit provider — proving
-  // why retryable/503 after SendGrid delivery is unsafe.
-  assert.equal(redeliveryIfUnfinalized.providerCalls, 1);
-  assert.equal(providerCalls, 2);
+  const sg = classifyCheckoutRecoveryHttpResult("sendgrid", 202);
+  assert.equal(sg.delivered, true);
+  // Headers for such a request would lack Idempotency-Key — evidence the path is unsafe.
+  assert.equal(Object.hasOwn(buildSendgridRecoveryRequestHeaders(), "Idempotency-Key"), false);
 });
 
 test("durable: later retry with durable persistence writes session then marker and finalizes", async () => {
@@ -1087,19 +1022,16 @@ test("privacy: persisted diagnostic fields never include raw session/payment ide
   assert.equal(fields.recoveryEmailErrorCode, "provider_server_error");
 });
 
-test("source: Resend path sets Idempotency-Key from opaque builder; SendGrid does not", () => {
+test("source: Resend path sets Idempotency-Key; SendGrid send path is absent", () => {
+  assert.match(recoveryAlertsSource, /CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY/);
+  assert.match(recoveryAlertsSource, /resend_only/);
   assert.match(recoveryAlertsSource, /"Idempotency-Key":\s*idempotencyKey/);
   assert.match(recoveryAlertsSource, /buildCheckoutRecoveryResendIdempotencyKey\(input\.sessionId\)/);
-  assert.match(recoveryAlertsSource, /SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE/);
-  assert.match(
-    recoveryAlertsSource,
-    /Intentionally no Idempotency-Key: SendGrid Mail Send has no equivalent guarantee/
-  );
-  const sendgridFn = recoveryAlertsSource.slice(
-    recoveryAlertsSource.indexOf("async function sendWithSendgrid"),
-    recoveryAlertsSource.indexOf("export async function sendCheckoutRecoveryAlert")
-  );
-  assert.equal(/"Idempotency-Key"\s*:/.test(sendgridFn), false);
+  assert.equal(recoveryAlertsSource.includes("sendWithSendgrid"), false);
+  assert.equal(recoveryAlertsSource.includes("api.sendgrid.com"), false);
+  assert.equal(recoveryAlertsSource.includes("SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE"), false);
+  assert.equal(recoveryAlertsSource.includes("isCheckoutRecoveryDurablePersistFailureRetryable"), false);
+  assert.equal(recoveryAlertsSource.includes("checkoutRecoveryOutcomeAfterDurablePersistFailure"), false);
 });
 
 test("source: webhook uses delivered marker and separate attempt records", () => {
@@ -1110,12 +1042,8 @@ test("source: webhook uses delivered marker and separate attempt records", () =>
   assert.match(webhookSource, /applyCheckoutRecoveryDeliveredSessionFields/);
   assert.match(webhookSource, /checkout_recovery_retryable/);
   assert.match(webhookSource, /kv\.setDurable\(/);
-  assert.match(webhookSource, /checkoutRecoveryOutcomeAfterDurablePersistFailure/);
-  assert.match(recoveryAlertsSource, /isCheckoutRecoveryDurablePersistFailureRetryable/);
-  assert.match(
-    recoveryAlertsSource,
-    /delivery-vs-observability|Delivery-vs-observability|duplicate customer email/
-  );
+  assert.match(webhookSource, /Idempotency-Key prevents duplicate send/);
+  assert.equal(webhookSource.includes("checkoutRecoveryOutcomeAfterDurablePersistFailure"), false);
   assert.equal(webhookSource.includes("kv.incr(recoveryEmailKey"), false);
   assert.equal(webhookSource.includes("applyCheckoutRecoveryAlertToSessionFields"), false);
   assert.equal(webhookSource.includes("earlySession"), false);
@@ -1128,14 +1056,14 @@ test("source: webhook uses delivered marker and separate attempt records", () =>
   assert.match(recoveryAlertsSource, /checkout_recovery:attempt/);
 });
 
-test("headers: Resend request carries opaque key; SendGrid headers omit Idempotency-Key", () => {
+test("headers: Resend request carries opaque key; SendGrid headers lack Idempotency-Key (unused path)", () => {
   const sessionId = "cs_test_header_check";
   const resendHeaders = buildResendRecoveryRequestHeaders(sessionId);
   assert.equal(resendHeaders["Idempotency-Key"], buildCheckoutRecoveryResendIdempotencyKey(sessionId));
   assert.equal(resendHeaders["Idempotency-Key"].includes(sessionId), false);
   const sendgridHeaders = buildSendgridRecoveryRequestHeaders();
   assert.equal(Object.hasOwn(sendgridHeaders, "Idempotency-Key"), false);
-  assert.equal(SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE, "best_effort_no_provider_idempotency");
+  assert.equal(CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY, "resend_only");
 });
 
 /** @param {unknown} value */

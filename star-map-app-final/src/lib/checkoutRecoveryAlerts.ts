@@ -50,26 +50,12 @@ export type CheckoutRecoveryAttemptRecord = {
 };
 
 /**
- * SendGrid fallback has no provider idempotency key equivalent to Resend.
- * Concurrent duplicate protection is best-effort only under current Workers KV.
+ * Checkout recovery email is Resend-only.
+ * Non-idempotent providers (e.g. SendGrid Mail Send) are intentionally not used:
+ * a durable-session persist failure + lost 2xx / cross-worker Stripe retry must not
+ * be able to send a second customer email without a provider Idempotency-Key.
  */
-export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE = "best_effort_no_provider_idempotency" as const;
-
-/**
- * After confirmed provider delivery, whether a durable canonical-session persist
- * failure should leave the Stripe event retryable (503).
- *
- * Resend: yes — deterministic Idempotency-Key makes a safe reconcile retry.
- * SendGrid: no — Stripe redelivery would invoke SendGrid again with no provider
- * idempotency, risking a duplicate customer email. Prefer acknowledging /
- * finalizing the event (delivery preserved; canonical session / delivered marker
- * may remain absent) over duplicate delivery. See OPS_RUNBOOK.
- */
-export function isCheckoutRecoveryDurablePersistFailureRetryable(
-  provider: CheckoutRecoveryAlertProvider
-): boolean {
-  return provider === "resend";
-}
+export const CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY = "resend_only" as const;
 
 /** Long-lived delivered marker TTL (matches prior successful-send window). */
 export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
@@ -438,16 +424,6 @@ export function isCheckoutRecoveryWebhookRetryable(
   return retryability === "retryable";
 }
 
-/**
- * Outcome after provider delivery succeeded but durable session persistence failed.
- * Resend stays retryable; SendGrid acknowledges without claiming durable session/marker.
- */
-export function checkoutRecoveryOutcomeAfterDurablePersistFailure(
-  provider: CheckoutRecoveryAlertProvider
-): CheckoutRecoveryRetryability {
-  return isCheckoutRecoveryDurablePersistFailureRetryable(provider) ? "retryable" : "delivered";
-}
-
 export type CheckoutRecoverySessionEmailFields = {
   recoveryEmailSentAt?: number;
   recoveryEmailProvider?: string;
@@ -563,58 +539,17 @@ async function sendWithResend(input: CheckoutRecoveryAlertInput) {
   return classifyCheckoutRecoveryHttpResult("resend", response.status, body);
 }
 
-async function sendWithSendgrid(input: CheckoutRecoveryAlertInput) {
-  const sendgridApiKey = process.env.SENDGRID_API_KEY?.trim() || "";
-  const from = parseEmailAddress(getAlertFrom());
-  if (!sendgridApiKey || !from) {
-    return notConfiguredResult();
-  }
-
-  const replyTo = parseEmailAddress(getAlertReplyTo());
-  const copy = getCopy(input);
-  const payload = {
-    personalizations: [{ to: [{ email: input.email }] }],
-    from,
-    subject: copy.subject,
-    content: [
-      { type: "text/plain", value: copy.text },
-      { type: "text/html", value: copy.html },
-    ],
-    ...(replyTo ? { reply_to: replyTo } : {}),
-  };
-
-  let response: Response;
-  try {
-    response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${sendgridApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    return classifyCheckoutRecoveryNetworkFailure("sendgrid");
-  }
-
-  // Intentionally no Idempotency-Key: SendGrid Mail Send has no equivalent guarantee.
-  // Concurrent duplicate protection is best-effort under current Workers KV only.
-  // See SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE.
-
-  const body = response.ok ? "" : await response.text().catch(() => "");
-  return classifyCheckoutRecoveryHttpResult("sendgrid", response.status, body);
-}
-
+/**
+ * Checkout recovery delivery is Resend-only ({@link CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY}).
+ * When Resend is not configured, returns truthful `not_configured` — never falls back to
+ * a non-idempotent provider.
+ */
 export async function sendCheckoutRecoveryAlert(
   input: CheckoutRecoveryAlertInput
 ): Promise<CheckoutRecoveryAlertResult> {
   try {
     const resendResult = await sendWithResend(input);
     if (resendResult.provider !== "none") return resendResult;
-
-    const sendgridResult = await sendWithSendgrid(input);
-    if (sendgridResult.provider !== "none") return sendgridResult;
-
     return notConfiguredResult();
   } catch {
     return {

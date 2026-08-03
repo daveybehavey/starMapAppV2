@@ -41,7 +41,9 @@ if (!prodHook) {
   const hasCompleted = events.includes("checkout.session.completed");
   console.log(`Endpoint: ${prodHook.url}`);
   console.log(`Status:   ${prodHook.status}`);
-  console.log(`checkout.session.expired:   ${hasExpired ? "✅ registered" : "❌ MISSING — recovery emails will NOT fire"}`);
+  console.log(
+    `checkout.session.expired:   ${hasExpired ? "✅ registered" : "❌ MISSING — recovery emails will NOT fire"}`
+  );
   console.log(`checkout.session.completed: ${hasCompleted ? "✅ registered" : "❌ MISSING"}`);
   console.log(`All events: ${events.join(", ")}`);
 }
@@ -55,12 +57,20 @@ const fromAddr =
   process.env.PROMOTION_EMAIL_FROM?.trim() ||
   process.env.PRINT_ORDER_ALERT_FROM?.trim();
 
-console.log(`RESEND_API_KEY:          ${resendKey ? "✅ set" : "— not set (using SendGrid fallback)"}`);
-console.log(`SENDGRID_API_KEY:        ${sendgridKey ? "✅ set" : "— not set"}`);
-console.log(`From address:            ${fromAddr ? `✅ ${fromAddr}` : "❌ MISSING — set CHECKOUT_RECOVERY_EMAIL_FROM or PROMOTION_EMAIL_FROM"}`);
+console.log(
+  `RESEND_API_KEY:          ${resendKey ? "✅ set" : "— not set (required for checkout recovery)"}`
+);
+console.log(
+  `SENDGRID_API_KEY:        ${sendgridKey ? "✅ set (unused for checkout recovery; Resend-only)" : "— not set"}`
+);
+console.log(
+  `From address:            ${fromAddr ? `✅ ${fromAddr}` : "❌ MISSING — set CHECKOUT_RECOVERY_EMAIL_FROM or PROMOTION_EMAIL_FROM"}`
+);
 
-if (!resendKey && !sendgridKey) {
-  console.log("❌ Neither RESEND_API_KEY nor SENDGRID_API_KEY is configured — recovery emails will be silently dropped");
+if (!resendKey) {
+  console.log(
+    "❌ RESEND_API_KEY is not configured — checkout recovery emails will not send (Resend-only; no SendGrid fallback)"
+  );
 } else if (!fromAddr) {
   console.log("❌ No FROM address configured — recovery emails will be silently dropped");
 } else {
@@ -96,7 +106,9 @@ try {
         email: email ? "✅" : "—",
         recoveryUrl: recoveryUrl ? "✅" : "—",
         printVariant: s.metadata?.print_variant ?? "unknown",
-        amountTotal: s.amount_total ? `${(s.amount_total / 100).toFixed(2)} ${s.currency?.toUpperCase()}` : "—",
+        amountTotal: s.amount_total
+          ? `${(s.amount_total / 100).toFixed(2)} ${s.currency?.toUpperCase()}`
+          : "—",
       });
     }
   }

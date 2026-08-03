@@ -78,23 +78,32 @@ export function getIncludesBullets(input) {
 export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
 export const CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS = CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS;
 
-export const SENDGRID_RECOVERY_CONCURRENCY_GUARANTEE = "best_effort_no_provider_idempotency";
+export const CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY = "resend_only";
 
 /**
- * After confirmed provider delivery, whether durable session persist failure
- * should leave the Stripe event retryable. Resend: yes (idempotent). SendGrid: no
- * (acknowledge to avoid duplicate email — delivery-vs-observability tradeoff).
- * @param {string} provider
+ * Mirrors production: checkout recovery never falls back to a non-idempotent provider.
+ * @param {{
+ *   resendConfigured: boolean;
+ *   sendgridConfigured?: boolean;
+ *   sendResend?: () => Promise<{ delivered: boolean; provider: string; retryability: string }>;
+ *   sendSendgrid?: () => Promise<{ delivered: boolean; provider: string; retryability: string }>;
+ * }} opts
  */
-export function isCheckoutRecoveryDurablePersistFailureRetryable(provider) {
-  return provider === "resend";
-}
-
-/**
- * @param {string} provider
- */
-export function checkoutRecoveryOutcomeAfterDurablePersistFailure(provider) {
-  return isCheckoutRecoveryDurablePersistFailureRetryable(provider) ? "retryable" : "delivered";
+export async function selectCheckoutRecoveryProvider(opts) {
+  if (opts.resendConfigured) {
+    if (typeof opts.sendResend === "function") return opts.sendResend();
+    return { delivered: true, provider: "resend", retryability: "delivered" };
+  }
+  // SendGrid may be configured for other product paths; recovery must not use it.
+  if (typeof opts.sendSendgrid === "function") {
+    throw new Error("SendGrid must not be invoked for checkout recovery");
+  }
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: "not_configured",
+    errorCode: "checkout_recovery_not_configured",
+  };
 }
 
 /**
@@ -340,6 +349,8 @@ export function buildResendRecoveryRequestHeaders(sessionId) {
 
 /**
  * @returns {Record<string, string>}
+ * @deprecated Checkout recovery is Resend-only; retained as negative-control evidence
+ * that a SendGrid Mail Send request would lack Idempotency-Key.
  */
 export function buildSendgridRecoveryRequestHeaders() {
   return {
@@ -537,9 +548,9 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
           recoveryOutcome = alertResult.retryability;
           store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
         } catch {
-          // Durable persistence failed: keep attempt record only; no marker.
-          // Resend → retryable; SendGrid → acknowledge (no Stripe redelivery / duplicate email).
-          recoveryOutcome = checkoutRecoveryOutcomeAfterDurablePersistFailure(alertResult.provider);
+          // Durable persistence failed: keep attempt record only; no marker; retryable.
+          // Resend-only: Idempotency-Key makes Stripe redelivery safe.
+          recoveryOutcome = "retryable";
         }
       } else {
         const latestMarker = store.get(deliveredKey);

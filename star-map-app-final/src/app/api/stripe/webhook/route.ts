@@ -33,7 +33,6 @@ import {
   buildCheckoutRecoveryAttemptRecord,
   checkoutRecoveryEmailAttemptKey,
   checkoutRecoveryEmailDeliveredKey,
-  checkoutRecoveryOutcomeAfterDurablePersistFailure,
   CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS,
   CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS,
   createCheckoutRecoveryAttemptId,
@@ -1200,10 +1199,8 @@ async function handleExpiredCheckoutSession(
         } catch (error) {
           console.warn("Checkout recovery durable session persistence failed; deferring marker", error);
           // Attempt record already written. Do not write delivered marker or claim durable session.
-          // Resend: leave retryable (Idempotency-Key prevents duplicate send on Stripe redelivery).
-          // SendGrid: acknowledge/finalize — retry would re-invoke SendGrid without idempotency
-          // and risk a duplicate customer email (delivery-vs-observability tradeoff).
-          recoveryOutcome = checkoutRecoveryOutcomeAfterDurablePersistFailure(alertResult.provider);
+          // Resend-only path: leave retryable — Idempotency-Key prevents duplicate send on redelivery.
+          recoveryOutcome = "retryable";
         }
       } else {
         // Non-delivered: attempt record only. Acknowledge visible winner without session rewrite.
