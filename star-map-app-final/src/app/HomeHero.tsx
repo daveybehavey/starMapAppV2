@@ -1,4 +1,5 @@
 import HeroEditorDeferred from "@/components/HeroEditorDeferred";
+import { getPrintProductionReviewTrustPoint, isPrintfulAutoConfirmEnabled } from "@/lib/printCheckoutConfig";
 import { HomeHeroCta } from "./HomeHeroCta";
 import { HomeHeroTracker } from "./HomeHeroTracker";
 
@@ -72,13 +73,13 @@ const VALUE_PROPS = [
   { title: "Made to Gift", detail: "Beautifully packaged for every order", icon: HeroGiftIcon },
 ] as const;
 
-const TRUST_ITEMS = [
-  { title: "Clear shipping", detail: "U.S. shipping shown before you pay", icon: HeroTruckIcon },
-  { title: "Quality review", detail: "Print orders checked before production", icon: HeroBadgeIcon },
-  { title: "Damage support", detail: "Help if your print arrives damaged", icon: HeroReturnIcon },
-] as const;
-
 export default function HomeHero() {
+  const productionTrustTitle = isPrintfulAutoConfirmEnabled() ? "Made to order" : "Quality review";
+  const trustItems = [
+    { title: "Clear shipping", detail: "U.S. shipping shown before you pay", icon: HeroTruckIcon },
+    { title: productionTrustTitle, detail: getPrintProductionReviewTrustPoint(), icon: HeroBadgeIcon },
+    { title: "Damage support", detail: "Help if your print arrives damaged", icon: HeroReturnIcon },
+  ] as const;
   return (
     <>
       <HomeHeroTracker />
@@ -157,7 +158,7 @@ export default function HomeHero() {
         </div>
 
         <div className="hero-plan__trust" aria-label="Purchase assurances">
-          {TRUST_ITEMS.map((item) => {
+          {trustItems.map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.title} className="hero-plan__trust-item">

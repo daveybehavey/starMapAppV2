@@ -293,7 +293,7 @@ export default function PersonalizedStarMapPage() {
           <div>
             <h3 className="font-semibold text-midnight">What is the best personalized star map gift?</h3>
             <p>
-              Most gift buyers choose the framed print so it arrives ready to display, often paired with HD digital for a
+              The premium gift route is framed print so it arrives ready to display, often paired with HD digital for a
               keepsake file. Orders at $100+ qualify for free shipping. Add{" "}
               <Link href="/shop#merch-addons" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
                 custom kiss-cut stickers
@@ -330,7 +330,7 @@ export default function PersonalizedStarMapPage() {
           {
             question: "What is the best personalized star map gift?",
             answer:
-              "Most gift buyers choose framed print so it arrives ready to display, often with HD digital included. Orders at $100+ qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
+              "The premium gift route is framed print so it arrives ready to display, often with HD digital included. Orders at $100+ qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
           },
         ]}
       />
