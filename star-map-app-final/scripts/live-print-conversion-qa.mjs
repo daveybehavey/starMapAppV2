@@ -20,13 +20,19 @@ import {
   assertQaCheckoutDispatchAllowed,
 } from "./qa-checkout-headers.mjs";
 import { loadQaPrintAssetDataUrl, uploadQaPrintAsset } from "./qa-print-asset.mjs";
+import {
+  assertNoRedirectEscape,
+  assertTrustedLiveProbeSite,
+  CANONICAL_PRODUCTION_SITE_ORIGIN,
+} from "./qa-trusted-origin.mjs";
 
-const DEFAULT_SITE = "https://starmapco.com";
-/**
- * Canonical production origin from repository config (`wrangler.toml` NEXT_PUBLIC_SITE_URL).
- * Fail-closed allowlist is exactly this origin — no broad host inventing.
- */
-export const CANONICAL_PRODUCTION_SITE_ORIGIN = "https://starmapco.com";
+export {
+  assertNoRedirectEscape,
+  assertTrustedLiveProbeSite,
+  CANONICAL_PRODUCTION_SITE_ORIGIN,
+} from "./qa-trusted-origin.mjs";
+
+const DEFAULT_SITE = CANONICAL_PRODUCTION_SITE_ORIGIN;
 const SUPPORTED_VARIANTS = Object.freeze(["poster_framed", "poster_unframed"]);
 /** Canonical marker recognized by isQaStripeSession (live_print_conversion* prefix). */
 const CANONICAL_QA_SOURCE = "live_print_conversion_checkout_only";
@@ -48,62 +54,6 @@ export function isValidStripeCheckoutUrl(url) {
   } catch {
     return false;
   }
-}
-
-/**
- * Fail-closed trusted-origin policy for live probes that may dispatch PRINT_ADMIN_TOKEN.
- * Grounded in wrangler.toml NEXT_PUBLIC_SITE_URL / canonical production origin only.
- *
- * @param {unknown} site
- * @returns {string} normalized origin with no trailing slash (https://starmapco.com)
- */
-export function assertTrustedLiveProbeSite(site) {
-  if (typeof site !== "string" || !site.trim()) {
-    throw new Error("BLOCKER: --site must be the canonical HTTPS production origin.");
-  }
-  let parsed;
-  try {
-    parsed = new URL(site.trim());
-  } catch {
-    throw new Error("BLOCKER: --site is not a valid URL.");
-  }
-  if (parsed.protocol !== "https:") {
-    throw new Error("BLOCKER: --site must use HTTPS.");
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error("BLOCKER: --site must not include credentials.");
-  }
-  if (parsed.hostname !== "starmapco.com") {
-    throw new Error("BLOCKER: --site host is not the canonical trusted production origin.");
-  }
-  if (parsed.port && parsed.port !== "443") {
-    throw new Error("BLOCKER: --site must not use a non-default port.");
-  }
-  if (parsed.pathname && parsed.pathname !== "/") {
-    throw new Error("BLOCKER: --site must be origin-only (no path).");
-  }
-  if (parsed.search) {
-    throw new Error("BLOCKER: --site must not include a query string.");
-  }
-  if (parsed.hash) {
-    throw new Error("BLOCKER: --site must not include a fragment.");
-  }
-  const origin = `https://${parsed.hostname}`;
-  if (origin !== CANONICAL_PRODUCTION_SITE_ORIGIN) {
-    throw new Error("BLOCKER: --site is not the canonical trusted production origin.");
-  }
-  return origin;
-}
-
-/**
- * Reject redirect responses so admin-token requests cannot escape to an untrusted origin.
- * @param {Response} response
- */
-export function assertNoRedirectEscape(response) {
-  if (response.status >= 300 && response.status < 400) {
-    throw new Error("BLOCKER: refusing redirect on secret-bearing checkout request (fail-closed).");
-  }
-  return true;
 }
 
 const SENSITIVE_OUTPUT_PATTERNS = Object.freeze([
@@ -319,15 +269,23 @@ export function assertSafeOutput(text) {
 }
 
 /**
+ * Write an operator-facing error. Never defaults to `process.env` — that would
+ * read PRINT_ADMIN_TOKEN on invalid-site rejection before trust is established.
+ * Pass `authorizedEnv` only after the trusted-origin check has succeeded and the
+ * caller intentionally authorizes redaction against already-injected values.
+ *
  * @param {{ write?: Function } | null | undefined} stderr
  * @param {string} message
- * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined> | null} [authorizedEnv]
  */
-export function writeOperatorError(stderr, message, env = process.env) {
+export function writeOperatorError(stderr, message, authorizedEnv = null) {
   let candidate = String(message ?? "").trim();
-  const token = typeof env.PRINT_ADMIN_TOKEN === "string" ? env.PRINT_ADMIN_TOKEN.trim() : "";
-  if (token && candidate.includes(token)) {
-    candidate = "Live print conversion QA failed (details redacted).";
+  if (authorizedEnv && typeof authorizedEnv === "object") {
+    const token =
+      typeof authorizedEnv.PRINT_ADMIN_TOKEN === "string" ? authorizedEnv.PRINT_ADMIN_TOKEN.trim() : "";
+    if (token && candidate.includes(token)) {
+      candidate = "Live print conversion QA failed (details redacted).";
+    }
   }
   const safe =
     candidate && !containsSensitiveOperatorText(candidate)
@@ -579,11 +537,14 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;
   const env = io.env ?? process.env;
+  /** @type {NodeJS.ProcessEnv | Record<string, string | undefined> | null} */
+  let authorizedEnv = null;
 
   let args;
   try {
     args = parseArgs(argv);
   } catch (error) {
+    // Invalid --site (and other parse errors): never pass env — must not read PRINT_ADMIN_TOKEN.
     writeOperatorError(stderr, error instanceof Error ? error.message : String(error));
     return 1;
   }
@@ -596,16 +557,20 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   }
 
   if (!args.checkoutOnly) {
-    writeOperatorError(stderr, "Only --checkout-only mode is supported by this restored probe.", env);
+    writeOperatorError(stderr, "Only --checkout-only mode is supported by this restored probe.");
     return 1;
   }
 
   try {
     args.site = assertTrustedLiveProbeSite(args.site);
   } catch (error) {
-    writeOperatorError(stderr, error instanceof Error ? error.message : String(error), env);
+    // Trust not established — do not authorize env for redaction/token reads.
+    writeOperatorError(stderr, error instanceof Error ? error.message : String(error));
     return 1;
   }
+
+  // Site is the trusted canonical origin; redaction may use already-injected env values.
+  authorizedEnv = env;
 
   assertUntaggedLiveSessionDispatchRejected({
     site: args.site,
@@ -622,7 +587,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       const result = await runVariantCheckoutOnly(args.site, variant, args.shippingCountry, env);
       checks.push(result);
     } catch (error) {
-      writeOperatorError(stderr, error instanceof Error ? error.message : String(error), env);
+      writeOperatorError(stderr, error instanceof Error ? error.message : String(error), authorizedEnv);
       checks.push({ name: `variant_${variant}`, ok: false });
     }
   }

@@ -27,6 +27,7 @@ import {
   containsSensitiveOperatorText,
   extractCheckoutSessionIdFromPayPath,
   formatAggregateReport,
+  main,
   parseArgs,
   writeOperatorError,
 } from "../live-print-conversion-qa.mjs";
@@ -35,6 +36,14 @@ import {
   buildQaCheckoutHeaders,
   LIVE_PRINT_CONVERSION_QA_SOURCE,
 } from "../qa-checkout-headers.mjs";
+import {
+  buildQaCheckoutFetchInit,
+  resolveMerchProbeSite,
+} from "../live-merch-checkout-probe.mjs";
+import {
+  assertNoRedirectEscape as assertNoRedirectEscapeShared,
+  assertTrustedLiveProbeSite as assertTrustedLiveProbeSiteShared,
+} from "../qa-trusted-origin.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SCRIPT_PATH = path.join(ROOT, "scripts/live-print-conversion-qa.mjs");
@@ -249,8 +258,23 @@ test("existing live checkout probes QA-tag or stop before session creation", () 
   assert.match(merch, /assertQaCheckoutDispatchAllowed/);
   assert.match(merch, /LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE|live_merch_checkout_probe/);
   assert.match(merch, /fail_closed_before_untagged_session|QA marker capability/);
+  assert.match(merch, /resolveMerchProbeSite|assertTrustedLiveProbeSite/);
+  assert.match(merch, /redirect:\s*(?:\/\*\*[^*]*\*\/\s*)?\(?["']manual["']\)?/);
+  assert.match(merch, /assertNoRedirectEscape/);
   assert.match(proof, /assertQaCheckoutDispatchAllowed/);
   assert.match(proof, /LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE|live_c1_m1_checkout_proof/);
+  assert.match(proof, /assertTrustedLiveProbeSite/);
+  assert.match(proof, /redirect:\s*(?:\/\*\*[^*]*\*\/\s*)?\(?["']manual["']\)?/);
+  assert.match(proof, /assertNoRedirectEscape/);
+  // Runtime call order: trusted site before first assertQaCheckoutDispatchAllowed invocation.
+  assert.match(
+    merch,
+    /const site = resolveMerchProbeSite\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE\)/,
+  );
+  assert.match(
+    proof,
+    /const SITE = assertTrustedLiveProbeSite\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE\)/,
+  );
 });
 
 test("missing Stripe verification capability fails before session creation", () => {
@@ -336,7 +360,7 @@ test("trusted live probe site rejects HTTP, deceptive hosts, credentials, ports,
   }
 });
 
-test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pass", () => {
+test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pass", async () => {
   let tokenAccessed = false;
   const secretToken = "unit-admin-token-must-not-leak";
   const env = new Proxy(
@@ -346,10 +370,15 @@ test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pas
         if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
         return Reflect.get(target, prop);
       },
+      has(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.has(target, prop);
+      },
       ownKeys(target) {
         return Reflect.ownKeys(target);
       },
       getOwnPropertyDescriptor(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
         return Reflect.getOwnPropertyDescriptor(target, prop);
       },
     },
@@ -365,13 +394,82 @@ test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pas
         },
         env,
       ),
-    /trusted|canonical|HTTPS|host/i,
+    /trusted|canonical|HTTPS|host|BLOCKER/i,
   );
   assert.equal(tokenAccessed, false);
 
+  // Operator-error helper must not default to process.env / authorizedEnv on rejection.
   const chunks = [];
-  writeOperatorError({ write: (s) => chunks.push(String(s)) }, "failed https://starmapco.example", env);
+  writeOperatorError({ write: (s) => chunks.push(String(s)) }, "BLOCKER: --site host is not the canonical trusted production origin.");
+  assert.equal(tokenAccessed, false);
   assert.equal(chunks.join("").includes(secretToken), false);
+
+  // Full invalid-site rejection + operator-error path through main must keep tokenAccessed false.
+  const mainChunks = [];
+  const code = await main(["--site", "https://starmapco.example"], {
+    stdout: { write() {} },
+    stderr: { write: (s) => mainChunks.push(String(s)) },
+    env,
+  });
+  assert.equal(code, 1);
+  assert.equal(tokenAccessed, false);
+  assert.equal(mainChunks.join("").includes(secretToken), false);
+  assert.match(mainChunks.join(""), /BLOCKER/);
+});
+
+test("merch probe resolves trusted site before token access and uses manual redirects", () => {
+  let tokenAccessed = false;
+  const secretToken = "merch-admin-token-must-not-leak";
+  const env = new Proxy(
+    { PRINT_ADMIN_TOKEN: secretToken },
+    {
+      get(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.get(target, prop);
+      },
+      has(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.has(target, prop);
+      },
+    },
+  );
+
+  assert.equal(
+    resolveMerchProbeSite(["node", "script", "--site", "https://starmapco.com"]),
+    CANONICAL_PRODUCTION_SITE_ORIGIN,
+  );
+  assert.equal(tokenAccessed, false);
+
+  for (const site of [
+    "https://starmapco.example",
+    "http://starmapco.com",
+    "https://user:pass@starmapco.com",
+    "https://starmapco.com:8443",
+    "https://starmapco.com/path",
+  ]) {
+    assert.throws(() => resolveMerchProbeSite(["node", "script", "--site", site]), /BLOCKER/, site);
+  }
+  assert.equal(tokenAccessed, false);
+
+  // Token is only read after an explicit trusted-site resolution by the caller.
+  const init = buildQaCheckoutFetchInit({ orderType: "print" }, { PRINT_ADMIN_TOKEN: "unit-merch-token" });
+  assert.equal(init.redirect, "manual");
+  assert.equal(init.headers["x-qa-run"], "true");
+  assert.equal(tokenAccessed, false);
+});
+
+test("shared trusted-origin helper rejects redirect escapes on secret-bearing responses", () => {
+  assert.equal(assertTrustedLiveProbeSiteShared(CANONICAL_PRODUCTION_SITE_ORIGIN), CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.throws(
+    () => assertNoRedirectEscapeShared({ status: 302, url: "https://evil.example/" }, "https://starmapco.com/api/checkout"),
+    /redirect/,
+  );
+  assert.doesNotThrow(() =>
+    assertNoRedirectEscapeShared(
+      { status: 200, url: "https://starmapco.com/api/checkout" },
+      "https://starmapco.com/api/checkout",
+    ),
+  );
 });
 
 test("redirect escape on secret-bearing responses is rejected", () => {

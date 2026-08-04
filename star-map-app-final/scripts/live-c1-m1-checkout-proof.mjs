@@ -10,6 +10,11 @@ import {
   assertQaCheckoutDispatchAllowed,
   LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE,
 } from "./qa-checkout-headers.mjs";
+import {
+  assertNoRedirectEscape,
+  assertTrustedLiveProbeSite,
+  CANONICAL_PRODUCTION_SITE_ORIGIN,
+} from "./qa-trusted-origin.mjs";
 
 loadDotenv();
 const wranglerVars = await readWranglerVars(process.cwd());
@@ -22,22 +27,28 @@ for (const [key, value] of Object.entries(wranglerVars)) {
 import { loadQaPrintAssetDataUrl, uploadQaPrintAsset } from "./qa-print-asset.mjs";
 import { isQaStripeSession } from "../src/lib/commerceAnalyticsQa.mjs";
 
-const SITE = (process.env.SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
+// Validate/canonicalize SITE_URL before any PRINT_ADMIN_TOKEN read or attachment.
+const SITE = assertTrustedLiveProbeSite(process.env.SITE_URL || CANONICAL_PRODUCTION_SITE_ORIGIN);
 const printAssetDataUrl = loadQaPrintAssetDataUrl("proof");
 
 // Fail closed before any Checkout Session creation if QA markers cannot be guaranteed.
 assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE);
 
 async function post(path, body) {
-  const qaHeaders =
-    path === "/api/checkout"
-      ? assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE)
-      : {};
-  const res = await fetch(`${SITE}${path}`, {
+  const secretBearing = path === "/api/checkout";
+  const qaHeaders = secretBearing
+    ? assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE)
+    : {};
+  const url = `${SITE}${path}`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", ...qaHeaders },
     body: JSON.stringify(body),
+    ...(secretBearing ? { redirect: /** @type {RequestRedirect} */ ("manual") } : {}),
   });
+  if (secretBearing) {
+    assertNoRedirectEscape(res, url);
+  }
   const text = await res.text();
   let json = null;
   try {

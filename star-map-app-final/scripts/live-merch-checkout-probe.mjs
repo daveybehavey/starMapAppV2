@@ -9,11 +9,42 @@ import {
   assertQaCheckoutDispatchAllowed,
   LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE,
 } from "./qa-checkout-headers.mjs";
+import {
+  assertNoRedirectEscape,
+  assertTrustedLiveProbeSite,
+  CANONICAL_PRODUCTION_SITE_ORIGIN,
+} from "./qa-trusted-origin.mjs";
 
-const site = (process.argv.find((a, i) => process.argv[i - 1] === "--site") || "https://starmapco.com").replace(
-  /\/+$/,
-  "",
-);
+/**
+ * Resolve and canonicalize `--site` before any PRINT_ADMIN_TOKEN access.
+ * @param {string[]} [argv]
+ * @returns {string}
+ */
+export function resolveMerchProbeSite(argv = process.argv) {
+  const raw = argv.find((a, i) => argv[i - 1] === "--site") || CANONICAL_PRODUCTION_SITE_ORIGIN;
+  return assertTrustedLiveProbeSite(raw);
+}
+
+/**
+ * Build a secret-bearing checkout fetch init. Caller must already have validated
+ * the site via resolveMerchProbeSite / assertTrustedLiveProbeSite.
+ * Uses redirect:"manual" so credentials cannot follow a 3xx escape.
+ *
+ * @param {Record<string, unknown>} body
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ */
+export function buildQaCheckoutFetchInit(body, env = process.env) {
+  const headers = assertQaCheckoutDispatchAllowed(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE, env);
+  return {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+    body: JSON.stringify(body),
+    redirect: /** @type {RequestRedirect} */ ("manual"),
+  };
+}
 
 function ok(name, passed, detail = "") {
   // Aggregate/category-only details — never echo IDs or URLs.
@@ -22,22 +53,10 @@ function ok(name, passed, detail = "") {
   return passed;
 }
 
-/**
- * @param {Record<string, unknown>} body
- */
-function buildQaCheckoutFetchInit(body) {
-  const headers = assertQaCheckoutDispatchAllowed(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE);
-  return {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
-    body: JSON.stringify(body),
-  };
-}
-
 async function main() {
+  // Fail closed on untrusted --site before any admin-token read or attachment.
+  const site = resolveMerchProbeSite(process.argv);
+
   let failed = false;
   const run = (name, passed, detail) => {
     if (!ok(name, passed, detail)) failed = true;
@@ -106,6 +125,7 @@ async function main() {
     );
 
     // Session-creating paths require QA markers; stop before dispatch when unavailable.
+    // Token is only read after site trust above.
     let qaHeadersReady = true;
     try {
       assertQaCheckoutDispatchAllowed(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE);
@@ -120,8 +140,9 @@ async function main() {
 
     if (qaHeadersReady) {
       const fakeAsset = "00000000-0000-4000-8000-000000000001";
+      const checkoutUrl = `${site}/api/checkout`;
       const merchCheckout = await fetch(
-        `${site}/api/checkout`,
+        checkoutUrl,
         buildQaCheckoutFetchInit({
           mapId: mapJson.id,
           plan: "single",
@@ -133,6 +154,7 @@ async function main() {
           printAssetId: fakeAsset,
         }),
       );
+      assertNoRedirectEscape(merchCheckout, checkoutUrl);
       const merchJson = await merchCheckout.json().catch(() => ({}));
       const merchUrlOk =
         merchCheckout.status === 200 &&
@@ -145,7 +167,7 @@ async function main() {
       );
 
       const cardCheckout = await fetch(
-        `${site}/api/checkout`,
+        checkoutUrl,
         buildQaCheckoutFetchInit({
           mapId: mapJson.id,
           plan: "single",
@@ -157,6 +179,7 @@ async function main() {
           printAssetId: fakeAsset,
         }),
       );
+      assertNoRedirectEscape(cardCheckout, checkoutUrl);
       const cardJson = await cardCheckout.json().catch(() => ({}));
       run(
         "card add-on checkout (fake asset)",
@@ -173,11 +196,18 @@ async function main() {
   process.exit(failed ? 1 : 0);
 }
 
-main().catch((err) => {
-  const message = err instanceof Error ? err.message : String(err);
-  const safe = /(cs_|https?:\/\/|sk_|Bearer)/i.test(message)
-    ? "Live merch checkout probe failed (details redacted)."
-    : message;
-  console.error(safe);
-  process.exit(1);
-});
+const isDirectRun =
+  process.argv[1] &&
+  (process.argv[1].endsWith("live-merch-checkout-probe.mjs") ||
+    process.argv[1].includes("live-merch-checkout-probe"));
+
+if (isDirectRun) {
+  main().catch((err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    const safe = /(cs_|https?:\/\/|sk_|Bearer)/i.test(message)
+      ? "Live merch checkout probe failed (details redacted)."
+      : message;
+    console.error(safe);
+    process.exit(1);
+  });
+}
