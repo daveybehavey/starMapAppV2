@@ -39,13 +39,10 @@ import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/pri
 import { applyMarketingAttributionMetadata } from "@/lib/commerceAnalytics";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
-import {
-  isValidStripeCheckoutUrl,
-  stripeCheckoutHtmlRedirectBody,
-} from "@/lib/stripeCheckoutNavigation";
+import { isValidStripeCheckoutUrl, stripeCheckoutHtmlRedirectBody } from "@/lib/stripeCheckoutNavigation";
 import {
   applyQaCheckoutMetadata,
-  qaCheckoutIdempotencyTag,
+  appendCheckoutIdempotencyQaSegment,
   resolveQaRequestContext,
   type QaRequestContext,
 } from "@/lib/qaSession";
@@ -73,8 +70,7 @@ const configuredStripePromotionCodeId = process.env.STRIPE_PROMO_CODE_ID?.trim()
 const configuredReferralPromotionCodeId = process.env.STRIPE_REFERRAL_PROMO_CODE_ID?.trim() ?? "";
 const configuredReferralPromotionCodeIdAlt = process.env.STRIPE_REFERRAL_PROMO_CODE_ID_ALT?.trim() ?? "";
 const referralAutoOfferAltSplitPercent = parsePercentage(process.env.REFERRAL_AUTO_OFFER_ALT_SPLIT_PERCENT);
-const stripePaymentMethodConfigurationId =
-  process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID?.trim() ?? "";
+const stripePaymentMethodConfigurationId = process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID?.trim() ?? "";
 const MAP_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const printAllowedCountries = parseAllowedShippingCountries(process.env.PRINT_ALLOWED_COUNTRIES);
 const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_CHECKOUT_ENABLED || "").trim());
@@ -96,7 +92,9 @@ function siteOrigin() {
 
 function parseAllowedShippingCountries(raw: string | undefined) {
   const shippingMapFallback = getPrintfulShippingCountries().filter((token) => /^[A-Z]{2}$/.test(token));
-  const fallback = (shippingMapFallback.length ? shippingMapFallback : ["US"]) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
+  const fallback = (
+    shippingMapFallback.length ? shippingMapFallback : ["US"]
+  ) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
   if (!raw) return fallback;
   const parsed = raw
     .split(",")
@@ -119,7 +117,7 @@ function parsePercentage(raw: string | undefined) {
 
 function getPrintShippingOptionsForCountry(
   variant: PrintVariant,
-  shippingCountry: string | null,
+  shippingCountry: string | null
 ): {
   shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined;
   shippingChargeCents: number | null;
@@ -243,18 +241,14 @@ async function assertDigitalCheckoutMap(mapId: string | undefined, plan: Checkou
   if (plan === "subscription") return;
 
   if (!mapId) {
-    throw new CheckoutError(
-      "Create your map preview before starting checkout.",
-      "map_required",
-      400,
-    );
+    throw new CheckoutError("Create your map preview before starting checkout.", "map_required", 400);
   }
   const exists = await mapExists(mapId);
   if (!exists) {
     throw new CheckoutError(
       "We couldn't find that map. Open the editor, generate your preview, then retry checkout.",
       "map_not_found",
-      404,
+      404
     );
   }
 }
@@ -308,10 +302,16 @@ function shouldRetryCheckoutWithoutDiscount(error: unknown) {
   if (typeof stripeError.param === "string" && /promotion|discount|coupon/i.test(stripeError.param)) {
     return true;
   }
-  if (typeof stripeError.code === "string" && /promotion|discount|coupon|coupon_invalid/i.test(stripeError.code)) {
+  if (
+    typeof stripeError.code === "string" &&
+    /promotion|discount|coupon|coupon_invalid/i.test(stripeError.code)
+  ) {
     return true;
   }
-  if (typeof stripeError.message === "string" && /promotion code|discount|coupon/i.test(stripeError.message)) {
+  if (
+    typeof stripeError.message === "string" &&
+    /promotion code|discount|coupon/i.test(stripeError.message)
+  ) {
     return true;
   }
   return false;
@@ -337,7 +337,9 @@ type ReferralResolution = {
   referrerSessionId?: string;
 };
 
-function resolveExpandedPromotionCode(promotionCode: Stripe.PromotionCode | null | undefined): ResolvedPromotionCode | null {
+function resolveExpandedPromotionCode(
+  promotionCode: Stripe.PromotionCode | null | undefined
+): ResolvedPromotionCode | null {
   if (!promotionCode) return null;
   const coupon = typeof promotionCode.coupon === "string" ? null : promotionCode.coupon;
   if (!coupon || coupon.valid === false) return null;
@@ -380,7 +382,11 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
     return { invalid: false, lookupFailed: false };
   }
 
-  if (configuredPromoCode && configuredStripePromotionCodeId && trimmed.toUpperCase() === configuredPromoCode) {
+  if (
+    configuredPromoCode &&
+    configuredStripePromotionCodeId &&
+    trimmed.toUpperCase() === configuredPromoCode
+  ) {
     const configuredPromotion = await fetchPromotionCodeById(configuredStripePromotionCodeId);
     if (configuredPromotion) {
       return {
@@ -405,11 +411,12 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
       expand: ["data.coupon.applies_to"],
     });
 
-    const matched = list.data.find((item) =>
-      item.active &&
-      item.coupon?.valid !== false &&
-      typeof item.code === "string" &&
-      item.code.trim().toUpperCase() === trimmed.toUpperCase(),
+    const matched = list.data.find(
+      (item) =>
+        item.active &&
+        item.coupon?.valid !== false &&
+        typeof item.code === "string" &&
+        item.code.trim().toUpperCase() === trimmed.toUpperCase()
     );
 
     if (!matched?.id) {
@@ -461,7 +468,7 @@ async function getStripeProductIdForPrice(priceId?: string | null): Promise<stri
     .retrieve(normalizedPriceId, { expand: ["product"] })
     .then((price) => {
       const product = price.product;
-      return typeof product === "string" ? product : product?.id ?? null;
+      return typeof product === "string" ? product : (product?.id ?? null);
     })
     .catch((error) => {
       console.error("Stripe price lookup failed", { priceId: normalizedPriceId, error });
@@ -482,7 +489,10 @@ async function estimatePromotionDiscountCents(input: {
 
   const coupon = promotionCode.coupon;
   const normalizedCurrency = input.currency.trim().toLowerCase();
-  const lineItemSubtotalCents = input.lineItems.reduce((total, item) => total + Math.max(0, item.amountCents), 0);
+  const lineItemSubtotalCents = input.lineItems.reduce(
+    (total, item) => total + Math.max(0, item.amountCents),
+    0
+  );
 
   if (
     promotionCode.minimumAmount !== null &&
@@ -511,7 +521,11 @@ async function estimatePromotionDiscountCents(input: {
 
   if (eligibleSubtotalCents <= 0) return 0;
 
-  if (typeof coupon.percent_off === "number" && Number.isFinite(coupon.percent_off) && coupon.percent_off > 0) {
+  if (
+    typeof coupon.percent_off === "number" &&
+    Number.isFinite(coupon.percent_off) &&
+    coupon.percent_off > 0
+  ) {
     return Math.min(eligibleSubtotalCents, Math.ceil((eligibleSubtotalCents * coupon.percent_off) / 100));
   }
 
@@ -571,12 +585,11 @@ function normalizeNonCheckoutError(err: unknown): {
     (typeof anyErr.statusCode === "number" ? anyErr.statusCode : null) ??
     (typeof anyErr.status === "number" ? anyErr.status : null);
 
-  const status = typeof statusCandidate === "number" && Number.isFinite(statusCandidate) ? statusCandidate : fallbackStatus;
-  const base = codeCandidate
-    ? `stripe_${codeCandidate}`
-    : name
-      ? `stripe_${name}`
-      : "stripe_error";
+  const status =
+    typeof statusCandidate === "number" && Number.isFinite(statusCandidate)
+      ? statusCandidate
+      : fallbackStatus;
+  const base = codeCandidate ? `stripe_${codeCandidate}` : name ? `stripe_${name}` : "stripe_error";
   return { reason: base, status };
 }
 
@@ -632,39 +645,37 @@ function checkoutIdempotencyKey(input: {
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
-  const qaTag = qaCheckoutIdempotencyTag(input.qaContext);
-  return `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}:${qaTag}:${mapId}`;
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}`;
+  return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
-async function createCheckoutSession(
-  input: {
-    plan: CheckoutPlan;
-    mapId?: string;
-    printAssetId?: string;
-    cardPrintAssetId?: string;
-    promotionCodeId?: string;
-    resolvedPromotionCode?: ResolvedPromotionCode;
-    fallbackOnDiscountError?: boolean;
-    orderType?: CheckoutOrderType;
-    printVariant?: PrintVariant;
-    includeDigitalAddOn?: boolean;
-    includeCardAddOn?: boolean;
-    shippingCountry?: string;
-    clientCountry?: string | null;
-    referralCode?: string;
-    referrerSessionId?: string;
-    referralAttribution?: ReferralAttribution | null;
-    promotionSource?: PromotionSource;
-    referralAutoOfferVariant?: ReferralAutoOfferVariant;
-    checkoutSource?: string;
-    /** Presence-only: `browser` or `missing`. Never a raw client token. */
-    checkoutHandoff?: "browser" | "missing";
-    idempotencyKey?: string;
-    merchFamily?: MerchFamilyId;
-    merchOptions?: { size?: string; color?: string };
-    qaContext?: QaRequestContext;
-  },
-): Promise<CheckoutSessionResult> {
+async function createCheckoutSession(input: {
+  plan: CheckoutPlan;
+  mapId?: string;
+  printAssetId?: string;
+  cardPrintAssetId?: string;
+  promotionCodeId?: string;
+  resolvedPromotionCode?: ResolvedPromotionCode;
+  fallbackOnDiscountError?: boolean;
+  orderType?: CheckoutOrderType;
+  printVariant?: PrintVariant;
+  includeDigitalAddOn?: boolean;
+  includeCardAddOn?: boolean;
+  shippingCountry?: string;
+  clientCountry?: string | null;
+  referralCode?: string;
+  referrerSessionId?: string;
+  referralAttribution?: ReferralAttribution | null;
+  promotionSource?: PromotionSource;
+  referralAutoOfferVariant?: ReferralAutoOfferVariant;
+  checkoutSource?: string;
+  /** Presence-only: `browser` or `missing`. Never a raw client token. */
+  checkoutHandoff?: "browser" | "missing";
+  idempotencyKey?: string;
+  merchFamily?: MerchFamilyId;
+  merchOptions?: { size?: string; color?: string };
+  qaContext?: QaRequestContext;
+}): Promise<CheckoutSessionResult> {
   const {
     plan,
     mapId,
@@ -730,19 +741,17 @@ async function createCheckoutSession(
     throw new CheckoutError(
       "Shipping country is required for print checkout.",
       "missing_shipping_country",
-      400,
+      400
     );
   }
   const resolvedShippingCountry =
-    isPrintOrder && normalizedRequestedShippingCountry && allowedCountries.includes(normalizedRequestedShippingCountry)
+    isPrintOrder &&
+    normalizedRequestedShippingCountry &&
+    allowedCountries.includes(normalizedRequestedShippingCountry)
       ? normalizedRequestedShippingCountry
       : null;
   if (isPrintOrder && requestedShippingCountry && !resolvedShippingCountry) {
-    throw new CheckoutError(
-      "Unsupported shipping country.",
-      "print_shipping_country_invalid",
-      400,
-    );
+    throw new CheckoutError("Unsupported shipping country.", "print_shipping_country_invalid", 400);
   }
   const printShippingSelection =
     isPrintOrder && isMerchOrder && resolvedMerch
@@ -790,7 +799,8 @@ async function createCheckoutSession(
   if (referrerSessionId) metadata.referrer_session_id = referrerSessionId;
   if (referralCode && referralAttribution?.source) metadata.referral_source = referralAttribution.source;
   if (referralCode && referralAttribution?.medium) metadata.referral_medium = referralAttribution.medium;
-  if (referralCode && referralAttribution?.campaign) metadata.referral_campaign = referralAttribution.campaign;
+  if (referralCode && referralAttribution?.campaign)
+    metadata.referral_campaign = referralAttribution.campaign;
   if (referralCode && referralAttribution?.content) metadata.referral_content = referralAttribution.content;
   applyMarketingAttributionMetadata(metadata, referralAttribution ?? null);
   if (geoDigitalSingle) {
@@ -850,7 +860,7 @@ async function createCheckoutSession(
                   images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                 },
               },
-        }),
+            }),
         quantity: 1,
       });
       promotionEstimateLineItems.push({
@@ -894,7 +904,8 @@ async function createCheckoutSession(
               unit_amount: geoDigitalSingle.amountCents,
               product_data: {
                 name: "HD Star Map Download",
-                description: "Print-ready 6000×6000px star map • No watermark • Instant download • Perfect for framing",
+                description:
+                  "Print-ready 6000×6000px star map • No watermark • Instant download • Perfect for framing",
                 images: [`${siteUrl}/custom-star-map-anniversary.webp`],
               },
             },
@@ -916,7 +927,8 @@ async function createCheckoutSession(
                     currency: tier.currency,
                     unit_amount: tier.amountCents,
                     product_data: {
-                      name: effectivePlan === "pack3" ? "HD Star Map Export Credits (3)" : "HD Star Map Download",
+                      name:
+                        effectivePlan === "pack3" ? "HD Star Map Export Credits (3)" : "HD Star Map Download",
                       description:
                         effectivePlan === "pack3"
                           ? "3 HD export credits for your map versions • No watermark • Instant unlock"
@@ -942,7 +954,7 @@ async function createCheckoutSession(
       throw new CheckoutError(
         "That promo code does not apply to this print order.",
         "promotion_not_applicable",
-        400,
+        400
       );
     }
     estimatedPromotionDiscountCents = discountEstimate;
@@ -950,11 +962,17 @@ async function createCheckoutSession(
   }
 
   if (isPrintOrder && !isMerchOrder) {
-    const merchandiseSubtotalCents = promotionEstimateLineItems.reduce((sum, item) => sum + item.amountCents, 0);
-    const merchandiseAfterDiscountCents = Math.max(0, merchandiseSubtotalCents - estimatedPromotionDiscountCents);
+    const merchandiseSubtotalCents = promotionEstimateLineItems.reduce(
+      (sum, item) => sum + item.amountCents,
+      0
+    );
+    const merchandiseAfterDiscountCents = Math.max(
+      0,
+      merchandiseSubtotalCents - estimatedPromotionDiscountCents
+    );
     const freeShippingSelection = applyPrintFreeShippingToCheckout(
       { shippingOptions: printShippingOptions, shippingChargeCents: printShippingChargeCents },
-      merchandiseAfterDiscountCents,
+      merchandiseAfterDiscountCents
     );
     printShippingOptions = freeShippingSelection.shippingOptions;
     printShippingChargeCents = freeShippingSelection.shippingChargeCents;
@@ -977,7 +995,8 @@ async function createCheckoutSession(
       discountAmountCents: estimatedPromotionDiscountCents,
     });
     if (!marginCheck.allowed) {
-      const floorDollars = marginCheck.minMarginCents > 0 ? (marginCheck.minMarginCents / 100).toFixed(2) : "";
+      const floorDollars =
+        marginCheck.minMarginCents > 0 ? (marginCheck.minMarginCents / 100).toFixed(2) : "";
       const marginHint = floorDollars ? ` (min profit $${floorDollars})` : "";
       const baseMessage =
         marginCheck.code === "margin_estimate_unavailable"
@@ -988,7 +1007,7 @@ async function createCheckoutSession(
           ? `That promo code makes this print order unprofitable${marginHint}. Please remove the code or choose a different format.`
           : `${baseMessage}${marginHint} Please pick a different country or format.`,
         promotionCodeId ? "print_promotion_margin_blocked" : "print_margin_guard_blocked",
-        400,
+        400
       );
     }
   }
@@ -1019,12 +1038,11 @@ async function createCheckoutSession(
     },
     custom_text: {
       submit: {
-        message:
-          isPrintOrder
-            ? "Secure payment • Print order created after checkout"
-            : effectivePlan === "subscription"
-              ? "Secure payment • Cancel anytime • Instant access"
-              : "Secure payment • Instant access • No subscription",
+        message: isPrintOrder
+          ? "Secure payment • Print order created after checkout"
+          : effectivePlan === "subscription"
+            ? "Secure payment • Cancel anytime • Instant access"
+            : "Secure payment • Instant access • No subscription",
       },
       terms_of_service_acceptance: {
         message: `I agree to the [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy)`,
@@ -1036,7 +1054,9 @@ async function createCheckoutSession(
     shipping_address_collection: isPrintOrder
       ? {
           allowed_countries: resolvedShippingCountry
-            ? [resolvedShippingCountry as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry]
+            ? [
+                resolvedShippingCountry as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry,
+              ]
             : printAllowedCountries,
         }
       : undefined,
@@ -1048,7 +1068,7 @@ async function createCheckoutSession(
   try {
     session = await stripe.checkout.sessions.create(
       sessionParams,
-      idempotencyKey ? { idempotencyKey } : undefined,
+      idempotencyKey ? { idempotencyKey } : undefined
     );
   } catch (error) {
     if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error) || !fallbackOnDiscountError) {
@@ -1072,16 +1092,14 @@ async function createCheckoutSession(
       discounts: undefined,
       metadata: fallbackMetadata,
       subscription_data:
-        !isPrintOrder && effectivePlan === "subscription"
-          ? { metadata: fallbackMetadata }
-          : undefined,
+        !isPrintOrder && effectivePlan === "subscription" ? { metadata: fallbackMetadata } : undefined,
     };
     discountRejected = true;
     // Stripe idempotency keys must match request params — use a distinct key for the no-discount retry.
     const fallbackIdempotencyKey = idempotencyKey ? `${idempotencyKey}:no-discount` : undefined;
     session = await stripe.checkout.sessions.create(
       fallbackParams,
-      fallbackIdempotencyKey ? { idempotencyKey: fallbackIdempotencyKey } : undefined,
+      fallbackIdempotencyKey ? { idempotencyKey: fallbackIdempotencyKey } : undefined
     );
   }
 
@@ -1106,7 +1124,7 @@ export async function GET(req: NextRequest) {
   if (qaContext.status === "unauthorized") {
     return NextResponse.json(
       { error: "QA checkout requires a valid admin token.", code: "qa_auth_required" },
-      { status: 401 },
+      { status: 401 }
     );
   }
 
@@ -1122,9 +1140,7 @@ export async function GET(req: NextRequest) {
   const shippingCountryParam = req.nextUrl.searchParams.get("shipping_country");
   const printAssetIdParam = req.nextUrl.searchParams.get("print_asset_id");
   const referralParam =
-    req.nextUrl.searchParams.get("ref") ??
-    req.nextUrl.searchParams.get("referral_code") ??
-    undefined;
+    req.nextUrl.searchParams.get("ref") ?? req.nextUrl.searchParams.get("referral_code") ?? undefined;
   const plan: CheckoutPlan =
     planParam && ["single", "pack3", "subscription"].includes(planParam)
       ? (planParam as CheckoutPlan)
@@ -1134,12 +1150,16 @@ export async function GET(req: NextRequest) {
   const includeDigitalAddOn = parseBoolean(includeDigitalAddOnParam, false);
   const includeCardAddOn = parseBoolean(includeCardAddOnParam, false);
   const merchFamily =
-    merchFamilyParam && isMerchFamilyId(merchFamilyParam.trim()) ? (merchFamilyParam.trim() as MerchFamilyId) : undefined;
+    merchFamilyParam && isMerchFamilyId(merchFamilyParam.trim())
+      ? (merchFamilyParam.trim() as MerchFamilyId)
+      : undefined;
   const merchSize = merchSizeParam?.trim() || undefined;
   const merchColor = merchColorParam?.trim() || undefined;
   const shippingCountry = shippingCountryParam ? shippingCountryParam.trim().toUpperCase() : undefined;
   const printAssetId =
-    printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim()) ? printAssetIdParam.trim() : undefined;
+    printAssetIdParam && PRINT_ASSET_ID_REGEX.test(printAssetIdParam.trim())
+      ? printAssetIdParam.trim()
+      : undefined;
   const cardPrintAssetIdParam = req.nextUrl.searchParams.get("card_print_asset_id");
   const cardPrintAssetId =
     cardPrintAssetIdParam && PRINT_ASSET_ID_REGEX.test(cardPrintAssetIdParam.trim())
@@ -1153,11 +1173,12 @@ export async function GET(req: NextRequest) {
   const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const referralAutoOffer = resolveReferralAutoOffer(referral.code);
-  const promotion = orderType === "digital" && plan === "subscription"
-    ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-    : canUseManualPromotionCode(orderType, plan)
-      ? await resolvePromotionCodeId(promoCodeParam)
-      : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+  const promotion =
+    orderType === "digital" && plan === "subscription"
+      ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
+      : canUseManualPromotionCode(orderType, plan)
+        ? await resolvePromotionCodeId(promoCodeParam)
+        : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
   const selectedPromotion = selectCheckoutPromotion({
     manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
     referralCode: referral.code,
@@ -1168,7 +1189,7 @@ export async function GET(req: NextRequest) {
   if (orderType === "print" && !printCheckoutEnabled) {
     return NextResponse.json(
       { error: "Print checkout is not enabled yet.", code: "print_checkout_disabled" },
-      { status: 503 },
+      { status: 503 }
     );
   }
   const recipeFingerprint = normalizeRecipeFingerprint(req.nextUrl.searchParams.get("recipe_fingerprint"));
@@ -1193,14 +1214,20 @@ export async function GET(req: NextRequest) {
     : undefined;
   if (orderType === "print" && !resolvedPrintAssetId) {
     return NextResponse.json(
-      { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
-      { status: 400 },
+      {
+        error: "Could not prepare print file. Please reopen checkout and try again.",
+        code: "missing_print_asset",
+      },
+      { status: 400 }
     );
   }
   if (normalizedCardAddOnGet && !resolvedCardPrintAssetId) {
     return NextResponse.json(
-      { error: "Could not prepare greeting card artwork. Please retry checkout.", code: "missing_card_print_asset" },
-      { status: 400 },
+      {
+        error: "Could not prepare greeting card artwork. Please retry checkout.",
+        code: "missing_card_print_asset",
+      },
+      { status: 400 }
     );
   }
   if (orderType !== "print") {
@@ -1237,7 +1264,8 @@ export async function GET(req: NextRequest) {
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
-      referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      referralAutoOfferVariant:
+        selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       checkoutSource: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       checkoutHandoff: "missing",
       merchFamily,
@@ -1287,7 +1315,10 @@ export async function GET(req: NextRequest) {
     });
     console.error("Stripe checkout error", err);
     // Keep response `code` stable for the UI, while analytics use deterministic `reason`.
-    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: normalized.status });
+    return NextResponse.json(
+      { error: "Checkout failed", code: "unknown_error" },
+      { status: normalized.status }
+    );
   }
 }
 
@@ -1306,7 +1337,7 @@ export async function POST(req: NextRequest) {
   if (qaContext.status === "unauthorized") {
     return NextResponse.json(
       { error: "QA checkout requires a valid admin token.", code: "qa_auth_required" },
-      { status: 401 },
+      { status: 401 }
     );
   }
 
@@ -1406,7 +1437,7 @@ export async function POST(req: NextRequest) {
     if (orderType === "print" && !printCheckoutEnabled) {
       return NextResponse.json(
         { error: "Print checkout is not enabled yet.", code: "print_checkout_disabled" },
-        { status: 503 },
+        { status: 503 }
       );
     }
     const resolvedPrintAssetId = await resolveCheckoutPrintAssetId({
@@ -1430,34 +1461,41 @@ export async function POST(req: NextRequest) {
       : undefined;
     if (orderType === "print" && !resolvedPrintAssetId) {
       return NextResponse.json(
-        { error: "Could not prepare print file. Please reopen checkout and try again.", code: "missing_print_asset" },
-        { status: 400 },
+        {
+          error: "Could not prepare print file. Please reopen checkout and try again.",
+          code: "missing_print_asset",
+        },
+        { status: 400 }
       );
     }
     if (normalizedCardAddOn && !resolvedCardPrintAssetId) {
       return NextResponse.json(
-        { error: "Could not prepare greeting card artwork. Please retry checkout.", code: "missing_card_print_asset" },
-        { status: 400 },
+        {
+          error: "Could not prepare greeting card artwork. Please retry checkout.",
+          code: "missing_card_print_asset",
+        },
+        { status: 400 }
       );
     }
     if (orderType !== "print") {
-        await assertDigitalCheckoutMap(mapId, plan);
+      await assertDigitalCheckoutMap(mapId, plan);
     }
-    const promotion = orderType === "digital" && plan === "subscription"
-      ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-      : canUseManualPromotionCode(orderType, plan)
-        ? await resolvePromotionCodeId(promoCode)
-        : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+    const promotion =
+      orderType === "digital" && plan === "subscription"
+        ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
+        : canUseManualPromotionCode(orderType, plan)
+          ? await resolvePromotionCodeId(promoCode)
+          : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
     if (promoCode && promotion.invalid) {
       return NextResponse.json(
         { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
-        { status: 400 },
+        { status: 400 }
       );
     }
     if (promoCode && promotion.lookupFailed) {
       return NextResponse.json(
         { error: "Could not verify promotion code. Please try again.", code: "promotion_lookup_failed" },
-        { status: 503 },
+        { status: 503 }
       );
     }
     const selectedPromotion = selectCheckoutPromotion({
@@ -1523,7 +1561,8 @@ export async function POST(req: NextRequest) {
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
-      referralAutoOfferVariant: selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
+      referralAutoOfferVariant:
+        selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       checkoutSource: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       checkoutHandoff,
       idempotencyKey: idempotencyKey ?? undefined,
@@ -1548,7 +1587,7 @@ export async function POST(req: NextRequest) {
       if (!rejectedUrl || !isValidStripeCheckoutUrl(rejectedUrl)) {
         return NextResponse.json(
           { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
-          { status: 500 },
+          { status: 500 }
         );
       }
       return NextResponse.json({
@@ -1588,7 +1627,7 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json(
         { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -1597,7 +1636,9 @@ export async function POST(req: NextRequest) {
       promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
       referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
       referralOfferVariant:
-        selectedPromotion.source === "referral_auto" && !session.discountRejected ? referralAutoOffer.variant ?? null : null,
+        selectedPromotion.source === "referral_auto" && !session.discountRejected
+          ? (referralAutoOffer.variant ?? null)
+          : null,
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
     });
   } catch (err) {
@@ -1617,6 +1658,9 @@ export async function POST(req: NextRequest) {
       plan: orderType === "print" ? printVariant : plan,
     });
     console.error("Stripe checkout error", err);
-    return NextResponse.json({ error: "Checkout failed", code: "unknown_error" }, { status: normalized.status });
+    return NextResponse.json(
+      { error: "Checkout failed", code: "unknown_error" },
+      { status: normalized.status }
+    );
   }
 }

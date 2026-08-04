@@ -4,7 +4,7 @@
  * Creates map + print asset + Stripe Checkout sessions via live API; verifies metadata via Stripe API.
  * Every created Checkout Session must carry QA markers (fail-closed before session create).
  */
-import { loadDotenv } from "./load-dotenv.mjs";
+import { loadDotenv, peekDotenvValue } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
 import {
   assertQaCheckoutDispatchAllowed,
@@ -14,9 +14,45 @@ import {
   assertNoRedirectEscape,
   assertTrustedLiveProbeSite,
   CANONICAL_PRODUCTION_SITE_ORIGIN,
+  createSecretBearingFetch,
+  resolveTrustedSiteUrlBeforeSecrets,
 } from "./qa-trusted-origin.mjs";
 
-loadDotenv();
+export {
+  assertTrustedLiveProbeSite,
+  resolveTrustedSiteUrlBeforeSecrets,
+  CANONICAL_PRODUCTION_SITE_ORIGIN,
+} from "./qa-trusted-origin.mjs";
+
+/**
+ * Establish trusted SITE_URL before any token-bearing dotenv load.
+ * Hostile/malformed site input fails before PRINT_ADMIN_TOKEN can be read from dotenv files.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @param {{
+ *   peekSiteUrl?: () => string | undefined,
+ *   loadSecrets?: () => void,
+ * }} [hooks]
+ */
+export function bootstrapTrustedC1M1Site(env = process.env, hooks = {}) {
+  const peekSiteUrl =
+    typeof hooks.peekSiteUrl === "function" ? hooks.peekSiteUrl : () => peekDotenvValue("SITE_URL");
+  const loadSecrets =
+    typeof hooks.loadSecrets === "function"
+      ? hooks.loadSecrets
+      : () => {
+          loadDotenv();
+        };
+  return resolveTrustedSiteUrlBeforeSecrets({
+    env,
+    readSiteUrlFromFiles: peekSiteUrl,
+    loadSecrets,
+  });
+}
+
+// Validate/canonicalize SITE_URL before any PRINT_ADMIN_TOKEN-bearing dotenv load.
+const SITE = bootstrapTrustedC1M1Site(process.env);
+
 const wranglerVars = await readWranglerVars(process.cwd());
 for (const [key, value] of Object.entries(wranglerVars)) {
   if (process.env[key] === undefined) {
@@ -27,8 +63,6 @@ for (const [key, value] of Object.entries(wranglerVars)) {
 import { loadQaPrintAssetDataUrl, uploadQaPrintAsset } from "./qa-print-asset.mjs";
 import { isQaStripeSession } from "../src/lib/commerceAnalyticsQa.mjs";
 
-// Validate/canonicalize SITE_URL before any PRINT_ADMIN_TOKEN read or attachment.
-const SITE = assertTrustedLiveProbeSite(process.env.SITE_URL || CANONICAL_PRODUCTION_SITE_ORIGIN);
 const printAssetDataUrl = loadQaPrintAssetDataUrl("proof");
 
 // Fail closed before any Checkout Session creation if QA markers cannot be guaranteed.
@@ -75,7 +109,9 @@ async function retrieveStripeSession(sessionId) {
   const secret = process.env.STRIPE_SECRET_KEY?.trim();
   if (!secret || !sessionId) return null;
   const Stripe = (await import("stripe")).default;
-  const stripe = new Stripe(secret);
+  const stripe = new Stripe(secret, {
+    httpClient: Stripe.createFetchHttpClient(createSecretBearingFetch()),
+  });
   return stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["line_items", "shipping_cost", "shipping_options"],
   });

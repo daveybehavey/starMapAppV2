@@ -1,5 +1,6 @@
 export {
   applyQaCheckoutMetadata,
+  appendCheckoutIdempotencyQaSegment,
   normalizeQaSource,
   qaCheckoutIdempotencyTag,
   resolveQaRequestContext,

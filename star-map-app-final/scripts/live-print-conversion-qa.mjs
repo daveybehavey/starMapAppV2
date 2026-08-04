@@ -22,12 +22,14 @@ import {
   assertNoRedirectEscape,
   assertTrustedLiveProbeSite,
   CANONICAL_PRODUCTION_SITE_ORIGIN,
+  createSecretBearingFetch,
 } from "./qa-trusted-origin.mjs";
 
 export {
   assertNoRedirectEscape,
   assertTrustedLiveProbeSite,
   CANONICAL_PRODUCTION_SITE_ORIGIN,
+  createSecretBearingFetch,
 } from "./qa-trusted-origin.mjs";
 
 const DEFAULT_SITE = CANONICAL_PRODUCTION_SITE_ORIGIN;
@@ -458,12 +460,17 @@ export function extractCheckoutSessionIdFromPayPath(checkoutUrl) {
  * @param {string} checkoutUrl
  * @param {string} stripeSecret
  */
-export async function verifyCreatedSessionQaMetadata(checkoutUrl, stripeSecret) {
+export async function verifyCreatedSessionQaMetadata(
+  checkoutUrl,
+  stripeSecret,
+  fetchImpl = globalThis.fetch
+) {
   const sessionId = extractCheckoutSessionIdFromPayPath(checkoutUrl);
   const Stripe = (await import("stripe")).default;
+  const secretBearingFetch = createSecretBearingFetch(fetchImpl);
   const stripe = new Stripe(stripeSecret, {
     apiVersion: "2024-06-20",
-    httpClient: Stripe.createFetchHttpClient(),
+    httpClient: Stripe.createFetchHttpClient(secretBearingFetch),
     timeout: 20_000,
   });
   const session = await stripe.checkout.sessions.retrieve(sessionId);

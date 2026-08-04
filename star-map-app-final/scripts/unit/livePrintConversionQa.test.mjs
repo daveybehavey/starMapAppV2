@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { isQaStripeSession } from "../../src/lib/commerceAnalyticsQa.mjs";
 import {
   applyQaCheckoutMetadata,
+  appendCheckoutIdempotencyQaSegment,
   normalizeQaSource,
   qaCheckoutIdempotencyTag,
   resolveQaRequestContext,
@@ -25,6 +26,7 @@ import {
   buildQaTaggedCheckoutRequest,
   CANONICAL_PRODUCTION_SITE_ORIGIN,
   containsSensitiveOperatorText,
+  createSecretBearingFetch,
   extractCheckoutSessionIdFromPayPath,
   formatAggregateReport,
   main,
@@ -40,7 +42,9 @@ import { buildQaCheckoutFetchInit, resolveMerchProbeSite } from "../live-merch-c
 import {
   assertNoRedirectEscape as assertNoRedirectEscapeShared,
   assertTrustedLiveProbeSite as assertTrustedLiveProbeSiteShared,
+  resolveTrustedSiteUrlBeforeSecrets,
 } from "../qa-trusted-origin.mjs";
+import { peekDotenvValue } from "../load-dotenv.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SCRIPT_PATH = path.join(ROOT, "scripts/live-print-conversion-qa.mjs");
@@ -184,7 +188,7 @@ test("ordinary buyer sessions remain unchanged without QA headers", () => {
   assert.equal(metadata.qa_run, undefined);
   assert.equal(metadata.qa_source, undefined);
   assert.equal(isQaStripeSession({ metadata }), false);
-  assert.equal(qaCheckoutIdempotencyTag(absent), "buyer");
+  assert.equal(qaCheckoutIdempotencyTag(absent), "");
 });
 
 test("isQaStripeSession recognizes live_print_conversion_checkout_only marker", () => {
@@ -223,8 +227,11 @@ test("checkout API wires fail-closed QA headers into session metadata", () => {
   assert.match(route, /resolveQaRequestContext/);
   assert.match(route, /applyQaCheckoutMetadata/);
   assert.match(route, /qa_auth_required/);
-  assert.match(route, /qaCheckoutIdempotencyTag/);
+  assert.match(route, /appendCheckoutIdempotencyQaSegment/);
   assert.match(route, /qaContext/);
+  // Ordinary buyer keys must not insert a permanent "buyer" discriminator segment.
+  assert.equal(route.includes(":${qaTag}:${mapId}"), false);
+  assert.equal(route.includes('"buyer"'), false);
 
   const unauthorized = resolveQaRequestContext(
     new Headers({
@@ -272,9 +279,10 @@ test("existing live checkout probes QA-tag or stop before session creation", () 
   assert.match(merch, /assertNoRedirectEscape/);
   assert.match(proof, /assertQaCheckoutDispatchAllowed/);
   assert.match(proof, /LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE|live_c1_m1_checkout_proof/);
-  assert.match(proof, /assertTrustedLiveProbeSite/);
+  assert.match(proof, /bootstrapTrustedC1M1Site|resolveTrustedSiteUrlBeforeSecrets/);
   assert.match(proof, /redirect:\s*(?:\/\*\*[^*]*\*\/\s*)?\(?["']manual["']\)?/);
   assert.match(proof, /assertNoRedirectEscape/);
+  assert.match(proof, /createSecretBearingFetch/);
   // Runtime call order: trusted site before first assertQaCheckoutDispatchAllowed invocation.
   assert.match(
     merch,
@@ -282,8 +290,13 @@ test("existing live checkout probes QA-tag or stop before session creation", () 
   );
   assert.match(
     proof,
-    /const SITE = assertTrustedLiveProbeSite\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE\)/
+    /const SITE = bootstrapTrustedC1M1Site\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE\)/
   );
+  // Token-bearing dotenv must not run before site bootstrap.
+  const bootstrapIdx = proof.indexOf("bootstrapTrustedC1M1Site(process.env)");
+  const loadDotenvInBootstrap = proof.indexOf("loadDotenv();");
+  assert.ok(bootstrapIdx >= 0);
+  assert.ok(loadDotenvInBootstrap > bootstrapIdx || proof.includes("loadSecrets"));
 });
 
 test("missing Stripe verification capability fails before session creation", () => {
@@ -359,6 +372,15 @@ test("trusted live probe site rejects HTTP, deceptive hosts, credentials, ports,
     "https://starmapco.com#frag",
     "https://starmapco.ca",
     "not-a-url",
+    // Reviewer examples: raw syntax erased by URL normalization must still fail.
+    "https://starmapco.com/foo/..",
+    "https://starmapco.com/%2e%2e",
+    "https://starmapco.com?",
+    "https://starmapco.com#",
+    "https://starmapco.com/.",
+    "https://starmapco.com/..",
+    "HTTPS://starmapco.com",
+    "https://StarMapCo.com",
   ];
   for (const site of rejects) {
     assert.throws(() => assertTrustedLiveProbeSite(site), /BLOCKER/, site);
@@ -585,4 +607,157 @@ test("parseArgs defaults to both variants in checkout-only mode and validates --
   assert.deepEqual(framedOnly.variants, ["poster_framed"]);
   assert.equal(parseArgs(["--site", "https://starmapco.com"]).site, CANONICAL_PRODUCTION_SITE_ORIGIN);
   assert.throws(() => parseArgs(["--site", "https://starmapco.example"]), /BLOCKER/);
+  assert.throws(() => parseArgs(["--site", "https://starmapco.com/foo/.."]), /BLOCKER/);
+  assert.throws(() => parseArgs(["--site", "https://starmapco.com?"]), /BLOCKER/);
+});
+
+test("hostile SITE_URL fails before token-bearing dotenv load", () => {
+  let peeked = false;
+  let secretsLoaded = false;
+  let tokenAccessed = false;
+  const env = new Proxy(
+    { SITE_URL: "https://starmapco.example", PRINT_ADMIN_TOKEN: "c1-token-must-not-load" },
+    {
+      get(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.get(target, prop);
+      },
+      has(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.has(target, prop);
+      },
+    }
+  );
+
+  assert.throws(
+    () =>
+      resolveTrustedSiteUrlBeforeSecrets({
+        env,
+        readSiteUrlFromFiles: () => {
+          peeked = true;
+          return undefined;
+        },
+        loadSecrets: () => {
+          secretsLoaded = true;
+        },
+      }),
+    /BLOCKER/
+  );
+  assert.equal(peeked, false, "must not consult dotenv files when SITE_URL is already present");
+  assert.equal(secretsLoaded, false);
+  assert.equal(tokenAccessed, false);
+
+  // Hostile SITE_URL only from files: peek may run, but secrets must not load.
+  assert.throws(
+    () =>
+      resolveTrustedSiteUrlBeforeSecrets({
+        env: {},
+        readSiteUrlFromFiles: () => "https://starmapco.com/foo/..",
+        loadSecrets: () => {
+          secretsLoaded = true;
+        },
+      }),
+    /BLOCKER/
+  );
+  assert.equal(secretsLoaded, false);
+
+  // Canonical site allows secrets load exactly once after trust.
+  let loads = 0;
+  const trusted = resolveTrustedSiteUrlBeforeSecrets({
+    env: { SITE_URL: CANONICAL_PRODUCTION_SITE_ORIGIN },
+    readSiteUrlFromFiles: () => {
+      peeked = true;
+      return undefined;
+    },
+    loadSecrets: () => {
+      loads += 1;
+    },
+  });
+  assert.equal(trusted, CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.equal(loads, 1);
+});
+
+test("peekDotenvValue materializes only the requested key", () => {
+  const tmp = path.join(os.tmpdir(), `qa-site-peek-${Date.now()}.env`);
+  fs.writeFileSync(
+    tmp,
+    [
+      "PRINT_ADMIN_TOKEN=secret-admin-token-value",
+      "SITE_URL=https://starmapco.com",
+      "STRIPE_SECRET_KEY=sk_test_x",
+    ].join("\n")
+  );
+  try {
+    const filesRead = [];
+    const site = peekDotenvValue("SITE_URL", {
+      paths: [tmp],
+      onFileRead: (filePath) => filesRead.push(filePath),
+    });
+    assert.equal(site, "https://starmapco.com");
+    assert.deepEqual(filesRead, [tmp]);
+    assert.equal(process.env.PRINT_ADMIN_TOKEN === "secret-admin-token-value", false);
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+});
+
+test("Stripe metadata retrieval fetch refuses redirects without contacting Stripe", async () => {
+  let sawRedirectManual = false;
+  /** @type {string | undefined} */
+  let requestedUrl;
+  const fakeFetch = async (input, init = {}) => {
+    requestedUrl = typeof input === "string" ? input : input?.url || String(input);
+    sawRedirectManual = init?.redirect === "manual";
+    return new Response("", {
+      status: 302,
+      headers: { Location: "https://evil.example/steal" },
+    });
+  };
+  const wrapped = createSecretBearingFetch(fakeFetch);
+  await assert.rejects(
+    async () => wrapped("https://api.stripe.com/v1/checkout/sessions/cs_test_x"),
+    /redirect/
+  );
+  assert.equal(sawRedirectManual, true);
+  assert.match(String(requestedUrl), /api\.stripe\.com/);
+
+  // 200 responses pass through.
+  const okFetch = createSecretBearingFetch(async (_input, init = {}) => {
+    assert.equal(init.redirect, "manual");
+    return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  });
+  const okRes = await okFetch("https://api.stripe.com/v1/checkout/sessions/cs_test_ok");
+  assert.equal(okRes.status, 200);
+
+  // verifyCreatedSessionQaMetadata must wire the secret-bearing fetch client (no live Stripe).
+  const source = fs.readFileSync(SCRIPT_PATH, "utf8");
+  assert.match(source, /createSecretBearingFetch/);
+  assert.match(source, /Stripe\.createFetchHttpClient\(secretBearingFetch\)/);
+  assert.match(fs.readFileSync(C1_M1_PROOF, "utf8"), /createSecretBearingFetch/);
+});
+
+test("ordinary buyer idempotency keys preserve pre-PR format; QA keys stay isolated", () => {
+  const mapId = "00000000-0000-4000-8000-000000000001";
+  const prefix = "checkout:idempotency:url:";
+  // Pre-PR shape ends with :{shipping}:{promo}:{referral}:{mapId} and has no qa/buyer tag.
+  const baseWithoutMapId = `${prefix}print:single:poster_framed:1:0::::us::`;
+  const prePrBuyerKey = `${baseWithoutMapId}:${mapId}`;
+
+  assert.equal(
+    appendCheckoutIdempotencyQaSegment(baseWithoutMapId, { enabled: false, status: "absent" }, mapId),
+    prePrBuyerKey
+  );
+  assert.equal(appendCheckoutIdempotencyQaSegment(baseWithoutMapId, null, mapId), prePrBuyerKey);
+  assert.equal(prePrBuyerKey.includes(":buyer:"), false);
+  assert.equal(qaCheckoutIdempotencyTag({ enabled: false }), "");
+  assert.equal(qaCheckoutIdempotencyTag(null), "");
+
+  const qaKey = appendCheckoutIdempotencyQaSegment(
+    baseWithoutMapId,
+    { enabled: true, source: LIVE_PRINT_CONVERSION_QA_SOURCE, status: "enabled" },
+    mapId
+  );
+  assert.equal(qaKey, `${baseWithoutMapId}:qa:${mapId}`);
+  assert.notEqual(qaKey, prePrBuyerKey);
+  assert.equal(qaCheckoutIdempotencyTag({ enabled: true }), "qa");
 });

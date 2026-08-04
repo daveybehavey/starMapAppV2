@@ -77,10 +77,29 @@ export function applyQaCheckoutMetadata(metadata, qaContext) {
 }
 
 /**
- * Idempotency segment so QA-tagged sessions never reuse ordinary buyer cached URLs (and vice versa).
+ * Idempotency segment so QA-tagged sessions never reuse ordinary buyer cached URLs.
+ * Returns `"qa"` only when QA context is authenticated/enabled; otherwise `""`
+ * so ordinary buyer keys keep the pre-QA-PR byte-for-byte format.
  *
  * @param {{ enabled?: boolean } | null | undefined} qaContext
  */
 export function qaCheckoutIdempotencyTag(qaContext) {
-  return qaContext?.enabled ? "qa" : "buyer";
+  return qaContext?.enabled ? "qa" : "";
+}
+
+/**
+ * Compose the trailing mapId segment of a checkout idempotency key.
+ * Ordinary buyer: `${base}:${mapId}` (pre-PR contract).
+ * QA enabled: `${base}:qa:${mapId}`.
+ *
+ * @param {string} baseWithoutMapId
+ * @param {{ enabled?: boolean } | null | undefined} qaContext
+ * @param {string} mapId
+ */
+export function appendCheckoutIdempotencyQaSegment(baseWithoutMapId, qaContext, mapId) {
+  const tag = qaCheckoutIdempotencyTag(qaContext);
+  if (tag) {
+    return `${baseWithoutMapId}:${tag}:${mapId}`;
+  }
+  return `${baseWithoutMapId}:${mapId}`;
 }
