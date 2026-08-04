@@ -28,7 +28,21 @@ import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
-import { sendCheckoutRecoveryAlert } from "@/lib/checkoutRecoveryAlerts";
+import {
+  applyCheckoutRecoveryDeliveredSessionFields,
+  buildCheckoutRecoveryAttemptRecord,
+  checkoutRecoveryEmailAttemptKey,
+  checkoutRecoveryEmailDeliveredKey,
+  checkoutRecoveryProviderDispatchSuppressedResult,
+  CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS,
+  CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS,
+  createCheckoutRecoveryAttemptId,
+  evaluateCheckoutRecoveryProviderDispatchGate,
+  isCheckoutRecoveryDeliveredMarker,
+  isCheckoutRecoveryWebhookRetryable,
+  sendCheckoutRecoveryAlert,
+  type CheckoutRecoveryRetryability,
+} from "@/lib/checkoutRecoveryAlerts";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import { upsertAccountLiteEmailSession } from "@/lib/accountLite";
 import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
@@ -110,6 +124,10 @@ type SessionRecord = {
   recoveryEmailSentAt?: number;
   recoveryEmailProvider?: string;
   recoveryEmailError?: string;
+  recoveryEmailErrorCode?: string;
+  recoveryEmailRetryability?: CheckoutRecoveryRetryability;
+  recoveryEmailLastAttemptAt?: number;
+  recoveryEmailAttemptCount?: number;
   accessEmailSentAt?: number;
   accessEmailProvider?: string;
   accessEmailError?: string;
@@ -144,8 +162,6 @@ const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const chargeKey = (id: string) => `stripe:charge:${id}`;
 const subscriptionKey = (id: string) => `stripe:sub:${id}`;
-const recoveryEmailKey = (id: string) => `stripe:checkout_recovery:email:${id}`;
-const RECOVERY_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 const accessEmailKey = (id: string) => ENTITLEMENT_KV.accessEmailDedupe(id);
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 const WEBHOOK_EVENT_DEDUPE_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -1079,8 +1095,12 @@ async function hydrateExpiredSession(session: Stripe.Checkout.Session) {
   }
 }
 
-async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, eventCreated: number) {
-  if (!session.id) return;
+async function handleExpiredCheckoutSession(
+  session: Stripe.Checkout.Session,
+  eventCreated: number,
+  eventId?: string,
+): Promise<{ retryable: boolean }> {
+  if (!session.id) return { retryable: false };
 
   const hydrated = await hydrateExpiredSession(session);
   const orderType = getOrderType(hydrated);
@@ -1096,8 +1116,9 @@ async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, ev
       : eventCreated * 1000;
   const existing = await kv.get<SessionRecord>(sessionKey(hydrated.id));
 
-  const nextRecord: SessionRecord = {
-    ...existing,
+  // Used only for confirmed-delivery success writes. Non-delivered / already-delivered /
+  // observed-winner paths must not rewrite sessionKey (stale repairs erased provider).
+  const expiredBase: SessionRecord = {
     paid: false,
     created:
       existing?.created ??
@@ -1117,38 +1138,124 @@ async function handleExpiredCheckoutSession(session: Stripe.Checkout.Session, ev
     recoveryUrl,
   };
 
-  if (recoveryUrl && customerEmail && !existing?.recoveryEmailSentAt) {
-    const shouldSend = await kv.incr(recoveryEmailKey(hydrated.id), 1, { ex: RECOVERY_EMAIL_TTL_SECONDS });
-    if (shouldSend === 1) {
-      const alertResult = await sendCheckoutRecoveryAlert({
-        sessionId: hydrated.id,
-        email: customerEmail,
-        recoveryUrl,
-        orderType,
-        plan: plan ?? undefined,
-        printVariant,
-        includesDigitalAddOn: hasDigitalAddOn,
-        amountTotal: hydrated.amount_total,
-        currency: hydrated.currency,
+  let recoveryOutcome: CheckoutRecoveryRetryability | "skipped" | "already_delivered" = "skipped";
+  let wroteSuccessSession = false;
+
+  if (recoveryUrl && customerEmail) {
+    const deliveredMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
+    const sessionAlreadySucceeded = Boolean(existing?.recoveryEmailSentAt);
+    const markerPresent = isCheckoutRecoveryDeliveredMarker(deliveredMarker);
+
+    if (sessionAlreadySucceeded || markerPresent) {
+      recoveryOutcome = "already_delivered";
+      // Session success without marker: backfill marker only — never rewrite sessionKey.
+      if (sessionAlreadySucceeded && !markerPresent) {
+        await kv.set(
+          checkoutRecoveryEmailDeliveredKey(hydrated.id),
+          { delivered: true as const, at: existing!.recoveryEmailSentAt as number },
+          { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+        );
+      }
+      // Marker-only (session not yet visible): acknowledge without touching sessionKey.
+    } else {
+      const attemptId = createCheckoutRecoveryAttemptId();
+      // Bound Resend dispatch to event.created + safe window inside Resend's 24h
+      // Idempotency-Key retention. Past the deadline (or untrusted event.created): fail
+      // closed without calling Resend — prefer no late duplicate over a possibly-missed send.
+      const dispatchGate = evaluateCheckoutRecoveryProviderDispatchGate({
+        eventCreatedSeconds: eventCreated,
+        nowMs: Date.now(),
       });
+      const alertResult = dispatchGate.allowed
+        ? await sendCheckoutRecoveryAlert({
+            sessionId: hydrated.id,
+            email: customerEmail,
+            recoveryUrl,
+            orderType,
+            plan: plan ?? undefined,
+            printVariant,
+            includesDigitalAddOn: hasDigitalAddOn,
+            amountTotal: hydrated.amount_total,
+            currency: hydrated.currency,
+          })
+        : checkoutRecoveryProviderDispatchSuppressedResult(
+            dispatchGate.errorCode ?? "untrusted_event_created"
+          );
+
+      const attemptRecord = buildCheckoutRecoveryAttemptRecord({
+        attemptId,
+        result: alertResult,
+        eventId,
+      });
+      await kv.set(checkoutRecoveryEmailAttemptKey(hydrated.id, attemptId), attemptRecord, {
+        ex: CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS,
+      });
+
       if (alertResult.delivered) {
-        nextRecord.recoveryEmailSentAt = Date.now();
-        nextRecord.recoveryEmailProvider = alertResult.provider;
-        nextRecord.recoveryEmailError = undefined;
+        const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult);
+        // Persist canonical success before the separate delivered marker, using a durable
+        // write path that surfaces Cloudflare put failures (never local-only success).
+        const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? existing ?? {};
+        try {
+          await kv.setDurable(sessionKey(hydrated.id), {
+            ...latest,
+            ...expiredBase,
+            ...deliveredFields,
+          });
+          wroteSuccessSession = true;
+          recoveryOutcome = alertResult.retryability;
+          await kv.set(
+            checkoutRecoveryEmailDeliveredKey(hydrated.id),
+            { delivered: true as const, at: deliveredFields.recoveryEmailSentAt ?? Date.now() },
+            { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+          );
+        } catch (error) {
+          console.warn("Checkout recovery durable session persistence failed; deferring marker", error);
+          // Attempt record already written. Do not write delivered marker or claim durable session.
+          // Still inside safe window: leave retryable — Idempotency-Key prevents duplicate send.
+          // A later Stripe redelivery past the deadline will suppress Resend (fail closed).
+          recoveryOutcome = "retryable";
+        }
       } else {
-        nextRecord.recoveryEmailProvider = alertResult.provider;
-        nextRecord.recoveryEmailError = alertResult.error;
+        // Non-delivered: attempt record only. Acknowledge visible winner without session rewrite.
+        const latestMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
+        const latestSession = await kv.get<SessionRecord>(sessionKey(hydrated.id));
+        const observedSessionSuccess = Boolean(latestSession?.recoveryEmailSentAt);
+        const observedMarker = isCheckoutRecoveryDeliveredMarker(latestMarker);
+        if (observedSessionSuccess || observedMarker) {
+          recoveryOutcome = "already_delivered";
+          if (observedSessionSuccess && !observedMarker) {
+            await kv.set(
+              checkoutRecoveryEmailDeliveredKey(hydrated.id),
+              { delivered: true as const, at: latestSession!.recoveryEmailSentAt as number },
+              { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
+            );
+          }
+        } else {
+          recoveryOutcome = alertResult.retryability;
+        }
       }
     }
   }
 
-  await kv.set(sessionKey(hydrated.id), nextRecord);
   await recordCheckoutExpiredOnce({
     sessionId: hydrated.id,
     source: orderType === "print" ? "stripe_checkout_expired_print" : "stripe_checkout_expired_digital",
     plan: orderType === "print" ? printVariant : plan,
     occurredAt: expiresAtMs,
   });
+
+  // Final visibility check for HTTP status (Workers KV is not a CAS).
+  const finalMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
+  const finalSession = await kv.get<SessionRecord>(sessionKey(hydrated.id));
+  const deliveryVisible =
+    wroteSuccessSession ||
+    Boolean(finalSession?.recoveryEmailSentAt) ||
+    isCheckoutRecoveryDeliveredMarker(finalMarker);
+
+  const retryable =
+    !deliveryVisible && isCheckoutRecoveryWebhookRetryable(recoveryOutcome);
+  return { retryable };
 }
 
 export async function POST(req: Request) {
@@ -1170,12 +1277,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const dedupeCount = await kv.incr(ENTITLEMENT_KV.stripeWebhookEvent(event.id), 1, {
-    ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
-  });
-  if (dedupeCount > 1) {
-    return NextResponse.json({ received: true, duplicate: true });
+  const eventDedupeKey = ENTITLEMENT_KV.stripeWebhookEvent(event.id);
+  const isExpiredCheckoutEvent = event.type === "checkout.session.expired";
+
+  // Unrelated Stripe event types keep pre-processing dedupe.
+  // checkout.session.expired finalizes dedupe only after delivered / already-delivered / terminal
+  // handling so retryable provider failures remain eligible for Stripe redelivery.
+  if (!isExpiredCheckoutEvent) {
+    const dedupeCount = await kv.incr(eventDedupeKey, 1, {
+      ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
+    });
+    if (dedupeCount > 1) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+  } else {
+    const existingEvent = await kv.get(eventDedupeKey);
+    if (existingEvent) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
   }
+
+  let expiredRecoveryRetryable = false;
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -1187,7 +1309,12 @@ export async function POST(req: Request) {
     }
     case "checkout.session.expired": {
       const session = event.data.object as Stripe.Checkout.Session;
-      await handleExpiredCheckoutSession(session, event.created);
+      const outcome = await handleExpiredCheckoutSession(session, event.created, event.id);
+      if (outcome.retryable) {
+        expiredRecoveryRetryable = true;
+      } else {
+        await kv.set(eventDedupeKey, { received: true }, { ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS });
+      }
       break;
     }
     case "customer.subscription.updated":
@@ -1253,6 +1380,10 @@ export async function POST(req: Request) {
     }
     default:
       break;
+  }
+
+  if (expiredRecoveryRetryable) {
+    return NextResponse.json({ error: "checkout_recovery_retryable" }, { status: 503 });
   }
 
   return NextResponse.json({ received: true });

@@ -27,6 +27,26 @@ if (!(globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).
   (globalThis as typeof globalThis & { __starmapKv?: Map<string, unknown> }).__starmapKv = memoryStore;
 }
 
+/** Surfaces a durable Cloudflare KV write failure (never converted into local-only success). */
+export class KvDurableWriteError extends Error {
+  readonly code = "kv_durable_write_failed";
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options?.cause ? { cause: options.cause } : undefined);
+    this.name = "KvDurableWriteError";
+  }
+}
+
+/**
+ * Explicit boundary for intentional local/CI KV mode.
+ * Production Cloudflare outages must not silently fall through here when a binding was expected.
+ */
+export function isLocalKvFallbackAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.STARMAP_KV_ALLOW_LOCAL === "1") return true;
+  if (env.CI === "1") return true;
+  const nodeEnv = env.NODE_ENV?.trim();
+  return nodeEnv === "development" || nodeEnv === "test";
+}
+
 function fallbackFilePathForKey(key: string) {
   const encoded = Buffer.from(key, "utf8").toString("base64url");
   return path.join(fallbackKvDir, `${encoded}.json`);
@@ -73,6 +93,77 @@ function ttlFromOptions(options?: { ex?: number; px?: number }) {
   return undefined;
 }
 
+/**
+ * Durable put orchestration used by {@link kv.setDurable}.
+ * When a Cloudflare namespace is present, put failures propagate and must not populate local fallback.
+ * Exported for focused unit tests with injectable deps.
+ */
+export async function persistDurableKvPut<T>(input: {
+  cfKv: CloudflareKvNamespace | null;
+  allowLocalFallback: boolean;
+  mirrorLocalInCi: boolean;
+  key: string;
+  value: T;
+  ttlSeconds?: number;
+  memoryStore: Map<string, unknown>;
+  writeFallback: (key: string, value: T) => Promise<void>;
+}): Promise<"OK"> {
+  if (input.cfKv) {
+    try {
+      await input.cfKv.put(
+        input.key,
+        JSON.stringify(input.value),
+        input.ttlSeconds ? { expirationTtl: input.ttlSeconds } : undefined
+      );
+    } catch (error) {
+      // Do not write memory/file fallback after a remote failure — a later read must not
+      // falsely make this write appear durable on this worker.
+      throw new KvDurableWriteError("Cloudflare KV durable put failed", { cause: error });
+    }
+    if (input.mirrorLocalInCi) {
+      input.memoryStore.set(input.key, input.value);
+      await input.writeFallback(input.key, input.value);
+    }
+    return "OK";
+  }
+
+  if (!input.allowLocalFallback) {
+    throw new KvDurableWriteError(
+      "Cloudflare KV binding unavailable for durable write (local fallback not permitted)"
+    );
+  }
+
+  input.memoryStore.set(input.key, input.value);
+  await input.writeFallback(input.key, input.value);
+  return "OK";
+}
+
+/**
+ * Negative-control helper: ordinary set semantics that swallow CF put failures into local success.
+ * Used only in tests to prove the old marker-only durable race.
+ */
+export async function persistOrdinaryKvPutWithLocalFallbackOnRemoteFailure<T>(input: {
+  cfKv: CloudflareKvNamespace;
+  key: string;
+  value: T;
+  ttlSeconds?: number;
+  memoryStore: Map<string, unknown>;
+  writeFallback: (key: string, value: T) => Promise<void>;
+}): Promise<"OK"> {
+  try {
+    await input.cfKv.put(
+      input.key,
+      JSON.stringify(input.value),
+      input.ttlSeconds ? { expirationTtl: input.ttlSeconds } : undefined
+    );
+    return "OK";
+  } catch {
+    input.memoryStore.set(input.key, input.value);
+    await input.writeFallback(input.key, input.value);
+    return "OK";
+  }
+}
+
 export const kv = {
   async get<T>(key: string): Promise<T | null> {
     if (MIRROR_KV_LOCAL_IN_CI && memoryStore.has(key)) {
@@ -115,6 +206,24 @@ export const kv = {
     await writeFallbackValue(key, value);
     return "OK";
   },
+  /**
+   * Strict durable write for recovery canonical-session success.
+   * When Cloudflare KV is bound, put failures propagate and do not populate local fallback.
+   * Local memory/file is used only when CF is intentionally absent (dev/CI/explicit allow).
+   */
+  async setDurable<T>(key: string, value: T, options?: KvSetOptions): Promise<"OK"> {
+    const cfKv = await getCloudflareKv();
+    return persistDurableKvPut({
+      cfKv,
+      allowLocalFallback: isLocalKvFallbackAllowed(),
+      mirrorLocalInCi: MIRROR_KV_LOCAL_IN_CI,
+      key,
+      value,
+      ttlSeconds: ttlFromOptions(options),
+      memoryStore,
+      writeFallback: writeFallbackValue,
+    });
+  },
   async incr(key: string, by = 1, options?: KvIncrOptions): Promise<number> {
     const cfKv = await getCloudflareKv();
     const ttl = ttlFromOptions(options);
@@ -134,7 +243,9 @@ export const kv = {
     await writeFallbackValue(key, next);
     return next;
   },
-  async list(options?: KvListOptions): Promise<{ keys: string[]; listComplete: boolean; cursor?: string | null }> {
+  async list(
+    options?: KvListOptions
+  ): Promise<{ keys: string[]; listComplete: boolean; cursor?: string | null }> {
     const cfKv = await getCloudflareKv();
     if (cfKv) {
       try {
@@ -160,7 +271,8 @@ export const kv = {
       .sort();
     const startIndex = options?.cursor ? Number.parseInt(options.cursor, 10) || 0 : 0;
     const slice = localKeys.slice(startIndex, startIndex + limit);
-    const nextCursor = startIndex + slice.length < localKeys.length ? String(startIndex + slice.length) : null;
+    const nextCursor =
+      startIndex + slice.length < localKeys.length ? String(startIndex + slice.length) : null;
     return {
       keys: slice,
       listComplete: nextCursor === null,
