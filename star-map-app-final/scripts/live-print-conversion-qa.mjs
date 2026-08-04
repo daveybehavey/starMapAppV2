@@ -22,9 +22,15 @@ import {
 import { loadQaPrintAssetDataUrl, uploadQaPrintAsset } from "./qa-print-asset.mjs";
 
 const DEFAULT_SITE = "https://starmapco.com";
+/**
+ * Canonical production origin from repository config (`wrangler.toml` NEXT_PUBLIC_SITE_URL).
+ * Fail-closed allowlist is exactly this origin — no broad host inventing.
+ */
+export const CANONICAL_PRODUCTION_SITE_ORIGIN = "https://starmapco.com";
 const SUPPORTED_VARIANTS = Object.freeze(["poster_framed", "poster_unframed"]);
 /** Canonical marker recognized by isQaStripeSession (live_print_conversion* prefix). */
 const CANONICAL_QA_SOURCE = "live_print_conversion_checkout_only";
+const CHECKOUT_SESSION_ID_PATH_RE = /^\/c\/pay\/(cs_(?:live|test)_[A-Za-z0-9]+)$/;
 
 /**
  * Mirror of src/lib/stripeCheckoutNavigation.isValidStripeCheckoutUrl (plain JS for node --test).
@@ -42,6 +48,62 @@ export function isValidStripeCheckoutUrl(url) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Fail-closed trusted-origin policy for live probes that may dispatch PRINT_ADMIN_TOKEN.
+ * Grounded in wrangler.toml NEXT_PUBLIC_SITE_URL / canonical production origin only.
+ *
+ * @param {unknown} site
+ * @returns {string} normalized origin with no trailing slash (https://starmapco.com)
+ */
+export function assertTrustedLiveProbeSite(site) {
+  if (typeof site !== "string" || !site.trim()) {
+    throw new Error("BLOCKER: --site must be the canonical HTTPS production origin.");
+  }
+  let parsed;
+  try {
+    parsed = new URL(site.trim());
+  } catch {
+    throw new Error("BLOCKER: --site is not a valid URL.");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("BLOCKER: --site must use HTTPS.");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("BLOCKER: --site must not include credentials.");
+  }
+  if (parsed.hostname !== "starmapco.com") {
+    throw new Error("BLOCKER: --site host is not the canonical trusted production origin.");
+  }
+  if (parsed.port && parsed.port !== "443") {
+    throw new Error("BLOCKER: --site must not use a non-default port.");
+  }
+  if (parsed.pathname && parsed.pathname !== "/") {
+    throw new Error("BLOCKER: --site must be origin-only (no path).");
+  }
+  if (parsed.search) {
+    throw new Error("BLOCKER: --site must not include a query string.");
+  }
+  if (parsed.hash) {
+    throw new Error("BLOCKER: --site must not include a fragment.");
+  }
+  const origin = `https://${parsed.hostname}`;
+  if (origin !== CANONICAL_PRODUCTION_SITE_ORIGIN) {
+    throw new Error("BLOCKER: --site is not the canonical trusted production origin.");
+  }
+  return origin;
+}
+
+/**
+ * Reject redirect responses so admin-token requests cannot escape to an untrusted origin.
+ * @param {Response} response
+ */
+export function assertNoRedirectEscape(response) {
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error("BLOCKER: refusing redirect on secret-bearing checkout request (fail-closed).");
+  }
+  return true;
 }
 
 const SENSITIVE_OUTPUT_PATTERNS = Object.freeze([
@@ -89,7 +151,7 @@ export function parseArgs(argv) {
     const token = argv[i];
     const next = argv[i + 1];
     if (token === "--site" && next) {
-      args.site = String(next).replace(/\/+$/, "");
+      args.site = assertTrustedLiveProbeSite(String(next));
       i += 1;
       continue;
     }
@@ -132,9 +194,11 @@ Options:
   --checkout-only              Required mode: stop after Stripe hosted URL validation (default)
 
 Notes:
+  --site must be exactly ${CANONICAL_PRODUCTION_SITE_ORIGIN} (wrangler NEXT_PUBLIC_SITE_URL).
   Requires PRINT_ADMIN_TOKEN so /api/checkout can apply qa_run + qa_source markers.
+  Admin token is never attached until the trusted-origin check passes.
   Requires STRIPE_SECRET_KEY for read-only retrieval that independently verifies
-  those markers persisted on the created unpaid Checkout Session before success.
+  exact persisted markers on the unpaid Checkout Session before success.
   Never creates coupons, promotion codes, payments, refunds, or fulfillment.
 `;
 }
@@ -173,11 +237,13 @@ export function buildPrintCheckoutBody(printVariant) {
 /**
  * Build the outbound checkout request that MUST include canonical QA markers.
  * Throws before any network dispatch when markers cannot be guaranteed.
+ * Trusted-origin check runs before PRINT_ADMIN_TOKEN is read or attached.
  *
  * @param {{ site: string, printVariant: string, mapId: string, printAssetId: string, shippingCountry?: string }} input
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
 export function buildQaTaggedCheckoutRequest(input, env = process.env) {
+  const trustedSite = assertTrustedLiveProbeSite(input.site);
   const headers = assertQaCheckoutDispatchAllowed(CANONICAL_QA_SOURCE, env);
   const body = {
     ...buildPrintCheckoutBody(input.printVariant),
@@ -190,34 +256,32 @@ export function buildQaTaggedCheckoutRequest(input, env = process.env) {
     throw new Error("BLOCKER: checkout-only probe must not send promo/coupon fields.");
   }
   return {
-    url: `${String(input.site).replace(/\/+$/, "")}/api/checkout`,
+    url: `${trustedSite}/api/checkout`,
     method: "POST",
     headers: {
       "content-type": "application/json",
       ...headers,
     },
     body,
+    redirect: /** @type {RequestRedirect} */ ("manual"),
   };
 }
 
 /**
+ * Require byte-for-byte exact persisted Stripe metadata (no trim/case/truthy aliases).
  * @param {Record<string, string | undefined> | null | undefined} metadata
  * @param {string} [expectedSource]
  */
 export function assertCanonicalQaMetadata(metadata, expectedSource = CANONICAL_QA_SOURCE) {
-  const qaRun = String(metadata?.qa_run ?? "")
-    .trim()
-    .toLowerCase();
-  const qaSource = String(metadata?.qa_source ?? "")
-    .trim()
-    .toLowerCase();
-  if (!/^(1|true|yes)$/.test(qaRun)) {
-    throw new Error("BLOCKER: checkout session missing qa_run=true.");
+  const qaRun = metadata?.qa_run;
+  const qaSource = metadata?.qa_source;
+  if (qaRun !== "true") {
+    throw new Error('BLOCKER: checkout session missing exact qa_run="true".');
   }
   if (qaSource !== expectedSource) {
-    throw new Error(`BLOCKER: checkout session missing qa_source=${expectedSource}.`);
+    throw new Error(`BLOCKER: checkout session missing exact qa_source=${expectedSource}.`);
   }
-  if (!isQaStripeSession({ metadata: { qa_run: "true", qa_source: qaSource } })) {
+  if (!isQaStripeSession({ metadata: { qa_run: "true", qa_source: expectedSource } })) {
     throw new Error("BLOCKER: isQaStripeSession does not recognize canonical QA markers.");
   }
   return true;
@@ -257,9 +321,14 @@ export function assertSafeOutput(text) {
 /**
  * @param {{ write?: Function } | null | undefined} stderr
  * @param {string} message
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
-export function writeOperatorError(stderr, message) {
-  const candidate = String(message ?? "").trim();
+export function writeOperatorError(stderr, message, env = process.env) {
+  let candidate = String(message ?? "").trim();
+  const token = typeof env.PRINT_ADMIN_TOKEN === "string" ? env.PRINT_ADMIN_TOKEN.trim() : "";
+  if (token && candidate.includes(token)) {
+    candidate = "Live print conversion QA failed (details redacted).";
+  }
   const safe =
     candidate && !containsSensitiveOperatorText(candidate)
       ? candidate
@@ -316,6 +385,9 @@ export function assertScriptIsNotNoOp(scriptPath = fileURLToPath(import.meta.url
   }
   if (!source.includes("assertStripeQaVerificationCapability") || !source.includes("verifyCreatedSessionQaMetadata")) {
     throw new Error("Live print conversion QA script missing mandatory Stripe QA metadata verification.");
+  }
+  if (!source.includes("assertTrustedLiveProbeSite") || !source.includes("extractCheckoutSessionIdFromPayPath")) {
+    throw new Error("Live print conversion QA script missing trusted-origin or path-bound session guards.");
   }
   // Ignore this guard's own needle table when scanning for forbidden capabilities.
   const scanSource = source.replace(/FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/, "FORBIDDEN_CAPABILITY_NEEDLES = [];");
@@ -391,6 +463,23 @@ function buildSyntheticMapRecipe() {
 }
 
 /**
+ * Extract Checkout Session ID only from the canonical `/c/pay/<session-id>` pathname segment.
+ * Never scans fragment, query, or unrelated URL components.
+ *
+ * @param {unknown} checkoutUrl
+ * @returns {string}
+ */
+export function extractCheckoutSessionIdFromPayPath(checkoutUrl) {
+  assertHostedStripeCheckoutUrl(checkoutUrl);
+  const parsed = new URL(String(checkoutUrl).trim());
+  const match = parsed.pathname.match(CHECKOUT_SESSION_ID_PATH_RE);
+  if (!match) {
+    throw new Error("BLOCKER: Checkout Session ID missing from canonical /c/pay/ pathname segment.");
+  }
+  return match[1];
+}
+
+/**
  * Independently retrieve the created Checkout Session and require canonical QA metadata.
  * Never prints identifiers.
  *
@@ -398,17 +487,14 @@ function buildSyntheticMapRecipe() {
  * @param {string} stripeSecret
  */
 export async function verifyCreatedSessionQaMetadata(checkoutUrl, stripeSecret) {
-  const sessionIdMatch = String(checkoutUrl).match(/(cs_(?:live|test)_[A-Za-z0-9]+)/);
-  if (!sessionIdMatch) {
-    throw new Error("BLOCKER: could not derive Stripe session for QA metadata verification.");
-  }
+  const sessionId = extractCheckoutSessionIdFromPayPath(checkoutUrl);
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(stripeSecret, {
     apiVersion: "2024-06-20",
     httpClient: Stripe.createFetchHttpClient(),
     timeout: 20_000,
   });
-  const session = await stripe.checkout.sessions.retrieve(sessionIdMatch[1]);
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
   assertCanonicalQaMetadata(session.metadata ?? {});
   if (session.payment_status && session.payment_status !== "unpaid") {
     throw new Error("BLOCKER: checkout-only probe must leave sessions unpaid.");
@@ -423,30 +509,33 @@ export async function verifyCreatedSessionQaMetadata(checkoutUrl, stripeSecret) 
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
 export async function runVariantCheckoutOnly(site, printVariant, shippingCountry, env = process.env) {
-  // Fail closed before any map/asset/session creation when markers or verification cannot be guaranteed.
+  // Fail closed before any map/asset/session creation or admin-token attachment.
+  const trustedSite = assertTrustedLiveProbeSite(site);
   assertQaCheckoutDispatchAllowed(CANONICAL_QA_SOURCE, env);
   const stripeSecret = assertStripeQaVerificationCapability(env);
 
-  const mapRes = await fetch(`${site}/api/maps`, {
+  const mapRes = await fetch(`${trustedSite}/api/maps`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(buildSyntheticMapRecipe()),
     cache: "no-store",
+    redirect: "manual",
   });
+  assertNoRedirectEscape(mapRes);
   const mapJson = await mapRes.json().catch(() => ({}));
   if (!mapRes.ok || typeof mapJson?.id !== "string") {
     throw new Error(`Map create failed (status=${mapRes.status}).`);
   }
 
   const dataUrl = loadQaPrintAssetDataUrl("proof");
-  const assetRes = await uploadQaPrintAsset({ site, mapId: mapJson.id, dataUrl, source: "editor" });
+  const assetRes = await uploadQaPrintAsset({ site: trustedSite, mapId: mapJson.id, dataUrl, source: "editor" });
   if (assetRes.status !== 200 || typeof assetRes.json?.assetId !== "string") {
     throw new Error(`Print asset upload failed (status=${assetRes.status}).`);
   }
 
   const request = buildQaTaggedCheckoutRequest(
     {
-      site,
+      site: trustedSite,
       printVariant,
       mapId: mapJson.id,
       printAssetId: assetRes.json.assetId,
@@ -460,7 +549,9 @@ export async function runVariantCheckoutOnly(site, printVariant, shippingCountry
     headers: request.headers,
     body: JSON.stringify(request.body),
     cache: "no-store",
+    redirect: "manual",
   });
+  assertNoRedirectEscape(checkoutRes);
   const checkoutJson = await checkoutRes.json().catch(() => ({}));
   if (!checkoutRes.ok) {
     const code = typeof checkoutJson?.code === "string" ? checkoutJson.code : "checkout_failed";
@@ -505,7 +596,14 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   }
 
   if (!args.checkoutOnly) {
-    writeOperatorError(stderr, "Only --checkout-only mode is supported by this restored probe.");
+    writeOperatorError(stderr, "Only --checkout-only mode is supported by this restored probe.", env);
+    return 1;
+  }
+
+  try {
+    args.site = assertTrustedLiveProbeSite(args.site);
+  } catch (error) {
+    writeOperatorError(stderr, error instanceof Error ? error.message : String(error), env);
     return 1;
   }
 
@@ -524,7 +622,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       const result = await runVariantCheckoutOnly(args.site, variant, args.shippingCountry, env);
       checks.push(result);
     } catch (error) {
-      writeOperatorError(stderr, error instanceof Error ? error.message : String(error));
+      writeOperatorError(stderr, error instanceof Error ? error.message : String(error), env);
       checks.push({ name: `variant_${variant}`, ok: false });
     }
   }

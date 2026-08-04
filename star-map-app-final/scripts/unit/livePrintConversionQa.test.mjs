@@ -14,16 +14,21 @@ import {
 import {
   assertCanonicalQaMetadata,
   assertHostedStripeCheckoutUrl,
+  assertNoRedirectEscape,
   assertPackageScriptWired,
   assertSafeOutput,
   assertScriptIsNotNoOp,
   assertStripeQaVerificationCapability,
+  assertTrustedLiveProbeSite,
   assertUntaggedLiveSessionDispatchRejected,
   buildPrintCheckoutBody,
   buildQaTaggedCheckoutRequest,
+  CANONICAL_PRODUCTION_SITE_ORIGIN,
   containsSensitiveOperatorText,
+  extractCheckoutSessionIdFromPayPath,
   formatAggregateReport,
   parseArgs,
+  writeOperatorError,
 } from "../live-print-conversion-qa.mjs";
 import {
   assertQaCheckoutDispatchAllowed,
@@ -278,6 +283,139 @@ test("canonical QA metadata assertion accepts only exact markers", () => {
     /qa_run/,
   );
   assert.throws(() => assertCanonicalQaMetadata({}), /qa_run/);
+  // Normalized / truthy aliases must fail — byte-for-byte exact only.
+  for (const qa_run of ["TRUE", "True", " true", "true ", "1", "yes", "Yes"]) {
+    assert.throws(
+      () =>
+        assertCanonicalQaMetadata({
+          qa_run,
+          qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE,
+        }),
+      /qa_run/,
+      qa_run,
+    );
+  }
+  for (const qa_source of [
+    "LIVE_PRINT_CONVERSION_CHECKOUT_ONLY",
+    " live_print_conversion_checkout_only",
+    "live_print_conversion_checkout_only ",
+    "live_print_conversion",
+  ]) {
+    assert.throws(
+      () => assertCanonicalQaMetadata({ qa_run: "true", qa_source }),
+      /qa_source/,
+      qa_source,
+    );
+  }
+});
+
+test("trusted live probe site accepts only canonical production origin", () => {
+  assert.equal(assertTrustedLiveProbeSite(CANONICAL_PRODUCTION_SITE_ORIGIN), CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.equal(assertTrustedLiveProbeSite("https://starmapco.com/"), CANONICAL_PRODUCTION_SITE_ORIGIN);
+  const wrangler = fs.readFileSync(path.join(ROOT, "wrangler.toml"), "utf8");
+  assert.match(wrangler, /NEXT_PUBLIC_SITE_URL\s*=\s*"https:\/\/starmapco\.com"/);
+});
+
+test("trusted live probe site rejects HTTP, deceptive hosts, credentials, ports, path, query, fragment", () => {
+  const rejects = [
+    "http://starmapco.com",
+    "https://starmapco.example",
+    "https://evil.starmapco.com",
+    "https://starmapco.com.evil.example",
+    "https://www.starmapco.com",
+    "https://user:pass@starmapco.com",
+    "https://starmapco.com:8443",
+    "https://starmapco.com/editor",
+    "https://starmapco.com?x=1",
+    "https://starmapco.com#frag",
+    "https://starmapco.ca",
+    "not-a-url",
+  ];
+  for (const site of rejects) {
+    assert.throws(() => assertTrustedLiveProbeSite(site), /BLOCKER/, site);
+  }
+});
+
+test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pass", () => {
+  let tokenAccessed = false;
+  const secretToken = "unit-admin-token-must-not-leak";
+  const env = new Proxy(
+    { PRINT_ADMIN_TOKEN: secretToken, STRIPE_SECRET_KEY: "sk_test_unit_only_placeholder" },
+    {
+      get(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.get(target, prop);
+      },
+      ownKeys(target) {
+        return Reflect.ownKeys(target);
+      },
+      getOwnPropertyDescriptor(target, prop) {
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      },
+    },
+  );
+  assert.throws(
+    () =>
+      buildQaTaggedCheckoutRequest(
+        {
+          site: "https://starmapco.example",
+          printVariant: "poster_framed",
+          mapId: "00000000-0000-4000-8000-000000000001",
+          printAssetId: "00000000-0000-4000-8000-000000000002",
+        },
+        env,
+      ),
+    /trusted|canonical|HTTPS|host/i,
+  );
+  assert.equal(tokenAccessed, false);
+
+  const chunks = [];
+  writeOperatorError({ write: (s) => chunks.push(String(s)) }, "failed https://starmapco.example", env);
+  assert.equal(chunks.join("").includes(secretToken), false);
+});
+
+test("redirect escape on secret-bearing responses is rejected", () => {
+  assert.throws(
+    () => assertNoRedirectEscape({ status: 302 }),
+    /redirect/,
+  );
+  assert.doesNotThrow(() => assertNoRedirectEscape({ status: 200 }));
+});
+
+test("path-bound Checkout Session ID extraction ignores fragment and query IDs", () => {
+  const valid =
+    "https://checkout.stripe.com/c/pay/cs_live_pathbound123#fidfragment";
+  assert.equal(extractCheckoutSessionIdFromPayPath(valid), "cs_live_pathbound123");
+
+  // Fragment has a valid-looking session id; path does not — must fail and never use fragment.
+  assert.throws(
+    () =>
+      extractCheckoutSessionIdFromPayPath(
+        "https://checkout.stripe.com/c/pay/not-a-session#cs_test_oldsession",
+      ),
+    /pathname|Session ID|Stripe-hosted/,
+  );
+
+  // Query has a valid-looking session id; path invalid — must fail.
+  assert.throws(
+    () =>
+      extractCheckoutSessionIdFromPayPath(
+        "https://checkout.stripe.com/c/pay/not-a-session?session=cs_test_queryid#fidx",
+      ),
+    /pathname|Session ID|Stripe-hosted/,
+  );
+
+  // Path id must be preferred; ensure helper does not scan whole URL (path wins when valid).
+  assert.equal(
+    extractCheckoutSessionIdFromPayPath(
+      "https://checkout.stripe.com/c/pay/cs_live_frompath#cs_test_fromfragment",
+    ),
+    "cs_live_frompath",
+  );
+
+  const source = fs.readFileSync(SCRIPT_PATH, "utf8");
+  assert.match(source, /extractCheckoutSessionIdFromPayPath/);
+  assert.equal(source.includes("String(checkoutUrl).match(/(cs_"), false);
 });
 
 test("hosted Stripe URL validator accepts bounded handoff shape without echoing identifiers", () => {
@@ -311,10 +449,12 @@ test("hosted Stripe URL validator rejects HTTP, deceptive hosts, wrong paths, an
   assert.equal(/!isValidStripeCheckoutUrl\([^)]+\)\s*&&\s*!\/checkout\\.stripe\\.com/i.test(source), false);
 });
 
-test("parseArgs defaults to both variants in checkout-only mode", () => {
+test("parseArgs defaults to both variants in checkout-only mode and validates --site", () => {
   const args = parseArgs([]);
   assert.equal(args.checkoutOnly, true);
   assert.deepEqual(args.variants, ["poster_framed", "poster_unframed"]);
   const framedOnly = parseArgs(["--print-variant", "poster_framed", "--checkout-only"]);
   assert.deepEqual(framedOnly.variants, ["poster_framed"]);
+  assert.equal(parseArgs(["--site", "https://starmapco.com"]).site, CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.throws(() => parseArgs(["--site", "https://starmapco.example"]), /BLOCKER/);
 });
