@@ -30,6 +30,7 @@ const SCAN_RELATIVE_PATHS = [
   "components/HomeOfferStack.tsx",
   "components/PaywallModal.tsx",
   "components/RevenueTrustModule.tsx",
+  "components/WeddingGiftJourneySection.tsx",
   "app/HomeStaticSections.tsx",
   "app/HomeHero.tsx",
   "app/page.tsx",
@@ -48,13 +49,21 @@ const SCAN_RELATIVE_PATHS = [
   "lib/printGiftDecisionCopy.ts",
 ];
 
+/**
+ * Transactional buyer-popularity claims.
+ * Catches: "most buyers choose", "most birthday buyers prefer",
+ * "most first-time gift buyers pick", etc.
+ * Intentionally does NOT match ordinary editorial like
+ * "Most couples choose the proposal date" or "Most buyers decide faster".
+ */
+const BUYER_COHORT_POPULARITY_PATTERN = /\bmost(?:\s+[\w'-]+){0,5}\s+buyers\s+(?:choose|prefer|pick)\b/i;
+
 const POPULARITY_PATTERNS = [
-  /most buyers choose/i,
-  /most gift buyers choose/i,
-  /most gift-givers choose/i,
+  BUYER_COHORT_POPULARITY_PATTERN,
+  /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
+  /\bmost couples choose framed\b/i,
   /path most gift buyers choose/i,
   /option most couples choose/i,
-  /most couples choose framed/i,
   /\bTop pick\b/,
   /\bMOST POPULAR\b/,
   /badge:\s*["']Most popular["']/i,
@@ -70,6 +79,30 @@ const HARDCODED_FULFILLMENT_PATTERNS = [
   /orders are reviewed before production starts/i,
   /manually approved before production begins/i,
   /then the order is reviewed before production/i,
+];
+
+/** Exact regressions that previously escaped the narrow matcher. */
+const BUYER_COHORT_POSITIVE_FIXTURES = [
+  "Most buyers choose framed + HD",
+  "Most birthday buyers choose framed + HD",
+  "Most anniversary buyers choose the framed print",
+  "Most wedding buyers choose framed + HD",
+  "most gift buyers choose this path",
+  "Most first-time gift buyers choose framed + HD",
+  "Most US wedding gift buyers prefer framed + HD",
+  "Most anniversary buyers pick the framed route",
+];
+
+/** Editorial / non-transactional wording that must remain unmatched. */
+const BUYER_COHORT_NEGATIVE_FIXTURES = [
+  "Most couples choose the proposal date",
+  "Most people choose one of these moments",
+  "Most couples choose their wedding date or the night they first met",
+  "Most buyers decide faster once the wording is settled",
+  "Most couples finish a preview in under five minutes",
+  "These holidays bring the most gift searches each year",
+  "Recommended presentation is framed + HD",
+  "The premium gift route is the framed print",
 ];
 
 function readSrc(relativePath) {
@@ -112,6 +145,26 @@ test("shared gift positioning helpers stay factual (no popularity claims)", () =
   assert.equal(FRAMED_HD_RECOMMENDED_BADGE, "Premium gift");
   assert.match(intentDetails[0], /premium gift route/i);
   assert.match(intentDetails[1], /Lower-cost physical option/i);
+});
+
+test("buyer-cohort popularity matcher catches occasion and multiword qualifiers", () => {
+  for (const sample of BUYER_COHORT_POSITIVE_FIXTURES) {
+    assert.match(sample, BUYER_COHORT_POPULARITY_PATTERN, `expected positive fixture to match: ${sample}`);
+    assert.ok(
+      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      `expected positive fixture to fail full scan: ${sample}`
+    );
+  }
+});
+
+test("buyer-cohort popularity matcher ignores ordinary editorial most-* wording", () => {
+  for (const sample of BUYER_COHORT_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(
+      sample,
+      BUYER_COHORT_POPULARITY_PATTERN,
+      `expected negative fixture to remain unmatched: ${sample}`
+    );
+  }
 });
 
 test("print production disclosure mirrors auto-confirm true and false", () => {
@@ -184,4 +237,14 @@ test("moneyPageGiftCheckout source keeps factual ladder/intent copy", () => {
   assert.match(source, /premium gift route with instant HD/);
   assert.doesNotMatch(source, /most gift buyers choose/i);
   assert.doesNotMatch(source, /most buyers choose/i);
+});
+
+test("occasion money pages no longer contain qualified buyer-choose claims", () => {
+  for (const relativePath of ["app/birthday/page.tsx", "app/anniversary/page.tsx", "app/wedding/page.tsx"]) {
+    const source = readSrc(relativePath);
+    assert.doesNotMatch(source, BUYER_COHORT_POPULARITY_PATTERN, relativePath);
+    assert.doesNotMatch(source, /Most birthday buyers choose/i, relativePath);
+    assert.doesNotMatch(source, /Most anniversary buyers choose/i, relativePath);
+    assert.doesNotMatch(source, /Most wedding buyers choose/i, relativePath);
+  }
 });

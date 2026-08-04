@@ -22,10 +22,7 @@ import {
   getInstantHdHeroHref,
   getInstantHdPriceLine,
 } from "@/lib/digitalGiftCheckout";
-import {
-  buildFramedHdCheckoutHref,
-  getGiftLadderIntro,
-} from "@/lib/moneyPageGiftCheckout";
+import { buildFramedHdCheckoutHref, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -63,31 +60,37 @@ export default function BirthdayPage() {
   const previewIntents = buildInstantHdPreviewIntents("birthday");
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Birthday Star Map Generator</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
-          Use our birthday star map generator to capture the exact night sky from their birth date and location—a
-          keepsake that feels personal, timeless, and ready to frame.
+          Use our birthday star map generator to capture the exact night sky from their birth date and
+          location—a keepsake that feels personal, timeless, and ready to frame.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Framed print
+          </span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Unframed print
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
+            HD digital delivery
+          </span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
           <Link
             href={instantHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Instant HD from {instantPrice}
           </Link>
@@ -99,9 +102,7 @@ export default function BirthdayPage() {
           </Link>
         </div>
         <InstantHdHeroExtras source="birthday-hero-instant" showButton={false} />
-        <p className="text-xs text-neutral-300 sm:text-sm">
-          Popular bundle: {bundlePriceLine}
-        </p>
+        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
       </header>
 
       <GiftFormatLadder
@@ -130,11 +131,11 @@ export default function BirthdayPage() {
       />
 
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Why this birthday gift stands out</h2>
+        <h2 className="text-midnight text-xl font-semibold">Why this birthday gift stands out</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          Birthdays come every year—but the sky on the night someone was born is one of a kind. Our maps use astronomically
-          accurate data to plot that exact sky—constellations, planets, and Moon phase can all be included—so the gift feels
-          as unique as they are.
+          Birthdays come every year—but the sky on the night someone was born is one of a kind. Our maps use
+          astronomically accurate data to plot that exact sky—constellations, planets, and Moon phase can all
+          be included—so the gift feels as unique as they are.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate to the birth date, time, and location</li>
@@ -145,20 +146,23 @@ export default function BirthdayPage() {
       </section>
 
       <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Create it in minutes</h2>
+        <h2 className="text-midnight text-lg font-semibold">Create it in minutes</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter the birth location (city or hospital)</li>
           <li>Select the birth date (add time if you want to be exact)</li>
           <li>Choose a style and add a dedication line</li>
-          <li>Reveal the sky, then choose framed print, unframed print, or HD digital delivery at checkout</li>
+          <li>
+            Reveal the sky, then choose framed print, unframed print, or HD digital delivery at checkout
+          </li>
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Share a preview for free. Once the wording feels right, take the framed route, the unframed route, or instant HD delivery from the same approved design.
+          Share a preview for free. Once the wording feels right, take the framed route, the unframed route,
+          or instant HD delivery from the same approved design.
         </p>
         <div className="pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
@@ -167,7 +171,7 @@ export default function BirthdayPage() {
 
       <DeliveryFormatModule
         heading="Choose the birthday delivery format"
-        intro={`Most birthday buyers choose framed + HD (${bundlePriceLine}) for a ready-to-hang gift plus an instant file. Unframed lowers the total; HD-only is fastest for same-day gifting.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang gift plus an instant file. Unframed is the lower-cost physical option; HD-only is fastest for same-day gifting.`}
         sourcePrefix="birthday-format"
       />
       <FramedProofSection
@@ -177,10 +181,11 @@ export default function BirthdayPage() {
       />
 
       <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">What you get</h2>
+        <h2 className="text-midnight text-lg font-semibold">What you get</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Preview and HD export share the same rendering engine, so the final download matches what you see. Toggle
-          constellations, glow, labels, and choose fonts to fit their style. The same approved design can stay digital, go unframed, or arrive framed without rebuilding the map.
+          Preview and HD export share the same rendering engine, so the final download matches what you see.
+          Toggle constellations, glow, labels, and choose fonts to fit their style. The same approved design
+          can stay digital, go unframed, or arrive framed without rebuilding the map.
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/wedding" className="text-amber-700 underline hover:text-amber-800">
@@ -231,56 +236,63 @@ export default function BirthdayPage() {
       <OccasionLinks />
 
       <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Birthday star map FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">Birthday star map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           <div>
-            <h3 className="font-semibold text-midnight">Do I need the exact birth time?</h3>
+            <h3 className="text-midnight font-semibold">Do I need the exact birth time?</h3>
             <p>
-              The exact time makes the sky most precise, but you can still create a beautiful birthday star map with just
-              the date and location. If the birth time is unknown, the map defaults to midnight and you can adjust.
+              The exact time makes the sky most precise, but you can still create a beautiful birthday star
+              map with just the date and location. If the birth time is unknown, the map defaults to midnight
+              and you can adjust.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Is this good for milestone birthdays?</h3>
+            <h3 className="text-midnight font-semibold">Is this good for milestone birthdays?</h3>
             <p>
-              Yes. Birthday star maps are popular for 18th, 21st, 30th, 40th, 50th, and other milestone celebrations
-              because the sky on the day someone was born is truly one of a kind.
+              Yes. Birthday star maps are popular for 18th, 21st, 30th, 40th, 50th, and other milestone
+              celebrations because the sky on the day someone was born is truly one of a kind.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I use the hospital city as the birth location?</h3>
+            <h3 className="text-midnight font-semibold">
+              Can I use the hospital city as the birth location?
+            </h3>
             <p>
-              Yes. Any city or town worldwide works. Enter the place where the person was born — or wherever they were
-              when the birthday moment happened — and the generator plots the accurate sky for that location.
+              Yes. Any city or town worldwide works. Enter the place where the person was born — or wherever
+              they were when the birthday moment happened — and the generator plots the accurate sky for that
+              location.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Does it work for birthdays from any year?</h3>
+            <h3 className="text-midnight font-semibold">Does it work for birthdays from any year?</h3>
             <p>
-              Yes. The map generator works for any past date — whether the birthday is from last year or many decades
-              ago. You can capture the exact sky from someone's birth year just as accurately as a recent date.
+              Yes. The map generator works for any past date — whether the birthday is from last year or many
+              decades ago. You can capture the exact sky from someone's birth year just as accurately as a
+              recent date.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I add a birthday message to the map?</h3>
+            <h3 className="text-midnight font-semibold">Can I add a birthday message to the map?</h3>
             <p>
-              Yes. The editor lets you add a title, the person's name, the date, and a short dedication line. You can
-              adjust fonts and styles to match the look you want.
+              Yes. The editor lets you add a title, the person's name, the date, and a short dedication line.
+              You can adjust fonts and styles to match the look you want.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Is the preview free before I buy?</h3>
+            <h3 className="text-midnight font-semibold">Is the preview free before I buy?</h3>
             <p>
-              Yes. You can preview the birthday star map for free with no account required. The watermark is removed only
-              after you pay — so you can fine-tune the design before committing.
+              Yes. You can preview the birthday star map for free with no account required. The watermark is
+              removed only after you pay — so you can fine-tune the design before committing.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">What gift format works best for a birthday star map?</h3>
+            <h3 className="text-midnight font-semibold">
+              What gift format works best for a birthday star map?
+            </h3>
             <p>
-              Framed print is the premium birthday gift route because it arrives ready to display. Unframed lowers
-              the total if the recipient already has a frame. Instant HD digital is the fastest option when you need the
-              gift same-day.
+              Framed print is the premium birthday gift route because it arrives ready to display. Unframed
+              lowers the total if the recipient already has a frame. Instant HD digital is the fastest option
+              when you need the gift same-day.
             </p>
           </div>
         </div>
