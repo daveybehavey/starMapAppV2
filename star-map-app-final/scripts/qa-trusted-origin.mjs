@@ -3,7 +3,7 @@
  * PRINT_ADMIN_TOKEN. Canonical production origin matches wrangler.toml
  * NEXT_PUBLIC_SITE_URL — no broad allowlist.
  *
- * These helpers must not read PRINT_ADMIN_TOKEN.
+ * These helpers must not read PRINT_ADMIN_TOKEN or open secret-bearing dotenv files.
  */
 
 /** Exact trusted production origin for secret-bearing live probe dispatch. */
@@ -13,20 +13,22 @@ export const CANONICAL_PRODUCTION_SITE_ORIGIN = "https://starmapco.com";
  * Fail-closed trusted-origin policy for live probes that may dispatch PRINT_ADMIN_TOKEN.
  * Grounded in wrangler.toml NEXT_PUBLIC_SITE_URL / canonical production origin only.
  *
- * Raw spelling is checked before URL normalization so inputs that `new URL()` would
- * erase (dot-segments, `%2e%2e`, empty `?` / `#`, etc.) are rejected.
+ * Raw byte-for-byte spelling is required before URL normalization. Leading/trailing
+ * whitespace is rejected. Only `https://starmapco.com` and the explicit trailing-slash
+ * form are accepted — inputs that `new URL()` would erase still fail.
  *
  * @param {unknown} site
- * @returns {string} normalized origin with no trailing slash (https://starmapco.com)
+ * @returns {string} canonical origin with no trailing slash (https://starmapco.com)
  */
 export function assertTrustedLiveProbeSite(site) {
   if (typeof site !== "string") {
     throw new Error("BLOCKER: --site must be the canonical HTTPS production origin.");
   }
-  const raw = site.trim();
-  if (!raw) {
-    throw new Error("BLOCKER: --site must be the canonical HTTPS production origin.");
+  // Reject whitespace and empty input — compare the original string, never trim first.
+  if (site.length === 0 || site !== site.trim()) {
+    throw new Error("BLOCKER: --site must be the exact canonical HTTPS production origin.");
   }
+  const raw = site;
   // Exact canonical spellings only — optional trailing slash is the sole allowed variant.
   if (raw !== CANONICAL_PRODUCTION_SITE_ORIGIN && raw !== `${CANONICAL_PRODUCTION_SITE_ORIGIN}/`) {
     throw new Error("BLOCKER: --site must be the exact canonical HTTPS production origin.");
@@ -68,26 +70,31 @@ export function assertTrustedLiveProbeSite(site) {
 
 /**
  * Resolve the trusted live-probe site before any secret-bearing dotenv / token load.
- * Hostile or malformed SITE_URL fails closed without invoking `loadSecrets`.
+ *
+ * `SITE_URL` may come only from an already-present process/env value or, when absent,
+ * the exact canonical production constant. Never opens or peeks dotenv files here —
+ * hostile/malformed candidates fail before `loadSecrets` runs.
  *
  * @param {{
  *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>,
- *   readSiteUrlFromFiles?: () => string | undefined,
  *   loadSecrets?: () => void,
  * }} [options]
  * @returns {string}
  */
 export function resolveTrustedSiteUrlBeforeSecrets(options = {}) {
   const env = options.env ?? {};
-  const readSiteUrlFromFiles =
-    typeof options.readSiteUrlFromFiles === "function" ? options.readSiteUrlFromFiles : () => undefined;
   const loadSecrets = typeof options.loadSecrets === "function" ? options.loadSecrets : () => {};
 
-  const fromEnv = typeof env.SITE_URL === "string" ? env.SITE_URL.trim() : "";
-  // Only consult dotenv files when SITE_URL is not already present in the process env.
-  const fromFiles = fromEnv ? undefined : readSiteUrlFromFiles();
-  const candidate =
-    fromEnv || (typeof fromFiles === "string" ? fromFiles.trim() : "") || CANONICAL_PRODUCTION_SITE_ORIGIN;
+  let candidate;
+  if (typeof env.SITE_URL === "string") {
+    // Pass through byte-for-byte (including whitespace) so assertTrustedLiveProbeSite can reject.
+    candidate = env.SITE_URL;
+  } else if (env.SITE_URL === undefined || env.SITE_URL === null) {
+    candidate = CANONICAL_PRODUCTION_SITE_ORIGIN;
+  } else {
+    throw new Error("BLOCKER: SITE_URL must be a string when provided.");
+  }
+
   const site = assertTrustedLiveProbeSite(candidate);
   loadSecrets();
   return site;

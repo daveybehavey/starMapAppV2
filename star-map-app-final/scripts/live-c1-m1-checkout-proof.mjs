@@ -4,7 +4,7 @@
  * Creates map + print asset + Stripe Checkout sessions via live API; verifies metadata via Stripe API.
  * Every created Checkout Session must carry QA markers (fail-closed before session create).
  */
-import { loadDotenv, peekDotenvValue } from "./load-dotenv.mjs";
+import { loadDotenv } from "./load-dotenv.mjs";
 import { readWranglerVars } from "./wrangler-vars.mjs";
 import {
   assertQaCheckoutDispatchAllowed,
@@ -15,6 +15,10 @@ import {
   createSecretBearingFetch,
   resolveTrustedSiteUrlBeforeSecrets,
 } from "./qa-trusted-origin.mjs";
+import {
+  assertCanonicalQaMetadata,
+  assertStripeQaVerificationCapability,
+} from "./live-print-conversion-qa.mjs";
 
 export {
   assertTrustedLiveProbeSite,
@@ -24,17 +28,12 @@ export {
 
 /**
  * Establish trusted SITE_URL before any token-bearing dotenv load.
- * Hostile/malformed site input fails before PRINT_ADMIN_TOKEN can be read from dotenv files.
+ * SITE_URL comes only from the process env or the canonical constant — never from dotenv peeks.
  *
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
- * @param {{
- *   peekSiteUrl?: () => string | undefined,
- *   loadSecrets?: () => void,
- * }} [hooks]
+ * @param {{ loadSecrets?: () => void }} [hooks]
  */
 export function bootstrapTrustedC1M1Site(env = process.env, hooks = {}) {
-  const peekSiteUrl =
-    typeof hooks.peekSiteUrl === "function" ? hooks.peekSiteUrl : () => peekDotenvValue("SITE_URL");
   const loadSecrets =
     typeof hooks.loadSecrets === "function"
       ? hooks.loadSecrets
@@ -43,7 +42,6 @@ export function bootstrapTrustedC1M1Site(env = process.env, hooks = {}) {
         };
   return resolveTrustedSiteUrlBeforeSecrets({
     env,
-    readSiteUrlFromFiles: peekSiteUrl,
     loadSecrets,
   });
 }
@@ -63,7 +61,8 @@ import { isQaStripeSession } from "../src/lib/commerceAnalyticsQa.mjs";
 
 const printAssetDataUrl = loadQaPrintAssetDataUrl("proof");
 
-// Fail closed before any Checkout Session creation if QA markers cannot be guaranteed.
+// Fail closed before any Checkout Session creation if QA markers / Stripe verify cannot be guaranteed.
+assertStripeQaVerificationCapability(process.env);
 assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE);
 
 async function post(path, body) {
@@ -104,8 +103,10 @@ function sessionIdFromUrl(url) {
 }
 
 async function retrieveStripeSession(sessionId) {
-  const secret = process.env.STRIPE_SECRET_KEY?.trim();
-  if (!secret || !sessionId) return null;
+  const secret = assertStripeQaVerificationCapability(process.env);
+  if (!sessionId) {
+    throw new Error("BLOCKER: missing Checkout Session ID for independent QA metadata verification.");
+  }
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(secret, {
     httpClient: Stripe.createFetchHttpClient(createSecretBearingFetch()),
@@ -191,9 +192,26 @@ checks.push(
   )
 );
 
-const cardSession = await retrieveStripeSession(cardSessionId);
+const cardSession = await (async () => {
+  if (!cardSessionId) {
+    checks.push(pass("C1.5 exact persisted QA metadata verified", false, "missing_session_id"));
+    return null;
+  }
+  try {
+    return await retrieveStripeSession(cardSessionId);
+  } catch {
+    checks.push(pass("C1.5 exact persisted QA metadata verified", false, "retrieve_failed"));
+    return null;
+  }
+})();
 if (cardSession) {
   const md = cardSession.metadata || {};
+  try {
+    assertCanonicalQaMetadata(md, LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE);
+    checks.push(pass("C1.5 exact persisted QA metadata verified", true, "verified"));
+  } catch {
+    checks.push(pass("C1.5 exact persisted QA metadata verified", false, "qa_metadata_mismatch"));
+  }
   checks.push(
     pass("C1.5 metadata print_include_card=true", md.print_include_card === "true", md.print_include_card)
   );
@@ -228,12 +246,6 @@ if (cardSession) {
   );
   const subtotal = cardSession.amount_subtotal ?? 0;
   checks.push(pass("C1.5 subtotal includes framed + card ($99 + $19)", subtotal >= 11800, String(subtotal)));
-} else if (cardSessionId) {
-  checks.push({
-    label: "C1.5 Stripe session detail (skipped - STRIPE_SECRET_KEY missing)",
-    ok: null,
-    detail: "skipped",
-  });
 }
 
 // --- M1.3: Sticker merch on framed print ---
@@ -257,9 +269,26 @@ checks.push(
   )
 );
 
-const stickerSession = await retrieveStripeSession(stickerSessionId);
+const stickerSession = await (async () => {
+  if (!stickerSessionId) {
+    checks.push(pass("M1.3 exact persisted QA metadata verified", false, "missing_session_id"));
+    return null;
+  }
+  try {
+    return await retrieveStripeSession(stickerSessionId);
+  } catch {
+    checks.push(pass("M1.3 exact persisted QA metadata verified", false, "retrieve_failed"));
+    return null;
+  }
+})();
 if (stickerSession) {
   const md = stickerSession.metadata || {};
+  try {
+    assertCanonicalQaMetadata(md, LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE);
+    checks.push(pass("M1.3 exact persisted QA metadata verified", true, "verified"));
+  } catch {
+    checks.push(pass("M1.3 exact persisted QA metadata verified", false, "qa_metadata_mismatch"));
+  }
   checks.push(
     pass(
       "M1.3 metadata print_merch_family=sticker_kisscut",
@@ -314,12 +343,6 @@ if (stickerSession) {
       md.print_variant
     )
   );
-} else if (stickerSessionId) {
-  checks.push({
-    label: "M1.3 Stripe session detail (skipped - STRIPE_SECRET_KEY missing)",
-    ok: null,
-    detail: "skipped",
-  });
 }
 
 // --- Editor deep links (marketing surfaces) ---
@@ -339,15 +362,21 @@ checks.push(
 
 const failed = checks.filter((c) => c.ok === false);
 const passed = checks.filter((c) => c.ok === true);
-const skipped = checks.filter((c) => c.ok === null);
+const c1QaVerified = checks.some(
+  (c) => c.label === "C1.5 exact persisted QA metadata verified" && c.ok === true
+);
+const m1QaVerified = checks.some(
+  (c) => c.label === "M1.3 exact persisted QA metadata verified" && c.ok === true
+);
+const ok = failed.length === 0 && c1QaVerified && m1QaVerified;
 
 const report = {
   phase: "C1.5+M1.3-no-payment",
-  summary: { passed: passed.length, failed: failed.length, skipped: skipped.length },
+  summary: { passed: passed.length, failed: failed.length, c1QaVerified, m1QaVerified },
   checks,
   paymentNote: "No payment was made. Stripe sessions expire unpaid.",
   privacyNote: "Identifiers, checkout URLs, and raw provider bodies are omitted from this report.",
 };
 
 console.log(JSON.stringify(report, null, 2));
-process.exit(failed.length ? 1 : 0);
+process.exit(ok ? 0 : 1);

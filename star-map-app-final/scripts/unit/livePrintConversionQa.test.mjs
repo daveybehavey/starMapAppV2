@@ -44,13 +44,15 @@ import {
   assertTrustedLiveProbeSite as assertTrustedLiveProbeSiteShared,
   resolveTrustedSiteUrlBeforeSecrets,
 } from "../qa-trusted-origin.mjs";
-import { peekDotenvValue } from "../load-dotenv.mjs";
+import { loadDotenv } from "../load-dotenv.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SCRIPT_PATH = path.join(ROOT, "scripts/live-print-conversion-qa.mjs");
 const CHECKOUT_ROUTE = path.join(ROOT, "src/app/api/checkout/route.ts");
 const MERCH_PROBE = path.join(ROOT, "scripts/live-merch-checkout-probe.mjs");
 const C1_M1_PROOF = path.join(ROOT, "scripts/live-c1-m1-checkout-proof.mjs");
+const LOAD_DOTENV = path.join(ROOT, "scripts/load-dotenv.mjs");
+const TRUSTED_ORIGIN = path.join(ROOT, "scripts/qa-trusted-origin.mjs");
 
 test("zero-byte / no-op live-print-conversion implementation fails", () => {
   const tmp = path.join(os.tmpdir(), `live-print-qa-empty-${Date.now()}.mjs`);
@@ -381,10 +383,27 @@ test("trusted live probe site rejects HTTP, deceptive hosts, credentials, ports,
     "https://starmapco.com/..",
     "HTTPS://starmapco.com",
     "https://StarMapCo.com",
+    // Leading/trailing whitespace must not be accepted via trim-before-compare.
+    " https://starmapco.com",
+    "https://starmapco.com ",
+    " https://starmapco.com ",
+    "\thttps://starmapco.com",
+    "https://starmapco.com\n",
   ];
   for (const site of rejects) {
     assert.throws(() => assertTrustedLiveProbeSite(site), /BLOCKER/, site);
   }
+});
+
+test("trusted live probe site rejects whitespace around exact canonical spelling", () => {
+  assert.throws(() => assertTrustedLiveProbeSite(" https://starmapco.com"), /BLOCKER/);
+  assert.throws(() => assertTrustedLiveProbeSite("https://starmapco.com "), /BLOCKER/);
+  assert.equal(assertTrustedLiveProbeSite("https://starmapco.com"), CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.equal(assertTrustedLiveProbeSite("https://starmapco.com/"), CANONICAL_PRODUCTION_SITE_ORIGIN);
+  const helper = fs.readFileSync(TRUSTED_ORIGIN, "utf8");
+  // Must compare raw input before any trim-based acceptance.
+  assert.match(helper, /site !== site\.trim\(\)/);
+  assert.equal(/const raw = site\.trim\(\)/.test(helper), false);
 });
 
 test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pass", async () => {
@@ -611,10 +630,10 @@ test("parseArgs defaults to both variants in checkout-only mode and validates --
   assert.throws(() => parseArgs(["--site", "https://starmapco.com?"]), /BLOCKER/);
 });
 
-test("hostile SITE_URL fails before token-bearing dotenv load", () => {
-  let peeked = false;
+test("hostile SITE_URL fails before any secret-bearing dotenv file read", async () => {
   let secretsLoaded = false;
   let tokenAccessed = false;
+  let dotenvFileOpened = false;
   const env = new Proxy(
     { SITE_URL: "https://starmapco.example", PRINT_ADMIN_TOKEN: "c1-token-must-not-load" },
     {
@@ -633,26 +652,22 @@ test("hostile SITE_URL fails before token-bearing dotenv load", () => {
     () =>
       resolveTrustedSiteUrlBeforeSecrets({
         env,
-        readSiteUrlFromFiles: () => {
-          peeked = true;
-          return undefined;
-        },
         loadSecrets: () => {
           secretsLoaded = true;
+          dotenvFileOpened = true;
         },
       }),
     /BLOCKER/
   );
-  assert.equal(peeked, false, "must not consult dotenv files when SITE_URL is already present");
   assert.equal(secretsLoaded, false);
+  assert.equal(dotenvFileOpened, false);
   assert.equal(tokenAccessed, false);
 
-  // Hostile SITE_URL only from files: peek may run, but secrets must not load.
+  // Whitespace-hostile SITE_URL also fails before secrets.
   assert.throws(
     () =>
       resolveTrustedSiteUrlBeforeSecrets({
-        env: {},
-        readSiteUrlFromFiles: () => "https://starmapco.com/foo/..",
+        env: { SITE_URL: " https://starmapco.com" },
         loadSecrets: () => {
           secretsLoaded = true;
         },
@@ -661,44 +676,84 @@ test("hostile SITE_URL fails before token-bearing dotenv load", () => {
   );
   assert.equal(secretsLoaded, false);
 
-  // Canonical site allows secrets load exactly once after trust.
+  // Absent SITE_URL uses exact canonical constant — never opens dotenv files to discover it.
   let loads = 0;
   const trusted = resolveTrustedSiteUrlBeforeSecrets({
-    env: { SITE_URL: CANONICAL_PRODUCTION_SITE_ORIGIN },
-    readSiteUrlFromFiles: () => {
-      peeked = true;
-      return undefined;
-    },
+    env: {},
     loadSecrets: () => {
       loads += 1;
     },
   });
   assert.equal(trusted, CANONICAL_PRODUCTION_SITE_ORIGIN);
   assert.equal(loads, 1);
+
+  // Explicit process SITE_URL allows secrets load exactly once after trust.
+  loads = 0;
+  const trustedExplicit = resolveTrustedSiteUrlBeforeSecrets({
+    env: { SITE_URL: CANONICAL_PRODUCTION_SITE_ORIGIN },
+    loadSecrets: () => {
+      loads += 1;
+    },
+  });
+  assert.equal(trustedExplicit, CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.equal(loads, 1);
+
+  // Pre-trust dotenv peeks must be gone — no selective file parsing path.
+  const trustedOriginSrc = fs.readFileSync(TRUSTED_ORIGIN, "utf8");
+  const loadDotenvSrc = fs.readFileSync(LOAD_DOTENV, "utf8");
+  assert.equal(trustedOriginSrc.includes("peekDotenvValue"), false);
+  assert.equal(trustedOriginSrc.includes("readSiteUrlFromFiles"), false);
+  assert.equal(loadDotenvSrc.includes("peekDotenvValue"), false);
+  assert.equal(typeof loadDotenv, "function");
+
+  // Deterministic fs instrumentation: hostile SITE_URL must not open dotenv files.
+  const fsMod = await import("node:fs");
+  const opened = [];
+  const originalExists = fsMod.default.existsSync;
+  const originalRead = fsMod.default.readFileSync;
+  const trackPath = (filePath) => {
+    const name = String(filePath);
+    if (name.includes(".env") || name.includes("env.local")) opened.push(name);
+  };
+  try {
+    fsMod.default.existsSync = (filePath) => {
+      trackPath(filePath);
+      return originalExists(filePath);
+    };
+    fsMod.default.readFileSync = (filePath, ...rest) => {
+      trackPath(filePath);
+      return originalRead(filePath, ...rest);
+    };
+    assert.throws(
+      () =>
+        resolveTrustedSiteUrlBeforeSecrets({
+          env: { SITE_URL: "https://starmapco.com/foo/.." },
+          loadSecrets: () => loadDotenv(ROOT),
+        }),
+      /BLOCKER/
+    );
+    assert.deepEqual(opened, []);
+  } finally {
+    fsMod.default.existsSync = originalExists;
+    fsMod.default.readFileSync = originalRead;
+  }
 });
 
-test("peekDotenvValue materializes only the requested key", () => {
-  const tmp = path.join(os.tmpdir(), `qa-site-peek-${Date.now()}.env`);
-  fs.writeFileSync(
-    tmp,
-    [
-      "PRINT_ADMIN_TOKEN=secret-admin-token-value",
-      "SITE_URL=https://starmapco.com",
-      "STRIPE_SECRET_KEY=sk_test_x",
-    ].join("\n")
-  );
-  try {
-    const filesRead = [];
-    const site = peekDotenvValue("SITE_URL", {
-      paths: [tmp],
-      onFileRead: (filePath) => filesRead.push(filePath),
-    });
-    assert.equal(site, "https://starmapco.com");
-    assert.deepEqual(filesRead, [tmp]);
-    assert.equal(process.env.PRINT_ADMIN_TOKEN === "secret-admin-token-value", false);
-  } finally {
-    fs.unlinkSync(tmp);
-  }
+test("C1/M1 proof fails closed without Stripe metadata verification paths", () => {
+  const proof = fs.readFileSync(C1_M1_PROOF, "utf8");
+  assert.match(proof, /assertStripeQaVerificationCapability\(process\.env\)/);
+  assert.match(proof, /assertCanonicalQaMetadata\(md, LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE\)/);
+  assert.match(proof, /C1\.5 exact persisted QA metadata verified/);
+  assert.match(proof, /M1\.3 exact persisted QA metadata verified/);
+  assert.match(proof, /c1QaVerified && m1QaVerified/);
+  // No successful/skipped metadata-verification paths when STRIPE_SECRET_KEY is missing.
+  assert.equal(proof.includes("skipped - STRIPE_SECRET_KEY missing"), false);
+  assert.equal(/ok:\s*null/.test(proof), false);
+  assert.equal(/if\s*\(\s*process\.env\.STRIPE_SECRET_KEY\s*\)/.test(proof), false);
+  // Capability must be asserted before checkout session posts.
+  const capabilityIdx = proof.indexOf("assertStripeQaVerificationCapability(process.env)");
+  const cardCheckoutIdx = proof.indexOf('await post("/api/checkout"');
+  assert.ok(capabilityIdx >= 0 && cardCheckoutIdx > capabilityIdx);
 });
 
 test("Stripe metadata retrieval fetch refuses redirects without contacting Stripe", async () => {
