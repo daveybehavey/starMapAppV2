@@ -47,6 +47,7 @@ const SCAN_RELATIVE_PATHS = [
   "app/star-map-gift-formats/page.tsx",
   "lib/moneyPageGiftCheckout.ts",
   "lib/printGiftDecisionCopy.ts",
+  "data/seoOccasions.ts",
 ];
 
 /**
@@ -65,12 +66,23 @@ const BUYER_COHORT_POPULARITY_PATTERN = /\bmost(?:\s+[\w'-]+){0,5}\s+buyers\s+(?
 const BUYER_FREQUENCY_PATTERN =
   /\b(?:gift\s+)?buyers?\s+(?:usually|typically|often|generally|commonly|frequently)\s+(?:need|want|decide|choose|prefer|pick|take|start)\b/i;
 
-const MOST_BUYERS_ONLY_NEED_PATTERN = /\bmost\s+buyers\s+only\s+need\b/i;
+/** Qualified or plain “most … buyers only need …” generalizations. */
+const MOST_BUYERS_ONLY_NEED_PATTERN = /\bmost(?:\s+[\w'-]+){0,5}\s+buyers\s+only\s+need\b/i;
+
+/** Product/bundle popularity labels — must not match editorial “Popular occasions”. */
+const POPULAR_BUNDLE_PATTERN = /\bPopular bundle\b/i;
+
+/** Transactional format-popularity FAQs/answers in occasion data. */
+const FORMAT_POPULARITY_QUESTION_PATTERN = /What format do .+ buyers choose most\?/i;
+const FORMAT_POPULARITY_ANSWER_PATTERN = /\bMost choose framed\b|\bMost nursery gifts use\b/i;
 
 const POPULARITY_PATTERNS = [
   BUYER_COHORT_POPULARITY_PATTERN,
   BUYER_FREQUENCY_PATTERN,
   MOST_BUYERS_ONLY_NEED_PATTERN,
+  POPULAR_BUNDLE_PATTERN,
+  FORMAT_POPULARITY_QUESTION_PATTERN,
+  FORMAT_POPULARITY_ANSWER_PATTERN,
   /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
   /\bmost couples choose framed\b/i,
   /path most gift buyers choose/i,
@@ -108,6 +120,8 @@ const BUYER_COHORT_POSITIVE_FIXTURES = [
 const BUYER_FREQUENCY_POSITIVE_FIXTURES = [
   "Buyers usually need three things before checkout: confidence in the file, clarity on print delivery, and reassurance that support exists if anything goes wrong.",
   "Most buyers only need three things before checkout",
+  "Most first-time buyers only need one HD export",
+  "Most gift buyers only need one finished file",
   "Buyers typically need three things before checkout",
   "Buyers often need three things before checkout",
   "Buyers generally need clarity before checkout",
@@ -116,6 +130,46 @@ const BUYER_FREQUENCY_POSITIVE_FIXTURES = [
   "Gift buyers usually want clarity on deliverables and timing",
   "Night sky gift buyers usually decide between the framed route and unframed",
   "Buyers often choose framed + HD",
+];
+
+const ONLY_NEED_POSITIVE_FIXTURES = [
+  "Most buyers only need three things before checkout",
+  "Most first-time buyers only need one HD export",
+  "Most gift buyers only need one finished file",
+  "most first-time buyers only need one HD export. Use packs or unlimited if you plan to create more maps.",
+];
+
+const ONLY_NEED_NEGATIVE_FIXTURES = [
+  "Most buyers decide faster once the wording is settled",
+  "One HD export unlocks this map. Use packs or unlimited if you plan to create more maps.",
+  "You only need the date and location to preview",
+  "Preview only — no payment required yet",
+];
+
+const POPULAR_BUNDLE_POSITIVE_FIXTURES = [
+  "Popular bundle: $106 framed + HD · free shipping",
+  "Popular bundle",
+];
+
+const POPULAR_BUNDLE_NEGATIVE_FIXTURES = [
+  "Popular occasions",
+  "Framed + HD bundle: $106 framed + HD · free shipping",
+  "Popular choices include a child’s birth date or a family milestone.",
+];
+
+const FORMAT_POPULARITY_POSITIVE_FIXTURES = [
+  "What format do engagement gift buyers choose most?",
+  "What format do new-parent gift buyers choose most?",
+  "Most choose framed print + HD digital for a wall-ready gift",
+  "Most nursery gifts use framed print + HD digital",
+];
+
+const FORMAT_POPULARITY_NEGATIVE_FIXTURES = [
+  "Which gift format fits an engagement best?",
+  "Recommended presentation is framed print + HD digital for a wall-ready gift",
+  "Most people choose the proposal night, but you can also use the first date",
+  "Most couples choose their wedding date or the night they first met",
+  "Popular occasions",
 ];
 
 /** Editorial / non-transactional wording that must remain unmatched. */
@@ -141,6 +195,7 @@ const BUYER_FREQUENCY_NEGATIVE_FIXTURES = [
   "Most buyers decide faster once the wording is settled",
   "When used as a custom star map for anniversary gift, couples often choose:",
   "Yes — anniversary star maps are one of the most popular uses.",
+  "One HD export unlocks this map. Use packs or unlimited if you plan to create more maps.",
 ];
 
 function readSrc(relativePath) {
@@ -225,6 +280,80 @@ test("buyer-frequency matcher ignores non-buyer and factual checkout copy", () =
     );
     assert.doesNotMatch(sample, MOST_BUYERS_ONLY_NEED_PATTERN, sample);
   }
+});
+
+test("only-need matcher catches qualified buyer cohorts", () => {
+  for (const sample of ONLY_NEED_POSITIVE_FIXTURES) {
+    assert.match(sample, MOST_BUYERS_ONLY_NEED_PATTERN, `expected only-need positive fixture: ${sample}`);
+  }
+  for (const sample of ONLY_NEED_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(
+      sample,
+      MOST_BUYERS_ONLY_NEED_PATTERN,
+      `expected only-need negative fixture: ${sample}`
+    );
+  }
+});
+
+test("popular-bundle matcher catches product labels but not Popular occasions", () => {
+  for (const sample of POPULAR_BUNDLE_POSITIVE_FIXTURES) {
+    assert.match(sample, POPULAR_BUNDLE_PATTERN, `expected popular-bundle positive fixture: ${sample}`);
+  }
+  for (const sample of POPULAR_BUNDLE_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(
+      sample,
+      POPULAR_BUNDLE_PATTERN,
+      `expected popular-bundle negative fixture: ${sample}`
+    );
+  }
+});
+
+test("format-popularity matcher catches transactional occasion FAQs only", () => {
+  for (const sample of FORMAT_POPULARITY_POSITIVE_FIXTURES) {
+    const matched =
+      FORMAT_POPULARITY_QUESTION_PATTERN.test(sample) || FORMAT_POPULARITY_ANSWER_PATTERN.test(sample);
+    assert.equal(matched, true, `expected format-popularity positive fixture: ${sample}`);
+  }
+  for (const sample of FORMAT_POPULARITY_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(sample, FORMAT_POPULARITY_QUESTION_PATTERN, sample);
+    assert.doesNotMatch(sample, FORMAT_POPULARITY_ANSWER_PATTERN, sample);
+  }
+});
+
+test("paywall value_anchor subtitle no longer generalizes first-time buyers", () => {
+  const source = readSrc("components/PaywallModal.tsx");
+  assert.doesNotMatch(source, MOST_BUYERS_ONLY_NEED_PATTERN);
+  assert.doesNotMatch(source, /Most first-time buyers only need/i);
+  assert.match(source, /One HD export unlocks this map/);
+});
+
+test("money pages no longer render Popular bundle product labels", () => {
+  for (const relativePath of [
+    "app/birthday/page.tsx",
+    "app/anniversary/page.tsx",
+    "app/personalized-star-map/page.tsx",
+    "app/night-sky-map-gift/page.tsx",
+    "app/star-map-for/[slug]/page.tsx",
+  ]) {
+    const source = readSrc(relativePath);
+    assert.doesNotMatch(source, POPULAR_BUNDLE_PATTERN, relativePath);
+    assert.match(source, /Framed \+ HD bundle:/, relativePath);
+  }
+  // Editorial heading must remain.
+  assert.match(readSrc("app/star-map-for/page.tsx"), /Popular occasions/);
+  assert.match(readSrc("components/OccasionLinks.tsx"), /Popular occasions/);
+});
+
+test("seoOccasions transactional format-popularity FAQs are factual", () => {
+  const source = readSrc("data/seoOccasions.ts");
+  assert.doesNotMatch(source, FORMAT_POPULARITY_QUESTION_PATTERN);
+  assert.doesNotMatch(source, FORMAT_POPULARITY_ANSWER_PATTERN);
+  assert.match(source, /Which gift format fits an engagement best\?/);
+  assert.match(source, /Recommended presentation is framed print \+ HD digital/);
+  assert.match(source, /Which gift format fits a new-parent keepsake best\?/);
+  // Preserve date-selection editorial.
+  assert.match(source, /Most people choose the proposal night/);
+  assert.match(source, /Most couples choose their wedding date/);
 });
 
 test("homepage trust intro no longer generalizes buyer frequency", () => {

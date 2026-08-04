@@ -14,7 +14,11 @@ import {
   getPaywallPrintBullets,
 } from "@/lib/commerceFacts";
 import { getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
-import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure, getPrintFreeShippingOfferLine } from "@/lib/printCheckoutConfig";
+import {
+  getPrintProductionReviewDisclosure,
+  getPrintShippingDisclosure,
+  getPrintFreeShippingOfferLine,
+} from "@/lib/printCheckoutConfig";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
@@ -35,7 +39,7 @@ type PriceLabels = {
 function paywallPrintSkuButtonClasses(
   row: PaywallPrintCheckoutPresentationRow,
   preferredPrintVariant: PrintVariant,
-  preferredIncludeDigitalAddOn = false,
+  preferredIncludeDigitalAddOn = false
 ) {
   const shared =
     "w-full rounded-full border px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70";
@@ -94,7 +98,7 @@ const PAYWALL_COPY: Record<
   },
   value_anchor: {
     title: "Buy this map in HD",
-    subtitle: "Most first-time buyers only need one HD export. Use packs or unlimited if you plan to create more maps.",
+    subtitle: "One HD export unlocks this map. Use packs or unlimited if you plan to create more maps.",
     singleCta: "Buy this map in HD",
     packCta: "Buy 3 HD exports",
     subscriptionCta: "Start unlimited",
@@ -122,19 +126,17 @@ export function PaywallModal({
   const copy = PAYWALL_COPY[variant];
   const hasPrintOptions = Boolean(onStartPrintCheckout);
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
-    hasPrintOptions && purchaseIntent === "print" ? "print" : "digital",
+    hasPrintOptions && purchaseIntent === "print" ? "print" : "digital"
   );
   const isWeddingGift = giftPaywallContext === "wedding";
   const freeShippingOfferLine = getPrintFreeShippingOfferLine();
   const dialogTitle =
-    isWeddingGift && activeIntent === "print" && hasPrintOptions
-      ? "Complete your wedding gift"
-      : copy.title;
+    isWeddingGift && activeIntent === "print" && hasPrintOptions ? "Complete your wedding gift" : copy.title;
   const dialogSubtitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions
-        ? freeShippingOfferLine
-          ? `Recommended presentation: framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
-          : "Recommended presentation: framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
+      ? freeShippingOfferLine
+        ? `Recommended presentation: framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
+        : "Recommended presentation: framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
       : activeIntent === "print" && hasPrintOptions
         ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
         : copy.subtitle;
@@ -143,13 +145,16 @@ export function PaywallModal({
   const viewedListsRef = useRef<Set<string>>(new Set());
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
-    [printShippingCountries],
+    [printShippingCountries]
   );
-  const printRows = useMemo(() => getPaywallPrintCheckoutPresentation(printShippingCountry), [printShippingCountry]);
+  const printRows = useMemo(
+    () => getPaywallPrintCheckoutPresentation(printShippingCountry),
+    [printShippingCountry]
+  );
 
   const posterShippingFootnote = useMemo(
     () => formatPosterShippingFootnote(printShippingCountry),
-    [printShippingCountry],
+    [printShippingCountry]
   );
 
   const canPrintCheckout = Boolean(printShippingCountry);
@@ -183,7 +188,7 @@ export function PaywallModal({
       const focusableSelectors =
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
       const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelectors),
+        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelectors)
       ).filter((el) => !el.closest("[hidden]"));
 
       if (focusable.length === 0) return;
@@ -202,7 +207,7 @@ export function PaywallModal({
         }
       }
     },
-    [onClose],
+    [onClose]
   );
 
   useEffect(() => {
@@ -274,7 +279,7 @@ export function PaywallModal({
 
   const handlePrintCheckoutClick = (
     row: PaywallPrintCheckoutPresentationRow,
-    listId: "paywall_print_options" | "paywall_print_upsell",
+    listId: "paywall_print_options" | "paywall_print_upsell"
   ) => {
     setPrintUpsellHint(null);
     trackSelectItem({
@@ -338,22 +343,30 @@ export function PaywallModal({
       >
         {/* Header row: title + close button */}
         <div className="flex items-start justify-between gap-3">
-          <h3 id="paywall-dialog-title" className="text-lg font-semibold text-midnight">
+          <h3 id="paywall-dialog-title" className="text-midnight text-lg font-semibold">
             {dialogTitle}
           </h3>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close purchase options"
-            className="flex-shrink-0 rounded-full p-1 text-neutral-500 transition hover:bg-black/10 hover:text-midnight focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="hover:text-midnight flex-shrink-0 rounded-full p-1 text-neutral-500 transition hover:bg-black/10 focus:ring-2 focus:ring-amber-400 focus:outline-none"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-5 w-5"
+              aria-hidden="true"
+            >
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
             </svg>
           </button>
         </div>
 
-        <p id="paywall-dialog-desc" className="mt-2 text-xs text-neutral-700">{dialogSubtitle}</p>
+        <p id="paywall-dialog-desc" className="mt-2 text-xs text-neutral-700">
+          {dialogSubtitle}
+        </p>
         <ul className="mt-3 space-y-1 text-xs text-neutral-700" aria-label="What's included">
           {bullets.map((b) => (
             <li key={b}>• {b}</li>
@@ -361,7 +374,8 @@ export function PaywallModal({
         </ul>
         {activeIntent === "digital" && (
           <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
-            Just need this one map? The one-time HD option is enough. Packs and unlimited only make sense for repeat exports.
+            Just need this one map? The one-time HD option is enough. Packs and unlimited only make sense for
+            repeat exports.
           </p>
         )}
 
@@ -384,7 +398,7 @@ export function PaywallModal({
                   activeIntent === tab.id
                     ? tab.id === "print"
                       ? "bg-[#0b1433] text-amber-100 shadow-sm"
-                      : "bg-amber-400 text-midnight shadow-sm"
+                      : "text-midnight bg-amber-400 shadow-sm"
                     : "text-neutral-700 hover:bg-white/80"
                 }`}
               >
@@ -400,98 +414,112 @@ export function PaywallModal({
         </div>
 
         {hasPrintOptions && (
-        <div
-          id="paywall-tab-panel-print"
-          role="tabpanel"
-          aria-labelledby="paywall-tab-print"
-          hidden={activeIntent !== "print"}
-          className="mt-4 grid gap-3 text-sm"
-        >
-          {onStartPrintCheckout && (
-            <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
-              <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold">Printed gift checkout</p>
-                <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                  Physical delivery
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-amber-100/80">
-              Your current map is attached automatically. Shipping shows before payment. {getPrintProductionReviewDisclosure()}{" "}
-              {shippingDisclosure}
-              </p>
-              {printShippingCountries.length > 0 && (
-                <div className="mt-3">
-                  <label htmlFor="paywall-print-country" className="text-[11px] font-semibold text-amber-100/80">
-                    Shipping country
-                  </label>
-                  <select
-                    id="paywall-print-country"
-                    value={printShippingCountry ?? ""}
-                    onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
-                    className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
-                    style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
-                  >
-                    {printShippingCountryOptions.map((country) => (
-                      <option
-                        key={country.code}
-                        value={country.code}
-                        className="text-midnight"
-                        style={{ color: "#111827", backgroundColor: "#ffffff" }}
-                      >
-                        {country.label}
-                      </option>
-                    ))}
-                  </select>
-                  {!canPrintCheckout && (
-                    <p className="mt-1 text-[10px] text-amber-100/80">Select a shipping country to continue.</p>
-                  )}
-                  {printShippingCountry && posterShippingFootnote ? (
-                    <p className="mt-1 text-[10px] text-amber-100/80">
-                      Standard shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}{" "}
-                      (carrier transit after production — not the full delivery date).
-                    </p>
-                  ) : null}
-                  <div className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85">
-                    <p>{getPrintProductionTimelineLine()}</p>
-                    <p>{getPrintUsTotalDeliveryEstimateLine()}</p>
-                    <p>{getPrintStandardShippingOnlyLine()}</p>
-                    <p className="font-medium text-amber-50">{getPrintUrgentHdUpsellLine(instantHdPriceLine)}</p>
-                  </div>
-                  <PrintGiftDecisionPanel
-                    printShippingCountry={printShippingCountry}
-                    sizingVariant={preferredPrintVariant}
-                    compact
-                  />
+          <div
+            id="paywall-tab-panel-print"
+            role="tabpanel"
+            aria-labelledby="paywall-tab-print"
+            hidden={activeIntent !== "print"}
+            className="mt-4 grid gap-3 text-sm"
+          >
+            {onStartPrintCheckout && (
+              <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Printed gift checkout</p>
+                  <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-100 uppercase">
+                    Physical delivery
+                  </span>
                 </div>
-              )}
-              {printUpsellHint ? (
-                <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
-                  {printUpsellHint}
+                <p className="mt-1 text-xs text-amber-100/80">
+                  Your current map is attached automatically. Shipping shows before payment.{" "}
+                  {getPrintProductionReviewDisclosure()} {shippingDisclosure}
                 </p>
-              ) : null}
-              <div className="mt-3 grid gap-2">
-                {printRows.map((row) => (
-                  <button
-                    key={paywallPrintCheckoutRowKey(row)}
-                    type="button"
-                    onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
-                    disabled={checkoutInFlight || !canPrintCheckout}
-                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant, preferredIncludeDigitalAddOn)}
-                  >
-                    {checkoutInFlight ? (
-                      "Opening secure checkout..."
-                    ) : (
-                      <>
-                        <span className="block font-semibold">{row.headline}</span>
-                        <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">{row.secondaryLine}</span>
-                      </>
+                {printShippingCountries.length > 0 && (
+                  <div className="mt-3">
+                    <label
+                      htmlFor="paywall-print-country"
+                      className="text-[11px] font-semibold text-amber-100/80"
+                    >
+                      Shipping country
+                    </label>
+                    <select
+                      id="paywall-print-country"
+                      value={printShippingCountry ?? ""}
+                      onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                      className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs"
+                      style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                    >
+                      {printShippingCountryOptions.map((country) => (
+                        <option
+                          key={country.code}
+                          value={country.code}
+                          className="text-midnight"
+                          style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                        >
+                          {country.label}
+                        </option>
+                      ))}
+                    </select>
+                    {!canPrintCheckout && (
+                      <p className="mt-1 text-[10px] text-amber-100/80">
+                        Select a shipping country to continue.
+                      </p>
                     )}
-                  </button>
-                ))}
+                    {printShippingCountry && posterShippingFootnote ? (
+                      <p className="mt-1 text-[10px] text-amber-100/80">
+                        Standard shipping to {getPrintShippingCountryLabel(printShippingCountry)}:{" "}
+                        {posterShippingFootnote} (carrier transit after production — not the full delivery
+                        date).
+                      </p>
+                    ) : null}
+                    <div className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85">
+                      <p>{getPrintProductionTimelineLine()}</p>
+                      <p>{getPrintUsTotalDeliveryEstimateLine()}</p>
+                      <p>{getPrintStandardShippingOnlyLine()}</p>
+                      <p className="font-medium text-amber-50">
+                        {getPrintUrgentHdUpsellLine(instantHdPriceLine)}
+                      </p>
+                    </div>
+                    <PrintGiftDecisionPanel
+                      printShippingCountry={printShippingCountry}
+                      sizingVariant={preferredPrintVariant}
+                      compact
+                    />
+                  </div>
+                )}
+                {printUpsellHint ? (
+                  <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
+                    {printUpsellHint}
+                  </p>
+                ) : null}
+                <div className="mt-3 grid gap-2">
+                  {printRows.map((row) => (
+                    <button
+                      key={paywallPrintCheckoutRowKey(row)}
+                      type="button"
+                      onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
+                      disabled={checkoutInFlight || !canPrintCheckout}
+                      className={paywallPrintSkuButtonClasses(
+                        row,
+                        preferredPrintVariant,
+                        preferredIncludeDigitalAddOn
+                      )}
+                    >
+                      {checkoutInFlight ? (
+                        "Opening secure checkout..."
+                      ) : (
+                        <>
+                          <span className="block font-semibold">{row.headline}</span>
+                          <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">
+                            {row.secondaryLine}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
         {/* ── Digital tab panel ─────────────────────────────────────────────── */}
@@ -506,12 +534,14 @@ export function PaywallModal({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-midnight">One HD export</p>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                  <p className="text-midnight text-sm font-semibold">One HD export</p>
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-900 uppercase">
                     One-time
                   </span>
                 </div>
-                <p className="text-xs text-neutral-600">1 print-ready download for this map • no subscription</p>
+                <p className="text-xs text-neutral-600">
+                  1 print-ready download for this map • no subscription
+                </p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">
                 <span>{priceLabels.single}</span>
@@ -521,18 +551,22 @@ export function PaywallModal({
               type="button"
               onClick={() => handleDigitalCheckoutClick("single")}
               disabled={checkoutInFlight}
-              className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+              className="text-midnight mt-3 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-sm font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
               {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
             </button>
-            <p className="mt-2 text-[11px] text-neutral-600">Best when you only need this one finished map.</p>
+            <p className="mt-2 text-[11px] text-neutral-600">
+              Best when you only need this one finished map.
+            </p>
           </div>
 
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-midnight">3-credit pack</p>
-                <p className="text-xs text-neutral-600">Use when you plan to make more maps, revisions, or gifts</p>
+                <p className="text-midnight text-sm font-semibold">3-credit pack</p>
+                <p className="text-xs text-neutral-600">
+                  Use when you plan to make more maps, revisions, or gifts
+                </p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-800">{priceLabels.pack3}</div>
             </div>
@@ -540,23 +574,27 @@ export function PaywallModal({
               type="button"
               onClick={() => handleDigitalCheckoutClick("pack3")}
               disabled={checkoutInFlight}
-              className="mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+              className="text-midnight mt-3 w-full rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
               {copy.packCta}
             </button>
-            <p className="mt-2 text-[11px] text-neutral-600">Each HD export uses one credit from this pack.</p>
+            <p className="mt-2 text-[11px] text-neutral-600">
+              Each HD export uses one credit from this pack.
+            </p>
           </div>
 
           <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-midnight">Unlimited monthly</p>
-                  <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-midnight">
+                  <p className="text-midnight text-sm font-semibold">Unlimited monthly</p>
+                  <span className="text-midnight rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
                     {copy.badgeLabel}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-700">Unlimited HD exports for ongoing use • cancel anytime</p>
+                <p className="text-xs text-neutral-700">
+                  Unlimited HD exports for ongoing use • cancel anytime
+                </p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-900">
                 {priceLabels.subscription}
@@ -577,14 +615,17 @@ export function PaywallModal({
             <div className="rounded-xl border border-white/20 bg-[#0b1433] p-3 text-amber-50">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">Prefer a physical print?</p>
-                <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-100 uppercase">
                   Gifts
                 </span>
               </div>
-              <p className="mt-1 text-xs text-amber-100/80">Ships to your address. Add digital access now or later.</p>
+              <p className="mt-1 text-xs text-amber-100/80">
+                Ships to your address. Add digital access now or later.
+              </p>
               {!canPrintCheckout && (
                 <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
-                  Choose your shipping country on the print tab first so checkout uses the correct route and shipping price.
+                  Choose your shipping country on the print tab first so checkout uses the correct route and
+                  shipping price.
                 </p>
               )}
               <div className="mt-3 grid gap-2">
@@ -594,7 +635,11 @@ export function PaywallModal({
                     type="button"
                     onClick={() => handlePrintUpsellClick(row)}
                     disabled={checkoutInFlight}
-                    className={paywallPrintSkuButtonClasses(row, preferredPrintVariant, preferredIncludeDigitalAddOn)}
+                    className={paywallPrintSkuButtonClasses(
+                      row,
+                      preferredPrintVariant,
+                      preferredIncludeDigitalAddOn
+                    )}
                   >
                     {checkoutInFlight ? (
                       "Opening secure checkout..."
@@ -614,8 +659,11 @@ export function PaywallModal({
         </div>
 
         <p className="mt-4 text-[11px] text-neutral-600">
-          Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be canceled anytime.{" "}
-          Need help? <a href="mailto:support@starmapco.com" className="underline hover:text-neutral-900">support@starmapco.com</a>
+          Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be
+          canceled anytime. Need help?{" "}
+          <a href="mailto:support@starmapco.com" className="underline hover:text-neutral-900">
+            support@starmapco.com
+          </a>
         </p>
         <p className="mt-2 text-xs font-semibold text-neutral-700">
           Have a promo code? It can be applied at checkout.
@@ -626,7 +674,10 @@ export function PaywallModal({
           </p>
         )}
         {checkoutError && (
-          <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"
+          >
             {checkoutError}
           </p>
         )}

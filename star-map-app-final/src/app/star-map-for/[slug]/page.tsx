@@ -15,7 +15,11 @@ import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { getOccasion, seoOccasions } from "@/data/seoOccasions";
-import { getCanonicalOccasionPath, isIndexableOccasionSlug, resolveOccasionIntentPath } from "@/data/seoIndexing";
+import {
+  getCanonicalOccasionPath,
+  isIndexableOccasionSlug,
+  resolveOccasionIntentPath,
+} from "@/data/seoIndexing";
 import {
   getFramedHdBundlePriceLine,
   getPrintProductionReviewTrustPoint,
@@ -106,37 +110,43 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
   ];
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <LandingViewTracker source={`occasion-${occasion.slug}`} />
 
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">{getOccasionPageH1(occasion)}</h1>
         <p className="text-sm text-white/90 sm:text-base">{occasion.intro}</p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Framed print
+          </span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Unframed print
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
+            HD digital delivery
+          </span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
           <Link
             href={`/editor?mode=quick&source=${sourcePrefix}-hero-preview`}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Start free preview
           </Link>
           <InstantHdHeroExtras source={`${sourcePrefix}-hero-instant`} showFunnelLink={false} />
         </div>
         <InstantHdHeroExtras source={`${sourcePrefix}-hero-instant`} showButton={false} />
-        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
+        <p className="text-xs text-neutral-300 sm:text-sm">Framed + HD bundle: {bundlePriceLine}</p>
       </header>
 
       <GiftFormatLadder
@@ -166,15 +176,15 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Why a {occasion.label.toLowerCase()} star map works</h2>
+        <h2 className="text-midnight text-xl font-semibold">
+          Why a {occasion.label.toLowerCase()} star map works
+        </h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          The night sky never repeats in the same way. A custom star map turns a meaningful date and place into a lasting
-          keepsake.
+          The night sky never repeats in the same way. A custom star map turns a meaningful date and place
+          into a lasting keepsake.
         </p>
         {occasion.detail ? (
-          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-            {occasion.detail}
-          </p>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">{occasion.detail}</p>
         ) : null}
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate star positions for any date and location</li>
@@ -185,7 +195,9 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Start your {occasion.label.toLowerCase()} star map</h2>
+        <h2 className="text-midnight text-lg font-semibold">
+          Start your {occasion.label.toLowerCase()} star map
+        </h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter the date, time, and location</li>
           <li>Preview the sky instantly</li>
@@ -195,7 +207,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         <div className="pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
@@ -217,22 +229,23 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       <AccuracyAuthorityCard source={`occasion-${occasion.slug}-accuracy`} />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Example caption</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">
-          Use a line like this on your final print:
-        </p>
-        <p className="mt-2 rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm font-semibold text-midnight">
+        <h2 className="text-midnight text-lg font-semibold">Example caption</h2>
+        <p className="text-sm text-neutral-800 sm:text-base">Use a line like this on your final print:</p>
+        <p className="text-midnight mt-2 rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm font-semibold">
           {occasion.exampleLine}
         </p>
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Related ideas</h2>
+        <h2 className="text-midnight text-lg font-semibold">Related ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Browse related occasion pages and map formats:
         </p>
         <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-          <Link href="/star-map-for" className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-100">
+          <Link
+            href="/star-map-for"
+            className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-100"
+          >
             All occasions
           </Link>
           {siblingOccasions.map((item) => (
@@ -244,10 +257,16 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
               {item.label}
             </Link>
           ))}
-          <Link href="/star-map-generator" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
+          <Link
+            href="/star-map-generator"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50"
+          >
             Star map generator
           </Link>
-          <Link href="/star-map-gift" className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50">
+          <Link
+            href="/star-map-gift"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 hover:border-amber-400 hover:bg-amber-50"
+          >
             Star map gift
           </Link>
         </div>
@@ -279,11 +298,11 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">{occasion.label} star map FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">{occasion.label} star map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           {occasion.faqs.map((faq) => (
             <div key={faq.question}>
-              <h3 className="font-semibold text-midnight">{faq.question}</h3>
+              <h3 className="text-midnight font-semibold">{faq.question}</h3>
               <p>{faq.answer}</p>
             </div>
           ))}

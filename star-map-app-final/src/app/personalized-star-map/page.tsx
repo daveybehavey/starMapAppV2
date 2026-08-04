@@ -63,38 +63,44 @@ export default function PersonalizedStarMapPage() {
   const previewIntents = buildStandardGiftPreviewIntents("personalized-star-map");
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Best Personalized Star Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          A personalized star map gift with names, a date, and a location—the exact night sky from a moment worth framing.
-          Framed print + HD digital qualifies for free shipping at checkout.
+          A personalized star map gift with names, a date, and a location—the exact night sky from a moment
+          worth framing. Framed print + HD digital qualifies for free shipping at checkout.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Framed print
+          </span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Unframed print
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
+            HD digital delivery
+          </span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=personalized-star-map-hero-preview"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Start free preview
           </Link>
           <InstantHdHeroExtras source="personalized-star-map-hero-instant" showFunnelLink={false} />
         </div>
         <InstantHdHeroExtras source="personalized-star-map-hero-instant" showButton={false} />
-        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
+        <p className="text-xs text-neutral-300 sm:text-sm">Framed + HD bundle: {bundlePriceLine}</p>
       </header>
 
       <GiftFormatLadder
@@ -124,10 +130,10 @@ export default function PersonalizedStarMapPage() {
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Make it truly personal</h2>
+        <h2 className="text-midnight text-xl font-semibold">Make it truly personal</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          Add a title, names, and a short dedication line. Choose a style that matches the person or place you are
-          celebrating, then approve the same design as a framed print, unframed poster, or HD file.
+          Add a title, names, and a short dedication line. Choose a style that matches the person or place you
+          are celebrating, then approve the same design as a framed print, unframed poster, or HD file.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate night sky based on real astronomical data</li>
@@ -138,7 +144,7 @@ export default function PersonalizedStarMapPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Create a personalized star map</h2>
+        <h2 className="text-midnight text-lg font-semibold">Create a personalized star map</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter the date, time, and location</li>
           <li>Add names, a title, and a short message</li>
@@ -148,7 +154,7 @@ export default function PersonalizedStarMapPage() {
         <div className="pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
@@ -170,14 +176,18 @@ export default function PersonalizedStarMapPage() {
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-midnight">Recent personalized map examples</h2>
+          <h2 className="text-midnight text-lg font-semibold">Recent personalized map examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            These are freshly rendered StarMapCo outputs from the current engine. Start from one of these looks, then adjust fonts, lines, and text.
+            These are freshly rendered StarMapCo outputs from the current engine. Start from one of these
+            looks, then adjust fonts, lines, and text.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {featuredRenderExamples.map((item) => (
-            <div key={item.src} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+            <div
+              key={item.src}
+              className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm"
+            >
               <div className="relative aspect-square">
                 <Image
                   src={item.src}
@@ -188,12 +198,18 @@ export default function PersonalizedStarMapPage() {
                   className="h-full w-full object-cover"
                 />
               </div>
-              <div className="border-t border-black/5 px-3 py-2 text-xs font-semibold text-midnight">{item.shortLabel}</div>
+              <div className="text-midnight border-t border-black/5 px-3 py-2 text-xs font-semibold">
+                {item.shortLabel}
+              </div>
             </div>
           ))}
         </div>
         <div className="text-sm">
-          <Link href="/star-map-gallery" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+          <Link
+            href="/star-map-gallery"
+            prefetch={false}
+            className="text-amber-700 underline hover:text-amber-800"
+          >
             View full gallery
           </Link>
         </div>
@@ -228,7 +244,7 @@ export default function PersonalizedStarMapPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Related star map options</h2>
+        <h2 className="text-midnight text-lg font-semibold">Related star map options</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Explore by occasion or browse other formats to find the right fit.
         </p>
@@ -257,45 +273,50 @@ export default function PersonalizedStarMapPage() {
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Personalized star map FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">Personalized star map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           <div>
-            <h3 className="font-semibold text-midnight">What can I customize on a personalized star map?</h3>
+            <h3 className="text-midnight font-semibold">What can I customize on a personalized star map?</h3>
             <p>
-              You can add names, a title, a date line, a dedication, and choose styles, fonts, shapes, and labels.
+              You can add names, a title, a date line, a dedication, and choose styles, fonts, shapes, and
+              labels.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Is the personalized star map print-ready?</h3>
+            <h3 className="text-midnight font-semibold">Is the personalized star map print-ready?</h3>
+            <p>Yes. The HD file is high resolution and designed for crisp prints and framing.</p>
+          </div>
+          <div>
+            <h3 className="text-midnight font-semibold">What if I do not know the exact time?</h3>
             <p>
-              Yes. The HD file is high resolution and designed for crisp prints and framing.
+              You can still create a beautiful map using date + location only. If time is unknown, we default
+              to midnight and you can adjust later.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">What if I do not know the exact time?</h3>
+            <h3 className="text-midnight font-semibold">How quickly do I get the HD file?</h3>
             <p>
-              You can still create a beautiful map using date + location only. If time is unknown, we default to midnight
-              and you can adjust later.
+              Immediately after checkout. You unlock the download in the app and can save your file right
+              away.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">How quickly do I get the HD file?</h3>
+            <h3 className="text-midnight font-semibold">Can I order a printed or framed version directly?</h3>
             <p>
-              Immediately after checkout. You unlock the download in the app and can save your file right away.
+              Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during
+              checkout. {shippingDisclosure}
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I order a printed or framed version directly?</h3>
+            <h3 className="text-midnight font-semibold">What is the best personalized star map gift?</h3>
             <p>
-              Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. {shippingDisclosure}
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-midnight">What is the best personalized star map gift?</h3>
-            <p>
-              The premium gift route is framed print so it arrives ready to display, often paired with HD digital for a
-              keepsake file. Orders at $100+ qualify for free shipping. Add{" "}
-              <Link href="/shop#merch-addons" prefetch={false} className="text-amber-700 underline hover:text-amber-800">
+              The premium gift route is framed print so it arrives ready to display, often paired with HD
+              digital for a keepsake file. Orders at $100+ qualify for free shipping. Add{" "}
+              <Link
+                href="/shop#merch-addons"
+                prefetch={false}
+                className="text-amber-700 underline hover:text-amber-800"
+              >
                 custom kiss-cut stickers
               </Link>{" "}
               from the same map for a small add-on gift.
@@ -321,7 +342,8 @@ export default function PersonalizedStarMapPage() {
           },
           {
             question: "How quickly do I get the HD file?",
-            answer: "Immediately after checkout. You unlock the download in the app and can save your file right away.",
+            answer:
+              "Immediately after checkout. You unlock the download in the app and can save your file right away.",
           },
           {
             question: "Can I order a printed or framed version directly?",

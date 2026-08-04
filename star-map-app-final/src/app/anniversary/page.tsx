@@ -165,7 +165,7 @@ export default function AnniversaryPage() {
           <InstantHdHeroExtras source="anniversary-hero-instant" showFunnelLink={false} />
         </div>
         <InstantHdHeroExtras source="anniversary-hero-instant" showButton={false} />
-        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
+        <p className="text-xs text-neutral-300 sm:text-sm">Framed + HD bundle: {bundlePriceLine}</p>
       </header>
 
       <GiftFormatLadder
