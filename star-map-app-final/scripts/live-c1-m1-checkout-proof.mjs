@@ -12,8 +12,6 @@ import {
 } from "./qa-checkout-headers.mjs";
 import {
   assertNoRedirectEscape,
-  assertTrustedLiveProbeSite,
-  CANONICAL_PRODUCTION_SITE_ORIGIN,
   createSecretBearingFetch,
   resolveTrustedSiteUrlBeforeSecrets,
 } from "./qa-trusted-origin.mjs";
