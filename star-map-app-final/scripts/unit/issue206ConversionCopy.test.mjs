@@ -63,7 +63,7 @@ const BUYER_COHORT_POPULARITY_PATTERN = /\bmost(?:\s+[\w'-]+){0,5}\s+buyers\s+(?
  * (e.g. rewriting "Most buyers only need…" into "Buyers usually need…").
  */
 const BUYER_FREQUENCY_PATTERN =
-  /\b(?:gift\s+)?buyers?\s+(?:usually|typically|often|generally)\s+(?:need|want|decide|choose|prefer|pick|take|start)\b/i;
+  /\b(?:gift\s+)?buyers?\s+(?:usually|typically|often|generally|commonly|frequently)\s+(?:need|want|decide|choose|prefer|pick|take|start)\b/i;
 
 const MOST_BUYERS_ONLY_NEED_PATTERN = /\bmost\s+buyers\s+only\s+need\b/i;
 
@@ -111,6 +111,8 @@ const BUYER_FREQUENCY_POSITIVE_FIXTURES = [
   "Buyers typically need three things before checkout",
   "Buyers often need three things before checkout",
   "Buyers generally need clarity before checkout",
+  "Buyers commonly need three things before checkout",
+  "Buyers frequently want clarity before checkout",
   "Gift buyers usually want clarity on deliverables and timing",
   "Night sky gift buyers usually decide between the framed route and unframed",
   "Buyers often choose framed + HD",
@@ -135,8 +137,10 @@ const BUYER_FREQUENCY_NEGATIVE_FIXTURES = [
   "Shipping usually arrives within the estimate shown at checkout",
   "Production typically takes 2–5 business days",
   "Maps are often framed after local printing",
+  "Print orders commonly ship with tracking",
   "Most buyers decide faster once the wording is settled",
   "When used as a custom star map for anniversary gift, couples often choose:",
+  "Yes — anniversary star maps are one of the most popular uses.",
 ];
 
 function readSrc(relativePath) {
