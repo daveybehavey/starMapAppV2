@@ -58,8 +58,19 @@ const SCAN_RELATIVE_PATHS = [
  */
 const BUYER_COHORT_POPULARITY_PATTERN = /\bmost(?:\s+[\w'-]+){0,5}\s+buyers\s+(?:choose|prefer|pick)\b/i;
 
+/**
+ * Behavioral-frequency substitutions that preserve unsupported buyer generalizations
+ * (e.g. rewriting "Most buyers only need…" into "Buyers usually need…").
+ */
+const BUYER_FREQUENCY_PATTERN =
+  /\b(?:gift\s+)?buyers?\s+(?:usually|typically|often|generally)\s+(?:need|want|decide|choose|prefer|pick|take|start)\b/i;
+
+const MOST_BUYERS_ONLY_NEED_PATTERN = /\bmost\s+buyers\s+only\s+need\b/i;
+
 const POPULARITY_PATTERNS = [
   BUYER_COHORT_POPULARITY_PATTERN,
+  BUYER_FREQUENCY_PATTERN,
+  MOST_BUYERS_ONLY_NEED_PATTERN,
   /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
   /\bmost couples choose framed\b/i,
   /path most gift buyers choose/i,
@@ -93,6 +104,18 @@ const BUYER_COHORT_POSITIVE_FIXTURES = [
   "Most anniversary buyers pick the framed route",
 ];
 
+/** Frequency substitutions introduced/caught by this slice. */
+const BUYER_FREQUENCY_POSITIVE_FIXTURES = [
+  "Buyers usually need three things before checkout: confidence in the file, clarity on print delivery, and reassurance that support exists if anything goes wrong.",
+  "Most buyers only need three things before checkout",
+  "Buyers typically need three things before checkout",
+  "Buyers often need three things before checkout",
+  "Buyers generally need clarity before checkout",
+  "Gift buyers usually want clarity on deliverables and timing",
+  "Night sky gift buyers usually decide between the framed route and unframed",
+  "Buyers often choose framed + HD",
+];
+
 /** Editorial / non-transactional wording that must remain unmatched. */
 const BUYER_COHORT_NEGATIVE_FIXTURES = [
   "Most couples choose the proposal date",
@@ -103,6 +126,17 @@ const BUYER_COHORT_NEGATIVE_FIXTURES = [
   "These holidays bring the most gift searches each year",
   "Recommended presentation is framed + HD",
   "The premium gift route is the framed print",
+];
+
+const BUYER_FREQUENCY_NEGATIVE_FIXTURES = [
+  "Before checkout: confidence in the file, clarity on print delivery, and support if anything goes wrong.",
+  "Deliverables and timing are listed below — this is the exact package you unlock.",
+  "Choose between the presentation-ready framed route and the lower-cost unframed route.",
+  "Shipping usually arrives within the estimate shown at checkout",
+  "Production typically takes 2–5 business days",
+  "Maps are often framed after local printing",
+  "Most buyers decide faster once the wording is settled",
+  "When used as a custom star map for anniversary gift, couples often choose:",
 ];
 
 function readSrc(relativePath) {
@@ -165,6 +199,39 @@ test("buyer-cohort popularity matcher ignores ordinary editorial most-* wording"
       `expected negative fixture to remain unmatched: ${sample}`
     );
   }
+});
+
+test("buyer-frequency matcher catches usually/typically/often substitutions", () => {
+  for (const sample of BUYER_FREQUENCY_POSITIVE_FIXTURES) {
+    const matched = BUYER_FREQUENCY_PATTERN.test(sample) || MOST_BUYERS_ONLY_NEED_PATTERN.test(sample);
+    assert.equal(matched, true, `expected frequency positive fixture to match: ${sample}`);
+    assert.ok(
+      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      `expected frequency positive fixture to fail full scan: ${sample}`
+    );
+  }
+});
+
+test("buyer-frequency matcher ignores non-buyer and factual checkout copy", () => {
+  for (const sample of BUYER_FREQUENCY_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(
+      sample,
+      BUYER_FREQUENCY_PATTERN,
+      `expected frequency negative fixture to remain unmatched: ${sample}`
+    );
+    assert.doesNotMatch(sample, MOST_BUYERS_ONLY_NEED_PATTERN, sample);
+  }
+});
+
+test("homepage trust intro no longer generalizes buyer frequency", () => {
+  const source = readSrc("app/HomeStaticSections.tsx");
+  assert.doesNotMatch(source, /Buyers usually need three things/i);
+  assert.doesNotMatch(source, /Most buyers only need three things/i);
+  assert.doesNotMatch(source, BUYER_FREQUENCY_PATTERN);
+  assert.match(
+    source,
+    /Before checkout: confidence in the file, clarity on print delivery, and support if anything goes wrong/
+  );
 });
 
 test("print production disclosure mirrors auto-confirm true and false", () => {
