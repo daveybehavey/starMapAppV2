@@ -76,6 +76,15 @@ const POPULAR_BUNDLE_PATTERN = /\bPopular bundle\b/i;
 const FORMAT_POPULARITY_QUESTION_PATTERN = /What format do .+ buyers choose most\?/i;
 const FORMAT_POPULARITY_ANSWER_PATTERN = /\bMost choose framed\b|\bMost nursery gifts use\b/i;
 
+/**
+ * Subject-substitution frequency claims where “most” generalizes gifts/orders/files
+ * without naming buyers (e.g. “covers most single-map gifts”).
+ * Intentionally does NOT match editorial like “most searched gift occasions”,
+ * “most meaningful gifts”, or date-selection “Most couples choose…”.
+ */
+const MOST_GIFTS_ORDERS_FILES_PATTERN =
+  /\b(?:covers|for|across|on|not)\s+most\s+(?:[\w'-]+\s+){0,3}(?:gifts?|orders?|files?)\b|\bmost\s+(?:single-map|one-off|one[\s-]off)\s+gifts?\b|\bmost\s+(?:orders?|files?)\s+(?:need|require|use|include|cover)\b/i;
+
 const POPULARITY_PATTERNS = [
   BUYER_COHORT_POPULARITY_PATTERN,
   BUYER_FREQUENCY_PATTERN,
@@ -83,6 +92,7 @@ const POPULARITY_PATTERNS = [
   POPULAR_BUNDLE_PATTERN,
   FORMAT_POPULARITY_QUESTION_PATTERN,
   FORMAT_POPULARITY_ANSWER_PATTERN,
+  MOST_GIFTS_ORDERS_FILES_PATTERN,
   /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
   /\bmost couples choose framed\b/i,
   /path most gift buyers choose/i,
@@ -170,6 +180,31 @@ const FORMAT_POPULARITY_NEGATIVE_FIXTURES = [
   "Most people choose the proposal night, but you can also use the first date",
   "Most couples choose their wedding date or the night they first met",
   "Popular occasions",
+];
+
+const MOST_GIFTS_ORDERS_FILES_POSITIVE_FIXTURES = [
+  "One finished file covers most single-map gifts.",
+  "Only for ongoing exports, not most one-off gifts.",
+  "One file covers most gifts.",
+  "This plan covers most orders.",
+  "One export covers most files.",
+  "Built for most one-off gifts.",
+  "most single-map gifts",
+  "most one-off gifts",
+  "Most orders need only one finished file",
+  "Most files cover a single map gift",
+];
+
+const MOST_GIFTS_ORDERS_FILES_NEGATIVE_FIXTURES = [
+  "One finished file unlocks a single map.",
+  "Built for ongoing exports across many maps.",
+  "Most couples choose the proposal date",
+  "Most people choose one of these moments",
+  "These holidays bring the most gift searches each year",
+  "Start with the most searched gift occasions",
+  "Yes. It’s one of the most requested gifts for weddings and anniversaries.",
+  "Yes. A custom star map gift is one of the most meaningful couples gifts",
+  "Most buyers decide faster once the wording is settled",
 ];
 
 /** Editorial / non-transactional wording that must remain unmatched. */
@@ -318,6 +353,32 @@ test("format-popularity matcher catches transactional occasion FAQs only", () =>
     assert.doesNotMatch(sample, FORMAT_POPULARITY_QUESTION_PATTERN, sample);
     assert.doesNotMatch(sample, FORMAT_POPULARITY_ANSWER_PATTERN, sample);
   }
+});
+
+test("most-gifts/orders/files matcher catches subject-substitution frequency claims", () => {
+  for (const sample of MOST_GIFTS_ORDERS_FILES_POSITIVE_FIXTURES) {
+    assert.match(sample, MOST_GIFTS_ORDERS_FILES_PATTERN, `expected most-gifts positive fixture: ${sample}`);
+    assert.ok(
+      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      `expected most-gifts positive fixture to fail full scan: ${sample}`
+    );
+  }
+  for (const sample of MOST_GIFTS_ORDERS_FILES_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(
+      sample,
+      MOST_GIFTS_ORDERS_FILES_PATTERN,
+      `expected most-gifts negative fixture: ${sample}`
+    );
+  }
+});
+
+test("HomeOfferStack digital plans no longer generalize most gifts", () => {
+  const source = readSrc("components/HomeOfferStack.tsx");
+  assert.doesNotMatch(source, MOST_GIFTS_ORDERS_FILES_PATTERN);
+  assert.doesNotMatch(source, /covers most single-map gifts/i);
+  assert.doesNotMatch(source, /not most one-off gifts/i);
+  assert.match(source, /One finished file unlocks a single map/);
+  assert.match(source, /Built for ongoing exports across many maps/);
 });
 
 test("paywall value_anchor subtitle no longer generalizes first-time buyers", () => {

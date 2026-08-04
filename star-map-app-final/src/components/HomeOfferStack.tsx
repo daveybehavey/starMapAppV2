@@ -39,8 +39,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
   const freeShippingOffer = getPrintFreeShippingOfferLine();
   const printShippingCountry = "US";
   const printShippingCountries = getPrintAllowedCountries();
-  const framedShippingLabel = formatPrintShippingEstimateWithDelivery("poster_framed", printShippingCountry, "shipping");
-  const unframedShippingLabel = formatPrintShippingEstimateWithDelivery("poster_unframed", printShippingCountry, "shipping");
+  const framedShippingLabel = formatPrintShippingEstimateWithDelivery(
+    "poster_framed",
+    printShippingCountry,
+    "shipping"
+  );
+  const unframedShippingLabel = formatPrintShippingEstimateWithDelivery(
+    "poster_unframed",
+    printShippingCountry,
+    "shipping"
+  );
   const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", printShippingCountry);
   const shippingCountryLabel = getPrintShippingCountryLabel(printShippingCountry);
   const shippingCoverageLabel = (() => {
@@ -56,11 +64,15 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
     >
       <div className="space-y-7 rounded-3xl border border-amber-300/26 bg-[linear-gradient(180deg,rgba(9,17,40,0.9),rgba(6,12,32,0.95))] p-6 text-white shadow-[0_20px_48px_rgba(0,0,0,0.34)]">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Choose your format</p>
-          <h2 className="text-2xl font-semibold sm:text-3xl">Preview first, then pick how you want it delivered</h2>
+          <p className="text-xs font-semibold tracking-[0.25em] text-amber-300 uppercase">
+            Choose your format
+          </p>
+          <h2 className="text-2xl font-semibold sm:text-3xl">
+            Preview first, then pick how you want it delivered
+          </h2>
           <p className="max-w-3xl text-sm leading-relaxed text-neutral-200 sm:text-base">
-            Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a lower-cost
-            unframed poster.
+            Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a
+            lower-cost unframed poster.
           </p>
           <div className="grid gap-2 pt-2 sm:grid-cols-3">
             <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
@@ -92,14 +104,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-white">Instant digital</p>
-              <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
+              <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] text-neutral-200 uppercase">
                 Instant
               </span>
             </div>
-            <p className="mt-1 inline-flex w-fit rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100">
+            <p className="mt-1 inline-flex w-fit rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] text-emerald-100 uppercase">
               Fastest checkout
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-200">HD file unlocks immediately after payment with no shipping wait.</p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">
+              HD file unlocks immediately after payment with no shipping wait.
+            </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Up to 6000x6000 PNG</li>
               <li>No watermark on paid export</li>
@@ -134,21 +148,26 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 PREMIUM GIFT
               </span>
             </div>
-            <p className="mt-1 inline-flex w-fit rounded-full border border-amber-300/40 bg-amber-300/16 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
+            <p className="mt-1 inline-flex w-fit rounded-full border border-amber-300/40 bg-amber-300/16 px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] text-amber-100 uppercase">
               Recommended presentation
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-200">Ready-to-hang 14x14 option for the strongest premium gift presentation.</p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">
+              Ready-to-hang 14x14 option for the strongest premium gift presentation.
+            </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Pair with the HD add-on for instant digital from the same design</li>
               {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
               <li>Best-looking premium option for special occasions</li>
-              <li>Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}</li>
+              <li>
+                Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}
+              </li>
               {framedDeliveryDisclosure ? <li>{framedDeliveryDisclosure}</li> : null}
               <li>{printLabels.framed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-amber-300/35 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
-              Best for the strongest unboxing moment, easier gifting, and buyers who do not want to handle framing.
+              Best for the strongest unboxing moment, easier gifting, and buyers who do not want to handle
+              framing.
             </div>
             <a
               href={`/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
@@ -169,15 +188,19 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 className="object-cover object-center"
               />
             </div>
-            <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-200">
+            <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] text-neutral-200 uppercase">
               Physical saver
             </span>
             <p className="text-sm font-semibold text-white">Unframed print</p>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-200">Professionally printed 18x18 poster for buyers who already have a frame plan.</p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">
+              Professionally printed 18x18 poster for buyers who already have a frame plan.
+            </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Museum-quality poster stock</li>
               <li>Lower-cost physical option</li>
-              <li>Estimated shipping to {shippingCountryLabel}: {unframedShippingLabel}</li>
+              <li>
+                Estimated shipping to {shippingCountryLabel}: {unframedShippingLabel}
+              </li>
               <li>{printLabels.unframed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-neutral-200">
@@ -194,33 +217,45 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
 
         <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/15 p-4 md:grid-cols-3">
           <div className="space-y-1 text-sm text-neutral-200">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Fastest path</p>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-200 uppercase">
+              Fastest path
+            </p>
             <p className="font-semibold text-white">Digital HD</p>
-            <p className="text-xs leading-relaxed">Immediate delivery, no shipping, and still usable for local framing later.</p>
+            <p className="text-xs leading-relaxed">
+              Immediate delivery, no shipping, and still usable for local framing later.
+            </p>
           </div>
           <div className="space-y-1 text-sm text-neutral-200">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Best gift route</p>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-200 uppercase">
+              Best gift route
+            </p>
             <p className="font-semibold text-white">Framed print</p>
-            <p className="text-xs leading-relaxed">Most polished presentation. This is the route to push when the goal is emotional impact.</p>
+            <p className="text-xs leading-relaxed">
+              Most polished presentation. This is the route to push when the goal is emotional impact.
+            </p>
           </div>
           <div className="space-y-1 text-sm text-neutral-200">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Best lower-cost physical</p>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-200 uppercase">
+              Best lower-cost physical
+            </p>
             <p className="font-semibold text-white">Unframed poster</p>
-            <p className="text-xs leading-relaxed">Keeps physical checkout available without forcing buyers into the premium frame cost.</p>
+            <p className="text-xs leading-relaxed">
+              Keeps physical checkout available without forcing buyers into the premium frame cost.
+            </p>
           </div>
         </div>
 
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-white/5 p-3 sm:grid-cols-[minmax(0,190px),1fr] sm:items-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">
+            <p className="text-xs font-semibold tracking-[0.16em] text-amber-200 uppercase">
               Shipping estimate baseline
             </p>
             <p className="text-[11px] text-neutral-300">
-              Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel} (shown for {shippingCountryLabel}).
-              Final shipping is shown before payment for all supported countries.
+              Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel} (shown for{" "}
+              {shippingCountryLabel}). Final shipping is shown before payment for all supported countries.
             </p>
           </div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Print confidence</p>
+          <p className="text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">Print confidence</p>
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
             <li>✓ {getPrintProductionReviewTrustPoint()}</li>
             <li>✓ {getPrintPhysicalOrderSummaryLine()}</li>
@@ -233,7 +268,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Need the full comparison?</p>
+            <p className="text-xs font-semibold tracking-[0.18em] text-amber-300 uppercase">
+              Need the full comparison?
+            </p>
             <p className="mt-1 text-xs text-neutral-300">
               Compare live digital, framed, and unframed routes before you enter checkout.
             </p>
@@ -256,8 +293,10 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
 
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Digital HD plans</p>
-            <span className="text-[11px] text-neutral-300">One finished file covers most single-map gifts.</span>
+            <p className="text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">
+              Digital HD plans
+            </p>
+            <span className="text-[11px] text-neutral-300">One finished file unlocks a single map.</span>
           </div>
           <p className="mt-2 text-xs text-neutral-300">
             Start with the one-time HD checkout unless you know you need multiple exports or ongoing use.
@@ -274,7 +313,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 </span>
               </div>
               <p className="text-sm font-semibold text-amber-200">{priceLabels.single}</p>
-              <p className="mt-1 text-[11px] text-amber-100/80">Best if you just need this one finished map.</p>
+              <p className="mt-1 text-[11px] text-amber-100/80">
+                Best if you just need this one finished map.
+              </p>
             </a>
             <a
               href="/editor?mode=quick&source=home-plan-pack3"
@@ -290,7 +331,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 {priceLabels.pack3}
                 {priceLabels.packSavingsPercent > 0 ? ` (${priceLabels.packSavingsPercent}% off)` : ""}
               </p>
-              <p className="mt-1 text-[11px] text-neutral-300">Use this if you expect multiple gifts or alternate versions (1 export per credit).</p>
+              <p className="mt-1 text-[11px] text-neutral-300">
+                Use this if you expect multiple gifts or alternate versions (1 export per credit).
+              </p>
             </a>
             <a
               href="/editor?mode=quick&source=home-plan-subscription"
@@ -298,7 +341,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             >
               <p className="text-sm font-semibold text-white">Unlimited monthly</p>
               <p className="text-sm font-semibold text-neutral-100">{priceLabels.subscription}/mo</p>
-              <p className="mt-1 text-[11px] text-neutral-300">Only for ongoing exports, not most one-off gifts.</p>
+              <p className="mt-1 text-[11px] text-neutral-300">Built for ongoing exports across many maps.</p>
             </a>
           </div>
           <p className="text-xs text-neutral-300">
