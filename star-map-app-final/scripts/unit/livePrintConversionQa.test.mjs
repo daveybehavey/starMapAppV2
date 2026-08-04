@@ -423,6 +423,41 @@ test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pas
   assert.equal(tokenAccessed, false);
   assert.equal(mainChunks.join("").includes(secretToken), false);
   assert.match(mainChunks.join(""), /BLOCKER/);
+
+  // writeOperatorError must never consult process.env.PRINT_ADMIN_TOKEN by default.
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.env, "PRINT_ADMIN_TOKEN");
+  let processEnvTokenAccessed = false;
+  Object.defineProperty(process.env, "PRINT_ADMIN_TOKEN", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      processEnvTokenAccessed = true;
+      return originalDescriptor?.value ?? originalDescriptor?.get?.() ?? undefined;
+    },
+    set(value) {
+      processEnvTokenAccessed = true;
+      if (originalDescriptor?.set) originalDescriptor.set(value);
+      else if (originalDescriptor && "value" in originalDescriptor) {
+        Object.defineProperty(process.env, "PRINT_ADMIN_TOKEN", {
+          ...originalDescriptor,
+          value,
+        });
+      }
+    },
+  });
+  try {
+    writeOperatorError(
+      { write() {} },
+      "BLOCKER: --site host is not the canonical trusted production origin."
+    );
+    assert.equal(processEnvTokenAccessed, false);
+  } finally {
+    if (originalDescriptor) {
+      Object.defineProperty(process.env, "PRINT_ADMIN_TOKEN", originalDescriptor);
+    } else {
+      delete process.env.PRINT_ADMIN_TOKEN;
+    }
+  }
 });
 
 test("merch probe resolves trusted site before token access and uses manual redirects", () => {
@@ -437,12 +472,46 @@ test("merch probe resolves trusted site before token access and uses manual redi
     "https://user:pass@starmapco.com",
     "https://starmapco.com:8443",
     "https://starmapco.com/path",
+    "https://evil.starmapco.com",
+    "https://starmapco.com?x=1",
+    "https://starmapco.com#frag",
   ]) {
     assert.throws(() => resolveMerchProbeSite(["node", "script", "--site", site]), /BLOCKER/, site);
   }
 
+  let tokenAccessed = false;
+  const env = new Proxy(
+    { PRINT_ADMIN_TOKEN: "merch-admin-token-must-not-leak" },
+    {
+      get(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.get(target, prop);
+      },
+      has(target, prop) {
+        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
+        return Reflect.has(target, prop);
+      },
+    }
+  );
+
+  // Untrusted site must fail inside buildQaCheckoutFetchInit before token read.
+  assert.throws(
+    () => buildQaCheckoutFetchInit("https://starmapco.example", { orderType: "print" }, env),
+    /BLOCKER/
+  );
+  assert.equal(tokenAccessed, false);
+  assert.throws(
+    () => buildQaCheckoutFetchInit("https://user:pass@starmapco.com", { orderType: "print" }, env),
+    /BLOCKER/
+  );
+  assert.equal(tokenAccessed, false);
+
   // After trusted-site resolution, secret-bearing checkout init must pin redirect:manual.
-  const init = buildQaCheckoutFetchInit({ orderType: "print" }, { PRINT_ADMIN_TOKEN: "unit-merch-token" });
+  const init = buildQaCheckoutFetchInit(
+    CANONICAL_PRODUCTION_SITE_ORIGIN,
+    { orderType: "print" },
+    { PRINT_ADMIN_TOKEN: "unit-merch-token" }
+  );
   assert.equal(init.redirect, "manual");
   assert.equal(init.headers["x-qa-run"], "true");
   assert.match(init.headers["x-qa-source"], /live_merch_checkout_probe/);

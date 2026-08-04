@@ -26,14 +26,16 @@ export function resolveMerchProbeSite(argv = process.argv) {
 }
 
 /**
- * Build a secret-bearing checkout fetch init. Caller must already have validated
- * the site via resolveMerchProbeSite / assertTrustedLiveProbeSite.
+ * Build a secret-bearing checkout fetch init.
+ * Trusted-origin validation runs before any PRINT_ADMIN_TOKEN read/attachment.
  * Uses redirect:"manual" so credentials cannot follow a 3xx escape.
  *
+ * @param {string} site Trusted or candidate site origin (validated first)
  * @param {Record<string, unknown>} body
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
-export function buildQaCheckoutFetchInit(body, env = process.env) {
+export function buildQaCheckoutFetchInit(site, body, env = process.env) {
+  assertTrustedLiveProbeSite(site);
   const headers = assertQaCheckoutDispatchAllowed(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE, env);
   return {
     method: "POST",
@@ -161,7 +163,7 @@ async function main() {
       const checkoutUrl = `${site}/api/checkout`;
       const merchCheckout = await fetch(
         checkoutUrl,
-        buildQaCheckoutFetchInit({
+        buildQaCheckoutFetchInit(site, {
           mapId: mapJson.id,
           plan: "single",
           orderType: "print",
@@ -186,7 +188,7 @@ async function main() {
 
       const cardCheckout = await fetch(
         checkoutUrl,
-        buildQaCheckoutFetchInit({
+        buildQaCheckoutFetchInit(site, {
           mapId: mapJson.id,
           plan: "single",
           orderType: "print",
