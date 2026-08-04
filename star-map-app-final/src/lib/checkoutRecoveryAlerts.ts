@@ -1,7 +1,10 @@
+import { createHash, randomUUID } from "node:crypto";
 import type { PrintVariant } from "@/lib/pricing";
 import { getPrintPricingTiers } from "@/lib/pricing";
 
 type CheckoutRecoveryAlertProvider = "resend" | "sendgrid" | "none";
+
+export type CheckoutRecoveryRetryability = "delivered" | "retryable" | "terminal" | "not_configured";
 
 export type CheckoutRecoveryAlertInput = {
   sessionId: string;
@@ -18,8 +21,192 @@ export type CheckoutRecoveryAlertInput = {
 export type CheckoutRecoveryAlertResult = {
   delivered: boolean;
   provider: CheckoutRecoveryAlertProvider;
-  error?: string;
+  status?: number;
+  retryability: CheckoutRecoveryRetryability;
+  /** Sanitized category-only code. Never a raw provider body or customer identifier. */
+  errorCode?: string;
 };
+
+export type CheckoutRecoveryDeliveredMarker = {
+  delivered: true;
+  at: number;
+};
+
+/**
+ * Sanitized per-invocation attempt diagnostic. Never includes raw provider bodies,
+ * customer email, recovery URL, secrets, or message content.
+ */
+export type CheckoutRecoveryAttemptRecord = {
+  attemptId: string;
+  at: number;
+  provider: CheckoutRecoveryAlertProvider;
+  retryability: CheckoutRecoveryRetryability;
+  delivered: boolean;
+  errorCode?: string;
+  /** HTTP status when available — operational category, not customer data. */
+  status?: number;
+  /** Stripe event id when available for operator correlation. */
+  eventId?: string;
+};
+
+/**
+ * Checkout recovery email is Resend-only.
+ * Non-idempotent providers (e.g. SendGrid Mail Send) are intentionally not used:
+ * a durable-session persist failure + lost 2xx / cross-worker Stripe retry must not
+ * be able to send a second customer email without a provider Idempotency-Key.
+ */
+export const CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY = "resend_only" as const;
+
+/**
+ * Resend retains Idempotency-Key records for 24 hours.
+ * Source: https://resend.com/docs/dashboard/emails/idempotency-keys
+ * (“Idempotency keys are kept in the system for 24 hours.”)
+ */
+export const RESEND_IDEMPOTENCY_KEY_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Safety margin strictly inside {@link RESEND_IDEMPOTENCY_KEY_RETENTION_MS}.
+ * Stripe may redeliver live webhooks for longer than Resend retains keys; we stop
+ * provider dispatch before retention ends so a late retry cannot send a duplicate.
+ */
+export const CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS = 4 * 60 * 60 * 1000;
+
+/** Safe provider-dispatch window from trusted Stripe event.created (ms). */
+export const CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS =
+  RESEND_IDEMPOTENCY_KEY_RETENTION_MS - CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS;
+
+/** Long-lived delivered marker TTL (matches prior successful-send window). */
+export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
+
+/** Attempt diagnostic TTL — same retention window as delivered marker. */
+export const CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS = CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS;
+
+/** Authoritative delivered marker — written only after confirmed provider success. */
+export function checkoutRecoveryEmailDeliveredKey(sessionId: string): string {
+  return `stripe:checkout_recovery:email_delivered:${sessionId}`;
+}
+
+/**
+ * Unique per-invocation attempt diagnostic key.
+ * One provider call → one attempt record; concurrent attempts are independently represented.
+ */
+export function checkoutRecoveryEmailAttemptKey(sessionId: string, attemptId: string): string {
+  return `stripe:checkout_recovery:attempt:${sessionId}:${attemptId}`;
+}
+
+/**
+ * Legacy pre-send counter key. Must not be used as authoritative email dedupe;
+ * retaining a failed-send lock here was the #203 defect.
+ */
+export function checkoutRecoveryEmailLegacyPreSendKey(sessionId: string): string {
+  return `stripe:checkout_recovery:email:${sessionId}`;
+}
+
+/**
+ * Deterministic opaque Resend Idempotency-Key for a checkout.
+ * Same session → same key; different sessions → different keys.
+ * Never embeds the raw Stripe session identifier.
+ */
+export function buildCheckoutRecoveryResendIdempotencyKey(sessionId: string): string {
+  const digest = createHash("sha256")
+    .update(`starmapco:checkout-recovery-email:v1:${sessionId}`)
+    .digest("hex");
+  return `cre_${digest.slice(0, 48)}`;
+}
+
+/**
+ * Resolve Stripe `event.created` (unix seconds from the signed webhook payload) to ms.
+ * Fail closed on missing/non-finite/non-second values — never guess from wall clock alone.
+ */
+export function resolveCheckoutRecoveryStripeEventCreatedMs(eventCreatedSeconds: unknown): number | null {
+  if (typeof eventCreatedSeconds !== "number" || !Number.isFinite(eventCreatedSeconds)) {
+    return null;
+  }
+  const seconds = Math.trunc(eventCreatedSeconds);
+  // Stripe Event.created is unix seconds. Reject non-positive and values that look like ms.
+  if (seconds <= 0 || seconds >= 1e11) {
+    return null;
+  }
+  return seconds * 1000;
+}
+
+/** Immutable provider-dispatch deadline: event.created + safe window inside Resend retention. */
+export function computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs: number): number {
+  return eventCreatedMs + CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS;
+}
+
+export type CheckoutRecoveryProviderDispatchGate = {
+  allowed: boolean;
+  deadlineMs: number | null;
+  /** Sanitized category when dispatch is suppressed. */
+  errorCode?: "untrusted_event_created" | "idempotency_safe_window_elapsed";
+};
+
+/**
+ * Whether Resend may be invoked for this Stripe event at `nowMs`.
+ * Past the deadline (or untrusted event.created) → fail closed: no provider call.
+ * Tradeoff: prefer suppressing a possibly undelivered recovery email over a duplicate
+ * after Resend's Idempotency-Key retention expires.
+ */
+export function evaluateCheckoutRecoveryProviderDispatchGate(input: {
+  eventCreatedSeconds: unknown;
+  nowMs: number;
+}): CheckoutRecoveryProviderDispatchGate {
+  const eventCreatedMs = resolveCheckoutRecoveryStripeEventCreatedMs(input.eventCreatedSeconds);
+  if (eventCreatedMs === null || !Number.isFinite(input.nowMs)) {
+    return { allowed: false, deadlineMs: null, errorCode: "untrusted_event_created" };
+  }
+  const deadlineMs = computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs);
+  if (input.nowMs >= deadlineMs) {
+    return { allowed: false, deadlineMs, errorCode: "idempotency_safe_window_elapsed" };
+  }
+  return { allowed: true, deadlineMs };
+}
+
+/** Terminal non-delivery when provider dispatch is suppressed by the safe-window gate. */
+export function checkoutRecoveryProviderDispatchSuppressedResult(
+  errorCode: NonNullable<CheckoutRecoveryProviderDispatchGate["errorCode"]>
+): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: "terminal",
+    errorCode,
+  };
+}
+
+/** Runtime-safe opaque attempt identifier (injectable in tests). */
+export function createCheckoutRecoveryAttemptId(): string {
+  return randomUUID().replace(/-/g, "");
+}
+
+export function isCheckoutRecoveryDeliveredMarker(value: unknown): value is CheckoutRecoveryDeliveredMarker {
+  return Boolean(
+    value && typeof value === "object" && (value as CheckoutRecoveryDeliveredMarker).delivered === true
+  );
+}
+
+export function buildCheckoutRecoveryAttemptRecord(input: {
+  attemptId: string;
+  result: CheckoutRecoveryAlertResult;
+  eventId?: string;
+  now?: number;
+}): CheckoutRecoveryAttemptRecord {
+  const now = input.now ?? Date.now();
+  const record: CheckoutRecoveryAttemptRecord = {
+    attemptId: input.attemptId,
+    at: now,
+    provider: input.result.provider,
+    retryability: input.result.retryability,
+    delivered: input.result.delivered === true,
+  };
+  if (input.result.errorCode) record.errorCode = input.result.errorCode;
+  if (typeof input.result.status === "number" && Number.isFinite(input.result.status)) {
+    record.status = input.result.status;
+  }
+  if (input.eventId) record.eventId = input.eventId;
+  return record;
+}
 
 type ParsedEmailAddress = {
   email: string;
@@ -190,11 +377,204 @@ function getCopy(input: CheckoutRecoveryAlertInput) {
   return { subject, text, html };
 }
 
+function notConfiguredResult(): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: "not_configured",
+    errorCode: "checkout_recovery_not_configured",
+  };
+}
+
+/**
+ * Safely extract Resend's machine-readable error `name` from a JSON body snippet.
+ * Never returns or persists the raw body.
+ */
+export function extractResendErrorName(bodySnippet?: string): string | null {
+  if (typeof bodySnippet !== "string" || !bodySnippet.trim()) return null;
+  try {
+    const parsed = JSON.parse(bodySnippet) as unknown;
+    if (parsed && typeof parsed === "object" && typeof (parsed as { name?: unknown }).name === "string") {
+      const name = (parsed as { name: string }).name.trim();
+      return name || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Classify an HTTP provider response into a bounded delivery result.
+ * May inspect a body snippet for exact Resend 409 name extraction only;
+ * never returns or persists the raw body.
+ *
+ * Resend 409 taxonomy (official Idempotency Keys docs):
+ * - concurrent_idempotent_requests → retryable
+ * - invalid_idempotent_request → terminal (retrying unchanged is useless)
+ * - unknown/malformed 409 → terminal provider_conflict
+ */
+export function classifyCheckoutRecoveryHttpResult(
+  provider: "resend" | "sendgrid",
+  status: number,
+  bodySnippet?: string
+): CheckoutRecoveryAlertResult {
+  if (status >= 200 && status < 300) {
+    return { delivered: true, provider, status, retryability: "delivered" };
+  }
+
+  if (provider === "resend" && status === 409) {
+    const errorName = extractResendErrorName(bodySnippet);
+    if (errorName === "concurrent_idempotent_requests") {
+      return {
+        delivered: false,
+        provider,
+        status,
+        retryability: "retryable",
+        errorCode: "concurrent_idempotent_requests",
+      };
+    }
+    if (errorName === "invalid_idempotent_request") {
+      return {
+        delivered: false,
+        provider,
+        status,
+        retryability: "terminal",
+        errorCode: "invalid_idempotent_request",
+      };
+    }
+    return {
+      delivered: false,
+      provider,
+      status,
+      retryability: "terminal",
+      errorCode: "provider_conflict",
+    };
+  }
+
+  if (status === 429) {
+    return {
+      delivered: false,
+      provider,
+      status,
+      retryability: "retryable",
+      errorCode: "provider_rate_limited",
+    };
+  }
+
+  if (status >= 500) {
+    return {
+      delivered: false,
+      provider,
+      status,
+      retryability: "retryable",
+      errorCode: "provider_server_error",
+    };
+  }
+
+  let errorCode = "provider_client_error";
+  if (status === 401 || status === 403) errorCode = "provider_auth_error";
+  else if (status === 422) errorCode = "provider_validation_error";
+
+  return {
+    delivered: false,
+    provider,
+    status,
+    retryability: "terminal",
+    errorCode,
+  };
+}
+
+export function classifyCheckoutRecoveryNetworkFailure(
+  provider: CheckoutRecoveryAlertProvider = "none"
+): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider,
+    retryability: "retryable",
+    errorCode: "provider_network_error",
+  };
+}
+
+/** Whether Stripe should redeliver a checkout.session.expired event after this outcome. */
+export function isCheckoutRecoveryWebhookRetryable(
+  retryability: CheckoutRecoveryRetryability | "skipped" | "already_delivered"
+): boolean {
+  return retryability === "retryable";
+}
+
+export type CheckoutRecoverySessionEmailFields = {
+  recoveryEmailSentAt?: number;
+  recoveryEmailProvider?: string;
+  /** @deprecated Historical failure field — new failures write separate attempt records. */
+  recoveryEmailError?: string;
+  /** @deprecated Historical failure field — new failures write separate attempt records. */
+  recoveryEmailErrorCode?: string;
+  /** @deprecated Historical aggregate — new attempts use unique attempt records. */
+  recoveryEmailRetryability?: CheckoutRecoveryRetryability;
+  /** @deprecated Historical aggregate — new attempts use unique attempt records. */
+  recoveryEmailLastAttemptAt?: number;
+  /** @deprecated Historical aggregate — new attempts use unique attempt records. */
+  recoveryEmailAttemptCount?: number;
+};
+
+/**
+ * Success-only session fields. Non-delivered results must not use this path —
+ * they persist via {@link buildCheckoutRecoveryAttemptRecord} instead.
+ */
+export function applyCheckoutRecoveryDeliveredSessionFields(
+  result: CheckoutRecoveryAlertResult,
+  now = Date.now()
+): Pick<
+  CheckoutRecoverySessionEmailFields,
+  | "recoveryEmailSentAt"
+  | "recoveryEmailProvider"
+  | "recoveryEmailError"
+  | "recoveryEmailErrorCode"
+  | "recoveryEmailRetryability"
+> {
+  return {
+    recoveryEmailSentAt: now,
+    recoveryEmailProvider: result.provider,
+    recoveryEmailError: undefined,
+    recoveryEmailErrorCode: undefined,
+    recoveryEmailRetryability: "delivered",
+  };
+}
+
+/**
+ * @deprecated Prefer {@link applyCheckoutRecoveryDeliveredSessionFields} for success and
+ * separate attempt records for failures. Retained for harness negative controls.
+ */
+export function applyCheckoutRecoveryAlertToSessionFields(
+  previous: Pick<CheckoutRecoverySessionEmailFields, "recoveryEmailAttemptCount" | "recoveryEmailSentAt">,
+  result: CheckoutRecoveryAlertResult,
+  now = Date.now()
+): CheckoutRecoverySessionEmailFields {
+  const attemptCount = (previous.recoveryEmailAttemptCount ?? 0) + 1;
+  if (result.delivered) {
+    return {
+      ...applyCheckoutRecoveryDeliveredSessionFields(result, now),
+      recoveryEmailLastAttemptAt: now,
+      recoveryEmailAttemptCount: attemptCount,
+    };
+  }
+  return {
+    recoveryEmailSentAt: previous.recoveryEmailSentAt,
+    recoveryEmailProvider: result.provider,
+    recoveryEmailError: result.errorCode,
+    recoveryEmailErrorCode: result.errorCode,
+    recoveryEmailRetryability: result.retryability,
+    recoveryEmailLastAttemptAt: now,
+    recoveryEmailAttemptCount: attemptCount,
+  };
+}
+
 async function sendWithResend(input: CheckoutRecoveryAlertInput) {
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || "";
   const from = getAlertFrom();
   if (!resendApiKey || !from) {
-    return { delivered: false, provider: "none" as const, error: "checkout_recovery_not_configured" };
+    return notConfiguredResult();
   }
 
   const replyTo = getAlertReplyTo();
@@ -217,84 +597,45 @@ async function sendWithResend(input: CheckoutRecoveryAlertInput) {
     payload.reply_to = parsed?.email || replyTo;
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const idempotencyKey = buildCheckoutRecoveryResendIdempotencyKey(input.sessionId);
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    return {
-      delivered: false,
-      provider: "resend" as const,
-      error: body.slice(0, 280) || `resend_${response.status}`,
-    };
+  let response: Response;
+  try {
+    response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return classifyCheckoutRecoveryNetworkFailure("resend");
   }
 
-  return { delivered: true, provider: "resend" as const };
+  const body = response.ok ? "" : await response.text().catch(() => "");
+  return classifyCheckoutRecoveryHttpResult("resend", response.status, body);
 }
 
-async function sendWithSendgrid(input: CheckoutRecoveryAlertInput) {
-  const sendgridApiKey = process.env.SENDGRID_API_KEY?.trim() || "";
-  const from = parseEmailAddress(getAlertFrom());
-  if (!sendgridApiKey || !from) {
-    return { delivered: false, provider: "none" as const, error: "checkout_recovery_not_configured" };
-  }
-
-  const replyTo = parseEmailAddress(getAlertReplyTo());
-  const copy = getCopy(input);
-  const payload = {
-    personalizations: [{ to: [{ email: input.email }] }],
-    from,
-    subject: copy.subject,
-    content: [
-      { type: "text/plain", value: copy.text },
-      { type: "text/html", value: copy.html },
-    ],
-    ...(replyTo ? { reply_to: replyTo } : {}),
-  };
-
-  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${sendgridApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    return {
-      delivered: false,
-      provider: "sendgrid" as const,
-      error: body.slice(0, 280) || `sendgrid_${response.status}`,
-    };
-  }
-
-  return { delivered: true, provider: "sendgrid" as const };
-}
-
+/**
+ * Checkout recovery delivery is Resend-only ({@link CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY}).
+ * When Resend is not configured, returns truthful `not_configured` — never falls back to
+ * a non-idempotent provider.
+ */
 export async function sendCheckoutRecoveryAlert(
-  input: CheckoutRecoveryAlertInput,
+  input: CheckoutRecoveryAlertInput
 ): Promise<CheckoutRecoveryAlertResult> {
   try {
     const resendResult = await sendWithResend(input);
     if (resendResult.provider !== "none") return resendResult;
-
-    const sendgridResult = await sendWithSendgrid(input);
-    if (sendgridResult.provider !== "none") return sendgridResult;
-
-    return { delivered: false, provider: "none", error: "checkout_recovery_not_configured" };
-  } catch (error) {
+    return notConfiguredResult();
+  } catch {
     return {
       delivered: false,
       provider: "none",
-      error: error instanceof Error ? error.message.slice(0, 280) : "checkout_recovery_unknown_error",
+      retryability: "retryable",
+      errorCode: "checkout_recovery_unknown_error",
     };
   }
 }
