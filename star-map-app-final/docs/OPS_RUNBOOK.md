@@ -28,12 +28,12 @@ Prefer WSL for production releases when possible (`docs/TIER0_VALIDATION.md`).
 
 ## Quick verification (local / CI)
 
-| Command | Purpose |
-| --- | --- |
-| `npm run qa:live-canary` | Same as **`scripts/live-smoke.mjs`** against production (money path, APIs, sitemap). |
-| `npm run qa:smoke:commerce` | Playwright: checkout security + API regressions. |
-| `npm run qa:smoke` | Full Playwright smoke (UI + export + commerce + premium render). |
-| `npm run qa:funnel-post-release` | Funnel reconcile (14 days); run after releases or checkout changes. |
+| Command                          | Purpose                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `npm run qa:live-canary`         | Same as **`scripts/live-smoke.mjs`** against production (money path, APIs, sitemap). |
+| `npm run qa:smoke:commerce`      | Playwright: checkout security + API regressions.                                     |
+| `npm run qa:smoke`               | Full Playwright smoke (UI + export + commerce + premium render).                     |
+| `npm run qa:funnel-post-release` | Funnel reconcile (14 days); run after releases or checkout changes.                  |
 
 GitHub Actions: **CI** (PR) runs lint + build + commerce smoke; **Nightly E2E** runs full smoke; **Live canary** runs `live-smoke.mjs` on a schedule.
 
@@ -52,6 +52,7 @@ GitHub Actions: **CI** (PR) runs lint + build + commerce smoke; **Nightly E2E** 
 
 - Customer-facing contact: **support@starmapco.com** (see paywall and legal pages). Ensure transactional/provider emails match live product copy after pricing or fulfillment changes.
 - Magic links / downloads: see **`/api/account/*`** and download flows; test **`/my-downloads`** after auth changes.
+- **Checkout recovery email (`checkout.session.expired`):** **Resend-only** (`CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY = resend_only`) with a deterministic opaque `Idempotency-Key`. If Resend is not configured, the workflow returns truthful `not_configured` and does **not** fall back to SendGrid or any non-idempotent provider. Provider dispatch is bounded by Stripe signed `event.created` + **`CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS`** (20h = Resend’s documented 24h Idempotency-Key retention minus a 4h safety margin). At/after that deadline without durable success, Resend is **not** called and the webhook finalizes terminal **2xx** (prefer suppressing a possibly undelivered email over a late duplicate). Canonical session success is persisted with **`kv.setDurable`** (Cloudflare put failures surface; no silent local-only success) **before** the delivered marker is written. The canonical session is **success-monotonic** and is written **only** on confirmed provider delivery; already-delivered / observed-winner paths acknowledge without rewriting `sessionKey`. Non-delivered outcomes write only a separate sanitized **attempt record** (`stripe:checkout_recovery:attempt:<sessionId>:<attemptId>`, ~45-day TTL). If durable session persistence fails after Resend delivery **inside** the safe window, the marker is not written and the webhook returns **503** for safe idempotent retry. Retryable failures with no observed delivery return **503** (event dedupe unfinalized); terminal/not-configured/window-elapsed acknowledge **2xx**. Other product email paths may still use SendGrid; checkout recovery does not. Diagnostic-only: `scripts/recovery-email-diag.mjs` (no resend execution path).
 
 ## Performance
 
