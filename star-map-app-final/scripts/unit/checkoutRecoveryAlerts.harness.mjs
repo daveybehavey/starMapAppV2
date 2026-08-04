@@ -80,6 +80,60 @@ export const CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS = CHECKOUT_RECOVERY_EMAIL_DEL
 
 export const CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY = "resend_only";
 
+/** Resend Idempotency-Key retention: 24h (https://resend.com/docs/dashboard/emails/idempotency-keys). */
+export const RESEND_IDEMPOTENCY_KEY_RETENTION_MS = 24 * 60 * 60 * 1000;
+/** Safety margin inside Resend retention so late Stripe retries cannot outlive provider idempotency. */
+export const CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS = 4 * 60 * 60 * 1000;
+export const CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS =
+  RESEND_IDEMPOTENCY_KEY_RETENTION_MS - CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS;
+
+/**
+ * @param {unknown} eventCreatedSeconds
+ * @returns {number | null}
+ */
+export function resolveCheckoutRecoveryStripeEventCreatedMs(eventCreatedSeconds) {
+  if (typeof eventCreatedSeconds !== "number" || !Number.isFinite(eventCreatedSeconds)) {
+    return null;
+  }
+  const seconds = Math.trunc(eventCreatedSeconds);
+  if (seconds <= 0 || seconds >= 1e11) return null;
+  return seconds * 1000;
+}
+
+/**
+ * @param {number} eventCreatedMs
+ */
+export function computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs) {
+  return eventCreatedMs + CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS;
+}
+
+/**
+ * @param {{ eventCreatedSeconds: unknown; nowMs: number }} input
+ */
+export function evaluateCheckoutRecoveryProviderDispatchGate(input) {
+  const eventCreatedMs = resolveCheckoutRecoveryStripeEventCreatedMs(input.eventCreatedSeconds);
+  if (eventCreatedMs === null || !Number.isFinite(input.nowMs)) {
+    return { allowed: false, deadlineMs: null, errorCode: "untrusted_event_created" };
+  }
+  const deadlineMs = computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs);
+  if (input.nowMs >= deadlineMs) {
+    return { allowed: false, deadlineMs, errorCode: "idempotency_safe_window_elapsed" };
+  }
+  return { allowed: true, deadlineMs };
+}
+
+/**
+ * @param {"untrusted_event_created"|"idempotency_safe_window_elapsed"} errorCode
+ */
+export function checkoutRecoveryProviderDispatchSuppressedResult(errorCode) {
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: "terminal",
+    errorCode,
+  };
+}
+
 /**
  * Mirrors production: checkout recovery never falls back to a non-idempotent provider.
  * @param {{
@@ -418,6 +472,8 @@ export function naiveMarkerOnlyStaleRepair(latestSession, expiredBase, sentAtFro
  *   afterInitialReadBeforeProvider?: (store: Map<string, unknown>) => void | Promise<void>;
  *   afterSendBeforePersist?: (store: Map<string, unknown>) => void | Promise<void>;
  *   persistSessionDurable?: (session: Record<string, unknown>) => void | Promise<void>;
+ *   eventCreatedSeconds?: number | null;
+ *   skipDispatchGate?: boolean;
  * }} opts
  */
 export async function simulateExpiredCheckoutRecoveryPass(opts) {
@@ -428,6 +484,9 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
   const deliveredKey = checkoutRecoveryEmailDeliveredKey(opts.sessionId);
   const legacyKey = checkoutRecoveryEmailLegacyPreSendKey(opts.sessionId);
   const attemptId = opts.attemptId ?? `attempt_${now}`;
+  // Default: event.created aligned so `now` is inside the safe window (same instant).
+  const eventCreatedSeconds =
+    opts.eventCreatedSeconds === undefined ? Math.floor(now / 1000) : opts.eventCreatedSeconds;
 
   const existingEvent = store.get(eventKey);
   if (existingEvent) {
@@ -441,6 +500,7 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
       attemptRecord: null,
       eventFinalized: true,
       legacyPreSendLock: store.get(legacyKey) ?? null,
+      idempotencyKey: buildCheckoutRecoveryResendIdempotencyKey(opts.sessionId),
     };
   }
 
@@ -470,6 +530,9 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
   let wrotePreSendSession = false;
   let wroteSessionRepair = false;
   let backfilledMarkerOnly = false;
+  let dispatchSuppressed = false;
+  /** @type {string | null} */
+  let dispatchGateErrorCode = null;
   const recoveryUrl = opts.recoveryUrl ?? null;
   const customerEmail = opts.customerEmail ?? null;
   const sessionSnapshotBefore = store.has(sessionKey) ? JSON.stringify(store.get(sessionKey)) : null;
@@ -512,12 +575,29 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
             wrotePreSendSession: false,
             wroteSessionRepair: false,
             backfilledMarkerOnly: false,
+            idempotencyKey: buildCheckoutRecoveryResendIdempotencyKey(opts.sessionId),
           };
         }
       }
 
-      providerCalls += 1;
-      const alertResult = await opts.send();
+      const dispatchGate = opts.skipDispatchGate
+        ? { allowed: true, deadlineMs: null, errorCode: undefined }
+        : evaluateCheckoutRecoveryProviderDispatchGate({
+            eventCreatedSeconds,
+            nowMs: now,
+          });
+
+      /** @type {{ delivered: boolean; provider: string; retryability: string; errorCode?: string; status?: number }} */
+      let alertResult;
+      if (dispatchGate.allowed) {
+        providerCalls += 1;
+        alertResult = await opts.send();
+      } else {
+        dispatchSuppressed = true;
+        dispatchGateErrorCode = dispatchGate.errorCode ?? "untrusted_event_created";
+        alertResult = checkoutRecoveryProviderDispatchSuppressedResult(dispatchGateErrorCode);
+      }
+
       if (opts.afterSendBeforePersist) {
         await opts.afterSendBeforePersist(store);
       }
@@ -549,7 +629,7 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
           store.set(deliveredKey, { delivered: true, at: deliveredFields.recoveryEmailSentAt ?? now });
         } catch {
           // Durable persistence failed: keep attempt record only; no marker; retryable.
-          // Resend-only: Idempotency-Key makes Stripe redelivery safe.
+          // Resend-only: Idempotency-Key makes Stripe redelivery safe within the window.
           recoveryOutcome = "retryable";
         }
       } else {
@@ -616,6 +696,9 @@ export async function simulateExpiredCheckoutRecoveryPass(opts) {
     wroteSessionRepair,
     backfilledMarkerOnly,
     sessionUnchanged,
+    dispatchSuppressed,
+    dispatchGateErrorCode,
+    eventCreatedSeconds,
   };
 }
 

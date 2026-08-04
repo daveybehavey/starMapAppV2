@@ -57,6 +57,24 @@ export type CheckoutRecoveryAttemptRecord = {
  */
 export const CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY = "resend_only" as const;
 
+/**
+ * Resend retains Idempotency-Key records for 24 hours.
+ * Source: https://resend.com/docs/dashboard/emails/idempotency-keys
+ * (“Idempotency keys are kept in the system for 24 hours.”)
+ */
+export const RESEND_IDEMPOTENCY_KEY_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Safety margin strictly inside {@link RESEND_IDEMPOTENCY_KEY_RETENTION_MS}.
+ * Stripe may redeliver live webhooks for longer than Resend retains keys; we stop
+ * provider dispatch before retention ends so a late retry cannot send a duplicate.
+ */
+export const CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS = 4 * 60 * 60 * 1000;
+
+/** Safe provider-dispatch window from trusted Stripe event.created (ms). */
+export const CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS =
+  RESEND_IDEMPOTENCY_KEY_RETENTION_MS - CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS;
+
 /** Long-lived delivered marker TTL (matches prior successful-send window). */
 export const CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS = 45 * 24 * 60 * 60;
 
@@ -94,6 +112,67 @@ export function buildCheckoutRecoveryResendIdempotencyKey(sessionId: string): st
     .update(`starmapco:checkout-recovery-email:v1:${sessionId}`)
     .digest("hex");
   return `cre_${digest.slice(0, 48)}`;
+}
+
+/**
+ * Resolve Stripe `event.created` (unix seconds from the signed webhook payload) to ms.
+ * Fail closed on missing/non-finite/non-second values — never guess from wall clock alone.
+ */
+export function resolveCheckoutRecoveryStripeEventCreatedMs(eventCreatedSeconds: unknown): number | null {
+  if (typeof eventCreatedSeconds !== "number" || !Number.isFinite(eventCreatedSeconds)) {
+    return null;
+  }
+  const seconds = Math.trunc(eventCreatedSeconds);
+  // Stripe Event.created is unix seconds. Reject non-positive and values that look like ms.
+  if (seconds <= 0 || seconds >= 1e11) {
+    return null;
+  }
+  return seconds * 1000;
+}
+
+/** Immutable provider-dispatch deadline: event.created + safe window inside Resend retention. */
+export function computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs: number): number {
+  return eventCreatedMs + CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS;
+}
+
+export type CheckoutRecoveryProviderDispatchGate = {
+  allowed: boolean;
+  deadlineMs: number | null;
+  /** Sanitized category when dispatch is suppressed. */
+  errorCode?: "untrusted_event_created" | "idempotency_safe_window_elapsed";
+};
+
+/**
+ * Whether Resend may be invoked for this Stripe event at `nowMs`.
+ * Past the deadline (or untrusted event.created) → fail closed: no provider call.
+ * Tradeoff: prefer suppressing a possibly undelivered recovery email over a duplicate
+ * after Resend's Idempotency-Key retention expires.
+ */
+export function evaluateCheckoutRecoveryProviderDispatchGate(input: {
+  eventCreatedSeconds: unknown;
+  nowMs: number;
+}): CheckoutRecoveryProviderDispatchGate {
+  const eventCreatedMs = resolveCheckoutRecoveryStripeEventCreatedMs(input.eventCreatedSeconds);
+  if (eventCreatedMs === null || !Number.isFinite(input.nowMs)) {
+    return { allowed: false, deadlineMs: null, errorCode: "untrusted_event_created" };
+  }
+  const deadlineMs = computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs);
+  if (input.nowMs >= deadlineMs) {
+    return { allowed: false, deadlineMs, errorCode: "idempotency_safe_window_elapsed" };
+  }
+  return { allowed: true, deadlineMs };
+}
+
+/** Terminal non-delivery when provider dispatch is suppressed by the safe-window gate. */
+export function checkoutRecoveryProviderDispatchSuppressedResult(
+  errorCode: NonNullable<CheckoutRecoveryProviderDispatchGate["errorCode"]>
+): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: "terminal",
+    errorCode,
+  };
 }
 
 /** Runtime-safe opaque attempt identifier (injectable in tests). */

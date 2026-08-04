@@ -13,7 +13,11 @@ import {
   checkoutRecoveryEmailDeliveredKey,
   checkoutRecoveryEmailLegacyPreSendKey,
   CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY,
+  CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS,
+  CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS,
   classifyCheckoutRecoveryHttpResult,
+  computeCheckoutRecoveryProviderDispatchDeadlineMs,
+  evaluateCheckoutRecoveryProviderDispatchGate,
   getIncludesBullets,
   getOfferLabel,
   getSubject,
@@ -23,6 +27,8 @@ import {
   naiveOverwriteConfirmedDeliveryWithFailure,
   naiveMarkerOnlyStaleRepair,
   naiveStaleEarlySessionWrite,
+  RESEND_IDEMPOTENCY_KEY_RETENTION_MS,
+  resolveCheckoutRecoveryStripeEventCreatedMs,
   selectCheckoutRecoveryProvider,
   simulateExpiredCheckoutRecoveryPass,
 } from "./checkoutRecoveryAlerts.harness.mjs";
@@ -416,6 +422,215 @@ test("durable: Resend delivery + failed durable session put leaves no marker and
   assert.equal(store.has(checkoutRecoveryEmailDeliveredKey(sessionId)), false);
   assert.equal(store.has(`stripe:session:${sessionId}`), false);
   assert.equal(first.idempotencyKey, buildCheckoutRecoveryResendIdempotencyKey(sessionId));
+});
+
+test("window: constants encode Resend 24h retention minus documented 4h safety margin", () => {
+  assert.equal(RESEND_IDEMPOTENCY_KEY_RETENTION_MS, 24 * 60 * 60 * 1000);
+  assert.equal(CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS, 4 * 60 * 60 * 1000);
+  assert.equal(
+    CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS,
+    RESEND_IDEMPOTENCY_KEY_RETENTION_MS - CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS
+  );
+  assert.equal(CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS < RESEND_IDEMPOTENCY_KEY_RETENTION_MS, true);
+  assert.match(recoveryAlertsSource, /resend\.com\/docs\/dashboard\/emails\/idempotency-keys/);
+  assert.match(recoveryAlertsSource, /RESEND_IDEMPOTENCY_KEY_RETENTION_MS/);
+  assert.match(recoveryAlertsSource, /CHECKOUT_RECOVERY_IDEMPOTENCY_SAFETY_MARGIN_MS/);
+});
+
+test("window: trusted event.created allows dispatch inside safe window and reuses idempotency key", async () => {
+  const eventCreatedSeconds = 1_700_000_000;
+  const eventCreatedMs = resolveCheckoutRecoveryStripeEventCreatedMs(eventCreatedSeconds);
+  assert.equal(eventCreatedMs, eventCreatedSeconds * 1000);
+  const deadlineMs = computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs);
+  assert.equal(deadlineMs, eventCreatedMs + CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS);
+
+  const store = new Map();
+  const sessionId = "cs_test_window_inside";
+  const insideNow = eventCreatedMs + 60 * 60 * 1000; // +1h
+  const first = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_window_inside",
+    attemptId: "att_window_1",
+    eventCreatedSeconds,
+    now: insideNow,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 503),
+  });
+  assert.equal(first.providerCalls, 1);
+  assert.equal(first.dispatchSuppressed, false);
+  assert.equal(first.httpStatus, 503);
+  assert.equal(first.eventFinalized, false);
+
+  store.delete("stripe:event:evt_window_inside");
+  const second = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_window_inside",
+    attemptId: "att_window_2",
+    eventCreatedSeconds,
+    now: insideNow + 30 * 60 * 1000,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 503),
+  });
+  assert.equal(second.providerCalls, 1);
+  assert.equal(second.idempotencyKey, first.idempotencyKey);
+  assert.equal(second.idempotencyKey, buildCheckoutRecoveryResendIdempotencyKey(sessionId));
+});
+
+test("window: at and after deadline never calls Resend; finalizes without false session/marker", async () => {
+  const eventCreatedSeconds = 1_700_000_000;
+  const eventCreatedMs = eventCreatedSeconds * 1000;
+  const deadlineMs = computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs);
+  const sessionId = "cs_test_window_deadline";
+
+  for (const now of [deadlineMs, deadlineMs + 1, eventCreatedMs + RESEND_IDEMPOTENCY_KEY_RETENTION_MS]) {
+    const result = await simulateExpiredCheckoutRecoveryPass({
+      sessionId,
+      eventId: `evt_deadline_${now}`,
+      attemptId: `att_deadline_${now}`,
+      eventCreatedSeconds,
+      now,
+      recoveryUrl: "https://example.test/recover",
+      customerEmail: "buyer@example.test",
+      send: async () => {
+        throw new Error("Resend must not be called at/after deadline");
+      },
+    });
+    assert.equal(result.providerCalls, 0);
+    assert.equal(result.dispatchSuppressed, true);
+    assert.equal(result.dispatchGateErrorCode, "idempotency_safe_window_elapsed");
+    assert.equal(result.httpStatus, 200);
+    assert.equal(result.eventFinalized, true);
+    assert.equal(result.attemptRecord.delivered, false);
+    assert.equal(result.attemptRecord.retryability, "terminal");
+    assert.equal(result.attemptRecord.errorCode, "idempotency_safe_window_elapsed");
+    assert.equal(result.deliveredMarker, null);
+    assert.equal(result.wroteSuccessSession, false);
+    assert.equal(result.session, null);
+  }
+});
+
+test("window: durable fail stays retryable only before deadline; past deadline suppresses Resend", async () => {
+  const store = new Map();
+  const sessionId = "cs_test_window_durable";
+  const eventCreatedSeconds = 1_700_000_000;
+  const eventCreatedMs = eventCreatedSeconds * 1000;
+  const insideNow = eventCreatedMs + 2 * 60 * 60 * 1000;
+
+  const first = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_window_durable",
+    attemptId: "att_window_durable_1",
+    eventCreatedSeconds,
+    now: insideNow,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => classifyCheckoutRecoveryHttpResult("resend", 200),
+    persistSessionDurable: async () => {
+      throw new Error("cf put failed");
+    },
+  });
+  assert.equal(first.providerCalls, 1);
+  assert.equal(first.httpStatus, 503);
+  assert.equal(first.eventFinalized, false);
+  assert.equal(first.deliveredMarker, null);
+
+  store.delete("stripe:event:evt_window_durable");
+  const pastDeadline = computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedMs);
+  const second = await simulateExpiredCheckoutRecoveryPass({
+    store,
+    sessionId,
+    eventId: "evt_window_durable",
+    attemptId: "att_window_durable_2",
+    eventCreatedSeconds,
+    now: pastDeadline,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => {
+      throw new Error("Resend must not be called after deadline");
+    },
+  });
+  assert.equal(second.providerCalls, 0);
+  assert.equal(second.dispatchSuppressed, true);
+  assert.equal(second.httpStatus, 200);
+  assert.equal(second.eventFinalized, true);
+  assert.equal(second.deliveredMarker, null);
+  assert.equal(second.wroteSuccessSession, false);
+  assert.equal(second.idempotencyKey, first.idempotencyKey);
+});
+
+test("window: malformed/missing/untrusted event.created fail closed without extending retry", async () => {
+  for (const bad of [undefined, null, NaN, -1, 0, 1e12, "1700000000", {}]) {
+    const gate = evaluateCheckoutRecoveryProviderDispatchGate({
+      eventCreatedSeconds: bad,
+      nowMs: 1_700_000_000_000,
+    });
+    assert.equal(gate.allowed, false);
+    assert.equal(gate.errorCode, "untrusted_event_created");
+    assert.equal(gate.deadlineMs, null);
+  }
+
+  const result = await simulateExpiredCheckoutRecoveryPass({
+    sessionId: "cs_test_untrusted_created",
+    eventId: "evt_untrusted_created",
+    attemptId: "att_untrusted",
+    eventCreatedSeconds: null,
+    now: 1_700_000_000_000,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => {
+      throw new Error("Resend must not be called with untrusted event.created");
+    },
+  });
+  assert.equal(result.providerCalls, 0);
+  assert.equal(result.dispatchSuppressed, true);
+  assert.equal(result.dispatchGateErrorCode, "untrusted_event_created");
+  assert.equal(result.httpStatus, 200);
+  assert.equal(result.eventFinalized, true);
+  assert.equal(result.attemptRecord.errorCode, "untrusted_event_created");
+  assert.equal(result.deliveredMarker, null);
+  assert.equal(result.session, null);
+});
+
+test("negative control: skipping the dispatch gate would allow Resend after the deadline", async () => {
+  const eventCreatedSeconds = 1_700_000_000;
+  const pastDeadline = computeCheckoutRecoveryProviderDispatchDeadlineMs(eventCreatedSeconds * 1000) + 60_000;
+  let providerCalls = 0;
+  const naive = await simulateExpiredCheckoutRecoveryPass({
+    sessionId: "cs_test_neg_skip_gate",
+    eventId: "evt_neg_skip_gate",
+    attemptId: "att_neg_skip",
+    eventCreatedSeconds,
+    now: pastDeadline,
+    skipDispatchGate: true,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => {
+      providerCalls += 1;
+      return classifyCheckoutRecoveryHttpResult("resend", 200);
+    },
+  });
+  assert.equal(providerCalls, 1);
+  assert.equal(naive.providerCalls, 1);
+  // Production path (gate on) must not dispatch.
+  const gated = await simulateExpiredCheckoutRecoveryPass({
+    sessionId: "cs_test_neg_gated",
+    eventId: "evt_neg_gated",
+    attemptId: "att_neg_gated",
+    eventCreatedSeconds,
+    now: pastDeadline,
+    recoveryUrl: "https://example.test/recover",
+    customerEmail: "buyer@example.test",
+    send: async () => {
+      throw new Error("gated path must not call Resend");
+    },
+  });
+  assert.equal(gated.providerCalls, 0);
+  assert.equal(gated.dispatchSuppressed, true);
 });
 
 test("negative control: a non-idempotent SendGrid delivered result must not be used by recovery orchestration", async () => {
@@ -1042,7 +1257,10 @@ test("source: webhook uses delivered marker and separate attempt records", () =>
   assert.match(webhookSource, /applyCheckoutRecoveryDeliveredSessionFields/);
   assert.match(webhookSource, /checkout_recovery_retryable/);
   assert.match(webhookSource, /kv\.setDurable\(/);
+  assert.match(webhookSource, /evaluateCheckoutRecoveryProviderDispatchGate/);
+  assert.match(webhookSource, /checkoutRecoveryProviderDispatchSuppressedResult/);
   assert.match(webhookSource, /Idempotency-Key prevents duplicate send/);
+  assert.match(recoveryAlertsSource, /CHECKOUT_RECOVERY_SAFE_PROVIDER_RETRY_WINDOW_MS/);
   assert.equal(webhookSource.includes("checkoutRecoveryOutcomeAfterDurablePersistFailure"), false);
   assert.equal(webhookSource.includes("kv.incr(recoveryEmailKey"), false);
   assert.equal(webhookSource.includes("applyCheckoutRecoveryAlertToSessionFields"), false);

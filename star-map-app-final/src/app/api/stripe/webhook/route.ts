@@ -33,9 +33,11 @@ import {
   buildCheckoutRecoveryAttemptRecord,
   checkoutRecoveryEmailAttemptKey,
   checkoutRecoveryEmailDeliveredKey,
+  checkoutRecoveryProviderDispatchSuppressedResult,
   CHECKOUT_RECOVERY_ATTEMPT_TTL_SECONDS,
   CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS,
   createCheckoutRecoveryAttemptId,
+  evaluateCheckoutRecoveryProviderDispatchGate,
   isCheckoutRecoveryDeliveredMarker,
   isCheckoutRecoveryWebhookRetryable,
   sendCheckoutRecoveryAlert,
@@ -1157,17 +1159,28 @@ async function handleExpiredCheckoutSession(
       // Marker-only (session not yet visible): acknowledge without touching sessionKey.
     } else {
       const attemptId = createCheckoutRecoveryAttemptId();
-      const alertResult = await sendCheckoutRecoveryAlert({
-        sessionId: hydrated.id,
-        email: customerEmail,
-        recoveryUrl,
-        orderType,
-        plan: plan ?? undefined,
-        printVariant,
-        includesDigitalAddOn: hasDigitalAddOn,
-        amountTotal: hydrated.amount_total,
-        currency: hydrated.currency,
+      // Bound Resend dispatch to event.created + safe window inside Resend's 24h
+      // Idempotency-Key retention. Past the deadline (or untrusted event.created): fail
+      // closed without calling Resend — prefer no late duplicate over a possibly-missed send.
+      const dispatchGate = evaluateCheckoutRecoveryProviderDispatchGate({
+        eventCreatedSeconds: eventCreated,
+        nowMs: Date.now(),
       });
+      const alertResult = dispatchGate.allowed
+        ? await sendCheckoutRecoveryAlert({
+            sessionId: hydrated.id,
+            email: customerEmail,
+            recoveryUrl,
+            orderType,
+            plan: plan ?? undefined,
+            printVariant,
+            includesDigitalAddOn: hasDigitalAddOn,
+            amountTotal: hydrated.amount_total,
+            currency: hydrated.currency,
+          })
+        : checkoutRecoveryProviderDispatchSuppressedResult(
+            dispatchGate.errorCode ?? "untrusted_event_created"
+          );
 
       const attemptRecord = buildCheckoutRecoveryAttemptRecord({
         attemptId,
@@ -1199,7 +1212,8 @@ async function handleExpiredCheckoutSession(
         } catch (error) {
           console.warn("Checkout recovery durable session persistence failed; deferring marker", error);
           // Attempt record already written. Do not write delivered marker or claim durable session.
-          // Resend-only path: leave retryable — Idempotency-Key prevents duplicate send on redelivery.
+          // Still inside safe window: leave retryable — Idempotency-Key prevents duplicate send.
+          // A later Stripe redelivery past the deadline will suppress Resend (fail closed).
           recoveryOutcome = "retryable";
         }
       } else {
