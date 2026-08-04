@@ -36,9 +36,7 @@ assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE);
 
 async function post(path, body) {
   const secretBearing = path === "/api/checkout";
-  const qaHeaders = secretBearing
-    ? assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE)
-    : {};
+  const qaHeaders = secretBearing ? assertQaCheckoutDispatchAllowed(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE) : {};
   const url = `${SITE}${path}`;
   const res = await fetch(url, {
     method: "POST",
@@ -85,7 +83,7 @@ async function retrieveStripeSession(sessionId) {
 
 function lineItemText(session) {
   return (session?.line_items?.data || []).map(
-    (li) => li.description || li.price?.product?.name || li.price?.nickname || "",
+    (li) => li.description || li.price?.product?.name || li.price?.nickname || ""
   );
 }
 
@@ -119,12 +117,23 @@ const mapRes = await post("/api/maps", {
   renderOptions: { visualMode: "enhanced", constellationLines: "thin" },
 });
 const mapId = mapRes.json?.id ?? mapRes.json?.mapId;
-checks.push(pass("Map save API", mapRes.status === 200 && Boolean(mapId), mapId ? "map_created" : "map_failed"));
+checks.push(
+  pass("Map save API", mapRes.status === 200 && Boolean(mapId), mapId ? "map_created" : "map_failed")
+);
 
-const assetRes = await uploadQaPrintAsset({ site: SITE, mapId, dataUrl: printAssetDataUrl, source: "editor" });
+const assetRes = await uploadQaPrintAsset({
+  site: SITE,
+  mapId,
+  dataUrl: printAssetDataUrl,
+  source: "editor",
+});
 const assetId = assetRes.json?.assetId;
 checks.push(
-  pass("Print asset upload", assetRes.status === 200 && Boolean(assetId), assetId ? "asset_created" : "asset_failed"),
+  pass(
+    "Print asset upload",
+    assetRes.status === 200 && Boolean(assetId),
+    assetId ? "asset_created" : "asset_failed"
+  )
 );
 
 // --- C1.5: Framed + greeting card add-on ---
@@ -144,45 +153,47 @@ checks.push(
   pass(
     "C1.5 framed+card checkout session created",
     cardCheckout.status === 200 && Boolean(cardUrl),
-    cardUrl ? "stripe_url" : `status_${cardCheckout.status}`,
-  ),
+    cardUrl ? "stripe_url" : `status_${cardCheckout.status}`
+  )
 );
 
 const cardSession = await retrieveStripeSession(cardSessionId);
 if (cardSession) {
   const md = cardSession.metadata || {};
-  checks.push(pass("C1.5 metadata print_include_card=true", md.print_include_card === "true", md.print_include_card));
   checks.push(
-    pass("C1.5 metadata print_variant=poster_framed", md.print_variant === "poster_framed", md.print_variant),
+    pass("C1.5 metadata print_include_card=true", md.print_include_card === "true", md.print_include_card)
   );
-  checks.push(pass("C1.5 metadata print_asset_id set", Boolean(md.print_asset_id), md.print_asset_id ? "set" : "missing"));
-  checks.push(pass("C1.5 QA metadata qa_run=true", md.qa_run === "true", md.qa_run));
+  checks.push(
+    pass("C1.5 metadata print_variant=poster_framed", md.print_variant === "poster_framed", md.print_variant)
+  );
   checks.push(
     pass(
-      "C1.5 QA metadata recognized by isQaStripeSession",
-      isQaStripeSession(cardSession),
-      "qa_exclusion",
-    ),
+      "C1.5 metadata print_asset_id set",
+      Boolean(md.print_asset_id),
+      md.print_asset_id ? "set" : "missing"
+    )
+  );
+  checks.push(pass("C1.5 QA metadata qa_run=true", md.qa_run === "true", md.qa_run));
+  checks.push(
+    pass("C1.5 QA metadata recognized by isQaStripeSession", isQaStripeSession(cardSession), "qa_exclusion")
   );
   const names = lineItemText(cardSession);
   checks.push(
     pass(
       "C1.5 line items include framed print",
       names.some((n) => /framed|14/i.test(String(n))),
-      names.length ? "line_items_ok" : "line_items_empty",
-    ),
+      names.length ? "line_items_ok" : "line_items_empty"
+    )
   );
   checks.push(
     pass(
       "C1.5 line items include greeting card",
       names.some((n) => /card|4.?6|greeting/i.test(String(n))),
-      names.length ? "line_items_ok" : "line_items_empty",
-    ),
+      names.length ? "line_items_ok" : "line_items_empty"
+    )
   );
   const subtotal = cardSession.amount_subtotal ?? 0;
-  checks.push(
-    pass("C1.5 subtotal includes framed + card ($99 + $19)", subtotal >= 11800, String(subtotal)),
-  );
+  checks.push(pass("C1.5 subtotal includes framed + card ($99 + $19)", subtotal >= 11800, String(subtotal)));
 } else if (cardSessionId) {
   checks.push({
     label: "C1.5 Stripe session detail (skipped - STRIPE_SECRET_KEY missing)",
@@ -208,58 +219,66 @@ checks.push(
   pass(
     "M1.3 sticker merch checkout session created",
     stickerCheckout.status === 200 && Boolean(stickerUrl),
-    stickerUrl ? "stripe_url" : `status_${stickerCheckout.status}`,
-  ),
+    stickerUrl ? "stripe_url" : `status_${stickerCheckout.status}`
+  )
 );
 
 const stickerSession = await retrieveStripeSession(stickerSessionId);
 if (stickerSession) {
   const md = stickerSession.metadata || {};
   checks.push(
-    pass("M1.3 metadata print_merch_family=sticker_kisscut", md.print_merch_family === "sticker_kisscut", md.print_merch_family),
+    pass(
+      "M1.3 metadata print_merch_family=sticker_kisscut",
+      md.print_merch_family === "sticker_kisscut",
+      md.print_merch_family
+    )
   );
   checks.push(
     pass(
       "M1.3 metadata print_merch_size matches 3x3",
       md.print_merch_size === "3\u00d73",
-      md.print_merch_size,
-    ),
+      md.print_merch_size
+    )
   );
   checks.push(
-    pass("M1.3 metadata print_merch_catalog_variant_id set", Boolean(md.print_merch_catalog_variant_id), "set"),
+    pass(
+      "M1.3 metadata print_merch_catalog_variant_id set",
+      Boolean(md.print_merch_catalog_variant_id),
+      "set"
+    )
   );
   checks.push(pass("M1.3 QA metadata qa_run=true", md.qa_run === "true", md.qa_run));
   checks.push(
     pass(
       "M1.3 QA metadata recognized by isQaStripeSession",
       isQaStripeSession(stickerSession),
-      "qa_exclusion",
-    ),
+      "qa_exclusion"
+    )
   );
   const names = lineItemText(stickerSession);
   checks.push(
     pass(
       "M1.3 line items include sticker",
       names.some((n) => /sticker|kiss/i.test(String(n))),
-      names.length ? "line_items_ok" : "line_items_empty",
-    ),
+      names.length ? "line_items_ok" : "line_items_empty"
+    )
   );
   checks.push(
     pass(
       "M1.3 line items are sticker-only (merch SKU, not framed print line)",
       names.length >= 1 && names.every((n) => /sticker|kiss/i.test(String(n))),
-      names.length ? "line_items_ok" : "line_items_empty",
-    ),
+      names.length ? "line_items_ok" : "line_items_empty"
+    )
   );
   const subtotal = stickerSession.amount_subtotal ?? 0;
+  checks.push(pass("M1.3 sticker subtotal is $9.00", subtotal === 900, String(subtotal)));
+  checks.push(pass("M1.3 metadata print_asset_id set for fulfillment", Boolean(md.print_asset_id), "set"));
   checks.push(
-    pass("M1.3 sticker subtotal is $9.00", subtotal === 900, String(subtotal)),
-  );
-  checks.push(
-    pass("M1.3 metadata print_asset_id set for fulfillment", Boolean(md.print_asset_id), "set"),
-  );
-  checks.push(
-    pass("M1.3 metadata print_variant tracks editor context", md.print_variant === "poster_framed", md.print_variant),
+    pass(
+      "M1.3 metadata print_variant tracks editor context",
+      md.print_variant === "poster_framed",
+      md.print_variant
+    )
   );
 } else if (stickerSessionId) {
   checks.push({
@@ -272,18 +291,16 @@ if (stickerSession) {
 // --- Editor deep links (marketing surfaces) ---
 const cardEditor = await fetch(
   `${SITE}/editor?mode=quick&checkout=print&print_variant=poster_framed&include_card_addon=1&map_id=${encodeURIComponent(mapId)}&source=map-hub`,
-  { cache: "no-store" },
+  { cache: "no-store" }
 );
-checks.push(
-  pass("C1.5 editor deep link responds 200", cardEditor.status === 200, String(cardEditor.status)),
-);
+checks.push(pass("C1.5 editor deep link responds 200", cardEditor.status === 200, String(cardEditor.status)));
 
 const stickerEditor = await fetch(
   `${SITE}/editor?mode=quick&merch_family=sticker_kisscut&map_id=${encodeURIComponent(mapId)}&source=map-hub`,
-  { cache: "no-store" },
+  { cache: "no-store" }
 );
 checks.push(
-  pass("M1.3 editor merch deep link responds 200", stickerEditor.status === 200, String(stickerEditor.status)),
+  pass("M1.3 editor merch deep link responds 200", stickerEditor.status === 200, String(stickerEditor.status))
 );
 
 const failed = checks.filter((c) => c.ok === false);

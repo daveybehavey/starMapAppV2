@@ -16,9 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isQaStripeSession } from "../src/lib/commerceAnalyticsQa.mjs";
-import {
-  assertQaCheckoutDispatchAllowed,
-} from "./qa-checkout-headers.mjs";
+import { assertQaCheckoutDispatchAllowed } from "./qa-checkout-headers.mjs";
 import { loadQaPrintAssetDataUrl, uploadQaPrintAsset } from "./qa-print-asset.mjs";
 import {
   assertNoRedirectEscape,
@@ -163,7 +161,7 @@ export function assertStripeQaVerificationCapability(env = process.env) {
   const stripeSecret = typeof env.STRIPE_SECRET_KEY === "string" ? env.STRIPE_SECRET_KEY.trim() : "";
   if (!stripeSecret) {
     throw new Error(
-      "BLOCKER: STRIPE_SECRET_KEY is required for read-only QA metadata verification before reporting success (fail-closed).",
+      "BLOCKER: STRIPE_SECRET_KEY is required for read-only QA metadata verification before reporting success (fail-closed)."
     );
   }
   return stripeSecret;
@@ -338,17 +336,29 @@ export function assertScriptIsNotNoOp(scriptPath = fileURLToPath(import.meta.url
   if (!source.includes(CANONICAL_QA_SOURCE)) {
     throw new Error("Live print conversion QA script missing canonical qa_source marker.");
   }
-  if (!source.includes("assertQaCheckoutDispatchAllowed") && !source.includes("buildQaTaggedCheckoutRequest")) {
+  if (
+    !source.includes("assertQaCheckoutDispatchAllowed") &&
+    !source.includes("buildQaTaggedCheckoutRequest")
+  ) {
     throw new Error("Live print conversion QA script missing fail-closed QA dispatch guard.");
   }
-  if (!source.includes("assertStripeQaVerificationCapability") || !source.includes("verifyCreatedSessionQaMetadata")) {
+  if (
+    !source.includes("assertStripeQaVerificationCapability") ||
+    !source.includes("verifyCreatedSessionQaMetadata")
+  ) {
     throw new Error("Live print conversion QA script missing mandatory Stripe QA metadata verification.");
   }
-  if (!source.includes("assertTrustedLiveProbeSite") || !source.includes("extractCheckoutSessionIdFromPayPath")) {
+  if (
+    !source.includes("assertTrustedLiveProbeSite") ||
+    !source.includes("extractCheckoutSessionIdFromPayPath")
+  ) {
     throw new Error("Live print conversion QA script missing trusted-origin or path-bound session guards.");
   }
   // Ignore this guard's own needle table when scanning for forbidden capabilities.
-  const scanSource = source.replace(/FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/, "FORBIDDEN_CAPABILITY_NEEDLES = [];");
+  const scanSource = source.replace(
+    /FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/,
+    "FORBIDDEN_CAPABILITY_NEEDLES = [];"
+  );
   for (const needle of FORBIDDEN_CAPABILITY_NEEDLES) {
     if (scanSource.includes(needle)) {
       throw new Error(`Live print conversion QA script must not include capability ${needle}`);
@@ -361,11 +371,15 @@ export function assertScriptIsNotNoOp(scriptPath = fileURLToPath(import.meta.url
  * Static package-script drift guard.
  * @param {string} [packageJsonPath]
  */
-export function assertPackageScriptWired(packageJsonPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json")) {
+export function assertPackageScriptWired(
+  packageJsonPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json")
+) {
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
   const script = pkg?.scripts?.["qa:live-print-conversion"];
   if (script !== "node scripts/live-print-conversion-qa.mjs") {
-    throw new Error("package.json qa:live-print-conversion drifted from scripts/live-print-conversion-qa.mjs");
+    throw new Error(
+      "package.json qa:live-print-conversion drifted from scripts/live-print-conversion-qa.mjs"
+    );
   }
   assertScriptIsNotNoOp(path.resolve(path.dirname(packageJsonPath), "scripts/live-print-conversion-qa.mjs"));
   return true;
@@ -486,7 +500,12 @@ export async function runVariantCheckoutOnly(site, printVariant, shippingCountry
   }
 
   const dataUrl = loadQaPrintAssetDataUrl("proof");
-  const assetRes = await uploadQaPrintAsset({ site: trustedSite, mapId: mapJson.id, dataUrl, source: "editor" });
+  const assetRes = await uploadQaPrintAsset({
+    site: trustedSite,
+    mapId: mapJson.id,
+    dataUrl,
+    source: "editor",
+  });
   if (assetRes.status !== 200 || typeof assetRes.json?.assetId !== "string") {
     throw new Error(`Print asset upload failed (status=${assetRes.status}).`);
   }
@@ -499,7 +518,7 @@ export async function runVariantCheckoutOnly(site, printVariant, shippingCountry
       printAssetId: assetRes.json.assetId,
       shippingCountry,
     },
-    env,
+    env
   );
 
   const checkoutRes = await fetch(request.url, {

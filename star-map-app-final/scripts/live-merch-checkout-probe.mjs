@@ -69,7 +69,9 @@ async function main() {
   run("shop merch section", shop.includes('id="merch-addons"'), "merch-addons anchor");
   run("shop sticker CTA", shop.includes("merch_family=sticker_kisscut"), "deep link");
 
-  const editorRes = await fetch(`${site}/editor?mode=quick&merch_family=sticker_kisscut`, { cache: "no-store" });
+  const editorRes = await fetch(`${site}/editor?mode=quick&merch_family=sticker_kisscut`, {
+    cache: "no-store",
+  });
   run("/editor merch deep link", editorRes.status === 200, `status=${editorRes.status}`);
 
   const recipe = {
@@ -77,7 +79,17 @@ async function main() {
     seed: "probe",
     datetimeISO: "2020-06-15T22:30:00.000Z",
     location: { name: "New York, NY", latitude: 40.7128, longitude: -74.006, timezone: "America/New_York" },
-    textBoxes: [{ id: "t1", text: "Probe night sky", fontFamily: "playfair", color: "#ffffff", size: 24, align: "center", position: { x: 0.5, y: 0.2 } }],
+    textBoxes: [
+      {
+        id: "t1",
+        text: "Probe night sky",
+        fontFamily: "playfair",
+        color: "#ffffff",
+        size: 24,
+        align: "center",
+        position: { x: 0.5, y: 0.2 },
+      },
+    ],
     selectedStyle: "navyGold",
     aspectRatio: "square",
     shape: "circle",
@@ -93,7 +105,9 @@ async function main() {
   run("POST /api/maps", mapRes.status === 200 && Boolean(mapJson.id), `status=${mapRes.status}`);
 
   if (mapJson.id) {
-    const getRes = await fetch(`${site}/api/maps?id=${encodeURIComponent(mapJson.id)}`, { cache: "no-store" });
+    const getRes = await fetch(`${site}/api/maps?id=${encodeURIComponent(mapJson.id)}`, {
+      cache: "no-store",
+    });
     run("GET /api/maps?id=", getRes.status === 200, `status=${getRes.status}`);
 
     const shareRes = await fetch(`${site}/m/${mapJson.id}`, { cache: "no-store" });
@@ -101,7 +115,11 @@ async function main() {
     run("GET /m/:id share page", shareRes.status === 200, `status=${shareRes.status}`);
     run("share page map hub section", shareHtml.includes('id="shop-this-map"'), "shop-this-map anchor");
     run("share page HD CTA", shareHtml.includes("checkout=hd"), "map hub HD link");
-    run("share page edit CTA", shareHtml.includes("map_id=") && shareHtml.includes("source=map-hub"), "editor deep links");
+    run(
+      "share page edit CTA",
+      shareHtml.includes("map_id=") && shareHtml.includes("source=map-hub"),
+      "editor deep links"
+    );
 
     // Rejection path does not create a Checkout Session — safe without QA headers.
     const noAsset = await fetch(`${site}/api/checkout`, {
@@ -121,7 +139,7 @@ async function main() {
     run(
       "merch checkout rejects missing print asset",
       noAsset.status === 400 && noAssetJson.code === "missing_print_asset",
-      `status=${noAsset.status} code=${noAssetJson.code}`,
+      `status=${noAsset.status} code=${noAssetJson.code}`
     );
 
     // Session-creating paths require QA markers; stop before dispatch when unavailable.
@@ -134,7 +152,7 @@ async function main() {
       run(
         "QA marker capability before session create",
         false,
-        error instanceof Error ? error.message : "qa_markers_unavailable",
+        error instanceof Error ? error.message : "qa_markers_unavailable"
       );
     }
 
@@ -152,7 +170,7 @@ async function main() {
           merchOptions: { size: "3×3" },
           shippingCountry: "US",
           printAssetId: fakeAsset,
-        }),
+        })
       );
       assertNoRedirectEscape(merchCheckout, checkoutUrl);
       const merchJson = await merchCheckout.json().catch(() => ({}));
@@ -163,7 +181,7 @@ async function main() {
       run(
         "merch checkout returns Stripe URL",
         merchUrlOk,
-        `status=${merchCheckout.status} code=${merchJson.code || "ok"}`,
+        `status=${merchCheckout.status} code=${merchJson.code || "ok"}`
       );
 
       const cardCheckout = await fetch(
@@ -177,14 +195,14 @@ async function main() {
           includeDigitalAddOn: false,
           shippingCountry: "US",
           printAssetId: fakeAsset,
-        }),
+        })
       );
       assertNoRedirectEscape(cardCheckout, checkoutUrl);
       const cardJson = await cardCheckout.json().catch(() => ({}));
       run(
         "card add-on checkout (fake asset)",
         cardCheckout.status === 200 || cardCheckout.status === 400,
-        `status=${cardCheckout.status} code=${cardJson.code || (cardJson.url ? "stripe_url" : "none")}`,
+        `status=${cardCheckout.status} code=${cardJson.code || (cardJson.url ? "stripe_url" : "none")}`
       );
     } else {
       run("merch checkout session create skipped", true, "fail_closed_before_untagged_session");

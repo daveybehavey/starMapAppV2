@@ -36,10 +36,7 @@ import {
   buildQaCheckoutHeaders,
   LIVE_PRINT_CONVERSION_QA_SOURCE,
 } from "../qa-checkout-headers.mjs";
-import {
-  buildQaCheckoutFetchInit,
-  resolveMerchProbeSite,
-} from "../live-merch-checkout-probe.mjs";
+import { buildQaCheckoutFetchInit, resolveMerchProbeSite } from "../live-merch-checkout-probe.mjs";
 import {
   assertNoRedirectEscape as assertNoRedirectEscapeShared,
   assertTrustedLiveProbeSite as assertTrustedLiveProbeSiteShared,
@@ -83,7 +80,7 @@ test("framed and unframed checkout bodies include intended add-on paths and cano
         mapId: "00000000-0000-4000-8000-000000000001",
         printAssetId: "00000000-0000-4000-8000-000000000002",
       },
-      env,
+      env
     );
     assert.equal(request.headers["x-qa-run"], "true");
     assert.equal(request.headers["x-qa-source"], LIVE_PRINT_CONVERSION_QA_SOURCE);
@@ -99,7 +96,7 @@ test("framed and unframed checkout bodies include intended add-on paths and cano
 test("missing QA marker support fails before network dispatch", () => {
   assert.throws(
     () => buildQaCheckoutHeaders(LIVE_PRINT_CONVERSION_QA_SOURCE, { PRINT_ADMIN_TOKEN: "" }),
-    /PRINT_ADMIN_TOKEN/,
+    /PRINT_ADMIN_TOKEN/
   );
   assert.throws(
     () =>
@@ -110,16 +107,22 @@ test("missing QA marker support fails before network dispatch", () => {
           mapId: "00000000-0000-4000-8000-000000000001",
           printAssetId: "00000000-0000-4000-8000-000000000002",
         },
-        {},
+        {}
       ),
-    /PRINT_ADMIN_TOKEN|fail-closed/,
+    /PRINT_ADMIN_TOKEN|fail-closed/
   );
-  assert.throws(() => assertQaCheckoutDispatchAllowed(LIVE_PRINT_CONVERSION_QA_SOURCE, {}), /PRINT_ADMIN_TOKEN/);
+  assert.throws(
+    () => assertQaCheckoutDispatchAllowed(LIVE_PRINT_CONVERSION_QA_SOURCE, {}),
+    /PRINT_ADMIN_TOKEN/
+  );
 });
 
 test("script cannot create coupons, promotion codes, payments, refunds, or fulfillment submissions", () => {
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
-  const scanSource = source.replace(/FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/, "FORBIDDEN_CAPABILITY_NEEDLES = [];");
+  const scanSource = source.replace(
+    /FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/,
+    "FORBIDDEN_CAPABILITY_NEEDLES = [];"
+  );
   for (const needle of [
     ["coupons", "create"].join("."),
     ["promotionCodes", "create"].join("."),
@@ -136,7 +139,10 @@ test("script cannot create coupons, promotion codes, payments, refunds, or fulfi
 
 test("no card/payment form interaction exists in checkout-only probe", () => {
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
-  const scanSource = source.replace(/FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/, "FORBIDDEN_CAPABILITY_NEEDLES = [];");
+  const scanSource = source.replace(
+    /FORBIDDEN_CAPABILITY_NEEDLES[\s\S]*?\];/,
+    "FORBIDDEN_CAPABILITY_NEEDLES = [];"
+  );
   assert.equal(scanSource.includes(["chromium", "launch"].join(".")), false);
   assert.equal(scanSource.includes(["page", "fill"].join(".")), false);
   assert.equal(scanSource.includes(["card", "Number"].join("")), false);
@@ -161,7 +167,7 @@ test("stdout/stderr/reporting cannot expose IDs, URLs, emails, addresses, secret
   assert.equal(containsSensitiveOperatorText("sk_live_secret"), true);
   assert.throws(
     () => assertSafeOutput("session https://checkout.stripe.com/c/pay/cs_live_abc#fid"),
-    /sensitive/,
+    /sensitive/
   );
 });
 
@@ -189,7 +195,7 @@ test("isQaStripeSession recognizes live_print_conversion_checkout_only marker", 
         qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE,
       },
     }),
-    true,
+    true
   );
   assert.equal(
     isQaStripeSession({
@@ -197,7 +203,7 @@ test("isQaStripeSession recognizes live_print_conversion_checkout_only marker", 
         qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE,
       },
     }),
-    true,
+    true
   );
 });
 
@@ -208,7 +214,7 @@ test("negative control fails if a live session can be created without QA metadat
       printVariant: "poster_framed",
       mapId: "00000000-0000-4000-8000-000000000001",
       printAssetId: "00000000-0000-4000-8000-000000000002",
-    }),
+    })
   );
 });
 
@@ -226,7 +232,7 @@ test("checkout API wires fail-closed QA headers into session metadata", () => {
       "x-qa-source": LIVE_PRINT_CONVERSION_QA_SOURCE,
       "x-admin-token": "wrong",
     }),
-    "expected-token",
+    "expected-token"
   );
   assert.equal(unauthorized.status, "unauthorized");
   assert.equal(unauthorized.enabled, false);
@@ -237,7 +243,7 @@ test("checkout API wires fail-closed QA headers into session metadata", () => {
       "x-qa-source": LIVE_PRINT_CONVERSION_QA_SOURCE,
       "x-admin-token": "expected-token",
     }),
-    "expected-token",
+    "expected-token"
   );
   assert.deepEqual(enabled, {
     enabled: true,
@@ -249,7 +255,10 @@ test("checkout API wires fail-closed QA headers into session metadata", () => {
   applyQaCheckoutMetadata(metadata, enabled);
   assert.equal(metadata.qa_run, "true");
   assert.equal(metadata.qa_source, LIVE_PRINT_CONVERSION_QA_SOURCE);
-  assert.equal(normalizeQaSource(" Live Print Conversion Checkout Only "), "live_print_conversion_checkout_only");
+  assert.equal(
+    normalizeQaSource(" Live Print Conversion Checkout Only "),
+    "live_print_conversion_checkout_only"
+  );
 });
 
 test("existing live checkout probes QA-tag or stop before session creation", () => {
@@ -269,23 +278,23 @@ test("existing live checkout probes QA-tag or stop before session creation", () 
   // Runtime call order: trusted site before first assertQaCheckoutDispatchAllowed invocation.
   assert.match(
     merch,
-    /const site = resolveMerchProbeSite\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE\)/,
+    /const site = resolveMerchProbeSite\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_MERCH_CHECKOUT_PROBE_QA_SOURCE\)/
   );
   assert.match(
     proof,
-    /const SITE = assertTrustedLiveProbeSite\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE\)/,
+    /const SITE = assertTrustedLiveProbeSite\([\s\S]*?assertQaCheckoutDispatchAllowed\(LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE\)/
   );
 });
 
 test("missing Stripe verification capability fails before session creation", () => {
   assert.throws(
     () => assertStripeQaVerificationCapability({ PRINT_ADMIN_TOKEN: "unit-test-token" }),
-    /STRIPE_SECRET_KEY/,
+    /STRIPE_SECRET_KEY/
   );
   assert.throws(() => assertStripeQaVerificationCapability({}), /STRIPE_SECRET_KEY/);
   assert.equal(
     assertStripeQaVerificationCapability({ STRIPE_SECRET_KEY: "sk_test_unit_only_placeholder" }),
-    "sk_test_unit_only_placeholder",
+    "sk_test_unit_only_placeholder"
   );
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
   assert.match(source, /assertStripeQaVerificationCapability/);
@@ -299,13 +308,10 @@ test("canonical QA metadata assertion accepts only exact markers", () => {
     assertCanonicalQaMetadata({
       qa_run: "true",
       qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE,
-    }),
+    })
   );
   assert.throws(() => assertCanonicalQaMetadata({ qa_run: "true", qa_source: "other" }), /qa_source/);
-  assert.throws(
-    () => assertCanonicalQaMetadata({ qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE }),
-    /qa_run/,
-  );
+  assert.throws(() => assertCanonicalQaMetadata({ qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE }), /qa_run/);
   assert.throws(() => assertCanonicalQaMetadata({}), /qa_run/);
   // Normalized / truthy aliases must fail — byte-for-byte exact only.
   for (const qa_run of ["TRUE", "True", " true", "true ", "1", "yes", "Yes"]) {
@@ -316,7 +322,7 @@ test("canonical QA metadata assertion accepts only exact markers", () => {
           qa_source: LIVE_PRINT_CONVERSION_QA_SOURCE,
         }),
       /qa_run/,
-      qa_run,
+      qa_run
     );
   }
   for (const qa_source of [
@@ -325,16 +331,15 @@ test("canonical QA metadata assertion accepts only exact markers", () => {
     "live_print_conversion_checkout_only ",
     "live_print_conversion",
   ]) {
-    assert.throws(
-      () => assertCanonicalQaMetadata({ qa_run: "true", qa_source }),
-      /qa_source/,
-      qa_source,
-    );
+    assert.throws(() => assertCanonicalQaMetadata({ qa_run: "true", qa_source }), /qa_source/, qa_source);
   }
 });
 
 test("trusted live probe site accepts only canonical production origin", () => {
-  assert.equal(assertTrustedLiveProbeSite(CANONICAL_PRODUCTION_SITE_ORIGIN), CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.equal(
+    assertTrustedLiveProbeSite(CANONICAL_PRODUCTION_SITE_ORIGIN),
+    CANONICAL_PRODUCTION_SITE_ORIGIN
+  );
   assert.equal(assertTrustedLiveProbeSite("https://starmapco.com/"), CANONICAL_PRODUCTION_SITE_ORIGIN);
   const wrangler = fs.readFileSync(path.join(ROOT, "wrangler.toml"), "utf8");
   assert.match(wrangler, /NEXT_PUBLIC_SITE_URL\s*=\s*"https:\/\/starmapco\.com"/);
@@ -381,7 +386,7 @@ test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pas
         if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
         return Reflect.getOwnPropertyDescriptor(target, prop);
       },
-    },
+    }
   );
   assert.throws(
     () =>
@@ -392,15 +397,18 @@ test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pas
           mapId: "00000000-0000-4000-8000-000000000001",
           printAssetId: "00000000-0000-4000-8000-000000000002",
         },
-        env,
+        env
       ),
-    /trusted|canonical|HTTPS|host|BLOCKER/i,
+    /trusted|canonical|HTTPS|host|BLOCKER/i
   );
   assert.equal(tokenAccessed, false);
 
   // Operator-error helper must not default to process.env / authorizedEnv on rejection.
   const chunks = [];
-  writeOperatorError({ write: (s) => chunks.push(String(s)) }, "BLOCKER: --site host is not the canonical trusted production origin.");
+  writeOperatorError(
+    { write: (s) => chunks.push(String(s)) },
+    "BLOCKER: --site host is not the canonical trusted production origin."
+  );
   assert.equal(tokenAccessed, false);
   assert.equal(chunks.join("").includes(secretToken), false);
 
@@ -418,27 +426,10 @@ test("PRINT_ADMIN_TOKEN is not read or attached before trusted-origin checks pas
 });
 
 test("merch probe resolves trusted site before token access and uses manual redirects", () => {
-  let tokenAccessed = false;
-  const secretToken = "merch-admin-token-must-not-leak";
-  const env = new Proxy(
-    { PRINT_ADMIN_TOKEN: secretToken },
-    {
-      get(target, prop) {
-        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
-        return Reflect.get(target, prop);
-      },
-      has(target, prop) {
-        if (prop === "PRINT_ADMIN_TOKEN") tokenAccessed = true;
-        return Reflect.has(target, prop);
-      },
-    },
-  );
-
   assert.equal(
     resolveMerchProbeSite(["node", "script", "--site", "https://starmapco.com"]),
-    CANONICAL_PRODUCTION_SITE_ORIGIN,
+    CANONICAL_PRODUCTION_SITE_ORIGIN
   );
-  assert.equal(tokenAccessed, false);
 
   for (const site of [
     "https://starmapco.example",
@@ -449,66 +440,68 @@ test("merch probe resolves trusted site before token access and uses manual redi
   ]) {
     assert.throws(() => resolveMerchProbeSite(["node", "script", "--site", site]), /BLOCKER/, site);
   }
-  assert.equal(tokenAccessed, false);
 
-  // Token is only read after an explicit trusted-site resolution by the caller.
+  // After trusted-site resolution, secret-bearing checkout init must pin redirect:manual.
   const init = buildQaCheckoutFetchInit({ orderType: "print" }, { PRINT_ADMIN_TOKEN: "unit-merch-token" });
   assert.equal(init.redirect, "manual");
   assert.equal(init.headers["x-qa-run"], "true");
-  assert.equal(tokenAccessed, false);
+  assert.match(init.headers["x-qa-source"], /live_merch_checkout_probe/);
 });
 
 test("shared trusted-origin helper rejects redirect escapes on secret-bearing responses", () => {
-  assert.equal(assertTrustedLiveProbeSiteShared(CANONICAL_PRODUCTION_SITE_ORIGIN), CANONICAL_PRODUCTION_SITE_ORIGIN);
+  assert.equal(
+    assertTrustedLiveProbeSiteShared(CANONICAL_PRODUCTION_SITE_ORIGIN),
+    CANONICAL_PRODUCTION_SITE_ORIGIN
+  );
   assert.throws(
-    () => assertNoRedirectEscapeShared({ status: 302, url: "https://evil.example/" }, "https://starmapco.com/api/checkout"),
-    /redirect/,
+    () =>
+      assertNoRedirectEscapeShared(
+        { status: 302, url: "https://evil.example/" },
+        "https://starmapco.com/api/checkout"
+      ),
+    /redirect/
   );
   assert.doesNotThrow(() =>
     assertNoRedirectEscapeShared(
       { status: 200, url: "https://starmapco.com/api/checkout" },
-      "https://starmapco.com/api/checkout",
-    ),
+      "https://starmapco.com/api/checkout"
+    )
   );
 });
 
 test("redirect escape on secret-bearing responses is rejected", () => {
-  assert.throws(
-    () => assertNoRedirectEscape({ status: 302 }),
-    /redirect/,
-  );
+  assert.throws(() => assertNoRedirectEscape({ status: 302 }), /redirect/);
   assert.doesNotThrow(() => assertNoRedirectEscape({ status: 200 }));
 });
 
 test("path-bound Checkout Session ID extraction ignores fragment and query IDs", () => {
-  const valid =
-    "https://checkout.stripe.com/c/pay/cs_live_pathbound123#fidfragment";
+  const valid = "https://checkout.stripe.com/c/pay/cs_live_pathbound123#fidfragment";
   assert.equal(extractCheckoutSessionIdFromPayPath(valid), "cs_live_pathbound123");
 
   // Fragment has a valid-looking session id; path does not — must fail and never use fragment.
   assert.throws(
     () =>
       extractCheckoutSessionIdFromPayPath(
-        "https://checkout.stripe.com/c/pay/not-a-session#cs_test_oldsession",
+        "https://checkout.stripe.com/c/pay/not-a-session#cs_test_oldsession"
       ),
-    /pathname|Session ID|Stripe-hosted/,
+    /pathname|Session ID|Stripe-hosted/
   );
 
   // Query has a valid-looking session id; path invalid — must fail.
   assert.throws(
     () =>
       extractCheckoutSessionIdFromPayPath(
-        "https://checkout.stripe.com/c/pay/not-a-session?session=cs_test_queryid#fidx",
+        "https://checkout.stripe.com/c/pay/not-a-session?session=cs_test_queryid#fidx"
       ),
-    /pathname|Session ID|Stripe-hosted/,
+    /pathname|Session ID|Stripe-hosted/
   );
 
   // Path id must be preferred; ensure helper does not scan whole URL (path wins when valid).
   assert.equal(
     extractCheckoutSessionIdFromPayPath(
-      "https://checkout.stripe.com/c/pay/cs_live_frompath#cs_test_fromfragment",
+      "https://checkout.stripe.com/c/pay/cs_live_frompath#cs_test_fromfragment"
     ),
-    "cs_live_frompath",
+    "cs_live_frompath"
   );
 
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
@@ -519,7 +512,7 @@ test("path-bound Checkout Session ID extraction ignores fragment and query IDs",
 test("hosted Stripe URL validator accepts bounded handoff shape without echoing identifiers", () => {
   assert.equal(
     assertHostedStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_live_abc#fidfragment"),
-    true,
+    true
   );
   assert.throws(() => assertHostedStripeCheckoutUrl(""), /missing/);
   assert.throws(() => assertHostedStripeCheckoutUrl("https://example.com/pay"), /Stripe-hosted/);
@@ -539,10 +532,7 @@ test("hosted Stripe URL validator rejects HTTP, deceptive hosts, wrong paths, an
     assert.throws(() => assertHostedStripeCheckoutUrl(url), /Stripe-hosted|missing/, url);
   }
   // Negative control: permissive substring alone must not pass.
-  assert.throws(
-    () => assertHostedStripeCheckoutUrl("prefix checkout.stripe.com suffix"),
-    /Stripe-hosted/,
-  );
+  assert.throws(() => assertHostedStripeCheckoutUrl("prefix checkout.stripe.com suffix"), /Stripe-hosted/);
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
   assert.equal(/!isValidStripeCheckoutUrl\([^)]+\)\s*&&\s*!\/checkout\\.stripe\\.com/i.test(source), false);
 });
