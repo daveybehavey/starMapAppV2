@@ -19,6 +19,7 @@ import { extractCheckoutSessionIdFromPayPath } from "./qa-stripe-checkout-url.mj
 import {
   assertCanonicalQaMetadata,
   assertStripeQaVerificationCapability,
+  printAssetIdBindingStatus,
 } from "./live-print-conversion-qa.mjs";
 
 export {
@@ -28,6 +29,7 @@ export {
 } from "./qa-trusted-origin.mjs";
 
 export { extractCheckoutSessionIdFromPayPath } from "./qa-stripe-checkout-url.mjs";
+export { printAssetIdBindingStatus } from "./live-print-conversion-qa.mjs";
 
 /**
  * Establish trusted SITE_URL before any token-bearing dotenv load.
@@ -230,13 +232,12 @@ if (cardSession) {
   checks.push(
     pass("C1.5 metadata print_variant=poster_framed", md.print_variant === "poster_framed", md.print_variant)
   );
-  checks.push(
-    pass(
-      "C1.5 metadata print_asset_id set",
-      Boolean(md.print_asset_id),
-      md.print_asset_id ? "set" : "missing"
-    )
-  );
+  {
+    const binding = printAssetIdBindingStatus(md.print_asset_id, assetId);
+    checks.push(
+      pass("C1.5 metadata print_asset_id matches created asset", binding.ok, binding.detail)
+    );
+  }
   checks.push(pass("C1.5 QA metadata qa_run=true", md.qa_run === "true", md.qa_run));
   checks.push(
     pass("C1.5 QA metadata recognized by isQaStripeSession", isQaStripeSession(cardSession), "qa_exclusion")
@@ -347,7 +348,12 @@ if (stickerSession) {
   );
   const subtotal = stickerSession.amount_subtotal ?? 0;
   checks.push(pass("M1.3 sticker subtotal is $9.00", subtotal === 900, String(subtotal)));
-  checks.push(pass("M1.3 metadata print_asset_id set for fulfillment", Boolean(md.print_asset_id), "set"));
+  {
+    const binding = printAssetIdBindingStatus(md.print_asset_id, assetId);
+    checks.push(
+      pass("M1.3 metadata print_asset_id matches created asset", binding.ok, binding.detail)
+    );
+  }
   checks.push(
     pass(
       "M1.3 metadata print_variant tracks editor context",

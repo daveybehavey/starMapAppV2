@@ -146,6 +146,27 @@ Notes:
 }
 
 /**
+ * Compare retrieved Checkout Session `print_asset_id` to the asset created this run.
+ * Returns non-identifying status only — never echoes asset IDs or other identifiers.
+ *
+ * @param {unknown} metadataPrintAssetId
+ * @param {unknown} expectedAssetId
+ * @returns {{ ok: boolean, detail: "match" | "missing" | "mismatch" | "missing_expected" }}
+ */
+export function printAssetIdBindingStatus(metadataPrintAssetId, expectedAssetId) {
+  if (typeof expectedAssetId !== "string" || expectedAssetId.length === 0) {
+    return { ok: false, detail: "missing_expected" };
+  }
+  if (typeof metadataPrintAssetId !== "string" || metadataPrintAssetId.length === 0) {
+    return { ok: false, detail: "missing" };
+  }
+  if (metadataPrintAssetId !== expectedAssetId) {
+    return { ok: false, detail: "mismatch" };
+  }
+  return { ok: true, detail: "match" };
+}
+
+/**
  * Fail closed before map/asset/session creation unless read-only Stripe retrieval
  * can independently verify canonical QA metadata after checkout.
  *
@@ -537,7 +558,10 @@ export async function main(argv = process.argv.slice(2), io = {}) {
 
   if (args.help) {
     const text = usage();
-    assertSafeOutput(text);
+    // Help/usage is public invocation guidance (canonical production origin only).
+    // Do not apply operational assertSafeOutput — that guard rejects any URL substring
+    // and would block the documented --help path. Operational/error/report paths still
+    // use assertSafeOutput / writeOperatorError redaction unchanged.
     stdout.write(`${text}\n`);
     return 0;
   }

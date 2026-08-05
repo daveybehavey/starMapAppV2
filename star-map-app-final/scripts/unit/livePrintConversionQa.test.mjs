@@ -31,6 +31,8 @@ import {
   formatAggregateReport,
   main,
   parseArgs,
+  printAssetIdBindingStatus,
+  usage,
   writeOperatorError,
 } from "../live-print-conversion-qa.mjs";
 import {
@@ -185,6 +187,38 @@ test("stdout/stderr/reporting cannot expose IDs, URLs, emails, addresses, secret
     () => assertSafeOutput("session https://checkout.stripe.com/c/pay/cs_live_abc#fid"),
     /sensitive/
   );
+});
+
+test("documented --help prints usage and exits 0 without operational redaction blocking", async () => {
+  const chunks = [];
+  const code = await main(["--help"], {
+    stdout: { write: (s) => chunks.push(String(s)) },
+    stderr: { write: () => {} },
+    env: {},
+  });
+  assert.equal(code, 0);
+  const out = chunks.join("");
+  assert.match(out, /Usage:/);
+  assert.match(out, /--checkout-only/);
+  assert.match(out, new RegExp(CANONICAL_PRODUCTION_SITE_ORIGIN.replace(/\./g, "\\.")));
+  // Help must not be blocked even though usage includes the public canonical origin URL.
+  assert.equal(containsSensitiveOperatorText(out), true);
+  // Operational/report guard remains intact for sensitive paths.
+  assert.throws(() => assertSafeOutput(out), /sensitive/);
+  assert.throws(
+    () => assertSafeOutput("session https://checkout.stripe.com/c/pay/cs_live_abc#fid"),
+    /sensitive/
+  );
+  assert.throws(() => assertSafeOutput("cs_live_abc123"), /sensitive/);
+  const helpText = usage();
+  assert.match(helpText, /--site/);
+  const source = fs.readFileSync(SCRIPT_PATH, "utf8");
+  // Help path must not call assertSafeOutput on usage text.
+  assert.match(
+    source,
+    /if\s*\(args\.help\)\s*\{[\s\S]*?stdout\.write\(`\$\{text\}\\n`\);[\s\S]*?return 0;/
+  );
+  assert.equal(/if\s*\(args\.help\)\s*\{[\s\S]*?assertSafeOutput\(text\)/.test(source), false);
 });
 
 test("ordinary buyer sessions remain unchanged without QA headers", () => {
@@ -836,6 +870,37 @@ test("C1/M1 proof fails closed without Stripe metadata verification paths", () =
   const capabilityIdx = proof.indexOf("assertStripeQaVerificationCapability(process.env)");
   const cardCheckoutIdx = proof.indexOf('await post("/api/checkout"');
   assert.ok(capabilityIdx >= 0 && cardCheckoutIdx > capabilityIdx);
+});
+
+test("C1/M1 print_asset_id must equal the created assetId (not merely nonempty)", () => {
+  const expected = "00000000-0000-4000-8000-0000000000aa";
+  const match = printAssetIdBindingStatus(expected, expected);
+  assert.deepEqual(match, { ok: true, detail: "match" });
+
+  const missing = printAssetIdBindingStatus(undefined, expected);
+  assert.deepEqual(missing, { ok: false, detail: "missing" });
+  assert.deepEqual(printAssetIdBindingStatus("", expected), { ok: false, detail: "missing" });
+
+  // Wrong-but-nonempty must fail closed — this is the regression the nonempty-only check missed.
+  const stale = "11111111-1111-4111-8111-111111111111";
+  const mismatch = printAssetIdBindingStatus(stale, expected);
+  assert.deepEqual(mismatch, { ok: false, detail: "mismatch" });
+
+  // Status strings must never echo raw IDs.
+  for (const status of [match, missing, mismatch]) {
+    assert.equal(String(status.detail).includes(expected), false);
+    assert.equal(String(status.detail).includes(stale), false);
+    assert.match(String(status.detail), /^(match|missing|mismatch|missing_expected)$/);
+  }
+
+  const proof = fs.readFileSync(C1_M1_PROOF, "utf8");
+  assert.match(proof, /printAssetIdBindingStatus\(md\.print_asset_id,\s*assetId\)/);
+  assert.match(proof, /C1\.5 metadata print_asset_id matches created asset/);
+  assert.match(proof, /M1\.3 metadata print_asset_id matches created asset/);
+  // Must not accept nonempty-only checks for these verification points.
+  assert.equal(/Boolean\(md\.print_asset_id\)/.test(proof), false);
+  assert.equal(proof.includes("print_asset_id set for fulfillment"), false);
+  assert.equal(proof.includes('"C1.5 metadata print_asset_id set"'), false);
 });
 
 test("Stripe metadata retrieval fetch refuses redirects without contacting Stripe", async () => {
