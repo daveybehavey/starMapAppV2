@@ -556,7 +556,7 @@ export function PaywallModal({
               {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
             </button>
             <p className="mt-2 text-[11px] text-neutral-600">
-              Best when you only need this one finished map.
+              Use this when you only need this one finished map.
             </p>
           </div>
 

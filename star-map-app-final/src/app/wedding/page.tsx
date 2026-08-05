@@ -191,7 +191,7 @@ export default function WeddingPage() {
             includeDigitalAddOn: true,
             plan: "print_framed_hd",
             tone: "recommended",
-            detail: `${bundlePriceLine} — best wedding gift.`,
+            detail: `${bundlePriceLine} — framed print plus instant HD.`,
           },
           {
             label: "Preview framed + keepsake card",

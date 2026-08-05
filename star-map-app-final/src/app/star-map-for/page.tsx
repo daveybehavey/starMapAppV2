@@ -68,37 +68,37 @@ export default function StarMapForOccasionsPage() {
   const previewIntents = buildStandardGiftPreviewIntents("star-map-for-hub");
 
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-5xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Star Map Gifts by Occasion</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more — capture the
-          exact night sky from your date and location.
+          Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more —
+          capture the exact night sky from your date and location.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
           <Link
             href="/star-map-for/engagement"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Engagement gifts
           </Link>
           <Link
             href="/star-map-for/proposal"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Proposal gifts
           </Link>
           <Link
             href="/star-map-for/new-baby"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             New baby
           </Link>
@@ -110,14 +110,20 @@ export default function StarMapForOccasionsPage() {
           </Link>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Framed print
+          </span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Unframed print
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
+            HD digital delivery
+          </span>
         </div>
       </header>
 
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Popular occasions</h2>
+        <h2 className="text-midnight text-xl font-semibold">Popular occasions</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
           These are the most searched gift occasions. Start here if you want the fastest path into the editor.
         </p>
@@ -135,9 +141,9 @@ export default function StarMapForOccasionsPage() {
       </section>
 
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Choose your occasion</h2>
+        <h2 className="text-midnight text-xl font-semibold">Choose your occasion</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Start with the highest-intent pages, each with a direct path into the editor.
+          Start with the core occasion pages, each with a direct path into the editor.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           {indexableOccasions.map((occasion) => (
@@ -174,7 +180,7 @@ export default function StarMapForOccasionsPage() {
       />
 
       <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Explore by city</h2>
+        <h2 className="text-midnight text-lg font-semibold">Explore by city</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
           Want the page tailored to your location? Browse star maps by city.
         </p>

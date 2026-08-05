@@ -9,7 +9,12 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
-import { formatPrintPriceWithShipping, getPrintProductionReviewDisclosure, getPrintProductionReviewTrustPoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintPriceWithShipping,
+  getPrintProductionReviewDisclosure,
+  getPrintProductionReviewTrustPoint,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 import { FRAMED_HD_RECOMMENDED_BADGE } from "@/lib/moneyPageGiftCheckout";
 import { getBusinessProfile } from "@/lib/businessProfile";
 import { getPrintPricingTiers } from "@/lib/pricing";
@@ -48,17 +53,16 @@ export default function StarMapPosterPage() {
   const printTiers = getPrintPricingTiers();
   const framedPrice = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency,
+    printTiers.poster_framed.currency
   );
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed.amountCents,
-    printTiers.poster_unframed.currency,
+    printTiers.poster_unframed.currency
   );
   const faqItems = [
     {
       question: "Is this a physical star map poster?",
-      answer:
-        `Yes. After preview, you can choose an unframed poster or framed print from the same approved design. ${shippingDisclosure}`,
+      answer: `Yes. After preview, you can choose an unframed poster or framed print from the same approved design. ${shippingDisclosure}`,
     },
     {
       question: "Which route is recommended for gifting?",
@@ -71,8 +75,7 @@ export default function StarMapPosterPage() {
     },
     {
       question: "What happens after I approve the preview?",
-      answer:
-        `After you approve the design, the same map moves into print checkout. ${productionReviewDisclosure} Support stays with StarMapCo if there is a print issue.`,
+      answer: `After you approve the design, the same map moves into print checkout. ${productionReviewDisclosure} Support stays with StarMapCo if there is a print issue.`,
     },
     {
       question: "What sizes do star map posters come in?",
@@ -114,25 +117,29 @@ export default function StarMapPosterPage() {
   };
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <section className="content-visibility-auto overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(241,194,125,0.18),transparent_34%),linear-gradient(135deg,rgba(10,18,39,0.96),rgba(7,12,26,0.96))] shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
         <div className="grid gap-0 lg:grid-cols-[1.12fr,0.88fr]">
           <header className="space-y-5 p-6 sm:p-8">
             <Breadcrumbs items={breadcrumbs} className="flex flex-wrap gap-2" />
-            <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-100/85">
+            <div className="flex flex-wrap gap-2 text-[11px] font-semibold tracking-[0.2em] text-amber-100/85 uppercase">
               <span className="brand-pill rounded-full px-3 py-1">Preview first</span>
-              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">Physical print checkout</span>
-              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">Shipping shown before payment</span>
+              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">
+                Physical print checkout
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">
+                Shipping shown before payment
+              </span>
             </div>
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+              <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
               <h1 className="max-w-2xl text-3xl font-bold text-white sm:text-4xl">
                 Custom star map poster for any date and place
               </h1>
               <p className="max-w-2xl text-sm leading-relaxed text-white/88 sm:text-base">
-                Build the map once from the exact night sky of a special moment, approve the preview, then choose the
-                physical route that fits the occasion. Framed is the premium default because it arrives ready to hang.
-                Unframed stays available if you already have a frame plan.
+                Build the map once from the exact night sky of a special moment, approve the preview, then
+                choose the physical route that fits the occasion. Framed is the premium default because it
+                arrives ready to hang. Unframed stays available if you already have a frame plan.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -140,7 +147,7 @@ export default function StarMapPosterPage() {
                 {
                   title: "Framed starts at",
                   value: framedPrice,
-                  detail: "Best for gifting and finished presentation.",
+                  detail: "Ready for gifting and finished presentation.",
                 },
                 {
                   title: "Unframed starts at",
@@ -153,8 +160,13 @@ export default function StarMapPosterPage() {
                   detail: `Questions route to ${profile.name} before and after checkout.`,
                 },
               ].map((item) => (
-                <div key={item.title} className="rounded-2xl border border-white/10 bg-white/7 p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/80">{item.title}</p>
+                <div
+                  key={item.title}
+                  className="rounded-2xl border border-white/10 bg-white/7 p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)]"
+                >
+                  <p className="text-[11px] font-semibold tracking-[0.16em] text-amber-100/80 uppercase">
+                    {item.title}
+                  </p>
                   <p className="mt-2 text-sm font-semibold text-white">{item.value}</p>
                   <p className="mt-1 text-xs leading-relaxed text-white/72">{item.detail}</p>
                 </div>
@@ -163,7 +175,7 @@ export default function StarMapPosterPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/editor?mode=quick&source=star-map-poster-hero-framed&checkout=print&print_variant=poster_framed"
-                className="inline-flex items-center justify-center rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-200"
+                className="text-midnight inline-flex items-center justify-center rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold transition hover:-translate-y-[1px] hover:bg-amber-200"
               >
                 Start with framed print preview
               </Link>
@@ -176,16 +188,16 @@ export default function StarMapPosterPage() {
             </div>
           </header>
 
-          <aside className="border-t border-white/8 bg-white/6 p-6 lg:border-l lg:border-t-0">
+          <aside className="border-t border-white/8 bg-white/6 p-6 lg:border-t-0 lg:border-l">
             <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.05))] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/80">
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-100/80 uppercase">
                     Default recommendation
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">Why framed is the safer default</h2>
                 </div>
-                <span className="rounded-full border border-amber-200/40 bg-amber-300/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-100">
+                <span className="rounded-full border border-amber-200/40 bg-amber-300/20 px-3 py-1 text-[10px] font-semibold tracking-[0.16em] text-amber-100 uppercase">
                   {FRAMED_HD_RECOMMENDED_BADGE}
                 </span>
               </div>
@@ -194,8 +206,8 @@ export default function StarMapPosterPage() {
                 <div className="rounded-2xl border border-amber-200/35 bg-amber-300/12 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-white">{printTiers.poster_framed.label}</p>
-                    <span className="rounded-full border border-amber-200/35 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                      Best gift
+                    <span className="rounded-full border border-amber-200/35 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-100 uppercase">
+                      Premium gift
                     </span>
                   </div>
                   <p className="mt-2 text-sm font-semibold text-amber-100">{framedPrice}</p>
@@ -207,19 +219,20 @@ export default function StarMapPosterPage() {
                 <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-white">{printTiers.poster_unframed.label}</p>
-                    <span className="rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/72">
+                    <span className="rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white/72 uppercase">
                       Lower total
                     </span>
                   </div>
                   <p className="mt-2 text-sm font-semibold text-white">{unframedPrice}</p>
                   <p className="mt-2 text-xs leading-relaxed text-white/70">
-                    Better if you already know the exact frame, room, or custom presentation you want to handle yourself.
+                    Better if you already know the exact frame, room, or custom presentation you want to
+                    handle yourself.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-black/12 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/80">
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-amber-100/80 uppercase">
                   Purchase path
                 </p>
                 <ol className="mt-3 space-y-2 text-sm text-white/80">
@@ -228,7 +241,8 @@ export default function StarMapPosterPage() {
                   <li>3. Shipping appears before payment. {productionReviewDisclosure}</li>
                 </ol>
                 <p className="mt-3 text-xs text-white/65">
-                  Digital can still stay secondary as an add-on or immediate backup, but this page stays focused on the physical gift route.
+                  Digital can still stay secondary as an add-on or immediate backup, but this page stays
+                  focused on the physical gift route.
                 </p>
               </div>
             </div>
@@ -272,11 +286,15 @@ export default function StarMapPosterPage() {
       <section className="content-visibility-auto mt-8 grid gap-4 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">How physical checkout works</p>
-            <h2 className="text-xl font-semibold text-midnight">Approve the map first, then commit to the print route</h2>
+            <p className="text-xs font-semibold tracking-[0.24em] text-amber-700 uppercase">
+              How physical checkout works
+            </p>
+            <h2 className="text-midnight text-xl font-semibold">
+              Approve the map first, then commit to the print route
+            </h2>
             <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-              This page is built to reduce print friction. The design is approved first, framed stays visually primary,
-              and support, shipping, and damage handling stay visible before payment.
+              This page is built to reduce print friction. The design is approved first, framed stays visually
+              primary, and support, shipping, and damage handling stay visible before payment.
             </p>
           </div>
           <div className="grid gap-3">
@@ -284,12 +302,14 @@ export default function StarMapPosterPage() {
               {
                 step: "01",
                 title: "Build and approve the preview",
-                detail: "Enter the date, time, and location, then adjust the poster style, text, and layout before checkout.",
+                detail:
+                  "Enter the date, time, and location, then adjust the poster style, text, and layout before checkout.",
               },
               {
                 step: "02",
                 title: "Choose framed or unframed with the same map attached",
-                detail: "No rebuild step. The approved poster design carries straight into the physical checkout path you pick.",
+                detail:
+                  "No rebuild step. The approved poster design carries straight into the physical checkout path you pick.",
               },
               {
                 step: "03",
@@ -297,12 +317,15 @@ export default function StarMapPosterPage() {
                 detail: `Physical checkout shows the shipping charge before you pay. ${productionReviewDisclosure}`,
               },
             ].map((item) => (
-              <div key={item.step} className="grid gap-3 rounded-2xl border border-black/5 bg-amber-50/70 p-4 sm:grid-cols-[auto,1fr] sm:items-start">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-midnight text-sm font-semibold text-white">
+              <div
+                key={item.step}
+                className="grid gap-3 rounded-2xl border border-black/5 bg-amber-50/70 p-4 sm:grid-cols-[auto,1fr] sm:items-start"
+              >
+                <div className="bg-midnight inline-flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold text-white">
                   {item.step}
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-midnight">{item.title}</h3>
+                  <h3 className="text-midnight text-sm font-semibold">{item.title}</h3>
                   <p className="mt-1 text-sm text-neutral-700">{item.detail}</p>
                 </div>
               </div>
@@ -312,41 +335,44 @@ export default function StarMapPosterPage() {
 
         <div className="space-y-4 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">Quick decision guide</p>
-            <h2 className="text-lg font-semibold text-midnight">Which poster route fits the moment?</h2>
+            <p className="text-xs font-semibold tracking-[0.24em] text-amber-700 uppercase">
+              Quick decision guide
+            </p>
+            <h2 className="text-midnight text-lg font-semibold">Which poster route fits the moment?</h2>
           </div>
           <div className="space-y-3">
             <div className="rounded-2xl border border-amber-300/55 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</h3>
-                <span className="rounded-full border border-amber-300/70 bg-amber-300/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                <h3 className="text-midnight text-sm font-semibold">{printTiers.poster_framed.label}</h3>
+                <span className="rounded-full border border-amber-300/70 bg-amber-300/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-900 uppercase">
                   Recommended
                 </span>
               </div>
-              <p className="mt-2 text-sm font-semibold text-midnight">{framedPrice}</p>
+              <p className="text-midnight mt-2 text-sm font-semibold">{framedPrice}</p>
               <p className="mt-2 text-sm text-neutral-700">
-                Best when the buyer wants the gift to arrive finished, premium, and ready to hang.
+                Use framed when the gift should arrive finished, premium, and ready to hang.
               </p>
             </div>
             <div className="rounded-2xl border border-black/10 bg-white/85 p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</h3>
-              <p className="mt-2 text-sm font-semibold text-midnight">{unframedPrice}</p>
+              <h3 className="text-midnight text-sm font-semibold">{printTiers.poster_unframed.label}</h3>
+              <p className="text-midnight mt-2 text-sm font-semibold">{unframedPrice}</p>
               <p className="mt-2 text-sm text-neutral-700">
-                Best when price matters more or you already know exactly how you want to frame it later.
+                Use unframed when price matters more or you already know exactly how you want to frame it
+                later.
               </p>
             </div>
           </div>
           <div className="rounded-2xl border border-black/5 bg-white p-4">
-            <p className="text-sm font-semibold text-midnight">Keep the decision simple</p>
+            <p className="text-midnight text-sm font-semibold">Keep the decision simple</p>
             <p className="mt-2 text-sm text-neutral-700">
-              If this is a gift, start framed. If you already have the frame plan, start unframed. If you are still
-              deciding, use the neutral preview and compare after you see the map.
+              If this is a gift, start framed. If you already have the frame plan, start unframed. If you are
+              still deciding, use the neutral preview and compare after you see the map.
             </p>
           </div>
           <div className="pt-1">
             <Link
               href="/editor?mode=quick&source=star-map-poster-cta&checkout=print&print_variant=poster_framed"
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+              className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
             >
               Design your framed poster first
             </Link>
@@ -389,7 +415,7 @@ export default function StarMapPosterPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">More ways to explore</h2>
+        <h2 className="text-midnight text-lg font-semibold">More ways to explore</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Start from curated hubs or jump to adjacent intent pages.
         </p>
@@ -424,11 +450,11 @@ export default function StarMapPosterPage() {
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Star map poster FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">Star map poster FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           {faqItems.map((item) => (
             <div key={item.question}>
-              <h3 className="font-semibold text-midnight">{item.question}</h3>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
               <p>{item.answer}</p>
             </div>
           ))}

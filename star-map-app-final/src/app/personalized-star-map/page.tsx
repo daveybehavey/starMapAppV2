@@ -40,12 +40,12 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Best Personalized Star Map Gift | StarMapCo",
+  title: "Personalized Star Map Gift | StarMapCo",
   description:
-    "Looking for the best personalized star map gift? Capture any date and place with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Looking for a personalized star map gift? Capture any date and place with a free preview, then choose framed print, unframed print, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
-    title: "Best Personalized Star Map Gift | StarMapCo",
+    title: "Personalized Star Map Gift | StarMapCo",
     description:
       "A personalized star map gift with names, dates, and locations. Free preview, then framed print, unframed print, or HD digital.",
     url: `${siteUrl}/personalized-star-map`,
@@ -67,7 +67,7 @@ export default function PersonalizedStarMapPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Best Personalized Star Map Gift</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Star Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
           A personalized star map gift with names, a date, and a location—the exact night sky from a moment
           worth framing. Framed print + HD digital qualifies for free shipping at checkout.
@@ -308,7 +308,9 @@ export default function PersonalizedStarMapPage() {
             </p>
           </div>
           <div>
-            <h3 className="text-midnight font-semibold">What is the best personalized star map gift?</h3>
+            <h3 className="text-midnight font-semibold">
+              Which personalized star map format should I choose?
+            </h3>
             <p>
               The premium gift route is framed print so it arrives ready to display, often paired with HD
               digital for a keepsake file. Orders at $100+ qualify for free shipping. Add{" "}
@@ -350,7 +352,7 @@ export default function PersonalizedStarMapPage() {
             answer: `Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. ${shippingDisclosure}`,
           },
           {
-            question: "What is the best personalized star map gift?",
+            question: "Which personalized star map format should I choose?",
             answer:
               "The premium gift route is framed print so it arrives ready to display, often with HD digital included. Orders at $100+ qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
           },

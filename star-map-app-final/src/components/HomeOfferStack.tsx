@@ -80,8 +80,8 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <p className="mt-1">HD file unlocks right after payment.</p>
             </div>
             <div className="rounded-xl border border-amber-300/30 bg-amber-300/14 px-3 py-2 text-xs text-amber-100">
-              <p className="font-semibold">Highest gift impact</p>
-              <p className="mt-1">Framed print stays the premium presentation.</p>
+              <p className="font-semibold">Premium presentation</p>
+              <p className="mt-1">Framed print arrives ready to hang.</p>
             </div>
             <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
               <p className="font-semibold text-amber-200">Global planning</p>
@@ -121,7 +121,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <li>No shipping required</li>
             </ul>
             <div className="mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-neutral-200">
-              Best for last-minute gifting, fast turnaround, and buyers who want total print control later.
+              Built for last-minute gifting, fast turnaround, and buyers who want total print control later.
             </div>
             <a
               href="/editor?mode=quick&source=home-delivery-digital"
@@ -152,13 +152,13 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               Recommended presentation
             </p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-200">
-              Ready-to-hang 14x14 option for the strongest premium gift presentation.
+              Ready-to-hang 14x14 option for a finished premium gift presentation.
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li>Pair with the HD add-on for instant digital from the same design</li>
               {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
-              <li>Best-looking premium option for special occasions</li>
+              <li>Ready-to-hang premium option for special occasions</li>
               <li>
                 Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}
               </li>
@@ -166,7 +166,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <li>{printLabels.framed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-amber-300/35 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
-              Best for the strongest unboxing moment, easier gifting, and buyers who do not want to handle
+              Built for a ready-to-hang unboxing moment, easier gifting, and buyers who do not want to handle
               framing.
             </div>
             <a
@@ -204,7 +204,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <li>{printLabels.unframed}</li>
             </ul>
             <div className="mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-neutral-200">
-              Best for physical delivery at a lower price, especially if the buyer already has a frame plan.
+              Built for physical delivery at a lower price, especially if the buyer already has a frame plan.
             </div>
             <a
               href={`/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
@@ -227,16 +227,16 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </div>
           <div className="space-y-1 text-sm text-neutral-200">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-200 uppercase">
-              Best gift route
+              Premium gift route
             </p>
             <p className="font-semibold text-white">Framed print</p>
             <p className="text-xs leading-relaxed">
-              Most polished presentation. This is the route to push when the goal is emotional impact.
+              Ready-to-hang presentation for a finished gift with less framing work after checkout.
             </p>
           </div>
           <div className="space-y-1 text-sm text-neutral-200">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-200 uppercase">
-              Best lower-cost physical
+              Lower-cost physical route
             </p>
             <p className="font-semibold text-white">Unframed poster</p>
             <p className="text-xs leading-relaxed">
@@ -314,7 +314,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               </div>
               <p className="text-sm font-semibold text-amber-200">{priceLabels.single}</p>
               <p className="mt-1 text-[11px] text-amber-100/80">
-                Best if you just need this one finished map.
+                Use this if you just need this one finished map.
               </p>
             </a>
             <a

@@ -9,16 +9,22 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
   const digitalTier = getPricingTiers().single;
   const printTiers = getPrintPricingTiers();
   const digitalPriceLabel = formatPrice(digitalTier.amountCents, digitalTier.currency);
-  const framedPriceLabel = formatPrice(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency);
-  const unframedPriceLabel = formatPrice(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency);
+  const framedPriceLabel = formatPrice(
+    printTiers.poster_framed.amountCents,
+    printTiers.poster_framed.currency
+  );
+  const unframedPriceLabel = formatPrice(
+    printTiers.poster_unframed.amountCents,
+    printTiers.poster_unframed.currency
+  );
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold text-midnight">More gift formats (curated, not cluttered)</h2>
+        <h2 className="text-midnight text-lg font-semibold">More gift formats (curated, not cluttered)</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          We intentionally keep checkout focused. You get the highest-converting options first, then we add formats that
-          pass quality, shipping, and margin checks.
+          We intentionally keep checkout focused. You get the live gift formats first, then we add formats
+          that pass quality, shipping, and margin checks.
         </p>
         <Link
           href="/star-map-gift-formats"
@@ -31,7 +37,7 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Live now</p>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-emerald-700 uppercase">Live now</p>
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
             <li>HD digital ({digitalPriceLabel})</li>
             <li>Unframed print ({unframedPriceLabel} + shipping)</li>
@@ -56,7 +62,7 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
         </div>
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Next pilots</p>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">Next pilots</p>
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
             <li>Canvas (premium wall version)</li>
             <li>Mug (gift add-on test)</li>
@@ -73,7 +79,9 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700">Bundle-only add-ons</p>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-700 uppercase">
+            Bundle-only add-ons
+          </p>
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
             <li>Greeting card</li>
             <li>Small accessory items</li>

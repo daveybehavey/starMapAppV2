@@ -31,6 +31,9 @@ const SCAN_RELATIVE_PATHS = [
   "components/PaywallModal.tsx",
   "components/RevenueTrustModule.tsx",
   "components/WeddingGiftJourneySection.tsx",
+  "components/PreviewStartForm.tsx",
+  "components/GiftFormatRoadmapModule.tsx",
+  "components/FramedProofSection.tsx",
   "app/HomeStaticSections.tsx",
   "app/HomeHero.tsx",
   "app/page.tsx",
@@ -96,6 +99,14 @@ const FORMAT_POPULARITY_ANSWER_PATTERN = /\bMost choose framed\b|\bMost nursery 
 const MOST_GIFTS_ORDERS_FILES_PATTERN =
   /\b(?:covers|for|across|on|not)\s+most\s+(?:[\w'-]+\s+){0,3}(?:gifts?|orders?|files?)\b|\bmost\s+(?:single-map|one-off|one[\s-]off)\s+gifts?\b|\bmost\s+(?:orders?|files?)\s+(?:need|require|use|include|cover)\b/i;
 
+/**
+ * Unsupported transactional/product superiority claims.
+ * Catches reviewed examples and close offer-surface variants without a global ban on “best”
+ * (FAQ questions like “What format is best for…” remain unmatched).
+ */
+const PRODUCT_SUPERIORITY_PATTERN =
+  /\bbest wedding gift\b|\bHighest gift impact\b|\bhighest gift impact\b|\bBest gift route\b|\bBest gift\b|\bbest personalized star map gift\b|\bBest Personalized Star Map Gift\b|\bBest for (?:gifting|same-day|same-night|last-minute|the strongest|physical delivery)\b|\bBest when the buyer\b|\bBest lower-cost\b|\bBest-looking\b|\bhighest-converting\b|\bBest if you just need\b|\bBest when you only need\b|\bhighest-intent pages\b/i;
+
 const POPULARITY_PATTERNS = [
   BUYER_COHORT_POPULARITY_PATTERN,
   BUYER_FREQUENCY_PATTERN,
@@ -105,6 +116,7 @@ const POPULARITY_PATTERNS = [
   FORMAT_POPULARITY_QUESTION_PATTERN,
   FORMAT_POPULARITY_ANSWER_PATTERN,
   MOST_GIFTS_ORDERS_FILES_PATTERN,
+  PRODUCT_SUPERIORITY_PATTERN,
   /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
   /\bmost couples choose framed\b/i,
   /path most gift buyers choose/i,
@@ -124,6 +136,7 @@ const HARDCODED_FULFILLMENT_PATTERNS = [
   /orders are reviewed before production starts/i,
   /manually approved before production begins/i,
   /then the order is reviewed before production/i,
+  /Production typically starts after order review/i,
 ];
 
 /** Exact regressions that previously escaped the narrow matcher. */
@@ -248,6 +261,41 @@ const MOST_GIFTS_ORDERS_FILES_NEGATIVE_FIXTURES = [
   "Yes. It’s one of the most requested gifts for weddings and anniversaries.",
   "Yes. A custom star map gift is one of the most meaningful couples gifts",
   "Most buyers decide faster once the wording is settled",
+];
+
+const PRODUCT_SUPERIORITY_POSITIVE_FIXTURES = [
+  "best wedding gift",
+  "$106 framed + HD · free shipping — best wedding gift.",
+  "Best wedding gift: framed print + HD digital",
+  "Highest gift impact",
+  "prefer the framed print + HD digital bundle for highest gift impact",
+  "Best gift route",
+  "Best gift",
+  "Looking for the best personalized star map gift?",
+  "Best Personalized Star Map Gift",
+  "Best for gifting and finished presentation.",
+  "Best for same-day gifting and local print shops.",
+  "Best for last-minute gifting, fast turnaround",
+  "Best when the buyer wants the gift to arrive finished",
+  "Best lower-cost physical option",
+  "Best-looking premium option for special occasions",
+  "You get the highest-converting options first",
+  "Best if you just need this one finished map.",
+  "Best when you only need this one finished map.",
+  "Start with the highest-intent pages",
+];
+
+const PRODUCT_SUPERIORITY_NEGATIVE_FIXTURES = [
+  "What format is best for an anniversary gift?",
+  "What gift format works best for a birthday star map?",
+  "What delivery format works best for memorial gifts?",
+  "Recommended presentation",
+  "Premium gift route",
+  "Framed print + HD digital — free standard shipping on $100+ orders.",
+  "Ready-to-hang presentation for a finished gift",
+  "Built for same-day gifting and local print shops.",
+  "Use this if you just need this one finished map.",
+  "Which personalized star map format should I choose?",
 ];
 
 /** Editorial / non-transactional wording that must remain unmatched. */
@@ -445,6 +493,43 @@ test("HomeOfferStack digital plans no longer generalize most gifts", () => {
   assert.match(source, /Built for ongoing exports across many maps/);
 });
 
+test("product-superiority matcher catches reviewed offer-surface claims", () => {
+  for (const sample of PRODUCT_SUPERIORITY_POSITIVE_FIXTURES) {
+    assert.match(sample, PRODUCT_SUPERIORITY_PATTERN, `expected superiority positive fixture: ${sample}`);
+    assert.ok(
+      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      `expected superiority positive fixture to fail full scan: ${sample}`
+    );
+  }
+  for (const sample of PRODUCT_SUPERIORITY_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(
+      sample,
+      PRODUCT_SUPERIORITY_PATTERN,
+      `expected superiority negative fixture: ${sample}`
+    );
+  }
+});
+
+test("PreviewStartForm and offer surfaces no longer claim best wedding gift or gift-route superiority", () => {
+  const preview = readSrc("components/PreviewStartForm.tsx");
+  assert.doesNotMatch(preview, PRODUCT_SUPERIORITY_PATTERN);
+  assert.doesNotMatch(preview, /Best wedding gift/i);
+  assert.match(preview, /Framed print \+ HD digital/);
+
+  const wedding = readSrc("app/wedding/page.tsx");
+  assert.doesNotMatch(wedding, /best wedding gift/i);
+  assert.match(wedding, /framed print plus instant HD/);
+
+  const home = readSrc("components/HomeOfferStack.tsx");
+  assert.doesNotMatch(home, /Highest gift impact/i);
+  assert.doesNotMatch(home, /Best gift route/i);
+  assert.match(home, /Premium presentation/);
+  assert.match(home, /Premium gift route/);
+
+  const delivery = readSrc("components/DeliveryFormatModule.tsx");
+  assert.doesNotMatch(delivery, /Best wedding gift/i);
+});
+
 test("paywall value_anchor subtitle no longer generalizes first-time buyers", () => {
   const source = readSrc("components/PaywallModal.tsx");
   assert.doesNotMatch(source, MOST_BUYERS_ONLY_NEED_PATTERN);
@@ -578,6 +663,19 @@ test("hard-coded manual-review fulfillment copy is routed through auto-confirm h
       failures.push(`${relativePath}: ${hit.snippet}`);
     }
   }
+
+  const llms = fs.readFileSync(path.join(PUBLIC, "llms.txt"), "utf8");
+  for (const hit of collectMatches(llms, HARDCODED_FULFILLMENT_PATTERNS)) {
+    failures.push(`public/llms.txt: ${hit.snippet}`);
+  }
+  // Default auto-confirm path must be described accurately for AI assistants.
+  assert.match(
+    llms,
+    /By default, production begins after payment once the order is submitted to our print partner/i
+  );
+  assert.doesNotMatch(llms, /Production typically starts after order review/i);
+  assert.doesNotMatch(llms, /highest gift impact/i);
+
   assert.equal(failures.length, 0, `hard-coded fulfillment contradictions remain:\n${failures.join("\n")}`);
 
   // Shared source of truth must keep both branches.
