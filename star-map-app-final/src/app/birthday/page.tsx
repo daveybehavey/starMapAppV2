@@ -249,8 +249,8 @@ export default function BirthdayPage() {
           <div>
             <h3 className="text-midnight font-semibold">Is this good for milestone birthdays?</h3>
             <p>
-              Yes. Birthday star maps are popular for 18th, 21st, 30th, 40th, 50th, and other milestone
-              celebrations because the sky on the day someone was born is truly one of a kind.
+              Yes. Birthday star maps fit 18th, 21st, 30th, 40th, 50th, and other milestone celebrations
+              because the sky on the day someone was born is truly one of a kind.
             </p>
           </div>
           <div>
@@ -307,7 +307,7 @@ export default function BirthdayPage() {
           {
             question: "Is this good for milestone birthdays?",
             answer:
-              "Yes. Birthday star maps are popular for 18th, 21st, 30th, 40th, 50th, and other milestone celebrations because the sky on the day someone was born is truly one of a kind.",
+              "Yes. Birthday star maps fit 18th, 21st, 30th, 40th, 50th, and other milestone celebrations because the sky on the day someone was born is truly one of a kind.",
           },
           {
             question: "Can I use the hospital city as the birth location?",

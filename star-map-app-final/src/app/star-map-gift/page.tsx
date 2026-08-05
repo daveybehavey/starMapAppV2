@@ -200,7 +200,7 @@ export default function StarMapGiftPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Related gift ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Explore these popular variations when searching for the perfect gift.
+          Explore these related gift formats when searching for the perfect gift.
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link

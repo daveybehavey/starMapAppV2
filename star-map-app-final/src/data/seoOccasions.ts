@@ -100,7 +100,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Is a star map a good newborn gift?",
         answer:
-          "Yes. A birth-night star map is a thoughtful keepsake that captures the sky exactly as it appeared when they arrived — popular for baby showers, hospital visits, and first birthdays.",
+          "Yes. A birth-night star map is a thoughtful keepsake that captures the sky exactly as it appeared when they arrived — suited for baby showers, hospital visits, and first birthdays.",
       },
       {
         question: "Can I include the baby’s name on the print?",
@@ -134,7 +134,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Is a memorial star map appropriate?",
         answer:
-          "Yes. It’s a gentle, meaningful way to commemorate a special date and place — popular for remembrance gifts and family keepsakes.",
+          "Yes. It’s a gentle, meaningful way to commemorate a special date and place — suited for remembrance gifts and family keepsakes.",
       },
       {
         question: "Can I add a short dedication?",
@@ -339,8 +339,9 @@ export const seoOccasions: SeoOccasion[] = [
     exampleLine: "The Wedding · Santorini, Greece · June 21, 2024",
     faqs: [
       {
-        question: "Is a wedding star map popular?",
-        answer: "Yes. It’s one of the most requested gifts for weddings and anniversaries.",
+        question: "Is a wedding star map a good gift?",
+        answer:
+          "Yes. It captures the exact sky from the ceremony date and place, then ships as framed print, unframed poster, or instant HD.",
       },
       {
         question: "Can I add names and venue?",

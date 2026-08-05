@@ -72,6 +72,17 @@ const MOST_BUYERS_ONLY_NEED_PATTERN = /\bmost(?:\s+[\w'-]+){0,5}\s+buyers\s+only
 /** Product/bundle popularity labels — must not match editorial “Popular occasions”. */
 const POPULAR_BUNDLE_PATTERN = /\bPopular bundle\b/i;
 
+/**
+ * Direct transactional/product popularity claims beyond the exact “Popular bundle” label.
+ * Catches: “<product> are/is popular”, “popular for …”, “one of the most popular uses”,
+ * “most requested gifts”, “our popular …”, “popular variations”, “Is … popular?”.
+ * Intentionally does NOT match navigation/editorial headings such as
+ * “Popular occasions”, “Popular star map destinations”, or date-selection
+ * “popular choices” / “Popular choices include…”.
+ */
+const PRODUCT_POPULARITY_PATTERN =
+  /\b(?:are|is)\s+popular\b|\bpopular\s+for\b|\bpopular\s+(?:bundle|variations|framed)\b|\bour\s+popular\b|\bone\s+of\s+the\s+most\s+(?:popular\s+uses|requested\s+gifts)\b|\bmost\s+(?:popular\s+uses|requested\s+gifts)\b|\bIs\s+(?:a\s+|an\s+)?.{0,40}?\spopular\?/i;
+
 /** Transactional format-popularity FAQs/answers in occasion data. */
 const FORMAT_POPULARITY_QUESTION_PATTERN = /What format do .+ buyers choose most\?/i;
 const FORMAT_POPULARITY_ANSWER_PATTERN = /\bMost choose framed\b|\bMost nursery gifts use\b/i;
@@ -90,6 +101,7 @@ const POPULARITY_PATTERNS = [
   BUYER_FREQUENCY_PATTERN,
   MOST_BUYERS_ONLY_NEED_PATTERN,
   POPULAR_BUNDLE_PATTERN,
+  PRODUCT_POPULARITY_PATTERN,
   FORMAT_POPULARITY_QUESTION_PATTERN,
   FORMAT_POPULARITY_ANSWER_PATTERN,
   MOST_GIFTS_ORDERS_FILES_PATTERN,
@@ -165,6 +177,37 @@ const POPULAR_BUNDLE_NEGATIVE_FIXTURES = [
   "Popular occasions",
   "Framed + HD bundle: $106 framed + HD · free shipping",
   "Popular choices include a child’s birth date or a family milestone.",
+];
+
+const PRODUCT_POPULARITY_POSITIVE_FIXTURES = [
+  "Birthday star maps are popular for 18th, 21st, 30th, 40th, 50th, and other milestone celebrations",
+  "Yes — anniversary star maps are one of the most popular uses.",
+  "Is a wedding star map popular?",
+  "Yes. It’s one of the most requested gifts for weddings and anniversaries.",
+  "our popular framed + HD gift bundle",
+  "Explore these popular variations when searching for the perfect gift.",
+  "popular for baby showers, hospital visits, and first birthdays",
+  "popular for remembrance gifts and family keepsakes",
+  "A custom star map is popular",
+  "This gift is popular for weddings",
+  "most popular uses",
+  "most requested gifts",
+];
+
+const PRODUCT_POPULARITY_NEGATIVE_FIXTURES = [
+  "Popular occasions",
+  "Popular star map destinations",
+  "Popular choices include a child’s birth date or a family milestone.",
+  "anniversaries, first dates, and engagements are all popular choices.",
+  "Most couples use their wedding date or the night they first met.",
+  "Most people choose the proposal night, but you can also use the first date",
+  "Most buyers decide faster once the wording is settled",
+  "Framed + HD bundle: $106 framed + HD · free shipping",
+  "Birthday star maps fit 18th, 21st, 30th, 40th, 50th, and other milestone celebrations",
+  "Yes — an anniversary star map captures the exact sky from your shared date and place.",
+  "Is a wedding star map a good gift?",
+  "suited for baby showers, hospital visits, and first birthdays",
+  "Explore these related gift formats when searching for the perfect gift.",
 ];
 
 const FORMAT_POPULARITY_POSITIVE_FIXTURES = [
@@ -343,6 +386,27 @@ test("popular-bundle matcher catches product labels but not Popular occasions", 
   }
 });
 
+test("product-popularity matcher catches direct popularity claims but not editorial headings", () => {
+  for (const sample of PRODUCT_POPULARITY_POSITIVE_FIXTURES) {
+    assert.match(
+      sample,
+      PRODUCT_POPULARITY_PATTERN,
+      `expected product-popularity positive fixture: ${sample}`
+    );
+    assert.ok(
+      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      `expected product-popularity positive fixture to fail full scan: ${sample}`
+    );
+  }
+  for (const sample of PRODUCT_POPULARITY_NEGATIVE_FIXTURES) {
+    assert.doesNotMatch(
+      sample,
+      PRODUCT_POPULARITY_PATTERN,
+      `expected product-popularity negative fixture: ${sample}`
+    );
+  }
+});
+
 test("format-popularity matcher catches transactional occasion FAQs only", () => {
   for (const sample of FORMAT_POPULARITY_POSITIVE_FIXTURES) {
     const matched =
@@ -409,12 +473,45 @@ test("seoOccasions transactional format-popularity FAQs are factual", () => {
   const source = readSrc("data/seoOccasions.ts");
   assert.doesNotMatch(source, FORMAT_POPULARITY_QUESTION_PATTERN);
   assert.doesNotMatch(source, FORMAT_POPULARITY_ANSWER_PATTERN);
+  assert.doesNotMatch(source, PRODUCT_POPULARITY_PATTERN);
+  assert.doesNotMatch(source, /Is a wedding star map popular\?/i);
+  assert.doesNotMatch(source, /most requested gifts/i);
+  assert.doesNotMatch(source, /popular for baby showers/i);
+  assert.doesNotMatch(source, /popular for remembrance gifts/i);
   assert.match(source, /Which gift format fits an engagement best\?/);
   assert.match(source, /Recommended presentation is framed print \+ HD digital/);
   assert.match(source, /Which gift format fits a new-parent keepsake best\?/);
+  assert.match(source, /Is a wedding star map a good gift\?/);
   // Preserve date-selection editorial.
   assert.match(source, /Most people choose the proposal night/);
   assert.match(source, /Most couples choose their wedding date/);
+  assert.match(source, /Popular choices include/);
+});
+
+test("birthday and night-sky money pages no longer claim product popularity", () => {
+  const birthday = readSrc("app/birthday/page.tsx");
+  assert.doesNotMatch(birthday, PRODUCT_POPULARITY_PATTERN);
+  assert.doesNotMatch(birthday, /Birthday star maps are popular/i);
+  assert.match(birthday, /Birthday star maps fit 18th/);
+
+  const nightSky = readSrc("app/night-sky-map-gift/page.tsx");
+  assert.doesNotMatch(nightSky, PRODUCT_POPULARITY_PATTERN);
+  assert.doesNotMatch(nightSky, /most popular uses/i);
+  assert.match(nightSky, /anniversary star map captures the exact sky/);
+
+  const wedding = readSrc("app/wedding/page.tsx");
+  assert.doesNotMatch(wedding, PRODUCT_POPULARITY_PATTERN);
+  assert.doesNotMatch(wedding, /our popular framed/i);
+  assert.match(wedding, /the framed \+ HD gift bundle/);
+
+  const gift = readSrc("app/star-map-gift/page.tsx");
+  assert.doesNotMatch(gift, PRODUCT_POPULARITY_PATTERN);
+  assert.match(gift, /related gift formats/);
+
+  // Preserve date-selection and navigation editorial.
+  assert.match(readSrc("app/anniversary/page.tsx"), /are all popular choices/);
+  assert.match(readSrc("app/star-map-for/page.tsx"), /Popular occasions/);
+  assert.match(readSrc("app/HomeStaticSections.tsx"), /Popular star map destinations/);
 });
 
 test("homepage trust intro no longer generalizes buyer frequency", () => {

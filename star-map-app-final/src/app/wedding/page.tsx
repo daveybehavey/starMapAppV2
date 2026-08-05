@@ -41,7 +41,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map Gift | StarMapCo",
   description:
-    "Create a wedding star map from your ceremony date and location. Free preview, then our popular framed + HD gift bundle with free shipping on $100+ orders.",
+    "Create a wedding star map from your ceremony date and location. Free preview, then the framed + HD gift bundle with free shipping on $100+ orders.",
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map Gift | StarMapCo",

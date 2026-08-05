@@ -284,9 +284,9 @@ export default function NightSkyMapGiftPage() {
           <div>
             <h3 className="text-midnight font-semibold">Is a night sky map a good anniversary gift?</h3>
             <p>
-              Yes — anniversary star maps are one of the most popular uses. Enter your anniversary date and
-              the location where you were together to generate the exact sky from that night. The framed print
-              route arrives ready to hang.
+              Yes — an anniversary star map captures the exact sky from your shared date and place. Enter your
+              anniversary date and the location where you were together to generate that night. The framed
+              print route arrives ready to hang.
             </p>
           </div>
           <div>
@@ -324,7 +324,7 @@ export default function NightSkyMapGiftPage() {
           {
             question: "Is a night sky map a good anniversary gift?",
             answer:
-              "Yes — anniversary star maps are one of the most popular uses. Enter your anniversary date and the location where you were together to generate the exact sky from that night. The framed print route arrives ready to hang.",
+              "Yes — an anniversary star map captures the exact sky from your shared date and place. Enter your anniversary date and the location where you were together to generate that night. The framed print route arrives ready to hang.",
           },
           {
             question: "Can I get a night sky map gift same-day?",
