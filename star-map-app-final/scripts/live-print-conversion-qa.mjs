@@ -24,6 +24,12 @@ import {
   CANONICAL_PRODUCTION_SITE_ORIGIN,
   createSecretBearingFetch,
 } from "./qa-trusted-origin.mjs";
+import {
+  assertHostedStripeCheckoutUrl,
+  extractCheckoutSessionIdFromPayPath,
+  isStrictStripeCheckoutHandoff,
+  isValidStripeCheckoutUrl,
+} from "./qa-stripe-checkout-url.mjs";
 
 export {
   assertNoRedirectEscape,
@@ -32,29 +38,17 @@ export {
   createSecretBearingFetch,
 } from "./qa-trusted-origin.mjs";
 
+export {
+  assertHostedStripeCheckoutUrl,
+  extractCheckoutSessionIdFromPayPath,
+  isStrictStripeCheckoutHandoff,
+  isValidStripeCheckoutUrl,
+} from "./qa-stripe-checkout-url.mjs";
+
 const DEFAULT_SITE = CANONICAL_PRODUCTION_SITE_ORIGIN;
 const SUPPORTED_VARIANTS = Object.freeze(["poster_framed", "poster_unframed"]);
 /** Canonical marker recognized by isQaStripeSession (live_print_conversion* prefix). */
 const CANONICAL_QA_SOURCE = "live_print_conversion_checkout_only";
-const CHECKOUT_SESSION_ID_PATH_RE = /^\/c\/pay\/(cs_(?:live|test)_[A-Za-z0-9]+)$/;
-
-/**
- * Mirror of src/lib/stripeCheckoutNavigation.isValidStripeCheckoutUrl (plain JS for node --test).
- * @param {string} url
- */
-export function isValidStripeCheckoutUrl(url) {
-  try {
-    const parsed = new URL(String(url).trim());
-    return (
-      parsed.protocol === "https:" &&
-      parsed.hostname === "checkout.stripe.com" &&
-      parsed.pathname.startsWith("/c/pay/") &&
-      parsed.hash.length > 1
-    );
-  } catch {
-    return false;
-  }
-}
 
 const SENSITIVE_OUTPUT_PATTERNS = Object.freeze([
   /\bcs_(test|live)_[A-Za-z0-9]+/i,
@@ -233,21 +227,6 @@ export function assertCanonicalQaMetadata(metadata, expectedSource = CANONICAL_Q
   }
   if (!isQaStripeSession({ metadata: { qa_run: "true", qa_source: expectedSource } })) {
     throw new Error("BLOCKER: isQaStripeSession does not recognize canonical QA markers.");
-  }
-  return true;
-}
-
-/**
- * Validate hosted Stripe URL without echoing it.
- * Accepts only the repository's strict HTTPS / exact-host / /c/pay/ / nonempty-fragment contract.
- * @param {unknown} url
- */
-export function assertHostedStripeCheckoutUrl(url) {
-  if (typeof url !== "string" || !url.trim()) {
-    throw new Error("Checkout response missing hosted Stripe URL.");
-  }
-  if (!isValidStripeCheckoutUrl(url.trim())) {
-    throw new Error("Checkout response URL is not a Stripe-hosted checkout handoff.");
   }
   return true;
 }
@@ -434,23 +413,6 @@ function buildSyntheticMapRecipe() {
       constellationLines: "thin",
     },
   };
-}
-
-/**
- * Extract Checkout Session ID only from the canonical `/c/pay/<session-id>` pathname segment.
- * Never scans fragment, query, or unrelated URL components.
- *
- * @param {unknown} checkoutUrl
- * @returns {string}
- */
-export function extractCheckoutSessionIdFromPayPath(checkoutUrl) {
-  assertHostedStripeCheckoutUrl(checkoutUrl);
-  const parsed = new URL(String(checkoutUrl).trim());
-  const match = parsed.pathname.match(CHECKOUT_SESSION_ID_PATH_RE);
-  if (!match) {
-    throw new Error("BLOCKER: Checkout Session ID missing from canonical /c/pay/ pathname segment.");
-  }
-  return match[1];
 }
 
 /**

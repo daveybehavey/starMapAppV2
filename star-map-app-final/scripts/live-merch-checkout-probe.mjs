@@ -14,6 +14,11 @@ import {
   assertTrustedLiveProbeSite,
   CANONICAL_PRODUCTION_SITE_ORIGIN,
 } from "./qa-trusted-origin.mjs";
+import {
+  assertHostedStripeCheckoutUrl,
+  extractCheckoutSessionIdFromPayPath,
+  isStrictStripeCheckoutHandoff,
+} from "./qa-stripe-checkout-url.mjs";
 
 /**
  * Resolve and canonicalize `--site` before any PRINT_ADMIN_TOKEN access.
@@ -24,6 +29,21 @@ export function resolveMerchProbeSite(argv = process.argv) {
   const raw = argv.find((a, i) => argv[i - 1] === "--site") || CANONICAL_PRODUCTION_SITE_ORIGIN;
   return assertTrustedLiveProbeSite(raw);
 }
+
+/**
+ * True only for HTTP 200 + strict Stripe Checkout handoff (no substring host checks).
+ * @param {number} status
+ * @param {unknown} url
+ */
+export function isStrictMerchCheckoutUrlOk(status, url) {
+  return status === 200 && isStrictStripeCheckoutHandoff(url);
+}
+
+export {
+  assertHostedStripeCheckoutUrl,
+  extractCheckoutSessionIdFromPayPath,
+  isStrictStripeCheckoutHandoff,
+};
 
 /**
  * Build a secret-bearing checkout fetch init.
@@ -176,10 +196,7 @@ async function main() {
       );
       assertNoRedirectEscape(merchCheckout, checkoutUrl);
       const merchJson = await merchCheckout.json().catch(() => ({}));
-      const merchUrlOk =
-        merchCheckout.status === 200 &&
-        typeof merchJson.url === "string" &&
-        merchJson.url.includes("checkout.stripe.com");
+      const merchUrlOk = isStrictMerchCheckoutUrlOk(merchCheckout.status, merchJson.url);
       run(
         "merch checkout returns Stripe URL",
         merchUrlOk,

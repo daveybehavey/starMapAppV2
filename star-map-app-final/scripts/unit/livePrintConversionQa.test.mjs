@@ -38,12 +38,17 @@ import {
   buildQaCheckoutHeaders,
   LIVE_PRINT_CONVERSION_QA_SOURCE,
 } from "../qa-checkout-headers.mjs";
-import { buildQaCheckoutFetchInit, resolveMerchProbeSite } from "../live-merch-checkout-probe.mjs";
+import { buildQaCheckoutFetchInit, isStrictMerchCheckoutUrlOk, resolveMerchProbeSite } from "../live-merch-checkout-probe.mjs";
 import {
   assertNoRedirectEscape as assertNoRedirectEscapeShared,
   assertTrustedLiveProbeSite as assertTrustedLiveProbeSiteShared,
   resolveTrustedSiteUrlBeforeSecrets,
 } from "../qa-trusted-origin.mjs";
+import {
+  extractCheckoutSessionIdFromPayPath as extractFromShared,
+  isStrictStripeCheckoutHandoff,
+  isValidStripeCheckoutUrl,
+} from "../qa-stripe-checkout-url.mjs";
 import { loadDotenv } from "../load-dotenv.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -53,6 +58,7 @@ const MERCH_PROBE = path.join(ROOT, "scripts/live-merch-checkout-probe.mjs");
 const C1_M1_PROOF = path.join(ROOT, "scripts/live-c1-m1-checkout-proof.mjs");
 const LOAD_DOTENV = path.join(ROOT, "scripts/load-dotenv.mjs");
 const TRUSTED_ORIGIN = path.join(ROOT, "scripts/qa-trusted-origin.mjs");
+const STRIPE_CHECKOUT_URL = path.join(ROOT, "scripts/qa-stripe-checkout-url.mjs");
 
 test("zero-byte / no-op live-print-conversion implementation fails", () => {
   const tmp = path.join(os.tmpdir(), `live-print-qa-empty-${Date.now()}.mjs`);
@@ -279,12 +285,18 @@ test("existing live checkout probes QA-tag or stop before session creation", () 
   assert.match(merch, /resolveMerchProbeSite|assertTrustedLiveProbeSite/);
   assert.match(merch, /redirect:\s*(?:\/\*\*[^*]*\*\/\s*)?\(?["']manual["']\)?/);
   assert.match(merch, /assertNoRedirectEscape/);
+  assert.match(merch, /isStrictMerchCheckoutUrlOk|isStrictStripeCheckoutHandoff|assertHostedStripeCheckoutUrl/);
+  assert.equal(merch.includes('.includes("checkout.stripe.com")'), false);
+  assert.equal(merch.includes(".includes('checkout.stripe.com')"), false);
   assert.match(proof, /assertQaCheckoutDispatchAllowed/);
   assert.match(proof, /LIVE_C1_M1_CHECKOUT_PROOF_QA_SOURCE|live_c1_m1_checkout_proof/);
   assert.match(proof, /bootstrapTrustedC1M1Site|resolveTrustedSiteUrlBeforeSecrets/);
   assert.match(proof, /redirect:\s*(?:\/\*\*[^*]*\*\/\s*)?\(?["']manual["']\)?/);
   assert.match(proof, /assertNoRedirectEscape/);
   assert.match(proof, /createSecretBearingFetch/);
+  assert.match(proof, /extractCheckoutSessionIdFromPayPath/);
+  assert.equal(/url\?\.match\(\/\(cs_/.test(proof), false);
+  assert.equal(proof.includes("sessionIdFromUrl"), false);
   // Runtime call order: trusted site before first assertQaCheckoutDispatchAllowed invocation.
   assert.match(
     merch,
@@ -616,6 +628,73 @@ test("hosted Stripe URL validator rejects HTTP, deceptive hosts, wrong paths, an
   assert.throws(() => assertHostedStripeCheckoutUrl("prefix checkout.stripe.com suffix"), /Stripe-hosted/);
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
   assert.equal(/!isValidStripeCheckoutUrl\([^)]+\)\s*&&\s*!\/checkout\\.stripe\\.com/i.test(source), false);
+});
+
+test("shared Stripe checkout URL module is the single handoff contract for all live probes", () => {
+  const shared = fs.readFileSync(STRIPE_CHECKOUT_URL, "utf8");
+  const merch = fs.readFileSync(MERCH_PROBE, "utf8");
+  const proof = fs.readFileSync(C1_M1_PROOF, "utf8");
+  const primary = fs.readFileSync(SCRIPT_PATH, "utf8");
+  assert.match(shared, /hostname === "checkout\.stripe\.com"/);
+  assert.match(shared, /\/c\/pay\//);
+  assert.match(merch, /qa-stripe-checkout-url\.mjs/);
+  assert.match(proof, /qa-stripe-checkout-url\.mjs/);
+  assert.match(primary, /qa-stripe-checkout-url\.mjs/);
+  // Shared extractor and primary re-export stay byte-identical for path binding.
+  assert.equal(
+    extractCheckoutSessionIdFromPayPath("https://checkout.stripe.com/c/pay/cs_test_shared#fid"),
+    extractFromShared("https://checkout.stripe.com/c/pay/cs_test_shared#fid")
+  );
+  assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_test_shared#fid"), true);
+});
+
+test("merch probe rejects loose checkout.stripe.com substring URLs", () => {
+  const valid = "https://checkout.stripe.com/c/pay/cs_live_merch123#fidfragment";
+  assert.equal(isStrictMerchCheckoutUrlOk(200, valid), true);
+  assert.equal(isStrictStripeCheckoutHandoff(valid), true);
+
+  const looseOrHostile = [
+    "http://checkout.stripe.com/c/pay/cs_live_merch123#fidfragment",
+    "https://evil.example/checkout.stripe.com/c/pay/cs_live_merch123#fidfragment",
+    "https://checkout.stripe.com.evil.example/c/pay/cs_live_merch123#fidfragment",
+    "https://checkout.stripe.com/pay/cs_live_merch123#fidfragment",
+    "https://checkout.stripe.com/c/pay/cs_live_merch123",
+    "https://checkout.stripe.com/c/pay/cs_live_merch123#",
+    "https://checkout.stripe.com/c/pay/not-a-session#cs_test_oldsession",
+    "https://example.com/?next=checkout.stripe.com",
+    "prefix checkout.stripe.com suffix",
+  ];
+  for (const url of looseOrHostile) {
+    assert.equal(isStrictMerchCheckoutUrlOk(200, url), false, url);
+    assert.equal(isStrictStripeCheckoutHandoff(url), false, url);
+  }
+  // Status gate still applies even for a valid handoff URL.
+  assert.equal(isStrictMerchCheckoutUrlOk(500, valid), false);
+  assert.equal(isStrictMerchCheckoutUrlOk(200, null), false);
+});
+
+test("C1/M1 path-bound session extraction ignores query/fragment session tokens", () => {
+  assert.equal(
+    extractFromShared("https://checkout.stripe.com/c/pay/cs_live_c1path#fidfragment"),
+    "cs_live_c1path"
+  );
+  assert.throws(
+    () => extractFromShared("https://checkout.stripe.com/c/pay/not-a-session#cs_test_oldsession"),
+    /pathname|Session ID|Stripe-hosted/
+  );
+  assert.throws(
+    () =>
+      extractFromShared("https://checkout.stripe.com/c/pay/not-a-session?session=cs_test_queryid#fidx"),
+    /pathname|Session ID|Stripe-hosted/
+  );
+  assert.throws(
+    () => extractFromShared("https://evil.example/c/pay/cs_live_abc#fid"),
+    /Stripe-hosted/
+  );
+  const proof = fs.readFileSync(C1_M1_PROOF, "utf8");
+  assert.match(proof, /sessionIdFromStrictCheckoutHandoff|extractCheckoutSessionIdFromPayPath/);
+  assert.equal(/String\(url\)\.match\(\/\(cs_/.test(proof), false);
+  assert.equal(/url\?\.match\(\/\(cs_/.test(proof), false);
 });
 
 test("parseArgs defaults to both variants in checkout-only mode and validates --site", () => {

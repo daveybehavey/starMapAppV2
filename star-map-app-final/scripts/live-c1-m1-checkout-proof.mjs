@@ -15,6 +15,7 @@ import {
   createSecretBearingFetch,
   resolveTrustedSiteUrlBeforeSecrets,
 } from "./qa-trusted-origin.mjs";
+import { extractCheckoutSessionIdFromPayPath } from "./qa-stripe-checkout-url.mjs";
 import {
   assertCanonicalQaMetadata,
   assertStripeQaVerificationCapability,
@@ -25,6 +26,8 @@ export {
   resolveTrustedSiteUrlBeforeSecrets,
   CANONICAL_PRODUCTION_SITE_ORIGIN,
 } from "./qa-trusted-origin.mjs";
+
+export { extractCheckoutSessionIdFromPayPath } from "./qa-stripe-checkout-url.mjs";
 
 /**
  * Establish trusted SITE_URL before any token-bearing dotenv load.
@@ -98,8 +101,17 @@ function pass(label, ok, detail) {
   return { label, ok, detail: safeDetail };
 }
 
-function sessionIdFromUrl(url) {
-  return url?.match(/(cs_(?:live|test)_[A-Za-z0-9]+)/)?.[1] ?? null;
+/**
+ * Require strict Stripe handoff shape, then bind session ID to `/c/pay/<session>` only.
+ * @param {unknown} url
+ * @returns {string | null}
+ */
+function sessionIdFromStrictCheckoutHandoff(url) {
+  try {
+    return extractCheckoutSessionIdFromPayPath(url);
+  } catch {
+    return null;
+  }
 }
 
 async function retrieveStripeSession(sessionId) {
@@ -183,12 +195,12 @@ const cardCheckout = await post("/api/checkout", {
   shippingCountry: "US",
 });
 const cardUrl = cardCheckout.json?.url;
-const cardSessionId = sessionIdFromUrl(cardUrl);
+const cardSessionId = sessionIdFromStrictCheckoutHandoff(cardUrl);
 checks.push(
   pass(
     "C1.5 framed+card checkout session created",
-    cardCheckout.status === 200 && Boolean(cardUrl),
-    cardUrl ? "stripe_url" : `status_${cardCheckout.status}`
+    cardCheckout.status === 200 && Boolean(cardSessionId),
+    cardSessionId ? "stripe_handoff" : `status_${cardCheckout.status}`
   )
 );
 
@@ -260,12 +272,12 @@ const stickerCheckout = await post("/api/checkout", {
   shippingCountry: "US",
 });
 const stickerUrl = stickerCheckout.json?.url;
-const stickerSessionId = sessionIdFromUrl(stickerUrl);
+const stickerSessionId = sessionIdFromStrictCheckoutHandoff(stickerUrl);
 checks.push(
   pass(
     "M1.3 sticker merch checkout session created",
-    stickerCheckout.status === 200 && Boolean(stickerUrl),
-    stickerUrl ? "stripe_url" : `status_${stickerCheckout.status}`
+    stickerCheckout.status === 200 && Boolean(stickerSessionId),
+    stickerSessionId ? "stripe_handoff" : `status_${stickerCheckout.status}`
   )
 );
 
