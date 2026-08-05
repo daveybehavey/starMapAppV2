@@ -27,8 +27,6 @@ import {
 import {
   assertHostedStripeCheckoutUrl,
   extractCheckoutSessionIdFromPayPath,
-  isStrictStripeCheckoutHandoff,
-  isValidStripeCheckoutUrl,
 } from "./qa-stripe-checkout-url.mjs";
 
 export {

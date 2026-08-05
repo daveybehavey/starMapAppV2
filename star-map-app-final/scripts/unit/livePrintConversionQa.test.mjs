@@ -38,7 +38,11 @@ import {
   buildQaCheckoutHeaders,
   LIVE_PRINT_CONVERSION_QA_SOURCE,
 } from "../qa-checkout-headers.mjs";
-import { buildQaCheckoutFetchInit, isStrictMerchCheckoutUrlOk, resolveMerchProbeSite } from "../live-merch-checkout-probe.mjs";
+import {
+  buildQaCheckoutFetchInit,
+  isStrictMerchCheckoutUrlOk,
+  resolveMerchProbeSite,
+} from "../live-merch-checkout-probe.mjs";
 import {
   assertNoRedirectEscape as assertNoRedirectEscapeShared,
   assertTrustedLiveProbeSite as assertTrustedLiveProbeSiteShared,
@@ -285,7 +289,10 @@ test("existing live checkout probes QA-tag or stop before session creation", () 
   assert.match(merch, /resolveMerchProbeSite|assertTrustedLiveProbeSite/);
   assert.match(merch, /redirect:\s*(?:\/\*\*[^*]*\*\/\s*)?\(?["']manual["']\)?/);
   assert.match(merch, /assertNoRedirectEscape/);
-  assert.match(merch, /isStrictMerchCheckoutUrlOk|isStrictStripeCheckoutHandoff|assertHostedStripeCheckoutUrl/);
+  assert.match(
+    merch,
+    /isStrictMerchCheckoutUrlOk|isStrictStripeCheckoutHandoff|assertHostedStripeCheckoutUrl/
+  );
   assert.equal(merch.includes('.includes("checkout.stripe.com")'), false);
   assert.equal(merch.includes(".includes('checkout.stripe.com')"), false);
   assert.match(proof, /assertQaCheckoutDispatchAllowed/);
@@ -683,14 +690,10 @@ test("C1/M1 path-bound session extraction ignores query/fragment session tokens"
     /pathname|Session ID|Stripe-hosted/
   );
   assert.throws(
-    () =>
-      extractFromShared("https://checkout.stripe.com/c/pay/not-a-session?session=cs_test_queryid#fidx"),
+    () => extractFromShared("https://checkout.stripe.com/c/pay/not-a-session?session=cs_test_queryid#fidx"),
     /pathname|Session ID|Stripe-hosted/
   );
-  assert.throws(
-    () => extractFromShared("https://evil.example/c/pay/cs_live_abc#fid"),
-    /Stripe-hosted/
-  );
+  assert.throws(() => extractFromShared("https://evil.example/c/pay/cs_live_abc#fid"), /Stripe-hosted/);
   const proof = fs.readFileSync(C1_M1_PROOF, "utf8");
   assert.match(proof, /sessionIdFromStrictCheckoutHandoff|extractCheckoutSessionIdFromPayPath/);
   assert.equal(/String\(url\)\.match\(\/\(cs_/.test(proof), false);

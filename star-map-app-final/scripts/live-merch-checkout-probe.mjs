@@ -39,11 +39,7 @@ export function isStrictMerchCheckoutUrlOk(status, url) {
   return status === 200 && isStrictStripeCheckoutHandoff(url);
 }
 
-export {
-  assertHostedStripeCheckoutUrl,
-  extractCheckoutSessionIdFromPayPath,
-  isStrictStripeCheckoutHandoff,
-};
+export { assertHostedStripeCheckoutUrl, extractCheckoutSessionIdFromPayPath, isStrictStripeCheckoutHandoff };
 
 /**
  * Build a secret-bearing checkout fetch init.
