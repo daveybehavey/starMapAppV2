@@ -214,10 +214,7 @@ test("documented --help prints usage and exits 0 without operational redaction b
   assert.match(helpText, /--site/);
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
   // Help path must not call assertSafeOutput on usage text.
-  assert.match(
-    source,
-    /if\s*\(args\.help\)\s*\{[\s\S]*?stdout\.write\(`\$\{text\}\\n`\);[\s\S]*?return 0;/
-  );
+  assert.match(source, /if\s*\(args\.help\)\s*\{[\s\S]*?stdout\.write\(`\$\{text\}\\n`\);[\s\S]*?return 0;/);
   assert.equal(/if\s*\(args\.help\)\s*\{[\s\S]*?assertSafeOutput\(text\)/.test(source), false);
 });
 

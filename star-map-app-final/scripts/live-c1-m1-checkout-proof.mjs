@@ -234,9 +234,7 @@ if (cardSession) {
   );
   {
     const binding = printAssetIdBindingStatus(md.print_asset_id, assetId);
-    checks.push(
-      pass("C1.5 metadata print_asset_id matches created asset", binding.ok, binding.detail)
-    );
+    checks.push(pass("C1.5 metadata print_asset_id matches created asset", binding.ok, binding.detail));
   }
   checks.push(pass("C1.5 QA metadata qa_run=true", md.qa_run === "true", md.qa_run));
   checks.push(
@@ -350,9 +348,7 @@ if (stickerSession) {
   checks.push(pass("M1.3 sticker subtotal is $9.00", subtotal === 900, String(subtotal)));
   {
     const binding = printAssetIdBindingStatus(md.print_asset_id, assetId);
-    checks.push(
-      pass("M1.3 metadata print_asset_id matches created asset", binding.ok, binding.detail)
-    );
+    checks.push(pass("M1.3 metadata print_asset_id matches created asset", binding.ok, binding.detail));
   }
   checks.push(
     pass(
