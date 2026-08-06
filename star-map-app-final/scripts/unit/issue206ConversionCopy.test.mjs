@@ -117,6 +117,7 @@ const PRODUCT_SUPERIORITY_DIRECT_PATTERN =
 
 /**
  * Offer “best for” phrasing, including declarative “is best for” / “works best for”.
+ * Do not exempt via is/works lookbehind — that also hid declarative offer sentences.
  * FAQ/question forms are filtered in findProductSuperiorityHits via question context.
  */
 const BEST_FOR_OFFER_PATTERN = /\b(?:is\s+|works\s+)?best\s+for\b/gi;
