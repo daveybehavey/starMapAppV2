@@ -103,6 +103,24 @@ export async function recordCheckoutFailure(input: CheckoutFailureInput) {
   await Promise.all(increments);
 }
 
+/**
+ * Ordinary-buyer checkout failure diagnostics only.
+ * Authenticated QA probes (`qaContext.enabled`) must not contaminate buyer dashboards.
+ */
+export function shouldRecordBuyerCheckoutFailure(
+  qaContext: { enabled?: boolean } | null | undefined
+): boolean {
+  return qaContext?.enabled !== true;
+}
+
+export async function recordBuyerCheckoutFailure(
+  qaContext: { enabled?: boolean } | null | undefined,
+  input: CheckoutFailureInput
+): Promise<void> {
+  if (!shouldRecordBuyerCheckoutFailure(qaContext)) return;
+  await recordCheckoutFailure(input);
+}
+
 export async function getCheckoutFailureDashboard(days = 14): Promise<CheckoutFailureDashboard> {
   const dates = buildDateRange(days);
   const listed = await kv.list({ prefix: TOTAL_PREFIX, limit: 500 });
@@ -122,7 +140,7 @@ export async function getCheckoutFailureDashboard(days = 14): Promise<CheckoutFa
         total: total ?? 0,
         lastNDays: dailyCounts.reduce<number>((sum, count) => sum + (count ?? 0), 0),
       };
-    }),
+    })
   );
 
   rows.sort((a, b) => b.lastNDays - a.lastNDays || b.total - a.total || a.reason.localeCompare(b.reason));
@@ -158,7 +176,7 @@ export async function getCheckoutFailureDashboard(days = 14): Promise<CheckoutFa
       if (topSources.length) {
         topSourcesByReason.set(row.reason, topSources);
       }
-    }),
+    })
   );
 
   const rowsWithSources: CheckoutFailureRow[] = rows.map((row) => {

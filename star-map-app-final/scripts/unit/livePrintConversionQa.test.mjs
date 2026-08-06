@@ -275,6 +275,9 @@ test("checkout API wires fail-closed QA headers into session metadata", () => {
   // Ordinary buyer keys must not insert a permanent "buyer" discriminator segment.
   assert.equal(route.includes(":${qaTag}:${mapId}"), false);
   assert.equal(route.includes('"buyer"'), false);
+  // Authenticated QA failures must not write ordinary-buyer checkout diagnostics.
+  assert.match(route, /recordBuyerCheckoutFailure\(qaContext/);
+  assert.equal(route.includes("recordCheckoutFailure("), false);
 
   const unauthorized = resolveQaRequestContext(
     new Headers({

@@ -38,7 +38,7 @@ import {
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import { applyMarketingAttributionMetadata } from "@/lib/commerceAnalytics";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
-import { recordCheckoutFailure } from "@/lib/checkoutDiagnostics";
+import { recordBuyerCheckoutFailure } from "@/lib/checkoutDiagnostics";
 import { isValidStripeCheckoutUrl, stripeCheckoutHtmlRedirectBody } from "@/lib/stripeCheckoutNavigation";
 import {
   applyQaCheckoutMetadata,
@@ -1235,7 +1235,7 @@ export async function GET(req: NextRequest) {
       await assertDigitalCheckoutMap(mapId, plan);
     } catch (error) {
       if (error instanceof CheckoutError) {
-        await recordCheckoutFailure({
+        await recordBuyerCheckoutFailure(qaContext, {
           reason: error.code,
           source: "checkout_api_digital_get",
           plan,
@@ -1299,7 +1299,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
-      await recordCheckoutFailure({
+      await recordBuyerCheckoutFailure(qaContext, {
         reason: err.code,
         source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
         plan: orderType === "print" ? printVariant : plan,
@@ -1308,7 +1308,7 @@ export async function GET(req: NextRequest) {
     }
 
     const normalized = normalizeNonCheckoutError(err);
-    await recordCheckoutFailure({
+    await recordBuyerCheckoutFailure(qaContext, {
       reason: normalized.reason,
       source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
       plan: orderType === "print" ? printVariant : plan,
@@ -1618,13 +1618,11 @@ export async function POST(req: NextRequest) {
 
     const checkoutUrl = session.url?.trim() ?? "";
     if (!checkoutUrl || !isValidStripeCheckoutUrl(checkoutUrl)) {
-      if (!qaContext.enabled) {
-        await recordCheckoutFailure({
-          reason: "invalid_checkout_url",
-          source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-          plan: orderType === "print" ? printVariant : plan,
-        });
-      }
+      await recordBuyerCheckoutFailure(qaContext, {
+        reason: "invalid_checkout_url",
+        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+        plan: orderType === "print" ? printVariant : plan,
+      });
       return NextResponse.json(
         { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
         { status: 500 }
@@ -1643,7 +1641,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
-      await recordCheckoutFailure({
+      await recordBuyerCheckoutFailure(qaContext, {
         reason: err.code,
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
         plan: orderType === "print" ? printVariant : plan,
@@ -1652,7 +1650,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normalized = normalizeNonCheckoutError(err);
-    await recordCheckoutFailure({
+    await recordBuyerCheckoutFailure(qaContext, {
       reason: normalized.reason,
       source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       plan: orderType === "print" ? printVariant : plan,
