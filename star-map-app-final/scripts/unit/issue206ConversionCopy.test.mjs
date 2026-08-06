@@ -109,13 +109,17 @@ const MOST_GIFTS_ORDERS_FILES_PATTERN =
   /\b(?:covers|for|across|on|not)\s+most\s+(?:[\w'-]+\s+){0,3}(?:gifts?|orders?|files?)\b|\bmost\s+(?:single-map|one-off|one[\s-]off)\s+gifts?\b|\bmost\s+(?:orders?|files?)\s+(?:need|require|use|include|cover)\b/i;
 
 /**
- * Unsupported transactional/product superiority claims.
- * Catches reviewed examples and close offer-surface variants without a global ban on “best”
- * (FAQ questions like “What format is/works best for…” remain unmatched via lookbehind).
- * Includes generic “Best if …” / “Best when …” offer details from PreviewStartForm callers.
+ * Direct unsupported transactional/product superiority claims.
+ * “best for” / “is|works best for” are handled separately with question-context exclusion.
  */
-const PRODUCT_SUPERIORITY_PATTERN =
-  /\bbest wedding gift\b|\bHighest gift impact\b|\bhighest gift impact\b|\bBest gift route\b|\bBest gift\b|\bbest personalized star map gift\b|\bBest Personalized Star Map Gift\b|(?<!\b(?:is|works)\s)\bbest for\b|\bBest when\b|\bBest if\b|\bBest lower-cost\b|\bBest-looking\b|\bhighest-converting\b|\bhighest-intent pages\b/i;
+const PRODUCT_SUPERIORITY_DIRECT_PATTERN =
+  /\bbest wedding gift\b|\bHighest gift impact\b|\bhighest gift impact\b|\bBest gift route\b|\bBest gift\b|\bbest personalized star map gift\b|\bBest Personalized Star Map Gift\b|\bBest when\b|\bBest if\b|\bBest lower-cost\b|\bBest-looking\b|\bhighest-converting\b|\bhighest-intent pages\b/i;
+
+/**
+ * Offer “best for” phrasing, including declarative “is best for” / “works best for”.
+ * FAQ/question forms are filtered in findProductSuperiorityHits via question context.
+ */
+const BEST_FOR_OFFER_PATTERN = /\b(?:is\s+|works\s+)?best\s+for\b/gi;
 
 const POPULARITY_PATTERNS = [
   BUYER_COHORT_POPULARITY_PATTERN,
@@ -126,7 +130,7 @@ const POPULARITY_PATTERNS = [
   FORMAT_POPULARITY_QUESTION_PATTERN,
   FORMAT_POPULARITY_ANSWER_PATTERN,
   MOST_GIFTS_ORDERS_FILES_PATTERN,
-  PRODUCT_SUPERIORITY_PATTERN,
+  // PRODUCT_SUPERIORITY handled by findProductSuperiorityHits (question-aware).
   /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
   /\bmost couples choose framed\b/i,
   /path most gift buyers choose/i,
@@ -287,6 +291,10 @@ const PRODUCT_SUPERIORITY_POSITIVE_FIXTURES = [
   "Best for same-day gifting and local print shops.",
   "Best for last-minute gifting, fast turnaround",
   "Best for premium gifting",
+  "Framed print is best for gifting",
+  "Framed print works best for gifting",
+  "This route is best for last-minute gifts",
+  "HD digital works best for same-night delivery",
   "Best when the buyer wants the gift to arrive finished",
   "Best when the gift should arrive ready to hang.",
   "Best if you want the finished piece to arrive ready to display.",
@@ -304,6 +312,9 @@ const PRODUCT_SUPERIORITY_NEGATIVE_FIXTURES = [
   "What format is best for an anniversary gift?",
   "What gift format works best for a birthday star map?",
   "What delivery format works best for memorial gifts?",
+  "Which format is best for a wedding keepsake?",
+  "Which gift format works best for long-distance gifting?",
+  "Who is instant HD best for?",
   "Recommended presentation",
   "Premium gift route",
   "Premium gift",
@@ -356,6 +367,47 @@ function collectMatches(source, patterns) {
   return hits;
 }
 
+/**
+ * True when a best-for match sits in a demonstrable FAQ/question form
+ * (What/Which/Who … ?), not a declarative offer sentence such as
+ * “Framed print is best for gifting”.
+ */
+function isBestForQuestionContext(source, matchIndex) {
+  const beforeStart = Math.max(0, matchIndex - 160);
+  const afterEnd = Math.min(source.length, matchIndex + 100);
+  const before = source.slice(beforeStart, matchIndex);
+  const after = source.slice(matchIndex, afterEnd);
+  const clauseBefore = (before.split(/(?:[.!]|\n)\s*/).pop() ?? before).trim();
+  const hasQuestionLead = /\b(?:what|which|who)\b/i.test(clauseBefore);
+  const hasQuestionMark = /\?/.test(after);
+  return hasQuestionLead && hasQuestionMark;
+}
+
+function findProductSuperiorityHits(source) {
+  const hits = [];
+  const direct = source.match(PRODUCT_SUPERIORITY_DIRECT_PATTERN);
+  if (direct) {
+    hits.push({ pattern: "PRODUCT_SUPERIORITY_DIRECT", snippet: direct[0] });
+  }
+
+  const bestForRe = new RegExp(BEST_FOR_OFFER_PATTERN.source, "gi");
+  let match;
+  while ((match = bestForRe.exec(source)) !== null) {
+    if (!isBestForQuestionContext(source, match.index)) {
+      hits.push({ pattern: "BEST_FOR_OFFER", snippet: match[0] });
+    }
+  }
+  return hits;
+}
+
+function matchesProductSuperiority(source) {
+  return findProductSuperiorityHits(source).length > 0;
+}
+
+function collectPopularityOrSuperiorityMatches(source) {
+  return [...collectMatches(source, POPULARITY_PATTERNS), ...findProductSuperiorityHits(source)];
+}
+
 test("shared gift positioning helpers stay factual (no popularity claims)", () => {
   const intro = getGiftLadderIntro();
   const occasionIntro = getGiftLadderIntro({ occasionLabel: "Wedding" });
@@ -373,7 +425,7 @@ test("shared gift positioning helpers stay factual (no popularity claims)", () =
     ...intentDetails,
     FRAMED_HD_RECOMMENDED_BADGE,
   ]) {
-    const hits = collectMatches(sample, POPULARITY_PATTERNS);
+    const hits = collectPopularityOrSuperiorityMatches(sample);
     assert.equal(hits.length, 0, `unexpected popularity claim in "${sample}": ${JSON.stringify(hits)}`);
   }
 
@@ -389,7 +441,7 @@ test("buyer-cohort popularity matcher catches occasion and multiword qualifiers"
   for (const sample of BUYER_COHORT_POSITIVE_FIXTURES) {
     assert.match(sample, BUYER_COHORT_POPULARITY_PATTERN, `expected positive fixture to match: ${sample}`);
     assert.ok(
-      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      collectPopularityOrSuperiorityMatches(sample).length > 0,
       `expected positive fixture to fail full scan: ${sample}`
     );
   }
@@ -410,7 +462,7 @@ test("buyer-frequency matcher catches usually/typically/often substitutions", ()
     const matched = BUYER_FREQUENCY_PATTERN.test(sample) || MOST_BUYERS_ONLY_NEED_PATTERN.test(sample);
     assert.equal(matched, true, `expected frequency positive fixture to match: ${sample}`);
     assert.ok(
-      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      collectPopularityOrSuperiorityMatches(sample).length > 0,
       `expected frequency positive fixture to fail full scan: ${sample}`
     );
   }
@@ -461,7 +513,7 @@ test("product-popularity matcher catches direct popularity claims but not editor
       `expected product-popularity positive fixture: ${sample}`
     );
     assert.ok(
-      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      collectPopularityOrSuperiorityMatches(sample).length > 0,
       `expected product-popularity positive fixture to fail full scan: ${sample}`
     );
   }
@@ -490,7 +542,7 @@ test("most-gifts/orders/files matcher catches subject-substitution frequency cla
   for (const sample of MOST_GIFTS_ORDERS_FILES_POSITIVE_FIXTURES) {
     assert.match(sample, MOST_GIFTS_ORDERS_FILES_PATTERN, `expected most-gifts positive fixture: ${sample}`);
     assert.ok(
-      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      collectPopularityOrSuperiorityMatches(sample).length > 0,
       `expected most-gifts positive fixture to fail full scan: ${sample}`
     );
   }
@@ -514,24 +566,47 @@ test("HomeOfferStack digital plans no longer generalize most gifts", () => {
 
 test("product-superiority matcher catches reviewed offer-surface claims", () => {
   for (const sample of PRODUCT_SUPERIORITY_POSITIVE_FIXTURES) {
-    assert.match(sample, PRODUCT_SUPERIORITY_PATTERN, `expected superiority positive fixture: ${sample}`);
+    assert.equal(matchesProductSuperiority(sample), true, `expected superiority positive fixture: ${sample}`);
     assert.ok(
-      collectMatches(sample, POPULARITY_PATTERNS).length > 0,
+      collectPopularityOrSuperiorityMatches(sample).length > 0,
       `expected superiority positive fixture to fail full scan: ${sample}`
     );
   }
   for (const sample of PRODUCT_SUPERIORITY_NEGATIVE_FIXTURES) {
-    assert.doesNotMatch(
-      sample,
-      PRODUCT_SUPERIORITY_PATTERN,
+    assert.equal(
+      matchesProductSuperiority(sample),
+      false,
       `expected superiority negative fixture: ${sample}`
     );
   }
 });
 
+test("declarative is/works best-for claims are caught while FAQ questions are exempt", () => {
+  assert.equal(matchesProductSuperiority("Framed print is best for gifting"), true);
+  assert.equal(matchesProductSuperiority("Framed print works best for gifting"), true);
+  assert.equal(matchesProductSuperiority("What format is best for an anniversary gift?"), false);
+  assert.equal(matchesProductSuperiority("What gift format works best for a birthday star map?"), false);
+  assert.equal(matchesProductSuperiority("Which format is best for a wedding keepsake?"), false);
+  assert.equal(matchesProductSuperiority("Who is instant HD best for?"), false);
+
+  const faqOnly = "What format is best for an anniversary gift?";
+  assert.equal(findProductSuperiorityHits(faqOnly).length, 0, "FAQ alone must not match");
+
+  const mixed = `${faqOnly}\nFramed print is best for gifting.`;
+  const mixedHits = findProductSuperiorityHits(mixed);
+  assert.ok(
+    mixedHits.some((hit) => /is best for/i.test(hit.snippet)),
+    `expected mixed source to catch declarative claim: ${JSON.stringify(mixedHits)}`
+  );
+  assert.ok(
+    mixedHits.length >= 1,
+    "allowed FAQ question must not mask a separate declarative superiority claim"
+  );
+});
+
 test("PreviewStartForm and offer surfaces no longer claim best wedding gift or gift-route superiority", () => {
   const preview = readSrc("components/PreviewStartForm.tsx");
-  assert.doesNotMatch(preview, PRODUCT_SUPERIORITY_PATTERN);
+  assert.equal(matchesProductSuperiority(preview), false);
   assert.doesNotMatch(preview, /Best wedding gift/i);
   assert.match(preview, /Framed print \+ HD digital/);
 
@@ -552,7 +627,7 @@ test("PreviewStartForm and offer surfaces no longer claim best wedding gift or g
 test("EditorExperience no longer renders Best gift superiority label", () => {
   const source = readSrc("components/EditorExperience.tsx");
   assert.doesNotMatch(source, /\bBest gift\b/);
-  assert.doesNotMatch(source, PRODUCT_SUPERIORITY_PATTERN);
+  assert.equal(matchesProductSuperiority(source), false);
   assert.match(source, /Premium gift/);
 });
 
@@ -568,7 +643,7 @@ test("PreviewStartForm caller intents no longer use Best if / Best when superior
     const source = readSrc(relativePath);
     assert.doesNotMatch(source, /\bBest if\b/i, relativePath);
     assert.doesNotMatch(source, /\bBest when\b/i, relativePath);
-    assert.doesNotMatch(source, PRODUCT_SUPERIORITY_PATTERN, relativePath);
+    assert.equal(matchesProductSuperiority(source), false, relativePath);
   }
   assert.match(
     readSrc("app/custom-night-sky-map/page.tsx"),
@@ -686,14 +761,14 @@ test("customer-facing sources do not reintroduce unsupported transactional popul
   const failures = [];
   for (const relativePath of SCAN_RELATIVE_PATHS) {
     const source = readSrc(relativePath);
-    const hits = collectMatches(source, POPULARITY_PATTERNS);
+    const hits = collectPopularityOrSuperiorityMatches(source);
     for (const hit of hits) {
       failures.push(`${relativePath}: ${hit.snippet}`);
     }
   }
 
   const llms = fs.readFileSync(path.join(PUBLIC, "llms.txt"), "utf8");
-  for (const hit of collectMatches(llms, POPULARITY_PATTERNS)) {
+  for (const hit of collectPopularityOrSuperiorityMatches(llms)) {
     failures.push(`public/llms.txt: ${hit.snippet}`);
   }
 
