@@ -34,6 +34,7 @@ const SCAN_RELATIVE_PATHS = [
   "components/PreviewStartForm.tsx",
   "components/GiftFormatRoadmapModule.tsx",
   "components/FramedProofSection.tsx",
+  "components/EditorExperience.tsx",
   "app/HomeStaticSections.tsx",
   "app/HomeHero.tsx",
   "app/page.tsx",
@@ -48,8 +49,16 @@ const SCAN_RELATIVE_PATHS = [
   "app/star-map-for/[slug]/page.tsx",
   "app/star-map-gift/page.tsx",
   "app/star-map-gift-formats/page.tsx",
+  "app/custom-night-sky-map/page.tsx",
+  "app/star-map-generator/page.tsx",
+  "app/constellation-map/page.tsx",
+  "app/star-map-gift-ideas/page.tsx",
+  "app/star-map-in/page.tsx",
+  "app/star-map-in/[slug]/page.tsx",
   "lib/moneyPageGiftCheckout.ts",
   "lib/printGiftDecisionCopy.ts",
+  "lib/mapCommerceLinks.ts",
+  "lib/downloadPrintUpsellCatalog.ts",
   "data/seoOccasions.ts",
 ];
 
@@ -102,10 +111,11 @@ const MOST_GIFTS_ORDERS_FILES_PATTERN =
 /**
  * Unsupported transactional/product superiority claims.
  * Catches reviewed examples and close offer-surface variants without a global ban on “best”
- * (FAQ questions like “What format is best for…” remain unmatched).
+ * (FAQ questions like “What format is/works best for…” remain unmatched via lookbehind).
+ * Includes generic “Best if …” / “Best when …” offer details from PreviewStartForm callers.
  */
 const PRODUCT_SUPERIORITY_PATTERN =
-  /\bbest wedding gift\b|\bHighest gift impact\b|\bhighest gift impact\b|\bBest gift route\b|\bBest gift\b|\bbest personalized star map gift\b|\bBest Personalized Star Map Gift\b|\bBest for (?:gifting|same-day|same-night|last-minute|the strongest|physical delivery)\b|\bBest when the buyer\b|\bBest lower-cost\b|\bBest-looking\b|\bhighest-converting\b|\bBest if you just need\b|\bBest when you only need\b|\bhighest-intent pages\b/i;
+  /\bbest wedding gift\b|\bHighest gift impact\b|\bhighest gift impact\b|\bBest gift route\b|\bBest gift\b|\bbest personalized star map gift\b|\bBest Personalized Star Map Gift\b|(?<!\b(?:is|works)\s)\bbest for\b|\bBest when\b|\bBest if\b|\bBest lower-cost\b|\bBest-looking\b|\bhighest-converting\b|\bhighest-intent pages\b/i;
 
 const POPULARITY_PATTERNS = [
   BUYER_COHORT_POPULARITY_PATTERN,
@@ -276,12 +286,17 @@ const PRODUCT_SUPERIORITY_POSITIVE_FIXTURES = [
   "Best for gifting and finished presentation.",
   "Best for same-day gifting and local print shops.",
   "Best for last-minute gifting, fast turnaround",
+  "Best for premium gifting",
   "Best when the buyer wants the gift to arrive finished",
+  "Best when the gift should arrive ready to hang.",
+  "Best if you want the finished piece to arrive ready to display.",
+  "Best if you want the physical print with a lower total.",
+  "Best if you already know the frame plan.",
+  "Best if you just need this one finished map.",
+  "Best when you only need this one finished map.",
   "Best lower-cost physical option",
   "Best-looking premium option for special occasions",
   "You get the highest-converting options first",
-  "Best if you just need this one finished map.",
-  "Best when you only need this one finished map.",
   "Start with the highest-intent pages",
 ];
 
@@ -291,10 +306,14 @@ const PRODUCT_SUPERIORITY_NEGATIVE_FIXTURES = [
   "What delivery format works best for memorial gifts?",
   "Recommended presentation",
   "Premium gift route",
+  "Premium gift",
   "Framed print + HD digital — free standard shipping on $100+ orders.",
   "Ready-to-hang presentation for a finished gift",
   "Built for same-day gifting and local print shops.",
   "Use this if you just need this one finished map.",
+  "Use framed when the finished piece should arrive ready to display.",
+  "Use unframed when you want the physical print with a lower total.",
+  "Use framed when the gift should arrive ready to hang.",
   "Which personalized star map format should I choose?",
 ];
 
@@ -528,6 +547,37 @@ test("PreviewStartForm and offer surfaces no longer claim best wedding gift or g
 
   const delivery = readSrc("components/DeliveryFormatModule.tsx");
   assert.doesNotMatch(delivery, /Best wedding gift/i);
+});
+
+test("EditorExperience no longer renders Best gift superiority label", () => {
+  const source = readSrc("components/EditorExperience.tsx");
+  assert.doesNotMatch(source, /\bBest gift\b/);
+  assert.doesNotMatch(source, PRODUCT_SUPERIORITY_PATTERN);
+  assert.match(source, /Premium gift/);
+});
+
+test("PreviewStartForm caller intents no longer use Best if / Best when superiority", () => {
+  for (const relativePath of [
+    "app/custom-night-sky-map/page.tsx",
+    "app/star-map-generator/page.tsx",
+    "app/constellation-map/page.tsx",
+    "app/star-map-gift-ideas/page.tsx",
+    "app/star-map-in/page.tsx",
+    "app/star-map-in/[slug]/page.tsx",
+  ]) {
+    const source = readSrc(relativePath);
+    assert.doesNotMatch(source, /\bBest if\b/i, relativePath);
+    assert.doesNotMatch(source, /\bBest when\b/i, relativePath);
+    assert.doesNotMatch(source, PRODUCT_SUPERIORITY_PATTERN, relativePath);
+  }
+  assert.match(
+    readSrc("app/custom-night-sky-map/page.tsx"),
+    /Use framed when the finished piece should arrive ready to display/
+  );
+  assert.match(
+    readSrc("app/star-map-gift-ideas/page.tsx"),
+    /Use framed when the gift should arrive ready to hang/
+  );
 });
 
 test("paywall value_anchor subtitle no longer generalizes first-time buyers", () => {

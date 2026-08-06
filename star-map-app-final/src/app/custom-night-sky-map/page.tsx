@@ -35,14 +35,16 @@ export const metadata: Metadata = {
 
 export default function CustomNightSkyMapPage() {
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Custom Night Sky Map</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Design a custom night sky map showing the exact stars above a meaningful date and place — a wedding, a birth, an anniversary. Preview free with no account, then choose a{" "}
-          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or instant HD digital download.
+          Design a custom night sky map showing the exact stars above a meaningful date and place — a wedding,
+          a birth, an anniversary. Preview free with no account, then choose a{" "}
+          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or instant
+          HD digital download.
         </p>
       </header>
 
@@ -58,7 +60,7 @@ export default function CustomNightSkyMapPage() {
             printVariant: "poster_framed",
             plan: "print_framed",
             tone: "recommended",
-            detail: "Best if you want the finished piece to arrive ready to display.",
+            detail: "Use framed when the finished piece should arrive ready to display.",
           },
           {
             label: "Preview unframed print",
@@ -67,7 +69,7 @@ export default function CustomNightSkyMapPage() {
             printVariant: "poster_unframed",
             plan: "print_unframed",
             tone: "default",
-            detail: "Best if you want the physical print with a lower total.",
+            detail: "Use unframed when you want the physical print with a lower total.",
           },
           {
             label: "Preview first, decide later",
@@ -85,10 +87,10 @@ export default function CustomNightSkyMapPage() {
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">A night sky map that matches your moment</h2>
+        <h2 className="text-midnight text-xl font-semibold">A night sky map that matches your moment</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          The positions of stars and constellations depend on time and location. We calculate the real sky so your map matches
-          the moment you want to remember.
+          The positions of stars and constellations depend on time and location. We calculate the real sky so
+          your map matches the moment you want to remember.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate star positions for any date and location</li>
@@ -99,7 +101,7 @@ export default function CustomNightSkyMapPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Create your custom night sky map</h2>
+        <h2 className="text-midnight text-lg font-semibold">Create your custom night sky map</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter your date, time, and location</li>
           <li>Choose a design style and shape</li>
@@ -109,7 +111,7 @@ export default function CustomNightSkyMapPage() {
         <div className="pt-2">
           <Link
             href="/editor?mode=quick&source=custom-night-sky-map-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Start with framed print preview
           </Link>
@@ -129,7 +131,7 @@ export default function CustomNightSkyMapPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Related ideas</h2>
+        <h2 className="text-midnight text-lg font-semibold">Related ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Looking for a specific format? Explore these popular options.
         </p>
@@ -155,36 +157,51 @@ export default function CustomNightSkyMapPage() {
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Custom night sky map FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">Custom night sky map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           <div>
-            <h3 className="font-semibold text-midnight">What is a custom night sky map?</h3>
+            <h3 className="text-midnight font-semibold">What is a custom night sky map?</h3>
             <p>
-              A custom night sky map is a star map generated from a specific date, time, and location — showing the real positions of stars and constellations as they appeared at that moment. It is commonly used as a personalized gift for anniversaries, weddings, birthdays, and other milestones.
+              A custom night sky map is a star map generated from a specific date, time, and location —
+              showing the real positions of stars and constellations as they appeared at that moment. It is
+              commonly used as a personalized gift for anniversaries, weddings, birthdays, and other
+              milestones.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I preview the night sky map before buying?</h3>
+            <h3 className="text-midnight font-semibold">Can I preview the night sky map before buying?</h3>
             <p>
-              Yes. The preview is free and requires no account. Enter your date and location, refine the design, and then choose framed print, unframed print, or HD digital delivery when you are ready to buy.
+              Yes. The preview is free and requires no account. Enter your date and location, refine the
+              design, and then choose framed print, unframed print, or HD digital delivery when you are ready
+              to buy.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">How accurate is the custom night sky map?</h3>
+            <h3 className="text-midnight font-semibold">How accurate is the custom night sky map?</h3>
             <p>
-              The map is calculated from real astronomical data, so the star positions and constellation shapes match the sky at your exact date, time, and geographic coordinates — not a generic illustration.
+              The map is calculated from real astronomical data, so the star positions and constellation
+              shapes match the sky at your exact date, time, and geographic coordinates — not a generic
+              illustration.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I make a custom night sky map for a wedding date?</h3>
+            <h3 className="text-midnight font-semibold">
+              Can I make a custom night sky map for a wedding date?
+            </h3>
             <p>
-              Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. Many couples order the framed print as a keepsake. You can preview the design for free before choosing a format.
+              Yes. Enter the wedding date and ceremony location to generate the exact night sky for that
+              moment. Many couples order the framed print as a keepsake. You can preview the design for free
+              before choosing a format.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">What formats are available for the custom night sky map?</h3>
+            <h3 className="text-midnight font-semibold">
+              What formats are available for the custom night sky map?
+            </h3>
             <p>
-              After preview, you can choose a framed print (arrives ready to display), an unframed poster (lower cost, you frame it), or an instant HD digital download. All three use the same approved design.
+              After preview, you can choose a framed print (arrives ready to display), an unframed poster
+              (lower cost, you frame it), or an instant HD digital download. All three use the same approved
+              design.
             </p>
           </div>
         </div>
@@ -198,19 +215,23 @@ export default function CustomNightSkyMapPage() {
           },
           {
             question: "Can I preview the night sky map before buying?",
-            answer: "Yes. The preview is free and requires no account. Enter your date and location, refine the design, and then choose framed print, unframed print, or HD digital delivery when you are ready to buy.",
+            answer:
+              "Yes. The preview is free and requires no account. Enter your date and location, refine the design, and then choose framed print, unframed print, or HD digital delivery when you are ready to buy.",
           },
           {
             question: "How accurate is the custom night sky map?",
-            answer: "The map is calculated from real astronomical data, so the star positions and constellation shapes match the sky at your exact date, time, and geographic coordinates — not a generic illustration.",
+            answer:
+              "The map is calculated from real astronomical data, so the star positions and constellation shapes match the sky at your exact date, time, and geographic coordinates — not a generic illustration.",
           },
           {
             question: "Can I make a custom night sky map for a wedding date?",
-            answer: "Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. Many couples order the framed print as a keepsake. You can preview the design for free before choosing a format.",
+            answer:
+              "Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. Many couples order the framed print as a keepsake. You can preview the design for free before choosing a format.",
           },
           {
             question: "What formats are available for the custom night sky map?",
-            answer: "After preview, you can choose a framed print (arrives ready to display), an unframed poster (lower cost, you frame it), or an instant HD digital download. All three use the same approved design.",
+            answer:
+              "After preview, you can choose a framed print (arrives ready to display), an unframed poster (lower cost, you frame it), or an instant HD digital download. All three use the same approved design.",
           },
         ]}
       />
