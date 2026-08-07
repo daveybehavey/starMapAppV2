@@ -57,7 +57,9 @@ test("store-quality facts mirror the published 30-day damage/defect window", () 
 test("policy-smoke asserts the 30-day returns claim window (not 7)", () => {
   const src = readSrc("scripts/policy-smoke.mjs");
   assert.match(src, /Returns 30-day window/);
-  assert.match(src, /\/30\\s\*days\/i/);
+  assert.match(src, /within\\s\+30\\s\*days\/i/);
+  assert.match(src, /Support damaged-print 30-day window/);
+  assert.match(src, /Shipping damaged-print 30-day window/);
   assert.doesNotMatch(src, /Returns 7-day window/);
 });
 
