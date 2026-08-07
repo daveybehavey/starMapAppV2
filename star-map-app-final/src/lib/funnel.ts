@@ -2,10 +2,15 @@ import { kv } from "./kv";
 import { type Ga4PurchaseInput, recordGa4PurchaseOnce } from "./ga4MeasurementProtocol";
 import { FUNNEL_STEPS, type FunnelStep } from "./funnelSteps";
 
+/** Presence-only browser handoff labels (STAR-006 / #215). Never a raw client token. */
+export type CheckoutHandoffLabel = "browser" | "missing";
+
 export type FunnelRecordInput = {
   step: FunnelStep;
   source?: string;
   plan?: string;
+  /** Aggregate-only handoff class; raw tokens must never be passed here. */
+  handoff?: CheckoutHandoffLabel | string;
   experiment?: string;
   variant?: string;
   occurredAt?: string | number | Date;
@@ -19,11 +24,88 @@ export type FunnelDashboardRow = {
   fromLandingPct: number | null;
 };
 
+/** Fixed allowlist of server checkout source labels already written by `/api/checkout`. */
+export const CHECKOUT_CLASSIFICATION_SOURCES = [
+  "checkout_api_print_post",
+  "checkout_api_digital_post",
+  "checkout_api_print_get",
+  "checkout_api_digital_get",
+] as const;
+
+/** Digital plans + print variants recorded as `plan` on checkout funnel steps. */
+export const CHECKOUT_CLASSIFICATION_PLANS = [
+  "single",
+  "pack3",
+  "subscription",
+  "poster_framed",
+  "poster_unframed",
+  "canvas_wrap",
+  "mug_11oz",
+  "card_4x6",
+] as const;
+
+export const CHECKOUT_CLASSIFICATION_HANDOFFS = ["browser", "missing"] as const;
+
+/** Steps that carry production checkout type/handoff classification. */
+export const CHECKOUT_CLASSIFICATION_STEPS = [
+  "checkout_request_received",
+  "checkout_session_created",
+] as const;
+
+export type CheckoutClassificationSource = (typeof CHECKOUT_CLASSIFICATION_SOURCES)[number];
+export type CheckoutClassificationPlan = (typeof CHECKOUT_CLASSIFICATION_PLANS)[number];
+export type CheckoutClassificationHandoff = (typeof CHECKOUT_CLASSIFICATION_HANDOFFS)[number];
+export type CheckoutClassificationStep = (typeof CHECKOUT_CLASSIFICATION_STEPS)[number];
+
+export type CheckoutClassificationDimensionCount = {
+  key: string;
+  /** Cumulative KV total (may include history before daily windows existed). */
+  total: number;
+  /** Sum of daily counters for the requested `days` window (0 when daily keys absent). */
+  lastNDays: number;
+  /** Fixed post-deploy windows from daily counters only. */
+  windows: {
+    d1: number;
+    d7: number;
+    d30: number;
+  };
+};
+
+export type CheckoutClassificationStepBlock = {
+  step: CheckoutClassificationStep;
+  sources: CheckoutClassificationDimensionCount[];
+  plans: CheckoutClassificationDimensionCount[];
+  handoffs: CheckoutClassificationDimensionCount[];
+};
+
+/**
+ * Safe aggregate checkout classification for revenue diagnosis without Stripe credentials.
+ * Fixed allowlist only — never enumerates arbitrary KV keys or returns PII/tokens.
+ */
+export type CheckoutClassificationDiagnostics = {
+  generatedAt: string;
+  days: number;
+  schemaVersion: 1;
+  notes: {
+    /** Source/plan `total` may predate daily window keys; treat as cumulative history. */
+    sourcePlanTotalsAreCumulative: true;
+    /** Handoff + type windows rely on daily counters written after this change deploys. */
+    dailyWindowsSupportedGoingForward: true;
+    /** Authenticated QA (`qaContext.enabled`) must not increment these counters. */
+    qaTrafficExcluded: true;
+    /** Only `browser` | `missing` labels are stored/returned — never raw handoff tokens. */
+    noRawHandoffTokens: true;
+  };
+  byStep: CheckoutClassificationStepBlock[];
+};
+
 export type FunnelDashboardData = {
   generatedAt: string;
   days: number;
   rows: FunnelDashboardRow[];
   daily: Array<{ date: string; counts: Record<FunnelStep, number> }>;
+  /** Allowlisted print/digital/handoff aggregates (#215). */
+  checkoutClassification: CheckoutClassificationDiagnostics;
 };
 
 export type PaymentVerifiedWindowSyncResult = {
@@ -50,12 +132,35 @@ function sourceKey(step: FunnelStep, source: string) {
   return `funnel:source:${step}:${source}`;
 }
 
+function sourceDailyKey(date: string, step: FunnelStep, source: string) {
+  return `funnel:source_daily:${date}:${step}:${source}`;
+}
+
 function planKey(step: FunnelStep, plan: string) {
   return `funnel:plan:${step}:${plan}`;
 }
 
+function planDailyKey(date: string, step: FunnelStep, plan: string) {
+  return `funnel:plan_daily:${date}:${step}:${plan}`;
+}
+
+function handoffKey(step: FunnelStep, handoff: CheckoutHandoffLabel) {
+  return `funnel:handoff:${step}:${handoff}`;
+}
+
+function handoffDailyKey(date: string, step: FunnelStep, handoff: CheckoutHandoffLabel) {
+  return `funnel:handoff_daily:${date}:${step}:${handoff}`;
+}
+
 function variantKey(step: FunnelStep, experiment: string, variant: string) {
   return `funnel:variant:${step}:${experiment}:${variant}`;
+}
+
+function normalizeCheckoutHandoff(input: string | undefined): CheckoutHandoffLabel | null {
+  if (!input) return null;
+  const cleaned = input.trim().toLowerCase();
+  if (cleaned === "browser" || cleaned === "missing") return cleaned;
+  return null;
 }
 
 function paymentVerifiedSessionKey(sessionId: string) {
@@ -120,6 +225,7 @@ function pct(numerator: number, denominator: number): number | null {
 export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> {
   const source = normalizeDimension(input.source);
   const plan = normalizeDimension(input.plan);
+  const handoff = normalizeCheckoutHandoff(input.handoff);
   const experiment = normalizeDimension(input.experiment);
   const variant = normalizeDimension(input.variant);
   const today = utcDateKey(resolveOccurredAt(input.occurredAt));
@@ -129,10 +235,17 @@ export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> 
   ];
 
   if (source) {
+    // Preserve historical total counters; add daily keys for 1d/7d/30d windows going forward.
     tasks.push(kv.incr(sourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }));
+    tasks.push(kv.incr(sourceDailyKey(today, input.step, source), 1, { ex: DAILY_TTL_SECONDS }));
   }
   if (plan) {
     tasks.push(kv.incr(planKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
+    tasks.push(kv.incr(planDailyKey(today, input.step, plan), 1, { ex: DAILY_TTL_SECONDS }));
+  }
+  if (handoff) {
+    tasks.push(kv.incr(handoffKey(input.step, handoff), 1, { ex: DIMENSION_TTL_SECONDS }));
+    tasks.push(kv.incr(handoffDailyKey(today, input.step, handoff), 1, { ex: DAILY_TTL_SECONDS }));
   }
   if (experiment && variant) {
     tasks.push(kv.incr(variantKey(input.step, experiment, variant), 1, { ex: DIMENSION_TTL_SECONDS }));
@@ -242,15 +355,126 @@ export async function syncPaymentVerifiedWindow(input: {
   };
 }
 
+async function readDimensionCount(input: {
+  totalKey: string;
+  dailyKeyForDate: (date: string) => string;
+  lastNDates: string[];
+  d1Dates: string[];
+  d7Dates: string[];
+  d30Dates: string[];
+  key: string;
+}): Promise<CheckoutClassificationDimensionCount> {
+  const uniqueDates = Array.from(
+    new Set([...input.lastNDates, ...input.d1Dates, ...input.d7Dates, ...input.d30Dates]),
+  );
+  const [total, ...dailyValues] = await Promise.all([
+    kv.get<number>(input.totalKey),
+    ...uniqueDates.map((date) => kv.get<number>(input.dailyKeyForDate(date))),
+  ]);
+  const dailyByDate = new Map<string, number>();
+  uniqueDates.forEach((date, index) => {
+    dailyByDate.set(date, dailyValues[index] ?? 0);
+  });
+  const sumDates = (dates: string[]) =>
+    dates.reduce((sum, date) => sum + (dailyByDate.get(date) ?? 0), 0);
+
+  return {
+    key: input.key,
+    total: total ?? 0,
+    lastNDays: sumDates(input.lastNDates),
+    windows: {
+      d1: sumDates(input.d1Dates),
+      d7: sumDates(input.d7Dates),
+      d30: sumDates(input.d30Dates),
+    },
+  };
+}
+
+/**
+ * Fixed-allowlist checkout source / plan / handoff aggregates.
+ * Uses direct key reads only (no KV list/scan). Safe for operator diagnosis without Stripe.
+ */
+export async function getCheckoutClassificationDiagnostics(
+  days = 14,
+): Promise<CheckoutClassificationDiagnostics> {
+  const resolvedDays = clampDays(days);
+  const lastNDates = buildDateRange(resolvedDays);
+  const d1Dates = buildDateRange(1);
+  const d7Dates = buildDateRange(7);
+  const d30Dates = buildDateRange(30);
+
+  const byStep = await Promise.all(
+    CHECKOUT_CLASSIFICATION_STEPS.map(async (step) => {
+      const [sources, plans, handoffs] = await Promise.all([
+        Promise.all(
+          CHECKOUT_CLASSIFICATION_SOURCES.map((source) =>
+            readDimensionCount({
+              key: source,
+              totalKey: sourceKey(step, source),
+              dailyKeyForDate: (date) => sourceDailyKey(date, step, source),
+              lastNDates,
+              d1Dates,
+              d7Dates,
+              d30Dates,
+            }),
+          ),
+        ),
+        Promise.all(
+          CHECKOUT_CLASSIFICATION_PLANS.map((plan) =>
+            readDimensionCount({
+              key: plan,
+              totalKey: planKey(step, plan),
+              dailyKeyForDate: (date) => planDailyKey(date, step, plan),
+              lastNDates,
+              d1Dates,
+              d7Dates,
+              d30Dates,
+            }),
+          ),
+        ),
+        Promise.all(
+          CHECKOUT_CLASSIFICATION_HANDOFFS.map((handoff) =>
+            readDimensionCount({
+              key: handoff,
+              totalKey: handoffKey(step, handoff),
+              dailyKeyForDate: (date) => handoffDailyKey(date, step, handoff),
+              lastNDates,
+              d1Dates,
+              d7Dates,
+              d30Dates,
+            }),
+          ),
+        ),
+      ]);
+
+      return { step, sources, plans, handoffs } satisfies CheckoutClassificationStepBlock;
+    }),
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    days: resolvedDays,
+    schemaVersion: 1,
+    notes: {
+      sourcePlanTotalsAreCumulative: true,
+      dailyWindowsSupportedGoingForward: true,
+      qaTrafficExcluded: true,
+      noRawHandoffTokens: true,
+    },
+    byStep,
+  };
+}
+
 export async function getFunnelDashboard(days = 14): Promise<FunnelDashboardData> {
   const resolvedDays = clampDays(days);
   const dates = buildDateRange(resolvedDays);
 
-  const [totalsRaw, dailyRaw] = await Promise.all([
+  const [totalsRaw, dailyRaw, checkoutClassification] = await Promise.all([
     Promise.all(FUNNEL_STEPS.map((step) => kv.get<number>(totalKey(step)))),
     Promise.all(
       dates.flatMap((date) => FUNNEL_STEPS.map((step) => kv.get<number>(dailyKey(date, step)))),
     ),
+    getCheckoutClassificationDiagnostics(resolvedDays),
   ]);
 
   const totals = FUNNEL_STEPS.map((step, index) => ({
@@ -294,5 +518,6 @@ export async function getFunnelDashboard(days = 14): Promise<FunnelDashboardData
     days: resolvedDays,
     rows,
     daily,
+    checkoutClassification,
   };
 }

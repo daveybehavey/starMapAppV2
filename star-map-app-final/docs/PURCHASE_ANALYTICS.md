@@ -65,6 +65,14 @@ Referral-program fields (`referral_*`) still require a referral code.
 | `NEXT_PUBLIC_POSTHOG_KEY`          | Browser PostHog                               |
 | `FUNNEL_DASHBOARD_TOKEN`           | Optional auth for `GET /api/analytics/funnel` |
 
+### Checkout classification aggregates (#215)
+
+`GET /api/analytics/funnel` includes `data.checkoutClassification` — fixed-allowlist KV aggregates for print vs digital checkout sources, plan/print-variant mix, and browser-handoff vs missing. Operators can diagnose conversion mix **without Stripe credentials**.
+
+- Cumulative source/plan totals preserve pre-existing counters; 1d/7d/30d windows use daily keys written going forward.
+- Authenticated QA (`qaContext.enabled`) does **not** increment these counters.
+- Only `browser` | `missing` handoff labels are stored/returned — never raw handoff tokens, emails, Stripe IDs, or map IDs.
+
 Missing GA4/PostHog keys: checkout and webhooks **still succeed**; analytics calls no-op with console warn (MP only).
 
 ## Manual verification

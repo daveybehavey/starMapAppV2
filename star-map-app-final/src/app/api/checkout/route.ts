@@ -1280,11 +1280,13 @@ export async function GET(req: NextRequest) {
         step: "checkout_session_created",
         source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
         plan: orderType === "print" ? printVariant : plan,
+        handoff: "missing",
       });
       await recordFunnelStep({
         step: "checkout_redirected",
         source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
         plan: orderType === "print" ? printVariant : plan,
+        handoff: "missing",
       });
     }
     if (!isValidStripeCheckoutUrl(sessionUrl)) {
@@ -1539,6 +1541,7 @@ export async function POST(req: NextRequest) {
         step: "checkout_request_received",
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
         plan: orderType === "print" ? printVariant : plan,
+        handoff: checkoutHandoff,
       });
     }
 
@@ -1581,6 +1584,7 @@ export async function POST(req: NextRequest) {
           step: "checkout_session_created",
           source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
           plan: orderType === "print" ? printVariant : plan,
+          handoff: checkoutHandoff,
         });
       }
       const rejectedUrl = session.url?.trim() ?? "";
@@ -1607,12 +1611,14 @@ export async function POST(req: NextRequest) {
         step: "checkout_session_created",
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
         plan: orderType === "print" ? printVariant : plan,
+        handoff: checkoutHandoff,
       });
 
       await recordFunnelStep({
         step: "checkout_redirected",
         source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
         plan: orderType === "print" ? printVariant : plan,
+        handoff: checkoutHandoff,
       });
     }
 
