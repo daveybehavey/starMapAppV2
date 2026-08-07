@@ -1028,7 +1028,10 @@ async function createCheckoutSession(input: {
     subscription_data: !isPrintOrder && effectivePlan === "subscription" ? { metadata } : undefined,
     ...(allowPromotionCodes && !promotionCodeId ? { allow_promotion_codes: true } : {}),
     discounts: promotionCodeId ? [{ promotion_code: promotionCodeId }] : undefined,
-    billing_address_collection: isPrintOrder ? "required" : "auto",
+    // Print and digital both use Stripe `auto` billing collection. Printful
+    // fulfills from the shipping recipient address, not the billing address
+    // (#224 / audit #222). Do not reintroduce print `required` billing.
+    billing_address_collection: "auto",
     customer_email: undefined,
     phone_number_collection: {
       enabled: isPrintOrder,
