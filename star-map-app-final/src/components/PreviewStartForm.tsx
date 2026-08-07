@@ -23,6 +23,11 @@ type PreviewStartFormProps = {
   description?: string;
   buttonLabel?: string;
   source?: string;
+  /**
+   * Optional initial location for city (or other contextual) landings.
+   * Prefills the input via defaultValue; remains editable and is submitted as `location`.
+   */
+  defaultLocation?: string;
   intentOptions?: PreviewStartIntent[];
   /** When false, hides the iOS date-keyboard helper under the date field. */
   showMobileDateHelper?: boolean;
@@ -63,6 +68,7 @@ export default function PreviewStartForm({
   description = "Enter the date and location to open the editor with your sky ready to customize.",
   buttonLabel = "Preview your map",
   source,
+  defaultLocation,
   intentOptions,
   showMobileDateHelper = true,
   footerContent,
@@ -134,6 +140,7 @@ export default function PreviewStartForm({
               type="text"
               placeholder="City or address"
               autoComplete="address-level2"
+              defaultValue={defaultLocation?.trim() || undefined}
               className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none"
             />
           </div>
