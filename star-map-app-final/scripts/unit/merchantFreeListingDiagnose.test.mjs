@@ -9,6 +9,7 @@ import {
   listAllPages,
   redactSensitive,
   summarizeAccountIssue,
+  summarizeAggregateStatus,
   summarizeProductFreeListing,
 } from "../merchant-free-listing-diagnose-lib.mjs";
 import { hasMerchantServiceAccountConfigured } from "../merchant-api.mjs";
@@ -59,6 +60,22 @@ function disapprovedProduct(offerId) {
   };
 }
 
+function officialAggregateStatus(overrides = {}) {
+  return {
+    name: "accounts/123/aggregateProductStatuses/FREE_LISTINGS~US",
+    reportingContext: "FREE_LISTINGS",
+    country: "US",
+    stats: {
+      activeCount: "2",
+      pendingCount: "0",
+      disapprovedCount: "0",
+      expiringCount: "0",
+    },
+    itemLevelIssues: [],
+    ...overrides,
+  };
+}
+
 test("extractFeedOfferIds reads unique g:id values", () => {
   assert.deepEqual(extractFeedOfferIds(FEED_XML), [
     "print_poster_unframed",
@@ -96,6 +113,53 @@ test("summarizeProductFreeListing reports disapproved issue details", () => {
   assert.deepEqual(summary.issues[0].applicableCountries, ["US"]);
 });
 
+test("summarizeAggregateStatus reads official country/stats/itemLevelIssues fields", () => {
+  const summarized = summarizeAggregateStatus(
+    officialAggregateStatus({
+      stats: {
+        activeCount: "10",
+        pendingCount: "2",
+        disapprovedCount: "3",
+        expiringCount: "1",
+      },
+      itemLevelIssues: [
+        {
+          code: "missing_image",
+          severity: "DISAPPROVED",
+          documentationUri: "https://support.google.com/merchants/answer/6324350",
+          productCount: "3",
+        },
+      ],
+    }),
+  );
+  assert.equal(summarized.country, "US");
+  assert.equal(summarized.stats.activeCount, 10);
+  assert.equal(summarized.stats.pendingCount, 2);
+  assert.equal(summarized.stats.disapprovedCount, 3);
+  assert.equal(summarized.stats.expiringCount, 1);
+  assert.equal(summarized.itemLevelIssues.length, 1);
+  assert.equal(summarized.itemLevelIssues[0].code, "missing_image");
+  assert.equal(summarized.itemLevelIssues[0].documentationUri, "https://support.google.com/merchants/answer/6324350");
+  // Legacy/incorrect field names must not be treated as present.
+  assert.equal(summarized.countryCode, undefined);
+  assert.equal(summarized.statistics, undefined);
+  assert.equal(summarized.issues, undefined);
+});
+
+test("summarizeAggregateStatus does not invent values from legacy countryCode/statistics/issues", () => {
+  const summarized = summarizeAggregateStatus({
+    reportingContext: "FREE_LISTINGS",
+    countryCode: "US",
+    statistics: { approvedCount: "99", pendingCount: "5", disapprovedCount: "7" },
+    issues: [{ issueType: "missing_image", severity: "ERROR", numProducts: "7" }],
+  });
+  assert.equal(summarized.country, null);
+  assert.equal(summarized.stats.activeCount, 0);
+  assert.equal(summarized.stats.pendingCount, 0);
+  assert.equal(summarized.stats.disapprovedCount, 0);
+  assert.deepEqual(summarized.itemLevelIssues, []);
+});
+
 test("buildEligibilityReport PASS when feed SKUs approved and no blockers", () => {
   const report = buildEligibilityReport({
     products: [
@@ -103,20 +167,15 @@ test("buildEligibilityReport PASS when feed SKUs approved and no blockers", () =
       approvedProduct("print_poster_framed"),
     ],
     accountIssues: [],
-    aggregateStatuses: [
-      {
-        reportingContext: "FREE_LISTINGS",
-        countryCode: "US",
-        statistics: { approvedCount: "2", pendingCount: "0", disapprovedCount: "0" },
-        issues: [],
-      },
-    ],
+    aggregateStatuses: [officialAggregateStatus()],
     feedOfferIds: ["print_poster_unframed", "print_poster_framed"],
   });
   assert.equal(report.verdict, "PASS");
   assert.equal(report.counts.processedProducts, 2);
   assert.equal(report.counts.approvedForFreeListings, 2);
+  assert.equal(report.counts.aggregateActive, 2);
   assert.deepEqual(report.feedCoverage.missingFromMerchant, []);
+  assert.match(formatConsoleSummary(report), /active=2/);
 });
 
 test("buildEligibilityReport BLOCKED when products disapproved", () => {
@@ -168,6 +227,36 @@ test("buildEligibilityReport PARTIAL when some feed SKUs missing but others appr
   assert.deepEqual(report.feedCoverage.missingFromMerchant, ["print_poster_framed"]);
 });
 
+test("stale approved Merchant product must not mask current-feed disapproval as PARTIAL", () => {
+  const report = buildEligibilityReport({
+    products: [
+      approvedProduct("legacy_stale_sku"),
+      disapprovedProduct("print_poster_unframed"),
+      disapprovedProduct("print_poster_framed"),
+    ],
+    accountIssues: [],
+    aggregateStatuses: [
+      officialAggregateStatus({
+        stats: { activeCount: "1", pendingCount: "0", disapprovedCount: "2", expiringCount: "0" },
+      }),
+    ],
+    feedOfferIds: ["print_poster_unframed", "print_poster_framed"],
+  });
+  assert.equal(report.verdict, "BLOCKED");
+  assert.equal(report.counts.approvedForFreeListings, 0);
+  assert.equal(report.counts.disapprovedForFreeListings, 2);
+  assert.equal(report.counts.unexpectedProducts, 1);
+  assert.deepEqual(
+    report.unexpectedProducts.map((product) => product.offerId),
+    ["legacy_stale_sku"],
+  );
+  assert.ok(
+    report.warnings.some((line) => /excluded from eligibility/i.test(line)),
+    "unexpected products should be reported separately",
+  );
+  assert.ok(!report.products.some((product) => product.offerId === "legacy_stale_sku"));
+});
+
 test("listAllPages follows nextPageToken", async () => {
   const calls = [];
   const requestFn = async (path) => {
@@ -196,6 +285,44 @@ test("listAllPages follows nextPageToken", async () => {
   assert.ok(calls.every((path) => path.startsWith("products/v1/accounts/1/products?")));
 });
 
+test("aggregate filter uses reporting_context not reportingContext", async () => {
+  const seen = [];
+  const requestFn = async (path, options = {}) => {
+    seen.push({ path, method: options.method || "GET" });
+    if (path.startsWith("products/v1/")) {
+      return {
+        products: [
+          approvedProduct("print_poster_unframed"),
+          approvedProduct("print_poster_framed"),
+        ],
+      };
+    }
+    if (path.includes("/issues")) {
+      return { accountIssues: [] };
+    }
+    if (path.includes("aggregateProductStatuses")) {
+      const query = new URLSearchParams(path.split("?")[1] || "");
+      const filter = query.get("filter") || "";
+      assert.match(filter, /reporting_context\s*=\s*"FREE_LISTINGS"/);
+      assert.doesNotMatch(filter, /reportingContext/);
+      return { aggregateProductStatuses: [officialAggregateStatus()] };
+    }
+    throw new Error(`Unexpected path: ${path}`);
+  };
+
+  const report = await diagnoseFreeListingEligibility({
+    requestFn,
+    accountId: "123456",
+    feedXml: FEED_XML,
+  });
+  assert.equal(report.verdict, "PASS");
+  assert.ok(
+    seen.some((entry) =>
+      entry.path.startsWith("issueresolution/v1/accounts/123456/aggregateProductStatuses?"),
+    ),
+  );
+});
+
 test("diagnoseFreeListingEligibility uses fixed GET paths only", async () => {
   const seen = [];
   const requestFn = async (path, options = {}) => {
@@ -214,14 +341,7 @@ test("diagnoseFreeListingEligibility uses fixed GET paths only", async () => {
     if (path.includes("aggregateProductStatuses")) {
       assert.match(path, /filter=/);
       return {
-        aggregateProductStatuses: [
-          {
-            reportingContext: "FREE_LISTINGS",
-            countryCode: "US",
-            statistics: { approvedCount: "2", pendingCount: "0", disapprovedCount: "0" },
-            issues: [],
-          },
-        ],
+        aggregateProductStatuses: [officialAggregateStatus()],
       };
     }
     throw new Error(`Unexpected path: ${path}`);

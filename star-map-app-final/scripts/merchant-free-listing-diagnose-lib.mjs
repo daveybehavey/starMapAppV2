@@ -188,31 +188,33 @@ export function summarizeAccountIssue(issue) {
 }
 
 /**
+ * Official AggregateProductStatus fields (issueresolution/v1):
+ * reportingContext, country, stats.{activeCount,pendingCount,disapprovedCount,expiringCount},
+ * itemLevelIssues[].
  * @param {object | null | undefined} aggregate
  */
 export function summarizeAggregateStatus(aggregate) {
-  const stats = aggregate?.statistics || {};
+  const stats = aggregate?.stats || {};
+  const country = String(aggregate?.country || "").trim().toUpperCase();
   return {
     reportingContext: String(aggregate?.reportingContext || "").trim() || null,
-    countryCode: String(aggregate?.countryCode || "").trim().toUpperCase() || null,
-    statistics: {
-      approvedCount: Number(stats.approvedCount || 0),
+    country: /^[A-Z]{2}$/.test(country) ? country : null,
+    stats: {
+      activeCount: Number(stats.activeCount || 0),
       pendingCount: Number(stats.pendingCount || 0),
       disapprovedCount: Number(stats.disapprovedCount || 0),
+      expiringCount: Number(stats.expiringCount || 0),
     },
-    issues: Array.isArray(aggregate?.issues)
-      ? aggregate.issues.map((issue) => ({
-          issueType: String(issue?.issueType || "").trim() || "unknown",
+    itemLevelIssues: Array.isArray(aggregate?.itemLevelIssues)
+      ? aggregate.itemLevelIssues.map((issue) => ({
+          code: String(issue?.code || "").trim() || "unknown",
           severity: String(issue?.severity || "SEVERITY_UNSPECIFIED"),
-          numProducts: Number(issue?.numProducts || 0),
-          sampleOfferIds: Array.isArray(issue?.sampleProducts)
-            ? issue.sampleProducts
-                .map((name) => {
-                  const parts = String(name || "").split("~");
-                  return parts.length ? String(parts[parts.length - 1] || "").trim() : "";
-                })
-                .filter(Boolean)
-            : [],
+          resolution: String(issue?.resolution || "").trim() || null,
+          attribute: String(issue?.attribute || "").trim() || null,
+          description: String(issue?.description || "").trim() || null,
+          detail: String(issue?.detail || "").trim() || null,
+          documentationUri: String(issue?.documentationUri || "").trim() || null,
+          productCount: Number(issue?.productCount || 0),
         }))
       : [],
   };
@@ -231,6 +233,8 @@ export function buildEligibilityReport(input = {}) {
   const accountIssues = Array.isArray(input.accountIssues) ? input.accountIssues : [];
   const aggregateStatuses = Array.isArray(input.aggregateStatuses) ? input.aggregateStatuses : [];
   const feedOfferIds = Array.isArray(input.feedOfferIds) ? input.feedOfferIds.filter(Boolean) : [];
+  const feedScoped = feedOfferIds.length > 0;
+  const feedOfferIdSet = new Set(feedOfferIds);
 
   const productSummaries = products.map((product) => summarizeProductFreeListing(product));
   const accountIssueSummaries = accountIssues.map((issue) => summarizeAccountIssue(issue));
@@ -241,13 +245,22 @@ export function buildEligibilityReport(input = {}) {
   const processedOfferIds = productSummaries.map((product) => product.offerId).filter(Boolean);
   const processedOfferIdSet = new Set(processedOfferIds);
   const missingFromMerchant = feedOfferIds.filter((id) => !processedOfferIdSet.has(id));
-  const unexpectedInMerchant = processedOfferIds.filter((id) => feedOfferIds.length && !feedOfferIds.includes(id));
+  const unexpectedInMerchant = processedOfferIds.filter((id) => feedScoped && !feedOfferIdSet.has(id));
 
-  const approvedProducts = productSummaries.filter((p) => p.freeListingState === "APPROVED");
-  const pendingProducts = productSummaries.filter((p) => p.freeListingState === "PENDING");
-  const partialProducts = productSummaries.filter((p) => p.freeListingState === "PARTIAL");
-  const disapprovedProducts = productSummaries.filter((p) => p.freeListingState === "DISAPPROVED");
-  const missingContextProducts = productSummaries.filter((p) => p.freeListingState === "MISSING_CONTEXT");
+  // Eligibility verdicts are scoped to current local feed offer IDs when available.
+  // Stale/unexpected Merchant products are reported separately and must not dilute feed blockers.
+  const eligibilityProducts = feedScoped
+    ? productSummaries.filter((product) => feedOfferIdSet.has(product.offerId))
+    : productSummaries;
+  const unexpectedProducts = feedScoped
+    ? productSummaries.filter((product) => product.offerId && !feedOfferIdSet.has(product.offerId))
+    : [];
+
+  const approvedProducts = eligibilityProducts.filter((p) => p.freeListingState === "APPROVED");
+  const pendingProducts = eligibilityProducts.filter((p) => p.freeListingState === "PENDING");
+  const partialProducts = eligibilityProducts.filter((p) => p.freeListingState === "PARTIAL");
+  const disapprovedProducts = eligibilityProducts.filter((p) => p.freeListingState === "DISAPPROVED");
+  const missingContextProducts = eligibilityProducts.filter((p) => p.freeListingState === "MISSING_CONTEXT");
 
   const blockingAccountIssues = accountIssueSummaries.filter(
     (issue) =>
@@ -256,33 +269,44 @@ export function buildEligibilityReport(input = {}) {
   );
   const criticalAccountIssues = accountIssueSummaries.filter((issue) => issue.severity === "CRITICAL");
 
-  const aggregateApproved = freeListingAggregates.reduce(
-    (sum, entry) => sum + (entry.statistics.approvedCount || 0),
+  const aggregateActive = freeListingAggregates.reduce(
+    (sum, entry) => sum + (entry.stats.activeCount || 0),
     0,
   );
   const aggregatePending = freeListingAggregates.reduce(
-    (sum, entry) => sum + (entry.statistics.pendingCount || 0),
+    (sum, entry) => sum + (entry.stats.pendingCount || 0),
     0,
   );
   const aggregateDisapproved = freeListingAggregates.reduce(
-    (sum, entry) => sum + (entry.statistics.disapprovedCount || 0),
+    (sum, entry) => sum + (entry.stats.disapprovedCount || 0),
     0,
   );
+  const aggregateItemLevelIssues = freeListingAggregates.flatMap((entry) =>
+    entry.itemLevelIssues.map((issue) => ({
+      ...issue,
+      country: entry.country,
+    })),
+  );
 
-  const productIssueCount = productSummaries.reduce((sum, product) => sum + product.issues.length, 0);
-  const disapprovedIssueCount = productSummaries.reduce(
+  const productIssueCount = eligibilityProducts.reduce((sum, product) => sum + product.issues.length, 0);
+  const disapprovedIssueCount = eligibilityProducts.reduce(
     (sum, product) => sum + product.issues.filter((issue) => issue.severity === "DISAPPROVED").length,
     0,
   );
+
+  const feedHasNoEligiblePresence =
+    feedScoped && eligibilityProducts.length === 0 && missingFromMerchant.length === feedOfferIds.length;
 
   const blockers = [];
   if (products.length === 0) {
     blockers.push("No processed Merchant products were returned.");
   }
-  if (missingFromMerchant.length) {
+  if (feedHasNoEligiblePresence || (missingFromMerchant.length && approvedProducts.length === 0 && partialProducts.length === 0)) {
     blockers.push(
-      `Feed SKU(s) missing from processed Merchant products: ${missingFromMerchant.join(", ")}.`,
+      `Feed SKU(s) missing from processed Merchant products: ${missingFromMerchant.join(", ") || feedOfferIds.join(", ")}.`,
     );
+  } else if (missingFromMerchant.length) {
+    // Covered as PARTIAL warning below when some feed SKUs remain approved.
   }
   if (blockingAccountIssues.length) {
     blockers.push(
@@ -291,58 +315,83 @@ export function buildEligibilityReport(input = {}) {
         .join("; ")}.`,
     );
   }
-  if (disapprovedProducts.length && approvedProducts.length === 0 && partialProducts.length === 0) {
-    blockers.push("All observed products are disapproved for FREE_LISTINGS.");
+  if (
+    eligibilityProducts.length > 0 &&
+    disapprovedProducts.length > 0 &&
+    approvedProducts.length === 0 &&
+    partialProducts.length === 0
+  ) {
+    blockers.push(
+      feedScoped
+        ? "All current feed products are disapproved for FREE_LISTINGS."
+        : "All observed products are disapproved for FREE_LISTINGS.",
+    );
   }
   if (
-    products.length > 0 &&
+    (eligibilityProducts.length > 0 || feedHasNoEligiblePresence) &&
     approvedProducts.length === 0 &&
     partialProducts.length === 0 &&
-    pendingProducts.length === 0 &&
-    aggregateApproved === 0
+    pendingProducts.length === 0
   ) {
-    blockers.push("No products are approved for FREE_LISTINGS in any reporting country.");
+    // Do not let account-wide aggregate activeCount mask current-feed disapproval/absence.
+    blockers.push(
+      feedScoped
+        ? "No current feed products are approved for FREE_LISTINGS."
+        : "No products are approved for FREE_LISTINGS in any reporting country.",
+    );
   }
 
   const warnings = [];
+  if (missingFromMerchant.length && approvedProducts.length > 0) {
+    warnings.push(
+      `Feed SKU(s) missing from processed Merchant products: ${missingFromMerchant.join(", ")}.`,
+    );
+  }
   if (pendingProducts.length) {
-    warnings.push(`${pendingProducts.length} product(s) pending FREE_LISTINGS approval.`);
+    warnings.push(`${pendingProducts.length} current-feed product(s) pending FREE_LISTINGS approval.`);
   }
   if (partialProducts.length) {
-    warnings.push(`${partialProducts.length} product(s) partially approved for FREE_LISTINGS.`);
+    warnings.push(`${partialProducts.length} current-feed product(s) partially approved for FREE_LISTINGS.`);
   }
   if (disapprovedProducts.length && approvedProducts.length > 0) {
-    warnings.push(`${disapprovedProducts.length} product(s) disapproved for FREE_LISTINGS.`);
+    warnings.push(`${disapprovedProducts.length} current-feed product(s) disapproved for FREE_LISTINGS.`);
   }
   if (missingContextProducts.length) {
     warnings.push(
-      `${missingContextProducts.length} product(s) lack a FREE_LISTINGS destination status.`,
+      `${missingContextProducts.length} current-feed product(s) lack a FREE_LISTINGS destination status.`,
     );
   }
   if (unexpectedInMerchant.length) {
     warnings.push(
-      `Processed Merchant offer ID(s) not in local feed: ${unexpectedInMerchant.join(", ")}.`,
+      `Processed Merchant offer ID(s) not in local feed (excluded from eligibility verdict): ${unexpectedInMerchant.join(", ")}.`,
     );
   }
   if (aggregatePending > 0) {
     warnings.push(`Aggregate FREE_LISTINGS pending count: ${aggregatePending}.`);
   }
-  if (aggregateDisapproved > 0 && approvedProducts.length > 0) {
+  if (aggregateDisapproved > 0) {
     warnings.push(`Aggregate FREE_LISTINGS disapproved count: ${aggregateDisapproved}.`);
   }
+  if (aggregateItemLevelIssues.length) {
+    warnings.push(
+      `Aggregate FREE_LISTINGS item-level issue types: ${Array.from(
+        new Set(aggregateItemLevelIssues.map((issue) => issue.code)),
+      ).join(", ")}.`,
+    );
+  }
+
+  const uniqueBlockers = Array.from(new Set(blockers));
 
   let verdict = "PASS";
   if (
     products.length === 0 ||
-    (approvedProducts.length === 0 &&
-      partialProducts.length === 0 &&
-      aggregateApproved === 0) ||
+    feedHasNoEligiblePresence ||
     blockingAccountIssues.length > 0 ||
-    (disapprovedProducts.length > 0 &&
+    (eligibilityProducts.length > 0 &&
       approvedProducts.length === 0 &&
       partialProducts.length === 0 &&
-      pendingProducts.length === 0) ||
-    (missingFromMerchant.length > 0 && approvedProducts.length === 0)
+      (disapprovedProducts.length > 0 || pendingProducts.length === 0)) ||
+    (missingFromMerchant.length > 0 && approvedProducts.length === 0 && partialProducts.length === 0)
   ) {
     verdict = "BLOCKED";
   } else if (
@@ -362,6 +411,8 @@ export function buildEligibilityReport(input = {}) {
     counts: {
       processedProducts: products.length,
       feedOfferIds: feedOfferIds.length,
+      eligibilityProducts: eligibilityProducts.length,
+      unexpectedProducts: unexpectedProducts.length,
       approvedForFreeListings: approvedProducts.length,
       pendingForFreeListings: pendingProducts.length,
       partialForFreeListings: partialProducts.length,
@@ -371,9 +422,10 @@ export function buildEligibilityReport(input = {}) {
       blockingAccountIssues: blockingAccountIssues.length,
       productIssues: productIssueCount,
       disapprovedProductIssues: disapprovedIssueCount,
-      aggregateApproved,
+      aggregateActive,
       aggregatePending,
       aggregateDisapproved,
+      aggregateItemLevelIssues: aggregateItemLevelIssues.length,
     },
     feedCoverage: {
       feedOfferIds,
@@ -381,10 +433,11 @@ export function buildEligibilityReport(input = {}) {
       missingFromMerchant,
       unexpectedInMerchant,
     },
-    products: productSummaries,
+    products: eligibilityProducts,
+    unexpectedProducts,
     accountIssues: accountIssueSummaries,
     freeListingAggregates,
-    blockers,
+    blockers: uniqueBlockers,
     warnings,
   };
 }
@@ -410,8 +463,15 @@ export function formatConsoleSummary(report) {
   if (report.freeListingAggregates.length) {
     for (const aggregate of report.freeListingAggregates) {
       lines.push(
-        `Aggregate FREE_LISTINGS ${aggregate.countryCode || "?"}: approved=${aggregate.statistics.approvedCount} pending=${aggregate.statistics.pendingCount} disapproved=${aggregate.statistics.disapprovedCount}`,
+        `Aggregate FREE_LISTINGS ${aggregate.country || "?"}: active=${aggregate.stats.activeCount} pending=${aggregate.stats.pendingCount} disapproved=${aggregate.stats.disapprovedCount}`,
       );
+      for (const issue of aggregate.itemLevelIssues.slice(0, 5)) {
+        lines.push(
+          `  • [${issue.severity}] ${issue.code}` +
+            (issue.productCount ? ` products=${issue.productCount}` : "") +
+            (issue.documentationUri ? ` docs=${issue.documentationUri}` : ""),
+        );
+      }
     }
   }
   if (report.accountIssues.length) {
@@ -429,7 +489,7 @@ export function formatConsoleSummary(report) {
 
   const issueProducts = report.products.filter((product) => product.issues.length > 0);
   if (issueProducts.length) {
-    lines.push(`Product issues (${issueProducts.length} product(s)):`);
+    lines.push(`Current-feed product issues (${issueProducts.length} product(s)):`);
     for (const product of issueProducts.slice(0, 20)) {
       lines.push(`- ${product.offerId || "(unknown offer)"} [${product.freeListingState}]`);
       for (const issue of product.issues.slice(0, 5)) {
@@ -440,6 +500,14 @@ export function formatConsoleSummary(report) {
         );
       }
     }
+  }
+  if (Array.isArray(report.unexpectedProducts) && report.unexpectedProducts.length) {
+    lines.push(
+      `Unexpected Merchant products excluded from eligibility: ${report.unexpectedProducts
+        .map((product) => product.offerId)
+        .filter(Boolean)
+        .join(", ")}`,
+    );
   }
 
   if (report.blockers.length) {
@@ -515,7 +583,8 @@ export async function fetchFreeListingAggregateStatuses(requestFn, accountId) {
     "aggregateProductStatuses",
     {
       pageSize: 250,
-      query: { filter: 'reportingContext = "FREE_LISTINGS"' },
+      // Filter field name per Merchant API filter syntax / Codex review: reporting_context.
+      query: { filter: 'reporting_context = "FREE_LISTINGS"' },
     },
   );
 }
