@@ -299,8 +299,9 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 <div>
                   <h2 className="text-sm font-semibold text-white">Checkout classification (safe aggregates)</h2>
                   <p className="mt-1 text-xs text-neutral-400">
-                    Print vs digital and handoff class from KV only. Source/plan totals are cumulative history;
-                    1d/7d/30d windows use post-deploy daily counters. Authenticated QA is excluded, but untagged
+                    Print vs digital and handoff class from KV only. Source/plan/handoff totals are retained up to
+                    180 days (dormant keys expire/reset); 1d/7d/30d windows use post-deploy daily counters. Written
+                    only from trusted checkout (not public analytics POST). Authenticated QA is excluded, but untagged
                     research/internal/browser activity can still be counted. No Stripe or raw handoff tokens.
                   </p>
                 </div>
@@ -308,7 +309,7 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                    Session type (cumulative)
+                    Session type (totals ≤180d retention)
                   </p>
                   <p className="mt-2 text-sm text-neutral-200">
                     POST print {classificationPrintPost.toLocaleString()} · digital{" "}

@@ -10,6 +10,7 @@ const FUNNEL_PATH = path.join(ROOT, "src/lib/funnel.ts");
 const CHECKOUT_ROUTE = path.join(ROOT, "src/app/api/checkout/route.ts");
 const FUNNEL_ROUTE = path.join(ROOT, "src/app/api/analytics/funnel/route.ts");
 const FUNNEL_PAGE = path.join(ROOT, "src/app/funnel/page.tsx");
+const DOCS_PATH = path.join(ROOT, "docs/PURCHASE_ANALYTICS.md");
 
 const KV_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "starmap-funnel-class-"));
 process.env.STARMAP_KV_ALLOW_LOCAL = "1";
@@ -21,9 +22,12 @@ const {
   CHECKOUT_CLASSIFICATION_PLANS,
   CHECKOUT_CLASSIFICATION_SOURCES,
   CHECKOUT_CLASSIFICATION_STEPS,
+  CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS,
   getCheckoutClassificationDiagnostics,
+  isProtectedCheckoutClassificationWrite,
   normalizeCheckoutHandoff,
-  recordCheckoutClassificationStep,
+  recordFunnelStepMirror,
+  recordTrustedCheckoutClassificationStep,
   sourceDailyKey,
   sourceKey,
   handoffDailyKey,
@@ -61,6 +65,8 @@ test("harness allowlists stay locked to funnel.ts fixed allowlists", () => {
   for (const step of CHECKOUT_CLASSIFICATION_STEPS) {
     assert.match(funnel, new RegExp(`"${step}"`));
   }
+  assert.equal(CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS, 180);
+  assert.match(funnel, /CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS = 180/);
   assert.match(funnel, /funnel:source_daily:\$\{date\}:\$\{step\}:\$\{source\}/);
   assert.match(funnel, /funnel:plan_daily:\$\{date\}:\$\{step\}:\$\{plan\}/);
   assert.match(funnel, /funnel:handoff_daily:\$\{date\}:\$\{step\}:\$\{handoff\}/);
@@ -69,8 +75,12 @@ test("harness allowlists stay locked to funnel.ts fixed allowlists", () => {
   assert.match(funnel, /export async function getCheckoutClassificationDiagnostics/);
   assert.match(funnel, /normalizeCheckoutHandoff/);
   assert.match(funnel, /cleaned === "browser" \|\| cleaned === "missing"/);
+  assert.match(funnel, /trustedCheckoutClassification/);
+  assert.match(funnel, /trustedCheckoutWritesOnly: true/);
+  assert.match(funnel, /sourcePlanTotalsRetainUpTo180Days: true/);
   assert.match(funnel, /browserMeansHandoffNotVerifiedHuman: true/);
   assert.match(funnel, /untaggedResearchInternalBrowserActivityMayBeCounted: true/);
+  assert.equal(funnel.includes("sourcePlanTotalsAreCumulative"), false);
 });
 
 test("normalizeCheckoutHandoff accepts only browser|missing (never raw tokens)", () => {
@@ -83,25 +93,25 @@ test("normalizeCheckoutHandoff accepts only browser|missing (never raw tokens)",
   assert.equal(normalizeCheckoutHandoff(undefined), null);
 });
 
-test("record + diagnostics aggregate allowlisted source/plan/handoff with daily windows", async () => {
+test("positive: trusted checkout path records allowlisted source/plan/handoff with daily windows", async () => {
   clearKv();
   const occurredAt = `${todayUtc()}T12:00:00.000Z`;
 
-  await recordCheckoutClassificationStep({
+  await recordTrustedCheckoutClassificationStep({
     step: "checkout_request_received",
     source: "checkout_api_print_post",
     plan: "poster_framed",
     handoff: "browser",
     occurredAt,
   });
-  await recordCheckoutClassificationStep({
+  await recordTrustedCheckoutClassificationStep({
     step: "checkout_session_created",
     source: "checkout_api_print_post",
     plan: "poster_framed",
     handoff: "browser",
     occurredAt,
   });
-  await recordCheckoutClassificationStep({
+  await recordTrustedCheckoutClassificationStep({
     step: "checkout_session_created",
     source: "checkout_api_digital_post",
     plan: "single",
@@ -121,9 +131,10 @@ test("record + diagnostics aggregate allowlisted source/plan/handoff with daily 
 
   const diagnostics = await getCheckoutClassificationDiagnostics(7);
   assert.equal(diagnostics.schemaVersion, 1);
-  assert.equal(diagnostics.notes.sourcePlanTotalsAreCumulative, true);
+  assert.equal(diagnostics.notes.sourcePlanTotalsRetainUpTo180Days, true);
   assert.equal(diagnostics.notes.dailyWindowsSupportedGoingForward, true);
   assert.equal(diagnostics.notes.qaTrafficExcluded, true);
+  assert.equal(diagnostics.notes.trustedCheckoutWritesOnly, true);
   assert.equal(diagnostics.notes.noRawHandoffTokens, true);
   assert.equal(diagnostics.notes.browserMeansHandoffNotVerifiedHuman, true);
   assert.equal(diagnostics.notes.untaggedResearchInternalBrowserActivityMayBeCounted, true);
@@ -160,10 +171,73 @@ test("record + diagnostics aggregate allowlisted source/plan/handoff with daily 
   assert.equal(memoryStore().get("funnel:total:checkout_session_created"), 2);
 });
 
+test("negative: untrusted/generic analytics cannot forge checkout classification", async () => {
+  clearKv();
+  const occurredAt = `${todayUtc()}T16:00:00.000Z`;
+
+  // Simulate public POST /api/analytics/funnel (no trustedCheckoutClassification).
+  await recordFunnelStepMirror({
+    step: "checkout_session_created",
+    source: "checkout_api_digital_post",
+    plan: "single",
+    handoff: "browser",
+    occurredAt,
+    trustedCheckoutClassification: false,
+  });
+
+  assert.equal(
+    isProtectedCheckoutClassificationWrite({
+      step: "checkout_session_created",
+      source: "checkout_api_digital_post",
+      plan: "single",
+      handoff: "browser",
+    }),
+    true,
+  );
+
+  // Step totals may still increment (existing funnel semantics), but classification dims must not.
+  assert.equal(memoryStore().get("funnel:total:checkout_session_created"), 1);
+  assert.equal(memoryStore().has(sourceKey("checkout_session_created", "checkout_api_digital_post")), false);
+  assert.equal(
+    memoryStore().has(sourceDailyKey(todayUtc(), "checkout_session_created", "checkout_api_digital_post")),
+    false,
+  );
+  assert.equal(memoryStore().has(planKey("checkout_session_created", "single")), false);
+  assert.equal(memoryStore().has(planDailyKey(todayUtc(), "checkout_session_created", "single")), false);
+  assert.equal(memoryStore().has(handoffKey("checkout_session_created", "browser")), false);
+  assert.equal(memoryStore().has(handoffDailyKey(todayUtc(), "checkout_session_created", "browser")), false);
+
+  const diagnostics = await getCheckoutClassificationDiagnostics(1);
+  const session = diagnostics.byStep.find((block) => block.step === "checkout_session_created");
+  assert.equal(session?.sources.find((row) => row.key === "checkout_api_digital_post")?.total ?? 0, 0);
+  assert.equal(session?.plans.find((row) => row.key === "single")?.total ?? 0, 0);
+  assert.equal(session?.handoffs.find((row) => row.key === "browser")?.total ?? 0, 0);
+
+  // Public analytics route must never set the trusted flag.
+  const analyticsRoute = fs.readFileSync(FUNNEL_ROUTE, "utf8");
+  assert.match(analyticsRoute, /await recordFunnelStep\(\{/);
+  assert.equal(analyticsRoute.includes("trustedCheckoutClassification"), false);
+});
+
+test("positive: checkout route marks classification writes as trusted", () => {
+  const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
+  const funnel = fs.readFileSync(FUNNEL_PATH, "utf8");
+  assert.match(funnel, /trustedCheckoutClassification === true/);
+  assert.match(funnel, /export function isProtectedCheckoutClassificationWrite/);
+
+  const funnelCallPattern =
+    /await recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
+  const trustedCalls = route.match(funnelCallPattern) || [];
+  assert.ok(trustedCalls.length >= 3, `expected >=3 trusted checkout classification writes, got ${trustedCalls.length}`);
+
+  // No untrusted classification write for allowlisted checkout sources.
+  assert.equal(route.includes("trustedCheckoutClassification: false"), false);
+});
+
 test("negative: raw handoff token is never stored or returned", async () => {
   clearKv();
   const rawToken = "b0123456789abcdef0";
-  await recordCheckoutClassificationStep({
+  await recordTrustedCheckoutClassificationStep({
     step: "checkout_session_created",
     source: "checkout_api_digital_post",
     plan: "single",
@@ -184,7 +258,7 @@ test("negative: raw handoff token is never stored or returned", async () => {
 
 test("negative: diagnostics never enumerate arbitrary KV keys outside allowlist", async () => {
   clearKv();
-  await recordCheckoutClassificationStep({
+  await recordTrustedCheckoutClassificationStep({
     step: "checkout_session_created",
     source: "some_unknown_probe_source",
     plan: "mystery_plan",
@@ -215,11 +289,12 @@ test("negative: QA checkout does not increment production classification", () =>
   assert.match(route, /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{\s*\n\s*await recordFunnelStep/);
   assert.match(route, /handoff: checkoutHandoff/);
   assert.match(route, /handoff: "missing"/);
+  assert.match(route, /trustedCheckoutClassification: true/);
 
   const funnelCallPattern =
-    /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{[\s\S]*?await recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?handoff: (?:checkoutHandoff|"missing")[\s\S]*?\}/g;
+    /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{[\s\S]*?await recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?handoff: (?:checkoutHandoff|"missing")[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
   const gatedCalls = route.match(funnelCallPattern) || [];
-  assert.ok(gatedCalls.length >= 3, `expected >=3 QA-gated classification writes, got ${gatedCalls.length}`);
+  assert.ok(gatedCalls.length >= 3, `expected >=3 QA-gated trusted classification writes, got ${gatedCalls.length}`);
 
   assert.equal(route.includes("handoff: body?.checkoutHandoff"), false);
   assert.equal(route.includes("handoff: body.checkoutHandoff"), false);
@@ -241,31 +316,29 @@ test("semantic: browser handoff is not a verified-human/buyer count (notes + UI 
   clearKv();
   const funnel = fs.readFileSync(FUNNEL_PATH, "utf8");
   const page = fs.readFileSync(FUNNEL_PAGE, "utf8");
-  const docs = fs.readFileSync(path.join(ROOT, "docs/PURCHASE_ANALYTICS.md"), "utf8");
+  const docs = fs.readFileSync(DOCS_PATH, "utf8");
 
   const diagnostics = await getCheckoutClassificationDiagnostics(1);
   assert.equal(diagnostics.notes.browserMeansHandoffNotVerifiedHuman, true);
   assert.equal(diagnostics.notes.untaggedResearchInternalBrowserActivityMayBeCounted, true);
   assert.equal(diagnostics.notes.qaTrafficExcluded, true);
+  assert.equal(diagnostics.notes.trustedCheckoutWritesOnly, true);
   assert.deepEqual(diagnostics.notes.handoffLabels, {
     browser: "browser handoff (not verified human)",
     missing: "missing/direct handoff",
   });
 
-  // Typed contract + runtime notes stay locked together in funnel.ts.
   assert.match(funnel, /browserMeansHandoffNotVerifiedHuman: true/);
   assert.match(funnel, /untaggedResearchInternalBrowserActivityMayBeCounted: true/);
   assert.match(funnel, /browser: "browser handoff \(not verified human\)"/);
   assert.match(funnel, /missing: "missing\/direct handoff"/);
 
-  // Operator UI must not imply browser === buyer/unique human.
   assert.match(page, /browser handoff \(not verified human\)/);
   assert.match(page, /missing\/direct handoff/);
   assert.match(page, /Do not treat browser handoff as a buyer count/);
   assert.match(page, /untagged\s+research\/internal\/browser activity can still be counted/);
   assert.equal(page.includes("Browser handoff (sessions)"), false);
 
-  // Docs keep the same warning and probe guidance without marketing-source heuristics.
   assert.match(docs, /browser handoff \(not verified human\)/);
   assert.match(docs, /missing\/direct handoff/);
   assert.match(docs, /untagged research\/internal\/browser activity can still be counted/);
@@ -273,4 +346,24 @@ test("semantic: browser handoff is not a verified-human/buyer count (notes + UI 
   assert.equal(docs.toLowerCase().includes("chatgpt.com"), false);
   assert.equal(funnel.toLowerCase().includes("chatgpt.com"), false);
   assert.equal(page.toLowerCase().includes("chatgpt.com"), false);
+});
+
+test("semantic: source/plan totals are labeled as ≤180d retention, not infinite cumulative", () => {
+  const funnel = fs.readFileSync(FUNNEL_PATH, "utf8");
+  const page = fs.readFileSync(FUNNEL_PAGE, "utf8");
+  const docs = fs.readFileSync(DOCS_PATH, "utf8");
+
+  assert.match(funnel, /sourcePlanTotalsRetainUpTo180Days: true/);
+  assert.match(funnel, /Dormant totals expire and later restart from 0/);
+  assert.equal(funnel.includes("sourcePlanTotalsAreCumulative"), false);
+
+  assert.match(page, /retained up to\s+180 days/);
+  assert.match(page, /dormant keys expire\/reset/);
+  assert.match(page, /Session type \(totals ≤180d retention\)/);
+  assert.equal(page.includes("Session type (cumulative)"), false);
+  assert.equal(page.includes("Source/plan totals are cumulative history"), false);
+
+  assert.match(docs, /retained up to 180 days/);
+  assert.match(docs, /Dormant keys expire and later restart from 0/);
+  assert.match(docs, /not infinite cumulative history/);
 });

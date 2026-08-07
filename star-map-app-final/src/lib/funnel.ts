@@ -14,6 +14,12 @@ export type FunnelRecordInput = {
   experiment?: string;
   variant?: string;
   occurredAt?: string | number | Date;
+  /**
+   * Server-only: allow writing #215 checkout classification dimensions (allowlisted
+   * source/plan/handoff on classification steps). Must be set only by trusted
+   * `/api/checkout` — never by public `POST /api/analytics/funnel`.
+   */
+  trustedCheckoutClassification?: boolean;
 };
 
 export type FunnelDashboardRow = {
@@ -59,7 +65,10 @@ export type CheckoutClassificationStep = (typeof CHECKOUT_CLASSIFICATION_STEPS)[
 
 export type CheckoutClassificationDimensionCount = {
   key: string;
-  /** Cumulative KV total (may include history before daily windows existed). */
+  /**
+   * Source/plan/handoff total retained up to {@link CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS} days
+   * (KV DIMENSION_TTL). Dormant keys expire and later restart from 0 — not infinite history.
+   */
   total: number;
   /** Sum of daily counters for the requested `days` window (0 when daily keys absent). */
   lastNDays: number;
@@ -87,12 +96,20 @@ export type CheckoutClassificationDiagnostics = {
   days: number;
   schemaVersion: 1;
   notes: {
-    /** Source/plan `total` may predate daily window keys; treat as cumulative history. */
-    sourcePlanTotalsAreCumulative: true;
+    /**
+     * Source/plan/handoff `total` keys use the shared 180-day dimension TTL.
+     * Dormant totals expire and later restart from 0 — not infinite cumulative history.
+     */
+    sourcePlanTotalsRetainUpTo180Days: true;
     /** Handoff + type windows rely on daily counters written after this change deploys. */
     dailyWindowsSupportedGoingForward: true;
     /** Authenticated QA (`qaContext.enabled`) must not increment these counters. */
     qaTrafficExcluded: true;
+    /**
+     * Classification dimensions are written only from trusted `/api/checkout`
+     * (`trustedCheckoutClassification`). Public analytics POST cannot forge them.
+     */
+    trustedCheckoutWritesOnly: true;
     /** Only `browser` | `missing` labels are stored/returned — never raw handoff tokens. */
     noRawHandoffTokens: true;
     /**
@@ -133,6 +150,8 @@ export type PaymentVerifiedWindowSyncResult = {
 
 const DAILY_TTL_SECONDS = 400 * 24 * 60 * 60;
 const DIMENSION_TTL_SECONDS = 180 * 24 * 60 * 60;
+/** Retention for operator-facing checkout classification totals (matches DIMENSION_TTL). */
+export const CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS = 180;
 const SESSION_DEDUPE_TTL_SECONDS = 400 * 24 * 60 * 60;
 
 function totalKey(step: FunnelStep) {
@@ -237,6 +256,35 @@ function pct(numerator: number, denominator: number): number | null {
   return Number(((numerator / denominator) * 100).toFixed(2));
 }
 
+function isCheckoutClassificationStep(step: FunnelStep): step is CheckoutClassificationStep {
+  return (CHECKOUT_CLASSIFICATION_STEPS as readonly string[]).includes(step);
+}
+
+function isAllowlistedCheckoutSource(source: string): source is CheckoutClassificationSource {
+  return (CHECKOUT_CLASSIFICATION_SOURCES as readonly string[]).includes(source);
+}
+
+function isAllowlistedCheckoutPlan(plan: string): plan is CheckoutClassificationPlan {
+  return (CHECKOUT_CLASSIFICATION_PLANS as readonly string[]).includes(plan);
+}
+
+/**
+ * Returns true when this dimension write is reserved for trusted `/api/checkout`
+ * classification and must not be incremented by public analytics POST.
+ */
+export function isProtectedCheckoutClassificationWrite(input: {
+  step: FunnelStep;
+  source?: string | null;
+  plan?: string | null;
+  handoff?: CheckoutHandoffLabel | null;
+}): boolean {
+  if (!isCheckoutClassificationStep(input.step)) return false;
+  if (input.handoff) return true;
+  if (input.source && isAllowlistedCheckoutSource(input.source)) return true;
+  if (input.plan && isAllowlistedCheckoutPlan(input.plan)) return true;
+  return false;
+}
+
 export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> {
   const source = normalizeDimension(input.source);
   const plan = normalizeDimension(input.plan);
@@ -244,21 +292,35 @@ export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> 
   const experiment = normalizeDimension(input.experiment);
   const variant = normalizeDimension(input.variant);
   const today = utcDateKey(resolveOccurredAt(input.occurredAt));
+  const trusted = input.trustedCheckoutClassification === true;
+  const classStep = isCheckoutClassificationStep(input.step);
   const tasks: Array<Promise<number>> = [
     kv.incr(totalKey(input.step), 1),
     kv.incr(dailyKey(today, input.step), 1, { ex: DAILY_TTL_SECONDS }),
   ];
 
   if (source) {
-    // Preserve historical total counters; add daily keys for 1d/7d/30d windows going forward.
-    tasks.push(kv.incr(sourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }));
-    tasks.push(kv.incr(sourceDailyKey(today, input.step, source), 1, { ex: DAILY_TTL_SECONDS }));
+    const protectedSource = classStep && isAllowlistedCheckoutSource(source);
+    // Untrusted callers must not forge allowlisted checkout classification sources.
+    if (!protectedSource || trusted) {
+      tasks.push(kv.incr(sourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }));
+      // Daily type windows: trusted allowlisted checkout classification only (no KV sprawl).
+      if (trusted && protectedSource) {
+        tasks.push(kv.incr(sourceDailyKey(today, input.step, source), 1, { ex: DAILY_TTL_SECONDS }));
+      }
+    }
   }
   if (plan) {
-    tasks.push(kv.incr(planKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
-    tasks.push(kv.incr(planDailyKey(today, input.step, plan), 1, { ex: DAILY_TTL_SECONDS }));
+    const protectedPlan = classStep && isAllowlistedCheckoutPlan(plan);
+    if (!protectedPlan || trusted) {
+      tasks.push(kv.incr(planKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
+      if (trusted && protectedPlan) {
+        tasks.push(kv.incr(planDailyKey(today, input.step, plan), 1, { ex: DAILY_TTL_SECONDS }));
+      }
+    }
   }
-  if (handoff) {
+  // Handoff aggregates are trusted-checkout-only on classification steps.
+  if (handoff && trusted && classStep) {
     tasks.push(kv.incr(handoffKey(input.step, handoff), 1, { ex: DIMENSION_TTL_SECONDS }));
     tasks.push(kv.incr(handoffDailyKey(today, input.step, handoff), 1, { ex: DAILY_TTL_SECONDS }));
   }
@@ -471,9 +533,10 @@ export async function getCheckoutClassificationDiagnostics(
     days: resolvedDays,
     schemaVersion: 1,
     notes: {
-      sourcePlanTotalsAreCumulative: true,
+      sourcePlanTotalsRetainUpTo180Days: true,
       dailyWindowsSupportedGoingForward: true,
       qaTrafficExcluded: true,
+      trustedCheckoutWritesOnly: true,
       noRawHandoffTokens: true,
       browserMeansHandoffNotVerifiedHuman: true,
       untaggedResearchInternalBrowserActivityMayBeCounted: true,

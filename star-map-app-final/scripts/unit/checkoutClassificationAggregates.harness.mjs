@@ -1,5 +1,5 @@
 /**
- * Harness mirroring checkout classification KV keys/normalize rules from src/lib/funnel.ts.
+ * Harness mirroring trusted checkout classification KV rules from src/lib/funnel.ts.
  * Kept in lockstep via source assertions in the companion test file.
  */
 import { kv } from "../../src/lib/kv.ts";
@@ -29,8 +29,10 @@ export const CHECKOUT_CLASSIFICATION_STEPS = [
   "checkout_session_created",
 ];
 
+export const CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS = 180;
+
 const DAILY_TTL_SECONDS = 400 * 24 * 60 * 60;
-const DIMENSION_TTL_SECONDS = 180 * 24 * 60 * 60;
+const DIMENSION_TTL_SECONDS = CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS * 24 * 60 * 60;
 
 function utcDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
@@ -108,28 +110,73 @@ function buildDateRange(days) {
   return out;
 }
 
-export async function recordCheckoutClassificationStep(input) {
+function isCheckoutClassificationStep(step) {
+  return CHECKOUT_CLASSIFICATION_STEPS.includes(step);
+}
+
+function isAllowlistedCheckoutSource(source) {
+  return CHECKOUT_CLASSIFICATION_SOURCES.includes(source);
+}
+
+function isAllowlistedCheckoutPlan(plan) {
+  return CHECKOUT_CLASSIFICATION_PLANS.includes(plan);
+}
+
+export function isProtectedCheckoutClassificationWrite(input) {
+  if (!isCheckoutClassificationStep(input.step)) return false;
+  if (input.handoff) return true;
+  if (input.source && isAllowlistedCheckoutSource(input.source)) return true;
+  if (input.plan && isAllowlistedCheckoutPlan(input.plan)) return true;
+  return false;
+}
+
+/**
+ * Mirrors recordFunnelStep classification gating from funnel.ts.
+ * @param {{ step: string, source?: string, plan?: string, handoff?: string, occurredAt?: string, trustedCheckoutClassification?: boolean }} input
+ */
+export async function recordFunnelStepMirror(input) {
   const source = normalizeDimension(input.source);
   const plan = normalizeDimension(input.plan);
   const handoff = normalizeCheckoutHandoff(input.handoff);
   const today = utcDateKey(resolveOccurredAt(input.occurredAt));
+  const trusted = input.trustedCheckoutClassification === true;
+  const classStep = isCheckoutClassificationStep(input.step);
   const tasks = [
     kv.incr(`funnel:total:${input.step}`, 1),
     kv.incr(`funnel:daily:${today}:${input.step}`, 1, { ex: DAILY_TTL_SECONDS }),
   ];
+
   if (source) {
-    tasks.push(kv.incr(sourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }));
-    tasks.push(kv.incr(sourceDailyKey(today, input.step, source), 1, { ex: DAILY_TTL_SECONDS }));
+    const protectedSource = classStep && isAllowlistedCheckoutSource(source);
+    if (!protectedSource || trusted) {
+      tasks.push(kv.incr(sourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }));
+      if (trusted && protectedSource) {
+        tasks.push(kv.incr(sourceDailyKey(today, input.step, source), 1, { ex: DAILY_TTL_SECONDS }));
+      }
+    }
   }
   if (plan) {
-    tasks.push(kv.incr(planKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
-    tasks.push(kv.incr(planDailyKey(today, input.step, plan), 1, { ex: DAILY_TTL_SECONDS }));
+    const protectedPlan = classStep && isAllowlistedCheckoutPlan(plan);
+    if (!protectedPlan || trusted) {
+      tasks.push(kv.incr(planKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
+      if (trusted && protectedPlan) {
+        tasks.push(kv.incr(planDailyKey(today, input.step, plan), 1, { ex: DAILY_TTL_SECONDS }));
+      }
+    }
   }
-  if (handoff) {
+  if (handoff && trusted && classStep) {
     tasks.push(kv.incr(handoffKey(input.step, handoff), 1, { ex: DIMENSION_TTL_SECONDS }));
     tasks.push(kv.incr(handoffDailyKey(today, input.step, handoff), 1, { ex: DAILY_TTL_SECONDS }));
   }
   await Promise.all(tasks);
+}
+
+/** Trusted checkout-only helper used by positive classification tests. */
+export async function recordTrustedCheckoutClassificationStep(input) {
+  await recordFunnelStepMirror({
+    ...input,
+    trustedCheckoutClassification: true,
+  });
 }
 
 async function readDimensionCount(input) {
@@ -216,9 +263,10 @@ export async function getCheckoutClassificationDiagnostics(days = 14) {
     days: resolvedDays,
     schemaVersion: 1,
     notes: {
-      sourcePlanTotalsAreCumulative: true,
+      sourcePlanTotalsRetainUpTo180Days: true,
       dailyWindowsSupportedGoingForward: true,
       qaTrafficExcluded: true,
+      trustedCheckoutWritesOnly: true,
       noRawHandoffTokens: true,
       browserMeansHandoffNotVerifiedHuman: true,
       untaggedResearchInternalBrowserActivityMayBeCounted: true,
