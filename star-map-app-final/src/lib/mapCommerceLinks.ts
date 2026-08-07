@@ -22,7 +22,7 @@ export type MapCommerceOffer = {
 };
 
 const PRINT_CHECKOUT_ENABLED = /^(1|true|yes)$/i.test(
-  (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
 );
 
 export function isMapCommercePrintEnabled(): boolean {
@@ -52,7 +52,7 @@ function listPrintOffers(mapId: string): MapCommerceOffer[] {
     (row) =>
       (row.recommended && row.includeDigitalAddOn) ||
       (row.variant === "poster_unframed" && !row.includeDigitalAddOn && !row.includeCardAddOn) ||
-      Boolean(row.includeCardAddOn),
+      Boolean(row.includeCardAddOn)
   );
 
   return picks.map((row) => {
@@ -74,7 +74,7 @@ function listPrintOffers(mapId: string): MapCommerceOffer[] {
           : "Museum-grade poster — frame it yourself.",
       priceLine: printOfferPriceLine(row.variant),
       href: buildMapEditorHref(mapId, params),
-      badge: row.recommended ? "Best gift" : row.includeCardAddOn ? "Bundle" : undefined,
+      badge: row.recommended ? "Premium gift" : row.includeCardAddOn ? "Bundle" : undefined,
       recommended: Boolean(row.recommended),
     };
   });

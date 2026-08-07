@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buildGiftFormatTiers } from "@/lib/giftFormatLadder";
+import { FRAMED_HD_RECOMMENDED_BADGE, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type GiftFormatLadderProps = {
@@ -16,7 +17,7 @@ type GiftFormatLadderProps = {
 export default function GiftFormatLadder({
   sourcePrefix = "gift-ladder",
   heading = "Pick your gift format",
-  intro = "One free preview — then choose the delivery path that fits. Most gift buyers choose framed + HD.",
+  intro = getGiftLadderIntro(),
   includeCanvas = false,
   digitalRecommended = false,
   className = "",
@@ -48,7 +49,7 @@ export default function GiftFormatLadder({
               <h3 className="text-sm font-semibold text-midnight">{tier.label}</h3>
               {tier.recommended ? (
                 <span className="shrink-0 rounded-full border border-amber-400/60 bg-amber-200/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950">
-                  Top pick
+                  {digitalRecommended && tier.id === "digital" ? "Instant HD" : FRAMED_HD_RECOMMENDED_BADGE}
                 </span>
               ) : null}
             </div>

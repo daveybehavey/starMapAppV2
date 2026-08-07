@@ -20,7 +20,7 @@ export function describeAspectRatioLabel(aspectRatio: AspectRatio): string {
 export function getPosterAspectMismatchMessage(aspectRatio: AspectRatio): string {
   if (aspectRatio === "square") return "";
   return `Poster prints are square (18×18 unframed, 14×14 framed). Your map is ${describeAspectRatioLabel(
-    aspectRatio,
+    aspectRatio
   )} — switch to Square in Advanced before checkout to avoid letterboxing on the print.`;
 }
 
@@ -45,7 +45,7 @@ export function getPrintProductionEtaLine(): string {
 
 export function getPrintDeliveryEtaLine(
   printShippingCountry: string | null | undefined,
-  variant: PrintVariant = "poster_framed",
+  variant: PrintVariant = "poster_framed"
 ): string | null {
   if (!printShippingCountry) return null;
   return formatPrintDeliveryDisclosure(variant, printShippingCountry);
@@ -55,7 +55,7 @@ export const PRINT_GIFT_TIER_STEPS = [
   {
     id: "digital",
     label: "HD digital",
-    detail: "Instant download — best for same-night gifting or DIY printing.",
+    detail: "Instant download — built for same-night gifting or DIY printing.",
   },
   {
     id: "poster",
@@ -65,7 +65,7 @@ export const PRINT_GIFT_TIER_STEPS = [
   {
     id: "framed_hd",
     label: "Framed + HD",
-    detail: `Most popular — gift-ready wall art plus instant HD file. ${getPrintFramedHdBundleTimingLine()}`,
+    detail: `Premium gift route — ready-to-hang wall art plus instant HD file. ${getPrintFramedHdBundleTimingLine()}`,
   },
   {
     id: "framed_card",

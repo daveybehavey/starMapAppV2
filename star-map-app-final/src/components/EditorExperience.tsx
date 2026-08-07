@@ -13,12 +13,23 @@ import {
   trackExperimentExposure,
   trackFunnelStep,
 } from "@/lib/analytics";
-import { formatPrice, getPricingTiers, type CheckoutOrderType, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
+import {
+  formatPrice,
+  getPricingTiers,
+  type CheckoutOrderType,
+  type CheckoutPlan,
+  type PrintVariant,
+} from "@/lib/pricing";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale, mapLookTiers } from "@/lib/config";
-import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
+import {
+  applyMapLookTier,
+  applyTierTypography,
+  resolveMapLookTier,
+  type MapLookTier,
+} from "@/lib/mapLookTiers";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -135,12 +146,14 @@ function isLikelyLowMemoryDevice() {
   const ua = navigator.userAgent || "";
   const mobileUA = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
   const maybeDeviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  const lowMemoryHint = typeof maybeDeviceMemory === "number" && maybeDeviceMemory > 0 && maybeDeviceMemory <= 4;
+  const lowMemoryHint =
+    typeof maybeDeviceMemory === "number" && maybeDeviceMemory > 0 && maybeDeviceMemory <= 4;
   return mobileUA || lowMemoryHint;
 }
 
 function getDownloadLocationHint() {
-  if (typeof navigator === "undefined") return "Download started. Check your browser's download history if you don't see the file.";
+  if (typeof navigator === "undefined")
+    return "Download started. Check your browser's download history if you don't see the file.";
   const ua = navigator.userAgent || "";
   if (/iPhone|iPad|iPod/i.test(ua)) {
     return "Download started. On iPhone/iPad, open Files app -> Browse -> Downloads to find it.";
@@ -167,11 +180,7 @@ function parseDateParamToIso(dateParam: string) {
   const day = Number(match[3]);
   if (!year || !month || !day) return null;
   const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
-  if (
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
+  if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
     return null;
   }
   return parsed.toISOString();
@@ -304,17 +313,16 @@ export function EditorExperience({
   }, []);
   const paywallVariant = useMemo<PaywallCopyVariant>(() => getPaywallCopyVariant(), []);
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
   );
 
-  const hdCreditLabel =
-    !paid
-      ? null
-      : currentPlan === "subscription"
-        ? "Unlimited HD"
-        : typeof creditsRemaining === "number" && creditsRemaining > 0
-          ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
-          : null;
+  const hdCreditLabel = !paid
+    ? null
+    : currentPlan === "subscription"
+      ? "Unlimited HD"
+      : typeof creditsRemaining === "number" && creditsRemaining > 0
+        ? `${creditsRemaining} HD credit${creditsRemaining === 1 ? "" : "s"} left`
+        : null;
 
   useEffect(() => {
     setMounted(true);
@@ -347,7 +355,7 @@ export function EditorExperience({
   const printShippingCountries = useMemo(() => getPrintAllowedCountries(), []);
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
-    [printShippingCountries],
+    [printShippingCountries]
   );
   const [printShippingCountry, setPrintShippingCountry] = useState<string | null>(null);
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
@@ -381,7 +389,10 @@ export function EditorExperience({
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
   const setPrintShippingCountryValue = useCallback(
-    (country: string, source: "initial" | "query-param" | "editor-panel" | "mobile-preview" | "paywall-modal") => {
+    (
+      country: string,
+      source: "initial" | "query-param" | "editor-panel" | "mobile-preview" | "paywall-modal"
+    ) => {
       const normalized = country.trim().toUpperCase();
       if (!printShippingCountries.includes(normalized)) return;
       setPrintShippingCountry(normalized);
@@ -393,7 +404,7 @@ export function EditorExperience({
         });
       }
     },
-    [printShippingCountries, printShippingCountry],
+    [printShippingCountries, printShippingCountry]
   );
   useEffect(() => {
     const stored = readStoredPrintShippingCountry();
@@ -454,7 +465,7 @@ export function EditorExperience({
         ...(trigger ? { trigger } : {}),
       });
     },
-    [getPreviewSource, paywallVariant, renderOptions.visualMode],
+    [getPreviewSource, paywallVariant, renderOptions.visualMode]
   );
 
   useEffect(() => {
@@ -503,15 +514,15 @@ export function EditorExperience({
   const shippingDisclosure = getPrintShippingDisclosure();
   const posterShippingFootnote = useMemo(
     () => formatPosterShippingFootnote(printShippingCountry),
-    [printShippingCountry],
+    [printShippingCountry]
   );
   const printCheckoutRows = useMemo(
     () => getPaywallPrintCheckoutPresentation(printShippingCountry),
-    [printShippingCountry],
+    [printShippingCountry]
   );
   const activeMapLookTier = useMemo(
     () => resolveMapLookTier(renderOptions, selectedStyle),
-    [renderOptions, selectedStyle],
+    [renderOptions, selectedStyle]
   );
   const posterAspectMismatch = aspectRatio !== "square";
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
@@ -523,27 +534,26 @@ export function EditorExperience({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hasLocation = Boolean(location.name?.trim());
   const titleText =
-    textBoxes.find((box) => box.id === "title")?.text?.trim() ??
-    textBoxes[0]?.text?.trim() ??
-    "";
-  const hasPersonalizedTitle =
-    titleText.length > 0 && titleText.toLowerCase() !== DEFAULT_TITLE_TEXT;
+    textBoxes.find((box) => box.id === "title")?.text?.trim() ?? textBoxes[0]?.text?.trim() ?? "";
+  const hasPersonalizedTitle = titleText.length > 0 && titleText.toLowerCase() !== DEFAULT_TITLE_TEXT;
   const setupSteps = [
     { label: "Date + place", done: hasDate && hasLocation, optional: false },
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
-  const previewLockedMessage = !hasDate && !hasLocation
-    ? "Add your date and place to unlock preview. Presets optional."
-    : !hasDate
-      ? "Add your date to unlock preview. Presets optional."
-      : "Add your place to unlock preview. Presets optional.";
+  const previewLockedMessage =
+    !hasDate && !hasLocation
+      ? "Add your date and place to unlock preview. Presets optional."
+      : !hasDate
+        ? "Add your date to unlock preview. Presets optional."
+        : "Add your place to unlock preview. Presets optional.";
   const previewReadyMessage = "Preview is ready. Presets optional.";
-  const previewUnlockButtonLabel = !hasDate && !hasLocation
-    ? "Add date + place to unlock preview"
-    : !hasDate
-      ? "Add your date to unlock preview"
-      : "Add your place to unlock preview";
+  const previewUnlockButtonLabel =
+    !hasDate && !hasLocation
+      ? "Add date + place to unlock preview"
+      : !hasDate
+        ? "Add your date to unlock preview"
+        : "Add your place to unlock preview";
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(
@@ -615,7 +625,7 @@ export function EditorExperience({
       const nextPaid = Boolean(data.paid);
       setPaid(nextPaid);
       setCreditsRemaining(
-        nextPaid && typeof data.creditsRemaining === "number" ? data.creditsRemaining : null,
+        nextPaid && typeof data.creditsRemaining === "number" ? data.creditsRemaining : null
       );
       setCurrentPlan(
         data.plan === "single" || data.plan === "pack3" || data.plan === "subscription" ? data.plan : null
@@ -626,29 +636,32 @@ export function EditorExperience({
     }
   }, [setPaid]);
 
-  const consumeHdCredit = useCallback(async (tokenOverride?: string) => {
-    if (consumePromiseRef.current) return consumePromiseRef.current;
-    const promise = (async () => {
-      try {
-        const consumeToken = tokenOverride ?? createHdConsumeToken();
-        const data = await postHdCreditConsume(consumeToken);
-        if (!data) return false;
-        if (typeof data.creditsRemaining === "number") {
-          setCreditsRemaining(data.creditsRemaining);
-        } else if (data.plan === "subscription") {
-          setCreditsRemaining(null);
-          setPaid(true);
+  const consumeHdCredit = useCallback(
+    async (tokenOverride?: string) => {
+      if (consumePromiseRef.current) return consumePromiseRef.current;
+      const promise = (async () => {
+        try {
+          const consumeToken = tokenOverride ?? createHdConsumeToken();
+          const data = await postHdCreditConsume(consumeToken);
+          if (!data) return false;
+          if (typeof data.creditsRemaining === "number") {
+            setCreditsRemaining(data.creditsRemaining);
+          } else if (data.plan === "subscription") {
+            setCreditsRemaining(null);
+            setPaid(true);
+          }
+          return true;
+        } catch {
+          return false;
+        } finally {
+          consumePromiseRef.current = null;
         }
-        return true;
-      } catch {
-        return false;
-      } finally {
-        consumePromiseRef.current = null;
-      }
-    })();
-    consumePromiseRef.current = promise;
-    return promise;
-  }, [setPaid]);
+      })();
+      consumePromiseRef.current = promise;
+      return promise;
+    },
+    [setPaid]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -670,10 +683,7 @@ export function EditorExperience({
       });
       setSelectedOccasion(draft.selectedOccasion);
       setCustomOccasion(draft.selectedOccasion ? false : Boolean(draft.location.name.trim()));
-    } else if (
-      draftOutcome.status === "invalid" ||
-      draftOutcome.status === "storage-unavailable"
-    ) {
+    } else if (draftOutcome.status === "invalid" || draftOutcome.status === "storage-unavailable") {
       // Do not replace an unreadable or forward-version draft with defaults.
       draftWritesBlockedRef.current = true;
     }
@@ -691,12 +701,7 @@ export function EditorExperience({
     }
     setRestored(true);
     void refreshPaidStatus();
-  }, [
-    setRevealed,
-    setCustomOccasion,
-    setSelectedOccasion,
-    refreshPaidStatus,
-  ]);
+  }, [setRevealed, setCustomOccasion, setSelectedOccasion, refreshPaidStatus]);
 
   useEffect(() => {
     if (!restored || !draftWritesBlockedRef.current) return;
@@ -839,7 +844,7 @@ export function EditorExperience({
       setShape,
       setStyle,
       setTextBoxes,
-    ],
+    ]
   );
 
   useEffect(() => {
@@ -865,7 +870,7 @@ export function EditorExperience({
             aspectRatio: resolveRecipeAspectRatio(data) ?? aspectRatio,
             shape: resolveRecipeShape(data) ?? shape,
             renderOptions: data.renderOptions ?? renderOptions,
-          }),
+          })
         );
 
         try {
@@ -883,15 +888,7 @@ export function EditorExperience({
         // ignore failed hydration; editor still works from draft
       }
     })();
-  }, [
-    applyHydratedMapRecipe,
-    aspectRatio,
-    mapIdFromQuery,
-    renderOptions,
-    restored,
-    selectedStyle,
-    shape,
-  ]);
+  }, [applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, renderOptions, restored, selectedStyle, shape]);
 
   useEffect(() => {
     if (!restored || !revealed || paid || digitalIntentHandledRef.current) return;
@@ -904,7 +901,15 @@ export function EditorExperience({
     setPaywallOpen(true);
     setCheckoutError(null);
     trackPaywallOpenedEvent("digital", "checkout_param");
-  }, [paid, paywallVariant, renderOptions.visualMode, restored, revealed, searchParams, trackPaywallOpenedEvent]);
+  }, [
+    paid,
+    paywallVariant,
+    renderOptions.visualMode,
+    restored,
+    revealed,
+    searchParams,
+    trackPaywallOpenedEvent,
+  ]);
 
   useEffect(() => {
     if (!restored || !revealed || paid || !printCheckoutEnabled || printIntentHandledRef.current) return;
@@ -935,7 +940,16 @@ export function EditorExperience({
     setPaywallOpen(true);
     setCheckoutError(null);
     trackPaywallOpenedEvent("print", "gift_traffic_auto");
-  }, [paid, paywallVariant, printCheckoutEnabled, renderOptions.visualMode, restored, revealed, searchParams, trackPaywallOpenedEvent]);
+  }, [
+    paid,
+    paywallVariant,
+    printCheckoutEnabled,
+    renderOptions.visualMode,
+    restored,
+    revealed,
+    searchParams,
+    trackPaywallOpenedEvent,
+  ]);
 
   useEffect(() => {
     if (!autoExportPending || paid) return;
@@ -961,7 +975,7 @@ export function EditorExperience({
         new Date(saveOutcome.savedAt).toLocaleTimeString([], {
           hour: "numeric",
           minute: "2-digit",
-        }),
+        })
       );
     }
   }, [
@@ -1044,13 +1058,16 @@ export function EditorExperience({
     }
     setRevealStageIndex(0);
     let nextStage = 0;
-    const stageInterval = window.setInterval(() => {
-      nextStage = Math.min(REVEAL_STAGES.length - 1, nextStage + 1);
-      setRevealStageIndex(nextStage);
-      if (nextStage >= REVEAL_STAGES.length - 1) {
-        window.clearInterval(stageInterval);
-      }
-    }, Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length)));
+    const stageInterval = window.setInterval(
+      () => {
+        nextStage = Math.min(REVEAL_STAGES.length - 1, nextStage + 1);
+        setRevealStageIndex(nextStage);
+        if (nextStage >= REVEAL_STAGES.length - 1) {
+          window.clearInterval(stageInterval);
+        }
+      },
+      Math.max(180, Math.floor(REVEAL_ANIMATION_MS / REVEAL_STAGES.length))
+    );
     return () => window.clearInterval(stageInterval);
   }, [isRevealing]);
 
@@ -1293,7 +1310,7 @@ export function EditorExperience({
         merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
-      },
+      }
     ) => {
       if (checkoutInFlightRef.current) return;
       const previewSource = getPreviewSource() ?? "editor";
@@ -1310,7 +1327,7 @@ export function EditorExperience({
           : undefined;
       const printVariant = parsePrintVariant(
         orderType === "print" ? options?.printVariant : undefined,
-        "poster_framed",
+        "poster_framed"
       );
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
       const includeCardAddOn = Boolean(options?.includeCardAddOn);
@@ -1427,10 +1444,12 @@ export function EditorExperience({
           if (mapId) {
             try {
               const resolveRes = await fetch(
-                `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(recipeFingerprint)}`,
+                `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(recipeFingerprint)}`
               );
               if (resolveRes.ok) {
-                const resolveData = (await resolveRes.json().catch(() => null)) as { assetId?: string } | null;
+                const resolveData = (await resolveRes.json().catch(() => null)) as {
+                  assetId?: string;
+                } | null;
                 if (typeof resolveData?.assetId === "string" && resolveData.assetId.trim()) {
                   uploadedAssetId = resolveData.assetId.trim();
                 }
@@ -1495,9 +1514,10 @@ export function EditorExperience({
                   recipeFingerprint,
                 }),
               });
-              const printAssetData = (await printAssetRes.json().catch(() => null)) as
-                | { assetId?: string; error?: string }
-                | null;
+              const printAssetData = (await printAssetRes.json().catch(() => null)) as {
+                assetId?: string;
+                error?: string;
+              } | null;
               if (printAssetRes.ok && printAssetData?.assetId) {
                 uploadedAssetId = printAssetData.assetId;
                 break;
@@ -1536,10 +1556,12 @@ export function EditorExperience({
             if (mapId) {
               try {
                 const resolveCardRes = await fetch(
-                  `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(cardFingerprint)}`,
+                  `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(cardFingerprint)}`
                 );
                 if (resolveCardRes.ok) {
-                  const resolveCardData = (await resolveCardRes.json().catch(() => null)) as { assetId?: string } | null;
+                  const resolveCardData = (await resolveCardRes.json().catch(() => null)) as {
+                    assetId?: string;
+                  } | null;
                   if (typeof resolveCardData?.assetId === "string" && resolveCardData.assetId.trim()) {
                     uploadedCardAssetId = resolveCardData.assetId.trim();
                   }
@@ -1595,9 +1617,10 @@ export function EditorExperience({
                     recipeFingerprint: cardFingerprint,
                   }),
                 });
-                const cardAssetData = (await cardAssetRes.json().catch(() => null)) as
-                  | { assetId?: string; error?: string }
-                  | null;
+                const cardAssetData = (await cardAssetRes.json().catch(() => null)) as {
+                  assetId?: string;
+                  error?: string;
+                } | null;
                 if (cardAssetRes.ok && cardAssetData?.assetId) {
                   uploadedCardAssetId = cardAssetData.assetId;
                   break;
@@ -1707,14 +1730,20 @@ export function EditorExperience({
             promoApplied,
             referralOfferApplied,
             discountRejected: Boolean(data.discountRejected),
-            promotionSource: referralOfferApplied ? "referral_auto" : promoApplied ? "manual" : data.discountRejected ? "referral_no_discount" : "none",
+            promotionSource: referralOfferApplied
+              ? "referral_auto"
+              : promoApplied
+                ? "manual"
+                : data.discountRejected
+                  ? "referral_no_discount"
+                  : "none",
             referralApplied: Boolean(referralCode),
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
           if (data.discountRejected) {
             setCheckoutError(
-              "We couldn't apply your discount automatically. You can still enter a promo code on the payment page.",
+              "We couldn't apply your discount automatically. You can still enter a promo code on the payment page."
             );
             await new Promise((resolve) => setTimeout(resolve, 2200));
           }
@@ -1740,37 +1769,37 @@ export function EditorExperience({
             ? "That promo code is invalid or expired. Try another code."
             : reason === "promotion_not_applicable"
               ? "That promo code does not apply to this order."
-            : reason === "promotion_lookup_failed"
-              ? "We couldn't verify your promo code right now. Please try again in a moment."
-              : reason === "print_asset_failed"
-                ? "We couldn't prepare your print file. Please try again."
-              : reason === "print_asset_too_large"
-                ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
-                : reason === "print_render_failed"
-                  ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
-                : reason === "card_print_asset_failed"
-                  ? "We couldn't prepare the greeting card artwork. Please try checkout again."
-                : reason === "missing_card_print_asset"
-                  ? "Greeting card artwork is missing. Please reopen checkout and try again."
-                : reason === "missing_shipping_country"
-                  ? "Select your shipping country to continue with print checkout."
-                : reason === "print_shipping_country_invalid"
-                  ? "Shipping isn’t available for that country yet. Please select another."
-                  : reason === "print_promotion_margin_blocked"
-                    ? "That promo code would make this print order unavailable for the selected route or country."
-                  : reason === "print_margin_guard_blocked"
-                    ? "That print option is temporarily unavailable for the selected country. Try another format or country."
-                : reason === "print_checkout_disabled"
-                  ? "Print checkout is not live yet."
-                : reason === "map_required"
-                  ? "Generate your map preview before checkout."
-                : reason === "map_not_found"
-                  ? "We couldn't find that map. Refresh preview and try checkout again."
-                : reason.startsWith("save_failed_") || reason === "map_save_failed"
-                  ? "We couldn't save this map yet. Please retry in a moment."
-              : reason === "unknown_error"
-                ? "We couldn't start checkout right now. Please try again shortly."
-              : "Checkout is unavailable right now. Please try again shortly.";
+              : reason === "promotion_lookup_failed"
+                ? "We couldn't verify your promo code right now. Please try again in a moment."
+                : reason === "print_asset_failed"
+                  ? "We couldn't prepare your print file. Please try again."
+                  : reason === "print_asset_too_large"
+                    ? "This map export is too large for print checkout right now. Try a simpler style or contact support."
+                    : reason === "print_render_failed"
+                      ? "We couldn't render a high-res print on this device. Try again or use desktop for print checkout."
+                      : reason === "card_print_asset_failed"
+                        ? "We couldn't prepare the greeting card artwork. Please try checkout again."
+                        : reason === "missing_card_print_asset"
+                          ? "Greeting card artwork is missing. Please reopen checkout and try again."
+                          : reason === "missing_shipping_country"
+                            ? "Select your shipping country to continue with print checkout."
+                            : reason === "print_shipping_country_invalid"
+                              ? "Shipping isn’t available for that country yet. Please select another."
+                              : reason === "print_promotion_margin_blocked"
+                                ? "That promo code would make this print order unavailable for the selected route or country."
+                                : reason === "print_margin_guard_blocked"
+                                  ? "That print option is temporarily unavailable for the selected country. Try another format or country."
+                                  : reason === "print_checkout_disabled"
+                                    ? "Print checkout is not live yet."
+                                    : reason === "map_required"
+                                      ? "Generate your map preview before checkout."
+                                      : reason === "map_not_found"
+                                        ? "We couldn't find that map. Refresh preview and try checkout again."
+                                        : reason.startsWith("save_failed_") || reason === "map_save_failed"
+                                          ? "We couldn't save this map yet. Please retry in a moment."
+                                          : reason === "unknown_error"
+                                            ? "We couldn't start checkout right now. Please try again shortly."
+                                            : "Checkout is unavailable right now. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
         track("checkout_failed", {
           source: previewSource,
@@ -1825,7 +1854,7 @@ export function EditorExperience({
         includeCardAddOn: options.includeCardAddOn,
       });
     },
-    [startCheckout],
+    [startCheckout]
   );
 
   const startMerchCheckout = useCallback(
@@ -1845,7 +1874,7 @@ export function EditorExperience({
         merchOptions: { size: options.size, color: options.color },
       });
     },
-    [startCheckout],
+    [startCheckout]
   );
 
   const handleShare = useCallback(async () => {
@@ -1994,10 +2023,10 @@ export function EditorExperience({
                           Start with the moment, then preview
                         </h2>
                         <p className="text-base text-neutral-200 sm:text-lg">
-                          Add the date, location, and words that matter, then generate a free preview before opening
-                          any extra controls.
+                          Add the date, location, and words that matter, then generate a free preview before
+                          opening any extra controls.
                         </p>
-                        <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-300">
+                        <div className="flex flex-wrap gap-2 text-[11px] font-semibold tracking-[0.14em] text-neutral-300 uppercase">
                           {setupSteps.map((step, index) => (
                             <span
                               key={step.label}
@@ -2016,7 +2045,7 @@ export function EditorExperience({
                           <button
                             type="button"
                             onClick={applySampleMoment}
-                            className="rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
+                            className="text-midnight rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
                           >
                             Try a sample moment
                           </button>
@@ -2052,9 +2081,7 @@ export function EditorExperience({
                           </p>
                           <p className="text-sm font-semibold text-white">Refine your map</p>
                           {lastDraftSavedAt ? (
-                            <p className="text-[10px] text-neutral-400">
-                              Saved {lastDraftSavedAt}
-                            </p>
+                            <p className="text-[10px] text-neutral-400">Saved {lastDraftSavedAt}</p>
                           ) : (
                             <p className="text-[10px] text-neutral-500">Draft autosaves on this device</p>
                           )}
@@ -2199,7 +2226,9 @@ export function EditorExperience({
                         </div>
                       )}
                     </div>
-                    {showOccasionPresets && presetHint && <p className="mt-2 text-xs text-amber-100/80">{presetHint}</p>}
+                    {showOccasionPresets && presetHint && (
+                      <p className="mt-2 text-xs text-amber-100/80">{presetHint}</p>
+                    )}
 
                     {showEditor && (
                       <div className="mt-2 rounded-xl border border-white/15 bg-white/5 px-2.5 py-2 shadow-inner shadow-black/30 backdrop-blur-sm">
@@ -2296,413 +2325,435 @@ export function EditorExperience({
 
                     {/* Your Message + Editor sections */}
                     <div className="mt-2 space-y-2">
-                        {showGuidedForm && (
-                          <div className="space-y-2">
-                            <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm">
-                              <div className="mb-2 flex items-center gap-2">
-                                <span className="text-amber-300">✎</span>
-                                <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                                  Your Message
-                                </h3>
-                              </div>
-                              <div className="space-y-3">
-                                {visibleTextBoxes.map((box) => (
-                                  <div key={box.id} className="space-y-2">
-                                    <label className="text-sm font-medium text-white">{box.label}</label>
-                                    <input
-                                      type="text"
-                                      value={box.text}
-                                      onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
-                                      className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                      placeholder={`Enter ${box.label.toLowerCase()}...`}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </section>
-                            {!revealed && (
-                              <button
-                                type="button"
-                                onClick={handleReveal}
-                                disabled={!canReveal || isRevealing}
-                                aria-label={
-                                  isRevealing
-                                    ? "Revealing your sky"
-                                    : canReveal
-                                      ? "Generate preview"
-                                      : previewUnlockButtonLabel
-                                }
-                                className={`text-midnight inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
-                                  canReveal && !isRevealing
-                                    ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
-                                    : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
-                                }`}
-                              >
-                                {isRevealing
-                                  ? "Revealing your sky..."
+                      {showGuidedForm && (
+                        <div className="space-y-2">
+                          <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-sm shadow-black/30 backdrop-blur-sm">
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="text-amber-300">✎</span>
+                              <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                                Your Message
+                              </h3>
+                            </div>
+                            <div className="space-y-3">
+                              {visibleTextBoxes.map((box) => (
+                                <div key={box.id} className="space-y-2">
+                                  <label className="text-sm font-medium text-white">{box.label}</label>
+                                  <input
+                                    type="text"
+                                    value={box.text}
+                                    onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                                    className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                    placeholder={`Enter ${box.label.toLowerCase()}...`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                          {!revealed && (
+                            <button
+                              type="button"
+                              onClick={handleReveal}
+                              disabled={!canReveal || isRevealing}
+                              aria-label={
+                                isRevealing
+                                  ? "Revealing your sky"
                                   : canReveal
                                     ? "Generate preview"
-                                    : previewUnlockButtonLabel}
-                              </button>
-                            )}
-                            {!revealed && (
-                              <div className="space-y-1 text-xs text-neutral-400">
-                                <p>
-                                  {isRevealing
-                                    ? "Aligning constellations for your selected moment..."
-                                    : canReveal
-                                      ? previewReadyMessage
-                                      : previewLockedMessage}
-                                </p>
-                                <p className="text-[11px] text-neutral-500">
-                                  {canReveal
-                                    ? "Free preview, HD optional."
-                                    : "Free preview, HD optional after you add date + place."}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {showEditor && (
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-start">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setCardState(
-                                    allCardsCollapsed
-                                      ? {
-                                          dateLocation: false,
-                                          textStyling: false,
-                                          style: false,
-                                          shape: false,
-                                          frame: false,
-                                          advanced: false,
-                                        }
-                                      : {
-                                          dateLocation: true,
-                                          textStyling: true,
-                                          style: true,
-                                          shape: true,
-                                          frame: true,
-                                          advanced: true,
-                                        }
-                                  )
-                                }
-                                className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-amber-300/60"
-                              >
-                                {allCardsCollapsed ? "Expand all" : "Collapse all"}
-                              </button>
+                                    : previewUnlockButtonLabel
+                              }
+                              className={`text-midnight inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
+                                canReveal && !isRevealing
+                                  ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
+                                  : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
+                              }`}
+                            >
+                              {isRevealing
+                                ? "Revealing your sky..."
+                                : canReveal
+                                  ? "Generate preview"
+                                  : previewUnlockButtonLabel}
+                            </button>
+                          )}
+                          {!revealed && (
+                            <div className="space-y-1 text-xs text-neutral-400">
+                              <p>
+                                {isRevealing
+                                  ? "Aligning constellations for your selected moment..."
+                                  : canReveal
+                                    ? previewReadyMessage
+                                    : previewLockedMessage}
+                              </p>
+                              <p className="text-[11px] text-neutral-500">
+                                {canReveal
+                                  ? "Free preview, HD optional."
+                                  : "Free preview, HD optional after you add date + place."}
+                              </p>
                             </div>
+                          )}
+                        </div>
+                      )}
 
-                            <div className="flex w-full flex-col gap-2">
+                      {showEditor && (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-start">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCardState(
+                                  allCardsCollapsed
+                                    ? {
+                                        dateLocation: false,
+                                        textStyling: false,
+                                        style: false,
+                                        shape: false,
+                                        frame: false,
+                                        advanced: false,
+                                      }
+                                    : {
+                                        dateLocation: true,
+                                        textStyling: true,
+                                        style: true,
+                                        shape: true,
+                                        frame: true,
+                                        advanced: true,
+                                      }
+                                )
+                              }
+                              className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-amber-300/60"
+                            >
+                              {allCardsCollapsed ? "Expand all" : "Collapse all"}
+                            </button>
+                          </div>
+
+                          <div className="flex w-full flex-col gap-2">
+                            <div
+                              className={`flex flex-col gap-2 ${
+                                collapsedCards.textStyling ? "" : "lg:flex-row"
+                              }`}
+                            >
                               <div
                                 className={`flex flex-col gap-2 ${
-                                  collapsedCards.textStyling ? "" : "lg:flex-row"
+                                  collapsedCards.textStyling ? "" : "lg:w-1/2"
                                 }`}
                               >
-                                <div
-                                  className={`flex flex-col gap-2 ${
-                                    collapsedCards.textStyling ? "" : "lg:w-1/2"
-                                  }`}
-                                >
-                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleCard("textStyling")}
-                                      aria-expanded={!collapsedCards.textStyling}
-                                      className="flex w-full items-center justify-between text-left"
-                                    >
-                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                                        Text Styling
-                                      </h3>
-                                      <span className="text-[11px] font-semibold text-amber-100">
-                                        {collapsedCards.textStyling ? "Show" : "Hide"}
-                                      </span>
-                                    </button>
-                                    {!collapsedCards.textStyling && (
-                                      <div className="mt-2 space-y-3">
-                                        {textBoxes.map((box) => {
-                                          const isCollapsed = collapsedTextBoxes[box.id] ?? false;
+                                <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCard("textStyling")}
+                                    aria-expanded={!collapsedCards.textStyling}
+                                    className="flex w-full items-center justify-between text-left"
+                                  >
+                                    <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                                      Text Styling
+                                    </h3>
+                                    <span className="text-[11px] font-semibold text-amber-100">
+                                      {collapsedCards.textStyling ? "Show" : "Hide"}
+                                    </span>
+                                  </button>
+                                  {!collapsedCards.textStyling && (
+                                    <div className="mt-2 space-y-3">
+                                      {textBoxes.map((box) => {
+                                        const isCollapsed = collapsedTextBoxes[box.id] ?? false;
 
-                                          return (
-                                            <div
-                                              key={box.id}
-                                              className="space-y-2 rounded-lg border border-white/15 bg-white/5 p-3 backdrop-blur-sm"
-                                            >
-                                              <div className="flex items-center justify-between">
-                                                <span className="text-xs font-semibold text-white">
-                                                  {box.label}
-                                                </span>
-                                                <div className="flex items-center gap-2">
+                                        return (
+                                          <div
+                                            key={box.id}
+                                            className="space-y-2 rounded-lg border border-white/15 bg-white/5 p-3 backdrop-blur-sm"
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <span className="text-xs font-semibold text-white">
+                                                {box.label}
+                                              </span>
+                                              <div className="flex items-center gap-2">
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setCollapsedTextBoxes((prev) => ({
+                                                      ...prev,
+                                                      [box.id]: !isCollapsed,
+                                                    }))
+                                                  }
+                                                  aria-expanded={!isCollapsed}
+                                                  aria-controls={`text-style-${box.id}`}
+                                                  className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
+                                                >
+                                                  {isCollapsed ? "Show" : "Hide"}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => removeTextBox(box.id)}
+                                                  className="text-[10px] text-rose-300 hover:text-rose-200"
+                                                >
+                                                  Remove
+                                                </button>
+                                              </div>
+                                            </div>
+                                            {!isCollapsed && (
+                                              <div id={`text-style-${box.id}`} className="space-y-2">
+                                                <input
+                                                  type="text"
+                                                  value={box.text}
+                                                  onChange={(e) =>
+                                                    updateTextBox(box.id, { text: e.target.value })
+                                                  }
+                                                  className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
+                                                  placeholder={`Enter ${box.label.toLowerCase()}...`}
+                                                />
+                                                <div className="grid grid-cols-2 gap-2">
+                                                  <div className="space-y-1">
+                                                    <label className="text-[10px] text-neutral-300">
+                                                      Font
+                                                    </label>
+                                                    <select
+                                                      value={box.fontFamily}
+                                                      onChange={(e) => {
+                                                        const next = e.target.value as TextBox["fontFamily"];
+                                                        const fontMeta = fontOptions.find(
+                                                          (opt) => opt.id === next
+                                                        );
+                                                        if (fontMeta?.premium && !paid) {
+                                                          setPaywallIntent("digital");
+                                                          setPaywallOpen(true);
+                                                          trackPaywallOpenedEvent("digital", "premium_font");
+                                                          return;
+                                                        }
+                                                        updateTextBox(box.id, { fontFamily: next });
+                                                      }}
+                                                      className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                      style={{ color: "white" }}
+                                                    >
+                                                      {fontOptions.map((opt) => (
+                                                        <option
+                                                          key={opt.id}
+                                                          value={opt.id}
+                                                          style={{ color: "#111827" }}
+                                                        >
+                                                          {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                                        </option>
+                                                      ))}
+                                                    </select>
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <label className="text-[10px] text-neutral-300">
+                                                      Size
+                                                    </label>
+                                                    <input
+                                                      type="number"
+                                                      min={10}
+                                                      max={64}
+                                                      value={box.size}
+                                                      onChange={(e) =>
+                                                        updateTextBox(box.id, {
+                                                          size: Number(e.target.value),
+                                                        })
+                                                      }
+                                                      className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                    />
+                                                  </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                  <div className="space-y-1">
+                                                    <label className="text-[10px] text-neutral-300">
+                                                      Color
+                                                    </label>
+                                                    <input
+                                                      type="color"
+                                                      value={box.color}
+                                                      onChange={(e) =>
+                                                        updateTextBox(box.id, { color: e.target.value })
+                                                      }
+                                                      className="h-8 w-full cursor-pointer rounded-md border border-white/15 bg-white/10"
+                                                    />
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                    <label className="text-[10px] text-neutral-300">
+                                                      Align
+                                                    </label>
+                                                    <select
+                                                      value={box.align}
+                                                      onChange={(e) =>
+                                                        updateTextBox(box.id, {
+                                                          align: e.target.value as TextBox["align"],
+                                                        })
+                                                      }
+                                                      className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                                                      style={{ color: "white" }}
+                                                    >
+                                                      <option value="left" style={{ color: "#111827" }}>
+                                                        Left
+                                                      </option>
+                                                      <option value="center" style={{ color: "#111827" }}>
+                                                        Center
+                                                      </option>
+                                                      <option value="right" style={{ color: "#111827" }}>
+                                                        Right
+                                                      </option>
+                                                    </select>
+                                                  </div>
+                                                </div>
+                                                <div className="flex gap-2">
                                                   <button
                                                     type="button"
                                                     onClick={() =>
-                                                      setCollapsedTextBoxes((prev) => ({
-                                                        ...prev,
-                                                        [box.id]: !isCollapsed,
-                                                      }))
+                                                      updateTextBox(box.id, { textShadow: !box.textShadow })
                                                     }
-                                                    aria-expanded={!isCollapsed}
-                                                    aria-controls={`text-style-${box.id}`}
-                                                    className="text-[10px] font-semibold text-amber-200/70 hover:text-amber-200"
+                                                    className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                                      box.textShadow
+                                                        ? "!text-midnight border-amber-300 bg-amber-100"
+                                                        : "border-white/15 bg-white/10 text-white"
+                                                    }`}
                                                   >
-                                                    {isCollapsed ? "Show" : "Hide"}
+                                                    Shadow
                                                   </button>
                                                   <button
                                                     type="button"
-                                                    onClick={() => removeTextBox(box.id)}
-                                                    className="text-[10px] text-rose-300 hover:text-rose-200"
+                                                    onClick={() =>
+                                                      updateTextBox(box.id, { textGlow: !box.textGlow })
+                                                    }
+                                                    className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
+                                                      box.textGlow
+                                                        ? "!text-midnight border-amber-300 bg-amber-100"
+                                                        : "border-white/15 bg-white/10 text-white"
+                                                    }`}
                                                   >
-                                                    Remove
+                                                    Glow
                                                   </button>
                                                 </div>
                                               </div>
-                                              {!isCollapsed && (
-                                                <div id={`text-style-${box.id}`} className="space-y-2">
-                                                  <input
-                                                    type="text"
-                                                    value={box.text}
-                                                    onChange={(e) =>
-                                                      updateTextBox(box.id, { text: e.target.value })
-                                                    }
-                                                    className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
-                                                    placeholder={`Enter ${box.label.toLowerCase()}...`}
-                                                  />
-                                                  <div className="grid grid-cols-2 gap-2">
-                                                    <div className="space-y-1">
-                                                      <label className="text-[10px] text-neutral-300">
-                                                        Font
-                                                      </label>
-                                                      <select
-                                                        value={box.fontFamily}
-                                                        onChange={(e) => {
-                                                          const next = e.target
-                                                            .value as TextBox["fontFamily"];
-                                                          const fontMeta = fontOptions.find(
-                                                            (opt) => opt.id === next
-                                                          );
-                                                          if (fontMeta?.premium && !paid) {
-                                                            setPaywallIntent("digital");
-                                                            setPaywallOpen(true);
-                                                            trackPaywallOpenedEvent("digital", "premium_font");
-                                                            return;
-                                                          }
-                                                          updateTextBox(box.id, { fontFamily: next });
-                                                        }}
-                                                        className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                                        style={{ color: "white" }}
-                                                      >
-                                                        {fontOptions.map((opt) => (
-                                                          <option
-                                                            key={opt.id}
-                                                            value={opt.id}
-                                                            style={{ color: "#111827" }}
-                                                          >
-                                                            {opt.premium ? `🔒 ${opt.label}` : opt.label}
-                                                          </option>
-                                                        ))}
-                                                      </select>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                      <label className="text-[10px] text-neutral-300">
-                                                        Size
-                                                      </label>
-                                                      <input
-                                                        type="number"
-                                                        min={10}
-                                                        max={64}
-                                                        value={box.size}
-                                                        onChange={(e) =>
-                                                          updateTextBox(box.id, {
-                                                            size: Number(e.target.value),
-                                                          })
-                                                        }
-                                                        className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                                      />
-                                                    </div>
-                                                  </div>
-                                                  <div className="grid grid-cols-2 gap-2">
-                                                    <div className="space-y-1">
-                                                      <label className="text-[10px] text-neutral-300">
-                                                        Color
-                                                      </label>
-                                                      <input
-                                                        type="color"
-                                                        value={box.color}
-                                                        onChange={(e) =>
-                                                          updateTextBox(box.id, { color: e.target.value })
-                                                        }
-                                                        className="h-8 w-full cursor-pointer rounded-md border border-white/15 bg-white/10"
-                                                      />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                      <label className="text-[10px] text-neutral-300">
-                                                        Align
-                                                      </label>
-                                                      <select
-                                                        value={box.align}
-                                                        onChange={(e) =>
-                                                          updateTextBox(box.id, {
-                                                            align: e.target.value as TextBox["align"],
-                                                          })
-                                                        }
-                                                        className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
-                                                        style={{ color: "white" }}
-                                                      >
-                                                        <option value="left" style={{ color: "#111827" }}>
-                                                          Left
-                                                        </option>
-                                                        <option value="center" style={{ color: "#111827" }}>
-                                                          Center
-                                                        </option>
-                                                        <option value="right" style={{ color: "#111827" }}>
-                                                          Right
-                                                        </option>
-                                                      </select>
-                                                    </div>
-                                                  </div>
-                                                  <div className="flex gap-2">
-                                                    <button
-                                                      type="button"
-                                                      onClick={() =>
-                                                        updateTextBox(box.id, { textShadow: !box.textShadow })
-                                                      }
-                                                      className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                                                        box.textShadow
-                                                          ? "!text-midnight border-amber-300 bg-amber-100"
-                                                          : "border-white/15 bg-white/10 text-white"
-                                                      }`}
-                                                    >
-                                                      Shadow
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() =>
-                                                        updateTextBox(box.id, { textGlow: !box.textGlow })
-                                                      }
-                                                      className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
-                                                        box.textGlow
-                                                          ? "!text-midnight border-amber-300 bg-amber-100"
-                                                          : "border-white/15 bg-white/10 text-white"
-                                                      }`}
-                                                    >
-                                                      Glow
-                                                    </button>
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
-                                        <button
-                                          type="button"
-                                          onClick={addTextBox}
-                                          className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
-                                        >
-                                          + Add Text Line
-                                        </button>
-                                      </div>
-                                    )}
-                                  </section>
-                                </div>
-                                <div
-                                  className={`flex flex-col gap-2 ${
-                                    collapsedCards.textStyling ? "" : "lg:w-1/2"
-                                  }`}
-                                >
-                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleCard("style")}
-                                      aria-expanded={!collapsedCards.style}
-                                      className="flex w-full items-center justify-between text-left"
-                                    >
-                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                                        Style
-                                      </h3>
-                                      <span className="text-[11px] font-semibold text-amber-100">
-                                        {collapsedCards.style ? "Show" : "Hide"}
-                                      </span>
-                                    </button>
-                                    {!collapsedCards.style && (
-                                      <div className="mt-2 space-y-3">
-                                        <div className="space-y-1">
-                                          <div className="flex items-center justify-between gap-2">
-                                            <p
-                                              id="map-look-tier-label"
-                                              className="text-[10px] font-semibold tracking-[0.14em] text-neutral-300 uppercase"
-                                            >
-                                              Map look
-                                            </p>
-                                            {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  const tier = resolveMapLookTier(renderOptions, selectedStyle);
-                                                  setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
-                                                }}
-                                                className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90 transition hover:border-amber-300/40 hover:bg-white/10"
-                                              >
-                                                Reset typography
-                                              </button>
                                             )}
                                           </div>
-                                          <div
-                                            role="radiogroup"
-                                            aria-labelledby="map-look-tier-label"
-                                            className="grid grid-cols-3 gap-1.5"
+                                        );
+                                      })}
+                                      <button
+                                        type="button"
+                                        onClick={addTextBox}
+                                        className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                                      >
+                                        + Add Text Line
+                                      </button>
+                                    </div>
+                                  )}
+                                </section>
+                              </div>
+                              <div
+                                className={`flex flex-col gap-2 ${
+                                  collapsedCards.textStyling ? "" : "lg:w-1/2"
+                                }`}
+                              >
+                                <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCard("style")}
+                                    aria-expanded={!collapsedCards.style}
+                                    className="flex w-full items-center justify-between text-left"
+                                  >
+                                    <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                                      Style
+                                    </h3>
+                                    <span className="text-[11px] font-semibold text-amber-100">
+                                      {collapsedCards.style ? "Show" : "Hide"}
+                                    </span>
+                                  </button>
+                                  {!collapsedCards.style && (
+                                    <div className="mt-2 space-y-3">
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <p
+                                            id="map-look-tier-label"
+                                            className="text-[10px] font-semibold tracking-[0.14em] text-neutral-300 uppercase"
                                           >
-                                            {mapLookTiers.map((tier) => {
-                                              const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
-                                              return (
-                                                <button
-                                                  key={tier.id}
-                                                  type="button"
-                                                  role="radio"
-                                                  aria-checked={activeTier === tier.id}
-                                                  aria-label={`${tier.label}: ${tier.description}`}
-                                                  onClick={() => {
-                                                    const tierOptions = applyMapLookTier(tier.id, selectedStyle);
-                                                    setRenderOptions(tierOptions);
-                                                    setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
-                                                  }}
-                                                  onKeyDown={(event) => {
-                                                    const tierIndex = mapLookTiers.findIndex((item) => item.id === tier.id);
-                                                    if (tierIndex < 0) return;
-                                                    let nextIndex: number | null = null;
-                                                    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-                                                      nextIndex = (tierIndex + 1) % mapLookTiers.length;
-                                                    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-                                                      nextIndex = (tierIndex - 1 + mapLookTiers.length) % mapLookTiers.length;
-                                                    }
-                                                    if (nextIndex === null) return;
-                                                    event.preventDefault();
-                                                    const nextTier = mapLookTiers[nextIndex];
-                                                    if (!nextTier) return;
-                                                    const tierOptions = applyMapLookTier(nextTier.id, selectedStyle);
-                                                    setRenderOptions(tierOptions);
-                                                    setTextBoxes(
-                                                      applyTierTypography(nextTier.id, selectedStyle, textBoxes),
-                                                    );
-                                                  }}
-                                                  className={`min-h-[3.25rem] rounded-md border px-2 py-2 text-left transition ${
-                                                    activeTier === tier.id
-                                                      ? "!text-midnight border-amber-300 bg-amber-100"
-                                                      : "border-white/15 bg-white/10 text-white hover:border-amber-400/40"
-                                                  }`}
-                                                >
-                                                  <div className="text-[11px] font-semibold">{tier.label}</div>
-                                                  <div className="mt-0.5 text-[9px] leading-snug opacity-80">
-                                                    {tier.description}
-                                                  </div>
-                                                </button>
-                                              );
-                                            })}
-                                          </div>
+                                            Map look
+                                          </p>
+                                          {resolveMapLookTier(renderOptions, selectedStyle) !== "custom" && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const tier = resolveMapLookTier(renderOptions, selectedStyle);
+                                                setTextBoxes(
+                                                  applyTierTypography(tier, selectedStyle, textBoxes)
+                                                );
+                                              }}
+                                              className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90 transition hover:border-amber-300/40 hover:bg-white/10"
+                                            >
+                                              Reset typography
+                                            </button>
+                                          )}
                                         </div>
-                                        <div className="grid grid-cols-1 gap-2">
+                                        <div
+                                          role="radiogroup"
+                                          aria-labelledby="map-look-tier-label"
+                                          className="grid grid-cols-3 gap-1.5"
+                                        >
+                                          {mapLookTiers.map((tier) => {
+                                            const activeTier = resolveMapLookTier(
+                                              renderOptions,
+                                              selectedStyle
+                                            );
+                                            return (
+                                              <button
+                                                key={tier.id}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={activeTier === tier.id}
+                                                aria-label={`${tier.label}: ${tier.description}`}
+                                                onClick={() => {
+                                                  const tierOptions = applyMapLookTier(
+                                                    tier.id,
+                                                    selectedStyle
+                                                  );
+                                                  setRenderOptions(tierOptions);
+                                                  setTextBoxes(
+                                                    applyTierTypography(tier.id, selectedStyle, textBoxes)
+                                                  );
+                                                }}
+                                                onKeyDown={(event) => {
+                                                  const tierIndex = mapLookTiers.findIndex(
+                                                    (item) => item.id === tier.id
+                                                  );
+                                                  if (tierIndex < 0) return;
+                                                  let nextIndex: number | null = null;
+                                                  if (
+                                                    event.key === "ArrowRight" ||
+                                                    event.key === "ArrowDown"
+                                                  ) {
+                                                    nextIndex = (tierIndex + 1) % mapLookTiers.length;
+                                                  } else if (
+                                                    event.key === "ArrowLeft" ||
+                                                    event.key === "ArrowUp"
+                                                  ) {
+                                                    nextIndex =
+                                                      (tierIndex - 1 + mapLookTiers.length) %
+                                                      mapLookTiers.length;
+                                                  }
+                                                  if (nextIndex === null) return;
+                                                  event.preventDefault();
+                                                  const nextTier = mapLookTiers[nextIndex];
+                                                  if (!nextTier) return;
+                                                  const tierOptions = applyMapLookTier(
+                                                    nextTier.id,
+                                                    selectedStyle
+                                                  );
+                                                  setRenderOptions(tierOptions);
+                                                  setTextBoxes(
+                                                    applyTierTypography(nextTier.id, selectedStyle, textBoxes)
+                                                  );
+                                                }}
+                                                className={`min-h-[3.25rem] rounded-md border px-2 py-2 text-left transition ${
+                                                  activeTier === tier.id
+                                                    ? "!text-midnight border-amber-300 bg-amber-100"
+                                                    : "border-white/15 bg-white/10 text-white hover:border-amber-400/40"
+                                                }`}
+                                              >
+                                                <div className="text-[11px] font-semibold">{tier.label}</div>
+                                                <div className="mt-0.5 text-[9px] leading-snug opacity-80">
+                                                  {tier.description}
+                                                </div>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                      <div className="grid grid-cols-1 gap-2">
                                         {styles.map((style) => {
                                           const styleClasses = {
                                             navyGold:
@@ -2730,11 +2781,10 @@ export function EditorExperience({
                                               onClick={() => {
                                                 setStyle(style.id);
                                                 const tier: MapLookTier =
-                                                  renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
+                                                  renderOptions.mapLookTier ??
+                                                  resolveMapLookTier(renderOptions, selectedStyle);
                                                 const tierOptions =
-                                                  tier === "custom"
-                                                    ? {}
-                                                    : applyMapLookTier(tier, style.id);
+                                                  tier === "custom" ? {} : applyMapLookTier(tier, style.id);
                                                 const defaults = applyStyleDefaults(style.id, textBoxes);
                                                 const mergedOptions = {
                                                   ...defaults.renderOptions,
@@ -2760,183 +2810,181 @@ export function EditorExperience({
                                             </button>
                                           );
                                         })}
-                                        </div>
                                       </div>
-                                    )}
-                                  </section>
-                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleCard("shape")}
-                                      aria-expanded={!collapsedCards.shape}
-                                      className="flex w-full items-center justify-between text-left"
-                                    >
-                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                                        Shape
-                                      </h3>
-                                      <span className="text-[11px] font-semibold text-amber-100">
-                                        {collapsedCards.shape ? "Show" : "Hide"}
-                                      </span>
-                                    </button>
-                                    {!collapsedCards.shape && (
-                                      <>
-                                        <div className="mt-2 grid grid-cols-4 gap-2">
-                                          {shapes.map((shapeOption) => {
-                                            const isPremium =
-                                              shapeOption.id !== "rectangle" && shapeOption.id !== "circle";
-                                            const isSelected = shape === shapeOption.id;
+                                    </div>
+                                  )}
+                                </section>
+                                <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCard("shape")}
+                                    aria-expanded={!collapsedCards.shape}
+                                    className="flex w-full items-center justify-between text-left"
+                                  >
+                                    <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                                      Shape
+                                    </h3>
+                                    <span className="text-[11px] font-semibold text-amber-100">
+                                      {collapsedCards.shape ? "Show" : "Hide"}
+                                    </span>
+                                  </button>
+                                  {!collapsedCards.shape && (
+                                    <>
+                                      <div className="mt-2 grid grid-cols-4 gap-2">
+                                        {shapes.map((shapeOption) => {
+                                          const isPremium =
+                                            shapeOption.id !== "rectangle" && shapeOption.id !== "circle";
+                                          const isSelected = shape === shapeOption.id;
 
-                                            return (
-                                              <button
-                                                key={shapeOption.id}
-                                                type="button"
-                                                onClick={() => {
-                                                  if (isPremium && !paid) {
-                                                    // Allow preview, but note that HD export requires payment
-                                                    setShape(shapeOption.id);
-                                                  } else {
-                                                    setShape(shapeOption.id);
-                                                  }
-                                                }}
-                                                className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
-                                                  isSelected
-                                                    ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
-                                                    : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
-                                                }`}
+                                          return (
+                                            <button
+                                              key={shapeOption.id}
+                                              type="button"
+                                              onClick={() => {
+                                                if (isPremium && !paid) {
+                                                  // Allow preview, but note that HD export requires payment
+                                                  setShape(shapeOption.id);
+                                                } else {
+                                                  setShape(shapeOption.id);
+                                                }
+                                              }}
+                                              className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                                isSelected
+                                                  ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
+                                                  : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                                              }`}
+                                            >
+                                              <span
+                                                className="mb-1 text-2xl"
+                                                style={{ transform: shapeSymbolScale[shapeOption.id] }}
                                               >
-                                                <span
-                                                  className="mb-1 text-2xl"
-                                                  style={{ transform: shapeSymbolScale[shapeOption.id] }}
-                                                >
-                                                  {shapeSymbols[shapeOption.id]}
+                                                {shapeSymbols[shapeOption.id]}
+                                              </span>
+                                              <span className="text-[10px]">{shapeOption.label}</span>
+                                              {isPremium && (
+                                                <span className="mt-0.5 text-[9px] text-amber-400">
+                                                  HD only
                                                 </span>
-                                                <span className="text-[10px]">{shapeOption.label}</span>
-                                                {isPremium && (
-                                                  <span className="mt-0.5 text-[9px] text-amber-400">
-                                                    HD only
-                                                  </span>
-                                                )}
-                                              </button>
-                                            );
-                                          })}
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                      {shape !== "rectangle" && (
+                                        <div className="mt-2 space-y-1">
+                                          <label className="text-[10px] text-neutral-300">
+                                            Background Color
+                                          </label>
+                                          <input
+                                            type="color"
+                                            value={renderOptions.backgroundColor || "#0b1a30"}
+                                            onChange={(e) =>
+                                              setRenderOptions({ backgroundColor: e.target.value })
+                                            }
+                                            className="h-8 w-full cursor-pointer rounded-md border border-white/15 bg-white/10"
+                                          />
                                         </div>
-                                        {shape !== "rectangle" && (
-                                          <div className="mt-2 space-y-1">
-                                            <label className="text-[10px] text-neutral-300">
-                                              Background Color
-                                            </label>
-                                            <input
-                                              type="color"
-                                              value={renderOptions.backgroundColor || "#0b1a30"}
-                                              onChange={(e) =>
-                                                setRenderOptions({ backgroundColor: e.target.value })
-                                              }
-                                              className="h-8 w-full cursor-pointer rounded-md border border-white/15 bg-white/10"
-                                            />
-                                          </div>
-                                        )}
-                                      </>
-                                    )}
-                                  </section>
+                                      )}
+                                    </>
+                                  )}
+                                </section>
 
-                                  <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleCard("frame")}
-                                      aria-expanded={!collapsedCards.frame}
-                                      className="flex w-full items-center justify-between text-left"
-                                    >
-                                      <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                                        Frame
-                                      </h3>
-                                      <span className="text-[11px] font-semibold text-amber-100">
-                                        {collapsedCards.frame ? "Show" : "Hide"}
-                                      </span>
-                                    </button>
-                                    {!collapsedCards.frame && (
-                                      <>
-                                        <div className="mt-2 grid grid-cols-3 gap-2">
-                                          {[
-                                            { id: "square" as const, label: "Square" },
-                                            { id: "4:5" as const, label: "Poster" },
-                                            { id: "2:3" as const, label: "Wide" },
-                                          ].map((ratio) => {
-                                            const isSelected = aspectRatio === ratio.id;
+                                <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCard("frame")}
+                                    aria-expanded={!collapsedCards.frame}
+                                    className="flex w-full items-center justify-between text-left"
+                                  >
+                                    <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                                      Frame
+                                    </h3>
+                                    <span className="text-[11px] font-semibold text-amber-100">
+                                      {collapsedCards.frame ? "Show" : "Hide"}
+                                    </span>
+                                  </button>
+                                  {!collapsedCards.frame && (
+                                    <>
+                                      <div className="mt-2 grid grid-cols-3 gap-2">
+                                        {[
+                                          { id: "square" as const, label: "Square" },
+                                          { id: "4:5" as const, label: "Poster" },
+                                          { id: "2:3" as const, label: "Wide" },
+                                        ].map((ratio) => {
+                                          const isSelected = aspectRatio === ratio.id;
 
-                                            return (
-                                              <button
-                                                key={ratio.id}
-                                                type="button"
-                                                onClick={() => setAspectRatio(ratio.id)}
-                                                className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
-                                                  isSelected
-                                                    ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
-                                                    : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
-                                                }`}
-                                              >
-                                                <span className="text-[10px]">{ratio.label}</span>
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setRenderOptions({ frameEnabled: !renderOptions.frameEnabled })
-                                          }
-                                          className={`mt-2 w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                                            renderOptions.frameEnabled
-                                              ? "!text-midnight border-amber-300 bg-amber-100"
-                                              : "border-white/15 bg-white/10 text-white"
-                                          }`}
-                                        >
-                                          {renderOptions.frameEnabled
-                                            ? "Frame Border On"
-                                            : "Frame Border Off"}
-                                        </button>
-                                      </>
-                                    )}
-                                  </section>
-                                </div>
+                                          return (
+                                            <button
+                                              key={ratio.id}
+                                              type="button"
+                                              onClick={() => setAspectRatio(ratio.id)}
+                                              className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                                isSelected
+                                                  ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
+                                                  : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                                              }`}
+                                            >
+                                              <span className="text-[10px]">{ratio.label}</span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setRenderOptions({ frameEnabled: !renderOptions.frameEnabled })
+                                        }
+                                        className={`mt-2 w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                                          renderOptions.frameEnabled
+                                            ? "!text-midnight border-amber-300 bg-amber-100"
+                                            : "border-white/15 bg-white/10 text-white"
+                                        }`}
+                                      >
+                                        {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
+                                      </button>
+                                    </>
+                                  )}
+                                </section>
                               </div>
-
-                              <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleCard("advanced")}
-                                  aria-expanded={!collapsedCards.advanced}
-                                  className="flex w-full items-center justify-between text-left"
-                                >
-                                  <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
-                                    Advanced
-                                  </h3>
-                                  <span className="rounded-full border border-amber-200/35 bg-amber-100/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-                                    {collapsedCards.advanced ? "Open" : "Hide"}
-                                  </span>
-                                </button>
-                                <p className="mt-1 text-[11px] text-neutral-200">
-                                  Fine-tune realism, line behavior, and premium preview controls.
-                                </p>
-                                {!collapsedCards.advanced && (
-                                  <AdvancedPanel
-                                    selectedStyle={selectedStyle}
-                                    renderOptions={renderOptions}
-                                    setRenderOptions={setRenderOptions}
-                                    textBoxes={textBoxes}
-                                    setTextBoxes={setTextBoxes}
-                                    previewFidelity={previewFidelity}
-                                    setPreviewFidelity={setPreviewFidelity}
-                                    paid={paid}
-                                    onPremiumPreview={(feature, level) =>
-                                      track("premium_preview_enabled", { feature, level })
-                                    }
-                                  />
-                                )}
-                              </section>
                             </div>
+
+                            <section className="rounded-xl border border-white/15 bg-white/5 p-2.5 shadow-inner shadow-black/20 backdrop-blur-sm">
+                              <button
+                                type="button"
+                                onClick={() => toggleCard("advanced")}
+                                aria-expanded={!collapsedCards.advanced}
+                                className="flex w-full items-center justify-between text-left"
+                              >
+                                <h3 className="text-xs font-semibold tracking-[0.2em] text-amber-200/90 uppercase">
+                                  Advanced
+                                </h3>
+                                <span className="rounded-full border border-amber-200/35 bg-amber-100/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+                                  {collapsedCards.advanced ? "Open" : "Hide"}
+                                </span>
+                              </button>
+                              <p className="mt-1 text-[11px] text-neutral-200">
+                                Fine-tune realism, line behavior, and premium preview controls.
+                              </p>
+                              {!collapsedCards.advanced && (
+                                <AdvancedPanel
+                                  selectedStyle={selectedStyle}
+                                  renderOptions={renderOptions}
+                                  setRenderOptions={setRenderOptions}
+                                  textBoxes={textBoxes}
+                                  setTextBoxes={setTextBoxes}
+                                  previewFidelity={previewFidelity}
+                                  setPreviewFidelity={setPreviewFidelity}
+                                  paid={paid}
+                                  onPremiumPreview={(feature, level) =>
+                                    track("premium_preview_enabled", { feature, level })
+                                  }
+                                />
+                              )}
+                            </section>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -2986,7 +3034,7 @@ export function EditorExperience({
                                   <div className="reveal-loader-card w-full rounded-xl px-4 py-3 text-center">
                                     <div className="reveal-glow reveal-glow-left" aria-hidden="true" />
                                     <div className="reveal-glow reveal-glow-right" aria-hidden="true" />
-                                    <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-100/75">
+                                    <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-semibold tracking-[0.22em] text-amber-100/75 uppercase">
                                       <span>Free preview</span>
                                       <span>{revealProgress}</span>
                                     </div>
@@ -2996,9 +3044,13 @@ export function EditorExperience({
                                     <p className="text-[10px] font-semibold tracking-[0.24em] text-amber-100/80 uppercase">
                                       Revealing your sky
                                     </p>
-                                    <p className="mt-1 text-sm font-semibold text-amber-50">{revealStage.title}</p>
-                                    <p className="mt-1 text-[11px] leading-5 text-neutral-200">{revealStage.description}</p>
-                                    <div className="mt-3 reveal-star-row">
+                                    <p className="mt-1 text-sm font-semibold text-amber-50">
+                                      {revealStage.title}
+                                    </p>
+                                    <p className="mt-1 text-[11px] leading-5 text-neutral-200">
+                                      {revealStage.description}
+                                    </p>
+                                    <div className="reveal-star-row mt-3">
                                       <span className="reveal-star-dot" />
                                       <span className="reveal-star-dot" />
                                       <span className="reveal-star-dot" />
@@ -3030,7 +3082,8 @@ export function EditorExperience({
                                       />
                                     </div>
                                     <p className="mt-2 text-[10px] text-neutral-300">
-                                      Usually takes about a second. No charge yet — HD and print options come after this.
+                                      Usually takes about a second. No charge yet — HD and print options come
+                                      after this.
                                     </p>
                                   </div>
                                 ) : (
@@ -3196,16 +3249,17 @@ export function EditorExperience({
                         {paid &&
                           (currentPlan === "subscription" ||
                             (typeof creditsRemaining === "number" && creditsRemaining > 0)) && (
-                          <p className="mt-2 text-[11px] text-neutral-300">
-                            {currentPlan === "subscription"
-                              ? "Unlimited HD exports on your active subscription."
-                              : `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`}
-                          </p>
-                        )}
+                            <p className="mt-2 text-[11px] text-neutral-300">
+                              {currentPlan === "subscription"
+                                ? "Unlimited HD exports on your active subscription."
+                                : `${creditsRemaining} HD export credit${creditsRemaining === 1 ? "" : "s"} remaining.`}
+                            </p>
+                          )}
                         {currentPlan !== "subscription" && (
                           <p className="mt-1 text-[11px] text-neutral-300/95">
-                            Pack reminder: each HD click exports the <span className="font-semibold text-white">current map only</span>.
-                            For multiple files, create or edit the next map before each download.
+                            Pack reminder: each HD click exports the{" "}
+                            <span className="font-semibold text-white">current map only</span>. For multiple
+                            files, create or edit the next map before each download.
                           </p>
                         )}
                         {downloadHint && (
@@ -3231,7 +3285,13 @@ export function EditorExperience({
                                 aria-label="Dismiss"
                                 className="flex-shrink-0 text-amber-200/60 hover:text-amber-100"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 16 16"
+                                  fill="currentColor"
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                >
                                   <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
                                 </svg>
                               </button>
@@ -3276,20 +3336,22 @@ export function EditorExperience({
                         {printCheckoutEnabled && (
                           <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-300/10 p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-amber-100">Buy a physical gift from this exact preview</p>
-                              <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                              <p className="text-xs font-semibold text-amber-100">
+                                Buy a physical gift from this exact preview
+                              </p>
+                              <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-100 uppercase">
                                 Framed + HD recommended
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-amber-100/85">
-                              Secure Stripe checkout. Shipping is shown before payment, and your print order is submitted
-                              after payment for production. Apple Pay, Google Pay, and Link show when available.{" "}
-                              {getPrintProductionTimelineLine()} {shippingDisclosure}
+                              Secure Stripe checkout. Shipping is shown before payment, and your print order
+                              is submitted after payment for production. Apple Pay, Google Pay, and Link show
+                              when available. {getPrintProductionTimelineLine()} {shippingDisclosure}
                             </p>
                             {activeMapLookTier === "minimal" && (
                               <p className="mt-2 rounded-lg border border-amber-200/30 bg-black/15 px-3 py-2 text-[11px] text-amber-50/90">
-                                Print preview note: your editor uses a transparent mat on Minimal. The print file adds a
-                                filled border so fulfillment has no transparent edges.
+                                Print preview note: your editor uses a transparent mat on Minimal. The print
+                                file adds a filled border so fulfillment has no transparent edges.
                               </p>
                             )}
                             {posterAspectMismatch && (
@@ -3301,8 +3363,11 @@ export function EditorExperience({
                                 <p className="mt-1">Digital only. Instant access after payment.</p>
                               </div>
                               <div className="rounded-xl border border-amber-300/35 bg-black/20 px-3 py-2 text-[11px] text-amber-100/90">
-                                <p className="font-semibold text-amber-100">Best gift</p>
-                                <p className="mt-1">Framed + HD — instant file plus shipped wall art. {getPrintFramedHdBundleShortLine()}</p>
+                                <p className="font-semibold text-amber-100">Premium gift</p>
+                                <p className="mt-1">
+                                  Framed + HD — instant file plus shipped wall art.{" "}
+                                  {getPrintFramedHdBundleShortLine()}
+                                </p>
                               </div>
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Lower total</p>
@@ -3310,15 +3375,21 @@ export function EditorExperience({
                               </div>
                             </div>
                             <div className="mt-3">
-                              <label className="text-[11px] font-semibold text-amber-100/80">Shipping country</label>
+                              <label className="text-[11px] font-semibold text-amber-100/80">
+                                Shipping country
+                              </label>
                               <select
                                 value={printShippingCountry ?? ""}
                                 onChange={(event) => {
                                   const next = event.target.value;
                                   setPrintShippingCountryValue(next, "editor-panel");
                                 }}
-                                className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs text-midnight"
-                                style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                                className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs"
+                                style={{
+                                  color: "#111827",
+                                  WebkitTextFillColor: "#111827",
+                                  colorScheme: "light",
+                                }}
                               >
                                 {printShippingCountryOptions.map((country) => (
                                   <option
@@ -3360,7 +3431,7 @@ export function EditorExperience({
                                   className={paywallPrintSkuButtonClassesEditorPanel(
                                     row,
                                     preferredPrintVariant,
-                                    preferredIncludeDigitalAddOn,
+                                    preferredIncludeDigitalAddOn
                                   )}
                                 >
                                   {checkoutInFlight ? (
@@ -3368,7 +3439,9 @@ export function EditorExperience({
                                   ) : (
                                     <span className="text-center leading-tight">
                                       <span className="block text-[11px] font-semibold">{row.headline}</span>
-                                      <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
+                                      <span className="block text-[10px] text-amber-100/95">
+                                        {row.secondaryLine}
+                                      </span>
                                     </span>
                                   )}
                                 </button>
@@ -3397,7 +3470,7 @@ export function EditorExperience({
                               <div className="mt-4 rounded-xl border border-amber-200/25 bg-white/10 p-3">
                                 <div className="flex items-center justify-between gap-2">
                                   <p className="text-[11px] font-semibold text-amber-100">Merch (beta)</p>
-                                  <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                                  <span className="rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-100 uppercase">
                                     New
                                   </span>
                                 </div>
@@ -3406,7 +3479,9 @@ export function EditorExperience({
                                 </p>
                                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                                   <div>
-                                    <label className="text-[10px] font-semibold text-amber-100/80">Product</label>
+                                    <label className="text-[10px] font-semibold text-amber-100/80">
+                                      Product
+                                    </label>
                                     <select
                                       value={selectedMerchFamily}
                                       onChange={(event) => {
@@ -3416,8 +3491,12 @@ export function EditorExperience({
                                         setSelectedMerchSize(nextFamily?.options.size?.[0] ?? "");
                                         setSelectedMerchColor(nextFamily?.options.color?.[0] ?? "");
                                       }}
-                                      className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
-                                      style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                                      className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px]"
+                                      style={{
+                                        color: "#111827",
+                                        WebkitTextFillColor: "#111827",
+                                        colorScheme: "light",
+                                      }}
                                     >
                                       {enabledMerchFamilies.map((family) => (
                                         <option key={family.id} value={family.id}>
@@ -3427,18 +3506,26 @@ export function EditorExperience({
                                     </select>
                                   </div>
                                   {(() => {
-                                    const family = enabledMerchFamilies.find((f) => f.id === selectedMerchFamily);
+                                    const family = enabledMerchFamilies.find(
+                                      (f) => f.id === selectedMerchFamily
+                                    );
                                     if (!family) return null;
                                     return (
                                       <>
                                         {family.options.color?.length ? (
                                           <div>
-                                            <label className="text-[10px] font-semibold text-amber-100/80">Color</label>
+                                            <label className="text-[10px] font-semibold text-amber-100/80">
+                                              Color
+                                            </label>
                                             <select
                                               value={selectedMerchColor || family.options.color[0] || ""}
                                               onChange={(event) => setSelectedMerchColor(event.target.value)}
-                                              className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
-                                              style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                                              className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px]"
+                                              style={{
+                                                color: "#111827",
+                                                WebkitTextFillColor: "#111827",
+                                                colorScheme: "light",
+                                              }}
                                             >
                                               <option value="">Select…</option>
                                               {family.options.color.map((c) => (
@@ -3450,13 +3537,23 @@ export function EditorExperience({
                                           </div>
                                         ) : null}
                                         {family.options.size?.length ? (
-                                          <div className={family.options.color?.length ? "sm:col-span-2" : undefined}>
-                                            <label className="text-[10px] font-semibold text-amber-100/80">Size</label>
+                                          <div
+                                            className={
+                                              family.options.color?.length ? "sm:col-span-2" : undefined
+                                            }
+                                          >
+                                            <label className="text-[10px] font-semibold text-amber-100/80">
+                                              Size
+                                            </label>
                                             <select
                                               value={selectedMerchSize || family.options.size[0] || ""}
                                               onChange={(event) => setSelectedMerchSize(event.target.value)}
-                                              className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
-                                              style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
+                                              className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px]"
+                                              style={{
+                                                color: "#111827",
+                                                WebkitTextFillColor: "#111827",
+                                                colorScheme: "light",
+                                              }}
                                             >
                                               <option value="">Select…</option>
                                               {family.options.size.map((s) => (
@@ -3478,18 +3575,22 @@ export function EditorExperience({
                                       family: selectedMerchFamily,
                                       size:
                                         selectedMerchSize ||
-                                        enabledMerchFamilies.find((f) => f.id === selectedMerchFamily)?.options.size?.[0] ||
+                                        enabledMerchFamilies.find((f) => f.id === selectedMerchFamily)
+                                          ?.options.size?.[0] ||
                                         undefined,
                                       color:
                                         selectedMerchColor ||
-                                        enabledMerchFamilies.find((f) => f.id === selectedMerchFamily)?.options.color?.[0] ||
+                                        enabledMerchFamilies.find((f) => f.id === selectedMerchFamily)
+                                          ?.options.color?.[0] ||
                                         undefined,
                                     })
                                   }
                                   disabled={checkoutInFlight || !printShippingCountry}
                                   className="mt-3 w-full rounded-full border border-amber-200/70 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
                                 >
-                                  {checkoutInFlight ? "Opening secure checkout..." : "Checkout selected merch"}
+                                  {checkoutInFlight
+                                    ? "Opening secure checkout..."
+                                    : "Checkout selected merch"}
                                 </button>
                               </div>
                             ) : null}
@@ -3566,7 +3667,9 @@ export function EditorExperience({
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
-              giftPaywallContext={isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined}
+              giftPaywallContext={
+                isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined
+              }
               showReferralHint={Boolean(getCheckoutReferralCode())}
               onStartCheckout={(plan) => {
                 setPaywallIntent("digital");

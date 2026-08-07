@@ -70,7 +70,7 @@ export default function StarMapGeneratorPage() {
   const tiers = getPricingTiers();
   const printTiers = getPrintPricingTiers();
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
   );
   const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
   const productOffers = [
@@ -99,25 +99,27 @@ export default function StarMapGeneratorPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Free star map generator — night sky by date</h1>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">
+          Free star map generator — night sky by date
+        </h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Use our free star map generator to preview the exact night sky for any date and location. When it looks right,
-          upgrade to framed print, unframed poster, or instant HD — no watermark on paid exports.
+          Use our free star map generator to preview the exact night sky for any date and location. When it
+          looks right, upgrade to framed print, unframed poster, or instant HD — no watermark on paid exports.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href="/editor?mode=quick&source=star-map-generator-hero-preview"
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Start free preview
           </Link>
           <Link
             href={instantHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Instant HD from {instantPrice}
           </Link>
@@ -137,7 +139,7 @@ export default function StarMapGeneratorPage() {
             printVariant: "poster_framed",
             plan: "print_framed",
             tone: "recommended",
-            detail: "Best if you want the finished piece to arrive ready to display.",
+            detail: "Use framed when the finished piece should arrive ready to display.",
           },
           {
             label: "Preview unframed print",
@@ -146,7 +148,7 @@ export default function StarMapGeneratorPage() {
             printVariant: "poster_unframed",
             plan: "print_unframed",
             tone: "default",
-            detail: "Best if you want the physical print with a lower total.",
+            detail: "Use unframed when you want the physical print with a lower total.",
           },
           {
             label: "Preview first, decide later",
@@ -164,10 +166,10 @@ export default function StarMapGeneratorPage() {
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Generate a map that is actually accurate</h2>
+        <h2 className="text-midnight text-xl font-semibold">Generate a map that is actually accurate</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          This is not a stock illustration. The map is calculated from real astronomical data so the constellations and star
-          positions match your date and location.
+          This is not a stock illustration. The map is calculated from real astronomical data so the
+          constellations and star positions match your date and location.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate to the minute and precise location</li>
@@ -189,17 +191,19 @@ export default function StarMapGeneratorPage() {
         id="how-to-use-generator"
         className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5"
       >
-        <h2 className="text-lg font-semibold text-midnight">How to use the star map generator</h2>
+        <h2 className="text-midnight text-lg font-semibold">How to use the star map generator</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li id="generator-step-1">Enter the date, time, and location that matter to you</li>
           <li id="generator-step-2">Choose a style, shape, and text layout</li>
           <li id="generator-step-3">Preview the sky instantly</li>
-          <li id="generator-step-4">Choose framed print, unframed print, or HD digital delivery at checkout</li>
+          <li id="generator-step-4">
+            Choose framed print, unframed print, or HD digital delivery at checkout
+          </li>
         </ol>
         <div className="pt-2">
           <Link
             href="/editor?mode=quick&source=star-map-generator-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Start with framed print preview
           </Link>
@@ -207,10 +211,10 @@ export default function StarMapGeneratorPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Popular use cases</h2>
+        <h2 className="text-midnight text-lg font-semibold">Popular use cases</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Star map generators are commonly used for anniversaries, weddings, births, and memorials. Add a title, names, and a
-          short dedication to make it personal.
+          Star map generators are commonly used for anniversaries, weddings, births, and memorials. Add a
+          title, names, and a short dedication to make it personal.
         </p>
         <div className="flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           <Link
@@ -295,7 +299,7 @@ export default function StarMapGeneratorPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Need inspiration?</h2>
+        <h2 className="text-midnight text-lg font-semibold">Need inspiration?</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Browse real examples or explore curated gift ideas before you build your own.
         </p>
@@ -328,47 +332,60 @@ export default function StarMapGeneratorPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Star map generator FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">Star map generator FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           <div>
-            <h3 className="font-semibold text-midnight">How accurate is the star map generator?</h3>
+            <h3 className="text-midnight font-semibold">How accurate is the star map generator?</h3>
             <p>
               The star map generator uses real astronomical data — not an illustration — so star positions and
               constellations match your chosen date, time, and location to the minute.{" "}
-              <Link href="/how-accurate-are-star-maps" className="font-semibold text-amber-700 hover:underline">
+              <Link
+                href="/how-accurate-are-star-maps"
+                className="font-semibold text-amber-700 hover:underline"
+              >
                 Read the full accuracy guide
               </Link>
               .
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I create a star map for any date and location?</h3>
+            <h3 className="text-midnight font-semibold">
+              Can I create a star map for any date and location?
+            </h3>
             <p>
-              Yes. Enter any date, time, and place worldwide to generate a custom night sky map. You can preview the result for free before choosing framed print, unframed print, or HD digital delivery.
+              Yes. Enter any date, time, and place worldwide to generate a custom night sky map. You can
+              preview the result for free before choosing framed print, unframed print, or HD digital
+              delivery.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Is this star map generator free?</h3>
+            <h3 className="text-midnight font-semibold">Is this star map generator free?</h3>
             <p>
-              Yes — the preview is free and requires no account. HD downloads and physical prints are paid upgrades after you approve the design. We do not offer free PDF or wallpaper downloads.
+              Yes — the preview is free and requires no account. HD downloads and physical prints are paid
+              upgrades after you approve the design. We do not offer free PDF or wallpaper downloads.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I generate a birthday star map?</h3>
+            <h3 className="text-midnight font-semibold">Can I generate a birthday star map?</h3>
             <p>
-              Yes. Enter the birthday date and the location where the person was born (or where they celebrated) to generate the exact night sky for that moment. The result works as a framed print, unframed poster, or instant HD digital gift.
+              Yes. Enter the birthday date and the location where the person was born (or where they
+              celebrated) to generate the exact night sky for that moment. The result works as a framed print,
+              unframed poster, or instant HD digital gift.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">How do I generate a star map for an anniversary?</h3>
+            <h3 className="text-midnight font-semibold">How do I generate a star map for an anniversary?</h3>
             <p>
-              Enter the anniversary date and the location where the moment happened — a wedding venue, the city where you met, or anywhere meaningful. The generator shows the actual sky from that night. You can add names and a message, then order a framed print or HD digital.
+              Enter the anniversary date and the location where the moment happened — a wedding venue, the
+              city where you met, or anywhere meaningful. The generator shows the actual sky from that night.
+              You can add names and a message, then order a framed print or HD digital.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I customize the star map after generating it?</h3>
+            <h3 className="text-midnight font-semibold">Can I customize the star map after generating it?</h3>
             <p>
-              Yes. After generating the initial preview, you can change the style, shape, color, and label text directly in the editor before choosing a delivery format.
+              Yes. After generating the initial preview, you can change the style, shape, color, and label
+              text directly in the editor before choosing a delivery format.
             </p>
           </div>
         </div>

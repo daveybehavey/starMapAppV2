@@ -16,7 +16,11 @@ import {
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { getPrintDeliveryTimingFaqAnswer, getPrintPhysicalOrderSummaryLine, getPrintUrgentHdUpsellLine } from "@/lib/commerceFacts";
+import {
+  getPrintDeliveryTimingFaqAnswer,
+  getPrintPhysicalOrderSummaryLine,
+  getPrintUrgentHdUpsellLine,
+} from "@/lib/commerceFacts";
 import { getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
 
 type PriceLabels = {
@@ -32,16 +36,18 @@ type HomeStaticSectionsProps = {
   promoCode?: string;
 };
 
-export default function HomeStaticSections({
-  priceLabels,
-  promoStatus,
-  promoCode,
-}: HomeStaticSectionsProps) {
+export default function HomeStaticSections({ priceLabels, promoStatus, promoCode }: HomeStaticSectionsProps) {
   const printTiers = getPrintPricingTiers();
   const printDigitalAddOn = getPrintDigitalAddOnPrice();
   const printLabels = {
-    unframed: formatPrintPriceWithShipping(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
-    framed: formatPrintPriceWithShipping(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
+    unframed: formatPrintPriceWithShipping(
+      printTiers.poster_unframed.amountCents,
+      printTiers.poster_unframed.currency
+    ),
+    framed: formatPrintPriceWithShipping(
+      printTiers.poster_framed.amountCents,
+      printTiers.poster_framed.currency
+    ),
     digitalAddOn: formatPrice(printDigitalAddOn.amountCents, printDigitalAddOn.currency),
   };
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
@@ -65,24 +71,39 @@ export default function HomeStaticSections({
           className="shadow-2xl shadow-black/20"
         />
         <p className="mt-3 text-center text-xs text-neutral-300 sm:text-sm">
-          Most buyers choose framed + HD ({bundlePriceLine}). Browse by occasion:{" "}
-          <Link href="/wedding" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+          Recommended presentation is framed + HD ({bundlePriceLine}). Browse by occasion:{" "}
+          <Link
+            href="/wedding"
+            className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
+          >
             wedding
           </Link>
           ,{" "}
-          <Link href="/anniversary" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+          <Link
+            href="/anniversary"
+            className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
+          >
             anniversary
           </Link>
           ,{" "}
-          <Link href="/birthday" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+          <Link
+            href="/birthday"
+            className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
+          >
             birthday
           </Link>
           ,{" "}
-          <Link href="/hd-star-map" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+          <Link
+            href="/hd-star-map"
+            className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
+          >
             instant HD
           </Link>
           , or{" "}
-          <Link href="/star-map-for/new-baby" className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200">
+          <Link
+            href="/star-map-for/new-baby"
+            className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
+          >
             new baby
           </Link>
           .
@@ -107,7 +128,7 @@ export default function HomeStaticSections({
           ]}
           rightTitle="Print and delivery clarity"
           rightPoints={[
-            "Most gift buyers start with framed print; unframed stays available if you already have a frame plan",
+            "Framed print is the premium gift route; unframed stays available if you already have a frame plan",
             shippingDisclosure,
             getPrintPhysicalOrderSummaryLine(),
             getPrintUrgentHdUpsellLine(),
@@ -122,11 +143,13 @@ export default function HomeStaticSections({
           items={[
             {
               title: "The same map you approved in preview",
-              detail: "Your final export is generated from the same design, date, and location shown in the editor.",
+              detail:
+                "Your final export is generated from the same design, date, and location shown in the editor.",
             },
             {
               title: "HD watermark-free file",
-              detail: "Paid digital exports are high resolution and ready for local poster printing or framing.",
+              detail:
+                "Paid digital exports are high resolution and ready for local poster printing or framing.",
             },
             {
               title: "Physical checkout when you want it",
@@ -140,7 +163,7 @@ export default function HomeStaticSections({
         />
         <RevenueTrustModule
           heading="Remove the last-minute hesitation"
-          intro="Most buyers only need three things before checkout: confidence in the file, clarity on print delivery, and reassurance that support exists if anything goes wrong."
+          intro="Before checkout: confidence in the file, clarity on print delivery, and support if anything goes wrong."
         />
       </section>
 
@@ -148,9 +171,12 @@ export default function HomeStaticSections({
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <div className="rounded-3xl border border-white/12 bg-white/5 px-5 py-4 text-center text-neutral-200 shadow-sm shadow-black/20 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">Delivery now available</p>
+          <p className="text-xs font-semibold tracking-[0.25em] text-amber-300 uppercase">
+            Delivery now available
+          </p>
           <p className="mt-2 text-sm sm:text-base">
-            Preview first, then choose gift-ready framed print, unframed poster, or HD digital delivery from the same design.
+            Preview first, then choose gift-ready framed print, unframed poster, or HD digital delivery from
+            the same design.
           </p>
           <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
         </div>
@@ -162,16 +188,21 @@ export default function HomeStaticSections({
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible">
+      <section className="content-visibility-auto fade-in-up visible mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20">
         <div className="space-y-6 lg:space-y-8">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">What your map could look like</p>
-            <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">See the render and the framed finish before you start</h2>
+            <p className="text-xs font-semibold tracking-[0.25em] text-amber-400 uppercase">
+              What your map could look like
+            </p>
+            <h2 className="text-3xl font-semibold text-white max-[374px]:text-[1.65rem] sm:text-4xl">
+              See the render and the framed finish before you start
+            </h2>
             <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              A mix of current-engine renders and real product mockups, so buyers can judge both the on-screen design and the physical gift before checkout.
+              A mix of current-engine renders and real product mockups, so buyers can judge both the on-screen
+              design and the physical gift before checkout.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 xl:grid-cols-4 lg:gap-6 stagger-children visible">
+          <div className="stagger-children visible grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 lg:gap-6 xl:grid-cols-4">
             {[
               {
                 imageSrc: proofImages.framed,
@@ -214,11 +245,11 @@ export default function HomeStaticSections({
                   />
                 </div>
                 <div className="border-t border-white/10 px-4 py-3 text-white">
-                  <div className="flex items-center justify-between text-sm font-semibold leading-tight">
+                  <div className="flex items-center justify-between text-sm leading-tight font-semibold">
                     <span>
                       {item.occasion} · {item.renderMode}
                     </span>
-                    <span className="badge-glow rounded-full border border-amber-300/40 bg-amber-400/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-200">
+                    <span className="badge-glow rounded-full border border-amber-300/40 bg-amber-400/20 px-2.5 py-1 text-[11px] font-bold tracking-wider text-amber-200 uppercase">
                       {item.badge}
                     </span>
                   </div>
@@ -228,7 +259,8 @@ export default function HomeStaticSections({
             ))}
           </div>
           <p className="text-sm text-neutral-200 sm:text-base lg:text-[13px] lg:leading-snug">
-            Compare the physical product mockups with current-engine render examples before you ever reach checkout. The goal is simple: no guessing about what the gift will look like.
+            Compare the physical product mockups with current-engine render examples before you ever reach
+            checkout. The goal is simple: no guessing about what the gift will look like.
           </p>
         </div>
       </section>
@@ -237,17 +269,20 @@ export default function HomeStaticSections({
 
       <section
         id="how-it-works"
-        className="content-visibility-auto mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20 fade-in-up visible scroll-mt-24"
+        className="content-visibility-auto fade-in-up visible mx-auto w-full max-w-7xl scroll-mt-24 py-12 sm:py-16 lg:py-20"
       >
         <div className="space-y-8">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">How it works</p>
-            <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold text-white sm:text-4xl">From date to finished star map</h2>
+            <p className="text-xs font-semibold tracking-[0.25em] text-amber-400 uppercase">How it works</p>
+            <h2 className="text-3xl font-semibold text-white max-[374px]:text-[1.65rem] sm:text-4xl">
+              From date to finished star map
+            </h2>
             <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              Pick a meaningful moment, see the night sky instantly, personalize, and export a print-ready map in minutes.
+              Pick a meaningful moment, see the night sky instantly, personalize, and export a print-ready map
+              in minutes.
             </p>
           </div>
-          <div className="relative grid gap-6 md:grid-cols-3 md:gap-8 stagger-children visible">
+          <div className="stagger-children visible relative grid gap-6 md:grid-cols-3 md:gap-8">
             <div className="connecting-line hidden md:block" />
 
             {[
@@ -267,7 +302,10 @@ export default function HomeStaticSections({
                 desc: "Download a high-res file ready for framing or gifting.",
               },
             ].map((step) => (
-              <div key={step.title} className="glass-panel rounded-2xl border border-white/10 p-6 text-white shadow-lg">
+              <div
+                key={step.title}
+                className="glass-panel rounded-2xl border border-white/10 p-6 text-white shadow-lg"
+              >
                 <div className="mb-4 text-3xl">{step.icon}</div>
                 <h3 className="text-lg font-semibold">{step.title}</h3>
                 <p className="mt-2 text-sm text-neutral-200">{step.desc}</p>
@@ -279,10 +317,10 @@ export default function HomeStaticSections({
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14 fade-in-up visible">
-        <div className="space-y-6 text-midnight">
+      <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel fade-in-up visible mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
+        <div className="text-midnight space-y-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">FAQ</p>
+            <p className="text-xs font-semibold tracking-[0.35em] text-amber-500 uppercase">FAQ</p>
             <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Quick answers</h2>
             <p className="mt-3 text-sm text-neutral-800 sm:text-base">
               Fast clarity on accuracy, delivery, and what buyers actually receive.
@@ -319,8 +357,11 @@ export default function HomeStaticSections({
                 a: "Email support@starmapco.com and we will help resolve the issue.",
               },
             ].map((item) => (
-              <div key={item.q} className="rounded-2xl border border-amber-200/70 bg-white/82 p-4 shadow-[0_10px_24px_rgba(14,22,40,0.08)]">
-                <h3 className="text-base font-semibold text-midnight">{item.q}</h3>
+              <div
+                key={item.q}
+                className="rounded-2xl border border-amber-200/70 bg-white/82 p-4 shadow-[0_10px_24px_rgba(14,22,40,0.08)]"
+              >
+                <h3 className="text-midnight text-base font-semibold">{item.q}</h3>
                 <p className="mt-2 text-sm text-neutral-800">{item.a}</p>
               </div>
             ))}
@@ -329,13 +370,13 @@ export default function HomeStaticSections({
             <div className="flex flex-wrap items-center gap-3">
               <a
                 href="#preview"
-                className="cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-midnight shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
+                className="cta-gradient text-midnight inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
               >
                 Ready to create yours? Start free preview →
               </a>
               <Link
                 href="/how-accurate-are-star-maps"
-                className="inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-white/70 px-5 py-2.5 text-sm font-semibold text-midnight transition hover:-translate-y-1 hover:bg-white"
+                className="text-midnight inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-white/70 px-5 py-2.5 text-sm font-semibold transition hover:-translate-y-1 hover:bg-white"
               >
                 Read the accuracy guide
               </Link>
@@ -347,8 +388,8 @@ export default function HomeStaticSections({
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
       <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 sm:pb-12 lg:px-8">
-        <div className="rounded-3xl border border-amber-200/60 bg-white/80 p-6 text-midnight shadow-md sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-600">Explore more</p>
+        <div className="text-midnight rounded-3xl border border-amber-200/60 bg-white/80 p-6 shadow-md sm:p-8">
+          <p className="text-xs font-semibold tracking-[0.25em] text-amber-600 uppercase">Explore more</p>
           <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Popular star map destinations</h2>
           <p className="mt-3 text-sm text-neutral-700 sm:text-base">
             Jump straight to high-intent pages for gifts, posters, and instant star map generators.
