@@ -6,6 +6,7 @@ import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
   buildPrintAssetUrl,
+  extractCheckoutPhoneFromStripeSession,
   getPrintMinChargeCents,
   getPrintRecipient,
   hasSufficientPrintCharge,
@@ -52,7 +53,11 @@ function extractShippingDetails(session: Stripe.Checkout.Session): Stripe.Checko
 }
 
 async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<PrintOrderRecord> {
-  if (getPrintRecipient(existing)) return existing;
+  // Refresh when shipping/recipient is incomplete, or when customerPhone was never
+  // considered (legacy records predating phone persistence). Do not invent a phone.
+  const hasRecipient = Boolean(getPrintRecipient(existing));
+  const phoneAlreadyConsidered = existing.customerPhone !== undefined;
+  if (hasRecipient && phoneAlreadyConsidered) return existing;
   if (!stripe) return existing;
   try {
     const session = await stripe.checkout.sessions.retrieve(existing.sessionId);
@@ -65,11 +70,13 @@ async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<Pr
       currency: session.currency ?? existing.currency ?? null,
       customerEmail: session.customer_details?.email ?? session.customer_email ?? existing.customerEmail ?? null,
       customerName: session.customer_details?.name ?? existing.customerName ?? null,
+      customerPhone: extractCheckoutPhoneFromStripeSession(session) ?? existing.customerPhone ?? null,
       shippingDetails: extractShippingDetails(session) ?? existing.shippingDetails ?? null,
     };
     if (
       updated.customerEmail !== existing.customerEmail ||
       updated.customerName !== existing.customerName ||
+      updated.customerPhone !== existing.customerPhone ||
       JSON.stringify(updated.shippingDetails) !== JSON.stringify(existing.shippingDetails)
     ) {
       await kv.set(printOrderKey(existing.sessionId), updated);

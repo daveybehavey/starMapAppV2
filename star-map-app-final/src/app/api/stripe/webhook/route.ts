@@ -16,6 +16,7 @@ import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/prin
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
   buildPrintAssetUrl,
+  extractCheckoutPhoneFromStripeSession,
   getPrintMinChargeCents,
   getPrintRecipient,
   hasSufficientPrintCharge,
@@ -826,6 +827,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     currency: session.currency,
     customerEmail: session.customer_details?.email ?? session.customer_email ?? null,
     customerName: session.customer_details?.name ?? null,
+    customerPhone: extractCheckoutPhoneFromStripeSession(session),
     shippingDetails: extractShippingDetails(session),
     attempts: (existing?.attempts ?? 0) + 1,
     createdAt: existing?.createdAt ?? Date.now(),
@@ -878,6 +880,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         currency: latest.currency ?? payload.currency ?? null,
         customerEmail: latest.customer_details?.email ?? latest.customer_email ?? payload.customerEmail ?? null,
         customerName: latest.customer_details?.name ?? payload.customerName ?? null,
+        customerPhone: extractCheckoutPhoneFromStripeSession(latest) ?? payload.customerPhone ?? null,
         shippingDetails: extractShippingDetails(latest),
       };
       await kv.set(printOrderKey(session.id), payload);

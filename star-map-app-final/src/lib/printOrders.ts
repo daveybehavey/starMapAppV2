@@ -22,6 +22,11 @@ export type PrintOrderRecord = {
   currency?: string | null;
   customerEmail?: string | null;
   customerName?: string | null;
+  /**
+   * Checkout phone from Stripe `customer_details.phone` (phone_number_collection).
+   * Optional for Printful/carriers; null/absent means do not invent a fallback.
+   */
+  customerPhone?: string | null;
   shippingDetails?: Stripe.Checkout.Session.ShippingDetails | null;
   /** Captured at checkout creation for margin guard + ops. */
   shippingChargeCents?: number | null;
@@ -81,6 +86,27 @@ export function buildPrintAssetUrl(siteUrl: string, assetId: string) {
   return `${normalizedSite}/api/print/assets?id=${encodeURIComponent(assetId)}`;
 }
 
+/** Trim and keep non-empty checkout phone strings; otherwise null (no invented fallback). */
+export function normalizeCheckoutPhone(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Trusted Stripe Checkout phone sources for print fulfillment.
+ * Prefer `customer_details.phone` (phone_number_collection), then shipping phone if present.
+ */
+export function extractCheckoutPhoneFromStripeSession(session: {
+  customer_details?: { phone?: string | null } | null;
+  shipping_details?: { phone?: string | null } | null;
+}): string | null {
+  return (
+    normalizeCheckoutPhone(session.customer_details?.phone) ??
+    normalizeCheckoutPhone(session.shipping_details?.phone)
+  );
+}
+
 export function getPrintRecipient(record: PrintOrderRecord) {
   const shippingAddress = record.shippingDetails?.address;
   const shippingName = record.shippingDetails?.name?.trim() || record.customerName?.trim() || "";
@@ -96,10 +122,15 @@ export function getPrintRecipient(record: PrintOrderRecord) {
     return null;
   }
 
+  const phone =
+    normalizeCheckoutPhone(record.customerPhone) ??
+    normalizeCheckoutPhone(record.shippingDetails?.phone) ??
+    undefined;
+
   return {
     name: shippingName,
     email: email || undefined,
-    phone: undefined,
+    phone,
     address1: shippingAddress.line1,
     address2: shippingAddress.line2 || undefined,
     city: shippingAddress.city,
