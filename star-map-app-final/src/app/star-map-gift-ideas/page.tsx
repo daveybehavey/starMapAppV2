@@ -85,20 +85,26 @@ export default function StarMapGiftIdeasPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gift Ideas</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Find the most meaningful star map gift for any occasion. Use seasonal ideas below or start with your own moment,
-          then choose framed print, unframed print, or HD digital delivery.
+          Find the most meaningful star map gift for any occasion. Use seasonal ideas below or start with your
+          own moment, then choose framed print, unframed print, or HD digital delivery.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Framed print
+          </span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Unframed print
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
+            HD digital delivery
+          </span>
         </div>
       </header>
 
@@ -114,7 +120,7 @@ export default function StarMapGiftIdeasPage() {
             printVariant: "poster_framed",
             plan: "print_framed",
             tone: "recommended",
-            detail: "Best when the gift should arrive ready to hang.",
+            detail: "Use framed when the gift should arrive ready to hang.",
           },
           {
             label: "Preview unframed print",
@@ -123,7 +129,7 @@ export default function StarMapGiftIdeasPage() {
             printVariant: "poster_unframed",
             plan: "print_unframed",
             tone: "default",
-            detail: "Best if you want the physical print but already know the frame plan.",
+            detail: "Use unframed when you want the physical print but already know the frame plan.",
           },
           {
             label: "Preview first, decide later",
@@ -149,43 +155,65 @@ export default function StarMapGiftIdeasPage() {
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-midnight">Gift finder (2 quick steps)</h2>
+          <h2 className="text-midnight text-xl font-semibold">Gift finder (2 quick steps)</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
             Pick the occasion, then choose a look for inspiration. You&apos;ll land on the best page to start.
           </p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-            <h3 className="text-sm font-semibold text-midnight">1) Choose the occasion</h3>
+            <h3 className="text-midnight text-sm font-semibold">1) Choose the occasion</h3>
             <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
-              <Link href="/anniversary" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link
+                href="/anniversary"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
                 Anniversary
               </Link>
-              <Link href="/wedding" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link
+                href="/wedding"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
                 Wedding
               </Link>
-              <Link href="/birthday" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link
+                href="/birthday"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
                 Birthday
               </Link>
-              <Link href="/star-map-for/graduation" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link
+                href="/star-map-for/graduation"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
                 Graduation
               </Link>
-              <Link href="/star-map-for/new-baby" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link
+                href="/star-map-for/new-baby"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
                 New Baby
               </Link>
-              <Link href="/star-map-for/memorial" className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+              <Link
+                href="/star-map-for/memorial"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
                 Memorial
               </Link>
             </div>
           </div>
           <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-            <h3 className="text-sm font-semibold text-midnight">2) Choose a look</h3>
+            <h3 className="text-midnight text-sm font-semibold">2) Choose a look</h3>
             <p className="mt-2 text-xs text-neutral-700">
               Each style has its own feel. Browse the gallery to see real examples.
             </p>
             <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
               {galleryStyleQuickLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5">
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+                >
                   {link.label}
                 </Link>
               ))}
@@ -196,17 +224,21 @@ export default function StarMapGiftIdeasPage() {
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-midnight">Seasonal gift ideas</h2>
+          <h2 className="text-midnight text-xl font-semibold">Seasonal gift ideas</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            These holidays bring the most gift searches each year. Pick one and personalize the night that matters.
+            These holidays bring the most gift searches each year. Pick one and personalize the night that
+            matters.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {seasonalIdeas.map((idea) => (
             <div key={idea.href} className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-              <h3 className="text-base font-semibold text-midnight">{idea.title}</h3>
+              <h3 className="text-midnight text-base font-semibold">{idea.title}</h3>
               <p className="mt-2 text-sm text-neutral-800">{idea.description}</p>
-              <Link href={idea.href} className="mt-3 inline-flex text-sm font-semibold text-amber-700 underline hover:text-amber-800">
+              <Link
+                href={idea.href}
+                className="mt-3 inline-flex text-sm font-semibold text-amber-700 underline hover:text-amber-800"
+              >
                 View {idea.title} ideas
               </Link>
             </div>
@@ -215,10 +247,11 @@ export default function StarMapGiftIdeasPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Milestone gift ideas</h2>
+        <h2 className="text-midnight text-lg font-semibold">Milestone gift ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Star maps shine for anniversaries, weddings, birthdays, new homes, and memorials. Start with one free preview,
-          then take the framed route, unframed route, or HD digital route that fits your timing and budget.
+          Star maps shine for anniversaries, weddings, birthdays, new homes, and memorials. Start with one
+          free preview, then take the framed route, unframed route, or HD digital route that fits your timing
+          and budget.
         </p>
         <div className="flex flex-wrap gap-3 text-sm font-semibold">
           <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
@@ -255,15 +288,20 @@ export default function StarMapGiftIdeasPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Star map gift ideas FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">Star map gift ideas FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           <div>
-            <h3 className="font-semibold text-midnight">What date should I choose for a gift?</h3>
-            <p>Pick the moment that means the most — the day you met, the proposal, a birth, or a shared trip.</p>
+            <h3 className="text-midnight font-semibold">What date should I choose for a gift?</h3>
+            <p>
+              Pick the moment that means the most — the day you met, the proposal, a birth, or a shared trip.
+            </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I preview the map before purchasing?</h3>
-            <p>Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD digital delivery.</p>
+            <h3 className="text-midnight font-semibold">Can I preview the map before purchasing?</h3>
+            <p>
+              Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD
+              digital delivery.
+            </p>
           </div>
         </div>
       </section>
@@ -271,11 +309,13 @@ export default function StarMapGiftIdeasPage() {
         items={[
           {
             question: "What date should I choose for a gift?",
-            answer: "Pick the moment that means the most — the day you met, the proposal, a birth, or a shared trip.",
+            answer:
+              "Pick the moment that means the most — the day you met, the proposal, a birth, or a shared trip.",
           },
           {
             question: "Can I preview the map before purchasing?",
-            answer: "Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD digital delivery.",
+            answer:
+              "Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD digital delivery.",
           },
         ]}
       />

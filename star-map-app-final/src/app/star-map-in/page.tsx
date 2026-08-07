@@ -44,23 +44,30 @@ export default function StarMapByCityPage() {
   const indexableLocations = seoLocations.filter((location) => isIndexableLocationSlug(location.slug));
 
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-5xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map by City</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          Pick your city to create a custom star map of the exact night sky from a meaningful date and location.
+          Pick your city to create a custom star map of the exact night sky from a meaningful date and
+          location.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Framed print
+          </span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Unframed print
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
+            HD digital delivery
+          </span>
         </div>
       </header>
 
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Popular locations</h2>
+        <h2 className="text-midnight text-xl font-semibold">Popular locations</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
           Each page includes tailored examples, FAQs, and a direct path into the editor.
         </p>
@@ -78,14 +85,15 @@ export default function StarMapByCityPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Start your map in minutes</h2>
+        <h2 className="text-midnight text-lg font-semibold">Start your map in minutes</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          Enter your date and location, preview the exact sky, and then choose framed print, unframed print, or HD digital delivery when ready.
+          Enter your date and location, preview the exact sky, and then choose framed print, unframed print,
+          or HD digital delivery when ready.
         </p>
         <div className="pt-3">
           <Link
             href="/editor?mode=quick&source=star-map-in-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Start with framed print preview
           </Link>
@@ -104,7 +112,7 @@ export default function StarMapByCityPage() {
             printVariant: "poster_framed",
             plan: "print_framed",
             tone: "recommended",
-            detail: "Best if you want the finished map to arrive ready to display.",
+            detail: "Use framed when the finished map should arrive ready to display.",
           },
           {
             label: "Preview unframed print",
@@ -113,7 +121,7 @@ export default function StarMapByCityPage() {
             printVariant: "poster_unframed",
             plan: "print_unframed",
             tone: "default",
-            detail: "Best if you already know the frame plan.",
+            detail: "Use unframed when you already know the frame plan.",
           },
           {
             label: "Preview first, decide later",

@@ -18,7 +18,8 @@ const steps = [
   },
   {
     title: "Checkout when it looks right",
-    detail: "Choose framed + HD, unframed, or HD-only. Shipping and total show before Stripe — no surprise fees.",
+    detail:
+      "Choose framed + HD, unframed, or HD-only. Shipping and total show before Stripe — no surprise fees.",
   },
   {
     title: "HD instant · print ships after checkout",
@@ -35,11 +36,12 @@ export default function WeddingGiftJourneySection() {
   return (
     <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">How it works</p>
-        <h2 className="text-xl font-semibold text-midnight sm:text-2xl">From preview to gift-ready</h2>
+        <p className="text-xs font-semibold tracking-[0.22em] text-amber-800 uppercase">How it works</p>
+        <h2 className="text-midnight text-xl font-semibold sm:text-2xl">From preview to gift-ready</h2>
         <p className="max-w-2xl text-sm text-neutral-800 sm:text-base">
-          Most wedding buyers start with the <span className="font-semibold text-midnight">{bundleLine}</span> bundle.
-          You only pay after the map feels right.
+          The recommended presentation starts with the{" "}
+          <span className="text-midnight font-semibold">{bundleLine}</span> bundle. You only pay after the map
+          feels right.
         </p>
       </div>
 
@@ -49,19 +51,20 @@ export default function WeddingGiftJourneySection() {
             key={step.title}
             className="rounded-2xl border border-amber-100 bg-amber-50/50 px-4 py-4 shadow-sm"
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-800">
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-amber-800 uppercase">
               Step {index + 1}
             </p>
-            <h3 className="mt-1 text-base font-semibold text-midnight">{step.title}</h3>
+            <h3 className="text-midnight mt-1 text-base font-semibold">{step.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-neutral-700">{step.detail}</p>
           </li>
         ))}
       </ol>
 
       <div className="mt-5 rounded-2xl border border-black/5 bg-neutral-50 px-4 py-3 text-xs leading-relaxed text-neutral-700 sm:text-sm">
-        <span className="font-semibold text-midnight">Timing:</span> {getPrintFramedHdBundleShortLine()}{" "}
+        <span className="text-midnight font-semibold">Timing:</span> {getPrintFramedHdBundleShortLine()}{" "}
         {productionDisclosure} {getPrintUsTotalDeliveryEstimateLine()} {getPrintStandardShippingOnlyLine()}{" "}
-        {framedDelivery ? ` Carrier transit reference: ${framedDelivery.toLowerCase()}.` : ""} {shippingDisclosure}
+        {framedDelivery ? ` Carrier transit reference: ${framedDelivery.toLowerCase()}.` : ""}{" "}
+        {shippingDisclosure}
       </div>
     </section>
   );

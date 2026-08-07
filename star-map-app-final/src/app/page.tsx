@@ -209,7 +209,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Do I have to subscribe to buy a star map?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "No. Most buyers use one-time checkout for framed print, unframed print, or a single HD file. Subscription is optional only for repeat digital exports.",
+              text: "No. One-time checkout covers framed print, unframed print, or a single HD file. Subscription is optional only for repeat digital exports.",
             },
           },
           {

@@ -1,6 +1,10 @@
 import Link from "next/link";
 import ResilientImage from "@/components/ResilientImage";
-import { getPrintFramedHdBundleShortLine, getPrintPhysicalOrderSummaryLine, getPrintProductionBadgeLabel } from "@/lib/commerceFacts";
+import {
+  getPrintFramedHdBundleShortLine,
+  getPrintPhysicalOrderSummaryLine,
+  getPrintProductionBadgeLabel,
+} from "@/lib/commerceFacts";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
@@ -27,11 +31,11 @@ export default function FramedProofSection({
   const shippingDisclosure = getPrintShippingDisclosure();
   const framedPrice = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency,
+    printTiers.poster_framed.currency
   );
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed.amountCents,
-    printTiers.poster_unframed.currency,
+    printTiers.poster_unframed.currency
   );
   const digitalAddOnPrice = formatPrice(digitalAddOn.amountCents, digitalAddOn.currency);
   const framedProofImage = HOME_MOCKUPS.framedBedroom;
@@ -41,12 +45,12 @@ export default function FramedProofSection({
   const framedShippingDetail = formatPrintShippingEstimateWithDelivery(
     "poster_framed",
     proofShippingCountry,
-    "shipping",
+    "shipping"
   );
   const unframedShippingDetail = formatPrintShippingEstimateWithDelivery(
     "poster_unframed",
     proofShippingCountry,
-    "shipping",
+    "shipping"
   );
 
   return (
@@ -62,7 +66,7 @@ export default function FramedProofSection({
               sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover"
             />
-            <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
+            <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
               Framed print mockup
             </div>
           </div>
@@ -75,7 +79,7 @@ export default function FramedProofSection({
               sizes="(max-width: 1024px) 100vw, 25vw"
               className="object-cover"
             />
-            <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
+            <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
               Unframed poster mockup
             </div>
           </div>
@@ -88,42 +92,59 @@ export default function FramedProofSection({
               sizes="(max-width: 1024px) 100vw, 25vw"
               className="object-cover"
             />
-            <div className="absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold text-midnight shadow-sm">
+            <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
               HD digital delivery
             </div>
           </div>
         </div>
         <div className="space-y-4 p-6">
           <div className="space-y-2">
-            <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-900/90">
+            <div className="flex flex-wrap gap-2 text-[11px] font-semibold tracking-[0.2em] text-amber-900/90 uppercase">
               <span className="brand-pill rounded-full px-3 py-1">{availabilityBadge}</span>
-              <span className="rounded-full border border-black/10 bg-white/85 px-3 py-1 text-[#4f5a73]">{getPrintProductionBadgeLabel()}</span>
+              <span className="rounded-full border border-black/10 bg-white/85 px-3 py-1 text-[#4f5a73]">
+                {getPrintProductionBadgeLabel()}
+              </span>
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700">Framed in real spaces</p>
-            <h2 className="text-xl font-semibold text-midnight">{heading}</h2>
+            <p className="text-xs font-semibold tracking-[0.28em] text-amber-700 uppercase">
+              Framed in real spaces
+            </p>
+            <h2 className="text-midnight text-xl font-semibold">{heading}</h2>
             <p className="text-sm text-neutral-800 sm:text-base">{intro}</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="brand-light-card-accent rounded-2xl px-4 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Recommended</p>
-              <h3 className="mt-2 text-sm font-semibold text-midnight">{printTiers.poster_framed.label}</h3>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">
+                Recommended
+              </p>
+              <h3 className="text-midnight mt-2 text-sm font-semibold">{printTiers.poster_framed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{framedPrice}</p>
               <p className="mt-1 text-xs text-neutral-600">Est. to U.S.: {framedShippingDetail}</p>
-              <p className="mt-2 text-xs text-neutral-700">Ready-to-hang gift route with the frame already handled.</p>
+              <p className="mt-2 text-xs text-neutral-700">
+                Ready-to-hang gift route with the frame already handled.
+              </p>
             </div>
             <div className="brand-light-card rounded-2xl px-4 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Lower total</p>
-              <h3 className="mt-2 text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</h3>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">
+                Lower total
+              </p>
+              <h3 className="text-midnight mt-2 text-sm font-semibold">{printTiers.poster_unframed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{unframedPrice}</p>
               <p className="mt-1 text-xs text-neutral-600">Est. to U.S.: {unframedShippingDetail}</p>
-              <p className="mt-2 text-xs text-neutral-700">Best if you already know how you want to frame it yourself.</p>
+              <p className="mt-2 text-xs text-neutral-700">
+                Use this if you already know how you want to frame it yourself.
+              </p>
             </div>
             <div className="brand-light-card rounded-2xl px-4 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Instant backup</p>
-              <h3 className="mt-2 text-sm font-semibold text-midnight">HD digital add-on</h3>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">
+                Instant backup
+              </p>
+              <h3 className="text-midnight mt-2 text-sm font-semibold">HD digital add-on</h3>
               <p className="mt-1 text-sm text-neutral-700">{digitalAddOnPrice}</p>
-              <p className="mt-2 text-xs text-neutral-700">Delivered immediately after checkout, even when you order print. {getPrintFramedHdBundleShortLine()}</p>
+              <p className="mt-2 text-xs text-neutral-700">
+                Delivered immediately after checkout, even when you order print.{" "}
+                {getPrintFramedHdBundleShortLine()}
+              </p>
             </div>
           </div>
 
@@ -131,20 +152,21 @@ export default function FramedProofSection({
             <li className="brand-light-card rounded-2xl px-4 py-3">{shippingDisclosure}</li>
             <li className="brand-light-card rounded-2xl px-4 py-3">{getPrintPhysicalOrderSummaryLine()}</li>
             <li className="brand-light-card rounded-2xl px-4 py-3">
-              The same approved map can stay digital, ship unframed, or arrive framed without rebuilding the design.
+              The same approved map can stay digital, ship unframed, or arrive framed without rebuilding the
+              design.
             </li>
           </ul>
 
           <div className="flex flex-wrap gap-3">
             <Link
               href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-framed`)}&checkout=print&print_variant=poster_framed`}
-              className="inline-flex items-center justify-center rounded-full bg-midnight px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-midnight/90"
+              className="bg-midnight hover:bg-midnight/90 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-[1px]"
             >
               Start with framed preview
             </Link>
             <Link
               href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-unframed`)}&checkout=print&print_variant=poster_unframed`}
-              className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-neutral-50"
+              className="text-midnight inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold transition hover:-translate-y-[1px] hover:bg-neutral-50"
             >
               See unframed route
             </Link>

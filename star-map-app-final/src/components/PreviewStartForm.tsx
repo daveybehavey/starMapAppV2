@@ -35,7 +35,7 @@ function buildEditorAction(
   checkout?: "print" | "digital",
   printVariant?: PrintVariant,
   includeDigitalAddOn?: boolean,
-  includeCardAddOn?: boolean,
+  includeCardAddOn?: boolean
 ): string {
   const params = new URLSearchParams({
     mode: "quick",
@@ -69,42 +69,46 @@ export default function PreviewStartForm({
 }: PreviewStartFormProps) {
   const resolvedSource = source?.trim() || "preview-start-form";
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    const formData = new FormData(event.currentTarget);
-    const hasDate = String(formData.get("date") ?? "").trim().length > 0;
-    const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
+  const handleSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      const formData = new FormData(event.currentTarget);
+      const hasDate = String(formData.get("date") ?? "").trim().length > 0;
+      const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
 
-    if (!hasDate || !hasLocation) {
-      event.preventDefault();
-      setValidationMessage("Enter date and location first.");
-      return;
-    }
+      if (!hasDate || !hasLocation) {
+        event.preventDefault();
+        setValidationMessage("Enter date and location first.");
+        return;
+      }
 
-    setValidationMessage(null);
-    const nativeSubmitEvent = event.nativeEvent as SubmitEvent | undefined;
-    const submitter = nativeSubmitEvent?.submitter instanceof HTMLButtonElement ? nativeSubmitEvent.submitter : null;
-    const selectedSource = submitter?.dataset.source?.trim() || resolvedSource;
-    const selectedPlan = submitter?.dataset.plan?.trim() || "preview";
-    const selectedCheckout = submitter?.dataset.checkout?.trim() || undefined;
-    const selectedPrintVariant = submitter?.dataset.printVariant?.trim() || undefined;
+      setValidationMessage(null);
+      const nativeSubmitEvent = event.nativeEvent as SubmitEvent | undefined;
+      const submitter =
+        nativeSubmitEvent?.submitter instanceof HTMLButtonElement ? nativeSubmitEvent.submitter : null;
+      const selectedSource = submitter?.dataset.source?.trim() || resolvedSource;
+      const selectedPlan = submitter?.dataset.plan?.trim() || "preview";
+      const selectedCheckout = submitter?.dataset.checkout?.trim() || undefined;
+      const selectedPrintVariant = submitter?.dataset.printVariant?.trim() || undefined;
 
-    track("preview_start_submit", {
-      source: selectedSource,
-      plan: selectedPlan,
-      hasDate,
-      hasLocation,
-      checkout: selectedCheckout,
-      printVariant: selectedPrintVariant,
-    });
-    trackFunnelStep("hero_plan_click", {
-      source: selectedSource,
-      plan: selectedPlan,
-    });
-  }, [resolvedSource]);
+      track("preview_start_submit", {
+        source: selectedSource,
+        plan: selectedPlan,
+        hasDate,
+        hasLocation,
+        checkout: selectedCheckout,
+        printVariant: selectedPrintVariant,
+      });
+      trackFunnelStep("hero_plan_click", {
+        source: selectedSource,
+        plan: selectedPlan,
+      });
+    },
+    [resolvedSource]
+  );
 
   return (
     <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-      <h2 className="text-lg font-semibold text-midnight">{title}</h2>
+      <h2 className="text-midnight text-lg font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-neutral-800 sm:text-base">{description}</p>
       <form action="/editor" method="GET" className="mt-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -117,7 +121,7 @@ export default function PreviewStartForm({
               name="date"
               autoComplete="bday"
               placeholder={STANDARD_DATE_PLACEHOLDER}
-              className="ios-form-control min-w-0 w-full rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 placeholder:text-neutral-400 shadow-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-200"
+              className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none"
             />
           </div>
           <div className="min-w-0">
@@ -130,7 +134,7 @@ export default function PreviewStartForm({
               type="text"
               placeholder="City or address"
               autoComplete="address-level2"
-              className="ios-form-control min-w-0 w-full rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 placeholder:text-neutral-400 shadow-sm focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-200"
+              className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none"
             />
           </div>
         </div>
@@ -165,23 +169,25 @@ export default function PreviewStartForm({
                       intent.checkout,
                       intent.printVariant,
                       intent.includeDigitalAddOn,
-                      intent.includeCardAddOn,
+                      intent.includeCardAddOn
                     )}
                     data-source={actionSource}
                     data-plan={intent.plan}
                     data-checkout={intent.checkout}
                     data-print-variant={intent.printVariant}
-                    className={`rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50 ${toneClass}`}
+                    className={`focus:ring-gold rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
                   >
                     <span className="block text-sm font-semibold">{intent.label}</span>
-                    {intent.detail ? <span className="mt-1 block text-xs opacity-90">{intent.detail}</span> : null}
+                    {intent.detail ? (
+                      <span className="mt-1 block text-xs opacity-90">{intent.detail}</span>
+                    ) : null}
                   </button>
                 );
               })}
             </div>
             <p className="text-xs text-neutral-600">
-              These quick-start buttons keep your date and location, then open the editor with the matching checkout
-              path already selected.
+              These quick-start buttons keep your date and location, then open the editor with the matching
+              checkout path already selected.
             </p>
           </div>
         ) : (
@@ -190,15 +196,14 @@ export default function PreviewStartForm({
             formAction={buildEditorAction(resolvedSource)}
             data-source={resolvedSource}
             data-plan="preview"
-            className="mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             {buttonLabel}
           </button>
         )}
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
         <p className="mt-1 text-xs font-semibold text-amber-700">
-          Best wedding gift: framed print + HD digital — free standard shipping on $100+ orders. Shipping shown before
-          payment.
+          Framed print + HD digital — free standard shipping on $100+ orders. Shipping shown before payment.
         </p>
         {footerContent ? <div className="mt-5 border-t border-amber-200/60 pt-4">{footerContent}</div> : null}
       </form>

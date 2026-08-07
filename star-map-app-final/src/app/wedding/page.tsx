@@ -25,6 +25,7 @@ import {
   getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
+import { getFramedHdGiftCtaLine } from "@/lib/moneyPageGiftCheckout";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
@@ -40,7 +41,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Personalized Wedding Star Map Gift | StarMapCo",
   description:
-    "Create a wedding star map from your ceremony date and location. Free preview, then our popular framed + HD gift bundle with free shipping on $100+ orders.",
+    "Create a wedding star map from your ceremony date and location. Free preview, then the framed + HD gift bundle with free shipping on $100+ orders.",
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
     title: "Personalized Wedding Star Map Gift | StarMapCo",
@@ -93,7 +94,7 @@ export default function WeddingPage() {
   const tiers = getPricingTiers();
   const printTiers = getPrintPricingTiers();
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
   );
   const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
   const productOffers = [
@@ -127,10 +128,10 @@ export default function WeddingPage() {
     includeDigitalAddOn: true,
   });
   const framedFaqAnswer = `${weddingFaqItems[5].answer} ${shippingDisclosure}`;
-  const deliveryIntro = `Most wedding buyers choose framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant digital file. Unframed lowers the total if you already have a frame. HD-only is fastest when you need same-day delivery.`;
+  const deliveryIntro = `Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant digital file. Unframed is the lower-cost option if you already have a frame. HD-only is fastest when you need same-day delivery.`;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-16 pt-8 sm:pt-12">
+    <main className="mx-auto max-w-4xl px-4 pt-8 pb-16 sm:pt-12">
       <LandingViewTracker source="wedding" />
 
       <WeddingLandingHero
@@ -148,7 +149,7 @@ export default function WeddingPage() {
       <GiftFormatLadder
         sourcePrefix="wedding-ladder"
         heading="Choose your wedding gift format"
-        intro={`Most couples choose framed + HD (${bundlePriceLine}). Unframed lowers the total; framed + card adds a small keepsake.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}). Unframed lowers the total; framed + card adds a small keepsake.`}
         className="mt-10"
       />
 
@@ -157,7 +158,7 @@ export default function WeddingPage() {
       <PreviewStartForm
         source="wedding"
         title="Start your wedding preview"
-        description="Enter the wedding date and ceremony location. We’ll open the editor on the framed + HD gift path — the option most couples choose."
+        description="Enter the wedding date and ceremony location. We’ll open the editor on the framed + HD gift path — the recommended premium gift presentation."
         showMobileDateHelper={false}
         footerContent={
           <p className="text-center text-sm text-neutral-700">
@@ -166,7 +167,7 @@ export default function WeddingPage() {
                 source: "wedding-form-unframed",
                 variant: "poster_unframed",
               })}
-              className="font-semibold text-midnight underline decoration-amber-400/80 underline-offset-2 hover:text-amber-900"
+              className="text-midnight font-semibold underline decoration-amber-400/80 underline-offset-2 hover:text-amber-900"
             >
               Unframed print instead
             </Link>
@@ -175,7 +176,7 @@ export default function WeddingPage() {
             </span>
             <Link
               href="/editor?mode=quick&source=wedding-form-preview"
-              className="font-semibold text-midnight underline decoration-amber-400/80 underline-offset-2 hover:text-amber-900"
+              className="text-midnight font-semibold underline decoration-amber-400/80 underline-offset-2 hover:text-amber-900"
             >
               Free preview first
             </Link>
@@ -190,7 +191,7 @@ export default function WeddingPage() {
             includeDigitalAddOn: true,
             plan: "print_framed_hd",
             tone: "recommended",
-            detail: `${bundlePriceLine} — best wedding gift.`,
+            detail: `${bundlePriceLine} — framed print plus instant HD.`,
           },
           {
             label: "Preview framed + keepsake card",
@@ -207,7 +208,7 @@ export default function WeddingPage() {
       <StickyCtaBar
         source="sticky-wedding-framed-hd"
         title="Ready to see your ceremony sky?"
-        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        description={getFramedHdGiftCtaLine()}
         buttonLabel="Preview framed + HD"
         primaryHref={framedHdHref}
         primaryPlan="print_framed_hd"
@@ -219,11 +220,11 @@ export default function WeddingPage() {
       <WeddingGiftJourneySection />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Why couples choose this gift</h2>
+        <h2 className="text-midnight text-xl font-semibold">Why couples choose this gift</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          The stars above you when you said “I do” cannot be recreated. Our maps plot that exact sky with astronomically
-          accurate data — constellations, planets, and Moon phase included. It is a wall-ready way to relive the night you
-          became a constellation of two.
+          The stars above you when you said “I do” cannot be recreated. Our maps plot that exact sky with
+          astronomically accurate data — constellations, planets, and Moon phase included. It is a wall-ready
+          way to relive the night you became a constellation of two.
         </p>
         <ul className="grid gap-3 sm:grid-cols-2">
           {[
@@ -258,16 +259,17 @@ export default function WeddingPage() {
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-midnight">Wedding map examples</h2>
+          <h2 className="text-midnight text-lg font-semibold">Wedding map examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            Start with a current-engine look you like, then personalize wording, date line, and frame feel for your event.
+            Start with a current-engine look you like, then personalize wording, date line, and frame feel for
+            your event.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           {featuredRenderExamples.map((item) => (
             <figure
               key={item.src}
-              className="overflow-hidden rounded-2xl bg-white shadow-md shadow-black/5 ring-1 ring-black/[0.06]"
+              className="overflow-hidden rounded-2xl bg-white shadow-md ring-1 shadow-black/5 ring-black/[0.06]"
             >
               <div className="relative aspect-square bg-gradient-to-b from-[#0c1428] to-[#050915]">
                 <Image
@@ -280,7 +282,7 @@ export default function WeddingPage() {
                 />
               </div>
               <figcaption className="border-t border-black/[0.04] bg-amber-50/30 px-3 py-3">
-                <p className="text-xs font-semibold text-midnight">{item.shortLabel}</p>
+                <p className="text-midnight text-xs font-semibold">{item.shortLabel}</p>
                 <p className="mt-0.5 text-[11px] leading-snug text-neutral-600">{item.caption}</p>
               </figcaption>
             </figure>
@@ -290,7 +292,7 @@ export default function WeddingPage() {
 
       <PurchaseTrustPanel
         heading="Before you buy"
-        intro="Preview for free first. Most wedding buyers take the framed route once the layout and wording feel final, while unframed and HD stay available from the same design."
+        intro="Preview for free first. Framed is the premium gift route once the layout and wording feel final, while unframed and HD stay available from the same design."
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
@@ -313,9 +315,10 @@ export default function WeddingPage() {
         intro="This is the exact handoff from your final preview to a frame-ready HD file."
       />
       <section className="content-visibility-auto mt-6 rounded-3xl border border-amber-200/70 bg-gradient-to-br from-amber-100/90 via-amber-50 to-white p-6 text-center shadow-lg shadow-amber-200/40">
-        <h2 className="text-lg font-semibold text-midnight">Ready to see your wedding sky?</h2>
+        <h2 className="text-midnight text-lg font-semibold">Ready to see your wedding sky?</h2>
         <p className="mx-auto mt-2 max-w-lg text-sm text-neutral-800 sm:text-base">
-          Build the map in minutes, share the preview with your partner or wedding party, then checkout when it feels right.
+          Build the map in minutes, share the preview with your partner or wedding party, then checkout when
+          it feels right.
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -324,13 +327,13 @@ export default function WeddingPage() {
               variant: "poster_framed",
               includeDigitalAddOn: true,
             })}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg transition hover:-translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-gold"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg transition hover:-translate-y-[1px] focus:ring-2 focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=wedding-bottom-preview"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-amber-300/80 bg-white px-5 py-3 text-sm font-semibold text-midnight transition hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-gold"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full border border-amber-300/80 bg-white px-5 py-3 text-sm font-semibold transition hover:bg-amber-50 focus:ring-2 focus:outline-none"
           >
             Free preview
           </Link>
@@ -342,16 +345,20 @@ export default function WeddingPage() {
       <section className="content-visibility-auto mt-6 rounded-3xl border border-amber-200/60 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/40 p-6 shadow-lg shadow-amber-100/50">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">Wedding planning guide</p>
-            <h2 className="text-lg font-semibold text-midnight">Ceremony date, venue, and print options explained</h2>
+            <p className="text-xs font-semibold tracking-[0.22em] text-amber-800 uppercase">
+              Wedding planning guide
+            </p>
+            <h2 className="text-midnight text-lg font-semibold">
+              Ceremony date, venue, and print options explained
+            </h2>
             <p className="max-w-xl text-sm text-neutral-700">
-              Step-by-step help for picking the right moment, heart layouts, and framed vs unframed — written for couples
-              and wedding-party gift buyers.
+              Step-by-step help for picking the right moment, heart layouts, and framed vs unframed — written
+              for couples and wedding-party gift buyers.
             </p>
           </div>
           <Link
             href="/blog/custom-star-maps-for-weddings?source=wedding-page-guide"
-            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-gold"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-3 text-sm font-semibold shadow-sm transition hover:bg-amber-50 focus:ring-2 focus:outline-none"
           >
             Read the wedding guide
           </Link>
@@ -359,9 +366,10 @@ export default function WeddingPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Related star map gifts</h2>
+        <h2 className="text-midnight text-lg font-semibold">Related star map gifts</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Explore anniversary, birthday, and other occasion maps — or use the generator to preview any date and place.
+          Explore anniversary, birthday, and other occasion maps — or use the generator to preview any date
+          and place.
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
@@ -386,13 +394,13 @@ export default function WeddingPage() {
         className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10"
         aria-labelledby="wedding-faq"
       >
-        <h2 id="wedding-faq" className="text-lg font-semibold text-midnight">
+        <h2 id="wedding-faq" className="text-midnight text-lg font-semibold">
           Wedding star map FAQ
         </h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           {weddingFaqItems.map((item, index) => (
             <div key={item.question}>
-              <h3 className="font-semibold text-midnight">{item.question}</h3>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
               <p>{index === 5 ? framedFaqAnswer : item.answer}</p>
             </div>
           ))}
@@ -406,7 +414,7 @@ export default function WeddingPage() {
       />
       <FaqSchema
         items={weddingFaqItems.map((item, index) =>
-          index === 5 ? { question: item.question, answer: framedFaqAnswer } : item,
+          index === 5 ? { question: item.question, answer: framedFaqAnswer } : item
         )}
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

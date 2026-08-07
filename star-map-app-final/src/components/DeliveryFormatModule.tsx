@@ -17,16 +17,22 @@ type DeliveryFormatModuleProps = {
 
 export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
-  intro = "You only build the map once. After preview, most buyers choose framed + HD for the best gift value and free standard shipping on $100+ orders.",
+  intro = "You only build the map once. After preview, the recommended presentation is framed + HD for a ready-to-hang gift plus instant digital — with free standard shipping on qualifying $100+ orders.",
   sourcePrefix = "delivery-format",
 }: DeliveryFormatModuleProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
   );
   const printTiers = getPrintPricingTiers();
   const printLabels = {
-    unframed: formatPrintPriceWithShipping(printTiers.poster_unframed.amountCents, printTiers.poster_unframed.currency),
-    framed: formatPrintPriceWithShipping(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency),
+    unframed: formatPrintPriceWithShipping(
+      printTiers.poster_unframed.amountCents,
+      printTiers.poster_unframed.currency
+    ),
+    framed: formatPrintPriceWithShipping(
+      printTiers.poster_framed.amountCents,
+      printTiers.poster_framed.currency
+    ),
   };
   const shippingDisclosure = getPrintShippingDisclosure();
   const baselineDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", "US");
@@ -34,14 +40,16 @@ export default function DeliveryFormatModule({
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold text-midnight">{heading}</h2>
+        <h2 className="text-midnight text-lg font-semibold">{heading}</h2>
         <p className="text-sm text-neutral-800 sm:text-base">{intro}</p>
       </div>
 
       <div className={`grid gap-3 ${printCheckoutEnabled ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
         <article className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-midnight">HD digital delivery</p>
-          <p className="mt-1 text-xs text-neutral-700">Best for same-day gifting, local printing, or testing different frame shops.</p>
+          <p className="text-midnight text-sm font-semibold">HD digital delivery</p>
+          <p className="mt-1 text-xs text-neutral-700">
+            Built for same-day gifting, local printing, or testing different frame shops.
+          </p>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
             <li>Unlocks immediately after payment</li>
             <li>Up to 6000×6000 PNG, no watermark</li>
@@ -49,7 +57,7 @@ export default function DeliveryFormatModule({
           </ul>
           <Link
             href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-digital`)}`}
-            className="mt-4 inline-flex rounded-full border border-black/10 bg-midnight px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-midnight/90"
+            className="bg-midnight hover:bg-midnight/90 mt-4 inline-flex rounded-full border border-black/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px]"
           >
             Preview then buy digital
           </Link>
@@ -57,8 +65,10 @@ export default function DeliveryFormatModule({
 
         {printCheckoutEnabled ? (
           <article className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 shadow-sm">
-            <p className="text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</p>
-            <p className="mt-1 text-xs text-neutral-700">Best if you already know the exact frame or want the lower-cost physical option.</p>
+            <p className="text-midnight text-sm font-semibold">{printTiers.poster_unframed.label}</p>
+            <p className="mt-1 text-xs text-neutral-700">
+              Use this if you already know the exact frame or want the lower-cost physical option.
+            </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Museum-quality poster stock</li>
               <li>{shippingDisclosure}</li>
@@ -77,13 +87,13 @@ export default function DeliveryFormatModule({
         {printCheckoutEnabled ? (
           <article className="rounded-2xl border border-amber-300/70 bg-gradient-to-br from-amber-100 to-amber-50 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-midnight">Framed print + HD digital</p>
-              <span className="rounded-full border border-amber-300/80 bg-amber-300/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+              <p className="text-midnight text-sm font-semibold">Framed print + HD digital</p>
+              <span className="rounded-full border border-amber-300/80 bg-amber-300/20 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-900 uppercase">
                 Recommended
               </span>
             </div>
             <p className="mt-1 text-xs text-neutral-700">
-              Best wedding gift: ready-to-display framed print plus instant HD from the same approved design.{" "}
+              Ready-to-display framed print plus instant HD from the same approved design.{" "}
               {getPrintFramedHdBundleTimingLine()}
             </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
@@ -99,7 +109,7 @@ export default function DeliveryFormatModule({
                   variant: "poster_framed",
                   includeDigitalAddOn: true,
                 })}
-                className="inline-flex rounded-full bg-midnight px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-midnight/90"
+                className="bg-midnight hover:bg-midnight/90 inline-flex rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px]"
               >
                 Preview framed + HD gift
               </Link>
@@ -109,13 +119,13 @@ export default function DeliveryFormatModule({
                   variant: "poster_framed",
                   includeCardAddOn: true,
                 })}
-                className="inline-flex rounded-full border border-amber-300/70 bg-white px-4 py-2 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-amber-50"
+                className="text-midnight inline-flex rounded-full border border-amber-300/70 bg-white px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] hover:bg-amber-50"
               >
                 Preview framed + card
               </Link>
               <Link
                 href="/how-to-print-star-map"
-                className="inline-flex rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-midnight transition hover:-translate-y-[1px] hover:bg-neutral-50"
+                className="text-midnight inline-flex rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] hover:bg-neutral-50"
               >
                 See print guide
               </Link>
@@ -125,10 +135,10 @@ export default function DeliveryFormatModule({
       </div>
 
       <div className="rounded-2xl border border-black/5 bg-white p-4">
-        <p className="text-sm font-semibold text-midnight">Buying note</p>
+        <p className="text-midnight text-sm font-semibold">Buying note</p>
         <p className="mt-1 text-xs text-neutral-700 sm:text-sm">
-          Start with the preview. You can decide on digital, unframed, or framed delivery after you see the final
-          design, and physical orders show shipping before payment.
+          Start with the preview. You can decide on digital, unframed, or framed delivery after you see the
+          final design, and physical orders show shipping before payment.
         </p>
         <Link
           href="/star-map-gift-formats"

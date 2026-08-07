@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintPriceWithShipping,
+  getPrintProductionReviewDisclosure,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type RevenueTrustModuleProps = {
@@ -15,6 +19,7 @@ export default function RevenueTrustModule({
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
   );
   const shippingDisclosure = getPrintShippingDisclosure();
+  const productionReviewDisclosure = getPrintProductionReviewDisclosure();
   const printTiers = getPrintPricingTiers();
   const digitalAddOn = getPrintDigitalAddOnPrice();
   const printFormats = [
@@ -83,7 +88,7 @@ export default function RevenueTrustModule({
           <div className="brand-light-card rounded-2xl px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">After payment</p>
             <p className="mt-1 text-sm text-neutral-700">
-              Physical orders are created for review first, then manually approved before production begins.
+              {productionReviewDisclosure}
             </p>
           </div>
         </div>

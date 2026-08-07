@@ -21,6 +21,8 @@ import {
 import {
   buildFramedHdCheckoutHref,
   buildStandardGiftPreviewIntents,
+  getFramedHdEditorOpenDescription,
+  getFramedHdGiftCtaLine,
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
@@ -60,7 +62,7 @@ export default function NightSkyMapGiftPage() {
   const tiers = getPricingTiers();
   const printTiers = getPrintPricingTiers();
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
   );
   const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
   const productOffers = [
@@ -89,38 +91,46 @@ export default function NightSkyMapGiftPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+    <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
-        <p className="text-xs uppercase tracking-[0.3em] text-amber-300">StarMapCo</p>
+        <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Night Sky Map Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          A night sky map gift captures the exact stars from a meaningful date and place — perfect for anniversaries, weddings, birthdays, and milestones. Preview the real sky for free, then choose a{" "}
-          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or instant HD digital.
+          A night sky map gift captures the exact stars from a meaningful date and place — perfect for
+          anniversaries, weddings, birthdays, and milestones. Preview the real sky for free, then choose a{" "}
+          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or instant
+          HD digital.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Framed print</span>
-          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">Unframed print</span>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">HD digital delivery</span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Framed print
+          </span>
+          <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
+            Unframed print
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">
+            HD digital delivery
+          </span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href={framedHdHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
+            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=night-sky-map-gift-hero-preview"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
             Start free preview
           </Link>
           <InstantHdHeroExtras source="night-sky-map-gift-hero-instant" showFunnelLink={false} />
         </div>
         <InstantHdHeroExtras source="night-sky-map-gift-hero-instant" showButton={false} />
-        <p className="text-xs text-neutral-300 sm:text-sm">Popular bundle: {bundlePriceLine}</p>
+        <p className="text-xs text-neutral-300 sm:text-sm">Framed + HD bundle: {bundlePriceLine}</p>
       </header>
 
       <GiftFormatLadder
@@ -134,13 +144,13 @@ export default function NightSkyMapGiftPage() {
       <PreviewStartForm
         source="night-sky-map-gift"
         title="Start the night-sky gift preview"
-        description={`Enter the date and place. We open the editor on framed + HD (${bundlePriceLine}) — the path most gift buyers choose.`}
+        description={getFramedHdEditorOpenDescription(bundlePriceLine)}
         intentOptions={previewIntents}
       />
       <StickyCtaBar
         source="sticky-night-sky-map-gift-framed-hd"
         title="Ready to preview their night sky?"
-        description="Most gift-givers choose framed + HD — preview free, then checkout when it looks right."
+        description={getFramedHdGiftCtaLine()}
         buttonLabel="Preview framed + HD"
         primaryHref={framedHdHref}
         primaryPlan="print_framed_hd"
@@ -150,10 +160,10 @@ export default function NightSkyMapGiftPage() {
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">Why night sky maps make unforgettable gifts</h2>
+        <h2 className="text-midnight text-xl font-semibold">Why night sky maps make unforgettable gifts</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          The stars on a specific night never repeat in the same way. A custom night sky map turns that moment into a gift
-          that feels thoughtful and unique.
+          The stars on a specific night never repeat in the same way. A custom night sky map turns that moment
+          into a gift that feels thoughtful and unique.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Perfect for anniversaries, weddings, birthdays, and memorials</li>
@@ -164,7 +174,7 @@ export default function NightSkyMapGiftPage() {
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
-        <h2 className="text-lg font-semibold text-midnight">Create a gift in minutes</h2>
+        <h2 className="text-midnight text-lg font-semibold">Create a gift in minutes</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Choose the date and location that matter most</li>
           <li>Pick a style and add names or a dedication</li>
@@ -174,7 +184,7 @@ export default function NightSkyMapGiftPage() {
         <div className="pt-2">
           <Link
             href="/editor?mode=quick&source=night-sky-map-gift-cta-framed&checkout=print&print_variant=poster_framed"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-amber-50"
+            className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Start with framed print preview
           </Link>
@@ -185,7 +195,7 @@ export default function NightSkyMapGiftPage() {
 
       <DeliveryFormatModule
         heading="Choose the format after you preview the night sky"
-        intro="Night sky gift buyers usually decide between the presentation-ready framed route and the lower-total unframed route. HD digital stays available for same-day delivery."
+        intro="Choose between the presentation-ready framed route and the lower-cost unframed route. HD digital stays available for same-day delivery."
         sourcePrefix="night-sky-gift-format"
       />
 
@@ -219,7 +229,7 @@ export default function NightSkyMapGiftPage() {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">More gift inspiration</h2>
+        <h2 className="text-midnight text-lg font-semibold">More gift inspiration</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           Looking for more ideas? Explore star map gift guides and examples.
         </p>
@@ -245,36 +255,45 @@ export default function NightSkyMapGiftPage() {
       <OccasionLinks />
 
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-lg font-semibold text-midnight">Night sky map gift FAQ</h2>
+        <h2 className="text-midnight text-lg font-semibold">Night sky map gift FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
           <div>
-            <h3 className="font-semibold text-midnight">What is a night sky map gift?</h3>
+            <h3 className="text-midnight font-semibold">What is a night sky map gift?</h3>
             <p>
-              A night sky map gift is a custom star map showing the exact positions of stars and constellations on a specific date and location — such as an anniversary, wedding, or birthday. It is printed or delivered digitally and personalized with names, a date, and a message.
+              A night sky map gift is a custom star map showing the exact positions of stars and
+              constellations on a specific date and location — such as an anniversary, wedding, or birthday.
+              It is printed or delivered digitally and personalized with names, a date, and a message.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">How fast do I receive a night sky map gift?</h3>
+            <h3 className="text-midnight font-semibold">How fast do I receive a night sky map gift?</h3>
             <p>
-              The HD digital download is available instantly after payment — ideal for last-minute gifting. Framed and unframed print routes show exact shipping timelines before you pay. All routes start with a free preview.
+              The HD digital download is available instantly after payment — ideal for last-minute gifting.
+              Framed and unframed print routes show exact shipping timelines before you pay. All routes start
+              with a free preview.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">What makes this a personalized gift?</h3>
+            <h3 className="text-midnight font-semibold">What makes this a personalized gift?</h3>
             <p>
-              Every map is generated from the exact date, time, and location you provide, using real astronomical data. The star positions are accurate to that specific moment — not a generic illustration. You also add custom text like names, a date, and a short message.
+              Every map is generated from the exact date, time, and location you provide, using real
+              astronomical data. The star positions are accurate to that specific moment — not a generic
+              illustration. You also add custom text like names, a date, and a short message.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Is a night sky map a good anniversary gift?</h3>
+            <h3 className="text-midnight font-semibold">Is a night sky map a good anniversary gift?</h3>
             <p>
-              Yes — anniversary star maps are one of the most popular uses. Enter your anniversary date and the location where you were together to generate the exact sky from that night. The framed print route arrives ready to hang.
+              Yes — an anniversary star map captures the exact sky from your shared date and place. Enter your
+              anniversary date and the location where you were together to generate that night. The framed
+              print route arrives ready to hang.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-midnight">Can I get a night sky map gift same-day?</h3>
+            <h3 className="text-midnight font-semibold">Can I get a night sky map gift same-day?</h3>
             <p>
-              Yes. The HD digital download is delivered instantly after payment and can be printed at home or at a local print shop on the same day.
+              Yes. The HD digital download is delivered instantly after payment and can be printed at home or
+              at a local print shop on the same day.
             </p>
           </div>
         </div>
@@ -305,7 +324,7 @@ export default function NightSkyMapGiftPage() {
           {
             question: "Is a night sky map a good anniversary gift?",
             answer:
-              "Yes — anniversary star maps are one of the most popular uses. Enter your anniversary date and the location where you were together to generate the exact sky from that night. The framed print route arrives ready to hang.",
+              "Yes — an anniversary star map captures the exact sky from your shared date and place. Enter your anniversary date and the location where you were together to generate that night. The framed print route arrives ready to hang.",
           },
           {
             question: "Can I get a night sky map gift same-day?",
