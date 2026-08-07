@@ -55,10 +55,12 @@ const SCAN_RELATIVE_PATHS = [
   "app/star-map-gift-ideas/page.tsx",
   "app/star-map-in/page.tsx",
   "app/star-map-in/[slug]/page.tsx",
+  "app/hd-star-map/page.tsx",
   "lib/moneyPageGiftCheckout.ts",
   "lib/printGiftDecisionCopy.ts",
   "lib/mapCommerceLinks.ts",
   "lib/downloadPrintUpsellCatalog.ts",
+  "lib/digitalGiftCheckout.ts",
   "data/seoOccasions.ts",
 ];
 
@@ -369,18 +371,35 @@ function collectMatches(source, patterns) {
 }
 
 /**
- * True when a best-for match sits in a demonstrable FAQ/question form
- * (What/Which/Who … ?), not a declarative offer sentence such as
- * “Framed print is best for gifting”.
+ * True when a best-for match sits in one demonstrable FAQ/question form
+ * (What/Which/Who … ?) whose lead and terminating `?` belong to the same
+ * question clause that contains the match — not a declarative offer sentence
+ * such as “Framed print is best for gifting”, and not a claim bracketed by
+ * neighboring FAQ questions on the same line.
  */
 function isBestForQuestionContext(source, matchIndex) {
-  const beforeStart = Math.max(0, matchIndex - 160);
-  const afterEnd = Math.min(source.length, matchIndex + 100);
-  const before = source.slice(beforeStart, matchIndex);
-  const after = source.slice(matchIndex, afterEnd);
-  const clauseBefore = (before.split(/(?:[.!]|\n)\s*/).pop() ?? before).trim();
-  const hasQuestionLead = /\b(?:what|which|who)\b/i.test(clauseBefore);
-  const hasQuestionMark = /\?/.test(after);
+  let clauseStart = 0;
+  for (let i = matchIndex - 1; i >= 0; i -= 1) {
+    if (/[.!?\n]/.test(source[i])) {
+      clauseStart = i + 1;
+      break;
+    }
+  }
+
+  let clauseEnd = source.length;
+  for (let i = matchIndex; i < source.length; i += 1) {
+    if (/[.!?\n]/.test(source[i])) {
+      clauseEnd = i + 1;
+      break;
+    }
+  }
+
+  const clause = source.slice(clauseStart, clauseEnd);
+  const matchOffset = matchIndex - clauseStart;
+  const beforeInClause = clause.slice(0, matchOffset);
+  const afterInClause = clause.slice(matchOffset);
+  const hasQuestionLead = /\b(?:what|which|who)\b/i.test(beforeInClause);
+  const hasQuestionMark = /\?/.test(afterInClause);
   return hasQuestionLead && hasQuestionMark;
 }
 
@@ -603,6 +622,27 @@ test("declarative is/works best-for claims are caught while FAQ questions are ex
     mixedHits.length >= 1,
     "allowed FAQ question must not mask a separate declarative superiority claim"
   );
+
+  const bracketed =
+    "What format is best for an anniversary gift? Framed print is best for gifting. Which format is best for a wedding keepsake?";
+  const bracketedHits = findProductSuperiorityHits(bracketed);
+  assert.ok(
+    bracketedHits.some((hit) => /is best for/i.test(hit.snippet)),
+    `expected bracketed declarative claim to match: ${JSON.stringify(bracketedHits)}`
+  );
+  assert.equal(
+    bracketedHits.filter((hit) => hit.pattern === "BEST_FOR_OFFER").length,
+    1,
+    `exactly one declarative BEST_FOR_OFFER hit expected between FAQs: ${JSON.stringify(bracketedHits)}`
+  );
+
+  const worksBracketed =
+    "What gift format works best for a birthday star map? HD digital works best for same-night delivery. Who is instant HD best for?";
+  const worksBracketedHits = findProductSuperiorityHits(worksBracketed);
+  assert.ok(
+    worksBracketedHits.some((hit) => /works best for/i.test(hit.snippet)),
+    `expected bracketed works-best-for claim to match: ${JSON.stringify(worksBracketedHits)}`
+  );
 });
 
 test("PreviewStartForm and offer surfaces no longer claim best wedding gift or gift-route superiority", () => {
@@ -630,6 +670,20 @@ test("EditorExperience no longer renders Best gift superiority label", () => {
   assert.doesNotMatch(source, /\bBest gift\b/);
   assert.equal(matchesProductSuperiority(source), false);
   assert.match(source, /Premium gift/);
+});
+
+test("HD money page and digitalGiftCheckout are inventoried without unsupported claims", () => {
+  assert.ok(SCAN_RELATIVE_PATHS.includes("app/hd-star-map/page.tsx"));
+  assert.ok(SCAN_RELATIVE_PATHS.includes("lib/digitalGiftCheckout.ts"));
+
+  const page = readSrc("app/hd-star-map/page.tsx");
+  const helper = readSrc("lib/digitalGiftCheckout.ts");
+  assert.equal(collectPopularityOrSuperiorityMatches(page).length, 0);
+  assert.equal(collectPopularityOrSuperiorityMatches(helper).length, 0);
+  assert.equal(matchesProductSuperiority(page), false);
+  assert.match(page, /Who is instant HD best for\?/);
+  assert.doesNotMatch(helper, /\bBest if\b/i);
+  assert.doesNotMatch(helper, /\bBest when\b/i);
 });
 
 test("PreviewStartForm caller intents no longer use Best if / Best when superiority", () => {

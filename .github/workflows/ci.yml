@@ -1,5 +1,4 @@
 # PR gate: lint, production build, commerce smoke, and browser-backed render/export smoke.
-# (no behavior change — keep path filter keyed to this file)
 name: CI
 
 on:
