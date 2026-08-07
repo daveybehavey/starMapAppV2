@@ -34,6 +34,7 @@
     "merchant:shipping-reference": "node scripts/generate-merchant-shipping-reference.mjs",
     "merchant:shipping-groups": "node scripts/generate-merchant-shipping-groups.mjs",
     "merchant:api:verify": "node scripts/merchant-api-verify.mjs",
+    "merchant:free-listing:diagnose": "node scripts/merchant-free-listing-diagnose.mjs",
     "merchant:shipping:plan": "node scripts/merchant-shipping-plan.mjs",
     "merchant:shipping:get": "node scripts/merchant-shipping-sync.mjs --get-current",
     "merchant:shipping:preview": "node scripts/merchant-shipping-sync.mjs",
