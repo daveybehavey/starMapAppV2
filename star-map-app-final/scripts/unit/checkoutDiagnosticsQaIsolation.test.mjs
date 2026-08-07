@@ -85,6 +85,8 @@ test("checkout route isolates QA failures from buyer diagnostics on POST and GET
   assert.match(postSection, /checkout_api_digital_post/);
   assert.match(postSection, /checkout_api_print_post/);
 
-  // Funnel exclusion for QA successes remains in place.
+  // Funnel exclusion for QA successes remains in place (includes #215 classification dimensions).
   assert.match(route, /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{\s*\n\s*await recordFunnelStep/);
+  assert.match(route, /handoff: checkoutHandoff/);
+  assert.match(route, /handoff: "missing"/);
 });

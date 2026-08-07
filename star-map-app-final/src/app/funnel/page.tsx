@@ -103,6 +103,27 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
   const sessionShare = percentage(checkoutSessions, checkoutRequests);
   const paidShare = percentage(paymentsVerified, checkoutSessions);
   const topCheckoutBlocker = checkoutDiagnostics.rows[0] ?? null;
+  const sessionClassification =
+    dashboard.checkoutClassification.byStep.find((block) => block.step === "checkout_session_created") ??
+    dashboard.checkoutClassification.byStep[0] ??
+    null;
+  const classificationPrintPost =
+    sessionClassification?.sources.find((row) => row.key === "checkout_api_print_post")?.total ?? 0;
+  const classificationDigitalPost =
+    sessionClassification?.sources.find((row) => row.key === "checkout_api_digital_post")?.total ?? 0;
+  const classificationPrintGet =
+    sessionClassification?.sources.find((row) => row.key === "checkout_api_print_get")?.total ?? 0;
+  const classificationDigitalGet =
+    sessionClassification?.sources.find((row) => row.key === "checkout_api_digital_get")?.total ?? 0;
+  const classificationBrowser =
+    sessionClassification?.handoffs.find((row) => row.key === "browser") ?? null;
+  const classificationMissing =
+    sessionClassification?.handoffs.find((row) => row.key === "missing") ?? null;
+  const classificationTopPlans = (sessionClassification?.plans ?? [])
+    .filter((row) => row.total > 0)
+    .slice()
+    .sort((a, b) => b.total - a.total || a.key.localeCompare(b.key))
+    .slice(0, 5);
   const dropStep = dashboard.rows.reduce<{ row: typeof dashboard.rows[0] | null; pct: number }>(
     (acc, row, index) => {
       if (index === 0) return acc;
@@ -272,6 +293,67 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
             </div>
           </div>
         ) : null}
+        {sessionClassification ? (
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-white">Checkout classification (safe aggregates)</h2>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    Print vs digital and handoff class from KV only (`funnel:checkout_class:*`). Source/plan/handoff
+                    totals are retained up to 180 days (dormant keys expire/reset); 1d/7d/30d windows use post-deploy
+                    daily counters. Written only from trusted checkout (not public analytics POST); legacy
+                    `funnel:source:*` / `funnel:plan:*` are not used for these totals. Authenticated QA is excluded,
+                    but untagged research/internal/browser activity can still be counted. No Stripe or raw handoff
+                    tokens.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                    Session type (totals ≤180d retention)
+                  </p>
+                  <p className="mt-2 text-sm text-neutral-200">
+                    POST print {classificationPrintPost.toLocaleString()} · digital{" "}
+                    {classificationDigitalPost.toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    GET print {classificationPrintGet.toLocaleString()} · digital{" "}
+                    {classificationDigitalGet.toLocaleString()}
+                  </p>
+                  {classificationTopPlans.length > 0 ? (
+                    <p className="mt-2 text-[11px] text-neutral-500">
+                      Plan/variant mix:{" "}
+                      {classificationTopPlans
+                        .map((row) => `${row.key} (${row.total.toLocaleString()})`)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                    Handoff class (sessions)
+                  </p>
+                  <p className="mt-2 text-sm text-neutral-200">
+                    browser handoff (not verified human){" "}
+                    {(classificationBrowser?.total ?? 0).toLocaleString()} · missing/direct handoff{" "}
+                    {(classificationMissing?.total ?? 0).toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    Do not treat browser handoff as a buyer count — token presence only.
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    browser handoff windows: 1d {classificationBrowser?.windows.d1 ?? 0} · 7d{" "}
+                    {classificationBrowser?.windows.d7 ?? 0} · 30d {classificationBrowser?.windows.d30 ?? 0}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    missing/direct windows: 1d {classificationMissing?.windows.d1 ?? 0} · 7d{" "}
+                    {classificationMissing?.windows.d7 ?? 0} · 30d {classificationMissing?.windows.d30 ?? 0}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         {checkoutDiagnostics.rows.length > 0 ? (
           <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center justify-between gap-3">
