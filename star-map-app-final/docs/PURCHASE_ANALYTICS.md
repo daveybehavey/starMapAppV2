@@ -70,7 +70,7 @@ Referral-program fields (`referral_*`) still require a referral code.
 `GET /api/analytics/funnel` includes `data.checkoutClassification` — fixed-allowlist KV aggregates for print vs digital checkout sources, plan/print-variant mix, and handoff class. Operators can diagnose conversion mix **without Stripe credentials**.
 
 - Source/plan/handoff **totals are retained up to 180 days** (shared dimension TTL). Dormant keys expire and later restart from 0 — not infinite cumulative history. 1d/7d/30d windows use daily keys written going forward.
-- Classification dimensions are written **only from trusted `/api/checkout`** (`trustedCheckoutClassification`). Public `POST /api/analytics/funnel` cannot forge checkout classification counters.
+- Classification dimensions are written **only from trusted `/api/checkout`** (`trustedCheckoutClassification`) into a **clean `funnel:checkout_class:*` namespace**. Public `POST /api/analytics/funnel` cannot forge them, and operator diagnostics do **not** read legacy `funnel:source:*` / `funnel:plan:*` (which may contain pre-deploy untrusted increments).
 - Handoff keys: `browser` = **browser handoff (not verified human)** (token present only); `missing` = **missing/direct handoff**. Do **not** treat `browser` as a buyer/unique-human count.
 - Authenticated QA (`qaContext.enabled`) does **not** increment these counters, but **untagged research/internal/browser activity can still be counted**. Controlled live checkout probes must use the existing QA-tagged path; ordinary research must stop before session creation.
 - Only `browser` | `missing` handoff labels are stored/returned — never raw handoff tokens, emails, Stripe IDs, map IDs, or marketing-source enumeration.

@@ -30,6 +30,7 @@ export const CHECKOUT_CLASSIFICATION_STEPS = [
 ];
 
 export const CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS = 180;
+export const CHECKOUT_CLASSIFICATION_KV_PREFIX = "funnel:checkout_class";
 
 const DAILY_TTL_SECONDS = 400 * 24 * 60 * 60;
 const DIMENSION_TTL_SECONDS = CHECKOUT_CLASSIFICATION_TOTAL_RETENTION_DAYS * 24 * 60 * 60;
@@ -70,28 +71,37 @@ export function normalizeCheckoutHandoff(input) {
   return null;
 }
 
-export function sourceKey(step, source) {
+/** Legacy keys — must not be used for trusted classification totals/reads. */
+export function legacySourceKey(step, source) {
   return `funnel:source:${step}:${source}`;
 }
 
-export function sourceDailyKey(date, step, source) {
-  return `funnel:source_daily:${date}:${step}:${source}`;
-}
-
-export function planKey(step, plan) {
+export function legacyPlanKey(step, plan) {
   return `funnel:plan:${step}:${plan}`;
 }
 
-export function planDailyKey(date, step, plan) {
-  return `funnel:plan_daily:${date}:${step}:${plan}`;
+export function trustedCheckoutSourceKey(step, source) {
+  return `${CHECKOUT_CLASSIFICATION_KV_PREFIX}:source:${step}:${source}`;
 }
 
-export function handoffKey(step, handoff) {
-  return `funnel:handoff:${step}:${handoff}`;
+export function trustedCheckoutSourceDailyKey(date, step, source) {
+  return `${CHECKOUT_CLASSIFICATION_KV_PREFIX}:source_daily:${date}:${step}:${source}`;
 }
 
-export function handoffDailyKey(date, step, handoff) {
-  return `funnel:handoff_daily:${date}:${step}:${handoff}`;
+export function trustedCheckoutPlanKey(step, plan) {
+  return `${CHECKOUT_CLASSIFICATION_KV_PREFIX}:plan:${step}:${plan}`;
+}
+
+export function trustedCheckoutPlanDailyKey(date, step, plan) {
+  return `${CHECKOUT_CLASSIFICATION_KV_PREFIX}:plan_daily:${date}:${step}:${plan}`;
+}
+
+export function trustedCheckoutHandoffKey(step, handoff) {
+  return `${CHECKOUT_CLASSIFICATION_KV_PREFIX}:handoff:${step}:${handoff}`;
+}
+
+export function trustedCheckoutHandoffDailyKey(date, step, handoff) {
+  return `${CHECKOUT_CLASSIFICATION_KV_PREFIX}:handoff_daily:${date}:${step}:${handoff}`;
 }
 
 function clampDays(days) {
@@ -131,8 +141,7 @@ export function isProtectedCheckoutClassificationWrite(input) {
 }
 
 /**
- * Mirrors recordFunnelStep classification gating from funnel.ts.
- * @param {{ step: string, source?: string, plan?: string, handoff?: string, occurredAt?: string, trustedCheckoutClassification?: boolean }} input
+ * Mirrors recordFunnelStep classification gating + clean namespace from funnel.ts.
  */
 export async function recordFunnelStepMirror(input) {
   const source = normalizeDimension(input.source);
@@ -148,30 +157,43 @@ export async function recordFunnelStepMirror(input) {
 
   if (source) {
     const protectedSource = classStep && isAllowlistedCheckoutSource(source);
-    if (!protectedSource || trusted) {
-      tasks.push(kv.incr(sourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }));
-      if (trusted && protectedSource) {
-        tasks.push(kv.incr(sourceDailyKey(today, input.step, source), 1, { ex: DAILY_TTL_SECONDS }));
+    if (protectedSource) {
+      if (trusted) {
+        tasks.push(
+          kv.incr(trustedCheckoutSourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }),
+        );
+        tasks.push(
+          kv.incr(trustedCheckoutSourceDailyKey(today, input.step, source), 1, {
+            ex: DAILY_TTL_SECONDS,
+          }),
+        );
       }
+    } else {
+      tasks.push(kv.incr(legacySourceKey(input.step, source), 1, { ex: DIMENSION_TTL_SECONDS }));
     }
   }
   if (plan) {
     const protectedPlan = classStep && isAllowlistedCheckoutPlan(plan);
-    if (!protectedPlan || trusted) {
-      tasks.push(kv.incr(planKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
-      if (trusted && protectedPlan) {
-        tasks.push(kv.incr(planDailyKey(today, input.step, plan), 1, { ex: DAILY_TTL_SECONDS }));
+    if (protectedPlan) {
+      if (trusted) {
+        tasks.push(kv.incr(trustedCheckoutPlanKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
+        tasks.push(
+          kv.incr(trustedCheckoutPlanDailyKey(today, input.step, plan), 1, { ex: DAILY_TTL_SECONDS }),
+        );
       }
+    } else {
+      tasks.push(kv.incr(legacyPlanKey(input.step, plan), 1, { ex: DIMENSION_TTL_SECONDS }));
     }
   }
   if (handoff && trusted && classStep) {
-    tasks.push(kv.incr(handoffKey(input.step, handoff), 1, { ex: DIMENSION_TTL_SECONDS }));
-    tasks.push(kv.incr(handoffDailyKey(today, input.step, handoff), 1, { ex: DAILY_TTL_SECONDS }));
+    tasks.push(kv.incr(trustedCheckoutHandoffKey(input.step, handoff), 1, { ex: DIMENSION_TTL_SECONDS }));
+    tasks.push(
+      kv.incr(trustedCheckoutHandoffDailyKey(today, input.step, handoff), 1, { ex: DAILY_TTL_SECONDS }),
+    );
   }
   await Promise.all(tasks);
 }
 
-/** Trusted checkout-only helper used by positive classification tests. */
 export async function recordTrustedCheckoutClassificationStep(input) {
   await recordFunnelStepMirror({
     ...input,
@@ -218,8 +240,8 @@ export async function getCheckoutClassificationDiagnostics(days = 14) {
           CHECKOUT_CLASSIFICATION_SOURCES.map((source) =>
             readDimensionCount({
               key: source,
-              totalKey: sourceKey(step, source),
-              dailyKeyForDate: (date) => sourceDailyKey(date, step, source),
+              totalKey: trustedCheckoutSourceKey(step, source),
+              dailyKeyForDate: (date) => trustedCheckoutSourceDailyKey(date, step, source),
               lastNDates,
               d1Dates,
               d7Dates,
@@ -231,8 +253,8 @@ export async function getCheckoutClassificationDiagnostics(days = 14) {
           CHECKOUT_CLASSIFICATION_PLANS.map((plan) =>
             readDimensionCount({
               key: plan,
-              totalKey: planKey(step, plan),
-              dailyKeyForDate: (date) => planDailyKey(date, step, plan),
+              totalKey: trustedCheckoutPlanKey(step, plan),
+              dailyKeyForDate: (date) => trustedCheckoutPlanDailyKey(date, step, plan),
               lastNDates,
               d1Dates,
               d7Dates,
@@ -244,8 +266,8 @@ export async function getCheckoutClassificationDiagnostics(days = 14) {
           CHECKOUT_CLASSIFICATION_HANDOFFS.map((handoff) =>
             readDimensionCount({
               key: handoff,
-              totalKey: handoffKey(step, handoff),
-              dailyKeyForDate: (date) => handoffDailyKey(date, step, handoff),
+              totalKey: trustedCheckoutHandoffKey(step, handoff),
+              dailyKeyForDate: (date) => trustedCheckoutHandoffDailyKey(date, step, handoff),
               lastNDates,
               d1Dates,
               d7Dates,
@@ -264,6 +286,7 @@ export async function getCheckoutClassificationDiagnostics(days = 14) {
     schemaVersion: 1,
     notes: {
       sourcePlanTotalsRetainUpTo180Days: true,
+      trustedTotalsUseCleanNamespace: true,
       dailyWindowsSupportedGoingForward: true,
       qaTrafficExcluded: true,
       trustedCheckoutWritesOnly: true,

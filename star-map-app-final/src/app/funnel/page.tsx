@@ -299,10 +299,12 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 <div>
                   <h2 className="text-sm font-semibold text-white">Checkout classification (safe aggregates)</h2>
                   <p className="mt-1 text-xs text-neutral-400">
-                    Print vs digital and handoff class from KV only. Source/plan/handoff totals are retained up to
-                    180 days (dormant keys expire/reset); 1d/7d/30d windows use post-deploy daily counters. Written
-                    only from trusted checkout (not public analytics POST). Authenticated QA is excluded, but untagged
-                    research/internal/browser activity can still be counted. No Stripe or raw handoff tokens.
+                    Print vs digital and handoff class from KV only (`funnel:checkout_class:*`). Source/plan/handoff
+                    totals are retained up to 180 days (dormant keys expire/reset); 1d/7d/30d windows use post-deploy
+                    daily counters. Written only from trusted checkout (not public analytics POST); legacy
+                    `funnel:source:*` / `funnel:plan:*` are not used for these totals. Authenticated QA is excluded,
+                    but untagged research/internal/browser activity can still be counted. No Stripe or raw handoff
+                    tokens.
                   </p>
                 </div>
               </div>
