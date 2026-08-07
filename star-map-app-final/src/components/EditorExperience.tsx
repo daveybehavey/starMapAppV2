@@ -752,8 +752,10 @@ export function EditorExperience({
 
     let hasLocation = false;
     if (locationParam && locationParam.trim()) {
-      // Prefer coordinate-resolved prefill (city landings). Always overwrite the full
-      // location object so stale draft coordinates cannot survive under a new city name.
+      // Always overwrite the full location object so stale draft coordinates cannot
+      // survive under a new city/name. City landings supply lat/lon/tz; generic
+      // name-only handoffs (homepage etc.) still count as a location for reveal,
+      // and the editor autocomplete confirms coordinates afterward.
       const parsed = parseEditorLocationQuery(searchParams);
       if (parsed) {
         setLocation({
@@ -762,7 +764,7 @@ export function EditorExperience({
           longitude: parsed.longitude,
           timezone: parsed.timezone,
         });
-        hasLocation = parsed.hasResolvedCoordinates;
+        hasLocation = true;
       }
     }
 

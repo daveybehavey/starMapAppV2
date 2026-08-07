@@ -153,9 +153,11 @@ test("city landing page wires coordinate-resolved prefill into primary CTAs", ()
 
   const editor = readSrc("components/EditorExperience.tsx");
   assert.match(editor, /parseEditorLocationQuery/);
-  assert.match(editor, /hasResolvedCoordinates/);
   assert.match(editor, /latitude: parsed\.latitude/);
   assert.match(editor, /longitude: parsed\.longitude/);
+  assert.match(editor, /timezone: parsed\.timezone/);
+  // Generic name-only handoffs still reveal; city CTAs supply coords so sky is correct.
+  assert.doesNotMatch(editor, /hasLocation = parsed\.hasResolvedCoordinates/);
 });
 
 test("generic / non-city entry paths do not force city coords", () => {
