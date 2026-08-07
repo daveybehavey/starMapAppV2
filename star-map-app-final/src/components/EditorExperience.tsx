@@ -78,6 +78,7 @@ import {
   isWeddingCommerceContext,
   shouldAutoOpenEditorDigitalPaywall,
 } from "@/lib/previewSourceHints";
+import { parseEditorLocationQuery } from "@/lib/editorLocationPrefill";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
 import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
 import {
@@ -751,8 +752,18 @@ export function EditorExperience({
 
     let hasLocation = false;
     if (locationParam && locationParam.trim()) {
-      setLocation({ name: locationParam.trim() });
-      hasLocation = true;
+      // Prefer coordinate-resolved prefill (city landings). Always overwrite the full
+      // location object so stale draft coordinates cannot survive under a new city name.
+      const parsed = parseEditorLocationQuery(searchParams);
+      if (parsed) {
+        setLocation({
+          name: parsed.name,
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+          timezone: parsed.timezone,
+        });
+        hasLocation = parsed.hasResolvedCoordinates;
+      }
     }
 
     if (hasValidDate && hasLocation) {

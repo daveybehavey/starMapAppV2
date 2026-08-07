@@ -11,7 +11,7 @@ import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
 import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
-import { withEditorLocation } from "@/lib/editorLocationPrefill";
+import { resolveSeoLocationEditorPrefill, withEditorLocation } from "@/lib/editorLocationPrefill";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -63,14 +63,16 @@ export default async function StarMapLocationPage({ params }: PageProps) {
   if (!isIndexableLocationSlug(location.slug)) notFound();
 
   const display = formatLocationDisplay(location);
+  const locationPrefill = resolveSeoLocationEditorPrefill(location);
+  if (!locationPrefill) notFound();
   const stickySource = `sticky-city-${location.slug}`;
   const framedCtaHref = withEditorLocation(
     `/editor?mode=quick&source=star-map-in-${location.slug}-cta-framed&checkout=print&print_variant=poster_framed`,
-    display
+    locationPrefill
   );
   const stickyPrimaryHref = withEditorLocation(
     `/editor?mode=quick&source=${encodeURIComponent(stickySource)}`,
-    display
+    locationPrefill
   );
   const indexableLocations = seoLocations.filter((item) => isIndexableLocationSlug(item.slug));
   const sameCountry = indexableLocations.filter(
@@ -127,7 +129,12 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         title={`Preview a ${display} star map`}
         description="Add your date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
         source={`city-${location.slug}`}
-        defaultLocation={display}
+        defaultLocation={locationPrefill.name}
+        defaultLocationCoords={{
+          latitude: locationPrefill.latitude,
+          longitude: locationPrefill.longitude,
+          timezone: locationPrefill.timezone,
+        }}
         intentOptions={[
           {
             label: "Preview framed print",
@@ -197,7 +204,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         heading={`Choose how you want to keep the ${display} map`}
         intro={`Use the same preview to decide between the finished framed route, the lower-total unframed route, or HD digital delivery for ${display}.`}
         sourcePrefix={`location-${location.slug}-format`}
-        location={display}
+        location={locationPrefill}
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

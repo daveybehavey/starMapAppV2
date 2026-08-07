@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import { getPrintFramedHdBundleTimingLine } from "@/lib/commerceFacts";
-import { withEditorLocation } from "@/lib/editorLocationPrefill";
+import { type EditorLocationPrefill, withEditorLocation } from "@/lib/editorLocationPrefill";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import {
   buildPrintEditorCheckoutHref,
@@ -14,8 +14,8 @@ type DeliveryFormatModuleProps = {
   heading?: string;
   intro?: string;
   sourcePrefix?: string;
-  /** When set (e.g. city landings), editor CTAs include `location` for editor prefill. */
-  location?: string;
+  /** When set (e.g. city landings), editor CTAs include location (+ coords when provided). */
+  location?: string | EditorLocationPrefill;
 };
 
 export default function DeliveryFormatModule({
