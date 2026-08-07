@@ -69,6 +69,8 @@ test("harness allowlists stay locked to funnel.ts fixed allowlists", () => {
   assert.match(funnel, /export async function getCheckoutClassificationDiagnostics/);
   assert.match(funnel, /normalizeCheckoutHandoff/);
   assert.match(funnel, /cleaned === "browser" \|\| cleaned === "missing"/);
+  assert.match(funnel, /browserMeansHandoffNotVerifiedHuman: true/);
+  assert.match(funnel, /untaggedResearchInternalBrowserActivityMayBeCounted: true/);
 });
 
 test("normalizeCheckoutHandoff accepts only browser|missing (never raw tokens)", () => {
@@ -123,6 +125,10 @@ test("record + diagnostics aggregate allowlisted source/plan/handoff with daily 
   assert.equal(diagnostics.notes.dailyWindowsSupportedGoingForward, true);
   assert.equal(diagnostics.notes.qaTrafficExcluded, true);
   assert.equal(diagnostics.notes.noRawHandoffTokens, true);
+  assert.equal(diagnostics.notes.browserMeansHandoffNotVerifiedHuman, true);
+  assert.equal(diagnostics.notes.untaggedResearchInternalBrowserActivityMayBeCounted, true);
+  assert.equal(diagnostics.notes.handoffLabels.browser, "browser handoff (not verified human)");
+  assert.equal(diagnostics.notes.handoffLabels.missing, "missing/direct handoff");
 
   const request = diagnostics.byStep.find((block) => block.step === "checkout_request_received");
   const session = diagnostics.byStep.find((block) => block.step === "checkout_session_created");
@@ -229,4 +235,42 @@ test("funnel diagnostic contract exposes classification without weakening auth/r
   assert.match(route, /hasDashboardAccess\(req\)/);
   assert.match(page, /checkoutClassification/);
   assert.match(page, /Checkout classification \(safe aggregates\)/);
+});
+
+test("semantic: browser handoff is not a verified-human/buyer count (notes + UI + docs lockstep)", async () => {
+  clearKv();
+  const funnel = fs.readFileSync(FUNNEL_PATH, "utf8");
+  const page = fs.readFileSync(FUNNEL_PAGE, "utf8");
+  const docs = fs.readFileSync(path.join(ROOT, "docs/PURCHASE_ANALYTICS.md"), "utf8");
+
+  const diagnostics = await getCheckoutClassificationDiagnostics(1);
+  assert.equal(diagnostics.notes.browserMeansHandoffNotVerifiedHuman, true);
+  assert.equal(diagnostics.notes.untaggedResearchInternalBrowserActivityMayBeCounted, true);
+  assert.equal(diagnostics.notes.qaTrafficExcluded, true);
+  assert.deepEqual(diagnostics.notes.handoffLabels, {
+    browser: "browser handoff (not verified human)",
+    missing: "missing/direct handoff",
+  });
+
+  // Typed contract + runtime notes stay locked together in funnel.ts.
+  assert.match(funnel, /browserMeansHandoffNotVerifiedHuman: true/);
+  assert.match(funnel, /untaggedResearchInternalBrowserActivityMayBeCounted: true/);
+  assert.match(funnel, /browser: "browser handoff \(not verified human\)"/);
+  assert.match(funnel, /missing: "missing\/direct handoff"/);
+
+  // Operator UI must not imply browser === buyer/unique human.
+  assert.match(page, /browser handoff \(not verified human\)/);
+  assert.match(page, /missing\/direct handoff/);
+  assert.match(page, /Do not treat browser handoff as a buyer count/);
+  assert.match(page, /untagged\s+research\/internal\/browser activity can still be counted/);
+  assert.equal(page.includes("Browser handoff (sessions)"), false);
+
+  // Docs keep the same warning and probe guidance without marketing-source heuristics.
+  assert.match(docs, /browser handoff \(not verified human\)/);
+  assert.match(docs, /missing\/direct handoff/);
+  assert.match(docs, /untagged research\/internal\/browser activity can still be counted/);
+  assert.match(docs, /Controlled live checkout probes must use the existing QA-tagged path/);
+  assert.equal(docs.toLowerCase().includes("chatgpt.com"), false);
+  assert.equal(funnel.toLowerCase().includes("chatgpt.com"), false);
+  assert.equal(page.toLowerCase().includes("chatgpt.com"), false);
 });

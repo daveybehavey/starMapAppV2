@@ -67,11 +67,12 @@ Referral-program fields (`referral_*`) still require a referral code.
 
 ### Checkout classification aggregates (#215)
 
-`GET /api/analytics/funnel` includes `data.checkoutClassification` — fixed-allowlist KV aggregates for print vs digital checkout sources, plan/print-variant mix, and browser-handoff vs missing. Operators can diagnose conversion mix **without Stripe credentials**.
+`GET /api/analytics/funnel` includes `data.checkoutClassification` — fixed-allowlist KV aggregates for print vs digital checkout sources, plan/print-variant mix, and handoff class. Operators can diagnose conversion mix **without Stripe credentials**.
 
 - Cumulative source/plan totals preserve pre-existing counters; 1d/7d/30d windows use daily keys written going forward.
-- Authenticated QA (`qaContext.enabled`) does **not** increment these counters.
-- Only `browser` | `missing` handoff labels are stored/returned — never raw handoff tokens, emails, Stripe IDs, or map IDs.
+- Handoff keys: `browser` = **browser handoff (not verified human)** (token present only); `missing` = **missing/direct handoff**. Do **not** treat `browser` as a buyer/unique-human count.
+- Authenticated QA (`qaContext.enabled`) does **not** increment these counters, but **untagged research/internal/browser activity can still be counted**. Controlled live checkout probes must use the existing QA-tagged path; ordinary research must stop before session creation.
+- Only `browser` | `missing` handoff labels are stored/returned — never raw handoff tokens, emails, Stripe IDs, map IDs, or marketing-source enumeration.
 
 Missing GA4/PostHog keys: checkout and webhooks **still succeed**; analytics calls no-op with console warn (MP only).
 

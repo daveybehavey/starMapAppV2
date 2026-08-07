@@ -220,6 +220,12 @@ export async function getCheckoutClassificationDiagnostics(days = 14) {
       dailyWindowsSupportedGoingForward: true,
       qaTrafficExcluded: true,
       noRawHandoffTokens: true,
+      browserMeansHandoffNotVerifiedHuman: true,
+      untaggedResearchInternalBrowserActivityMayBeCounted: true,
+      handoffLabels: {
+        browser: "browser handoff (not verified human)",
+        missing: "missing/direct handoff",
+      },
     },
     byStep,
   };

@@ -299,9 +299,9 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 <div>
                   <h2 className="text-sm font-semibold text-white">Checkout classification (safe aggregates)</h2>
                   <p className="mt-1 text-xs text-neutral-400">
-                    Print vs digital and browser-handoff vs missing from KV only. Source/plan totals are cumulative
-                    history; 1d/7d/30d windows use post-deploy daily counters. QA traffic is excluded. No Stripe or raw
-                    handoff tokens.
+                    Print vs digital and handoff class from KV only. Source/plan totals are cumulative history;
+                    1d/7d/30d windows use post-deploy daily counters. Authenticated QA is excluded, but untagged
+                    research/internal/browser activity can still be counted. No Stripe or raw handoff tokens.
                   </p>
                 </div>
               </div>
@@ -329,18 +329,22 @@ export default async function FunnelDashboardPage({ searchParams }: PageProps) {
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                    Browser handoff (sessions)
+                    Handoff class (sessions)
                   </p>
                   <p className="mt-2 text-sm text-neutral-200">
-                    browser {(classificationBrowser?.total ?? 0).toLocaleString()} · missing{" "}
+                    browser handoff (not verified human){" "}
+                    {(classificationBrowser?.total ?? 0).toLocaleString()} · missing/direct handoff{" "}
                     {(classificationMissing?.total ?? 0).toLocaleString()}
                   </p>
                   <p className="mt-1 text-xs text-neutral-400">
-                    browser windows: 1d {classificationBrowser?.windows.d1 ?? 0} · 7d{" "}
+                    Do not treat browser handoff as a buyer count — token presence only.
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    browser handoff windows: 1d {classificationBrowser?.windows.d1 ?? 0} · 7d{" "}
                     {classificationBrowser?.windows.d7 ?? 0} · 30d {classificationBrowser?.windows.d30 ?? 0}
                   </p>
                   <p className="mt-1 text-xs text-neutral-400">
-                    missing windows: 1d {classificationMissing?.windows.d1 ?? 0} · 7d{" "}
+                    missing/direct windows: 1d {classificationMissing?.windows.d1 ?? 0} · 7d{" "}
                     {classificationMissing?.windows.d7 ?? 0} · 30d {classificationMissing?.windows.d30 ?? 0}
                   </p>
                 </div>

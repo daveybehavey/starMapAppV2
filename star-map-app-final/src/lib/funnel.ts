@@ -95,6 +95,21 @@ export type CheckoutClassificationDiagnostics = {
     qaTrafficExcluded: true;
     /** Only `browser` | `missing` labels are stored/returned — never raw handoff tokens. */
     noRawHandoffTokens: true;
+    /**
+     * `browser` means a valid browser handoff token was present on the request.
+     * It does **not** prove a unique human, customer, or genuine purchase intent.
+     */
+    browserMeansHandoffNotVerifiedHuman: true;
+    /**
+     * Authenticated QA is excluded, but untagged research/internal/browser activity
+     * can still increment these aggregates. Do not treat `browser` as a buyer count.
+     */
+    untaggedResearchInternalBrowserActivityMayBeCounted: true;
+    /** Operator-facing handoff key labels (measurement semantics). */
+    handoffLabels: {
+      browser: "browser handoff (not verified human)";
+      missing: "missing/direct handoff";
+    };
   };
   byStep: CheckoutClassificationStepBlock[];
 };
@@ -460,6 +475,12 @@ export async function getCheckoutClassificationDiagnostics(
       dailyWindowsSupportedGoingForward: true,
       qaTrafficExcluded: true,
       noRawHandoffTokens: true,
+      browserMeansHandoffNotVerifiedHuman: true,
+      untaggedResearchInternalBrowserActivityMayBeCounted: true,
+      handoffLabels: {
+        browser: "browser handoff (not verified human)",
+        missing: "missing/direct handoff",
+      },
     },
     byStep,
   };
