@@ -261,6 +261,7 @@ export function buildEligibilityReport(input = {}) {
   const partialProducts = eligibilityProducts.filter((p) => p.freeListingState === "PARTIAL");
   const disapprovedProducts = eligibilityProducts.filter((p) => p.freeListingState === "DISAPPROVED");
   const missingContextProducts = eligibilityProducts.filter((p) => p.freeListingState === "MISSING_CONTEXT");
+  const unknownProducts = eligibilityProducts.filter((p) => p.freeListingState === "UNKNOWN");
 
   const blockingAccountIssues = accountIssueSummaries.filter(
     (issue) =>
@@ -368,6 +369,11 @@ export function buildEligibilityReport(input = {}) {
       `${missingContextProducts.length} current-feed product(s) lack a FREE_LISTINGS destination status.`,
     );
   }
+  if (unknownProducts.length) {
+    eligibilityWarnings.push(
+      `${unknownProducts.length} current-feed product(s) have unresolved FREE_LISTINGS status (no approved/pending/disapproved countries).`,
+    );
+  }
 
   // Stale/unexpected Merchant products and account-wide aggregates are report-only:
   // they remain visible but must not downgrade an otherwise fully-approved current-feed PASS.
@@ -411,7 +417,8 @@ export function buildEligibilityReport(input = {}) {
     disapprovedProducts.length > 0 ||
     pendingProducts.length > 0 ||
     partialProducts.length > 0 ||
-    missingContextProducts.length > 0
+    missingContextProducts.length > 0 ||
+    unknownProducts.length > 0
   ) {
     // Only current-feed eligibility signals affect PARTIAL. Report-only stale/aggregate notes do not.
     verdict = "PARTIAL";
@@ -430,6 +437,7 @@ export function buildEligibilityReport(input = {}) {
       partialForFreeListings: partialProducts.length,
       disapprovedForFreeListings: disapprovedProducts.length,
       missingFreeListingContext: missingContextProducts.length,
+      unknownForFreeListings: unknownProducts.length,
       accountIssues: accountIssueSummaries.length,
       blockingAccountIssues: blockingAccountIssues.length,
       productIssues: productIssueCount,
@@ -553,15 +561,15 @@ export function formatConsoleSummary(report) {
  * @param {(path: string, options?: object) => Promise<object>} requestFn
  * @param {string} pathPrefix
  * @param {string} itemsKey
- * @param {{ pageSize?: number, query?: Record<string, string> }} [options]
+ * @param {{ pageSize?: number, query?: Record<string, string>, maxPages?: number }} [options]
  */
 export async function listAllPages(requestFn, pathPrefix, itemsKey, options = {}) {
   const pageSize = options.pageSize ?? 250;
   const query = options.query || {};
+  const maxPages = options.maxPages ?? 100;
   const items = [];
   let pageToken = "";
   let pages = 0;
-  const maxPages = 100;
 
   do {
     const params = new URLSearchParams({ pageSize: String(pageSize), ...query });
@@ -573,6 +581,12 @@ export async function listAllPages(requestFn, pathPrefix, itemsKey, options = {}
     items.push(...batch);
     pageToken = String(response?.nextPageToken || "");
   } while (pageToken && pages < maxPages);
+
+  if (pageToken) {
+    throw new Error(
+      `Indeterminate Merchant list result: pagination safety cap (${maxPages} pages) reached for ${pathPrefix} while nextPageToken remained. Refusing to diagnose from a truncated collection.`,
+    );
+  }
 
   return items;
 }

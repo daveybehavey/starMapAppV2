@@ -60,6 +60,24 @@ function disapprovedProduct(offerId) {
   };
 }
 
+function unknownFreeListingProduct(offerId) {
+  return {
+    offerId,
+    productAttributes: { title: offerId },
+    productStatus: {
+      destinationStatuses: [
+        {
+          reportingContext: "FREE_LISTINGS",
+          approvedCountries: [],
+          pendingCountries: [],
+          disapprovedCountries: [],
+        },
+      ],
+      itemLevelIssues: [],
+    },
+  };
+}
+
 function officialAggregateStatus(overrides = {}) {
   return {
     name: "accounts/123/aggregateProductStatuses/FREE_LISTINGS~US",
@@ -358,6 +376,57 @@ test("listAllPages follows nextPageToken", async () => {
   );
   assert.equal(calls.length, 2);
   assert.ok(calls.every((path) => path.startsWith("products/v1/accounts/1/products?")));
+});
+
+test("current-feed UNKNOWN FREE_LISTINGS status prevents PASS", () => {
+  const report = buildEligibilityReport({
+    products: [approvedProduct("print_poster_unframed"), unknownFreeListingProduct("print_poster_framed")],
+    accountIssues: [],
+    aggregateStatuses: [],
+    feedOfferIds: ["print_poster_unframed", "print_poster_framed"],
+  });
+  assert.equal(report.verdict, "PARTIAL");
+  assert.equal(report.counts.unknownForFreeListings, 1);
+  assert.ok(
+    report.eligibilityWarnings.some((line) => /unresolved FREE_LISTINGS status/i.test(line)),
+  );
+});
+
+test("current-feed UNKNOWN alone is BLOCKED, not PASS", () => {
+  const report = buildEligibilityReport({
+    products: [unknownFreeListingProduct("print_poster_unframed")],
+    accountIssues: [],
+    aggregateStatuses: [],
+    feedOfferIds: ["print_poster_unframed"],
+  });
+  assert.equal(report.verdict, "BLOCKED");
+  assert.equal(report.counts.unknownForFreeListings, 1);
+  assert.equal(report.counts.approvedForFreeListings, 0);
+});
+
+test("listAllPages throws when safety cap is reached with remaining nextPageToken", async () => {
+  let page = 0;
+  const requestFn = async () => {
+    page += 1;
+    return {
+      products: [{ offerId: `sku-${page}` }],
+      nextPageToken: `page-${page + 1}`,
+    };
+  };
+
+  await assert.rejects(
+    () =>
+      listAllPages(requestFn, "products/v1/accounts/1/products", "products", {
+        pageSize: 1,
+        maxPages: 3,
+      }),
+    (error) => {
+      assert.match(String(error?.message || error), /Indeterminate Merchant list result/i);
+      assert.match(String(error?.message || error), /safety cap \(3 pages\)/i);
+      assert.equal(page, 3);
+      return true;
+    },
+  );
 });
 
 test("aggregate filter uses reporting_context not reportingContext", async () => {
