@@ -14,6 +14,7 @@ import {
   diagnoseFreeListingEligibility,
   extractFeedOfferIds,
   formatConsoleSummary,
+  redactSensitive,
 } from "./merchant-free-listing-diagnose-lib.mjs";
 
 function parseArgs(argv) {
@@ -139,8 +140,10 @@ async function main() {
 
 main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  // Never dump raw bodies that might contain sensitive env reflections.
-  console.error(`FAIL: ${message}`);
+  // MerchantApiError messages include the request path, which contains the
+  // numeric Merchant account ID. Apply the same report redaction before logs.
+  const safeMessage = String(redactSensitive(message));
+  console.error(`FAIL: ${safeMessage}`);
   if (error && typeof error === "object" && "status" in error) {
     console.error(`HTTP status: ${error.status}`);
   }
