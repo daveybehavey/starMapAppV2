@@ -107,6 +107,7 @@ async function main() {
     );
     run("Shipping fulfillment phrase", html.includes(FULFILLMENT_PHRASE), FULFILLMENT_PHRASE);
     run("Shipping last updated line", expectLastUpdated(html, "shipping"), formatEnUsLong(meta.shipping));
+    run("Shipping damaged-print 30-day window", /within\s+30\s+days/i.test(html), "delivery window");
   } catch (e) {
     failed = true;
     run("Shipping checks", false, e instanceof Error ? e.message : String(e));
@@ -122,7 +123,7 @@ async function main() {
       "h1 (& or &amp;)",
     );
     run("Returns change-of-mind clause", /change-of-mind/i.test(html), "copy");
-    run("Returns 7-day window", /7\s*days/i.test(html), "delivery window");
+    run("Returns 30-day window", /within\s+30\s+days/i.test(html), "delivery window");
     run("Returns last updated line", expectLastUpdated(html, "returns"), formatEnUsLong(meta.returns));
   } catch (e) {
     failed = true;
@@ -135,6 +136,7 @@ async function main() {
     run("Support responds 200", res.status === 200, `status=${res.status}`);
     run("Support FAQ anchors", /id="faq-hd-download"/i.test(html), "faq-hd-download");
     run("Support FAQPage JSON-LD", html.includes('"@type":"FAQPage"'), "schema");
+    run("Support damaged-print 30-day window", /within\s+30\s+days/i.test(html), "delivery window");
   } catch (e) {
     failed = true;
     run("Support checks", false, e instanceof Error ? e.message : String(e));

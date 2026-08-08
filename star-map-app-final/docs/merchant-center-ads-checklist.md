@@ -51,7 +51,7 @@ If you get a missing credentials error, set `GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSO
 StarMapCo policy (`/returns`) is custom-order:
 
 - Change-of-mind print returns: not accepted after production starts
-- Damage/defect claims: contact within 7 days
+- Damage/defect claims: contact within 30 days
 
 In Merchant Center “Return cost”, choose a setting consistent with this (usually **customer-paid** / not “free returns”).
 
