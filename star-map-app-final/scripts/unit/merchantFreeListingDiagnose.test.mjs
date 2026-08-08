@@ -251,10 +251,85 @@ test("stale approved Merchant product must not mask current-feed disapproval as 
     ["legacy_stale_sku"],
   );
   assert.ok(
-    report.warnings.some((line) => /excluded from eligibility/i.test(line)),
+    report.reportOnlyWarnings.some((line) => /excluded from eligibility/i.test(line)),
     "unexpected products should be reported separately",
   );
   assert.ok(!report.products.some((product) => product.offerId === "legacy_stale_sku"));
+});
+
+test("all current-feed approved with stale Merchant product remains PASS with report-only warning", () => {
+  const report = buildEligibilityReport({
+    products: [
+      approvedProduct("print_poster_unframed"),
+      approvedProduct("print_poster_framed"),
+      approvedProduct("legacy_stale_sku"),
+    ],
+    accountIssues: [],
+    aggregateStatuses: [
+      officialAggregateStatus({
+        stats: { activeCount: "3", pendingCount: "1", disapprovedCount: "1", expiringCount: "0" },
+        itemLevelIssues: [
+          {
+            code: "legacy_policy",
+            severity: "DISAPPROVED",
+            productCount: "1",
+            documentationUri: "https://support.google.com/merchants/answer/1",
+          },
+        ],
+      }),
+    ],
+    feedOfferIds: ["print_poster_unframed", "print_poster_framed"],
+  });
+  assert.equal(report.verdict, "PASS");
+  assert.equal(report.counts.approvedForFreeListings, 2);
+  assert.equal(report.counts.eligibilityWarnings, 0);
+  assert.ok(report.reportOnlyWarnings.length >= 1);
+  assert.ok(
+    report.reportOnlyWarnings.some((line) => /legacy_stale_sku/.test(line)),
+    "stale offer remains visible as report-only",
+  );
+  assert.ok(report.reportOnlyWarnings.some((line) => /Aggregate FREE_LISTINGS pending/i.test(line)));
+  assert.ok(report.reportOnlyWarnings.some((line) => /Aggregate FREE_LISTINGS disapproved/i.test(line)));
+  assert.match(formatConsoleSummary(report), /Report-only notes/);
+  assert.doesNotMatch(formatConsoleSummary(report), /Eligibility warnings:/);
+});
+
+test("genuine current-feed gap still downgrades to PARTIAL", () => {
+  const report = buildEligibilityReport({
+    products: [
+      approvedProduct("print_poster_unframed"),
+      approvedProduct("legacy_stale_sku"),
+    ],
+    accountIssues: [],
+    aggregateStatuses: [],
+    feedOfferIds: ["print_poster_unframed", "print_poster_framed"],
+  });
+  assert.equal(report.verdict, "PARTIAL");
+  assert.ok(report.eligibilityWarnings.some((line) => /print_poster_framed/.test(line)));
+  assert.ok(report.reportOnlyWarnings.some((line) => /legacy_stale_sku/.test(line)));
+});
+
+test("genuine free-listing account issue still downgrades to BLOCKED", () => {
+  const report = buildEligibilityReport({
+    products: [
+      approvedProduct("print_poster_unframed"),
+      approvedProduct("print_poster_framed"),
+      approvedProduct("legacy_stale_sku"),
+    ],
+    accountIssues: [
+      {
+        name: "accounts/5702040685/issues/misrepresentation",
+        title: "Misrepresentation",
+        severity: "ERROR",
+        impactedDestinations: [{ reportingContext: "FREE_LISTINGS", impacts: [] }],
+      },
+    ],
+    aggregateStatuses: [],
+    feedOfferIds: ["print_poster_unframed", "print_poster_framed"],
+  });
+  assert.equal(report.verdict, "BLOCKED");
+  assert.equal(report.counts.blockingAccountIssues, 1);
+  assert.ok(report.reportOnlyWarnings.some((line) => /legacy_stale_sku/.test(line)));
 });
 
 test("listAllPages follows nextPageToken", async () => {
