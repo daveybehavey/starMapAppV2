@@ -64,7 +64,8 @@ export type PrintOrderRecord = {
 export const printOrderKey = (sessionId: string) => `print:order:${sessionId}`;
 const PRINT_CHECKOUT_SESSION_ID_REGEX = /^cs_(?:test|live)_[A-Za-z0-9_]+$/;
 const DEFAULT_PRINT_MIN_CHARGE_CENTS = 100;
-/** Matches default entitled print-asset retention (fulfillment + short support window). */
+const SECONDS_PER_DAY = 24 * 60 * 60;
+/** Fixed maximum retention from original order creation (fulfillment + short support window). */
 export const DEFAULT_PRINT_ORDER_RETENTION_DAYS = 60;
 
 export function getPrintMinChargeCents() {
@@ -111,16 +112,30 @@ export function extractCheckoutPhoneFromStripeSession(session: {
   );
 }
 
-/** Bounded KV retention for print-order records (including checkout phone). */
-export function getPrintOrderRetentionSeconds() {
+/**
+ * Remaining bounded KV retention for a print-order record.
+ * The deadline is anchored to the original `createdAt`: later webhook, retry,
+ * shipping, or notification writes can never restart the retention window.
+ * Configuration may shorten the default 60-day bound, but never extend it.
+ */
+export function getPrintOrderRetentionSeconds(createdAt = Date.now(), now = Date.now()) {
   const raw = process.env.PRINT_ORDER_RETENTION_DAYS?.trim();
-  const days = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  const safeDays = Number.isFinite(days) && days > 0 ? days : DEFAULT_PRINT_ORDER_RETENTION_DAYS;
-  return safeDays * 24 * 60 * 60;
+  const parsedDays = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  const configuredDays =
+    Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : DEFAULT_PRINT_ORDER_RETENTION_DAYS;
+  const retentionDays = Math.min(configuredDays, DEFAULT_PRINT_ORDER_RETENTION_DAYS);
+  const maxRetentionSeconds = retentionDays * SECONDS_PER_DAY;
+  const safeNow = Number.isFinite(now) ? now : Date.now();
+  const safeCreatedAt = Number.isFinite(createdAt) ? createdAt : safeNow;
+  const deadlineMs = safeCreatedAt + maxRetentionSeconds * 1000;
+  const remainingSeconds = Math.ceil((deadlineMs - safeNow) / 1000);
+  return Math.max(1, Math.min(maxRetentionSeconds, remainingSeconds));
 }
 
 export async function persistPrintOrderRecord(sessionId: string, record: PrintOrderRecord) {
-  await kv.set(printOrderKey(sessionId), record, { ex: getPrintOrderRetentionSeconds() });
+  await kv.set(printOrderKey(sessionId), record, {
+    ex: getPrintOrderRetentionSeconds(record.createdAt),
+  });
 }
 
 /**
