@@ -1,6 +1,7 @@
 /** Keep in sync with src/lib/printOrders.ts phone + recipient + operator sanitization helpers. */
 
 export const DEFAULT_PRINT_ORDER_RETENTION_DAYS = 60;
+const SECONDS_PER_DAY = 24 * 60 * 60;
 
 export function normalizeCheckoutPhone(value) {
   if (typeof value !== "string") return null;
@@ -15,11 +16,22 @@ export function extractCheckoutPhoneFromStripeSession(session) {
   );
 }
 
-export function getPrintOrderRetentionSeconds(env = process.env) {
+export function getPrintOrderRetentionSeconds({
+  createdAt,
+  now = Date.now(),
+  env = process.env,
+} = {}) {
+  if (!Number.isFinite(createdAt)) return 1;
   const raw = typeof env.PRINT_ORDER_RETENTION_DAYS === "string" ? env.PRINT_ORDER_RETENTION_DAYS.trim() : "";
-  const days = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  const safeDays = Number.isFinite(days) && days > 0 ? days : DEFAULT_PRINT_ORDER_RETENTION_DAYS;
-  return safeDays * 24 * 60 * 60;
+  const parsedDays = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  const configuredDays =
+    Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : DEFAULT_PRINT_ORDER_RETENTION_DAYS;
+  const retentionDays = Math.min(configuredDays, DEFAULT_PRINT_ORDER_RETENTION_DAYS);
+  const maxRetentionSeconds = retentionDays * SECONDS_PER_DAY;
+  const safeNow = Number.isFinite(now) ? now : Date.now();
+  const deadlineMs = createdAt + maxRetentionSeconds * 1000;
+  const remainingSeconds = Math.ceil((deadlineMs - safeNow) / 1000);
+  return Math.max(1, Math.min(maxRetentionSeconds, remainingSeconds));
 }
 
 export function sanitizePrintOrderForOperatorResponse(record) {
