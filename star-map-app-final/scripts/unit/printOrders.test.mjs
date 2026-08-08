@@ -208,13 +208,52 @@ test("redactPrintOrderApiResponseText protects retry-print-order.mjs terminal ou
   assert.equal(parsed.order.customerPhone, undefined);
 });
 
-test("print-order retention defaults to entitled-asset-aligned 60-day TTL", () => {
+test("print-order retention is fixed from creation and cannot exceed 60 days", () => {
+  const DAY_SECONDS = 24 * 60 * 60;
+  const DAY_MS = DAY_SECONDS * 1000;
+  const createdAt = 1_700_000_000_000;
+
   assert.equal(DEFAULT_PRINT_ORDER_RETENTION_DAYS, 60);
-  assert.equal(getPrintOrderRetentionSeconds({}), 60 * 24 * 60 * 60);
-  assert.equal(getPrintOrderRetentionSeconds({ PRINT_ORDER_RETENTION_DAYS: "90" }), 90 * 24 * 60 * 60);
+  assert.equal(
+    getPrintOrderRetentionSeconds({ createdAt, now: createdAt, env: {} }),
+    60 * DAY_SECONDS,
+  );
+  assert.equal(
+    getPrintOrderRetentionSeconds({
+      createdAt,
+      now: createdAt,
+      env: { PRINT_ORDER_RETENTION_DAYS: "90" },
+    }),
+    60 * DAY_SECONDS,
+  );
+  assert.equal(
+    getPrintOrderRetentionSeconds({
+      createdAt,
+      now: createdAt,
+      env: { PRINT_ORDER_RETENTION_DAYS: "30" },
+    }),
+    30 * DAY_SECONDS,
+  );
+  assert.equal(
+    getPrintOrderRetentionSeconds({ createdAt, now: createdAt + 50 * DAY_MS, env: {} }),
+    10 * DAY_SECONDS,
+  );
+  assert.equal(
+    getPrintOrderRetentionSeconds({ createdAt, now: createdAt + 61 * DAY_MS, env: {} }),
+    1,
+  );
+  assert.equal(
+    getPrintOrderRetentionSeconds({ createdAt: createdAt + DAY_MS, now: createdAt, env: {} }),
+    60 * DAY_SECONDS,
+  );
+  assert.equal(getPrintOrderRetentionSeconds({ createdAt: Number.NaN, now: createdAt, env: {} }), 1);
+  assert.equal(getPrintOrderRetentionSeconds({ createdAt: undefined, now: createdAt, env: {} }), 1);
+
   assert.match(printOrdersSource, /persistPrintOrderRecord/);
-  assert.match(printOrdersSource, /getPrintOrderRetentionSeconds/);
+  assert.match(printOrdersSource, /getPrintOrderRetentionSeconds\(record\.createdAt\)/);
   assert.match(printOrdersSource, /DEFAULT_PRINT_ORDER_RETENTION_DAYS\s*=\s*60/);
+  assert.match(printOrdersSource, /Math\.min\(configuredDays, DEFAULT_PRINT_ORDER_RETENTION_DAYS\)/);
+  assert.match(printOrdersSource, /if \(!Number\.isFinite\(createdAt\)\) return 1/);
 });
 
 test("production status/retry/resolve routes sanitize operator order responses", () => {
