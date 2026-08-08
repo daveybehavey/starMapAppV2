@@ -1,0 +1,67 @@
+# Owner-comment bridge → reusable production deploy (issue #234).
+#
+# Only the repository owner may request a production deploy by posting an exact
+# `/deploy-production <40-char-hex-SHA>` comment on revenue control-plane issue
+# #213. Validation is fail-closed; deploy steps live solely in
+# deploy-production.yml (workflow_call). No push, schedule, or automatic-merge paths.
+name: Deploy production comment bridge
+
+on:
+  issue_comment:
+    types: [created]
+
+# Validation stays least-privilege. The reusable deploy workflow declares its
+# own permissions; secrets are passed only via secrets: inherit on the call.
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production-bridge-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    # Cheap prefilter: never run parser/deploy work outside #213 created comments.
+    # Edited/deleted comments never reach this workflow (types: [created] only).
+    # PR review comments are excluded (issue.pull_request is set for PRs).
+    if: >
+      github.event.issue.number == 213 &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.bridge.outputs.sha }}
+      should_deploy: ${{ steps.bridge.outputs.should_deploy }}
+    steps:
+      - name: Check out repository (full history for main containment)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve origin/main
+        run: git fetch --no-tags origin main && git rev-parse --verify origin/main
+
+      - name: Parse and authorize owner deploy command
+        id: bridge
+        env:
+          # Raw comment arrives only via env — never shell-source interpolation.
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          BRIDGE_COMMENT_ACTION: ${{ github.event.action }}
+          BRIDGE_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          BRIDGE_ISSUE_IS_PULL_REQUEST: "false"
+          BRIDGE_ACTOR_LOGIN: ${{ github.actor }}
+          BRIDGE_COMMENT_USER_LOGIN: ${{ github.event.comment.user.login }}
+          BRIDGE_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          BRIDGE_VERIFY_MAIN: "1"
+          BRIDGE_MAIN_REF: origin/main
+        run: node .github/scripts/deploy-production-bridge.mjs
+
+  deploy:
+    needs: validate
+    if: needs.validate.outputs.should_deploy == 'true' && needs.validate.outputs.sha != ''
+    uses: ./.github/workflows/deploy-production.yml
+    with:
+      ref: ${{ needs.validate.outputs.sha }}
+    secrets: inherit
