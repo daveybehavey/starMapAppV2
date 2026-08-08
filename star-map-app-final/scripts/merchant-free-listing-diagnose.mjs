@@ -12,6 +12,7 @@ import { merchantApiRequest, hasMerchantServiceAccountConfigured } from "./merch
 import {
   credentialsSetupMessage,
   diagnoseFreeListingEligibility,
+  extractFeedOfferIds,
   formatConsoleSummary,
 } from "./merchant-free-listing-diagnose-lib.mjs";
 
@@ -73,7 +74,7 @@ Options:
 
 Exit codes:
   0  PASS
-  1  PARTIAL or BLOCKED
+  1  PARTIAL, BLOCKED, or indeterminate input failure
   2  SKIP (credentials/account id missing)
 
 Safety: GET/list only. Never logs service-account JSON, tokens, or auth headers.`);
@@ -84,6 +85,21 @@ async function main() {
   if (args.help) {
     printHelp();
     process.exit(0);
+  }
+
+  // The verdict is explicitly scoped to the current local feed. Fail closed
+  // before touching Merchant API data if that scope cannot be established;
+  // otherwise stale/account-wide products could yield a misleading PASS.
+  const feedPath = resolve(process.cwd(), args.feedFile);
+  if (!existsSync(feedPath)) {
+    throw new Error(`Feed file not found at ${args.feedFile}; cannot scope eligibility diagnosis to current feed.`);
+  }
+  const feedXml = readFileSync(feedPath, "utf8");
+  if (!feedXml.trim()) {
+    throw new Error(`Feed file is empty at ${args.feedFile}; cannot scope eligibility diagnosis to current feed.`);
+  }
+  if (extractFeedOfferIds(feedXml).length === 0) {
+    throw new Error(`Feed file has no product offer IDs at ${args.feedFile}; cannot scope eligibility diagnosis to current feed.`);
   }
 
   await seedEnv();
@@ -99,14 +115,6 @@ async function main() {
   } catch {
     console.error(credentialsSetupMessage());
     process.exit(2);
-  }
-
-  const feedPath = resolve(process.cwd(), args.feedFile);
-  let feedXml = "";
-  if (existsSync(feedPath)) {
-    feedXml = readFileSync(feedPath, "utf8");
-  } else {
-    console.warn(`NOTE: Feed file not found at ${args.feedFile}; skipping SKU coverage check.`);
   }
 
   const report = await diagnoseFreeListingEligibility({
