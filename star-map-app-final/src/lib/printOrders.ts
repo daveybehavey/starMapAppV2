@@ -117,8 +117,11 @@ export function extractCheckoutPhoneFromStripeSession(session: {
  * The deadline is anchored to the original `createdAt`: later webhook, retry,
  * shipping, or notification writes can never restart the retention window.
  * Configuration may shorten the default 60-day bound, but never extend it.
+ * A malformed creation timestamp fails closed to the minimum one-second TTL.
  */
-export function getPrintOrderRetentionSeconds(createdAt = Date.now(), now = Date.now()) {
+export function getPrintOrderRetentionSeconds(createdAt: number, now = Date.now()) {
+  if (!Number.isFinite(createdAt)) return 1;
+
   const raw = process.env.PRINT_ORDER_RETENTION_DAYS?.trim();
   const parsedDays = raw ? Number.parseInt(raw, 10) : Number.NaN;
   const configuredDays =
@@ -126,8 +129,7 @@ export function getPrintOrderRetentionSeconds(createdAt = Date.now(), now = Date
   const retentionDays = Math.min(configuredDays, DEFAULT_PRINT_ORDER_RETENTION_DAYS);
   const maxRetentionSeconds = retentionDays * SECONDS_PER_DAY;
   const safeNow = Number.isFinite(now) ? now : Date.now();
-  const safeCreatedAt = Number.isFinite(createdAt) ? createdAt : safeNow;
-  const deadlineMs = safeCreatedAt + maxRetentionSeconds * 1000;
+  const deadlineMs = createdAt + maxRetentionSeconds * 1000;
   const remainingSeconds = Math.ceil((deadlineMs - safeNow) / 1000);
   return Math.max(1, Math.min(maxRetentionSeconds, remainingSeconds));
 }
