@@ -133,7 +133,7 @@ export default function CustomNightSkyMapPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Related ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Looking for a specific format? Explore these popular options.
+          Looking for a specific format? Explore these related format options.
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">

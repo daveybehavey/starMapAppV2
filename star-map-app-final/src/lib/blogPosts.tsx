@@ -439,7 +439,7 @@ export const blogPosts: BlogPost[] = [
           <thead>
             <tr>
               <th>Format</th>
-              <th>Use when</th>
+              <th>Best for</th>
               <th>Speed</th>
               <th>Presentation</th>
             </tr>
@@ -595,7 +595,7 @@ export const blogPosts: BlogPost[] = [
           is generated from astronomical data, so the stars shown on the map match how the sky actually
           appeared in that moment.
         </p>
-        <p>Popular relationship moments include:</p>
+        <p>Not sure which date to choose? Relationship moment ideas include:</p>
         <ul>
           <li>The night you first met</li>
           <li>Your first kiss</li>
@@ -1166,7 +1166,7 @@ export const blogPosts: BlogPost[] = [
         </p>
         <h3>Customize the Text</h3>
         <p>
-          Popular titles include: <em>Under These Stars</em>, <em>A New Year Dawns</em>, <em>Hello, 2026</em>,{" "}
+          Title ideas include: <em>Under These Stars</em>, <em>A New Year Dawns</em>, <em>Hello, 2026</em>,{" "}
           <em>The Night We Began Again</em>.
         </p>
         <h3>Select a Style</h3>
@@ -1444,7 +1444,7 @@ export const blogPosts: BlogPost[] = [
           <thead>
             <tr>
               <th>Format</th>
-              <th>Use when</th>
+              <th>Best For</th>
               <th>Tradeoff</th>
             </tr>
           </thead>

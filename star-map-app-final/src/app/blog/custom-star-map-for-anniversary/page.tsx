@@ -5,7 +5,7 @@ import Link from "next/link";
 
 const title = "Custom Star Map for Anniversary Ideas";
 const description =
-  "Discover why a custom star map for anniversary moments is one of the most romantic, personal, and unforgettable gifts you can give. Capture your special night sky.";
+  "Discover why a custom star map for anniversary moments is a romantic, personal, and unforgettable gift you can give. Capture your special night sky.";
 const ogImage = "https://starmapco.com/custom-star-map-anniversary.webp";
 const keywords = [
   "custom star map for anniversary",
@@ -68,7 +68,7 @@ export default function AnniversaryPostPage() {
           </h1>
           <p className="text-base text-neutral-200 sm:text-lg">
             Looking for a meaningful anniversary present? Discover why a custom star map for anniversary
-            moments is one of the most romantic, personal, and unforgettable gifts you can give.
+            moments is a romantic, personal, and unforgettable gift you can give.
           </p>
         </header>
 
@@ -76,8 +76,8 @@ export default function AnniversaryPostPage() {
           <p>
             Anniversaries mark more than just a date on the calendar—they celebrate shared memories,
             commitment, and love that has grown over time. Finding a gift that truly captures all of that can
-            feel overwhelming. That’s exactly why a custom star map for anniversary occasions has become one
-            of the most cherished and meaningful gifts for couples who want something more personal than a generic keepsake.
+            feel overwhelming. That’s exactly why a custom star map for anniversary occasions has become a
+            cherished and meaningful gift for couples who want something more personal than a generic keepsake.
           </p>
           <p>
             Instead of something temporary or generic, a custom star map captures the actual night sky from a
@@ -176,7 +176,7 @@ export default function AnniversaryPostPage() {
               this sky” make the custom star map for anniversary gift feel intimate and intentional.
             </p>
             <h3 className="text-xl font-semibold text-amber-100">Match the Style to Your Home</h3>
-            <p>Popular design styles include:</p>
+            <p>Design style options include:</p>
             <ul className="list-disc space-y-2 pl-5">
               <li>Minimalist black and white</li>
               <li>Deep navy with bright constellations</li>

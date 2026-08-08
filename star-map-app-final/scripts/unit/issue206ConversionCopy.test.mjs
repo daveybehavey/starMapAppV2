@@ -21,9 +21,20 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SRC = path.join(ROOT, "src");
 const PUBLIC = path.join(ROOT, "public");
+const APP_DIR = path.join(SRC, "app");
 
-/** Customer-facing sources that must not reintroduce unsupported transactional popularity claims. */
-const SCAN_RELATIVE_PATHS = [
+/** App-router segments that are not customer-facing runtime copy surfaces. */
+const APP_SCAN_SKIP_DIR_NAMES = new Set(["api", "simple-test"]);
+
+/** Next.js plumbing files that do not render customer marketing copy. */
+const NEXT_PLUMBING_FILE_PATTERN =
+  /^(layout|loading|error|not-found|template|default|route|opengraph-image|twitter-image|icon|apple-icon|sitemap|robots)\./i;
+
+/**
+ * Shared non-page modules that inject customer-facing copy into runtime UI.
+ * Kept explicit so internal tooling libs are not scanned for marketing phrases.
+ */
+const SHARED_RUNTIME_COPY_RELATIVE_PATHS = [
   "components/GiftFormatLadder.tsx",
   "components/DeliveryFormatModule.tsx",
   "components/PurchaseTrustPanel.tsx",
@@ -35,27 +46,7 @@ const SCAN_RELATIVE_PATHS = [
   "components/GiftFormatRoadmapModule.tsx",
   "components/FramedProofSection.tsx",
   "components/EditorExperience.tsx",
-  "app/HomeStaticSections.tsx",
-  "app/HomeHero.tsx",
-  "app/page.tsx",
-  "app/shop/page.tsx",
-  "app/wedding/page.tsx",
-  "app/anniversary/page.tsx",
-  "app/birthday/page.tsx",
-  "app/star-map-poster/page.tsx",
-  "app/personalized-star-map/page.tsx",
-  "app/night-sky-map-gift/page.tsx",
-  "app/star-map-for/page.tsx",
-  "app/star-map-for/[slug]/page.tsx",
-  "app/star-map-gift/page.tsx",
-  "app/star-map-gift-formats/page.tsx",
-  "app/custom-night-sky-map/page.tsx",
-  "app/star-map-generator/page.tsx",
-  "app/constellation-map/page.tsx",
-  "app/star-map-gift-ideas/page.tsx",
-  "app/star-map-in/page.tsx",
-  "app/star-map-in/[slug]/page.tsx",
-  "app/hd-star-map/page.tsx",
+  "components/OccasionLinks.tsx",
   "lib/moneyPageGiftCheckout.ts",
   "lib/printGiftDecisionCopy.ts",
   "lib/mapCommerceLinks.ts",
@@ -63,11 +54,47 @@ const SCAN_RELATIVE_PATHS = [
   "lib/digitalGiftCheckout.ts",
   "lib/blogPosts.tsx",
   "data/seoOccasions.ts",
-  "components/OccasionLinks.tsx",
-  "app/best-personalized-star-map-gift/page.tsx",
-  "app/blog/birth-star-map/page.tsx",
-  "app/blog/custom-star-map-for-anniversary/page.tsx",
 ];
+
+function walkFiles(dir, predicate, acc = []) {
+  if (!fs.existsSync(dir)) return acc;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith(".")) continue;
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (APP_SCAN_SKIP_DIR_NAMES.has(entry.name)) continue;
+      walkFiles(fullPath, predicate, acc);
+      continue;
+    }
+    if (predicate(entry.name, fullPath)) acc.push(fullPath);
+  }
+  return acc;
+}
+
+/**
+ * Deterministic recursive discovery of customer-facing/indexable app runtime copy
+ * (all page.tsx routes plus co-located non-plumbing modules under src/app).
+ */
+function discoverAppRuntimeCopyRelativePaths() {
+  return walkFiles(APP_DIR, (name) => {
+    if (!/\.(?:ts|tsx)$/.test(name)) return false;
+    if (NEXT_PLUMBING_FILE_PATTERN.test(name)) return false;
+    return true;
+  })
+    .map((absolutePath) => path.relative(SRC, absolutePath).split(path.sep).join("/"))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function discoverCustomerFacingScanRelativePaths() {
+  const discovered = new Set([
+    ...discoverAppRuntimeCopyRelativePaths(),
+    ...SHARED_RUNTIME_COPY_RELATIVE_PATHS,
+  ]);
+  return [...discovered].sort((a, b) => a.localeCompare(b));
+}
+
+/** Customer-facing sources that must not reintroduce unsupported transactional popularity claims. */
+const SCAN_RELATIVE_PATHS = discoverCustomerFacingScanRelativePaths();
 
 /**
  * Transactional buyer-popularity claims.
@@ -96,6 +123,7 @@ const POPULAR_BUNDLE_PATTERN = /\bPopular bundle\b/i;
  * Intentionally does NOT match navigation/editorial headings such as
  * “Popular occasions” or “Popular star map destinations”.
  * Date-selection “popular choices” is covered by POPULAR_CHOICES_PATTERN.
+ * Empirical “Popular design styles / titles / sizes …” is covered by EMPIRICAL_POPULAR_PHRASE_PATTERN.
  */
 const PRODUCT_POPULARITY_PATTERN =
   /\b(?:are|is)\s+popular\b|\bpopular\s+for\b|\bpopular\s+(?:bundle|variations|framed)\b|\bour\s+popular\b|\bone\s+of\s+the\s+most\s+(?:popular\s+(?:uses|moments)|requested\s+gifts)\b|\bmost\s+(?:popular\s+(?:uses|moments)|requested\s+gifts)\b|\bIs\s+(?:a\s+|an\s+)?.{0,40}?\spopular\?/i;
@@ -116,6 +144,21 @@ const STRONGEST_PRODUCT_OPTION_PATTERN =
   /\bstrongest (?:ready-to-open|gift-ready|presentation|choice)\b/i;
 const MOST_COMMON_CHOICE_PATTERN = /\bmost common .{0,40}? choice\b/i;
 
+/**
+ * Unsupported gift-superlative ranking (“one of the most romantic/cherished …”).
+ * Does not ban qualitative “most meaningful” language already treated as non-volume editorial.
+ */
+const ONE_OF_THE_MOST_SUPERLATIVE_PATTERN =
+  /\bone of the most (?:romantic|cherished)\b/i;
+
+/**
+ * Empirical Popular-* merchandising phrases that imply measured preference.
+ * Intentionally does NOT match catalog/nav labels: Popular occasions/locations/
+ * star map destinations/use cases, or “popular cities” browse copy.
+ */
+const EMPIRICAL_POPULAR_PHRASE_PATTERN =
+  /\bPopular (?:design styles|relationship moments|titles|sizes)\b|\bthese popular options\b|\bExplore these popular\b/i;
+
 /** Transactional format-popularity FAQs/answers in occasion data. */
 const FORMAT_POPULARITY_QUESTION_PATTERN = /What format do .+ buyers choose most\?/i;
 const FORMAT_POPULARITY_ANSWER_PATTERN = /\bMost choose framed\b|\bMost nursery gifts use\b/i;
@@ -127,7 +170,7 @@ const FORMAT_POPULARITY_ANSWER_PATTERN = /\bMost choose framed\b|\bMost nursery 
  * “most common accuracy mistakes”.
  */
 const MOST_GIFTS_ORDERS_FILES_PATTERN =
-  /\b(?:covers|for|across|on|not)\s+most\s+(?:[\w'-]+\s+){0,3}(?:gifts?|orders?|files?)\b|\bmost\s+(?:single-map|one-off|one[\s-]off)\s+gifts?\b|\bmost\s+(?:orders?|files?)\s+(?:need|require|use|include|cover)\b/i;
+  /\b(?:covers|for|across|on|not)\s+most\s+(?:[\w'-]+\s+){0,3}(?:gifts?|orders?|files?)\b|\bmost\s+(?:single-map|one-off|one[\s-]off)\s+gifts?\b|\bmost\s+(?:[\w'-]+\s+){0,2}(?:orders?|files?)\s+(?:are|need|require|use|include|cover)\b/i;
 
 /**
  * Direct unsupported transactional/product superiority claims.
@@ -160,6 +203,8 @@ const POPULARITY_PATTERNS = [
   WHY_COHORT_CHOOSE_PATTERN,
   STRONGEST_PRODUCT_OPTION_PATTERN,
   MOST_COMMON_CHOICE_PATTERN,
+  ONE_OF_THE_MOST_SUPERLATIVE_PATTERN,
+  EMPIRICAL_POPULAR_PHRASE_PATTERN,
   // PRODUCT_SUPERIORITY handled by findProductSuperiorityHits (question-aware).
   /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
   /\bmost couples choose framed\b/i,
@@ -294,6 +339,7 @@ const MOST_GIFTS_ORDERS_FILES_POSITIVE_FIXTURES = [
   "most one-off gifts",
   "Most orders need only one finished file",
   "Most files cover a single map gift",
+  "Most wedding orders are one-time",
 ];
 
 const MOST_GIFTS_ORDERS_FILES_NEGATIVE_FIXTURES = [
@@ -306,6 +352,7 @@ const MOST_GIFTS_ORDERS_FILES_NEGATIVE_FIXTURES = [
   "Yes. It’s one of the most requested gifts for weddings and anniversaries.",
   "Yes. A custom star map gift is one of the most meaningful couples gifts",
   "Decisions get clearer once the wording is settled",
+  "Wedding orders are one-time purchases after preview",
 ];
 
 const PRODUCT_SUPERIORITY_POSITIVE_FIXTURES = [
@@ -361,6 +408,8 @@ const PRODUCT_SUPERIORITY_NEGATIVE_FIXTURES = [
   "Use framed when the gift should arrive ready to hang.",
   "Which personalized star map format should I choose?",
   "Jump straight to gift, poster, and instant star map generator pages.",
+  "<th>Best for</th>",
+  "<th>Best For</th>",
 ];
 
 /** Soft cohort / ranking claims that must fail the full scan (#232). */
@@ -386,6 +435,13 @@ const DATE_COHORT_POSITIVE_FIXTURES = [
   "framed is the strongest choice",
   "framed print is the strongest presentation",
   "Framed print is the most common nursery choice",
+  "one of the most romantic, personal, and unforgettable gifts",
+  "one of the most cherished and meaningful gifts",
+  "Popular design styles include:",
+  "Popular relationship moments include:",
+  "Popular titles include:",
+  "Popular sizes include 11x14, 16x20, and 24x36",
+  "Explore these popular options.",
 ];
 
 const DATE_COHORT_NEGATIVE_FIXTURES = [
@@ -406,9 +462,21 @@ const DATE_COHORT_NEGATIVE_FIXTURES = [
   "framed print is the recommended presentation",
   "Framed print is a ready-to-hang nursery option",
   "Popular occasions",
+  "Popular locations",
   "Popular star map destinations",
+  "Popular use cases",
+  "Browse nearby and popular cities:",
   "Recommended presentation is framed + HD",
   "The premium gift route is the framed print",
+  "Yes. A custom star map gift is one of the most meaningful couples gifts",
+  "a custom star map is one of the most meaningful Valentine's Day gifts",
+  "Design style options include:",
+  "Relationship moment ideas include:",
+  "Title ideas include:",
+  "Common sizes include 11x14, 16x20, and 24x36",
+  "Explore these related format options.",
+  "a romantic, personal, and unforgettable gift you can give",
+  "a cherished and meaningful gift for couples",
 ];
 
 /** Editorial / non-transactional wording that must remain unmatched by the buyer-choose matcher. */
@@ -483,6 +551,16 @@ function isBestForQuestionContext(source, matchIndex) {
   return hasQuestionLead && hasQuestionMark;
 }
 
+/**
+ * True when a best-for match is only a factual format-comparison table heading,
+ * e.g. `<th>Best for</th>` / `<th>Best For</th>`, not an offer claim.
+ */
+function isBestForTableHeading(source, matchIndex, matchLength) {
+  const before = source.slice(Math.max(0, matchIndex - 120), matchIndex);
+  const after = source.slice(matchIndex + matchLength, matchIndex + matchLength + 40);
+  return /<th\b[^>]*>\s*$/i.test(before) && /^\s*<\/th>/i.test(after);
+}
+
 function findProductSuperiorityHits(source) {
   const hits = [];
   const direct = source.match(PRODUCT_SUPERIORITY_DIRECT_PATTERN);
@@ -493,6 +571,7 @@ function findProductSuperiorityHits(source) {
   const bestForRe = new RegExp(BEST_FOR_OFFER_PATTERN.source, "gi");
   let match;
   while ((match = bestForRe.exec(source)) !== null) {
+    if (isBestForTableHeading(source, match.index, match[0].length)) continue;
     if (!isBestForQuestionContext(source, match.index)) {
       hits.push({ pattern: "BEST_FOR_OFFER", snippet: match[0] });
     }
@@ -768,6 +847,31 @@ test("EditorExperience no longer renders Best gift superiority label", () => {
   assert.match(source, /Premium gift/);
 });
 
+test("scan inventory discovers all customer-facing app routes recursively", () => {
+  const discoveredAppPaths = discoverAppRuntimeCopyRelativePaths();
+  assert.ok(discoveredAppPaths.includes("app/hd-star-map/page.tsx"));
+  assert.ok(discoveredAppPaths.includes("app/blog/custom-star-maps-for-weddings/page.tsx"));
+  assert.ok(discoveredAppPaths.includes("app/blog/custom-star-map-for-anniversary/page.tsx"));
+  assert.ok(discoveredAppPaths.includes("app/blog/memorial-star-map/page.tsx"));
+  assert.ok(discoveredAppPaths.includes("app/HomeStaticSections.tsx"));
+  assert.ok(!discoveredAppPaths.some((relativePath) => relativePath.startsWith("app/api/")));
+  assert.ok(!discoveredAppPaths.some((relativePath) => relativePath.startsWith("app/simple-test/")));
+
+  assert.ok(SCAN_RELATIVE_PATHS.includes("app/blog/custom-star-maps-for-weddings/page.tsx"));
+  assert.ok(SCAN_RELATIVE_PATHS.includes("lib/digitalGiftCheckout.ts"));
+  assert.ok(SCAN_RELATIVE_PATHS.includes("lib/blogPosts.tsx"));
+  assert.equal(
+    SCAN_RELATIVE_PATHS.length,
+    new Set(SCAN_RELATIVE_PATHS).size,
+    "scan path discovery must be deduplicated"
+  );
+  // Guard against accidental reversion to a tiny hand-picked page list.
+  assert.ok(
+    discoveredAppPaths.filter((relativePath) => relativePath.endsWith("/page.tsx")).length >= 40,
+    `expected recursive page discovery, found ${discoveredAppPaths.filter((p) => p.endsWith("/page.tsx")).length}`
+  );
+});
+
 test("HD money page and digitalGiftCheckout are inventoried without unsupported claims", () => {
   assert.ok(SCAN_RELATIVE_PATHS.includes("app/hd-star-map/page.tsx"));
   assert.ok(SCAN_RELATIVE_PATHS.includes("lib/digitalGiftCheckout.ts"));
@@ -780,6 +884,31 @@ test("HD money page and digitalGiftCheckout are inventoried without unsupported 
   assert.match(page, /Who is instant HD best for\?/);
   assert.doesNotMatch(helper, /\bBest if\b/i);
   assert.doesNotMatch(helper, /\bBest when\b/i);
+});
+
+test("one-of-the-most romantic/cherished and empirical Popular phrases are guarded", () => {
+  assert.match("one of the most romantic gifts", ONE_OF_THE_MOST_SUPERLATIVE_PATTERN);
+  assert.match("one of the most cherished and meaningful gifts", ONE_OF_THE_MOST_SUPERLATIVE_PATTERN);
+  assert.doesNotMatch(
+    "Yes. A custom star map gift is one of the most meaningful couples gifts",
+    ONE_OF_THE_MOST_SUPERLATIVE_PATTERN
+  );
+
+  assert.match("Popular design styles include:", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.match("Popular sizes include 11x14", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.match("Explore these popular options.", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Popular occasions", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Popular locations", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Popular star map destinations", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Popular use cases", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Browse nearby and popular cities:", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+});
+
+test("factual Best for table headings remain unmatched while offer claims still fail", () => {
+  assert.equal(matchesProductSuperiority("<th>Best for</th>"), false);
+  assert.equal(matchesProductSuperiority("<th>Best For</th>"), false);
+  assert.equal(matchesProductSuperiority("Best for gifting and finished presentation."), true);
+  assert.equal(matchesProductSuperiority("Framed print is best for gifting"), true);
 });
 
 test("PreviewStartForm caller intents no longer use Best if / Best when superiority", () => {
@@ -897,12 +1026,16 @@ test("blog and indexable redirect surfaces stay free of unsupported popularity c
     "app/best-personalized-star-map-gift/page.tsx",
     "app/blog/birth-star-map/page.tsx",
     "app/blog/custom-star-map-for-anniversary/page.tsx",
+    "app/blog/custom-star-maps-for-weddings/page.tsx",
+    "app/how-to-print-star-map/page.tsx",
   ]) {
     const source = readSrc(relativePath);
     assert.equal(
       collectPopularityOrSuperiorityMatches(source).length,
       0,
-      `unexpected popularity/superiority claim in ${relativePath}`
+      `unexpected popularity/superiority claim in ${relativePath}: ${JSON.stringify(
+        collectPopularityOrSuperiorityMatches(source)
+      )}`
     );
   }
   assert.match(readSrc("app/best-personalized-star-map-gift/page.tsx"), /Personalized Star Map Gift/);
@@ -910,6 +1043,11 @@ test("blog and indexable redirect surfaces stay free of unsupported popularity c
   assert.match(readSrc("lib/blogPosts.tsx"), /Personalized Gift for Couples \(2026\)/);
   assert.doesNotMatch(readSrc("lib/blogPosts.tsx"), /Best Personalized Gift for Couples/i);
   assert.doesNotMatch(readSrc("lib/blogPosts.tsx"), /Keep Winning/i);
+  assert.match(readSrc("lib/blogPosts.tsx"), /<th>Best for<\/th>/);
+  assert.match(readSrc("lib/blogPosts.tsx"), /<th>Best For<\/th>/);
+  assert.doesNotMatch(readSrc("app/blog/custom-star-map-for-anniversary/page.tsx"), /one of the most romantic/i);
+  assert.doesNotMatch(readSrc("app/blog/custom-star-map-for-anniversary/page.tsx"), /one of the most cherished/i);
+  assert.doesNotMatch(readSrc("app/blog/custom-star-maps-for-weddings/page.tsx"), /Most wedding orders/i);
 });
 
 test("homepage trust intro no longer generalizes buyer frequency", () => {
