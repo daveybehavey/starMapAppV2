@@ -131,10 +131,12 @@ export function sanitizePrintOrderForOperatorResponse(record: PrintOrderRecord) 
   const hasCheckoutPhone = Boolean(
     normalizeCheckoutPhone(record.customerPhone) || normalizeCheckoutPhone(record.shippingDetails?.phone),
   );
-  const { customerPhone: _customerPhone, shippingDetails, ...rest } = record;
-  let safeShippingDetails: PrintOrderRecord["shippingDetails"] = shippingDetails ?? null;
-  if (shippingDetails && typeof shippingDetails === "object") {
-    const { phone: _phone, ...shippingRest } = shippingDetails;
+  const rest = { ...record };
+  delete rest.customerPhone;
+  let safeShippingDetails: PrintOrderRecord["shippingDetails"] = rest.shippingDetails ?? null;
+  if (safeShippingDetails && typeof safeShippingDetails === "object") {
+    const shippingRest = { ...safeShippingDetails };
+    delete (shippingRest as { phone?: string | null }).phone;
     safeShippingDetails = shippingRest;
   }
   return {
