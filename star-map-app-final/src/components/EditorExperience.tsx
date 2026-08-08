@@ -78,6 +78,7 @@ import {
   isWeddingCommerceContext,
   shouldAutoOpenEditorDigitalPaywall,
 } from "@/lib/previewSourceHints";
+import { parseCalendarDateParamToIso } from "@/lib/dateTime";
 import { parseEditorLocationQuery } from "@/lib/editorLocationPrefill";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
 import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
@@ -170,21 +171,6 @@ function normalizePromoCode(raw: string | null | undefined) {
   const normalized = raw.trim().toUpperCase();
   if (!/^[A-Z0-9_-]{3,40}$/.test(normalized)) return null;
   return normalized;
-}
-
-function parseDateParamToIso(dateParam: string) {
-  const trimmed = dateParam.trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (!year || !month || !day) return null;
-  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
-  if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
-    return null;
-  }
-  return parsed.toISOString();
 }
 
 function parsePrintVariantParam(raw: string | null | undefined): PrintVariant | null {
@@ -742,15 +728,11 @@ export function EditorExperience({
     }
 
     let hasValidDate = false;
-    if (dateParam) {
-      const parsedISO = parseDateParamToIso(dateParam);
-      if (parsedISO) {
-        setDateTime(parsedISO);
-        hasValidDate = true;
-      }
-    }
-
     let hasLocation = false;
+
+    // Apply location first so a coordinate-resolved city timezone can interpret the
+    // calendar date. Generic/name-only handoffs keep browser-local date parsing.
+    let resolvedCityTimeZone: string | null = null;
     if (locationParam && locationParam.trim()) {
       // Always overwrite the full location object so stale draft coordinates cannot
       // survive under a new city/name. City landings supply lat/lon/tz; generic
@@ -765,6 +747,17 @@ export function EditorExperience({
           timezone: parsed.timezone,
         });
         hasLocation = true;
+        if (parsed.hasResolvedCoordinates) {
+          resolvedCityTimeZone = parsed.timezone;
+        }
+      }
+    }
+
+    if (dateParam) {
+      const parsedISO = parseCalendarDateParamToIso(dateParam, resolvedCityTimeZone);
+      if (parsedISO) {
+        setDateTime(parsedISO);
+        hasValidDate = true;
       }
     }
 
