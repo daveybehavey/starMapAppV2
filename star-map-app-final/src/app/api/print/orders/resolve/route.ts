@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
-import { isValidPrintCheckoutSessionId, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
+import { isValidPrintCheckoutSessionId, persistPrintOrderRecord, printOrderKey, sanitizePrintOrderForOperatorResponse, type PrintOrderRecord } from "@/lib/printOrders";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
 export const runtime = "nodejs";
@@ -62,10 +62,10 @@ export async function POST(req: NextRequest) {
     webhookStatus: existing.webhookStatus,
   };
 
-  await kv.set(printOrderKey(sessionId), updated);
+  await persistPrintOrderRecord(sessionId, updated);
   if (updated.printfulOrderId) {
     await setPrintFulfillmentIndex(updated.printfulOrderId, sessionId);
   }
-  return NextResponse.json({ ok: true, order: updated });
+  return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(updated) });
 }
 

@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import type { PrintVariant } from "@/lib/pricing";
 import type { MerchFamilyId } from "@/lib/merchCatalog";
+import { kv } from "@/lib/kv";
 
 export type PrintOrderRecord = {
   status: "pending" | "sent" | "failed";
@@ -25,6 +26,7 @@ export type PrintOrderRecord = {
   /**
    * Checkout phone from Stripe `customer_details.phone` (phone_number_collection).
    * Optional for Printful/carriers; null/absent means do not invent a fallback.
+   * Persisted only for fulfillment/retry; never returned on operator API/script surfaces.
    */
   customerPhone?: string | null;
   shippingDetails?: Stripe.Checkout.Session.ShippingDetails | null;
@@ -62,6 +64,8 @@ export type PrintOrderRecord = {
 export const printOrderKey = (sessionId: string) => `print:order:${sessionId}`;
 const PRINT_CHECKOUT_SESSION_ID_REGEX = /^cs_(?:test|live)_[A-Za-z0-9_]+$/;
 const DEFAULT_PRINT_MIN_CHARGE_CENTS = 100;
+/** Matches default entitled print-asset retention (fulfillment + short support window). */
+export const DEFAULT_PRINT_ORDER_RETENTION_DAYS = 60;
 
 export function getPrintMinChargeCents() {
   const raw = process.env.PRINT_MIN_CHARGE_CENTS?.trim();
@@ -105,6 +109,39 @@ export function extractCheckoutPhoneFromStripeSession(session: {
     normalizeCheckoutPhone(session.customer_details?.phone) ??
     normalizeCheckoutPhone(session.shipping_details?.phone)
   );
+}
+
+/** Bounded KV retention for print-order records (including checkout phone). */
+export function getPrintOrderRetentionSeconds() {
+  const raw = process.env.PRINT_ORDER_RETENTION_DAYS?.trim();
+  const days = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  const safeDays = Number.isFinite(days) && days > 0 ? days : DEFAULT_PRINT_ORDER_RETENTION_DAYS;
+  return safeDays * 24 * 60 * 60;
+}
+
+export async function persistPrintOrderRecord(sessionId: string, record: PrintOrderRecord) {
+  await kv.set(printOrderKey(sessionId), record, { ex: getPrintOrderRetentionSeconds() });
+}
+
+/**
+ * Operator/status/retry/script-safe order view: never include phone values.
+ * Exposes only a boolean so ops can confirm presence without logging PII.
+ */
+export function sanitizePrintOrderForOperatorResponse(record: PrintOrderRecord) {
+  const hasCheckoutPhone = Boolean(
+    normalizeCheckoutPhone(record.customerPhone) || normalizeCheckoutPhone(record.shippingDetails?.phone),
+  );
+  const { customerPhone: _customerPhone, shippingDetails, ...rest } = record;
+  let safeShippingDetails: PrintOrderRecord["shippingDetails"] = shippingDetails ?? null;
+  if (shippingDetails && typeof shippingDetails === "object") {
+    const { phone: _phone, ...shippingRest } = shippingDetails;
+    safeShippingDetails = shippingRest;
+  }
+  return {
+    ...rest,
+    shippingDetails: safeShippingDetails,
+    hasCheckoutPhone,
+  };
 }
 
 export function getPrintRecipient(record: PrintOrderRecord) {

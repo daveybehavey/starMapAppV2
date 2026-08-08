@@ -1,4 +1,6 @@
-/** Keep in sync with src/lib/printOrders.ts phone + recipient helpers. */
+/** Keep in sync with src/lib/printOrders.ts phone + recipient + operator sanitization helpers. */
+
+export const DEFAULT_PRINT_ORDER_RETENTION_DAYS = 60;
 
 export function normalizeCheckoutPhone(value) {
   if (typeof value !== "string") return null;
@@ -11,6 +13,52 @@ export function extractCheckoutPhoneFromStripeSession(session) {
     normalizeCheckoutPhone(session?.customer_details?.phone) ??
     normalizeCheckoutPhone(session?.shipping_details?.phone)
   );
+}
+
+export function getPrintOrderRetentionSeconds(env = process.env) {
+  const raw = typeof env.PRINT_ORDER_RETENTION_DAYS === "string" ? env.PRINT_ORDER_RETENTION_DAYS.trim() : "";
+  const days = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  const safeDays = Number.isFinite(days) && days > 0 ? days : DEFAULT_PRINT_ORDER_RETENTION_DAYS;
+  return safeDays * 24 * 60 * 60;
+}
+
+export function sanitizePrintOrderForOperatorResponse(record) {
+  const hasCheckoutPhone = Boolean(
+    normalizeCheckoutPhone(record.customerPhone) || normalizeCheckoutPhone(record.shippingDetails?.phone),
+  );
+  const { customerPhone: _customerPhone, shippingDetails, ...rest } = record;
+  let safeShippingDetails = shippingDetails ?? null;
+  if (shippingDetails && typeof shippingDetails === "object") {
+    const { phone: _phone, ...shippingRest } = shippingDetails;
+    safeShippingDetails = shippingRest;
+  }
+  return {
+    ...rest,
+    shippingDetails: safeShippingDetails,
+    hasCheckoutPhone,
+  };
+}
+
+/**
+ * Defense-in-depth for operator CLI output that prints status/retry JSON bodies.
+ * Keep in sync with scripts/retry-print-order.mjs.
+ */
+export function redactPrintOrderApiResponseText(text) {
+  if (typeof text !== "string" || !text) return text;
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object" || !parsed.order || typeof parsed.order !== "object") {
+      return text;
+    }
+    return JSON.stringify({
+      ...parsed,
+      order: sanitizePrintOrderForOperatorResponse(parsed.order),
+    });
+  } catch {
+    return text
+      .replace(/"customerPhone"\s*:\s*"[^"]*"/g, '"customerPhone":"[redacted]"')
+      .replace(/"phone"\s*:\s*"[^"]*"/g, '"phone":"[redacted]"');
+  }
 }
 
 export function getPrintRecipient(record) {

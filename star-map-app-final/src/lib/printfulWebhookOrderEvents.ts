@@ -5,7 +5,7 @@ import {
   normalizePrintfulOrderId,
   resolvePrintfulWebhookSessionId,
 } from "@/lib/printFulfillmentIndex";
-import { printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
+import { persistPrintOrderRecord, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
 import {
   formatPrintfulFileFailureError,
   reviewPrintfulOrderFiles,
@@ -128,7 +128,7 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     }
   }
 
-  await kv.set(printOrderKey(sessionId), nextRecord);
+  await persistPrintOrderRecord(sessionId, nextRecord);
 
   if (nextRecord.operatorFailureAlertError) {
     return {

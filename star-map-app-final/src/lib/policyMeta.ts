@@ -4,7 +4,7 @@
  * site and `npm run qa:policy-smoke` depend on this staying accurate.
  */
 export const POLICY_LAST_UPDATED_ISO = {
-  privacy: "2026-02-12",
+  privacy: "2026-08-08",
   terms: "2026-03-16",
   shipping: "2026-05-02",
   returns: "2026-05-02",

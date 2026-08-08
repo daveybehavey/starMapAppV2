@@ -20,6 +20,7 @@ import {
   getPrintMinChargeCents,
   getPrintRecipient,
   hasSufficientPrintCharge,
+  persistPrintOrderRecord,
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
@@ -799,7 +800,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         nextRecord.operatorFailureAlertError = alertResult.error;
       }
     }
-    await kv.set(printOrderKey(session.id), nextRecord);
+    await persistPrintOrderRecord(session.id, nextRecord);
   };
 
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
@@ -832,7 +833,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     attempts: (existing?.attempts ?? 0) + 1,
     createdAt: existing?.createdAt ?? Date.now(),
   };
-  await kv.set(printOrderKey(session.id), payload);
+  await persistPrintOrderRecord(session.id, payload);
 
   const printAssetId = payload.printAssetId;
   if (!printAssetId) {
@@ -883,7 +884,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         customerPhone: extractCheckoutPhoneFromStripeSession(latest) ?? payload.customerPhone ?? null,
         shippingDetails: extractShippingDetails(latest),
       };
-      await kv.set(printOrderKey(session.id), payload);
+      await persistPrintOrderRecord(session.id, payload);
       recipient = getPrintRecipient(payload);
     } catch (error) {
       console.warn("Print order recipient refresh failed", error);
@@ -983,7 +984,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       const reviewedRecord = printfulResult.orderId
         ? await applyPrintfulPostSubmitReview(sentRecord)
         : sentRecord;
-      await kv.set(printOrderKey(session.id), reviewedRecord);
+      await persistPrintOrderRecord(session.id, reviewedRecord);
       if (reviewedRecord.printfulOrderId) {
         await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
       }
@@ -1036,7 +1037,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const reviewedRecord = printfulResult.orderId
       ? await applyPrintfulPostSubmitReview(sentRecord)
       : sentRecord;
-    await kv.set(printOrderKey(session.id), reviewedRecord);
+    await persistPrintOrderRecord(session.id, reviewedRecord);
     if (reviewedRecord.printfulOrderId) {
       await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
     }
@@ -1062,7 +1063,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       throw new Error(`Webhook ${response.status}: ${body.slice(0, 280)}`);
     }
     if (!isPrintfulConfigured()) {
-      await kv.set(printOrderKey(session.id), {
+      await persistPrintOrderRecord(session.id, {
         ...payload,
         printAssetUrl,
         status: "sent",

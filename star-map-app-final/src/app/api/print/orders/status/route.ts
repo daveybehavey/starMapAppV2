@@ -6,6 +6,7 @@ import {
   getPrintRecipient,
   isValidPrintCheckoutSessionId,
   printOrderKey,
+  sanitizePrintOrderForOperatorResponse,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 
@@ -41,5 +42,5 @@ export async function GET(req: NextRequest) {
       })
     : null;
 
-  return NextResponse.json({ ok: true, order, marginPreview });
+  return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(order), marginPreview });
 }

@@ -26,8 +26,8 @@ export default function PrivacyPage() {
           <p>
             This Privacy Policy explains how StarMapCo ("we," "us," or "our") collects, uses, discloses, and protects
             information when you visit our website (starmapco.com) or use our custom star map generator service (digital
-            product with optional premium unlock via payment). We collect minimal personal data. There are no traditional
-            accounts or passwords—checkout does not require signup. After purchase, you may use{" "}
+            downloads and optional physical prints fulfilled through our print partner). We collect minimal personal data.
+            There are no traditional accounts or passwords—checkout does not require signup. After purchase, you may use{" "}
             <a className="font-semibold text-midnight underline" href="/my-downloads">
               My Downloads
             </a>{" "}
@@ -51,8 +51,11 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Payment Data (via Stripe):</strong> For premium unlocks (single downloads, bundles, or
-                subscriptions), Stripe processes payment details (card info, billing address if provided). We do not
-                store or access full payment data—Stripe handles it securely under their privacy policy.
+                subscriptions) and physical print orders, Stripe processes payment details (card info, billing address if
+                provided). For physical print Checkout, Stripe may also collect a phone number and shipping address needed
+                for delivery. We do not store or access full payment card data—Stripe handles it securely under their
+                privacy policy. Shipping details and, when provided, phone number are retained only as needed to fulfill
+                the print order (see Data Storage and Security).
               </li>
               <li>
                 <strong>Voluntary Email Submissions:</strong> If you submit your email for updates or promotions, we store
@@ -75,7 +78,9 @@ export default function PrivacyPage() {
               </li>
             </ul>
             <p>
-              We only collect direct PII (like email addresses) when you voluntarily provide it for promotions or updates.
+              We collect direct contact details (such as checkout email, and for physical prints a shipping address and
+              phone number when provided at Checkout) only as needed to complete your order, fulfill physical prints,
+              send purchase/access emails you request, or when you voluntarily submit an email for updates.
             </p>
           </section>
 
@@ -84,6 +89,10 @@ export default function PrivacyPage() {
             <ul className="list-disc space-y-2 pl-5">
               <li>Provide and improve the service (generate accurate star maps using astronomy libraries).</li>
               <li>Process payments securely via Stripe.</li>
+              <li>
+                Fulfill physical print orders (pass shipping address and, when available, phone number to our print
+                fulfillment partner so carriers can deliver the order).
+              </li>
               <li>Analyze anonymous usage (Posthog) to fix bugs, optimize performance, and understand features.</li>
               <li>Comply with legal obligations.</li>
             </ul>
@@ -94,8 +103,14 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-semibold text-midnight">3. Third-Party Services</h2>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                <strong>Stripe:</strong> Processes payments. Subject to Stripe's Privacy Policy. We receive only
-                transaction confirmation (no full card details).
+                <strong>Stripe:</strong> Processes payments and Checkout collection (including shipping address and phone
+                for physical print orders). Subject to Stripe's Privacy Policy. We receive transaction confirmation and
+                order delivery details needed for fulfillment (no full card details).
+              </li>
+              <li>
+                <strong>Printful:</strong> Print and shipping fulfillment processor for physical orders. When you buy a
+                print, we share the shipping recipient details required to produce and deliver the order (name, address,
+                email when available, and phone when provided at Checkout). Subject to Printful's privacy terms.
               </li>
               <li>
                 <strong>Posthog:</strong> Analytics tool configured for anonymized data; no PII collected. See Posthog
@@ -119,8 +134,17 @@ export default function PrivacyPage() {
                 Purchase and access records (email-linked sessions, magic-link tokens) are stored in edge KV with TTLs;
                 we do not operate a traditional profile database with passwords.
               </li>
+              <li>
+                Physical print-order records (including shipping details and checkout phone when provided) are stored in
+                edge KV with a bounded retention window aligned to fulfillment and short-term support (default 60 days,
+                then automatically expire). Phone numbers are used only for Printful/carrier delivery and are not exposed
+                in ordinary operator status/retry log output.
+              </li>
               <li>LocalStorage/cookies are device-specific.</li>
-              <li>Retention: Analytics anonymized/retained as needed for improvement (up to 12 months); payment records per legal requirements.</li>
+              <li>
+                Retention: Analytics anonymized/retained as needed for improvement (up to 12 months); payment records per
+                legal requirements; print-order fulfillment records per the bounded KV TTL above.
+              </li>
             </ul>
             <p>We implement reasonable security (encryption, access controls) but no system is fully secure.</p>
           </section>

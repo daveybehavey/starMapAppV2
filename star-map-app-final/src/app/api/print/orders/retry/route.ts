@@ -11,7 +11,9 @@ import {
   getPrintRecipient,
   hasSufficientPrintCharge,
   isValidPrintCheckoutSessionId,
+  persistPrintOrderRecord,
   printOrderKey,
+  sanitizePrintOrderForOperatorResponse,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
@@ -79,7 +81,7 @@ async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<Pr
       updated.customerPhone !== existing.customerPhone ||
       JSON.stringify(updated.shippingDetails) !== JSON.stringify(existing.shippingDetails)
     ) {
-      await kv.set(printOrderKey(existing.sessionId), updated);
+      await persistPrintOrderRecord(existing.sessionId, updated);
     }
     return updated;
   } catch (error) {
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest) {
         failedRecord.operatorFailureAlertError = alertResult.error;
       }
     }
-    await kv.set(printOrderKey(sessionId), failedRecord);
+    await persistPrintOrderRecord(sessionId, failedRecord);
     return failedRecord;
   };
 
@@ -148,16 +150,16 @@ export async function POST(req: NextRequest) {
         operatorAlertProvider: alertResult.provider,
         operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
       };
-      await kv.set(printOrderKey(sessionId), updated);
+      await persistPrintOrderRecord(sessionId, updated);
       void sendPrintOrderConfirmation(sessionId).catch((error) => {
         console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
       });
-      return NextResponse.json({ ok: true, status: "already_sent", order: updated });
+      return NextResponse.json({ ok: true, status: "already_sent", order: sanitizePrintOrderForOperatorResponse(updated) });
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
     });
-    return NextResponse.json({ ok: true, status: "already_sent", order: existing });
+    return NextResponse.json({ ok: true, status: "already_sent", order: sanitizePrintOrderForOperatorResponse(existing) });
   }
 
   const hydrated = await hydrateOrderRecipientData(existing);
@@ -169,7 +171,7 @@ export async function POST(req: NextRequest) {
       attempts: (hydrated.attempts ?? 0) + 1,
       error: "print_asset_missing",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   const printAssetUrl = hydrated.printAssetUrl?.trim() || buildPrintAssetUrl(siteUrl, printAssetId);
@@ -185,7 +187,7 @@ export async function POST(req: NextRequest) {
         printAssetUrl,
         error: "card_print_asset_missing",
       });
-      return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+      return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
     }
     cardPrintAssetUrl = hydrated.cardPrintAssetUrl?.trim() || buildPrintAssetUrl(siteUrl, cardPrintAssetId);
     await extendPrintAssetTtlForFulfillment(cardPrintAssetId).catch(() => undefined);
@@ -199,7 +201,7 @@ export async function POST(req: NextRequest) {
       printAssetUrl,
       error: "shipping_details_missing",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   if (!hasSufficientPrintCharge(hydrated.amountTotal)) {
@@ -209,7 +211,7 @@ export async function POST(req: NextRequest) {
       printAssetUrl,
       error: `print_amount_below_minimum:${getPrintMinChargeCents()}`,
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   const marginCheck = evaluatePrintMarginForPaidOrder({
@@ -227,7 +229,7 @@ export async function POST(req: NextRequest) {
           ? `print_margin_below_minimum:${marginCheck.minMarginCents}`
           : "print_margin_estimate_unavailable",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
@@ -254,7 +256,7 @@ export async function POST(req: NextRequest) {
         webhookStatus: printful.status,
         error: printful.error ?? "printful_order_failed",
       });
-      return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 502 });
+      return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
     }
     let sent: PrintOrderRecord = {
       ...hydrated,
@@ -268,14 +270,14 @@ export async function POST(req: NextRequest) {
       error: undefined,
     };
     sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
-    await kv.set(printOrderKey(sessionId), sent);
+    await persistPrintOrderRecord(sessionId, sent);
     if (sent.printfulOrderId) {
       await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed after retry", { sessionId, error });
     });
-    return NextResponse.json({ ok: true, status: "sent", order: sent });
+    return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
   }
 
   try {
@@ -302,8 +304,8 @@ export async function POST(req: NextRequest) {
       sentAt: now,
       error: undefined,
     };
-    await kv.set(printOrderKey(sessionId), sent);
-    return NextResponse.json({ ok: true, status: "sent", order: sent });
+    await persistPrintOrderRecord(sessionId, sent);
+    return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
   } catch (error) {
     const failed = await persistFailedPrintOrder({
       ...hydrated,
@@ -311,6 +313,6 @@ export async function POST(req: NextRequest) {
       printAssetUrl,
       error: error instanceof Error ? error.message.slice(0, 320) : "webhook_failed",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 502 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
   }
 }
