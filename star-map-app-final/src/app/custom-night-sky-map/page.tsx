@@ -190,7 +190,7 @@ export default function CustomNightSkyMapPage() {
             </h3>
             <p>
               Yes. Enter the wedding date and ceremony location to generate the exact night sky for that
-              moment. Many couples order the framed print as a keepsake. You can preview the design for free
+              moment. The framed print works well as a keepsake. You can preview the design for free
               before choosing a format.
             </p>
           </div>
@@ -226,7 +226,7 @@ export default function CustomNightSkyMapPage() {
           {
             question: "Can I make a custom night sky map for a wedding date?",
             answer:
-              "Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. Many couples order the framed print as a keepsake. You can preview the design for free before choosing a format.",
+              "Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. The framed print works well as a keepsake. You can preview the design for free before choosing a format.",
           },
           {
             question: "What formats are available for the custom night sky map?",

@@ -96,7 +96,7 @@ export default function StarMapGiftPage() {
             printVariant: "poster_framed",
             plan: "print_framed",
             tone: "recommended",
-            detail: "The strongest ready-to-open gift option.",
+            detail: "Ready-to-hang framed presentation with instant HD.",
           },
           {
             label: "Preview unframed print",

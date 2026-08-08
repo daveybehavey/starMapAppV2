@@ -125,7 +125,7 @@ export default function StarMapForOccasionsPage() {
       <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-xl font-semibold">Popular occasions</h2>
         <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-          These are the most searched gift occasions. Start here if you want the fastest path into the editor.
+          Start with these gift occasions if you want the fastest path into the editor.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
           {featuredOccasions.map((occasion) => (

@@ -167,7 +167,7 @@ export default function AnniversaryPostPage() {
             </h2>
             <h3 className="text-xl font-semibold text-amber-100">Choose a Moment That Matters Most</h3>
             <p>
-              While wedding dates are popular, many couples choose the first “I love you,” a proposal night,
+              Wedding dates work well, and so do the first “I love you,” a proposal night,
               or the moment they moved in together.
             </p>
             <h3 className="text-xl font-semibold text-amber-100">Add a Short, Heartfelt Message</h3>
@@ -297,7 +297,7 @@ export default function AnniversaryPostPage() {
                 50th, and beyond.
               </li>
               <li>
-                <strong>What size star map should I choose?</strong> A3 or 18x24 inches are popular, depending
+                <strong>What size star map should I choose?</strong> A3 or 18x24 inches are common display sizes, depending
                 on where you plan to display it.
               </li>
               <li>

@@ -16,7 +16,7 @@ export default function OccasionLinks() {
     <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <h2 className="text-lg font-semibold text-midnight">Popular occasions</h2>
       <p className="mt-2 text-sm text-neutral-700 sm:text-base">
-        Start with the most searched gift occasions, or browse all occasion pages.
+        Start with these gift occasions, or browse all occasion pages.
       </p>
       <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
         {occasionLinks.map((occasion) => (
