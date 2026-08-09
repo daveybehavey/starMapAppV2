@@ -1,9 +1,28 @@
 import { createSign } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { seedEnv, getMerchantAccountId } from "./merchant-shipping-common.mjs";
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
+
+/**
+ * True when a service-account credential source is configured.
+ * Does not read, parse, log, or return secret material.
+ */
+export function hasMerchantServiceAccountConfigured() {
+  if (process.env.GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSON?.trim()) {
+    return true;
+  }
+  const configuredPath =
+    process.env.GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSON_PATH?.trim() ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim();
+  if (!configuredPath) return false;
+  try {
+    return existsSync(configuredPath);
+  } catch {
+    return false;
+  }
+}
 
 function base64UrlEncode(input) {
   return Buffer.from(input)

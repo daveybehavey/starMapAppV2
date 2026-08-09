@@ -17,7 +17,7 @@ export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer:
     id: "damaged-print",
     question: "My print arrived damaged. What should I do?",
     answer:
-      "Email us within 7 days of delivery with photos and your order details. Eligible damage or defect cases are handled as described in our Returns & Refunds policy.",
+      "Email us within 30 days of delivery with photos and your order details. Eligible damage or defect cases are handled as described in our Returns & Refunds policy.",
   },
   {
     id: "refund-digital",

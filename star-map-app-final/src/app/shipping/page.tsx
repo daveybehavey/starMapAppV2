@@ -138,7 +138,7 @@ export default function ShippingPage() {
             <a href={`mailto:${profile.email}`} className="font-semibold text-midnight underline">
               {profile.email}
             </a>{" "}
-            within 7 days with your order details and photos.
+            within 30 days with your order details and photos.
           </p>
         </section>
     </PolicyShell>

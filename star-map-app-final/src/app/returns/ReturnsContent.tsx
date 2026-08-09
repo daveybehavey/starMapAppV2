@@ -39,7 +39,7 @@ export default function ReturnsContent() {
             <a className="font-semibold text-midnight underline" href={`mailto:${profile.email}`}>
               {profile.email}
             </a>{" "}
-            within 7 days of delivery with photos and order details. Approved cases may be resolved with a replacement
+            within 30 days of delivery with photos and order details. Approved cases may be resolved with a replacement
             or refund.
           </p>
           <p className="mt-2">
