@@ -1,6 +1,10 @@
 # Production deploy on Linux (avoids Windows OpenNext flakiness).
 # Requires repo secrets CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL (legacy global key pair)
 # or CLOUDFLARE_API_TOKEN (scoped token). Values live in local .env.local — never commit.
+#
+# Triggers:
+#   - manual dispatch fallback (branch/tag/SHA ref)
+#   - reusable workflow call from the owner-comment bridge (#234) after SHA + main checks
 name: Deploy production
 
 on:
@@ -9,11 +13,21 @@ on:
       ref:
         description: Git ref to deploy (branch, tag, or SHA)
         required: true
+        type: string
         default: main
+  workflow_call:
+    inputs:
+      ref:
+        description: Immutable commit SHA validated by the owner-comment bridge
+        required: true
+        type: string
 
 concurrency:
   group: deploy-production
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 defaults:
   run:

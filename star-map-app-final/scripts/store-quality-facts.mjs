@@ -25,7 +25,7 @@ function readReturnsPolicySummary() {
   return {
     physicalPrints: {
       changeOfMind: "not accepted once production has started",
-      damageDefectWindowDays: 7,
+      damageDefectWindowDays: 30,
       returnCost: "customer_paid",
     },
     sourceFile: contentPath,

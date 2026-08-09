@@ -58,6 +58,14 @@ Verify auth:
 npm run merchant:api:verify
 ```
 
+Diagnose free-listing eligibility (read-only GET/list; no mutations):
+
+```bash
+npm run merchant:free-listing:diagnose
+```
+
+This prints a PASS / PARTIAL / BLOCKED summary for free listings, compares local feed SKUs (`public/merchant-feed.xml`) to processed Merchant products, and writes a sanitized report to `reports/merchant-free-listing-eligibility.json` (gitignored). If credentials are missing it exits with `SKIP` and does not invent status.
+
 Generate the local shipping-service plan:
 
 ```bash
@@ -113,3 +121,4 @@ The scripts write reports under `reports/`:
 - `merchant-shipping-settings.current.json`
 - `merchant-shipping-settings.preview.json`
 - `merchant-shipping-settings.applied.json`
+- `merchant-free-listing-eligibility.json`
