@@ -68,7 +68,7 @@ export function getPrintOrderIncludesDigitalNote(): string {
   if (isPrintfulAutoConfirmEnabled()) {
     return `Physical prints are made to order (${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} typical production). Your HD digital file, if included, stays available right away.`;
   }
-  return "Physical orders are reviewed before production begins, but your digital file stays available right away.";
+  return "Physical orders stay in manual review before production starts, but your digital file stays available right away.";
 }
 
 export function getPrintDeliveryTimingFaqAnswer(shippingDisclosure: string): string {

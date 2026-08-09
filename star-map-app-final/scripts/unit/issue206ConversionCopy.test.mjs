@@ -26,9 +26,11 @@ const APP_DIR = path.join(SRC, "app");
 /** App-router segments that are not customer-facing runtime copy surfaces. */
 const APP_SCAN_SKIP_DIR_NAMES = new Set(["api", "simple-test"]);
 
-/** Next.js plumbing files that do not render customer marketing copy. */
+/** Next.js plumbing files that do not render customer marketing copy.
+ * Customer-facing `layout.tsx` files are intentionally scanned (metadata/footer/blog CTAs).
+ */
 const NEXT_PLUMBING_FILE_PATTERN =
-  /^(layout|loading|error|not-found|template|default|route|opengraph-image|twitter-image|icon|apple-icon|sitemap|robots)\./i;
+  /^(loading|error|not-found|template|default|route|opengraph-image|twitter-image|icon|apple-icon|sitemap|robots)\./i;
 
 /**
  * Shared non-page modules that inject customer-facing copy into runtime UI.
@@ -53,6 +55,8 @@ const SHARED_RUNTIME_COPY_RELATIVE_PATHS = [
   "lib/downloadPrintUpsellCatalog.ts",
   "lib/digitalGiftCheckout.ts",
   "lib/blogPosts.tsx",
+  "lib/commerceFacts.ts",
+  "lib/printCheckoutConfig.ts",
   "data/seoOccasions.ts",
 ];
 
@@ -155,9 +159,19 @@ const ONE_OF_THE_MOST_SUPERLATIVE_PATTERN =
  * Empirical Popular-* merchandising phrases that imply measured preference.
  * Intentionally does NOT match catalog/nav labels: Popular occasions/locations/
  * star map destinations/use cases, or “popular cities” browse copy.
+ * “Explore these popular options” is caught via `these popular options` only —
+ * do not use an unconstrained `Explore these popular` branch (that would reject
+ * legitimate “Explore these popular cities/occasions/…” navigation).
  */
 const EMPIRICAL_POPULAR_PHRASE_PATTERN =
-  /\bPopular (?:design styles|relationship moments|titles|sizes)\b|\bthese popular options\b|\bExplore these popular\b/i;
+  /\bPopular (?:design styles|relationship moments|titles|sizes)\b|\bthese popular options\b/i;
+
+/**
+ * Unsupported premium gift-packaging implications (custom gift wrap / pack-ins).
+ * Prefer factual protective / white-label delivery wording instead.
+ */
+const PREMIUM_PACKAGING_CLAIM_PATTERN =
+  /\bBeautifully packaged\b|\bbeautifully packaged for every order\b|\bgift packaging for every\b|\bcustom gift packaging\b/i;
 
 /** Transactional format-popularity FAQs/answers in occasion data. */
 const FORMAT_POPULARITY_QUESTION_PATTERN = /What format do .+ buyers choose most\?/i;
@@ -165,12 +179,13 @@ const FORMAT_POPULARITY_ANSWER_PATTERN = /\bMost choose framed\b|\bMost nursery 
 
 /**
  * Subject-substitution frequency claims where “most” generalizes gifts/orders/files
- * without naming buyers (e.g. “covers most single-map gifts”).
+ * without naming buyers (e.g. “covers most single-map gifts”, “Most gifts are…”,
+ * “Most memorial gifts are…”).
  * Intentionally does NOT match “most meaningful gifts” or process guidance like
  * “most common accuracy mistakes”.
  */
 const MOST_GIFTS_ORDERS_FILES_PATTERN =
-  /\b(?:covers|for|across|on|not)\s+most\s+(?:[\w'-]+\s+){0,3}(?:gifts?|orders?|files?)\b|\bmost\s+(?:single-map|one-off|one[\s-]off)\s+gifts?\b|\bmost\s+(?:[\w'-]+\s+){0,2}(?:orders?|files?)\s+(?:are|need|require|use|include|cover)\b/i;
+  /\b(?:covers|for|across|on|not)\s+most\s+(?:[\w'-]+\s+){0,3}(?:gifts?|orders?|files?)\b|\bmost\s+(?:single-map|one-off|one[\s-]off)\s+gifts?\b|\bmost\s+(?:[\w'-]+\s+){0,2}(?:gifts?|orders?|files?)\s+(?:are|need|require|use|include|cover)\b/i;
 
 /**
  * Direct unsupported transactional/product superiority claims.
@@ -205,6 +220,7 @@ const POPULARITY_PATTERNS = [
   MOST_COMMON_CHOICE_PATTERN,
   ONE_OF_THE_MOST_SUPERLATIVE_PATTERN,
   EMPIRICAL_POPULAR_PHRASE_PATTERN,
+  PREMIUM_PACKAGING_CLAIM_PATTERN,
   // PRODUCT_SUPERIORITY handled by findProductSuperiorityHits (question-aware).
   /\bmost(?:\s+[\w'-]+){0,3}\s+gift-?givers?\s+(?:choose|prefer|pick)\b/i,
   /\bmost couples choose framed\b/i,
@@ -223,10 +239,21 @@ const HARDCODED_FULFILLMENT_PATTERNS = [
   /Every order is reviewed before production/i,
   /Print orders checked before production/i,
   /orders are reviewed before production starts/i,
+  /Physical orders are reviewed before production begins/i,
   /manually approved before production begins/i,
   /then the order is reviewed before production/i,
   /Production typically starts after order review/i,
+  /print orders are reviewed\/approved before production/i,
+  /reviewed\/approved before production/i,
 ];
+
+/** Auto-confirm-aware helpers may contain the manual-mode branch strings. */
+const FULFILLMENT_HELPER_SCAN_SKIPS = new Set([
+  "lib/moneyPageGiftCheckout.ts",
+  "lib/printGiftDecisionCopy.ts",
+  "lib/printCheckoutConfig.ts",
+  "lib/commerceFacts.ts",
+]);
 
 /** Exact regressions that previously escaped the narrow matcher. */
 const BUYER_COHORT_POSITIVE_FIXTURES = [
@@ -340,6 +367,10 @@ const MOST_GIFTS_ORDERS_FILES_POSITIVE_FIXTURES = [
   "Most orders need only one finished file",
   "Most files cover a single map gift",
   "Most wedding orders are one-time",
+  "Most gifts are either generic, hard to style in a home, or too slow to deliver",
+  "Most gifts are either useful or sentimental",
+  "Most gifts are useful for a week",
+  "Most memorial gifts are beautiful but impersonal",
 ];
 
 const MOST_GIFTS_ORDERS_FILES_NEGATIVE_FIXTURES = [
@@ -353,6 +384,10 @@ const MOST_GIFTS_ORDERS_FILES_NEGATIVE_FIXTURES = [
   "Yes. A custom star map gift is one of the most meaningful couples gifts",
   "Decisions get clearer once the wording is settled",
   "Wedding orders are one-time purchases after preview",
+  "Many gifts try to be useful or sentimental",
+  "Generic gifts can feel impersonal",
+  "Memorial gifts can be beautiful but impersonal",
+  "What gifts are best for long-distance couples?",
 ];
 
 const PRODUCT_SUPERIORITY_POSITIVE_FIXTURES = [
@@ -442,6 +477,7 @@ const DATE_COHORT_POSITIVE_FIXTURES = [
   "Popular titles include:",
   "Popular sizes include 11x14, 16x20, and 24x36",
   "Explore these popular options.",
+  "Beautifully packaged for every order",
 ];
 
 const DATE_COHORT_NEGATIVE_FIXTURES = [
@@ -466,6 +502,10 @@ const DATE_COHORT_NEGATIVE_FIXTURES = [
   "Popular star map destinations",
   "Popular use cases",
   "Browse nearby and popular cities:",
+  "Explore these popular cities",
+  "Explore these popular occasions",
+  "Explore these popular locations",
+  "Explore these popular use cases",
   "Recommended presentation is framed + HD",
   "The premium gift route is the framed print",
   "Yes. A custom star map gift is one of the most meaningful couples gifts",
@@ -477,6 +517,8 @@ const DATE_COHORT_NEGATIVE_FIXTURES = [
   "Explore these related format options.",
   "a romantic, personal, and unforgettable gift you can give",
   "a cherished and meaningful gift for couples",
+  "Ships in protective white-label packaging",
+  "Protective packaging — no brand on the outside",
 ];
 
 /** Editorial / non-transactional wording that must remain unmatched by the buyer-choose matcher. */
@@ -854,12 +896,21 @@ test("scan inventory discovers all customer-facing app routes recursively", () =
   assert.ok(discoveredAppPaths.includes("app/blog/custom-star-map-for-anniversary/page.tsx"));
   assert.ok(discoveredAppPaths.includes("app/blog/memorial-star-map/page.tsx"));
   assert.ok(discoveredAppPaths.includes("app/HomeStaticSections.tsx"));
+  assert.ok(discoveredAppPaths.includes("app/layout.tsx"));
+  assert.ok(discoveredAppPaths.includes("app/blog/layout.tsx"));
   assert.ok(!discoveredAppPaths.some((relativePath) => relativePath.startsWith("app/api/")));
   assert.ok(!discoveredAppPaths.some((relativePath) => relativePath.startsWith("app/simple-test/")));
+  assert.ok(
+    !discoveredAppPaths.some((relativePath) => /\/(loading|error|not-found|route)\./.test(relativePath)),
+    "genuine Next.js plumbing files must remain excluded"
+  );
 
   assert.ok(SCAN_RELATIVE_PATHS.includes("app/blog/custom-star-maps-for-weddings/page.tsx"));
+  assert.ok(SCAN_RELATIVE_PATHS.includes("app/layout.tsx"));
+  assert.ok(SCAN_RELATIVE_PATHS.includes("app/blog/layout.tsx"));
   assert.ok(SCAN_RELATIVE_PATHS.includes("lib/digitalGiftCheckout.ts"));
   assert.ok(SCAN_RELATIVE_PATHS.includes("lib/blogPosts.tsx"));
+  assert.ok(SCAN_RELATIVE_PATHS.includes("lib/commerceFacts.ts"));
   assert.equal(
     SCAN_RELATIVE_PATHS.length,
     new Set(SCAN_RELATIVE_PATHS).size,
@@ -902,6 +953,26 @@ test("one-of-the-most romantic/cherished and empirical Popular phrases are guard
   assert.doesNotMatch("Popular star map destinations", EMPIRICAL_POPULAR_PHRASE_PATTERN);
   assert.doesNotMatch("Popular use cases", EMPIRICAL_POPULAR_PHRASE_PATTERN);
   assert.doesNotMatch("Browse nearby and popular cities:", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Explore these popular cities", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Explore these popular occasions", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Explore these popular locations", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+  assert.doesNotMatch("Explore these popular use cases", EMPIRICAL_POPULAR_PHRASE_PATTERN);
+});
+
+test("gift-frequency Most gifts/memorial gifts are … forms are guarded", () => {
+  assert.match("Most gifts are either generic", MOST_GIFTS_ORDERS_FILES_PATTERN);
+  assert.match("Most memorial gifts are beautiful but impersonal", MOST_GIFTS_ORDERS_FILES_PATTERN);
+  assert.doesNotMatch("Yes. A custom star map gift is one of the most meaningful couples gifts", MOST_GIFTS_ORDERS_FILES_PATTERN);
+  assert.doesNotMatch("What gifts are best for long-distance couples?", MOST_GIFTS_ORDERS_FILES_PATTERN);
+});
+
+test("premium packaging implications are guarded without blocking protective wording", () => {
+  assert.match("Beautifully packaged for every order", PREMIUM_PACKAGING_CLAIM_PATTERN);
+  assert.doesNotMatch("Ships in protective white-label packaging", PREMIUM_PACKAGING_CLAIM_PATTERN);
+  assert.doesNotMatch("Protective packaging — no brand on the outside", PREMIUM_PACKAGING_CLAIM_PATTERN);
+  const hero = readSrc("app/HomeHero.tsx");
+  assert.doesNotMatch(hero, PREMIUM_PACKAGING_CLAIM_PATTERN);
+  assert.match(hero, /protective white-label packaging/i);
 });
 
 test("factual Best for table headings remain unmatched while offer claims still fail", () => {
@@ -1106,7 +1177,7 @@ test("hard-coded manual-review fulfillment copy is routed through auto-confirm h
   for (const relativePath of SCAN_RELATIVE_PATHS) {
     const source = readSrc(relativePath);
     // Helpers themselves may mention review only when auto-confirm is off; customer pages must call helpers.
-    if (relativePath === "lib/moneyPageGiftCheckout.ts" || relativePath === "lib/printGiftDecisionCopy.ts") {
+    if (FULFILLMENT_HELPER_SCAN_SKIPS.has(relativePath)) {
       continue;
     }
     const hits = collectMatches(source, HARDCODED_FULFILLMENT_PATTERNS);
@@ -1135,6 +1206,11 @@ test("hard-coded manual-review fulfillment copy is routed through auto-confirm h
   assert.match(configSource, /isPrintfulAutoConfirmEnabled/);
   assert.match(configSource, /reviewed before production while manual approval mode is enabled/);
   assert.match(configSource, /submitted to our print partner/);
+
+  const factsSource = readSrc("lib/commerceFacts.ts");
+  assert.match(factsSource, /function getPrintOrderIncludesDigitalNote/);
+  assert.match(factsSource, /isPrintfulAutoConfirmEnabled/);
+  assert.match(factsSource, /Physical prints are made to order/);
 });
 
 test("moneyPageGiftCheckout source keeps factual ladder/intent copy", () => {

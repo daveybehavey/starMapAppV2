@@ -407,7 +407,7 @@ export const blogPosts: BlogPost[] = [
           finding options. It is finding something that still feels personal after the first 30 seconds.
         </p>
         <p>
-          Most gifts are either generic, hard to style in a home, or too slow to deliver when dates matter. A custom
+          Many gifts are either generic, hard to style in a home, or too slow to deliver when dates matter. A custom
           star map keeps showing up because it solves all three.
         </p>
 
@@ -1421,7 +1421,7 @@ export const blogPosts: BlogPost[] = [
 
         <h2>Why star maps convert better than generic gifts</h2>
         <p>
-          Most gifts are either useful or sentimental. A personalized star map usually lands both:
+          Many gifts are either useful or sentimental. A personalized star map usually lands both:
         </p>
         <ul>
           <li>It marks a specific date and location instead of feeling generic.</li>
@@ -1651,7 +1651,7 @@ export const blogPosts: BlogPost[] = [
 
         <h2>Why a star map feels different from other Father&apos;s Day gifts</h2>
         <p>
-          Most gifts are useful for a week. A star map is about memory and meaning. It shows the exact sky from a moment
+          Many gifts are useful for a week. A star map is about memory and meaning. It shows the exact sky from a moment
           that changed your family.
         </p>
         <ul>
@@ -1841,7 +1841,7 @@ export const blogPosts: BlogPost[] = [
 
         <h2>Why a star map works as a memorial tribute</h2>
         <p>
-          Most memorial gifts are beautiful but impersonal — candles, garden stones, engraved plaques. A{" "}
+          Memorial gifts can be beautiful but impersonal — candles, garden stones, engraved plaques. A{" "}
           <strong>remembrance star map</strong> is different because it is tied to a specific moment. The sky
           above the night they passed was unlike any other sky before or after it. That uniqueness is what makes
           the gift feel honest rather than generic.
