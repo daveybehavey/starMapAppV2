@@ -11,6 +11,29 @@ function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function isPrintfulFileReviewPending(record) {
+  return typeof record.printfulFileReviewPendingAt === "number" && record.printfulFileReviewPendingAt > 0;
+}
+
+export function shouldSendAlreadySentApprovalAlert(record) {
+  return (
+    record.status === "sent" &&
+    !record.operatorAlertedAt &&
+    !isPrintfulFileReviewPending(record) &&
+    !record.error
+  );
+}
+
+export function shouldRereviewPrintfulFilesOnAlreadySent(record) {
+  return record.status === "sent" && isPrintfulFileReviewPending(record) && Boolean(record.printfulOrderId);
+}
+
+export function preferStoredTerminalFailure(candidate, stored) {
+  if (!stored) return null;
+  if (stored.status === "failed") return stored;
+  return null;
+}
+
 export async function resolvePrintfulPostSubmitFileOutcome(input) {
   const maxAttempts = Math.max(1, input.maxAttempts ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS);
   const delays = input.retryDelaysMs ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS;
@@ -56,6 +79,7 @@ export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
   }
   const failureAlert = deps.sendPrintOrderFailureAlert ?? (async () => ({ delivered: false, provider: "none" }));
   const approvalAlert = deps.sendPrintOrderApprovalAlert ?? (async () => ({ delivered: false, provider: "none" }));
+  const loadStored = deps.loadStoredPrintOrder ?? (async () => null);
 
   const { outcome, review } = await resolvePrintfulPostSubmitFileOutcome({
     printfulOrderId: sentRecord.printfulOrderId,
@@ -65,11 +89,24 @@ export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
     retryDelaysMs: deps.retryDelaysMs,
   });
 
+  const stored = await loadStored(sentRecord.sessionId);
+  const terminal = preferStoredTerminalFailure(sentRecord, stored);
+  if (terminal) {
+    return terminal;
+  }
+
   if (outcome === "failed" && review?.failedFiles.length) {
     const failedRecord = {
       ...sentRecord,
       error: formatPrintfulFileFailureError(review),
+      printfulFileReviewPendingAt: undefined,
     };
+    if (stored?.operatorFailureAlertedAt) {
+      failedRecord.operatorFailureAlertedAt = stored.operatorFailureAlertedAt;
+      failedRecord.operatorFailureAlertProvider = stored.operatorFailureAlertProvider;
+      failedRecord.operatorFailureAlertError = stored.operatorFailureAlertError;
+      return failedRecord;
+    }
     if (!failedRecord.operatorFailureAlertedAt) {
       const alertResult = await failureAlert(failedRecord);
       if (alertResult.delivered) {
@@ -81,24 +118,70 @@ export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
         failedRecord.operatorFailureAlertError = alertResult.error;
       }
     }
+    const afterAlert = await loadStored(sentRecord.sessionId);
+    const afterTerminal = preferStoredTerminalFailure(failedRecord, afterAlert);
+    if (afterTerminal) {
+      if (!afterTerminal.operatorFailureAlertedAt && failedRecord.operatorFailureAlertedAt) {
+        return {
+          ...afterTerminal,
+          operatorFailureAlertedAt: failedRecord.operatorFailureAlertedAt,
+          operatorFailureAlertProvider: failedRecord.operatorFailureAlertProvider,
+          operatorFailureAlertError: failedRecord.operatorFailureAlertError,
+        };
+      }
+      return afterTerminal;
+    }
     return failedRecord;
   }
 
   if (outcome === "pending") {
-    return sentRecord;
+    return {
+      ...sentRecord,
+      printfulFileReviewPendingAt: Date.now(),
+    };
   }
 
-  if (!sentRecord.operatorAlertedAt) {
-    const alertResult = await approvalAlert(sentRecord);
+  const healthyRecord = {
+    ...sentRecord,
+    printfulFileReviewPendingAt: undefined,
+    error: sentRecord.error?.startsWith("printful_files_failed:") ? undefined : sentRecord.error,
+  };
+
+  if (!healthyRecord.operatorAlertedAt) {
+    const alertResult = await approvalAlert(healthyRecord);
     if (alertResult.delivered) {
-      sentRecord.operatorAlertedAt = Date.now();
-      sentRecord.operatorAlertProvider = alertResult.provider;
-      sentRecord.operatorAlertError = undefined;
+      healthyRecord.operatorAlertedAt = Date.now();
+      healthyRecord.operatorAlertProvider = alertResult.provider;
+      healthyRecord.operatorAlertError = undefined;
     } else {
-      sentRecord.operatorAlertProvider = alertResult.provider;
-      sentRecord.operatorAlertError = alertResult.error;
+      healthyRecord.operatorAlertProvider = alertResult.provider;
+      healthyRecord.operatorAlertError = alertResult.error;
     }
   }
 
-  return sentRecord;
+  const afterApproval = await loadStored(sentRecord.sessionId);
+  const approvalTerminal = preferStoredTerminalFailure(healthyRecord, afterApproval);
+  if (approvalTerminal) {
+    return approvalTerminal;
+  }
+
+  return healthyRecord;
+}
+
+/** Mirrors already-sent retry gating in print/orders/retry/route.ts */
+export async function applyAlreadySentRetryReview(existing, deps = {}) {
+  if (shouldRereviewPrintfulFilesOnAlreadySent(existing)) {
+    return applyPrintfulPostSubmitReview(existing, deps);
+  }
+  if (shouldSendAlreadySentApprovalAlert(existing)) {
+    const approvalAlert = deps.sendPrintOrderApprovalAlert ?? (async () => ({ delivered: false, provider: "none" }));
+    const alertResult = await approvalAlert(existing);
+    return {
+      ...existing,
+      operatorAlertedAt: alertResult.delivered ? Date.now() : existing.operatorAlertedAt,
+      operatorAlertProvider: alertResult.provider,
+      operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
+    };
+  }
+  return existing;
 }

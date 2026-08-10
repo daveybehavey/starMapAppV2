@@ -1,4 +1,6 @@
+import { kv } from "@/lib/kv";
 import type { PrintOrderRecord } from "@/lib/printOrders";
+import { printOrderKey } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import {
   formatPrintfulFileFailureError,
@@ -21,10 +23,51 @@ export type PrintfulPostSubmitReviewDeps = {
   retryDelaysMs?: readonly number[];
   sendPrintOrderFailureAlert?: typeof sendPrintOrderFailureAlert;
   sendPrintOrderApprovalAlert?: typeof sendPrintOrderApprovalAlert;
+  /** Re-read durable order state after polling (webhook races). Defaults to KV. */
+  loadStoredPrintOrder?: (sessionId: string) => Promise<PrintOrderRecord | null>;
 };
 
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function defaultLoadStoredPrintOrder(sessionId: string): Promise<PrintOrderRecord | null> {
+  return kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+}
+
+export function isPrintfulFileReviewPending(record: Pick<PrintOrderRecord, "printfulFileReviewPendingAt">): boolean {
+  return typeof record.printfulFileReviewPendingAt === "number" && record.printfulFileReviewPendingAt > 0;
+}
+
+/** Already-sent retry may only approve when provider file review is not pending and not failed. */
+export function shouldSendAlreadySentApprovalAlert(
+  record: Pick<PrintOrderRecord, "status" | "operatorAlertedAt" | "printfulFileReviewPendingAt" | "error">,
+): boolean {
+  return (
+    record.status === "sent" &&
+    !record.operatorAlertedAt &&
+    !isPrintfulFileReviewPending(record) &&
+    !record.error
+  );
+}
+
+export function shouldRereviewPrintfulFilesOnAlreadySent(
+  record: Pick<PrintOrderRecord, "status" | "printfulOrderId" | "printfulFileReviewPendingAt">,
+): boolean {
+  return record.status === "sent" && isPrintfulFileReviewPending(record) && Boolean(record.printfulOrderId);
+}
+
+/**
+ * Prefer a concurrently persisted terminal failure (e.g. order_failed webhook)
+ * over a stale in-memory post-submit snapshot.
+ */
+export function preferStoredTerminalFailure(
+  _candidate: PrintOrderRecord,
+  stored: PrintOrderRecord | null | undefined,
+): PrintOrderRecord | null {
+  if (!stored) return null;
+  if (stored.status === "failed") return stored;
+  return null;
 }
 
 /**
@@ -88,6 +131,7 @@ export async function applyPrintfulPostSubmitReview(
   const reviewFn = deps.reviewPrintfulOrderFiles ?? reviewPrintfulOrderFiles;
   const failureAlert = deps.sendPrintOrderFailureAlert ?? sendPrintOrderFailureAlert;
   const approvalAlert = deps.sendPrintOrderApprovalAlert ?? sendPrintOrderApprovalAlert;
+  const loadStored = deps.loadStoredPrintOrder ?? defaultLoadStoredPrintOrder;
 
   const { outcome, review } = await resolvePrintfulPostSubmitFileOutcome({
     printfulOrderId: sentRecord.printfulOrderId,
@@ -97,11 +141,26 @@ export async function applyPrintfulPostSubmitReview(
     retryDelaysMs: deps.retryDelaysMs,
   });
 
+  // Re-read after polling sleeps so a concurrent order_failed webhook wins.
+  const stored = await loadStored(sentRecord.sessionId);
+  const terminal = preferStoredTerminalFailure(sentRecord, stored);
+  if (terminal) {
+    return terminal;
+  }
+
   if (outcome === "failed" && review?.failedFiles.length) {
     const failedRecord: PrintOrderRecord = {
       ...sentRecord,
       error: formatPrintfulFileFailureError(review),
+      printfulFileReviewPendingAt: undefined,
     };
+    // Preserve webhook/idempotency markers if store already alerted without status flip.
+    if (stored?.operatorFailureAlertedAt) {
+      failedRecord.operatorFailureAlertedAt = stored.operatorFailureAlertedAt;
+      failedRecord.operatorFailureAlertProvider = stored.operatorFailureAlertProvider;
+      failedRecord.operatorFailureAlertError = stored.operatorFailureAlertError;
+      return failedRecord;
+    }
     if (!failedRecord.operatorFailureAlertedAt) {
       const alertResult = await failureAlert(failedRecord);
       if (alertResult.delivered) {
@@ -113,25 +172,54 @@ export async function applyPrintfulPostSubmitReview(
         failedRecord.operatorFailureAlertError = alertResult.error;
       }
     }
+    // Final race check: webhook may have persisted failure during alert send.
+    const afterAlert = await loadStored(sentRecord.sessionId);
+    const afterTerminal = preferStoredTerminalFailure(failedRecord, afterAlert);
+    if (afterTerminal) {
+      if (!afterTerminal.operatorFailureAlertedAt && failedRecord.operatorFailureAlertedAt) {
+        return {
+          ...afterTerminal,
+          operatorFailureAlertedAt: failedRecord.operatorFailureAlertedAt,
+          operatorFailureAlertProvider: failedRecord.operatorFailureAlertProvider,
+          operatorFailureAlertError: failedRecord.operatorFailureAlertError,
+        };
+      }
+      return afterTerminal;
+    }
     return failedRecord;
   }
 
-  // Pending after bounded recheck: neither confirmed failure nor final approval.
+  // Pending after bounded recheck: durable marker, neither confirmed failure nor approval.
   if (outcome === "pending") {
-    return sentRecord;
+    return {
+      ...sentRecord,
+      printfulFileReviewPendingAt: Date.now(),
+    };
   }
 
-  if (!sentRecord.operatorAlertedAt) {
-    const alertResult = await approvalAlert(sentRecord);
+  const healthyRecord: PrintOrderRecord = {
+    ...sentRecord,
+    printfulFileReviewPendingAt: undefined,
+    error: sentRecord.error?.startsWith("printful_files_failed:") ? undefined : sentRecord.error,
+  };
+
+  if (!healthyRecord.operatorAlertedAt) {
+    const alertResult = await approvalAlert(healthyRecord);
     if (alertResult.delivered) {
-      sentRecord.operatorAlertedAt = Date.now();
-      sentRecord.operatorAlertProvider = alertResult.provider;
-      sentRecord.operatorAlertError = undefined;
+      healthyRecord.operatorAlertedAt = Date.now();
+      healthyRecord.operatorAlertProvider = alertResult.provider;
+      healthyRecord.operatorAlertError = undefined;
     } else {
-      sentRecord.operatorAlertProvider = alertResult.provider;
-      sentRecord.operatorAlertError = alertResult.error;
+      healthyRecord.operatorAlertProvider = alertResult.provider;
+      healthyRecord.operatorAlertError = alertResult.error;
     }
   }
 
-  return sentRecord;
+  const afterApproval = await loadStored(sentRecord.sessionId);
+  const approvalTerminal = preferStoredTerminalFailure(healthyRecord, afterApproval);
+  if (approvalTerminal) {
+    return approvalTerminal;
+  }
+
+  return healthyRecord;
 }
