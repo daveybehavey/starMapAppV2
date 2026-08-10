@@ -443,6 +443,38 @@ test("reusable deploy workflow still runs checkout → npm ci → unit → Cloud
   assert.doesNotMatch(yaml, /^\s*schedule:\s*$/m);
 });
 
+test("deploy-production Cloudflare step wires token + legacy auth without printing secrets", () => {
+  const yaml = read(DEPLOY_WORKFLOW);
+  const deployStepMatch = yaml.match(
+    /- name:\s*Deploy to Cloudflare\n([\s\S]*?)(?=\n\s*- name:|\n*$)/,
+  );
+  assert.ok(deployStepMatch, "Deploy to Cloudflare step must exist");
+  const deployStep = deployStepMatch[1];
+
+  assert.match(
+    deployStep,
+    /CLOUDFLARE_API_TOKEN:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\}/,
+  );
+  assert.match(
+    deployStep,
+    /CLOUDFLARE_API_KEY:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_KEY\s*\}\}/,
+  );
+  assert.match(
+    deployStep,
+    /CLOUDFLARE_EMAIL:\s*\$\{\{\s*secrets\.CLOUDFLARE_EMAIL\s*\}\}/,
+  );
+  assert.match(deployStep, /run:\s*npm run deploy:inner/);
+
+  // Secret values must never appear as literals; only GitHub secrets expressions.
+  assert.doesNotMatch(yaml, /CLOUDFLARE_API_TOKEN:\s*(?!\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\})\S+/);
+  assert.doesNotMatch(yaml, /CLOUDFLARE_API_KEY:\s*(?!\$\{\{\s*secrets\.CLOUDFLARE_API_KEY\s*\}\})\S+/);
+  assert.doesNotMatch(yaml, /CLOUDFLARE_EMAIL:\s*(?!\$\{\{\s*secrets\.CLOUDFLARE_EMAIL\s*\}\})\S+/);
+  assert.doesNotMatch(yaml, /echo\s+.*CLOUDFLARE_API_(TOKEN|KEY)|printenv\s+CLOUDFLARE_API_(TOKEN|KEY)/i);
+
+  assert.match(yaml, /run:\s*npm run qa:live-critical/);
+  assert.doesNotMatch(yaml, /qa:live-print-conversion/);
+});
+
 test("no workflow in .github introduces qa:live-print-conversion deploy path", () => {
   const workflowsDir = path.join(REPO_ROOT, ".github/workflows");
   for (const name of fs.readdirSync(workflowsDir)) {
