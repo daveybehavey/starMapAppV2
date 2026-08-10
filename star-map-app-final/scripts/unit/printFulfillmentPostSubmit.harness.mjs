@@ -1,53 +1,23 @@
-import type { PrintOrderRecord } from "@/lib/printOrders";
-import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+/** Keep in sync with src/lib/printFulfillmentPostSubmit.ts */
 import {
   formatPrintfulFileFailureError,
   resolvePrintfulFileReviewOutcome,
-  reviewPrintfulOrderFiles,
-  type PrintfulFileReviewOutcome,
-  type PrintfulOrderFileReview,
-} from "@/lib/printfulOrderReview";
+} from "./printfulOrderReview.harness.mjs";
 
-/** Hard cap on read-only file-status polls after submit (includes the initial read). */
 export const PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS = 3;
+export const PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS = [750, 1500];
 
-/** Backoff between rechecks (ms). Length must be maxAttempts - 1. */
-export const PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS = [750, 1500] as const;
-
-export type PrintfulPostSubmitReviewDeps = {
-  reviewPrintfulOrderFiles?: typeof reviewPrintfulOrderFiles;
-  sleep?: (ms: number) => Promise<void>;
-  maxAttempts?: number;
-  retryDelaysMs?: readonly number[];
-  sendPrintOrderFailureAlert?: typeof sendPrintOrderFailureAlert;
-  sendPrintOrderApprovalAlert?: typeof sendPrintOrderApprovalAlert;
-};
-
-function defaultSleep(ms: number): Promise<void> {
+function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Read-only bounded recheck until file statuses resolve to ok/failed, or attempts exhaust.
- * Never mutates Printful orders (no create/confirm/cancel).
- */
-export async function resolvePrintfulPostSubmitFileOutcome(input: {
-  printfulOrderId: string | number;
-  reviewPrintfulOrderFiles: (orderId: string | number) => Promise<PrintfulOrderFileReview | null>;
-  sleep?: (ms: number) => Promise<void>;
-  maxAttempts?: number;
-  retryDelaysMs?: readonly number[];
-}): Promise<{
-  outcome: PrintfulFileReviewOutcome;
-  review: PrintfulOrderFileReview | null;
-  attempts: number;
-}> {
+export async function resolvePrintfulPostSubmitFileOutcome(input) {
   const maxAttempts = Math.max(1, input.maxAttempts ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS);
   const delays = input.retryDelaysMs ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS;
   const sleep = input.sleep ?? defaultSleep;
 
-  let review: PrintfulOrderFileReview | null = null;
-  let outcome: PrintfulFileReviewOutcome = "ok";
+  let review = null;
+  let outcome = "ok";
   let attempts = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -60,8 +30,6 @@ export async function resolvePrintfulPostSubmitFileOutcome(input: {
     attempts = attempt;
 
     if (!review) {
-      // Initial miss: preserve legacy "no review data => proceed" (approval path).
-      // After a pending observation, a null recheck stays pending (fail-safe).
       if (outcome === "pending") {
         continue;
       }
@@ -77,17 +45,17 @@ export async function resolvePrintfulPostSubmitFileOutcome(input: {
   return { outcome: "pending", review, attempts };
 }
 
-export async function applyPrintfulPostSubmitReview(
-  sentRecord: PrintOrderRecord,
-  deps: PrintfulPostSubmitReviewDeps = {},
-): Promise<PrintOrderRecord> {
+export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
   if (!sentRecord.printfulOrderId) {
     return sentRecord;
   }
 
-  const reviewFn = deps.reviewPrintfulOrderFiles ?? reviewPrintfulOrderFiles;
-  const failureAlert = deps.sendPrintOrderFailureAlert ?? sendPrintOrderFailureAlert;
-  const approvalAlert = deps.sendPrintOrderApprovalAlert ?? sendPrintOrderApprovalAlert;
+  const reviewFn = deps.reviewPrintfulOrderFiles;
+  if (typeof reviewFn !== "function") {
+    throw new Error("reviewPrintfulOrderFiles dependency required in harness");
+  }
+  const failureAlert = deps.sendPrintOrderFailureAlert ?? (async () => ({ delivered: false, provider: "none" }));
+  const approvalAlert = deps.sendPrintOrderApprovalAlert ?? (async () => ({ delivered: false, provider: "none" }));
 
   const { outcome, review } = await resolvePrintfulPostSubmitFileOutcome({
     printfulOrderId: sentRecord.printfulOrderId,
@@ -98,7 +66,7 @@ export async function applyPrintfulPostSubmitReview(
   });
 
   if (outcome === "failed" && review?.failedFiles.length) {
-    const failedRecord: PrintOrderRecord = {
+    const failedRecord = {
       ...sentRecord,
       error: formatPrintfulFileFailureError(review),
     };
@@ -116,7 +84,6 @@ export async function applyPrintfulPostSubmitReview(
     return failedRecord;
   }
 
-  // Pending after bounded recheck: neither confirmed failure nor final approval.
   if (outcome === "pending") {
     return sentRecord;
   }
