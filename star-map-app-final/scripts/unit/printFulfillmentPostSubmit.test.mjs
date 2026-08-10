@@ -254,6 +254,56 @@ test("P1: unresolved waiting persists durable pending marker and blocks already-
   assert.equal(retried.operatorAlertedAt, undefined);
 });
 
+test("P1: null/unavailable rereview on already-pending record preserves pending (no approval)", async () => {
+  const alreadyPending = baseRecord({ printfulFileReviewPendingAt: 1_700_000_000_111 });
+  const alerts = { failure: 0, approval: 0 };
+  const result = await applyAlreadySentRetryReview(alreadyPending, {
+    maxAttempts: 2,
+    retryDelaysMs: [0],
+    sleep: async () => {},
+    loadStoredPrintOrder: async () => alreadyPending,
+    reviewPrintfulOrderFiles: async () => null,
+    sendPrintOrderFailureAlert: async () => {
+      alerts.failure += 1;
+      return { delivered: true, provider: "test" };
+    },
+    sendPrintOrderApprovalAlert: async () => {
+      alerts.approval += 1;
+      return { delivered: true, provider: "test" };
+    },
+  });
+
+  assert.equal(alerts.approval, 0);
+  assert.equal(alerts.failure, 0);
+  assert.equal(isPrintfulFileReviewPending(result), true);
+  assert.equal(result.printfulFileReviewPendingAt, alreadyPending.printfulFileReviewPendingAt);
+  assert.equal(result.operatorAlertedAt, undefined);
+  assert.equal(shouldSendAlreadySentApprovalAlert(result), false);
+});
+
+test("P1: first-submit null review without prior pending still follows legacy ok path", async () => {
+  const alerts = { failure: 0, approval: 0 };
+  const result = await applyPrintfulPostSubmitReview(baseRecord(), {
+    maxAttempts: 1,
+    sleep: async () => {},
+    loadStoredPrintOrder: async () => null,
+    reviewPrintfulOrderFiles: async () => null,
+    sendPrintOrderFailureAlert: async () => {
+      alerts.failure += 1;
+      return { delivered: true, provider: "test" };
+    },
+    sendPrintOrderApprovalAlert: async () => {
+      alerts.approval += 1;
+      return { delivered: true, provider: "test" };
+    },
+  });
+
+  assert.equal(alerts.approval, 1);
+  assert.equal(alerts.failure, 0);
+  assert.equal(isPrintfulFileReviewPending(result), false);
+  assert.ok(result.operatorAlertedAt);
+});
+
 test("P1: concurrent order_failed webhook during poll delay is not overwritten", async () => {
   const store = {
     current: baseRecord({ status: "pending" }),

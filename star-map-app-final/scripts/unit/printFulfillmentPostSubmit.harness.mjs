@@ -38,9 +38,10 @@ export async function resolvePrintfulPostSubmitFileOutcome(input) {
   const maxAttempts = Math.max(1, input.maxAttempts ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS);
   const delays = input.retryDelaysMs ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS;
   const sleep = input.sleep ?? defaultSleep;
+  const preservePendingOnUnavailable = Boolean(input.preservePendingOnUnavailable);
 
   let review = null;
-  let outcome = "ok";
+  let outcome = preservePendingOnUnavailable ? "pending" : "ok";
   let attempts = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -53,7 +54,8 @@ export async function resolvePrintfulPostSubmitFileOutcome(input) {
     attempts = attempt;
 
     if (!review) {
-      if (outcome === "pending") {
+      if (outcome === "pending" || preservePendingOnUnavailable) {
+        outcome = "pending";
         continue;
       }
       return { outcome: "ok", review: null, attempts };
@@ -80,6 +82,7 @@ export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
   const failureAlert = deps.sendPrintOrderFailureAlert ?? (async () => ({ delivered: false, provider: "none" }));
   const approvalAlert = deps.sendPrintOrderApprovalAlert ?? (async () => ({ delivered: false, provider: "none" }));
   const loadStored = deps.loadStoredPrintOrder ?? (async () => null);
+  const alreadyPending = isPrintfulFileReviewPending(sentRecord);
 
   const { outcome, review } = await resolvePrintfulPostSubmitFileOutcome({
     printfulOrderId: sentRecord.printfulOrderId,
@@ -87,6 +90,7 @@ export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
     sleep: deps.sleep,
     maxAttempts: deps.maxAttempts,
     retryDelaysMs: deps.retryDelaysMs,
+    preservePendingOnUnavailable: alreadyPending,
   });
 
   const stored = await loadStored(sentRecord.sessionId);
@@ -137,7 +141,7 @@ export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
   if (outcome === "pending") {
     return {
       ...sentRecord,
-      printfulFileReviewPendingAt: Date.now(),
+      printfulFileReviewPendingAt: sentRecord.printfulFileReviewPendingAt ?? Date.now(),
     };
   }
 

@@ -80,6 +80,11 @@ export async function resolvePrintfulPostSubmitFileOutcome(input: {
   sleep?: (ms: number) => Promise<void>;
   maxAttempts?: number;
   retryDelaysMs?: readonly number[];
+  /**
+   * When the durable record is already pending, a null/unavailable provider GET must stay
+   * pending — never be treated as healthy approval.
+   */
+  preservePendingOnUnavailable?: boolean;
 }): Promise<{
   outcome: PrintfulFileReviewOutcome;
   review: PrintfulOrderFileReview | null;
@@ -88,9 +93,10 @@ export async function resolvePrintfulPostSubmitFileOutcome(input: {
   const maxAttempts = Math.max(1, input.maxAttempts ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS);
   const delays = input.retryDelaysMs ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS;
   const sleep = input.sleep ?? defaultSleep;
+  const preservePendingOnUnavailable = Boolean(input.preservePendingOnUnavailable);
 
   let review: PrintfulOrderFileReview | null = null;
-  let outcome: PrintfulFileReviewOutcome = "ok";
+  let outcome: PrintfulFileReviewOutcome = preservePendingOnUnavailable ? "pending" : "ok";
   let attempts = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -103,9 +109,10 @@ export async function resolvePrintfulPostSubmitFileOutcome(input: {
     attempts = attempt;
 
     if (!review) {
-      // Initial miss: preserve legacy "no review data => proceed" (approval path).
-      // After a pending observation, a null recheck stays pending (fail-safe).
-      if (outcome === "pending") {
+      // Unavailable GET: keep pending if we already observed pending (in-loop or durable).
+      // First-submit legacy: null with no prior pending observation still proceeds as ok.
+      if (outcome === "pending" || preservePendingOnUnavailable) {
+        outcome = "pending";
         continue;
       }
       return { outcome: "ok", review: null, attempts };
@@ -132,6 +139,7 @@ export async function applyPrintfulPostSubmitReview(
   const failureAlert = deps.sendPrintOrderFailureAlert ?? sendPrintOrderFailureAlert;
   const approvalAlert = deps.sendPrintOrderApprovalAlert ?? sendPrintOrderApprovalAlert;
   const loadStored = deps.loadStoredPrintOrder ?? defaultLoadStoredPrintOrder;
+  const alreadyPending = isPrintfulFileReviewPending(sentRecord);
 
   const { outcome, review } = await resolvePrintfulPostSubmitFileOutcome({
     printfulOrderId: sentRecord.printfulOrderId,
@@ -139,6 +147,7 @@ export async function applyPrintfulPostSubmitReview(
     sleep: deps.sleep,
     maxAttempts: deps.maxAttempts,
     retryDelaysMs: deps.retryDelaysMs,
+    preservePendingOnUnavailable: alreadyPending,
   });
 
   // Re-read after polling sleeps so a concurrent order_failed webhook wins.
@@ -193,7 +202,7 @@ export async function applyPrintfulPostSubmitReview(
   if (outcome === "pending") {
     return {
       ...sentRecord,
-      printfulFileReviewPendingAt: Date.now(),
+      printfulFileReviewPendingAt: sentRecord.printfulFileReviewPendingAt ?? Date.now(),
     };
   }
 
