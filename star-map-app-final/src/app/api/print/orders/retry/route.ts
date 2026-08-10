@@ -16,9 +16,14 @@ import {
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import {
   applyPrintfulPostSubmitReview,
+  persistReviewedPrintOrder,
   shouldRereviewPrintfulFilesOnAlreadySent,
   shouldSendAlreadySentApprovalAlert,
 } from "@/lib/printFulfillmentPostSubmit";
+import {
+  getEffectivePrintOrderRecord,
+  readPrintOrderTerminalState,
+} from "@/lib/printOrderTerminalState";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
@@ -132,21 +137,63 @@ export async function POST(req: NextRequest) {
     return failedRecord;
   };
 
-  const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-  if (!existing) {
+  const existingRaw = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  if (!existingRaw) {
     return NextResponse.json({ ok: false, error: "Print order not found" }, { status: 404 });
   }
+
+  // Approval/retry gates require authoritative terminal readability.
+  const terminalGate = await readPrintOrderTerminalState(sessionId);
+  if (!terminalGate.ok) {
+    return NextResponse.json(
+      { ok: false, error: "print_order_terminal_store_unavailable" },
+      { status: 503 },
+    );
+  }
+  const effectiveExisting = await getEffectivePrintOrderRecord(sessionId, existingRaw, {
+    requireTerminalReadable: true,
+  });
+  if (!effectiveExisting.ok) {
+    return NextResponse.json(
+      { ok: false, error: effectiveExisting.error },
+      { status: 503 },
+    );
+  }
+  const existing = effectiveExisting.order ?? existingRaw;
+  if (existing.status === "failed" || effectiveExisting.terminal) {
+    await kv.set(printOrderKey(sessionId), existing);
+    return NextResponse.json({ ok: false, error: existing.error || "print_order_failed", order: existing }, { status: 409 });
+  }
+
   if (existing.status === "sent") {
     // Unresolved Printful file review must be rechecked before any approval path.
     if (shouldRereviewPrintfulFilesOnAlreadySent(existing)) {
       const reviewed = await applyPrintfulPostSubmitReview(existing);
-      await kv.set(printOrderKey(sessionId), reviewed);
+      const persisted = await persistReviewedPrintOrder(sessionId, reviewed);
       void sendPrintOrderConfirmation(sessionId).catch((error) => {
         console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
       });
-      return NextResponse.json({ ok: true, status: "already_sent", order: reviewed });
+      return NextResponse.json({ ok: true, status: "already_sent", order: persisted });
     }
     if (shouldSendAlreadySentApprovalAlert(existing)) {
+      // Re-check terminal before approving.
+      const beforeApprove = await getEffectivePrintOrderRecord(sessionId, existing, {
+        requireTerminalReadable: true,
+      });
+      if (!beforeApprove.ok) {
+        return NextResponse.json(
+          { ok: false, error: "print_order_terminal_store_unavailable" },
+          { status: 503 },
+        );
+      }
+      if (beforeApprove.terminal || beforeApprove.order?.status === "failed") {
+        const order = beforeApprove.order ?? existing;
+        await kv.set(printOrderKey(sessionId), order);
+        return NextResponse.json(
+          { ok: false, error: order.error || "print_order_failed", order },
+          { status: 409 },
+        );
+      }
       const alertResult = await sendPrintOrderApprovalAlert(existing);
       const updated: PrintOrderRecord = {
         ...existing,
@@ -154,11 +201,11 @@ export async function POST(req: NextRequest) {
         operatorAlertProvider: alertResult.provider,
         operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
       };
-      await kv.set(printOrderKey(sessionId), updated);
+      const persisted = await persistReviewedPrintOrder(sessionId, updated);
       void sendPrintOrderConfirmation(sessionId).catch((error) => {
         console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
       });
-      return NextResponse.json({ ok: true, status: "already_sent", order: updated });
+      return NextResponse.json({ ok: true, status: "already_sent", order: persisted });
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
@@ -274,7 +321,7 @@ export async function POST(req: NextRequest) {
       error: undefined,
     };
     sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
-    await kv.set(printOrderKey(sessionId), sent);
+    sent = await persistReviewedPrintOrder(sessionId, sent);
     if (sent.printfulOrderId) {
       await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
     }

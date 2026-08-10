@@ -154,6 +154,13 @@ service = "star-map-final"
 binding = "NEXT_INC_CACHE_R2_BUCKET"
 bucket_name = "cache"
 
+# Dedicated print-order terminal-state ledger (#239). Do NOT reuse incremental-cache bucket.
+# Provision before production deploy (not created by this PR):
+#   npx wrangler r2 bucket create print-order-state
+[[r2_buckets]]
+binding = "PRINT_ORDER_STATE_R2"
+bucket_name = "print-order-state"
+
 [[kv_namespaces]]
 binding = "STAR_MAP_KV"
 id = "cdef6c5fa5cc4e52bfe105aa1ba37713"

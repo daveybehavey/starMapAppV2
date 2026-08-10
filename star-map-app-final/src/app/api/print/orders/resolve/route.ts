@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
+import { getEffectivePrintOrderRecord } from "@/lib/printOrderTerminalState";
 import { isValidPrintCheckoutSessionId, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
@@ -36,6 +37,26 @@ export async function POST(req: NextRequest) {
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
   if (!existing) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  }
+
+  const effective = await getEffectivePrintOrderRecord(sessionId, existing, {
+    requireTerminalReadable: true,
+  });
+  if (!effective.ok) {
+    return NextResponse.json(
+      { ok: false, error: "print_order_terminal_store_unavailable" },
+      { status: 503 },
+    );
+  }
+  if (effective.terminal) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "print_order_terminal_failed",
+        order: effective.order,
+      },
+      { status: 409 },
+    );
   }
 
   const rawPrintfulOrderId = payload?.printfulOrderId;

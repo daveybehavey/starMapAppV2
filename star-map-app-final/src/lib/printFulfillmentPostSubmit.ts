@@ -9,6 +9,14 @@ import {
   type PrintfulFileReviewOutcome,
   type PrintfulOrderFileReview,
 } from "@/lib/printfulOrderReview";
+import {
+  getEffectivePrintOrderRecord,
+  overlayPrintOrderTerminalState,
+  persistPrintOrderKvMirror,
+  readPrintOrderTerminalState,
+  recordPrintOrderTerminalFailure,
+  type PrintOrderTerminalStore,
+} from "@/lib/printOrderTerminalState";
 
 /** Hard cap on read-only file-status polls after submit (includes the initial read). */
 export const PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS = 3;
@@ -25,6 +33,7 @@ export type PrintfulPostSubmitReviewDeps = {
   sendPrintOrderApprovalAlert?: typeof sendPrintOrderApprovalAlert;
   /** Re-read durable order state after polling (webhook races). Defaults to KV. */
   loadStoredPrintOrder?: (sessionId: string) => Promise<PrintOrderRecord | null>;
+  terminalStore?: PrintOrderTerminalStore;
 };
 
 function defaultSleep(ms: number): Promise<void> {
@@ -140,6 +149,7 @@ export async function applyPrintfulPostSubmitReview(
   const approvalAlert = deps.sendPrintOrderApprovalAlert ?? sendPrintOrderApprovalAlert;
   const loadStored = deps.loadStoredPrintOrder ?? defaultLoadStoredPrintOrder;
   const alreadyPending = isPrintfulFileReviewPending(sentRecord);
+  const terminalDeps = { store: deps.terminalStore };
 
   const { outcome, review } = await resolvePrintfulPostSubmitFileOutcome({
     printfulOrderId: sentRecord.printfulOrderId,
@@ -150,26 +160,96 @@ export async function applyPrintfulPostSubmitReview(
     preservePendingOnUnavailable: alreadyPending,
   });
 
-  // Re-read after polling sleeps so a concurrent order_failed webhook wins.
+  // Authoritative terminal ledger wins over in-memory / KV snapshots.
+  const terminalRead = await readPrintOrderTerminalState(sentRecord.sessionId, terminalDeps);
+  if (!terminalRead.ok) {
+    // Fail closed for any path that would approve / clear pending as healthy.
+    if (outcome === "ok" || outcome === "pending") {
+      return {
+        ...sentRecord,
+        printfulFileReviewPendingAt: sentRecord.printfulFileReviewPendingAt ?? Date.now(),
+        error: sentRecord.error || "print_order_terminal_store_unavailable",
+      };
+    }
+  } else if (terminalRead.state) {
+    const stored = await loadStored(sentRecord.sessionId);
+    return (
+      overlayPrintOrderTerminalState(stored ?? sentRecord, terminalRead.state) ?? {
+        ...sentRecord,
+        status: "failed",
+        error: terminalRead.state.error,
+      }
+    );
+  }
+
   const stored = await loadStored(sentRecord.sessionId);
   const terminal = preferStoredTerminalFailure(sentRecord, stored);
   if (terminal) {
+    // Mirror into R2 if KV already failed but ledger missing (legacy).
+    await recordPrintOrderTerminalFailure(
+      {
+        sessionId: sentRecord.sessionId,
+        error: terminal.error || "print_order_failed",
+        source: "other",
+        operatorFailureAlertedAt: terminal.operatorFailureAlertedAt,
+        operatorFailureAlertProvider: terminal.operatorFailureAlertProvider,
+        operatorFailureAlertError: terminal.operatorFailureAlertError,
+      },
+      terminalDeps,
+    );
     return terminal;
   }
 
   if (outcome === "failed" && review?.failedFiles.length) {
+    const failureError = formatPrintfulFileFailureError(review);
     const failedRecord: PrintOrderRecord = {
       ...sentRecord,
-      error: formatPrintfulFileFailureError(review),
+      status: "failed",
+      error: failureError,
       printfulFileReviewPendingAt: undefined,
     };
-    // Preserve webhook/idempotency markers if store already alerted without status flip.
-    if (stored?.operatorFailureAlertedAt) {
-      failedRecord.operatorFailureAlertedAt = stored.operatorFailureAlertedAt;
-      failedRecord.operatorFailureAlertProvider = stored.operatorFailureAlertProvider;
-      failedRecord.operatorFailureAlertError = stored.operatorFailureAlertError;
-      return failedRecord;
+
+    const ledger = await recordPrintOrderTerminalFailure(
+      {
+        sessionId: sentRecord.sessionId,
+        error: failureError,
+        source: "post_submit_files",
+        operatorFailureAlertedAt: stored?.operatorFailureAlertedAt,
+        operatorFailureAlertProvider: stored?.operatorFailureAlertProvider,
+        operatorFailureAlertError: stored?.operatorFailureAlertError,
+      },
+      terminalDeps,
+    );
+
+    if (ledger.ok || ("conflict" in ledger && ledger.conflict)) {
+      const withTerminal =
+        overlayPrintOrderTerminalState(failedRecord, ledger.state) ?? failedRecord;
+      if (!withTerminal.operatorFailureAlertedAt) {
+        const alertResult = await failureAlert(withTerminal);
+        if (alertResult.delivered) {
+          withTerminal.operatorFailureAlertedAt = Date.now();
+          withTerminal.operatorFailureAlertProvider = alertResult.provider;
+          withTerminal.operatorFailureAlertError = undefined;
+        } else {
+          withTerminal.operatorFailureAlertProvider = alertResult.provider;
+          withTerminal.operatorFailureAlertError = alertResult.error;
+        }
+        await recordPrintOrderTerminalFailure(
+          {
+            sessionId: sentRecord.sessionId,
+            error: failureError,
+            source: "post_submit_files",
+            operatorFailureAlertedAt: withTerminal.operatorFailureAlertedAt,
+            operatorFailureAlertProvider: withTerminal.operatorFailureAlertProvider,
+            operatorFailureAlertError: withTerminal.operatorFailureAlertError,
+          },
+          terminalDeps,
+        );
+      }
+      return withTerminal;
     }
+
+    // Ledger unavailable: still surface failure, but do not approve.
     if (!failedRecord.operatorFailureAlertedAt) {
       const alertResult = await failureAlert(failedRecord);
       if (alertResult.delivered) {
@@ -181,20 +261,6 @@ export async function applyPrintfulPostSubmitReview(
         failedRecord.operatorFailureAlertError = alertResult.error;
       }
     }
-    // Final race check: webhook may have persisted failure during alert send.
-    const afterAlert = await loadStored(sentRecord.sessionId);
-    const afterTerminal = preferStoredTerminalFailure(failedRecord, afterAlert);
-    if (afterTerminal) {
-      if (!afterTerminal.operatorFailureAlertedAt && failedRecord.operatorFailureAlertedAt) {
-        return {
-          ...afterTerminal,
-          operatorFailureAlertedAt: failedRecord.operatorFailureAlertedAt,
-          operatorFailureAlertProvider: failedRecord.operatorFailureAlertProvider,
-          operatorFailureAlertError: failedRecord.operatorFailureAlertError,
-        };
-      }
-      return afterTerminal;
-    }
     return failedRecord;
   }
 
@@ -204,6 +270,22 @@ export async function applyPrintfulPostSubmitReview(
       ...sentRecord,
       printfulFileReviewPendingAt: sentRecord.printfulFileReviewPendingAt ?? Date.now(),
     };
+  }
+
+  // Healthy path: require authoritative terminal readability (fail closed).
+  const healthyGate = await getEffectivePrintOrderRecord(sentRecord.sessionId, sentRecord, {
+    store: deps.terminalStore,
+    requireTerminalReadable: true,
+  });
+  if (!healthyGate.ok) {
+    return {
+      ...sentRecord,
+      printfulFileReviewPendingAt: sentRecord.printfulFileReviewPendingAt ?? Date.now(),
+      error: sentRecord.error || healthyGate.error,
+    };
+  }
+  if (healthyGate.terminal) {
+    return healthyGate.order ?? sentRecord;
   }
 
   const healthyRecord: PrintOrderRecord = {
@@ -224,11 +306,29 @@ export async function applyPrintfulPostSubmitReview(
     }
   }
 
-  const afterApproval = await loadStored(sentRecord.sessionId);
-  const approvalTerminal = preferStoredTerminalFailure(healthyRecord, afterApproval);
-  if (approvalTerminal) {
-    return approvalTerminal;
+  // Final ledger check before returning a healthy snapshot for caller persistence.
+  const afterApproval = await readPrintOrderTerminalState(sentRecord.sessionId, terminalDeps);
+  if (afterApproval.ok && afterApproval.state) {
+    return overlayPrintOrderTerminalState(healthyRecord, afterApproval.state) ?? healthyRecord;
   }
 
   return healthyRecord;
+}
+
+/** Persist post-submit result through terminal-aware KV mirror. */
+export async function persistReviewedPrintOrder(
+  sessionId: string,
+  reviewed: PrintOrderRecord,
+  deps?: { terminalStore?: PrintOrderTerminalStore },
+): Promise<PrintOrderRecord> {
+  const result = await persistPrintOrderKvMirror(sessionId, reviewed, {
+    store: deps?.terminalStore,
+    requireTerminalReadable: false,
+  });
+  if (!result.ok) {
+    // Fall back to direct KV write of reviewed (already fail-closed above for approvals).
+    await kv.set(printOrderKey(sessionId), reviewed);
+    return reviewed;
+  }
+  return result.order;
 }

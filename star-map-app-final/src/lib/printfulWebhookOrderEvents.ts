@@ -10,6 +10,11 @@ import {
   formatPrintfulFileFailureError,
   reviewPrintfulOrderFiles,
 } from "@/lib/printfulOrderReview";
+import {
+  overlayPrintOrderTerminalState,
+  recordPrintOrderTerminalFailure,
+  type PrintOrderTerminalStore,
+} from "@/lib/printOrderTerminalState";
 
 export const PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES = new Set([
   "order_failed",
@@ -67,9 +72,10 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   externalId: string;
   reason?: string | null;
   orderStatus?: string | null;
+  terminalStore?: PrintOrderTerminalStore;
 }): Promise<{
   ok: boolean;
-  status: "updated" | "ignored" | "alert_failed";
+  status: "updated" | "ignored" | "alert_failed" | "terminal_unavailable";
   reason?: string;
   sessionId?: string;
   error?: string;
@@ -109,22 +115,75 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     }
   }
 
-  const nextRecord: PrintOrderRecord = {
+  // Authoritative terminal ledger first — before KV mirror / alerts.
+  const terminalWrite = await recordPrintOrderTerminalFailure(
+    {
+      sessionId,
+      error,
+      source: "printful_webhook",
+    },
+    { store: input.terminalStore },
+  );
+  if (!terminalWrite.ok && "unavailable" in terminalWrite && terminalWrite.unavailable) {
+    return {
+      ok: false,
+      status: "terminal_unavailable",
+      sessionId,
+      error: terminalWrite.error,
+    };
+  }
+
+  let terminalState =
+    terminalWrite.ok || ("conflict" in terminalWrite && terminalWrite.conflict)
+      ? terminalWrite.state
+      : null;
+
+  const baseFailed: PrintOrderRecord = {
     ...existing,
     status: "failed",
     printfulOrderId: reviewOrderId || existing.printfulOrderId,
-    error,
+    error: terminalState?.error || error,
+    printfulFileReviewPendingAt: undefined,
+    operatorFailureAlertedAt: terminalState?.operatorFailureAlertedAt,
+    operatorFailureAlertProvider: terminalState?.operatorFailureAlertProvider,
+    operatorFailureAlertError: terminalState?.operatorFailureAlertError,
   };
+
+  let nextRecord = overlayPrintOrderTerminalState(baseFailed, terminalState) ?? baseFailed;
 
   if (!nextRecord.operatorFailureAlertedAt) {
     const alertResult = await sendPrintOrderFailureAlert(nextRecord);
-    if (alertResult.delivered) {
-      nextRecord.operatorFailureAlertedAt = Date.now();
-      nextRecord.operatorFailureAlertProvider = alertResult.provider;
-      nextRecord.operatorFailureAlertError = undefined;
+    const alertPatch = alertResult.delivered
+      ? {
+          operatorFailureAlertedAt: Date.now(),
+          operatorFailureAlertProvider: alertResult.provider,
+          operatorFailureAlertError: undefined as string | undefined,
+        }
+      : {
+          operatorFailureAlertProvider: alertResult.provider,
+          operatorFailureAlertError: alertResult.error,
+        };
+
+    const alertTerminal = await recordPrintOrderTerminalFailure(
+      {
+        sessionId,
+        error: nextRecord.error || error,
+        source: "printful_webhook",
+        ...alertPatch,
+      },
+      { store: input.terminalStore },
+    );
+    if (alertTerminal.ok || ("conflict" in alertTerminal && alertTerminal.conflict)) {
+      terminalState = alertTerminal.state;
+      nextRecord = overlayPrintOrderTerminalState(
+        {
+          ...nextRecord,
+          ...alertPatch,
+        },
+        terminalState,
+      )!;
     } else {
-      nextRecord.operatorFailureAlertProvider = alertResult.provider;
-      nextRecord.operatorFailureAlertError = alertResult.error;
+      nextRecord = { ...nextRecord, ...alertPatch };
     }
   }
 

@@ -25,7 +25,7 @@ import {
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import { applyPrintfulPostSubmitReview, persistReviewedPrintOrder } from "@/lib/printFulfillmentPostSubmit";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import {
@@ -980,9 +980,9 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       const reviewedRecord = printfulResult.orderId
         ? await applyPrintfulPostSubmitReview(sentRecord)
         : sentRecord;
-      await kv.set(printOrderKey(session.id), reviewedRecord);
-      if (reviewedRecord.printfulOrderId) {
-        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+      const persistedRecord = await persistReviewedPrintOrder(session.id, reviewedRecord);
+      if (persistedRecord.printfulOrderId) {
+        await setPrintFulfillmentIndex(persistedRecord.printfulOrderId, session.id);
       }
       void sendPrintOrderConfirmation(session.id).catch((error) => {
         console.warn("Print confirmation email failed", { sessionId: session.id, error });
@@ -1033,9 +1033,9 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const reviewedRecord = printfulResult.orderId
       ? await applyPrintfulPostSubmitReview(sentRecord)
       : sentRecord;
-    await kv.set(printOrderKey(session.id), reviewedRecord);
-    if (reviewedRecord.printfulOrderId) {
-      await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+    const persistedRecord = await persistReviewedPrintOrder(session.id, reviewedRecord);
+    if (persistedRecord.printfulOrderId) {
+      await setPrintFulfillmentIndex(persistedRecord.printfulOrderId, session.id);
     }
     void sendPrintOrderConfirmation(session.id).catch((error) => {
       console.warn("Print confirmation email failed", { sessionId: session.id, error });
