@@ -27,6 +27,9 @@ export type PrintOrderTerminalState = {
   error: string;
   source: PrintOrderTerminalFailureSource;
   recordedAt: number;
+  /** CAS claim before external failure-alert I/O. Monotonic; never cleared. */
+  operatorFailureAlertClaimedAt?: number;
+  operatorFailureAlertClaimOwner?: string;
   operatorFailureAlertedAt?: number;
   operatorFailureAlertProvider?: string;
   operatorFailureAlertError?: string;
@@ -40,6 +43,16 @@ export type PrintOrderTerminalWriteResult =
   | { ok: true; state: PrintOrderTerminalState; etag: string; created: boolean }
   | { ok: false; unavailable: true; error: string }
   | { ok: false; conflict: true; state: PrintOrderTerminalState; etag: string };
+
+export type PrintOrderFailureAlertClaimResult =
+  | { ok: true; claimed: true; state: PrintOrderTerminalState; etag: string }
+  | {
+      ok: true;
+      claimed: false;
+      state: PrintOrderTerminalState;
+      reason: "already_delivered" | "already_claimed";
+    }
+  | { ok: false; unavailable: true; error: string };
 
 type R2LikeObject = {
   body?: ReadableStream | null;
@@ -104,13 +117,25 @@ export function isPrintOrderTerminalState(value: unknown): value is PrintOrderTe
   );
 }
 
-/** Monotonic merge: terminal failure never clears; alert markers never regress. */
+export function isPrintOrderTerminalWritePending(
+  record: Pick<PrintOrderRecord, "printOrderTerminalWritePendingAt" | "status">,
+): boolean {
+  return (
+    record.status === "failed" &&
+    typeof record.printOrderTerminalWritePendingAt === "number" &&
+    record.printOrderTerminalWritePendingAt > 0
+  );
+}
+
+/** Monotonic merge: terminal failure never clears; claim/alert markers never regress. */
 export function mergePrintOrderTerminalState(
   existing: PrintOrderTerminalState | null,
   input: {
     sessionId: string;
     error: string;
     source: PrintOrderTerminalFailureSource;
+    operatorFailureAlertClaimedAt?: number;
+    operatorFailureAlertClaimOwner?: string;
     operatorFailureAlertedAt?: number;
     operatorFailureAlertProvider?: string;
     operatorFailureAlertError?: string;
@@ -118,6 +143,7 @@ export function mergePrintOrderTerminalState(
   },
 ): PrintOrderTerminalState {
   const recordedAt = existing?.recordedAt ?? input.recordedAt ?? Date.now();
+  const claimedAt = existing?.operatorFailureAlertClaimedAt ?? input.operatorFailureAlertClaimedAt;
   const alertedAt = existing?.operatorFailureAlertedAt ?? input.operatorFailureAlertedAt;
   return {
     version: PRINT_ORDER_TERMINAL_STATE_VERSION,
@@ -126,6 +152,9 @@ export function mergePrintOrderTerminalState(
     error: existing?.error || input.error,
     source: existing?.source ?? input.source,
     recordedAt,
+    operatorFailureAlertClaimedAt: claimedAt,
+    operatorFailureAlertClaimOwner:
+      existing?.operatorFailureAlertClaimOwner ?? input.operatorFailureAlertClaimOwner,
     operatorFailureAlertedAt: alertedAt,
     operatorFailureAlertProvider:
       existing?.operatorFailureAlertProvider ?? input.operatorFailureAlertProvider,
@@ -147,6 +176,7 @@ export function overlayPrintOrderTerminalState(
     status: "failed",
     error: terminal.error || order.error,
     printfulFileReviewPendingAt: undefined,
+    printOrderTerminalWritePendingAt: undefined,
     operatorFailureAlertedAt: terminal.operatorFailureAlertedAt ?? order.operatorFailureAlertedAt,
     operatorFailureAlertProvider:
       terminal.operatorFailureAlertProvider ?? order.operatorFailureAlertProvider,
@@ -305,7 +335,10 @@ export async function readPrintOrderTerminalState(
     const row = await resolved.store.get(key);
     if (!row) return { ok: true, state: null, etag: null };
     const state = parseTerminalBody(row.body);
-    if (!state) return { ok: true, state: null, etag: row.etag };
+    // Corrupt/malformed existing object must fail closed — never look like "no terminal".
+    if (!state) {
+      return { ok: false, unavailable: true, error: "print_order_terminal_corrupt" };
+    }
     return { ok: true, state, etag: row.etag };
   } catch {
     return { ok: false, unavailable: true, error: "print_order_terminal_read_failed" };
@@ -317,12 +350,15 @@ const MAX_CAS_ATTEMPTS = 5;
 /**
  * Record or strengthen terminal failure. Conditional create/update; never clears alert markers.
  * Provider I/O must stay outside this function.
+ * Corrupt existing objects are repaired by CAS overwrite with a valid terminal payload.
  */
 export async function recordPrintOrderTerminalFailure(
   input: {
     sessionId: string;
     error: string;
     source: PrintOrderTerminalFailureSource;
+    operatorFailureAlertClaimedAt?: number;
+    operatorFailureAlertClaimOwner?: string;
     operatorFailureAlertedAt?: number;
     operatorFailureAlertProvider?: string;
     operatorFailureAlertError?: string;
@@ -346,6 +382,7 @@ export async function recordPrintOrderTerminalFailure(
       }
 
       const existing = parseTerminalBody(current.body);
+      // Corrupt body: repair by overwriting with a valid merged terminal (existing=null).
       const merged = mergePrintOrderTerminalState(existing, input);
       const put = await store.put(key, JSON.stringify(merged), { etagMatches: current.etag });
       if (put) return { ok: true, state: merged, etag: put.etag, created: false };
@@ -359,6 +396,114 @@ export async function recordPrintOrderTerminalFailure(
     return { ok: false, conflict: true, state: latest.state, etag: latest.etag || `"unknown"` };
   }
   return { ok: false, unavailable: true, error: "print_order_terminal_cas_exhausted" };
+}
+
+/**
+ * Atomically claim failure-alert delivery before any external provider I/O.
+ * Only one concurrent detector may receive claimed:true.
+ */
+export async function claimPrintOrderFailureAlertDelivery(
+  input: {
+    sessionId: string;
+    claimOwner: string;
+    error: string;
+    source: PrintOrderTerminalFailureSource;
+  },
+  deps?: { store?: PrintOrderTerminalStore; getBucket?: () => Promise<R2LikeBucket | null> },
+): Promise<PrintOrderFailureAlertClaimResult> {
+  const resolved = await resolvePrintOrderTerminalStore(deps);
+  if (!resolved.ok) return resolved;
+
+  const key = printOrderTerminalObjectKey(input.sessionId);
+  const store = resolved.store;
+  const claimOwner = input.claimOwner.trim() || `claim_${Date.now()}`;
+
+  for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt += 1) {
+    try {
+      const current = await store.get(key);
+      if (!current) {
+        const created = mergePrintOrderTerminalState(null, {
+          sessionId: input.sessionId,
+          error: input.error,
+          source: input.source,
+          operatorFailureAlertClaimedAt: Date.now(),
+          operatorFailureAlertClaimOwner: claimOwner,
+        });
+        const put = await store.put(key, JSON.stringify(created), { createOnly: true });
+        if (put) return { ok: true, claimed: true, state: created, etag: put.etag };
+        continue;
+      }
+
+      const existing = parseTerminalBody(current.body);
+      if (!existing) {
+        // Corrupt: repair + claim in one CAS write.
+        const repaired = mergePrintOrderTerminalState(null, {
+          sessionId: input.sessionId,
+          error: input.error,
+          source: input.source,
+          operatorFailureAlertClaimedAt: Date.now(),
+          operatorFailureAlertClaimOwner: claimOwner,
+        });
+        const put = await store.put(key, JSON.stringify(repaired), { etagMatches: current.etag });
+        if (put) return { ok: true, claimed: true, state: repaired, etag: put.etag };
+        continue;
+      }
+
+      if (existing.operatorFailureAlertedAt) {
+        return { ok: true, claimed: false, state: existing, reason: "already_delivered" };
+      }
+      if (existing.operatorFailureAlertClaimedAt) {
+        return { ok: true, claimed: false, state: existing, reason: "already_claimed" };
+      }
+
+      const claimed = mergePrintOrderTerminalState(existing, {
+        sessionId: input.sessionId,
+        error: input.error,
+        source: input.source,
+        operatorFailureAlertClaimedAt: Date.now(),
+        operatorFailureAlertClaimOwner: claimOwner,
+      });
+      const put = await store.put(key, JSON.stringify(claimed), { etagMatches: current.etag });
+      if (put) return { ok: true, claimed: true, state: claimed, etag: put.etag };
+    } catch {
+      return { ok: false, unavailable: true, error: "print_order_terminal_claim_failed" };
+    }
+  }
+
+  const latest = await readPrintOrderTerminalState(input.sessionId, deps);
+  if (latest.ok && latest.state) {
+    if (latest.state.operatorFailureAlertedAt) {
+      return { ok: true, claimed: false, state: latest.state, reason: "already_delivered" };
+    }
+    if (latest.state.operatorFailureAlertClaimedAt) {
+      return { ok: true, claimed: false, state: latest.state, reason: "already_claimed" };
+    }
+  }
+  return { ok: false, unavailable: true, error: "print_order_terminal_claim_exhausted" };
+}
+
+/**
+ * Backfill authoritative terminal state from a KV failure (including write-pending markers).
+ * Used by retry/status so confirmed failures remain recoverable after R2 outages.
+ */
+export async function ensurePrintOrderTerminalFromKvFailure(
+  record: PrintOrderRecord,
+  deps?: {
+    store?: PrintOrderTerminalStore;
+    source?: PrintOrderTerminalFailureSource;
+  },
+): Promise<PrintOrderTerminalWriteResult> {
+  return recordPrintOrderTerminalFailure(
+    {
+      sessionId: record.sessionId,
+      error: record.error || "print_order_failed",
+      source: deps?.source ?? "retry",
+      operatorFailureAlertedAt: record.operatorFailureAlertedAt,
+      operatorFailureAlertProvider: record.operatorFailureAlertProvider,
+      operatorFailureAlertError: record.operatorFailureAlertError,
+    },
+    { store: deps?.store },
+  );
 }
 
 /**
@@ -435,4 +580,8 @@ export function isEffectivelyFailedPrintOrder(
 ): boolean {
   if (terminal?.status === "failed") return true;
   return order?.status === "failed";
+}
+
+export function newPrintOrderFailureAlertClaimOwner(): string {
+  return `claim_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }

@@ -368,7 +368,9 @@ test("P1: poll observing failed does not duplicate alert when webhook already al
     },
   });
 
-  assert.equal(result, storedFailed);
+  assert.equal(result.status, "failed");
+  assert.equal(result.error, storedFailed.error);
+  assert.equal(result.operatorFailureAlertedAt, 42);
   assert.equal(alerts.failure, 0);
   assert.equal(alerts.approval, 0);
 });
@@ -402,4 +404,164 @@ test("alert paths do not embed raw provider payloads", async () => {
     sendPrintOrderApprovalAlert: async () => ({ delivered: true, provider: "test" }),
   });
   assert.match(result.error || "", /^printful_files_failed:/);
+});
+
+test("P1/#239: confirmed failure with R2 outage stays write-pending and retryable (no alert yet)", async () => {
+  const { createAlwaysUnavailableTerminalStore } = await import("./printOrderTerminalState.harness.mjs");
+  const { persistReviewedPrintOrder } = await import("./printFulfillmentPostSubmit.harness.mjs");
+  const { ensurePrintOrderTerminalFromKvFailure, createMemoryPrintOrderTerminalStore } = await import(
+    "./printOrderTerminalState.harness.mjs"
+  );
+
+  const alerts = { failure: 0, approval: 0 };
+  const failed = await applyPrintfulPostSubmitReview(baseRecord(), {
+    terminalStore: createAlwaysUnavailableTerminalStore(),
+    reviewPrintfulOrderFiles: async () =>
+      buildPrintfulOrderFileReview(12345, [{ item: "poster", type: "default", status: "failed" }]),
+    sleep: async () => {},
+    loadStoredPrintOrder: async () => null,
+    sendPrintOrderFailureAlert: async () => {
+      alerts.failure += 1;
+      return { delivered: true, provider: "test" };
+    },
+    sendPrintOrderApprovalAlert: async () => {
+      alerts.approval += 1;
+      return { delivered: true, provider: "test" };
+    },
+  });
+
+  assert.equal(failed.status, "failed");
+  assert.match(failed.error || "", /^printful_files_failed:/);
+  assert.ok(failed.printOrderTerminalWritePendingAt);
+  assert.equal(failed.operatorFailureAlertedAt, undefined);
+  assert.equal(alerts.failure, 0);
+
+  // Durable KV queue survives; later R2 recovery backfills authoritative terminal.
+  const recoveredStore = createMemoryPrintOrderTerminalStore();
+  const backfill = await ensurePrintOrderTerminalFromKvFailure(failed, { store: recoveredStore });
+  assert.equal(backfill.ok, true);
+  assert.equal(backfill.state.error, failed.error);
+
+  const persisted = await persistReviewedPrintOrder(failed.sessionId, failed, {
+    terminalStore: createAlwaysUnavailableTerminalStore(),
+  });
+  assert.ok(persisted.printOrderTerminalWritePendingAt);
+});
+
+test("P1/#239: healthy final persistence requires terminal readability at write boundary", async () => {
+  const {
+    createMemoryPrintOrderTerminalStore,
+    createAlwaysUnavailableTerminalStore,
+    persistPrintOrderKvMirror,
+  } = await import("./printOrderTerminalState.harness.mjs");
+  const { persistReviewedPrintOrder } = await import("./printFulfillmentPostSubmit.harness.mjs");
+
+  const healthy = baseRecord({
+    status: "sent",
+    operatorAlertedAt: 99,
+    operatorAlertProvider: "test",
+  });
+
+  const okStore = createMemoryPrintOrderTerminalStore();
+  const okPersist = await persistPrintOrderKvMirror(healthy.sessionId, healthy, {
+    store: okStore,
+    requireTerminalReadable: true,
+  });
+  assert.equal(okPersist.ok, true);
+  assert.equal(okPersist.order.status, "sent");
+
+  const blocked = await persistReviewedPrintOrder(healthy.sessionId, healthy, {
+    terminalStore: createAlwaysUnavailableTerminalStore(),
+  });
+  assert.equal(blocked.status, "sent");
+  assert.equal(blocked.operatorAlertedAt, undefined);
+  assert.ok(blocked.printfulFileReviewPendingAt);
+  assert.match(blocked.error || "", /print_order_terminal/);
+});
+
+test("P1/#239: concurrent failure detectors claim once — single provider alert send", async () => {
+  const {
+    createMemoryPrintOrderTerminalStore,
+    claimPrintOrderFailureAlertDelivery,
+    recordPrintOrderTerminalFailure,
+  } = await import("./printOrderTerminalState.harness.mjs");
+
+  const store = createMemoryPrintOrderTerminalStore();
+  const sessionId = "cs_test_post_submit_review";
+  await recordPrintOrderTerminalFailure(
+    {
+      sessionId,
+      error: "printful_files_failed:poster:default=failed",
+      source: "post_submit_files",
+    },
+    { store },
+  );
+
+  const sends = [];
+  async function race(owner) {
+    const claim = await claimPrintOrderFailureAlertDelivery(
+      {
+        sessionId,
+        claimOwner: owner,
+        error: "printful_files_failed:poster:default=failed",
+        source: "post_submit_files",
+      },
+      { store },
+    );
+    if (!claim.ok || !claim.claimed) return { owner, claimed: false, reason: claim.reason };
+    // Provider I/O only after claim.
+    sends.push(owner);
+    await recordPrintOrderTerminalFailure(
+      {
+        sessionId,
+        error: "printful_files_failed:poster:default=failed",
+        source: "post_submit_files",
+        operatorFailureAlertClaimedAt: claim.state.operatorFailureAlertClaimedAt,
+        operatorFailureAlertClaimOwner: owner,
+        operatorFailureAlertedAt: Date.now(),
+        operatorFailureAlertProvider: "test",
+      },
+      { store },
+    );
+    return { owner, claimed: true };
+  }
+
+  const [a, b] = await Promise.all([race("worker_a"), race("worker_b")]);
+  const claimedCount = [a, b].filter((r) => r.claimed).length;
+  assert.equal(claimedCount, 1);
+  assert.equal(sends.length, 1);
+
+  // End-to-end post-submit + second detector also only one alert.
+  const alerts = { failure: 0 };
+  const terminalStore = createMemoryPrintOrderTerminalStore();
+  const first = await applyPrintfulPostSubmitReview(baseRecord({ sessionId: "cs_test_claim_e2e" }), {
+    terminalStore,
+    failureAlertClaimOwner: "detector_1",
+    reviewPrintfulOrderFiles: async () =>
+      buildPrintfulOrderFileReview(12345, [{ item: "poster", type: "default", status: "failed" }]),
+    sleep: async () => {},
+    loadStoredPrintOrder: async () => null,
+    sendPrintOrderFailureAlert: async () => {
+      alerts.failure += 1;
+      return { delivered: true, provider: "test" };
+    },
+    sendPrintOrderApprovalAlert: async () => ({ delivered: true, provider: "test" }),
+  });
+  assert.ok(first.operatorFailureAlertedAt);
+
+  const second = await applyPrintfulPostSubmitReview(baseRecord({ sessionId: "cs_test_claim_e2e" }), {
+    terminalStore,
+    failureAlertClaimOwner: "detector_2",
+    reviewPrintfulOrderFiles: async () =>
+      buildPrintfulOrderFileReview(12345, [{ item: "poster", type: "default", status: "failed" }]),
+    sleep: async () => {},
+    loadStoredPrintOrder: async () => first,
+    sendPrintOrderFailureAlert: async () => {
+      alerts.failure += 1;
+      return { delivered: true, provider: "test" };
+    },
+    sendPrintOrderApprovalAlert: async () => ({ delivered: true, provider: "test" }),
+  });
+  assert.equal(alerts.failure, 1);
+  assert.equal(second.operatorFailureAlertedAt, first.operatorFailureAlertedAt);
 });

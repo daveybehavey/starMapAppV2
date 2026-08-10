@@ -41,6 +41,11 @@ export type PrintOrderRecord = {
    * after the bounded read-only recheck. Must block approval until cleared by a healthy review.
    */
   printfulFileReviewPendingAt?: number;
+  /**
+   * Set when provider failure is confirmed locally but the authoritative R2 terminal ledger
+   * write has not yet succeeded. Keeps the failure retryable/recoverable until backfilled.
+   */
+  printOrderTerminalWritePendingAt?: number;
   operatorFailureAlertedAt?: number;
   operatorFailureAlertProvider?: string;
   operatorFailureAlertError?: string;

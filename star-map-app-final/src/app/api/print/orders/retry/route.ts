@@ -21,7 +21,10 @@ import {
   shouldSendAlreadySentApprovalAlert,
 } from "@/lib/printFulfillmentPostSubmit";
 import {
+  ensurePrintOrderTerminalFromKvFailure,
   getEffectivePrintOrderRecord,
+  isPrintOrderTerminalWritePending,
+  overlayPrintOrderTerminalState,
   readPrintOrderTerminalState,
 } from "@/lib/printOrderTerminalState";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
@@ -159,7 +162,32 @@ export async function POST(req: NextRequest) {
       { status: 503 },
     );
   }
-  const existing = effectiveExisting.order ?? existingRaw;
+  let existing = effectiveExisting.order ?? existingRaw;
+
+  // Confirmed KV failure without authoritative terminal (R2 outage): backfill before treating as final.
+  if (
+    existing.status === "failed" &&
+    !effectiveExisting.terminal &&
+    (isPrintOrderTerminalWritePending(existing) || Boolean(existing.error))
+  ) {
+    const backfill = await ensurePrintOrderTerminalFromKvFailure(existing);
+    if (!backfill.ok && "unavailable" in backfill && backfill.unavailable) {
+      const pending: PrintOrderRecord = {
+        ...existing,
+        printOrderTerminalWritePendingAt: existing.printOrderTerminalWritePendingAt ?? Date.now(),
+      };
+      await kv.set(printOrderKey(sessionId), pending);
+      return NextResponse.json(
+        { ok: false, error: "print_order_terminal_store_unavailable", order: pending },
+        { status: 503 },
+      );
+    }
+    if (backfill.ok || ("conflict" in backfill && backfill.conflict)) {
+      existing = overlayPrintOrderTerminalState(existing, backfill.state) ?? existing;
+      await kv.set(printOrderKey(sessionId), existing);
+    }
+  }
+
   if (existing.status === "failed" || effectiveExisting.terminal) {
     await kv.set(printOrderKey(sessionId), existing);
     return NextResponse.json({ ok: false, error: existing.error || "print_order_failed", order: existing }, { status: 409 });

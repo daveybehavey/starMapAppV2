@@ -199,3 +199,148 @@ test("payloads avoid secrets and raw provider objects", async () => {
   assert.equal(raw.includes("email"), false);
   assert.equal(raw.includes("token"), false);
 });
+
+test("P1/#239: corrupt/malformed terminal object fails closed (not absence)", async () => {
+  const store = createMemoryPrintOrderTerminalStore();
+  const sessionId = "cs_test_terminal_corrupt_001";
+  const key = printOrderTerminalObjectKey(sessionId);
+  await store.put(key, "{not-json", { createOnly: true });
+
+  const read = await readPrintOrderTerminalState(sessionId, { store });
+  assert.equal(read.ok, false);
+  assert.equal(read.unavailable, true);
+  assert.equal(read.error, "print_order_terminal_corrupt");
+
+  const healthy = baseOrder({ sessionId });
+  const effective = await getEffectivePrintOrderRecord(sessionId, healthy, {
+    store,
+    requireTerminalReadable: true,
+  });
+  assert.equal(effective.ok, false);
+  assert.equal(effective.unavailable, true);
+
+  // Schema-invalid JSON object also fails closed.
+  const store2 = createMemoryPrintOrderTerminalStore();
+  const sessionId2 = "cs_test_terminal_corrupt_002";
+  await store2.put(
+    printOrderTerminalObjectKey(sessionId2),
+    JSON.stringify({ version: 1, status: "failed" }),
+    { createOnly: true },
+  );
+  const read2 = await readPrintOrderTerminalState(sessionId2, { store: store2 });
+  assert.equal(read2.ok, false);
+  assert.equal(read2.error, "print_order_terminal_corrupt");
+});
+
+test("P1/#239: R2 outage confirmed-failure recovery backfills terminal then overlays", async () => {
+  const {
+    ensurePrintOrderTerminalFromKvFailure,
+    isPrintOrderTerminalWritePending,
+  } = await import("./printOrderTerminalState.harness.mjs");
+
+  const sessionId = "cs_test_terminal_recover_001";
+  const kvOnlyFailed = baseOrder({
+    sessionId,
+    status: "failed",
+    error: "printful_files_failed:poster:default=failed",
+    printOrderTerminalWritePendingAt: 1_700_000_000_000,
+  });
+  assert.equal(isPrintOrderTerminalWritePending(kvOnlyFailed), true);
+
+  const down = await ensurePrintOrderTerminalFromKvFailure(kvOnlyFailed, { store: undefined });
+  assert.equal(down.ok, false);
+
+  const store = createMemoryPrintOrderTerminalStore();
+  const up = await ensurePrintOrderTerminalFromKvFailure(kvOnlyFailed, { store });
+  assert.equal(up.ok, true);
+  assert.equal(up.state.error, kvOnlyFailed.error);
+
+  const staleSent = baseOrder({ sessionId, status: "sent", error: undefined });
+  const effective = await getEffectivePrintOrderRecord(sessionId, staleSent, {
+    store,
+    requireTerminalReadable: true,
+  });
+  assert.equal(effective.order.status, "failed");
+  assert.equal(effective.order.error, kvOnlyFailed.error);
+});
+
+test("P1/#239: healthy persist requires terminal read; outage blocks healthy write", async () => {
+  const healthy = baseOrder({ operatorAlertedAt: 7 });
+  const blocked = await persistPrintOrderKvMirror(healthy.sessionId, healthy, {
+    requireTerminalReadable: true,
+    // no store => unavailable
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.unavailable, true);
+
+  const store = createMemoryPrintOrderTerminalStore();
+  const ok = await persistPrintOrderKvMirror(healthy.sessionId, healthy, {
+    store,
+    requireTerminalReadable: true,
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.order.status, "sent");
+});
+
+test("P1/#239: concurrent alert claim — only one worker wins CAS before provider I/O", async () => {
+  const {
+    claimPrintOrderFailureAlertDelivery,
+  } = await import("./printOrderTerminalState.harness.mjs");
+
+  const store = createMemoryPrintOrderTerminalStore();
+  const sessionId = "cs_test_terminal_claim_001";
+  await recordPrintOrderTerminalFailure(
+    {
+      sessionId,
+      error: "printful_order_failed",
+      source: "printful_webhook",
+    },
+    { store },
+  );
+
+  const providerSends = [];
+  async function detector(owner) {
+    const claim = await claimPrintOrderFailureAlertDelivery(
+      {
+        sessionId,
+        claimOwner: owner,
+        error: "printful_order_failed",
+        source: "printful_webhook",
+      },
+      { store },
+    );
+    if (!claim.ok) return { owner, claimed: false, unavailable: true };
+    if (!claim.claimed) return { owner, claimed: false, reason: claim.reason };
+    providerSends.push(owner);
+    await recordPrintOrderTerminalFailure(
+      {
+        sessionId,
+        error: "printful_order_failed",
+        source: "printful_webhook",
+        operatorFailureAlertClaimedAt: claim.state.operatorFailureAlertClaimedAt,
+        operatorFailureAlertClaimOwner: owner,
+        operatorFailureAlertedAt: Date.now(),
+        operatorFailureAlertProvider: "test",
+      },
+      { store },
+    );
+    return { owner, claimed: true };
+  }
+
+  const results = await Promise.all([detector("a"), detector("b"), detector("c")]);
+  assert.equal(results.filter((r) => r.claimed).length, 1);
+  assert.equal(providerSends.length, 1);
+
+  const late = await claimPrintOrderFailureAlertDelivery(
+    {
+      sessionId,
+      claimOwner: "late",
+      error: "printful_order_failed",
+      source: "post_submit_files",
+    },
+    { store },
+  );
+  assert.equal(late.ok, true);
+  assert.equal(late.claimed, false);
+  assert.ok(late.reason === "already_delivered" || late.reason === "already_claimed");
+});

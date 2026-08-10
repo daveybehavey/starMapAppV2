@@ -11,6 +11,8 @@ import {
   reviewPrintfulOrderFiles,
 } from "@/lib/printfulOrderReview";
 import {
+  claimPrintOrderFailureAlertDelivery,
+  newPrintOrderFailureAlertClaimOwner,
   overlayPrintOrderTerminalState,
   recordPrintOrderTerminalFailure,
   type PrintOrderTerminalStore,
@@ -73,6 +75,7 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   reason?: string | null;
   orderStatus?: string | null;
   terminalStore?: PrintOrderTerminalStore;
+  failureAlertClaimOwner?: string;
 }): Promise<{
   ok: boolean;
   status: "updated" | "ignored" | "alert_failed" | "terminal_unavailable";
@@ -115,6 +118,8 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     }
   }
 
+  const terminalDeps = { store: input.terminalStore };
+
   // Authoritative terminal ledger first — before KV mirror / alerts.
   const terminalWrite = await recordPrintOrderTerminalFailure(
     {
@@ -122,9 +127,19 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
       error,
       source: "printful_webhook",
     },
-    { store: input.terminalStore },
+    terminalDeps,
   );
   if (!terminalWrite.ok && "unavailable" in terminalWrite && terminalWrite.unavailable) {
+    // Durable KV failure + pending terminal write so recovery can backfill when R2 returns.
+    const pending: PrintOrderRecord = {
+      ...existing,
+      status: "failed",
+      printfulOrderId: reviewOrderId || existing.printfulOrderId,
+      error,
+      printfulFileReviewPendingAt: undefined,
+      printOrderTerminalWritePendingAt: Date.now(),
+    };
+    await kv.set(printOrderKey(sessionId), pending);
     return {
       ok: false,
       status: "terminal_unavailable",
@@ -144,6 +159,7 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     printfulOrderId: reviewOrderId || existing.printfulOrderId,
     error: terminalState?.error || error,
     printfulFileReviewPendingAt: undefined,
+    printOrderTerminalWritePendingAt: undefined,
     operatorFailureAlertedAt: terminalState?.operatorFailureAlertedAt,
     operatorFailureAlertProvider: terminalState?.operatorFailureAlertProvider,
     operatorFailureAlertError: terminalState?.operatorFailureAlertError,
@@ -151,40 +167,80 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
 
   let nextRecord = overlayPrintOrderTerminalState(baseFailed, terminalState) ?? baseFailed;
 
-  if (!nextRecord.operatorFailureAlertedAt) {
-    const alertResult = await sendPrintOrderFailureAlert(nextRecord);
-    const alertPatch = alertResult.delivered
-      ? {
-          operatorFailureAlertedAt: Date.now(),
-          operatorFailureAlertProvider: alertResult.provider,
-          operatorFailureAlertError: undefined as string | undefined,
-        }
-      : {
-          operatorFailureAlertProvider: alertResult.provider,
-          operatorFailureAlertError: alertResult.error,
-        };
-
-    const alertTerminal = await recordPrintOrderTerminalFailure(
+  if (!nextRecord.operatorFailureAlertedAt && !terminalState?.operatorFailureAlertClaimedAt) {
+    const claimOwner = input.failureAlertClaimOwner ?? newPrintOrderFailureAlertClaimOwner();
+    const claim = await claimPrintOrderFailureAlertDelivery(
       {
         sessionId,
+        claimOwner,
         error: nextRecord.error || error,
         source: "printful_webhook",
-        ...alertPatch,
       },
-      { store: input.terminalStore },
+      terminalDeps,
     );
-    if (alertTerminal.ok || ("conflict" in alertTerminal && alertTerminal.conflict)) {
-      terminalState = alertTerminal.state;
-      nextRecord = overlayPrintOrderTerminalState(
+
+    if (!claim.ok) {
+      nextRecord = {
+        ...nextRecord,
+        printOrderTerminalWritePendingAt: Date.now(),
+      };
+      await kv.set(printOrderKey(sessionId), nextRecord);
+      return {
+        ok: false,
+        status: "terminal_unavailable",
+        sessionId,
+        error: claim.error,
+      };
+    }
+
+    if (!claim.claimed) {
+      nextRecord = overlayPrintOrderTerminalState(nextRecord, claim.state) ?? nextRecord;
+    } else {
+      // Provider I/O outside CAS.
+      const alertResult = await sendPrintOrderFailureAlert(
+        overlayPrintOrderTerminalState(nextRecord, claim.state) ?? nextRecord,
+      );
+      const alertPatch = alertResult.delivered
+        ? {
+            operatorFailureAlertedAt: Date.now(),
+            operatorFailureAlertProvider: alertResult.provider,
+            operatorFailureAlertError: undefined as string | undefined,
+          }
+        : {
+            operatorFailureAlertProvider: alertResult.provider,
+            operatorFailureAlertError: alertResult.error,
+          };
+
+      const alertTerminal = await recordPrintOrderTerminalFailure(
         {
-          ...nextRecord,
+          sessionId,
+          error: nextRecord.error || error,
+          source: "printful_webhook",
+          operatorFailureAlertClaimedAt: claim.state.operatorFailureAlertClaimedAt,
+          operatorFailureAlertClaimOwner: claim.state.operatorFailureAlertClaimOwner,
           ...alertPatch,
         },
-        terminalState,
-      )!;
-    } else {
-      nextRecord = { ...nextRecord, ...alertPatch };
+        terminalDeps,
+      );
+      if (alertTerminal.ok || ("conflict" in alertTerminal && alertTerminal.conflict)) {
+        terminalState = alertTerminal.state;
+        nextRecord = overlayPrintOrderTerminalState(
+          {
+            ...nextRecord,
+            ...alertPatch,
+          },
+          terminalState,
+        )!;
+      } else {
+        nextRecord = {
+          ...nextRecord,
+          ...alertPatch,
+          printOrderTerminalWritePendingAt: Date.now(),
+        };
+      }
     }
+  } else if (terminalState) {
+    nextRecord = overlayPrintOrderTerminalState(nextRecord, terminalState) ?? nextRecord;
   }
 
   await kv.set(printOrderKey(sessionId), nextRecord);
