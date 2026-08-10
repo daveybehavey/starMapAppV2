@@ -392,7 +392,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
           <p className="text-xs font-semibold tracking-[0.25em] text-amber-600 uppercase">Explore more</p>
           <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Popular star map destinations</h2>
           <p className="mt-3 text-sm text-neutral-700 sm:text-base">
-            Jump straight to high-intent pages for gifts, posters, and instant star map generators.
+            Jump straight to gift, poster, and instant star map generator pages.
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
             {[

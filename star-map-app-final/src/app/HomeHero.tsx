@@ -70,7 +70,7 @@ function HeroReturnIcon({ className = "h-5 w-5" }: { className?: string }) {
 const VALUE_PROPS = [
   { title: "100% Personalized", detail: "Your exact date, time & location", icon: HeroStarIcon },
   { title: "Premium Quality", detail: "Museum-grade prints & materials", icon: HeroBadgeIcon },
-  { title: "Made to Gift", detail: "Beautifully packaged for every order", icon: HeroGiftIcon },
+  { title: "Made to Gift", detail: "Ships in protective white-label packaging", icon: HeroGiftIcon },
 ] as const;
 
 export default function HomeHero() {

@@ -198,7 +198,7 @@ export default function WeddingsPostPage() {
                 heart or circle.
               </li>
               <li>
-                <strong>Do we have to subscribe?</strong> No. Most wedding orders are one-time, and after the preview you
+                <strong>Do we have to subscribe?</strong> No. Wedding orders are one-time purchases, and after the preview you
                 can choose framed print, unframed print, or HD digital delivery.
               </li>
               <li>

@@ -176,7 +176,7 @@ export default function BirthdayPage() {
       />
       <FramedProofSection
         heading="See the birthday map as a finished framed gift"
-        intro="Framed is the strongest gift-ready option when you want the final piece to arrive ready to display. Unframed keeps the total lower if you already have a frame plan."
+        intro="Framed is the ready-to-display gift option when you want the final piece to arrive finished. Unframed keeps the total lower if you already have a frame plan."
         sourcePrefix="birthday-proof"
       />
 
@@ -230,7 +230,7 @@ export default function BirthdayPage() {
       />
       <RevenueTrustModule
         heading="Birthday gift confidence"
-        intro="Most buyers decide faster once the wording, frame plan, and whether they want the finished framed route are already settled."
+        intro="Decisions get clearer once the wording, frame plan, and whether you want the finished framed route are already settled."
       />
 
       <OccasionLinks />

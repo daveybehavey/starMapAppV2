@@ -133,7 +133,7 @@ export default function CustomNightSkyMapPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Related ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Looking for a specific format? Explore these popular options.
+          Looking for a specific format? Explore these related format options.
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
           <Link href="/night-sky-map-gift" className="text-amber-700 underline hover:text-amber-800">
@@ -190,7 +190,7 @@ export default function CustomNightSkyMapPage() {
             </h3>
             <p>
               Yes. Enter the wedding date and ceremony location to generate the exact night sky for that
-              moment. Many couples order the framed print as a keepsake. You can preview the design for free
+              moment. The framed print works well as a keepsake. You can preview the design for free
               before choosing a format.
             </p>
           </div>
@@ -226,7 +226,7 @@ export default function CustomNightSkyMapPage() {
           {
             question: "Can I make a custom night sky map for a wedding date?",
             answer:
-              "Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. Many couples order the framed print as a keepsake. You can preview the design for free before choosing a format.",
+              "Yes. Enter the wedding date and ceremony location to generate the exact night sky for that moment. The framed print works well as a keepsake. You can preview the design for free before choosing a format.",
           },
           {
             question: "What formats are available for the custom night sky map?",

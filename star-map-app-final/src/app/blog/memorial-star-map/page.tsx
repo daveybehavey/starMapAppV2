@@ -89,7 +89,7 @@ export default function MemorialStarMapPostPage() {
               Why a star map works as a memorial tribute
             </h2>
             <p>
-              Most memorial gifts are beautiful but impersonal — candles, garden stones, engraved plaques. A{" "}
+              Memorial gifts can be beautiful but impersonal — candles, garden stones, engraved plaques. A{" "}
               <strong>remembrance star map</strong> is different because it is tied to a specific moment. The sky
               above the night they passed was unlike any other sky before or after it. That uniqueness is what makes
               the gift feel honest rather than generic.
