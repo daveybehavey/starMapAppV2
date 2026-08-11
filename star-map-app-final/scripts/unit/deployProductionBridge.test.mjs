@@ -443,6 +443,112 @@ test("reusable deploy workflow still runs checkout → npm ci → unit → Cloud
   assert.doesNotMatch(yaml, /^\s*schedule:\s*$/m);
 });
 
+/**
+ * Mirrors deploy-production.yml Cloudflare auth env selection and Wrangler 4.95
+ * getAuthFromEnv() precedence (legacy key/email before token when both are set).
+ */
+function selectCloudflareDeployAuthEnvs(secrets) {
+  const token = secrets.CLOUDFLARE_API_TOKEN ?? "";
+  const apiKey = secrets.CLOUDFLARE_API_KEY ?? "";
+  const email = secrets.CLOUDFLARE_EMAIL ?? "";
+  // GHA: secrets.CLOUDFLARE_API_TOKEN == '' && secrets.CLOUDFLARE_API_KEY || ''
+  const exportLegacy = token === "";
+  return {
+    CLOUDFLARE_API_TOKEN: token,
+    CLOUDFLARE_API_KEY: exportLegacy ? apiKey : "",
+    CLOUDFLARE_EMAIL: exportLegacy ? email : "",
+  };
+}
+
+function wranglerAuthModeFromEnv(env) {
+  if (env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_EMAIL) return "legacy";
+  if (env.CLOUDFLARE_API_TOKEN) return "token";
+  return "none";
+}
+
+test("token-present blanks legacy envs so Wrangler uses token; token-absent keeps legacy fallback", () => {
+  const bothPresent = selectCloudflareDeployAuthEnvs({
+    CLOUDFLARE_API_TOKEN: "token-value",
+    CLOUDFLARE_API_KEY: "legacy-key",
+    CLOUDFLARE_EMAIL: "ops@example.test",
+  });
+  assert.equal(bothPresent.CLOUDFLARE_API_TOKEN, "token-value");
+  assert.equal(bothPresent.CLOUDFLARE_API_KEY, "");
+  assert.equal(bothPresent.CLOUDFLARE_EMAIL, "");
+  assert.equal(wranglerAuthModeFromEnv(bothPresent), "token");
+
+  // Without selection, Wrangler would still prefer legacy — regression guard.
+  assert.equal(
+    wranglerAuthModeFromEnv({
+      CLOUDFLARE_API_TOKEN: "token-value",
+      CLOUDFLARE_API_KEY: "legacy-key",
+      CLOUDFLARE_EMAIL: "ops@example.test",
+    }),
+    "legacy",
+  );
+
+  const tokenAbsent = selectCloudflareDeployAuthEnvs({
+    CLOUDFLARE_API_TOKEN: "",
+    CLOUDFLARE_API_KEY: "legacy-key",
+    CLOUDFLARE_EMAIL: "ops@example.test",
+  });
+  assert.equal(tokenAbsent.CLOUDFLARE_API_TOKEN, "");
+  assert.equal(tokenAbsent.CLOUDFLARE_API_KEY, "legacy-key");
+  assert.equal(tokenAbsent.CLOUDFLARE_EMAIL, "ops@example.test");
+  assert.equal(wranglerAuthModeFromEnv(tokenAbsent), "legacy");
+
+  const neither = selectCloudflareDeployAuthEnvs({
+    CLOUDFLARE_API_TOKEN: "",
+    CLOUDFLARE_API_KEY: "",
+    CLOUDFLARE_EMAIL: "",
+  });
+  assert.equal(wranglerAuthModeFromEnv(neither), "none");
+});
+
+test("deploy-production Cloudflare step prefers token and falls back to legacy without printing secrets", () => {
+  const yaml = read(DEPLOY_WORKFLOW);
+  const deployStepMatch = yaml.match(
+    /- name:\s*Deploy to Cloudflare\n([\s\S]*?)(?=\n\s*- name:|\n*$)/,
+  );
+  assert.ok(deployStepMatch, "Deploy to Cloudflare step must exist");
+  const deployStep = deployStepMatch[1];
+
+  assert.match(
+    deployStep,
+    /CLOUDFLARE_API_TOKEN:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\}/,
+  );
+  // Token-present => blank legacy exports (Wrangler key/email precedence).
+  assert.match(
+    deployStep,
+    /CLOUDFLARE_API_KEY:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*==\s*''\s*&&\s*secrets\.CLOUDFLARE_API_KEY\s*\|\|\s*''\s*\}\}/,
+  );
+  assert.match(
+    deployStep,
+    /CLOUDFLARE_EMAIL:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*==\s*''\s*&&\s*secrets\.CLOUDFLARE_EMAIL\s*\|\|\s*''\s*\}\}/,
+  );
+  // Must not unconditionally export legacy alongside token.
+  assert.doesNotMatch(
+    deployStep,
+    /CLOUDFLARE_API_KEY:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_KEY\s*\}\}/,
+  );
+  assert.doesNotMatch(
+    deployStep,
+    /CLOUDFLARE_EMAIL:\s*\$\{\{\s*secrets\.CLOUDFLARE_EMAIL\s*\}\}/,
+  );
+  assert.match(deployStep, /run:\s*npm run deploy:inner/);
+
+  // Secret values must never appear as literals; only secrets.* expressions / '' blanks.
+  assert.doesNotMatch(
+    yaml,
+    /CLOUDFLARE_API_TOKEN:\s*(?!\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\})\S+/,
+  );
+  assert.doesNotMatch(yaml, /echo\s+.*CLOUDFLARE_API_(TOKEN|KEY)|printenv\s+CLOUDFLARE_API_(TOKEN|KEY)/i);
+  assert.doesNotMatch(deployStep, /CLOUDFLARE_API_(TOKEN|KEY|EMAIL):\s*['"]?[A-Za-z0-9._-]{8,}/);
+
+  assert.match(yaml, /run:\s*npm run qa:live-critical/);
+  assert.doesNotMatch(yaml, /qa:live-print-conversion/);
+});
+
 test("no workflow in .github introduces qa:live-print-conversion deploy path", () => {
   const workflowsDir = path.join(REPO_ROOT, ".github/workflows");
   for (const name of fs.readdirSync(workflowsDir)) {
