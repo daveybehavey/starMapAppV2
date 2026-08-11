@@ -126,12 +126,25 @@ export function formatPrintShippingEstimateWithDelivery(
   return shipping;
 }
 
+/** Country-unknown / pre-destination transit copy — never invent a US window. */
+export const PRINT_NEUTRAL_TRANSIT_DISCLOSURE =
+  "Carrier transit varies by destination and is shown after you select a shipping country" as const;
+
+/** Compact card/note when shipping price + transit are not yet destination-specific. */
+export const PRINT_NEUTRAL_SHIPPING_CARD_NOTE =
+  "Shipping cost and destination-specific transit are shown after you select a shipping country." as const;
+
+/**
+ * Customer-facing transit disclosure.
+ * Known supported country → matrix-backed country-labelled window.
+ * Unknown / unsupported → factual neutral copy (never defaults to United States).
+ */
 export function formatPrintDeliveryDisclosure(
   variant: PrintVariant,
-  country: string | null | undefined = "US",
-): string | null {
+  country: string | null | undefined,
+): string {
   const delivery = formatPrintDeliveryEstimate(variant, country);
-  if (!delivery || !country) return null;
+  if (!delivery || !country) return PRINT_NEUTRAL_TRANSIT_DISCLOSURE;
   return `Typical transit to ${getPrintShippingCountryLabel(country)}: ${delivery} after fulfillment`;
 }
 

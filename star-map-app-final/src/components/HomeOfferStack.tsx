@@ -8,9 +8,8 @@ import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
 import ResilientImage from "@/components/ResilientImage";
 import {
+  PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
   formatPrintDeliveryDisclosure,
-  formatPrintShippingEstimateWithDelivery,
-  getPrintShippingCountryLabel,
 } from "@/lib/printfulShipping";
 
 type HomeOfferStackProps = {
@@ -37,20 +36,8 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
   const freeShippingOffer = getPrintFreeShippingOfferLine();
-  const printShippingCountry = "US";
   const printShippingCountries = getPrintAllowedCountries();
-  const framedShippingLabel = formatPrintShippingEstimateWithDelivery(
-    "poster_framed",
-    printShippingCountry,
-    "shipping"
-  );
-  const unframedShippingLabel = formatPrintShippingEstimateWithDelivery(
-    "poster_unframed",
-    printShippingCountry,
-    "shipping"
-  );
-  const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", printShippingCountry);
-  const shippingCountryLabel = getPrintShippingCountryLabel(printShippingCountry);
+  const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", null);
   const shippingCoverageLabel = (() => {
     const count = printShippingCountries.length;
     if (count <= 0) return "Shipping estimates shown before payment";
@@ -160,7 +147,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
               <li>Ready-to-hang premium option for special occasions</li>
               <li>
-                Estimated shipping to {shippingCountryLabel}: {framedShippingLabel}
+                {PRINT_NEUTRAL_SHIPPING_CARD_NOTE}
               </li>
               {framedDeliveryDisclosure ? <li>{framedDeliveryDisclosure}</li> : null}
               <li>{printLabels.framed}</li>
@@ -170,7 +157,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               framing.
             </div>
             <a
-              href={`/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
+              href="/editor?mode=quick&source=home-delivery-print-framed&checkout=print&print_variant=poster_framed"
               className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/70 bg-amber-300/25 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/35"
             >
               Preview framed print
@@ -199,7 +186,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <li>Museum-quality poster stock</li>
               <li>Lower-cost physical option</li>
               <li>
-                Estimated shipping to {shippingCountryLabel}: {unframedShippingLabel}
+                {PRINT_NEUTRAL_SHIPPING_CARD_NOTE}
               </li>
               <li>{printLabels.unframed}</li>
             </ul>
@@ -207,7 +194,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               Built for physical delivery at a lower price, especially if the buyer already has a frame plan.
             </div>
             <a
-              href={`/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed&shipping_country=${encodeURIComponent(printShippingCountry)}`}
+              href="/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed"
               className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
             >
               Preview unframed print
@@ -251,8 +238,8 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               Shipping estimate baseline
             </p>
             <p className="text-[11px] text-neutral-300">
-              Framed: {framedShippingLabel} · Unframed: {unframedShippingLabel} (shown for{" "}
-              {shippingCountryLabel}). Final shipping is shown before payment for all supported countries.
+              {PRINT_NEUTRAL_SHIPPING_CARD_NOTE} Final shipping is shown before payment for all supported
+              countries.
             </p>
           </div>
           <p className="text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">Print confidence</p>

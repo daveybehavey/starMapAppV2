@@ -6,9 +6,9 @@ import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import {
+  getPrintDeliveryEstimateLine,
   getPrintProductionTimelineLine,
   getPrintStandardShippingOnlyLine,
-  getPrintUsTotalDeliveryEstimateLine,
   getPrintUrgentHdUpsellLine,
   getPaywallDigitalBullets,
   getPaywallPrintBullets,
@@ -473,7 +473,12 @@ export function PaywallModal({
                     ) : null}
                     <div className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85">
                       <p>{getPrintProductionTimelineLine()}</p>
-                      <p>{getPrintUsTotalDeliveryEstimateLine()}</p>
+                      <p>
+                        {getPrintDeliveryEstimateLine({
+                          variant: preferredPrintVariant,
+                          country: printShippingCountry,
+                        })}
+                      </p>
                       <p>{getPrintStandardShippingOnlyLine()}</p>
                       <p className="font-medium text-amber-50">
                         {getPrintUrgentHdUpsellLine(instantHdPriceLine)}

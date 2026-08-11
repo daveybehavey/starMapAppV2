@@ -39,7 +39,7 @@ export default function DeliveryFormatModule({
     ),
   };
   const shippingDisclosure = getPrintShippingDisclosure();
-  const baselineDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", "US");
+  const baselineDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", null);
   const digitalHref = withEditorLocation(
     `/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-digital`)}`,
     location

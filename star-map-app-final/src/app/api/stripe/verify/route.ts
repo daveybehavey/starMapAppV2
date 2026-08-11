@@ -52,7 +52,15 @@ type PrintOrderSummary = {
   printfulOrderId: string | number | null;
   confirmationEmailSent: boolean;
   shippingNotificationSent: boolean;
+  /** Destination country code only — never full address. */
+  shippingCountry: string | null;
 };
+
+function normalizeShippingCountryCode(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const code = raw.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : null;
+}
 
 async function loadPrintSummary(sessionId: string): Promise<PrintOrderSummary | null> {
   const order = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
@@ -62,6 +70,7 @@ async function loadPrintSummary(sessionId: string): Promise<PrintOrderSummary | 
       printfulOrderId: null,
       confirmationEmailSent: false,
       shippingNotificationSent: false,
+      shippingCountry: null,
     };
   }
   return {
@@ -69,6 +78,7 @@ async function loadPrintSummary(sessionId: string): Promise<PrintOrderSummary | 
     printfulOrderId: order.printfulOrderId ?? null,
     confirmationEmailSent: Boolean(order.printConfirmationSentAt),
     shippingNotificationSent: Boolean(order.shippingNotificationSentAt),
+    shippingCountry: normalizeShippingCountryCode(order.shippingDetails?.address?.country),
   };
 }
 

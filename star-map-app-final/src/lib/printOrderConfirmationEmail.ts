@@ -19,12 +19,20 @@ import {
   getPrintOrderConfirmationNextSteps,
   getPrintOrderConfirmationPreheader,
 } from "@/lib/commerceFacts";
+import { isPrintVariant, type PrintVariant } from "@/lib/printCatalog";
+
+function resolveConfirmationPrintVariant(raw: string | null | undefined): PrintVariant | undefined {
+  return isPrintVariant(raw) ? raw : undefined;
+}
 
 export type PrintOrderConfirmationData = {
   customerName?: string | null;
   productLabel: string;
   amountLabel?: string | null;
   shippingSummary?: string | null;
+  /** ISO country code from the completed checkout shipping address when available. */
+  shippingCountry?: string | null;
+  printVariant?: string | null;
   orderReference?: string | null;
   successUrl: string;
   supportEmail?: string | null;
@@ -94,13 +102,20 @@ export function renderPrintOrderConfirmationEmail(data: PrintOrderConfirmationDa
 
   const subject = "Your StarMapCo print order is confirmed";
 
+  const printVariant = resolveConfirmationPrintVariant(data.printVariant);
   const nextSteps = getPrintOrderConfirmationNextSteps({
     manualReviewRequired: manualReview,
     includesDigitalAddOn,
+    country: data.shippingCountry,
+    variant: printVariant,
   });
 
   const preheader = getPrintOrderConfirmationPreheader(manualReview);
-  const etaNote = getPrintOrderConfirmationEtaNote({ includesDigitalAddOn });
+  const etaNote = getPrintOrderConfirmationEtaNote({
+    includesDigitalAddOn,
+    country: data.shippingCountry,
+    variant: printVariant,
+  });
 
   const textLines = [
     `Hi ${firstName},`,

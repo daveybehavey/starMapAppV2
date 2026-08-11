@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import PolicyShell from "@/components/policy/PolicyShell";
 import { getBusinessProfile } from "@/lib/businessProfile";
-import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS, getPrintStandardShippingOnlyLine, getPrintUsTotalDeliveryEstimateLine } from "@/lib/commerceFacts";
+import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS, getPrintDeliveryEstimateLine, getPrintStandardShippingOnlyLine } from "@/lib/commerceFacts";
 import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
 import { getPrintAllowedCountries, getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 import { getPrintFreeShippingOfferLine, getPrintFreeShippingQualifyingHint } from "@/lib/printFreeShipping";
@@ -77,7 +77,7 @@ export default function ShippingPage() {
         </p>
         <p className="mt-3 text-sm text-neutral-900 sm:text-base">
           Print orders are made to order. Typical fulfillment time before shipment is {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS},
-          plus carrier transit time shown below. {getPrintUsTotalDeliveryEstimateLine()}
+          plus carrier transit time shown below. {getPrintDeliveryEstimateLine()}
         </p>
         <p className="mt-3 text-sm text-neutral-900 sm:text-base">{getPrintStandardShippingOnlyLine()}</p>
         {freeShippingOffer ? (

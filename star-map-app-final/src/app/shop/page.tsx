@@ -15,7 +15,7 @@ import {
   getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { formatPrintDeliveryDisclosure, formatPrintShippingEstimateWithDelivery } from "@/lib/printfulShipping";
+import { formatPrintDeliveryDisclosure, PRINT_NEUTRAL_SHIPPING_CARD_NOTE } from "@/lib/printfulShipping";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import { parseShopExternalOffers } from "@/lib/shopExternalOffers";
 import {
@@ -68,18 +68,7 @@ export default function ShopPage() {
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const printTiers = getPrintPricingTiers();
   const digitals = getPricingTiers();
-  const printShippingCountry = "US";
-  const framedShippingDetail = formatPrintShippingEstimateWithDelivery(
-    "poster_framed",
-    printShippingCountry,
-    "shipping",
-  );
-  const unframedShippingDetail = formatPrintShippingEstimateWithDelivery(
-    "poster_unframed",
-    printShippingCountry,
-    "shipping",
-  );
-  const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", printShippingCountry);
+  const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", null);
 
   const framedPrice = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,
@@ -102,12 +91,6 @@ export default function ShopPage() {
     printTiers.mug_11oz.amountCents,
     (printTiers.mug_11oz.currency || "USD").toUpperCase(),
   );
-  const canvasShippingDetail = formatPrintShippingEstimateWithDelivery(
-    "canvas_wrap",
-    printShippingCountry,
-    "shipping",
-  );
-  const mugShippingDetail = formatPrintShippingEstimateWithDelivery("mug_11oz", printShippingCountry, "shipping");
 
   const stickerFamily = merchFamilies.find((f) => f.id === "sticker_kisscut");
   const stickerPrice = stickerFamily ? formatPrice(getMerchPublicDisplayPriceCents(stickerFamily), "USD") : null;
@@ -120,7 +103,7 @@ export default function ShopPage() {
       title: printTiers.poster_framed.label,
       detail: "Premium presentation — gift-ready framing matched to our Printful storefront SKU.",
       price: framedPrice,
-      shippingNote: `Est. to U.S.: ${framedShippingDetail}`,
+      shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-framed&checkout=print&print_variant=poster_framed",
       cta: "Customize framed print",
       ctaClass:
@@ -134,7 +117,7 @@ export default function ShopPage() {
       title: printTiers.poster_unframed.label,
       detail: "Large-format poster print — ideal when you want to frame it locally or keep total cost lower.",
       price: unframedPrice,
-      shippingNote: `Est. to U.S.: ${unframedShippingDetail}`,
+      shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-unframed&checkout=print&print_variant=poster_unframed",
       cta: "Customize poster",
       ctaClass:
@@ -148,7 +131,7 @@ export default function ShopPage() {
       title: printTiers.canvas_wrap.label,
       detail: "Gallery-wrap canvas — premium wall art between poster and framed print.",
       price: canvasPrice,
-      shippingNote: `Est. to U.S.: ${canvasShippingDetail}`,
+      shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-canvas&checkout=print&print_variant=canvas_wrap",
       cta: "Customize canvas",
       ctaClass:
@@ -162,7 +145,7 @@ export default function ShopPage() {
       title: printTiers.mug_11oz.label,
       detail: "Everyday merch gift — not the wedding hero, but great for birthdays and desk gifts.",
       price: mugPrice,
-      shippingNote: `Est. to U.S.: ${mugShippingDetail}`,
+      shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-mug&checkout=print&print_variant=mug_11oz",
       cta: "Customize mug",
       ctaClass:

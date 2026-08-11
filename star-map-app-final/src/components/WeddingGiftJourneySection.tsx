@@ -1,15 +1,14 @@
 import {
+  getPrintDeliveryEstimateLine,
   getPrintFramedHdBundleShortLine,
   getPrintFramedHdBundleTimingLine,
   getPrintStandardShippingOnlyLine,
-  getPrintUsTotalDeliveryEstimateLine,
 } from "@/lib/commerceFacts";
 import {
   getFramedHdBundlePriceLine,
   getPrintProductionReviewDisclosure,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 
 const steps = [
   {
@@ -31,7 +30,6 @@ export default function WeddingGiftJourneySection() {
   const bundleLine = getFramedHdBundlePriceLine();
   const shippingDisclosure = getPrintShippingDisclosure();
   const productionDisclosure = getPrintProductionReviewDisclosure();
-  const framedDelivery = formatPrintDeliveryDisclosure("poster_framed", "US");
 
   return (
     <section className="content-visibility-auto mt-8 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -62,8 +60,7 @@ export default function WeddingGiftJourneySection() {
 
       <div className="mt-5 rounded-2xl border border-black/5 bg-neutral-50 px-4 py-3 text-xs leading-relaxed text-neutral-700 sm:text-sm">
         <span className="text-midnight font-semibold">Timing:</span> {getPrintFramedHdBundleShortLine()}{" "}
-        {productionDisclosure} {getPrintUsTotalDeliveryEstimateLine()} {getPrintStandardShippingOnlyLine()}{" "}
-        {framedDelivery ? ` Carrier transit reference: ${framedDelivery.toLowerCase()}.` : ""}{" "}
+        {productionDisclosure} {getPrintDeliveryEstimateLine()} {getPrintStandardShippingOnlyLine()}{" "}
         {shippingDisclosure}
       </div>
     </section>
