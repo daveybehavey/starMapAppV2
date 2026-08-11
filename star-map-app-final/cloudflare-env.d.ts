@@ -7,6 +7,7 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		STAR_MAP_KV: KVNamespace;
+		PRINT_ORDER_COORDINATOR: DurableObjectNamespace /* PrintOrderCoordinator */;
 		NEXTJS_ENV: "production";
 		NEXT_INC_CACHE_R2_PREFIX: "incremental-cache";
 		STRIPE_SECRET_KEY: string;

@@ -1,4 +1,8 @@
 import { kv } from "@/lib/kv";
+import {
+  getEffectivePrintOrderRecord,
+  recordTerminalFailureAndDeliverAlert,
+} from "@/lib/printOrderCoordinator";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import {
   lookupSessionIdByPrintfulOrderId,
@@ -7,6 +11,7 @@ import {
 } from "@/lib/printFulfillmentIndex";
 import { printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
 import {
+  classifyPrintfulFileStatus,
   formatPrintfulFileFailureError,
   reviewPrintfulOrderFiles,
 } from "@/lib/printfulOrderReview";
@@ -106,36 +111,36 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     const review = await reviewPrintfulOrderFiles(reviewOrderId);
     if (review?.failedFiles.length) {
       error = formatPrintfulFileFailureError(review);
+    } else if (review?.pendingFiles.length) {
+      // Waiting/unknown file states are not confirmed webhook terminal failure overrides.
+      // Keep the webhook event error (order_failed etc.) as the terminal reason — order-level
+      // failure webhooks remain terminal. File pending alone does not soften order_failed.
+      void classifyPrintfulFileStatus;
     }
   }
 
-  const nextRecord: PrintOrderRecord = {
-    ...existing,
-    status: "failed",
-    printfulOrderId: reviewOrderId || existing.printfulOrderId,
+  const nextRecord = await recordTerminalFailureAndDeliverAlert({
+    record: {
+      ...existing,
+      printfulOrderId: reviewOrderId || existing.printfulOrderId,
+    },
     error,
-  };
-
-  if (!nextRecord.operatorFailureAlertedAt) {
-    const alertResult = await sendPrintOrderFailureAlert(nextRecord);
-    if (alertResult.delivered) {
-      nextRecord.operatorFailureAlertedAt = Date.now();
-      nextRecord.operatorFailureAlertProvider = alertResult.provider;
-      nextRecord.operatorFailureAlertError = undefined;
-    } else {
-      nextRecord.operatorFailureAlertProvider = alertResult.provider;
-      nextRecord.operatorFailureAlertError = alertResult.error;
-    }
-  }
+    source: "printful_webhook",
+    sendFailureAlert: (order, opts) => sendPrintOrderFailureAlert(order, opts),
+  });
 
   await kv.set(printOrderKey(sessionId), nextRecord);
 
-  if (nextRecord.operatorFailureAlertError) {
+  const effective = await getEffectivePrintOrderRecord(sessionId, nextRecord, {
+    requireReadable: true,
+  });
+  const finalOrder = effective.ok ? effective.order : nextRecord;
+  if (finalOrder.operatorFailureAlertError && !finalOrder.operatorFailureAlertedAt) {
     return {
       ok: false,
       status: "alert_failed",
       sessionId,
-      error: nextRecord.operatorFailureAlertError,
+      error: finalOrder.operatorFailureAlertError,
     };
   }
 

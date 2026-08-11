@@ -39,6 +39,11 @@ export type PrintOrderRecord = {
   operatorFailureAlertedAt?: number;
   operatorFailureAlertProvider?: string;
   operatorFailureAlertError?: string;
+  /**
+   * Set when Printful file review is still pending (`waiting` / unknown).
+   * Not a confirmed failure and not final approval.
+   */
+  printfulFileReviewPendingAt?: number;
   operatorResolvedAt?: number;
   operatorResolvedProvider?: "manual_printful" | "manual_other";
   operatorResolvedNote?: string;

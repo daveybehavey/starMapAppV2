@@ -1,6 +1,7 @@
 name = "star-map-final"
 account_id = "c5699cbcedce27a6ad755bdeb815f6de"
-main = ".open-next/worker.js"
+# OpenNext build output + app Durable Object export (see worker.entry.ts).
+main = "worker.entry.ts"
 compatibility_date = "2025-12-29"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 workers_dev = false
@@ -157,6 +158,16 @@ bucket_name = "cache"
 [[kv_namespaces]]
 binding = "STAR_MAP_KV"
 id = "cdef6c5fa5cc4e52bfe105aa1ba37713"
+
+# Per-logical-print-order SQLite Durable Object (issue #243).
+# One object per opaque order key — not a global singleton.
+[[durable_objects.bindings]]
+name = "PRINT_ORDER_COORDINATOR"
+class_name = "PrintOrderCoordinator"
+
+[[migrations]]
+tag = "v1_print_order_coordinator"
+new_sqlite_classes = ["PrintOrderCoordinator"]
 
 [images]
 binding = "IMAGES"
