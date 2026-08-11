@@ -227,7 +227,7 @@ export class PrintOrderCoordinator extends DurableObject {
           return Response.json({ ok: true, state });
         }
         case "record_pending_files": {
-          let state = this.#loadOrInit(sessionId, nowMs);
+          const state = this.#loadOrInit(sessionId, nowMs);
           const result = applyPendingFilesTransition(state, {
             printfulOrderId: body.printfulOrderId as string | number | null | undefined,
             nowMs,
@@ -240,7 +240,7 @@ export class PrintOrderCoordinator extends DurableObject {
           });
         }
         case "record_healthy": {
-          let state = this.#loadOrInit(sessionId, nowMs);
+          const state = this.#loadOrInit(sessionId, nowMs);
           const result = applyHealthyTransition(state, {
             printfulOrderId: body.printfulOrderId as string | number | null | undefined,
             nowMs,
@@ -267,7 +267,7 @@ export class PrintOrderCoordinator extends DurableObject {
             typeof body.claimOwner === "string" && body.claimOwner.trim()
               ? body.claimOwner.trim()
               : `claim_${nowMs}`;
-          let state = this.#loadOrInit(sessionId, nowMs);
+          const state = this.#loadOrInit(sessionId, nowMs);
           const result = beginFailureAlertClaimTransition(state, { claimOwner, nowMs });
           if (result.ok) {
             this.#writeState(result.state);

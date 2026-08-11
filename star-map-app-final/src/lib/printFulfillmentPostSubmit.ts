@@ -1,6 +1,7 @@
 import type { PrintOrderRecord } from "@/lib/printOrders";
 import {
   getEffectivePrintOrderRecord,
+  getPrintOrderCoordinatorStore,
   persistPrintOrderKvMirror,
   recordTerminalFailureAndDeliverAlert,
   type PrintOrderCoordinatorStore,
@@ -221,20 +222,11 @@ export async function applyPrintfulPostSubmitReview(
   }
 
   if (outcome === "pending") {
-    if (store) {
-      await store.recordPendingFiles({
-        sessionId: sentRecord.sessionId,
-        printfulOrderId: sentRecord.printfulOrderId,
-      });
-    } else {
-      const coordinator = await import("@/lib/printOrderCoordinator").then((m) =>
-        m.getPrintOrderCoordinatorStore(),
-      );
-      await coordinator.recordPendingFiles({
-        sessionId: sentRecord.sessionId,
-        printfulOrderId: sentRecord.printfulOrderId,
-      });
-    }
+    const coordinatorStore = store ?? (await getPrintOrderCoordinatorStore());
+    await coordinatorStore.recordPendingFiles({
+      sessionId: sentRecord.sessionId,
+      printfulOrderId: sentRecord.printfulOrderId,
+    });
     return {
       ...sentRecord,
       printfulFileReviewPendingAt: sentRecord.printfulFileReviewPendingAt ?? Date.now(),
@@ -257,8 +249,7 @@ export async function applyPrintfulPostSubmitReview(
     return healthyGate.order;
   }
 
-  const coordinatorStore =
-    store ?? (await import("@/lib/printOrderCoordinator").then((m) => m.getPrintOrderCoordinatorStore()));
+  const coordinatorStore = store ?? (await getPrintOrderCoordinatorStore());
   const healthyWrite = await coordinatorStore.recordHealthy({
     sessionId: sentRecord.sessionId,
     printfulOrderId: sentRecord.printfulOrderId,
@@ -327,7 +318,9 @@ export async function persistReviewedPrintOrder(
   deps?: { coordinatorStore?: PrintOrderCoordinatorStore },
 ): Promise<PrintOrderRecord> {
   const result = await persistPrintOrderKvMirror(sessionId, reviewed, {
-    kvSet: (key, value) => kv.set(key, value),
+    kvSet: async (key, value) => {
+      await kv.set(key, value);
+    },
     printOrderKey,
     store: deps?.coordinatorStore,
     requireCoordinatorReadable: true,

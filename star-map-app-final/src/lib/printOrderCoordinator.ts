@@ -146,7 +146,7 @@ export function createMemoryPrintOrderCoordinatorStore(
     },
     async recordPendingFiles(input) {
       const nowMs = input.nowMs ?? Date.now();
-      let state = load(input.sessionId, nowMs);
+      const state = load(input.sessionId, nowMs);
       const result = applyPendingFilesTransition(state, {
         printfulOrderId: input.printfulOrderId,
         nowMs,
@@ -159,7 +159,7 @@ export function createMemoryPrintOrderCoordinatorStore(
     },
     async recordHealthy(input) {
       const nowMs = input.nowMs ?? Date.now();
-      let state = load(input.sessionId, nowMs);
+      const state = load(input.sessionId, nowMs);
       const result = applyHealthyTransition(state, {
         printfulOrderId: input.printfulOrderId,
         nowMs,
@@ -183,7 +183,7 @@ export function createMemoryPrintOrderCoordinatorStore(
     },
     async beginFailureAlertClaim(input) {
       const nowMs = input.nowMs ?? Date.now();
-      let state = load(input.sessionId, nowMs);
+      const state = load(input.sessionId, nowMs);
       const result = beginFailureAlertClaimTransition(state, {
         claimOwner: input.claimOwner,
         nowMs,

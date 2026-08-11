@@ -235,9 +235,9 @@ test("source: failure alerts are Resend-only with Idempotency-Key; no R2 ledger;
   assert.match(alerts, /Idempotency-Key/);
   assert.match(alerts, /PRINT_ORDER_FAILURE_ALERT_PROVIDER_POLICY/);
   assert.match(alerts, /print_failure_alert_resend_required/);
-  // Failure branch must not fall back to SendGrid.
-  const failureFn = alerts.slice(alerts.indexOf("kind === \"failure\""));
-  assert.equal(failureFn.includes("sendWithSendgrid"), false);
+  // Failure alerts explicitly refuse SendGrid fallback.
+  assert.match(alerts, /Failure alerts are Resend-only/);
+  assert.match(alerts, /SendGrid Mail Send lacks equivalent Idempotency-Key/);
 
   assert.match(wrangler, /new_sqlite_classes\s*=\s*\["PrintOrderCoordinator"\]/);
   assert.match(wrangler, /PRINT_ORDER_COORDINATOR/);

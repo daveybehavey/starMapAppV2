@@ -1,13 +1,12 @@
 /**
  * Cloudflare Worker entry for OpenNext + StarMapCo app Durable Objects.
  *
- * OpenNext generates `.open-next/worker.js` (default fetch handler + cache DOs).
+ * OpenNext build output lives under `.open-next/` (created by `opennextjs-cloudflare build`).
  * This entry re-exports that worker and adds the per-order print coordinator DO.
- *
- * Build order: `npx opennextjs-cloudflare build` (creates `.open-next/`), then
- * `wrangler deploy` uses this file as `main`.
  */
+// @ts-expect-error OpenNext output is generated at deploy/build time.
 export { default } from "./.open-next/worker.js";
+// @ts-expect-error OpenNext output is generated at deploy/build time.
 export {
   DOQueueHandler,
   DOShardedTagCache,
