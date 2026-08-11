@@ -36,6 +36,11 @@ export type PrintOrderRecord = {
   operatorAlertedAt?: number;
   operatorAlertProvider?: string;
   operatorAlertError?: string;
+  /**
+   * Set when post-submit Printful file review remains unresolved (`waiting` / unknown)
+   * after the bounded read-only recheck. Must block approval until cleared by a healthy review.
+   */
+  printfulFileReviewPendingAt?: number;
   operatorFailureAlertedAt?: number;
   operatorFailureAlertProvider?: string;
   operatorFailureAlertError?: string;

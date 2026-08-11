@@ -1,48 +1,21 @@
-import { kv } from "@/lib/kv";
-import type { PrintOrderRecord } from "@/lib/printOrders";
-import { printOrderKey } from "@/lib/printOrders";
-import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+/** Keep in sync with src/lib/printFulfillmentPostSubmit.ts */
 import {
   formatPrintfulFileFailureError,
   resolvePrintfulFileReviewOutcome,
-  reviewPrintfulOrderFiles,
-  type PrintfulFileReviewOutcome,
-  type PrintfulOrderFileReview,
-} from "@/lib/printfulOrderReview";
+} from "./printfulOrderReview.harness.mjs";
 
-/** Hard cap on read-only file-status polls after submit (includes the initial read). */
 export const PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS = 3;
+export const PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS = [750, 1500];
 
-/** Backoff between rechecks (ms). Length must be maxAttempts - 1. */
-export const PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS = [750, 1500] as const;
-
-export type PrintfulPostSubmitReviewDeps = {
-  reviewPrintfulOrderFiles?: typeof reviewPrintfulOrderFiles;
-  sleep?: (ms: number) => Promise<void>;
-  maxAttempts?: number;
-  retryDelaysMs?: readonly number[];
-  sendPrintOrderFailureAlert?: typeof sendPrintOrderFailureAlert;
-  sendPrintOrderApprovalAlert?: typeof sendPrintOrderApprovalAlert;
-  /** Re-read durable order state after polling (webhook races). Defaults to KV. */
-  loadStoredPrintOrder?: (sessionId: string) => Promise<PrintOrderRecord | null>;
-};
-
-function defaultSleep(ms: number): Promise<void> {
+function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function defaultLoadStoredPrintOrder(sessionId: string): Promise<PrintOrderRecord | null> {
-  return kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-}
-
-export function isPrintfulFileReviewPending(record: Pick<PrintOrderRecord, "printfulFileReviewPendingAt">): boolean {
+export function isPrintfulFileReviewPending(record) {
   return typeof record.printfulFileReviewPendingAt === "number" && record.printfulFileReviewPendingAt > 0;
 }
 
-/** Already-sent retry may only approve when provider file review is not pending and not failed. */
-export function shouldSendAlreadySentApprovalAlert(
-  record: Pick<PrintOrderRecord, "status" | "operatorAlertedAt" | "printfulFileReviewPendingAt" | "error">,
-): boolean {
+export function shouldSendAlreadySentApprovalAlert(record) {
   return (
     record.status === "sent" &&
     !record.operatorAlertedAt &&
@@ -51,52 +24,24 @@ export function shouldSendAlreadySentApprovalAlert(
   );
 }
 
-export function shouldRereviewPrintfulFilesOnAlreadySent(
-  record: Pick<PrintOrderRecord, "status" | "printfulOrderId" | "printfulFileReviewPendingAt">,
-): boolean {
+export function shouldRereviewPrintfulFilesOnAlreadySent(record) {
   return record.status === "sent" && isPrintfulFileReviewPending(record) && Boolean(record.printfulOrderId);
 }
 
-/**
- * Prefer a concurrently persisted terminal failure (e.g. order_failed webhook)
- * over a stale in-memory post-submit snapshot.
- */
-export function preferStoredTerminalFailure(
-  _candidate: PrintOrderRecord,
-  stored: PrintOrderRecord | null | undefined,
-): PrintOrderRecord | null {
+export function preferStoredTerminalFailure(candidate, stored) {
   if (!stored) return null;
   if (stored.status === "failed") return stored;
   return null;
 }
 
-/**
- * Read-only bounded recheck until file statuses resolve to ok/failed, or attempts exhaust.
- * Never mutates Printful orders (no create/confirm/cancel).
- */
-export async function resolvePrintfulPostSubmitFileOutcome(input: {
-  printfulOrderId: string | number;
-  reviewPrintfulOrderFiles: (orderId: string | number) => Promise<PrintfulOrderFileReview | null>;
-  sleep?: (ms: number) => Promise<void>;
-  maxAttempts?: number;
-  retryDelaysMs?: readonly number[];
-  /**
-   * When the durable record is already pending, a null/unavailable provider GET must stay
-   * pending — never be treated as healthy approval.
-   */
-  preservePendingOnUnavailable?: boolean;
-}): Promise<{
-  outcome: PrintfulFileReviewOutcome;
-  review: PrintfulOrderFileReview | null;
-  attempts: number;
-}> {
+export async function resolvePrintfulPostSubmitFileOutcome(input) {
   const maxAttempts = Math.max(1, input.maxAttempts ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_MAX_ATTEMPTS);
   const delays = input.retryDelaysMs ?? PRINTFUL_POST_SUBMIT_FILE_REVIEW_RETRY_DELAYS_MS;
   const sleep = input.sleep ?? defaultSleep;
   const preservePendingOnUnavailable = Boolean(input.preservePendingOnUnavailable);
 
-  let review: PrintfulOrderFileReview | null = null;
-  let outcome: PrintfulFileReviewOutcome = preservePendingOnUnavailable ? "pending" : "ok";
+  let review = null;
+  let outcome = preservePendingOnUnavailable ? "pending" : "ok";
   let attempts = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -109,8 +54,6 @@ export async function resolvePrintfulPostSubmitFileOutcome(input: {
     attempts = attempt;
 
     if (!review) {
-      // Unavailable GET: keep pending if we already observed pending (in-loop or durable).
-      // First-submit legacy: null with no prior pending observation still proceeds as ok.
       if (outcome === "pending" || preservePendingOnUnavailable) {
         outcome = "pending";
         continue;
@@ -127,18 +70,18 @@ export async function resolvePrintfulPostSubmitFileOutcome(input: {
   return { outcome: "pending", review, attempts };
 }
 
-export async function applyPrintfulPostSubmitReview(
-  sentRecord: PrintOrderRecord,
-  deps: PrintfulPostSubmitReviewDeps = {},
-): Promise<PrintOrderRecord> {
+export async function applyPrintfulPostSubmitReview(sentRecord, deps = {}) {
   if (!sentRecord.printfulOrderId) {
     return sentRecord;
   }
 
-  const reviewFn = deps.reviewPrintfulOrderFiles ?? reviewPrintfulOrderFiles;
-  const failureAlert = deps.sendPrintOrderFailureAlert ?? sendPrintOrderFailureAlert;
-  const approvalAlert = deps.sendPrintOrderApprovalAlert ?? sendPrintOrderApprovalAlert;
-  const loadStored = deps.loadStoredPrintOrder ?? defaultLoadStoredPrintOrder;
+  const reviewFn = deps.reviewPrintfulOrderFiles;
+  if (typeof reviewFn !== "function") {
+    throw new Error("reviewPrintfulOrderFiles dependency required in harness");
+  }
+  const failureAlert = deps.sendPrintOrderFailureAlert ?? (async () => ({ delivered: false, provider: "none" }));
+  const approvalAlert = deps.sendPrintOrderApprovalAlert ?? (async () => ({ delivered: false, provider: "none" }));
+  const loadStored = deps.loadStoredPrintOrder ?? (async () => null);
   const alreadyPending = isPrintfulFileReviewPending(sentRecord);
 
   const { outcome, review } = await resolvePrintfulPostSubmitFileOutcome({
@@ -150,7 +93,6 @@ export async function applyPrintfulPostSubmitReview(
     preservePendingOnUnavailable: alreadyPending,
   });
 
-  // Re-read after polling sleeps so a concurrent order_failed webhook wins.
   const stored = await loadStored(sentRecord.sessionId);
   const terminal = preferStoredTerminalFailure(sentRecord, stored);
   if (terminal) {
@@ -158,12 +100,11 @@ export async function applyPrintfulPostSubmitReview(
   }
 
   if (outcome === "failed" && review?.failedFiles.length) {
-    const failedRecord: PrintOrderRecord = {
+    const failedRecord = {
       ...sentRecord,
       error: formatPrintfulFileFailureError(review),
       printfulFileReviewPendingAt: undefined,
     };
-    // Preserve webhook/idempotency markers if store already alerted without status flip.
     if (stored?.operatorFailureAlertedAt) {
       failedRecord.operatorFailureAlertedAt = stored.operatorFailureAlertedAt;
       failedRecord.operatorFailureAlertProvider = stored.operatorFailureAlertProvider;
@@ -181,7 +122,6 @@ export async function applyPrintfulPostSubmitReview(
         failedRecord.operatorFailureAlertError = alertResult.error;
       }
     }
-    // Final race check: webhook may have persisted failure during alert send.
     const afterAlert = await loadStored(sentRecord.sessionId);
     const afterTerminal = preferStoredTerminalFailure(failedRecord, afterAlert);
     if (afterTerminal) {
@@ -198,7 +138,6 @@ export async function applyPrintfulPostSubmitReview(
     return failedRecord;
   }
 
-  // Pending after bounded recheck: durable marker, neither confirmed failure nor approval.
   if (outcome === "pending") {
     return {
       ...sentRecord,
@@ -206,7 +145,7 @@ export async function applyPrintfulPostSubmitReview(
     };
   }
 
-  const healthyRecord: PrintOrderRecord = {
+  const healthyRecord = {
     ...sentRecord,
     printfulFileReviewPendingAt: undefined,
     error: sentRecord.error?.startsWith("printful_files_failed:") ? undefined : sentRecord.error,
@@ -231,4 +170,22 @@ export async function applyPrintfulPostSubmitReview(
   }
 
   return healthyRecord;
+}
+
+/** Mirrors already-sent retry gating in print/orders/retry/route.ts */
+export async function applyAlreadySentRetryReview(existing, deps = {}) {
+  if (shouldRereviewPrintfulFilesOnAlreadySent(existing)) {
+    return applyPrintfulPostSubmitReview(existing, deps);
+  }
+  if (shouldSendAlreadySentApprovalAlert(existing)) {
+    const approvalAlert = deps.sendPrintOrderApprovalAlert ?? (async () => ({ delivered: false, provider: "none" }));
+    const alertResult = await approvalAlert(existing);
+    return {
+      ...existing,
+      operatorAlertedAt: alertResult.delivered ? Date.now() : existing.operatorAlertedAt,
+      operatorAlertProvider: alertResult.provider,
+      operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
+    };
+  }
+  return existing;
 }
