@@ -3,6 +3,7 @@ import { isLocalKvFallbackAllowed } from "@/lib/kv";
 import type { PrintOrderRecord } from "@/lib/printOrders";
 import {
   applyHealthyTransition,
+  applyOperatorAuthorizedRecoveryTransition,
   applyOperatorResolvedTransition,
   applyPendingFilesTransition,
   applyTerminalFailureTransition,
@@ -11,9 +12,11 @@ import {
   buildPrintOrderCoordinatorObjectName,
   completeFailureAlertDeliveredTransition,
   completeFailureAlertRetryableErrorTransition,
+  completeFailureAlertTerminalTransition,
   createUninitializedCoordinatorState,
   newPrintOrderFailureAlertClaimOwner,
   overlayCoordinatorOntoPrintOrderRecord,
+  parseCoordinatorStateOrCorrupt,
   shouldBlockHealthyKvMirrorWrite,
   type BeginFailureAlertClaimResult,
   type PrintOrderCoordinatorFailureSource,
@@ -53,6 +56,13 @@ export type PrintOrderCoordinatorStore = {
     note?: string;
     nowMs?: number;
   }): Promise<PrintOrderCoordinatorReadResult>;
+  /** Explicit admin-authorized recovery after successful operator retry create. */
+  operatorAuthorizedRecovery(input: {
+    sessionId: string;
+    printfulOrderId?: string | number | null;
+    note?: string;
+    nowMs?: number;
+  }): Promise<PrintOrderCoordinatorReadResult>;
   beginFailureAlertClaim(input: {
     sessionId: string;
     claimOwner: string;
@@ -61,12 +71,21 @@ export type PrintOrderCoordinatorStore = {
   completeFailureAlertDelivered(input: {
     sessionId: string;
     provider: string;
+    claimOwner?: string;
     nowMs?: number;
   }): Promise<PrintOrderCoordinatorReadResult>;
   completeFailureAlertRetryableError(input: {
     sessionId: string;
     provider?: string;
     error?: string;
+    claimOwner?: string;
+    nowMs?: number;
+  }): Promise<PrintOrderCoordinatorReadResult>;
+  completeFailureAlertTerminal(input: {
+    sessionId: string;
+    provider?: string;
+    error?: string;
+    claimOwner?: string;
     nowMs?: number;
   }): Promise<PrintOrderCoordinatorReadResult>;
 };
@@ -181,6 +200,17 @@ export function createMemoryPrintOrderCoordinatorStore(
       map.set(memoryKey(input.sessionId), state);
       return { ok: true, state };
     },
+    async operatorAuthorizedRecovery(input) {
+      const nowMs = input.nowMs ?? Date.now();
+      let state = load(input.sessionId, nowMs);
+      state = applyOperatorAuthorizedRecoveryTransition(state, {
+        printfulOrderId: input.printfulOrderId,
+        note: input.note,
+        nowMs,
+      });
+      map.set(memoryKey(input.sessionId), state);
+      return { ok: true, state };
+    },
     async beginFailureAlertClaim(input) {
       const nowMs = input.nowMs ?? Date.now();
       const state = load(input.sessionId, nowMs);
@@ -198,6 +228,7 @@ export function createMemoryPrintOrderCoordinatorStore(
       let state = load(input.sessionId, nowMs);
       state = completeFailureAlertDeliveredTransition(state, {
         provider: input.provider,
+        claimOwner: input.claimOwner,
         nowMs,
       });
       map.set(memoryKey(input.sessionId), state);
@@ -209,6 +240,19 @@ export function createMemoryPrintOrderCoordinatorStore(
       state = completeFailureAlertRetryableErrorTransition(state, {
         provider: input.provider,
         error: input.error,
+        claimOwner: input.claimOwner,
+        nowMs,
+      });
+      map.set(memoryKey(input.sessionId), state);
+      return { ok: true, state };
+    },
+    async completeFailureAlertTerminal(input) {
+      const nowMs = input.nowMs ?? Date.now();
+      let state = load(input.sessionId, nowMs);
+      state = completeFailureAlertTerminalTransition(state, {
+        provider: input.provider,
+        error: input.error,
+        claimOwner: input.claimOwner,
         nowMs,
       });
       map.set(memoryKey(input.sessionId), state);
@@ -271,9 +315,13 @@ async function callDurableCoordinator(
   return json;
 }
 
-function asReadResult(json: Record<string, unknown>): PrintOrderCoordinatorReadResult {
+function asReadResult(json: Record<string, unknown>, sessionId?: string): PrintOrderCoordinatorReadResult {
   if (json.ok === true && json.state && typeof json.state === "object") {
-    return { ok: true, state: json.state as PrintOrderCoordinatorState };
+    const parsed = parseCoordinatorStateOrCorrupt(json.state, sessionId);
+    if (!parsed.ok) {
+      return { ok: false, unavailable: true, error: parsed.error };
+    }
+    return { ok: true, state: parsed.state };
   }
   return {
     ok: false,
@@ -285,7 +333,7 @@ function asReadResult(json: Record<string, unknown>): PrintOrderCoordinatorReadR
 function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike): PrintOrderCoordinatorStore {
   return {
     async get(sessionId, nowMs) {
-      return asReadResult(await callDurableCoordinator(ns, sessionId, { action: "get", nowMs }));
+      return asReadResult(await callDurableCoordinator(ns, sessionId, { action: "get", nowMs }), sessionId);
     },
     async bootstrapFromKv(sessionId, kv, nowMs) {
       return asReadResult(
@@ -301,6 +349,7 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
           printfulFileReviewPendingAt: kv.printfulFileReviewPendingAt,
           operatorResolvedAt: kv.operatorResolvedAt,
         }),
+        sessionId,
       );
     },
     async recordTerminalFailure(input) {
@@ -312,6 +361,7 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
           printfulOrderId: input.printfulOrderId,
           nowMs: input.nowMs,
         }),
+        input.sessionId,
       );
     },
     async recordPendingFiles(input) {
@@ -320,7 +370,7 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
         printfulOrderId: input.printfulOrderId,
         nowMs: input.nowMs,
       });
-      const read = asReadResult(json);
+      const read = asReadResult(json, input.sessionId);
       return { ...read, reason: typeof json.reason === "string" ? json.reason : undefined };
     },
     async recordHealthy(input) {
@@ -330,13 +380,17 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
         nowMs: input.nowMs,
       });
       if (json.state && typeof json.state === "object") {
+        const parsed = parseCoordinatorStateOrCorrupt(json.state, input.sessionId);
+        if (!parsed.ok) {
+          return { ok: false, unavailable: true, error: parsed.error, reason: parsed.error };
+        }
         return {
           ok: true,
-          state: json.state as PrintOrderCoordinatorState,
+          state: parsed.state,
           reason: typeof json.reason === "string" ? json.reason : undefined,
         };
       }
-      return { ...asReadResult(json), reason: typeof json.reason === "string" ? json.reason : undefined };
+      return { ...asReadResult(json, input.sessionId), reason: typeof json.reason === "string" ? json.reason : undefined };
     },
     async operatorResolve(input) {
       return asReadResult(
@@ -346,6 +400,18 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
           note: input.note,
           nowMs: input.nowMs,
         }),
+        input.sessionId,
+      );
+    },
+    async operatorAuthorizedRecovery(input) {
+      return asReadResult(
+        await callDurableCoordinator(ns, input.sessionId, {
+          action: "operator_authorized_recovery",
+          printfulOrderId: input.printfulOrderId,
+          note: input.note,
+          nowMs: input.nowMs,
+        }),
+        input.sessionId,
       );
     },
     async beginFailureAlertClaim(input) {
@@ -361,6 +427,13 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
           error: typeof json.error === "string" ? json.error : "print_order_coordinator_unavailable",
         };
       }
+      if (json.state && typeof json.state === "object") {
+        const parsed = parseCoordinatorStateOrCorrupt(json.state, input.sessionId);
+        if (!parsed.ok) {
+          return { ok: false, unavailable: true, error: parsed.error };
+        }
+        return { ...json, state: parsed.state } as BeginFailureAlertClaimResult;
+      }
       return json as BeginFailureAlertClaimResult;
     },
     async completeFailureAlertDelivered(input) {
@@ -368,8 +441,10 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
         await callDurableCoordinator(ns, input.sessionId, {
           action: "complete_failure_alert_delivered",
           provider: input.provider,
+          claimOwner: input.claimOwner,
           nowMs: input.nowMs,
         }),
+        input.sessionId,
       );
     },
     async completeFailureAlertRetryableError(input) {
@@ -378,8 +453,22 @@ function createDurablePrintOrderCoordinatorStore(ns: DurableObjectNamespaceLike)
           action: "complete_failure_alert_retryable_error",
           provider: input.provider,
           error: input.error,
+          claimOwner: input.claimOwner,
           nowMs: input.nowMs,
         }),
+        input.sessionId,
+      );
+    },
+    async completeFailureAlertTerminal(input) {
+      return asReadResult(
+        await callDurableCoordinator(ns, input.sessionId, {
+          action: "complete_failure_alert_terminal",
+          provider: input.provider,
+          error: input.error,
+          claimOwner: input.claimOwner,
+          nowMs: input.nowMs,
+        }),
+        input.sessionId,
       );
     },
   };
@@ -406,11 +495,13 @@ export function createUnavailablePrintOrderCoordinatorStore(
     recordPendingFiles: fail,
     recordHealthy: fail,
     operatorResolve: fail,
+    operatorAuthorizedRecovery: fail,
     async beginFailureAlertClaim() {
       return { ok: false, unavailable: true, error };
     },
     completeFailureAlertDelivered: fail,
     completeFailureAlertRetryableError: fail,
+    completeFailureAlertTerminal: fail,
   };
 }
 
@@ -468,7 +559,11 @@ export async function getEffectivePrintOrderRecord(
         error: bootstrapped.error,
         order: {
           ...kvRecord,
-          // Do not present a healthy sent when authority is unresolved.
+          // Fail closed: do not present a clean healthy/sent mirror while authority is unresolved.
+          status: kvRecord.status === "failed" ? "failed" : kvRecord.status,
+          operatorAlertedAt: undefined,
+          operatorAlertProvider: undefined,
+          operatorAlertError: undefined,
           printfulFileReviewPendingAt: kvRecord.printfulFileReviewPendingAt ?? Date.now(),
           error: kvRecord.error || bootstrapped.error,
         },
@@ -629,6 +724,7 @@ export async function recordTerminalFailureAndDeliverAlert(input: {
     const completed = await store.completeFailureAlertDelivered({
       sessionId: input.record.sessionId,
       provider: alertResult.provider,
+      claimOwner,
       nowMs: Date.now(),
     });
     const next: PrintOrderRecord = {
@@ -640,10 +736,35 @@ export async function recordTerminalFailureAndDeliverAlert(input: {
     return completed.ok ? overlayCoordinatorOntoPrintOrderRecord(next, completed.state) : next;
   }
 
+  const retryability = alertResult.retryability;
+  const isTerminalAlert =
+    retryability === "terminal" ||
+    retryability === "not_configured" ||
+    alertResult.errorCode === "invalid_idempotent_request" ||
+    alertResult.errorCode === "print_failure_alert_resend_required" ||
+    alertResult.errorCode === "print_alert_not_configured";
+
+  if (isTerminalAlert) {
+    const terminal = await store.completeFailureAlertTerminal({
+      sessionId: input.record.sessionId,
+      provider: alertResult.provider,
+      error: alertResult.errorCode || alertResult.error || "print_failure_alert_terminal",
+      claimOwner,
+      nowMs: Date.now(),
+    });
+    const next: PrintOrderRecord = {
+      ...base,
+      operatorFailureAlertProvider: alertResult.provider,
+      operatorFailureAlertError: alertResult.errorCode || alertResult.error,
+    };
+    return terminal.ok ? overlayCoordinatorOntoPrintOrderRecord(next, terminal.state) : next;
+  }
+
   const retryable = await store.completeFailureAlertRetryableError({
     sessionId: input.record.sessionId,
     provider: alertResult.provider,
     error: alertResult.errorCode || alertResult.error || "print_failure_alert_retryable",
+    claimOwner,
     nowMs: Date.now(),
   });
   const next: PrintOrderRecord = {

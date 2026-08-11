@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   PRINT_FAILURE_ALERT_SAFE_PROVIDER_RETRY_WINDOW_MS,
   applyHealthyTransition,
+  applyOperatorAuthorizedRecoveryTransition,
   applyPendingFilesTransition,
   applyTerminalFailureTransition,
   beginFailureAlertClaimTransition,
@@ -15,8 +16,10 @@ import {
   classifyPrintFailureAlertHttpResult,
   completeFailureAlertDeliveredTransition,
   completeFailureAlertRetryableErrorTransition,
+  completeFailureAlertTerminalTransition,
   createUninitializedCoordinatorState,
   overlayCoordinatorOntoPrintOrderRecord,
+  parseCoordinatorStateOrCorrupt,
   shouldBlockHealthyKvMirrorWrite,
 } from "./printOrderCoordinator.harness.mjs";
 
@@ -264,4 +267,111 @@ test("source: #237 waiting classification preserved; post-submit uses coordinato
   assert.match(post, /preservePendingOnUnavailable/);
   assert.equal(post.includes("printOrderTerminalState"), false);
   assert.equal(post.includes("PRINT_ORDER_STATE_R2"), false);
+});
+
+test("finding1: late 409/retryable completion never regresses delivered", () => {
+  const t0 = 4_000_000_000_000;
+  let state = createUninitializedCoordinatorState("cs_test_mono", t0);
+  state = applyTerminalFailureTransition(state, {
+    error: "fail",
+    source: "printful_webhook",
+    nowMs: t0,
+  });
+  const claimA = beginFailureAlertClaimTransition(state, { claimOwner: "a", nowMs: t0 + 1 });
+  const claimB = beginFailureAlertClaimTransition(claimA.state, { claimOwner: "b", nowMs: t0 + 2 });
+  assert.equal(claimB.claimed, true);
+  // A succeeds and completes delivered first.
+  const delivered = completeFailureAlertDeliveredTransition(claimB.state, {
+    provider: "resend",
+    claimOwner: "a",
+    nowMs: t0 + 3,
+  });
+  assert.equal(delivered.failureAlert.phase, "delivered");
+  // Late overlapping 409 completion must not regress.
+  const late409 = completeFailureAlertRetryableErrorTransition(delivered, {
+    provider: "resend",
+    error: "concurrent_idempotent_requests",
+    claimOwner: "b",
+    nowMs: t0 + 4,
+  });
+  assert.equal(late409.failureAlert.phase, "delivered");
+  const lateTerminal = completeFailureAlertTerminalTransition(delivered, {
+    provider: "resend",
+    error: "invalid_idempotent_request",
+    claimOwner: "b",
+    nowMs: t0 + 5,
+  });
+  assert.equal(lateTerminal.failureAlert.phase, "delivered");
+});
+
+test("finding3: operator-authorized recovery clears terminal failed after successful retry", () => {
+  let state = createUninitializedCoordinatorState("cs_test_recover", 10);
+  state = applyTerminalFailureTransition(state, {
+    error: "print_order_failed",
+    source: "retry",
+    nowMs: 11,
+  });
+  assert.equal(applyHealthyTransition(state, { nowMs: 12 }).ok, false);
+  const recovered = applyOperatorAuthorizedRecoveryTransition(state, {
+    printfulOrderId: "777",
+    note: "operator_authorized_retry_recovery",
+    nowMs: 13,
+  });
+  assert.equal(recovered.authorityStatus, "healthy");
+  assert.equal(recovered.printfulOrderId, "777");
+  assert.equal(recovered.error, undefined);
+  assert.equal(recovered.failureAlert.phase, "none");
+});
+
+test("finding5: corrupt coordinator rows fail closed", () => {
+  const good = createUninitializedCoordinatorState("cs_test_corrupt", 100);
+  assert.equal(parseCoordinatorStateOrCorrupt(good, "cs_test_corrupt").ok, true);
+  assert.equal(
+    parseCoordinatorStateOrCorrupt({ ...good, authorityStatus: "wat" }, "cs_test_corrupt").ok,
+    false,
+  );
+  assert.equal(
+    parseCoordinatorStateOrCorrupt(
+      { ...good, failureAlert: { ...good.failureAlert, phase: "nope" } },
+      "cs_test_corrupt",
+    ).ok,
+    false,
+  );
+  assert.equal(
+    parseCoordinatorStateOrCorrupt(
+      { ...good, opaqueOrderKey: "poc_deadbeef" },
+      "cs_test_corrupt",
+    ).ok,
+    false,
+  );
+  assert.equal(
+    parseCoordinatorStateOrCorrupt({ ...good, version: 99 }, "cs_test_corrupt").ok,
+    false,
+  );
+});
+
+test("finding6: terminal / not-configured alert outcomes go to operator_action_required", () => {
+  let state = createUninitializedCoordinatorState("cs_test_term_alert", 20);
+  state = applyTerminalFailureTransition(state, { error: "fail", source: "other", nowMs: 21 });
+  const claimed = beginFailureAlertClaimTransition(state, { claimOwner: "c", nowMs: 22 });
+  const terminal = completeFailureAlertTerminalTransition(claimed.state, {
+    provider: "none",
+    error: "invalid_idempotent_request",
+    claimOwner: "c",
+    nowMs: 23,
+  });
+  assert.equal(terminal.failureAlert.phase, "operator_action_required");
+  const reclaim = beginFailureAlertClaimTransition(terminal, { claimOwner: "c2", nowMs: 24 });
+  assert.equal(reclaim.claimed, false);
+  assert.equal(reclaim.reason, "operator_action_required");
+});
+
+test("source: retry fail-closed + recovery + status fail-closed present in routes", () => {
+  const retry = readSrc("src/app/api/print/orders/retry/route.ts");
+  const status = readSrc("src/app/api/print/orders/status/route.ts");
+  assert.match(retry, /print_order_coordinator_unavailable/);
+  assert.match(retry, /operatorAuthorizedRecovery/);
+  assert.match(retry, /wasTerminalFailed/);
+  assert.match(status, /effective\.order/);
+  assert.equal(status.includes("effective.ok ? effective.order : order"), false);
 });

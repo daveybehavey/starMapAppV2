@@ -22,6 +22,7 @@ import {
 } from "@/lib/printFulfillmentPostSubmit";
 import {
   getEffectivePrintOrderRecord,
+  getPrintOrderCoordinatorStore,
   recordTerminalFailureAndDeliverAlert,
 } from "@/lib/printOrderCoordinator";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
@@ -135,12 +136,56 @@ export async function POST(req: NextRequest) {
   const effectiveExisting = await getEffectivePrintOrderRecord(sessionId, existingRaw, {
     requireReadable: true,
   });
-  const existing = effectiveExisting.ok ? effectiveExisting.order : existingRaw;
+  // Finding #2: coordinator outage must fail closed — no Printful create/confirm/retry side effects.
+  if (!effectiveExisting.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: effectiveExisting.error || "print_order_coordinator_unavailable",
+        order: effectiveExisting.order,
+      },
+      { status: 503 },
+    );
+  }
+  const existing = effectiveExisting.order;
+  const wasTerminalFailed =
+    existing.status === "failed" || effectiveExisting.state?.authorityStatus === "failed";
+  const coordinator = await getPrintOrderCoordinatorStore();
+
+  const recoverAfterSuccessfulReestablish = async (order: PrintOrderRecord) => {
+    if (!wasTerminalFailed) return order;
+    const recovered = await coordinator.operatorAuthorizedRecovery({
+      sessionId,
+      printfulOrderId: order.printfulOrderId,
+      note: "operator_authorized_retry_recovery",
+    });
+    if (!recovered.ok) {
+      return {
+        ...order,
+        error: recovered.error || "print_order_coordinator_recovery_failed",
+      };
+    }
+    return {
+      ...order,
+      status: "sent" as const,
+      error: undefined,
+      operatorResolvedAt: recovered.state.operatorResolvedAt,
+      operatorResolvedNote: recovered.state.operatorResolvedNote,
+      operatorResolvedProvider: "manual_printful" as const,
+    };
+  };
 
   // Already created at Printful: never create a duplicate — re-review / alert only.
   if (existing.printfulOrderId || existing.status === "sent") {
     let current = existing;
-    if (shouldRereviewPrintfulFilesOnAlreadySent(current) || existing.status === "failed") {
+    if (wasTerminalFailed && existing.printfulOrderId) {
+      // Finding #3: admin retry re-establishes authority before re-review.
+      current = await recoverAfterSuccessfulReestablish(current);
+      if (current.error?.startsWith("print_order_coordinator_")) {
+        return NextResponse.json({ ok: false, error: current.error, order: current }, { status: 503 });
+      }
+    }
+    if (shouldRereviewPrintfulFilesOnAlreadySent(current) || wasTerminalFailed) {
       current = await applyPrintfulPostSubmitReview({
         ...current,
         status: "sent",
@@ -274,6 +319,11 @@ export async function POST(req: NextRequest) {
       sentAt: now,
       error: undefined,
     };
+    // Finding #3: clear terminal failed before healthy persist after successful create.
+    sent = await recoverAfterSuccessfulReestablish(sent);
+    if (sent.error?.startsWith("print_order_coordinator_")) {
+      return NextResponse.json({ ok: false, error: sent.error, order: sent }, { status: 503 });
+    }
     sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
     sent = await persistReviewedPrintOrder(sessionId, sent);
     if (sent.printfulOrderId) {
@@ -282,7 +332,7 @@ export async function POST(req: NextRequest) {
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed after retry", { sessionId, error });
     });
-    return NextResponse.json({ ok: true, status: "sent", order: sent });
+    return NextResponse.json({ ok: true, status: sent.status === "failed" ? "failed" : "sent", order: sent });
   }
 
   try {

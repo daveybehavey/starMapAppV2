@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
   }
 
   const effective = await getEffectivePrintOrderRecord(sessionId, order, { requireReadable: true });
-  const resolvedOrder = effective.ok ? effective.order : order;
+  // Finding #4: always present the fail-closed effective order during coordinator outage.
+  const resolvedOrder = effective.order;
 
   const recipient = getPrintRecipient(resolvedOrder);
   const marginPreview = recipient

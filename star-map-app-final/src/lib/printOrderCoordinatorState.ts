@@ -438,11 +438,29 @@ export function beginFailureAlertClaimTransition(
   };
 }
 
+/**
+ * Mark failure alert delivered. Monotonic: once delivered, stays delivered.
+ * Optional claimOwner is recorded for observability; provider success always upgrades to delivered.
+ */
 export function completeFailureAlertDeliveredTransition(
   state: PrintOrderCoordinatorState,
-  input: { provider: string; nowMs?: number },
+  input: { provider: string; claimOwner?: string; nowMs?: number },
 ): PrintOrderCoordinatorState {
   const nowMs = input.nowMs ?? Date.now();
+  if (state.failureAlert.phase === "delivered") {
+    return {
+      ...state,
+      failureAlert: {
+        ...state.failureAlert,
+        provider: state.failureAlert.provider || input.provider,
+        deliveredAt: state.failureAlert.deliveredAt ?? nowMs,
+        error: undefined,
+        claimOwner: undefined,
+        claimedAt: undefined,
+      },
+      updatedAt: nowMs,
+    };
+  }
   return {
     ...state,
     failureAlert: {
@@ -458,11 +476,30 @@ export function completeFailureAlertDeliveredTransition(
   };
 }
 
+/**
+ * Record a retryable provider failure. Never regresses an already-delivered alert
+ * (guards the overlapping success-vs-409 completion race).
+ */
 export function completeFailureAlertRetryableErrorTransition(
   state: PrintOrderCoordinatorState,
-  input: { provider?: string; error?: string; nowMs?: number },
+  input: { provider?: string; error?: string; claimOwner?: string; nowMs?: number },
 ): PrintOrderCoordinatorState {
   const nowMs = input.nowMs ?? Date.now();
+  if (state.failureAlert.phase === "delivered") {
+    return state;
+  }
+  if (state.failureAlert.phase === "operator_action_required") {
+    return state;
+  }
+  // Claim-scoped completion: ignore stale completions from a superseded claim owner.
+  if (
+    input.claimOwner &&
+    state.failureAlert.phase === "claimed" &&
+    state.failureAlert.claimOwner &&
+    state.failureAlert.claimOwner !== input.claimOwner
+  ) {
+    return state;
+  }
   return {
     ...state,
     failureAlert: {
@@ -470,11 +507,205 @@ export function completeFailureAlertRetryableErrorTransition(
       phase: "retryable_error",
       provider: input.provider || state.failureAlert.provider,
       error: input.error?.slice(0, 280) || "print_failure_alert_retryable",
-      // Keep claim metadata cleared so concurrent recoveries can re-claim safely.
       claimOwner: undefined,
       claimedAt: undefined,
     },
     updatedAt: nowMs,
+  };
+}
+
+/**
+ * Terminal / not-configured alert outcomes → explicit operator action.
+ * Never regresses delivered.
+ */
+export function completeFailureAlertTerminalTransition(
+  state: PrintOrderCoordinatorState,
+  input: { provider?: string; error?: string; claimOwner?: string; nowMs?: number },
+): PrintOrderCoordinatorState {
+  const nowMs = input.nowMs ?? Date.now();
+  if (state.failureAlert.phase === "delivered") {
+    return state;
+  }
+  if (
+    input.claimOwner &&
+    state.failureAlert.phase === "claimed" &&
+    state.failureAlert.claimOwner &&
+    state.failureAlert.claimOwner !== input.claimOwner
+  ) {
+    return state;
+  }
+  return {
+    ...state,
+    failureAlert: {
+      ...state.failureAlert,
+      phase: "operator_action_required",
+      provider: input.provider || state.failureAlert.provider,
+      error: input.error?.slice(0, 280) || "print_failure_alert_terminal",
+      claimOwner: undefined,
+      claimedAt: undefined,
+    },
+    updatedAt: nowMs,
+  };
+}
+
+/**
+ * Explicit admin-authorized recovery after a successful operator retry create/re-establish.
+ * This is the only transition that clears terminal `failed` outside the resolve route.
+ */
+export function applyOperatorAuthorizedRecoveryTransition(
+  state: PrintOrderCoordinatorState,
+  input: {
+    printfulOrderId?: string | number | null;
+    note?: string;
+    nowMs?: number;
+  } = {},
+): PrintOrderCoordinatorState {
+  const nowMs = input.nowMs ?? Date.now();
+  return {
+    ...state,
+    authorityStatus: "healthy",
+    error: undefined,
+    pendingFilesAt: undefined,
+    source: undefined,
+    printfulOrderId:
+      input.printfulOrderId != null ? String(input.printfulOrderId) : state.printfulOrderId,
+    operatorResolvedAt: nowMs,
+    operatorResolvedNote:
+      input.note?.trim() || state.operatorResolvedNote || "operator_authorized_retry_recovery",
+    failureAlert: {
+      phase: "none",
+      idempotencyKey: state.failureAlert.idempotencyKey,
+    },
+    updatedAt: nowMs,
+  };
+}
+
+const AUTHORITY_STATUSES = new Set([
+  "uninitialized",
+  "pending_files",
+  "healthy",
+  "failed",
+  "operator_resolved",
+]);
+
+const ALERT_PHASES = new Set([
+  "none",
+  "needed",
+  "claimed",
+  "delivered",
+  "retryable_error",
+  "operator_action_required",
+]);
+
+const FAILURE_SOURCES = new Set([
+  "printful_webhook",
+  "post_submit_files",
+  "retry",
+  "bootstrap_kv",
+  "other",
+]);
+
+/**
+ * Validate a persisted coordinator row/state. Invalid → unavailable/corrupt (fail closed).
+ */
+export function parseCoordinatorStateOrCorrupt(
+  raw: unknown,
+  expectedSessionId?: string,
+):
+  | { ok: true; state: PrintOrderCoordinatorState }
+  | { ok: false; corrupt: true; error: string } {
+  if (!raw || typeof raw !== "object") {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_empty" };
+  }
+  const row = raw as Record<string, unknown>;
+  const version = row.version;
+  if (version !== PRINT_ORDER_COORDINATOR_STATE_VERSION && version !== 1) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_version" };
+  }
+  const sessionId = typeof row.sessionId === "string" ? row.sessionId.trim() : "";
+  if (!sessionId) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_session" };
+  }
+  if (expectedSessionId && sessionId !== expectedSessionId.trim()) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_session_mismatch" };
+  }
+  const opaqueOrderKey = typeof row.opaqueOrderKey === "string" ? row.opaqueOrderKey.trim() : "";
+  if (!opaqueOrderKey || !opaqueOrderKey.startsWith("poc_")) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_opaque_key" };
+  }
+  const expectedOpaque = buildPrintOrderCoordinatorObjectName(sessionId);
+  if (opaqueOrderKey !== expectedOpaque) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_opaque_mismatch" };
+  }
+  const authorityStatus = typeof row.authorityStatus === "string" ? row.authorityStatus : "";
+  if (!AUTHORITY_STATUSES.has(authorityStatus)) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_authority" };
+  }
+  const updatedAt = row.updatedAt;
+  if (typeof updatedAt !== "number" || !Number.isFinite(updatedAt) || updatedAt <= 0) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_updated_at" };
+  }
+  const failureAlert = row.failureAlert;
+  if (!failureAlert || typeof failureAlert !== "object") {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert" };
+  }
+  const alert = failureAlert as Record<string, unknown>;
+  const phase = typeof alert.phase === "string" ? alert.phase : "";
+  if (!ALERT_PHASES.has(phase)) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert_phase" };
+  }
+  const idempotencyKey = typeof alert.idempotencyKey === "string" ? alert.idempotencyKey.trim() : "";
+  if (!idempotencyKey || !idempotencyKey.startsWith("pfa_")) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert_key" };
+  }
+  const expectedKey = buildPrintOrderFailureAlertResendIdempotencyKey(sessionId);
+  if (idempotencyKey !== expectedKey) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert_key_mismatch" };
+  }
+  const source = row.source;
+  if (source != null && (typeof source !== "string" || !FAILURE_SOURCES.has(source))) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_source" };
+  }
+  for (const tsField of ["pendingFilesAt", "operatorResolvedAt"] as const) {
+    const v = row[tsField];
+    if (v != null && (typeof v !== "number" || !Number.isFinite(v) || v <= 0)) {
+      return { ok: false, corrupt: true, error: `print_order_coordinator_corrupt_${tsField}` };
+    }
+  }
+  for (const tsField of ["claimedAt", "deliveredAt", "failureRecordedAt"] as const) {
+    const v = alert[tsField];
+    if (v != null && (typeof v !== "number" || !Number.isFinite(v) || v <= 0)) {
+      return { ok: false, corrupt: true, error: `print_order_coordinator_corrupt_alert_${tsField}` };
+    }
+  }
+
+  return {
+    ok: true,
+    state: {
+      version: PRINT_ORDER_COORDINATOR_STATE_VERSION,
+      opaqueOrderKey,
+      sessionId,
+      authorityStatus: authorityStatus as PrintOrderCoordinatorState["authorityStatus"],
+      error: typeof row.error === "string" ? row.error : undefined,
+      source: typeof source === "string" ? (source as PrintOrderCoordinatorFailureSource) : undefined,
+      printfulOrderId: typeof row.printfulOrderId === "string" ? row.printfulOrderId : undefined,
+      pendingFilesAt: typeof row.pendingFilesAt === "number" ? row.pendingFilesAt : undefined,
+      operatorResolvedAt: typeof row.operatorResolvedAt === "number" ? row.operatorResolvedAt : undefined,
+      operatorResolvedNote:
+        typeof row.operatorResolvedNote === "string" ? row.operatorResolvedNote : undefined,
+      failureAlert: {
+        phase: phase as PrintOrderFailureAlertState["phase"],
+        idempotencyKey,
+        claimOwner: typeof alert.claimOwner === "string" ? alert.claimOwner : undefined,
+        claimedAt: typeof alert.claimedAt === "number" ? alert.claimedAt : undefined,
+        deliveredAt: typeof alert.deliveredAt === "number" ? alert.deliveredAt : undefined,
+        provider: typeof alert.provider === "string" ? alert.provider : undefined,
+        error: typeof alert.error === "string" ? alert.error : undefined,
+        failureRecordedAt:
+          typeof alert.failureRecordedAt === "number" ? alert.failureRecordedAt : undefined,
+      },
+      updatedAt,
+    },
   };
 }
 

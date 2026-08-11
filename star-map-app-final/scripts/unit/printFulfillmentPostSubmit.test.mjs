@@ -120,3 +120,45 @@ test("scenario12 marker: already-has printfulOrderId path is covered by retry so
   assert.match(retry, /never create a duplicate/);
   assert.match(retry, /getEffectivePrintOrderRecord/);
 });
+
+test("finding1 integration: success then late 409 keeps delivered; no second dispatch after delivered", async () => {
+  const store = createMemoryCoordinator();
+  const sessionId = "cs_test_race_mono";
+  await store.recordTerminalFailure({ sessionId, error: "fail", source: "other" });
+  const claimA = await store.beginFailureAlertClaim({ sessionId, claimOwner: "a" });
+  const claimB = await store.beginFailureAlertClaim({ sessionId, claimOwner: "b" });
+  assert.equal(claimA.claimed, true);
+  assert.equal(claimB.claimed, true);
+  await store.completeDelivered({ sessionId, provider: "resend", claimOwner: "a" });
+  await store.completeRetryable({
+    sessionId,
+    provider: "resend",
+    error: "concurrent_idempotent_requests",
+    claimOwner: "b",
+  });
+  const after = await store.get(sessionId);
+  assert.equal(after.state.failureAlert.phase, "delivered");
+  const third = await simulateAlertDelivery(store, sessionId, async () => ({ delivered: true }));
+  assert.equal(third.claim.claimed, false);
+  assert.equal(third.claim.reason, "already_delivered");
+});
+
+test("finding2 integration: coordinator outage retry must not invoke Printful side effects", async () => {
+  const retrySrc = await import("node:fs").then((fs) =>
+    fs.readFileSync(
+      new URL("../../src/app/api/print/orders/retry/route.ts", import.meta.url),
+      "utf8",
+    ),
+  );
+  // Hard gate: unavailable coordinator returns 503 before any create path.
+  assert.match(retrySrc, /if \(!effectiveExisting\.ok\)/);
+  assert.match(retrySrc, /status: 503/);
+  const gateIdx = retrySrc.indexOf("if (!effectiveExisting.ok)");
+  assert.ok(gateIdx >= 0);
+  const afterGate = retrySrc.slice(gateIdx);
+  // First executable submitPrintfulOrder call must be after the fail-closed return.
+  const returnIdx = afterGate.indexOf("return NextResponse.json");
+  const submitIdx = afterGate.indexOf("await submitPrintfulOrder");
+  assert.ok(returnIdx >= 0 && submitIdx > returnIdx);
+  assert.match(afterGate.slice(0, submitIdx), /print_order_coordinator_unavailable/);
+});

@@ -232,6 +232,20 @@ export function beginFailureAlertClaimTransition(state, input) {
 
 export function completeFailureAlertDeliveredTransition(state, input) {
   const nowMs = input.nowMs ?? Date.now();
+  if (state.failureAlert.phase === "delivered") {
+    return {
+      ...state,
+      failureAlert: {
+        ...state.failureAlert,
+        provider: state.failureAlert.provider || input.provider,
+        deliveredAt: state.failureAlert.deliveredAt ?? nowMs,
+        error: undefined,
+        claimOwner: undefined,
+        claimedAt: undefined,
+      },
+      updatedAt: nowMs,
+    };
+  }
   return {
     ...state,
     failureAlert: {
@@ -249,6 +263,20 @@ export function completeFailureAlertDeliveredTransition(state, input) {
 
 export function completeFailureAlertRetryableErrorTransition(state, input) {
   const nowMs = input.nowMs ?? Date.now();
+  if (state.failureAlert.phase === "delivered") {
+    return state;
+  }
+  if (state.failureAlert.phase === "operator_action_required") {
+    return state;
+  }
+  if (
+    input.claimOwner &&
+    state.failureAlert.phase === "claimed" &&
+    state.failureAlert.claimOwner &&
+    state.failureAlert.claimOwner !== input.claimOwner
+  ) {
+    return state;
+  }
   return {
     ...state,
     failureAlert: {
@@ -261,6 +289,106 @@ export function completeFailureAlertRetryableErrorTransition(state, input) {
     },
     updatedAt: nowMs,
   };
+}
+
+export function completeFailureAlertTerminalTransition(state, input) {
+  const nowMs = input.nowMs ?? Date.now();
+  if (state.failureAlert.phase === "delivered") {
+    return state;
+  }
+  if (
+    input.claimOwner &&
+    state.failureAlert.phase === "claimed" &&
+    state.failureAlert.claimOwner &&
+    state.failureAlert.claimOwner !== input.claimOwner
+  ) {
+    return state;
+  }
+  return {
+    ...state,
+    failureAlert: {
+      ...state.failureAlert,
+      phase: "operator_action_required",
+      provider: input.provider || state.failureAlert.provider,
+      error: input.error?.slice(0, 280) || "print_failure_alert_terminal",
+      claimOwner: undefined,
+      claimedAt: undefined,
+    },
+    updatedAt: nowMs,
+  };
+}
+
+export function applyOperatorAuthorizedRecoveryTransition(state, input = {}) {
+  const nowMs = input.nowMs ?? Date.now();
+  return {
+    ...state,
+    authorityStatus: "healthy",
+    error: undefined,
+    pendingFilesAt: undefined,
+    source: undefined,
+    printfulOrderId:
+      input.printfulOrderId != null ? String(input.printfulOrderId) : state.printfulOrderId,
+    operatorResolvedAt: nowMs,
+    operatorResolvedNote:
+      input.note?.trim() || state.operatorResolvedNote || "operator_authorized_retry_recovery",
+    failureAlert: {
+      phase: "none",
+      idempotencyKey: state.failureAlert.idempotencyKey,
+    },
+    updatedAt: nowMs,
+  };
+}
+
+export function parseCoordinatorStateOrCorrupt(raw, expectedSessionId) {
+  if (!raw || typeof raw !== "object") {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_empty" };
+  }
+  const AUTHORITY = new Set(["uninitialized", "pending_files", "healthy", "failed", "operator_resolved"]);
+  const PHASES = new Set([
+    "none",
+    "needed",
+    "claimed",
+    "delivered",
+    "retryable_error",
+    "operator_action_required",
+  ]);
+  if (raw.version !== 1) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_version" };
+  }
+  const sessionId = typeof raw.sessionId === "string" ? raw.sessionId.trim() : "";
+  if (!sessionId) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_session" };
+  }
+  if (expectedSessionId && sessionId !== expectedSessionId.trim()) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_session_mismatch" };
+  }
+  const opaqueOrderKey = typeof raw.opaqueOrderKey === "string" ? raw.opaqueOrderKey.trim() : "";
+  if (!opaqueOrderKey.startsWith("poc_")) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_opaque_key" };
+  }
+  if (opaqueOrderKey !== buildPrintOrderCoordinatorObjectName(sessionId)) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_opaque_mismatch" };
+  }
+  if (!AUTHORITY.has(raw.authorityStatus)) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_authority" };
+  }
+  if (typeof raw.updatedAt !== "number" || !Number.isFinite(raw.updatedAt) || raw.updatedAt <= 0) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_updated_at" };
+  }
+  const alert = raw.failureAlert;
+  if (!alert || typeof alert !== "object") {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert" };
+  }
+  if (!PHASES.has(alert.phase)) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert_phase" };
+  }
+  if (typeof alert.idempotencyKey !== "string" || !alert.idempotencyKey.startsWith("pfa_")) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert_key" };
+  }
+  if (alert.idempotencyKey !== buildPrintOrderFailureAlertResendIdempotencyKey(sessionId)) {
+    return { ok: false, corrupt: true, error: "print_order_coordinator_corrupt_alert_key_mismatch" };
+  }
+  return { ok: true, state: raw };
 }
 
 export function overlayCoordinatorOntoPrintOrderRecord(record, state) {

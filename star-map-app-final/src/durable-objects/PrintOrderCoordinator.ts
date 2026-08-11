@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import {
   applyHealthyTransition,
+  applyOperatorAuthorizedRecoveryTransition,
   applyOperatorResolvedTransition,
   applyPendingFilesTransition,
   applyTerminalFailureTransition,
@@ -8,10 +9,11 @@ import {
   bootstrapCoordinatorFromKvMirror,
   completeFailureAlertDeliveredTransition,
   completeFailureAlertRetryableErrorTransition,
+  completeFailureAlertTerminalTransition,
   createUninitializedCoordinatorState,
+  parseCoordinatorStateOrCorrupt,
   type PrintOrderCoordinatorFailureSource,
   type PrintOrderCoordinatorState,
-  type PrintOrderFailureAlertState,
 } from "../lib/printOrderCoordinatorState";
 
 type CoordinatorRow = {
@@ -36,20 +38,20 @@ type CoordinatorRow = {
   version: number;
 };
 
-function rowToState(row: CoordinatorRow): PrintOrderCoordinatorState {
+function rowToRawCandidate(row: CoordinatorRow) {
   return {
-    version: 1,
+    version: row.version,
     opaqueOrderKey: row.opaque_order_key,
     sessionId: row.session_id,
-    authorityStatus: row.authority_status as PrintOrderCoordinatorState["authorityStatus"],
+    authorityStatus: row.authority_status,
     error: row.error || undefined,
-    source: (row.source as PrintOrderCoordinatorFailureSource | null) || undefined,
+    source: row.source || undefined,
     printfulOrderId: row.printful_order_id || undefined,
     pendingFilesAt: row.pending_files_at ?? undefined,
     operatorResolvedAt: row.operator_resolved_at ?? undefined,
     operatorResolvedNote: row.operator_resolved_note || undefined,
     failureAlert: {
-      phase: row.alert_phase as PrintOrderFailureAlertState["phase"],
+      phase: row.alert_phase,
       idempotencyKey: row.alert_idempotency_key,
       claimOwner: row.alert_claim_owner || undefined,
       claimedAt: row.alert_claimed_at ?? undefined,
@@ -99,13 +101,18 @@ export class PrintOrderCoordinator extends DurableObject {
     this.#ready = true;
   }
 
-  #readState(): PrintOrderCoordinatorState | null {
+  #readValidated(
+    sessionId: string,
+  ):
+    | { ok: true; state: PrintOrderCoordinatorState | null }
+    | { ok: false; corrupt: true; error: string } {
     this.#ensureSchema();
     const cursor = this.ctx.storage.sql.exec<CoordinatorRow>(
       `SELECT * FROM print_order_coordinator WHERE id = 1 LIMIT 1`,
     );
     const row = cursor.toArray()[0];
-    return row ? rowToState(row) : null;
+    if (!row) return { ok: true, state: null };
+    return parseCoordinatorStateOrCorrupt(rowToRawCandidate(row), sessionId);
   }
 
   #writeState(state: PrintOrderCoordinatorState): void {
@@ -161,12 +168,18 @@ export class PrintOrderCoordinator extends DurableObject {
     );
   }
 
-  #loadOrInit(sessionId: string, nowMs: number): PrintOrderCoordinatorState {
-    const existing = this.#readState();
-    if (existing) return existing;
+  #loadOrInit(
+    sessionId: string,
+    nowMs: number,
+  ):
+    | { ok: true; state: PrintOrderCoordinatorState }
+    | { ok: false; corrupt: true; error: string } {
+    const read = this.#readValidated(sessionId);
+    if (!read.ok) return read;
+    if (read.state) return { ok: true, state: read.state };
     const created = createUninitializedCoordinatorState(sessionId, nowMs);
     this.#writeState(created);
-    return created;
+    return { ok: true, state: created };
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -180,13 +193,20 @@ export class PrintOrderCoordinator extends DurableObject {
         return Response.json({ ok: false, error: "sessionId_required" }, { status: 400 });
       }
 
+      const corruptResponse = (error: string) =>
+        Response.json({ ok: false, unavailable: true, error }, { status: 500 });
+
       switch (action) {
         case "get": {
-          const state = this.#readState() ?? createUninitializedCoordinatorState(sessionId, nowMs);
+          const read = this.#readValidated(sessionId);
+          if (!read.ok) return corruptResponse(read.error);
+          const state = read.state ?? createUninitializedCoordinatorState(sessionId, nowMs);
           return Response.json({ ok: true, state });
         }
         case "bootstrap_from_kv": {
-          let state = this.#readState();
+          const read = this.#readValidated(sessionId);
+          if (!read.ok) return corruptResponse(read.error);
+          let state = read.state;
           if (!state || state.authorityStatus === "uninitialized") {
             state = bootstrapCoordinatorFromKvMirror({
               sessionId,
@@ -214,10 +234,11 @@ export class PrintOrderCoordinator extends DurableObject {
           return Response.json({ ok: true, state });
         }
         case "record_terminal_failure": {
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
           const error = typeof body.error === "string" ? body.error : "print_order_failed";
           const source = (typeof body.source === "string" ? body.source : "other") as PrintOrderCoordinatorFailureSource;
-          let state = this.#loadOrInit(sessionId, nowMs);
-          state = applyTerminalFailureTransition(state, {
+          const state = applyTerminalFailureTransition(loaded.state, {
             error,
             source,
             printfulOrderId: body.printfulOrderId as string | number | null | undefined,
@@ -227,8 +248,9 @@ export class PrintOrderCoordinator extends DurableObject {
           return Response.json({ ok: true, state });
         }
         case "record_pending_files": {
-          const state = this.#loadOrInit(sessionId, nowMs);
-          const result = applyPendingFilesTransition(state, {
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
+          const result = applyPendingFilesTransition(loaded.state, {
             printfulOrderId: body.printfulOrderId as string | number | null | undefined,
             nowMs,
           });
@@ -240,8 +262,9 @@ export class PrintOrderCoordinator extends DurableObject {
           });
         }
         case "record_healthy": {
-          const state = this.#loadOrInit(sessionId, nowMs);
-          const result = applyHealthyTransition(state, {
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
+          const result = applyHealthyTransition(loaded.state, {
             printfulOrderId: body.printfulOrderId as string | number | null | undefined,
             nowMs,
           });
@@ -253,8 +276,20 @@ export class PrintOrderCoordinator extends DurableObject {
           });
         }
         case "operator_resolve": {
-          let state = this.#loadOrInit(sessionId, nowMs);
-          state = applyOperatorResolvedTransition(state, {
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
+          const state = applyOperatorResolvedTransition(loaded.state, {
+            printfulOrderId: body.printfulOrderId as string | number | null | undefined,
+            note: typeof body.note === "string" ? body.note : undefined,
+            nowMs,
+          });
+          this.#writeState(state);
+          return Response.json({ ok: true, state });
+        }
+        case "operator_authorized_recovery": {
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
+          const state = applyOperatorAuthorizedRecoveryTransition(loaded.state, {
             printfulOrderId: body.printfulOrderId as string | number | null | undefined,
             note: typeof body.note === "string" ? body.note : undefined,
             nowMs,
@@ -267,25 +302,45 @@ export class PrintOrderCoordinator extends DurableObject {
             typeof body.claimOwner === "string" && body.claimOwner.trim()
               ? body.claimOwner.trim()
               : `claim_${nowMs}`;
-          const state = this.#loadOrInit(sessionId, nowMs);
-          const result = beginFailureAlertClaimTransition(state, { claimOwner, nowMs });
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
+          const result = beginFailureAlertClaimTransition(loaded.state, { claimOwner, nowMs });
           if (result.ok) {
             this.#writeState(result.state);
           }
           return Response.json(result);
         }
         case "complete_failure_alert_delivered": {
-          let state = this.#loadOrInit(sessionId, nowMs);
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
           const provider = typeof body.provider === "string" ? body.provider : "resend";
-          state = completeFailureAlertDeliveredTransition(state, { provider, nowMs });
+          const state = completeFailureAlertDeliveredTransition(loaded.state, {
+            provider,
+            claimOwner: typeof body.claimOwner === "string" ? body.claimOwner : undefined,
+            nowMs,
+          });
           this.#writeState(state);
           return Response.json({ ok: true, state });
         }
         case "complete_failure_alert_retryable_error": {
-          let state = this.#loadOrInit(sessionId, nowMs);
-          state = completeFailureAlertRetryableErrorTransition(state, {
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
+          const state = completeFailureAlertRetryableErrorTransition(loaded.state, {
             provider: typeof body.provider === "string" ? body.provider : undefined,
             error: typeof body.error === "string" ? body.error : undefined,
+            claimOwner: typeof body.claimOwner === "string" ? body.claimOwner : undefined,
+            nowMs,
+          });
+          this.#writeState(state);
+          return Response.json({ ok: true, state });
+        }
+        case "complete_failure_alert_terminal": {
+          const loaded = this.#loadOrInit(sessionId, nowMs);
+          if (!loaded.ok) return corruptResponse(loaded.error);
+          const state = completeFailureAlertTerminalTransition(loaded.state, {
+            provider: typeof body.provider === "string" ? body.provider : undefined,
+            error: typeof body.error === "string" ? body.error : undefined,
+            claimOwner: typeof body.claimOwner === "string" ? body.claimOwner : undefined,
             nowMs,
           });
           this.#writeState(state);
