@@ -56,6 +56,7 @@ import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
   readStoredPrintShippingCountry,
+  resolveInitialPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
 import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
@@ -395,12 +396,9 @@ export function EditorExperience({
   );
   useEffect(() => {
     const stored = readStoredPrintShippingCountry();
-    if (stored && printShippingCountries.includes(stored)) {
-      setPrintShippingCountryValue(stored, "initial");
-      return;
-    }
-    if (printShippingCountries.length) {
-      setPrintShippingCountryValue(printShippingCountries[0], "initial");
+    const initial = resolveInitialPrintShippingCountry(stored, printShippingCountries);
+    if (initial) {
+      setPrintShippingCountryValue(initial, "initial");
     }
   }, [printShippingCountries, setPrintShippingCountryValue]);
 

@@ -94,3 +94,53 @@ export function getPrintDeliveryEtaLine(printShippingCountry, variant = "poster_
   if (!printShippingCountry) return null;
   return formatPrintDeliveryDisclosure(variant, printShippingCountry);
 }
+
+/**
+ * Restore a previously chosen destination, or keep unset.
+ * Never invents the first allowed country (US) for first-time visitors.
+ */
+export function resolveInitialPrintShippingCountry(stored, allowedCountries) {
+  if (!stored) return null;
+  const normalized = String(stored).trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return null;
+  if (!allowedCountries.includes(normalized)) return null;
+  return normalized;
+}
+
+/**
+ * Behavioral stand-in for EditorExperience shipping-country init + selection.
+ * Never silently converts unset -> first allowed country.
+ */
+export function applyEditorPrintShippingCountrySelection({
+  current = null,
+  stored = null,
+  query = null,
+  userSelected = null,
+  allowedCountries = ["US", "CA", "GB"],
+} = {}) {
+  let selected = resolveInitialPrintShippingCountry(stored, allowedCountries);
+  if (query) {
+    const fromQuery = resolveInitialPrintShippingCountry(query, allowedCountries);
+    if (fromQuery) selected = fromQuery;
+  }
+  if (userSelected) {
+    const fromUser = resolveInitialPrintShippingCountry(userSelected, allowedCountries);
+    if (fromUser) selected = fromUser;
+  }
+  if (current && !selected) {
+    selected = resolveInitialPrintShippingCountry(current, allowedCountries);
+  }
+  return selected;
+}
+
+/** Checkout/provider gate: unset destination must not become US. */
+export function assertPrintCheckoutShippingCountry(shippingCountry, allowedCountries = ["US", "CA", "GB"]) {
+  if (!shippingCountry) {
+    return { ok: false, reason: "missing_shipping_country", country: null };
+  }
+  const normalized = resolveInitialPrintShippingCountry(shippingCountry, allowedCountries);
+  if (!normalized) {
+    return { ok: false, reason: "print_shipping_country_invalid", country: null };
+  }
+  return { ok: true, reason: null, country: normalized };
+}

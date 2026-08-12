@@ -3,10 +3,13 @@ import test from "node:test";
 import {
   PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
   PRINT_NEUTRAL_TRANSIT_DISCLOSURE,
+  applyEditorPrintShippingCountrySelection,
+  assertPrintCheckoutShippingCountry,
   formatPrintDeliveryDisclosure,
   formatPrintDeliveryEstimate,
   getPrintDeliveryEtaLine,
   getPrintfulShippingRate,
+  resolveInitialPrintShippingCountry,
 } from "./printfulShipping.harness.mjs";
 import {
   getPrintDeliveryEstimateLine,
@@ -135,6 +138,112 @@ test("checkout shipping matrix rates for US and CA are unchanged by disclosure h
   assert.equal(caFramed.max_delivery_days, 10);
   assert.equal(caUnframed.min_delivery_days, 2);
   assert.equal(caUnframed.max_delivery_days, 5);
+});
+
+test("editor shipping-country init never silently invents first-list US", () => {
+  const allowed = ["US", "CA", "GB"];
+  assert.equal(allowed[0], "US", "fixture preserves US-first list order");
+
+  // 1. Fresh visitor: no storage, no query => remains unset
+  assert.equal(resolveInitialPrintShippingCountry(null, allowed), null);
+  assert.equal(resolveInitialPrintShippingCountry(undefined, allowed), null);
+  assert.equal(resolveInitialPrintShippingCountry("", allowed), null);
+  assert.equal(
+    applyEditorPrintShippingCountrySelection({ stored: null, query: null, allowedCountries: allowed }),
+    null,
+  );
+  assert.equal(
+    formatPrintDeliveryDisclosure(
+      "poster_framed",
+      applyEditorPrintShippingCountrySelection({ stored: null, query: null, allowedCountries: allowed }),
+    ),
+    PRINT_NEUTRAL_TRANSIT_DISCLOSURE,
+  );
+
+  // Unsupported stored value does not fall back to US
+  assert.equal(resolveInitialPrintShippingCountry("ZZ", allowed), null);
+
+  // 2. Stored US restores US
+  assert.equal(resolveInitialPrintShippingCountry("US", allowed), "US");
+  assert.equal(resolveInitialPrintShippingCountry("us", allowed), "US");
+  assert.equal(
+    applyEditorPrintShippingCountrySelection({ stored: "US", allowedCountries: allowed }),
+    "US",
+  );
+
+  // 3. Stored CA restores CA
+  assert.equal(resolveInitialPrintShippingCountry("CA", allowed), "CA");
+  assert.equal(
+    applyEditorPrintShippingCountrySelection({ stored: "CA", allowedCountries: allowed }),
+    "CA",
+  );
+
+  // 4. Explicit supported query selection works (overrides missing storage)
+  assert.equal(
+    applyEditorPrintShippingCountrySelection({
+      stored: null,
+      query: "GB",
+      allowedCountries: allowed,
+    }),
+    "GB",
+  );
+  assert.equal(
+    applyEditorPrintShippingCountrySelection({
+      stored: "US",
+      query: "CA",
+      allowedCountries: allowed,
+    }),
+    "CA",
+  );
+  assert.equal(
+    applyEditorPrintShippingCountrySelection({
+      stored: null,
+      query: "ZZ",
+      allowedCountries: allowed,
+    }),
+    null,
+  );
+
+  // 5. User selection persists / wins over stored+query
+  assert.equal(
+    applyEditorPrintShippingCountrySelection({
+      stored: "US",
+      query: "GB",
+      userSelected: "CA",
+      allowedCountries: allowed,
+    }),
+    "CA",
+  );
+
+  // 6. Checkout/provider paths cannot silently convert unset to US
+  assert.deepEqual(assertPrintCheckoutShippingCountry(null, allowed), {
+    ok: false,
+    reason: "missing_shipping_country",
+    country: null,
+  });
+  assert.deepEqual(assertPrintCheckoutShippingCountry(undefined, allowed), {
+    ok: false,
+    reason: "missing_shipping_country",
+    country: null,
+  });
+  assert.deepEqual(assertPrintCheckoutShippingCountry("ZZ", allowed), {
+    ok: false,
+    reason: "print_shipping_country_invalid",
+    country: null,
+  });
+  assert.deepEqual(assertPrintCheckoutShippingCountry("CA", allowed), {
+    ok: true,
+    reason: null,
+    country: "CA",
+  });
+
+  const editorSource = readSrc("components/EditorExperience.tsx");
+  assert.match(editorSource, /resolveInitialPrintShippingCountry/);
+  assert.doesNotMatch(editorSource, /printShippingCountries\[0\]/);
+  assert.doesNotMatch(
+    editorSource,
+    /setPrintShippingCountryValue\(\s*printShippingCountries\[0\]/,
+  );
 });
 
 test("generic/indexable surfaces no longer hard-code US transit disclosures", () => {

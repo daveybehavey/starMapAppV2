@@ -158,6 +158,21 @@ export function readStoredPrintShippingCountry() {
   }
 }
 
+/**
+ * Restore a previously chosen destination, or keep unset.
+ * Never invents the first allowed country (US) for first-time visitors.
+ */
+export function resolveInitialPrintShippingCountry(
+  stored: string | null | undefined,
+  allowedCountries: readonly string[],
+): string | null {
+  if (!stored) return null;
+  const normalized = stored.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return null;
+  if (!allowedCountries.includes(normalized)) return null;
+  return normalized;
+}
+
 export function storePrintShippingCountry(country: string) {
   if (typeof window === "undefined") return;
   try {
