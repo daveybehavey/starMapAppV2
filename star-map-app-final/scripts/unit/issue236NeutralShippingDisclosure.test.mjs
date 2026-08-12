@@ -3,13 +3,17 @@ import test from "node:test";
 import {
   PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
   PRINT_NEUTRAL_TRANSIT_DISCLOSURE,
+  PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL,
   applyEditorPrintShippingCountrySelection,
+  applyUnsetShippingCountrySelectInteraction,
   assertPrintCheckoutShippingCountry,
+  buildPrintShippingCountrySelectOptionValues,
   formatPrintDeliveryDisclosure,
   formatPrintDeliveryEstimate,
   getPrintDeliveryEtaLine,
   getPrintfulShippingRate,
   resolveInitialPrintShippingCountry,
+  resolveMatchingSelectOptionValue,
 } from "./printfulShipping.harness.mjs";
 import {
   getPrintDeliveryEstimateLine,
@@ -244,6 +248,64 @@ test("editor shipping-country init never silently invents first-list US", () => 
     editorSource,
     /setPrintShippingCountryValue\(\s*printShippingCountries\[0\]/,
   );
+});
+
+test("unset shipping-country selects show placeholder instead of US-first fallthrough", () => {
+  const allowed = ["US", "CA", "GB"];
+  assert.equal(allowed[0], "US");
+
+  // Without placeholder, controlled value "" falls through to first/US (the P1 defect).
+  const withoutPlaceholder = buildPrintShippingCountrySelectOptionValues(allowed, { withPlaceholder: false });
+  assert.equal(resolveMatchingSelectOptionValue("", withoutPlaceholder), "US");
+
+  // With placeholder, unset stays visually and logically unset.
+  const withPlaceholder = buildPrintShippingCountrySelectOptionValues(allowed, { withPlaceholder: true });
+  assert.equal(withPlaceholder[0], "");
+  assert.equal(resolveMatchingSelectOptionValue("", withPlaceholder), "");
+  assert.equal(PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL, "Select shipping country");
+
+  const unset = applyUnsetShippingCountrySelectInteraction({
+    currentCountry: null,
+    nextSelectedValue: "",
+    allowedCountries: allowed,
+  });
+  assert.equal(unset.displayValue, "");
+  assert.equal(unset.nextCountry, null);
+  assert.equal(unset.emittedChange, false);
+
+  // US buyer can select US directly once from placeholder (real change "" -> US).
+  const selectUs = applyUnsetShippingCountrySelectInteraction({
+    currentCountry: null,
+    nextSelectedValue: "US",
+    allowedCountries: allowed,
+  });
+  assert.equal(selectUs.displayValue, "");
+  assert.equal(selectUs.nextDisplayValue, "US");
+  assert.equal(selectUs.emittedChange, true);
+  assert.equal(selectUs.nextCountry, "US");
+
+  // Stored/query restoration still matches a real option, not placeholder.
+  assert.equal(resolveMatchingSelectOptionValue("CA", withPlaceholder), "CA");
+  assert.equal(
+    applyUnsetShippingCountrySelectInteraction({
+      currentCountry: "CA",
+      nextSelectedValue: "CA",
+      allowedCountries: allowed,
+    }).emittedChange,
+    false,
+  );
+
+  const selectorSurfaces = [
+    "components/EditorExperience.tsx",
+    "components/PaywallModal.tsx",
+    "app/MobileCreate.tsx",
+  ];
+  for (const relativePath of selectorSurfaces) {
+    const source = readSrc(relativePath);
+    assert.match(source, /PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL/, relativePath);
+    assert.match(source, /<option[\s\S]*?value=""[\s\S]*?>/, relativePath);
+    assert.match(source, /value=\{printShippingCountry \?\? ""\}/, relativePath);
+  }
 });
 
 test("generic/indexable surfaces no longer hard-code US transit disclosures", () => {

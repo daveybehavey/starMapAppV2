@@ -19,7 +19,7 @@ import {
   getPrintShippingDisclosure,
   getPrintFreeShippingOfferLine,
 } from "@/lib/printCheckoutConfig";
-import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
@@ -448,6 +448,13 @@ export function PaywallModal({
                       className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs"
                       style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
+                      <option
+                        value=""
+                        className="text-midnight"
+                        style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                      >
+                        {PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL}
+                      </option>
                       {printShippingCountryOptions.map((country) => (
                         <option
                           key={country.code}

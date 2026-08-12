@@ -134,6 +134,9 @@ export const PRINT_NEUTRAL_TRANSIT_DISCLOSURE =
 export const PRINT_NEUTRAL_SHIPPING_CARD_NOTE =
   "Shipping cost and destination-specific transit are shown after you select a shipping country." as const;
 
+/** Explicit empty option label for unset shipping-country selects (never invent first/US). */
+export const PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL = "Select shipping country" as const;
+
 /**
  * Customer-facing transit disclosure.
  * Known supported country → matrix-backed country-labelled window.

@@ -55,6 +55,7 @@ import {
 import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
+  PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL,
   readStoredPrintShippingCountry,
   resolveInitialPrintShippingCountry,
   storePrintShippingCountry,
@@ -3395,6 +3396,13 @@ export function EditorExperience({
                                   colorScheme: "light",
                                 }}
                               >
+                                <option
+                                  value=""
+                                  className="text-midnight"
+                                  style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                                >
+                                  {PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL}
+                                </option>
                                 {printShippingCountryOptions.map((country) => (
                                   <option
                                     key={country.code}

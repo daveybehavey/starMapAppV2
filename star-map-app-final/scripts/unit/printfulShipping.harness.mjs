@@ -15,6 +15,8 @@ export const PRINT_NEUTRAL_TRANSIT_DISCLOSURE =
 export const PRINT_NEUTRAL_SHIPPING_CARD_NOTE =
   "Shipping cost and destination-specific transit are shown after you select a shipping country.";
 
+export const PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL = "Select shipping country";
+
 const FALLBACK_COUNTRY_LABELS = {
   US: "United States",
   CA: "Canada",
@@ -143,4 +145,43 @@ export function assertPrintCheckoutShippingCountry(shippingCountry, allowedCount
     return { ok: false, reason: "print_shipping_country_invalid", country: null };
   }
   return { ok: true, reason: null, country: normalized };
+}
+
+/**
+ * Controlled <select> matching behavior:
+ * if value matches no option, browsers/React fall through to the first enabled option.
+ */
+export function resolveMatchingSelectOptionValue(value, optionValues) {
+  if (optionValues.includes(value)) return value;
+  return optionValues.length ? optionValues[0] : null;
+}
+
+export function buildPrintShippingCountrySelectOptionValues(allowedCountries, { withPlaceholder = true } = {}) {
+  return withPlaceholder ? ["", ...allowedCountries] : [...allowedCountries];
+}
+
+/**
+ * Behavioral model for unset shipping-country select:
+ * - display value stays "" while unset
+ * - placeholder option prevents US-first visual selection
+ * - choosing US once emits a real change from "" -> "US"
+ */
+export function applyUnsetShippingCountrySelectInteraction({
+  currentCountry = null,
+  nextSelectedValue,
+  allowedCountries = ["US", "CA", "GB"],
+} = {}) {
+  const optionValues = buildPrintShippingCountrySelectOptionValues(allowedCountries, { withPlaceholder: true });
+  const displayValue = currentCountry ?? "";
+  const matchedBefore = resolveMatchingSelectOptionValue(displayValue, optionValues);
+  const matchedAfter = resolveMatchingSelectOptionValue(nextSelectedValue, optionValues);
+  const emittedChange = matchedBefore !== matchedAfter;
+  const nextCountry = matchedAfter === "" ? null : resolveInitialPrintShippingCountry(matchedAfter, allowedCountries);
+  return {
+    displayValue: matchedBefore,
+    nextDisplayValue: matchedAfter,
+    emittedChange,
+    nextCountry,
+    placeholderLabel: PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL,
+  };
 }
