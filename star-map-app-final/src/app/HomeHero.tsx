@@ -76,7 +76,7 @@ const VALUE_PROPS = [
 export default function HomeHero() {
   const productionTrustTitle = isPrintfulAutoConfirmEnabled() ? "Made to order" : "Quality review";
   const trustItems = [
-    { title: "Clear shipping", detail: "U.S. shipping shown before you pay", icon: HeroTruckIcon },
+    { title: "Clear shipping", detail: "Shipping shown before you pay", icon: HeroTruckIcon },
     { title: productionTrustTitle, detail: getPrintProductionReviewTrustPoint(), icon: HeroBadgeIcon },
     { title: "Damage support", detail: "Help if your print arrives damaged", icon: HeroReturnIcon },
   ] as const;

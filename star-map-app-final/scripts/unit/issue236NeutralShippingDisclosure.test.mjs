@@ -146,6 +146,8 @@ test("generic/indexable surfaces no longer hard-code US transit disclosures", ()
     "components/FramedProofSection.tsx",
     "app/shop/page.tsx",
     "app/shipping/page.tsx",
+    "app/star-map-gift-formats/page.tsx",
+    "app/HomeHero.tsx",
     "lib/supportFaq.ts",
     "lib/commerceFacts.ts",
   ];
@@ -158,11 +160,23 @@ test("generic/indexable surfaces no longer hard-code US transit disclosures", ()
     assert.doesNotMatch(source, /proofShippingCountry\s*=\s*["']US["']/, relativePath);
     assert.doesNotMatch(source, /Est\. to U\.S\./, relativePath);
     assert.doesNotMatch(source, /Typical U\.S\./, relativePath);
+    assert.doesNotMatch(source, /U\.S\. shipping shown before you pay/, relativePath);
+    assert.doesNotMatch(source, /US shipping starts around/, relativePath);
+    assert.doesNotMatch(source, /shipping_country=US/, relativePath);
+    assert.doesNotMatch(source, /getPrintShippingEstimate\([^)]*["']US["']/, relativePath);
   }
 
   assert.match(readSrc("lib/printfulShipping.ts"), /PRINT_NEUTRAL_TRANSIT_DISCLOSURE/);
   assert.match(readSrc("lib/printfulShipping.ts"), /PRINT_NEUTRAL_SHIPPING_CARD_NOTE/);
   assert.equal(PRINT_NEUTRAL_SHIPPING_CARD_NOTE.includes("United States"), false);
+
+  const giftFormats = readSrc("app/star-map-gift-formats/page.tsx");
+  assert.match(giftFormats, /PRINT_NEUTRAL_SHIPPING_CARD_NOTE/);
+  assert.doesNotMatch(giftFormats, /shipping_country=US/);
+
+  const homeHero = readSrc("app/HomeHero.tsx");
+  assert.match(homeHero, /Shipping shown before you pay/);
+  assert.doesNotMatch(homeHero, /U\.S\. shipping/);
 });
 
 test("post-checkout helpers accept shippingCountry without expanding address/PII surface", () => {
