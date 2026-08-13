@@ -65,6 +65,8 @@ export async function sendPrintOrderConfirmation(sessionId: string): Promise<Pri
     productLabel: getPrintProductLabel(record.printVariant),
     amountLabel: formatPrintOrderAmount(record.amountTotal ?? null, record.currency ?? null),
     shippingSummary: formatPrintShippingSummary(record.shippingDetails),
+    shippingCountry: record.shippingDetails?.address?.country ?? null,
+    printVariant: record.printVariant ?? null,
     orderReference: buildOrderReference(sessionId, record.printfulOrderId),
     successUrl: `${siteUrl}/success?session_id=${encodeURIComponent(sessionId)}`,
     supportEmail,

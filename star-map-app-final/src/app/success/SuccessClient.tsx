@@ -77,9 +77,10 @@ type PrintOrderSummary = {
   printfulOrderId: string | number | null;
   confirmationEmailSent: boolean;
   shippingNotificationSent: boolean;
+  /** Destination country code only — never full address. */
+  shippingCountry: string | null;
 };
 
-const printFulfillmentSteps = getPrintFulfillmentProgressSteps();
 const printOrderIncludesDigitalNote = getPrintOrderIncludesDigitalNote();
 
 function readStoredMapId() {
@@ -128,6 +129,14 @@ export default function SuccessClient() {
   const accessPanelTrackedRef = useRef(false);
   const digitalPriceLabel = formatPrice(getPricingTiers().single.amountCents, getPricingTiers().single.currency);
   const printTiers = useMemo(() => getPrintPricingTiers(), []);
+  const printFulfillmentSteps = useMemo(
+    () =>
+      getPrintFulfillmentProgressSteps({
+        country: printSummary?.shippingCountry ?? null,
+        variant: printVariant ?? "poster_framed",
+      }),
+    [printSummary?.shippingCountry, printVariant],
+  );
   const successPrintUpsellCards = useMemo(() => {
     return listDownloadPrintUpsellCards().map((card) => ({
       ...card,

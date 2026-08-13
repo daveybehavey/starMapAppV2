@@ -21,7 +21,7 @@ import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
-import { getPrintShippingEstimate } from "@/lib/printfulShipping";
+import { PRINT_NEUTRAL_SHIPPING_CARD_NOTE } from "@/lib/printfulShipping";
 
 export const revalidate = 86400;
 
@@ -58,15 +58,6 @@ export default function StarMapGiftFormatsPage() {
     unframed: HOME_MOCKUPS.unframedPoster,
   };
 
-  const usFramedShipping = getPrintShippingEstimate("poster_framed", "US");
-  const usUnframedShipping = getPrintShippingEstimate("poster_unframed", "US");
-  const usFramedShippingLabel = usFramedShipping
-    ? formatPrice(usFramedShipping.amountCents, usFramedShipping.currency)
-    : "varies";
-  const usUnframedShippingLabel = usUnframedShipping
-    ? formatPrice(usUnframedShipping.amountCents, usUnframedShipping.currency)
-    : "varies";
-
   const liveFormats = [
     {
       title: "HD digital download",
@@ -91,8 +82,8 @@ export default function StarMapGiftFormatsPage() {
         printPricing.poster_framed.amountCents,
         printPricing.poster_framed.currency
       ),
-      detail: `Premium ready-to-hang gift path. US shipping starts around ${usFramedShippingLabel}.`,
-      href: "/editor?mode=quick&source=gift-formats-framed&checkout=print&print_variant=poster_framed&shipping_country=US",
+      detail: `Premium ready-to-hang gift path. ${PRINT_NEUTRAL_SHIPPING_CARD_NOTE}`,
+      href: "/editor?mode=quick&source=gift-formats-framed&checkout=print&print_variant=poster_framed",
       imageSrc: proofImages.framed,
       fallbackSrc: HOME_MOCKUPS.framedBedroom,
       bulletA: "Ready-to-hang framed delivery",
@@ -110,8 +101,8 @@ export default function StarMapGiftFormatsPage() {
         printPricing.poster_unframed.amountCents,
         printPricing.poster_unframed.currency
       ),
-      detail: `Professional poster print path. US shipping starts around ${usUnframedShippingLabel}.`,
-      href: "/editor?mode=quick&source=gift-formats-unframed&checkout=print&print_variant=poster_unframed&shipping_country=US",
+      detail: `Professional poster print path. ${PRINT_NEUTRAL_SHIPPING_CARD_NOTE}`,
+      href: "/editor?mode=quick&source=gift-formats-unframed&checkout=print&print_variant=poster_unframed",
       imageSrc: proofImages.unframed,
       fallbackSrc: HOME_MOCKUPS.unframedPoster,
       bulletA: "Museum-grade poster stock",
@@ -142,7 +133,7 @@ export default function StarMapGiftFormatsPage() {
       <StickyCtaBar
         source="sticky-gift-formats"
         secondaryButtonLabel="Preview framed print"
-        secondaryHref="/editor?mode=quick&source=sticky-gift-formats-framed&checkout=print&print_variant=poster_framed&shipping_country=US"
+        secondaryHref="/editor?mode=quick&source=sticky-gift-formats-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
       />
 

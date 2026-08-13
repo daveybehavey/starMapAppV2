@@ -33,7 +33,7 @@ export default function MoneyPagePriceAtGlance({
   );
   const framedHdBundle = getFramedHdBundlePriceLine();
   const shippingDisclosure = getPrintShippingDisclosure();
-  const framedDelivery = formatPrintDeliveryDisclosure("poster_framed", "US");
+  const framedDelivery = formatPrintDeliveryDisclosure("poster_framed", null);
   const productionDisclosure = getPrintProductionReviewDisclosure();
 
   return (
@@ -59,8 +59,8 @@ export default function MoneyPagePriceAtGlance({
       </p>
       {!compact ? (
         <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
-          Free preview first. HD unlocks instantly after checkout. {productionDisclosure}
-          {framedDelivery ? ` Typical framed delivery: ${framedDelivery.toLowerCase()}.` : ""} {shippingDisclosure}
+          Free preview first. HD unlocks instantly after checkout. {productionDisclosure} {framedDelivery}.{" "}
+          {shippingDisclosure}
         </p>
       ) : null}
     </div>

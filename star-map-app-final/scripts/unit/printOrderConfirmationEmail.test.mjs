@@ -10,7 +10,7 @@ test("getPrintProductLabel maps framed and unframed variants", () => {
   assert.equal(getPrintProductLabel("poster_unframed"), "Star map poster (unframed)");
 });
 
-test("renderPrintOrderConfirmationEmail uses canonical production timeline when auto-confirm path", () => {
+test("renderPrintOrderConfirmationEmail uses neutral transit when country missing", () => {
   const rendered = renderPrintOrderConfirmationEmail({
     productLabel: "Framed star map poster",
     successUrl: "https://starmapco.com/success?session_id=cs_live_test",
@@ -19,10 +19,38 @@ test("renderPrintOrderConfirmationEmail uses canonical production timeline when 
   });
   assert.equal(rendered.subject, "Your StarMapCo print order is confirmed");
   assert.match(rendered.text, /Production is made to order \(2–5 business days typical\)/);
-  assert.match(rendered.text, /Standard shipping follows production \(4–6 business days typical U\.S\. carrier transit\)/);
+  assert.match(rendered.text, /varies by destination/i);
+  assert.doesNotMatch(rendered.text, /United States/);
+  assert.doesNotMatch(rendered.text, /4–6 business days typical U\.S\./);
   assert.match(rendered.text, /express is not available/i);
   assert.match(rendered.text, /https:\/\/starmapco\.com\/success\?session_id=cs_live_test/);
   assert.match(rendered.html, /Your print is on the way to production/);
+});
+
+test("renderPrintOrderConfirmationEmail uses Canada framed matrix when shippingCountry is CA", () => {
+  const rendered = renderPrintOrderConfirmationEmail({
+    productLabel: "Framed star map poster",
+    successUrl: "https://starmapco.com/success?session_id=cs_live_test",
+    manualReviewRequired: false,
+    shippingCountry: "CA",
+    printVariant: "poster_framed",
+  });
+  assert.match(rendered.text, /Canada/);
+  assert.match(rendered.text, /7–10 business days/);
+  assert.doesNotMatch(rendered.text, /United States/);
+  assert.doesNotMatch(rendered.text, /4–6 business days/);
+});
+
+test("renderPrintOrderConfirmationEmail uses US framed matrix when shippingCountry is US", () => {
+  const rendered = renderPrintOrderConfirmationEmail({
+    productLabel: "Framed star map poster",
+    successUrl: "https://starmapco.com/success?session_id=cs_live_test",
+    manualReviewRequired: false,
+    shippingCountry: "US",
+    printVariant: "poster_framed",
+  });
+  assert.match(rendered.text, /United States/);
+  assert.match(rendered.text, /4–6 business days/);
 });
 
 test("renderPrintOrderConfirmationEmail includes HD-first step for framed + HD bundles", () => {
