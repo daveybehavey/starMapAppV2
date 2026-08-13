@@ -15,6 +15,7 @@ import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
+  buildAlternateFulfillmentWebhookPayload,
   buildPrintAssetUrl,
   extractCheckoutPhoneFromStripeSession,
   getPrintMinChargeCents,
@@ -22,6 +23,7 @@ import {
   hasSufficientPrintCharge,
   persistPrintOrderRecord,
   printOrderKey,
+  resolvePrintOrderCreatedAt,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
@@ -831,7 +833,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     customerPhone: extractCheckoutPhoneFromStripeSession(session),
     shippingDetails: extractShippingDetails(session),
     attempts: (existing?.attempts ?? 0) + 1,
-    createdAt: existing?.createdAt ?? Date.now(),
+    createdAt: resolvePrintOrderCreatedAt(existing),
   };
   await persistPrintOrderRecord(session.id, payload);
 
@@ -1052,11 +1054,13 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const response = await fetch(printFulfillmentWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payload,
-        printAssetUrl,
-        recipient,
-      }),
+      body: JSON.stringify(
+        buildAlternateFulfillmentWebhookPayload(payload, {
+          printAssetUrl,
+          cardPrintAssetUrl,
+          recipient,
+        }),
+      ),
     });
     if (!response.ok) {
       const body = await response.text().catch(() => "");

@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   basePrintOrder,
+  buildAlternateFulfillmentWebhookPayload,
   DEFAULT_PRINT_ORDER_RETENTION_DAYS,
   extractCheckoutPhoneFromStripeSession,
   getPrintOrderOpsSafeSummary,
@@ -12,6 +13,7 @@ import {
   getPrintRecipient,
   normalizeCheckoutPhone,
   redactPrintOrderApiResponseText,
+  resolvePrintOrderCreatedAt,
   sanitizePrintOrderForOperatorResponse,
 } from "./printOrders.harness.mjs";
 
@@ -35,6 +37,10 @@ const resolveRouteSource = fs.readFileSync(
 const retryScriptSource = fs.readFileSync(path.join(appRoot, "scripts/retry-print-order.mjs"), "utf8");
 const privacyPageSource = fs.readFileSync(path.join(appRoot, "src/app/privacy/page.tsx"), "utf8");
 const printOrdersSource = fs.readFileSync(path.join(appRoot, "src/lib/printOrders.ts"), "utf8");
+const webhookRouteSource = fs.readFileSync(
+  path.join(appRoot, "src/app/api/stripe/webhook/route.ts"),
+  "utf8",
+);
 
 test("normalizeCheckoutPhone keeps trimmed phone and rejects blank/non-string", () => {
   assert.equal(normalizeCheckoutPhone(`  ${FIXTURE_PHONE}  `), FIXTURE_PHONE);
@@ -253,7 +259,8 @@ test("print-order retention is fixed from creation and cannot exceed 60 days", (
   assert.match(printOrdersSource, /getPrintOrderRetentionSeconds\(record\.createdAt\)/);
   assert.match(printOrdersSource, /DEFAULT_PRINT_ORDER_RETENTION_DAYS\s*=\s*60/);
   assert.match(printOrdersSource, /Math\.min\(configuredDays, DEFAULT_PRINT_ORDER_RETENTION_DAYS\)/);
-  assert.match(printOrdersSource, /if \(!Number\.isFinite\(createdAt\)\) return 1/);
+  assert.match(printOrdersSource, /typeof createdAt !== "number"/);
+  assert.match(printOrdersSource, /!Number\.isFinite\(createdAt\)/);
 });
 
 test("production status/retry/resolve routes sanitize operator order responses", () => {
@@ -280,4 +287,100 @@ test("privacy page discloses print phone collection, Printful sharing, and reten
   assert.match(privacyPageSource, /60 days/);
   assert.match(privacyPageSource, /physical print/i);
   assert.match(privacyPageSource, /carrier/i);
+});
+
+test("duplicate prior record with malformed createdAt cannot receive a fresh retention window", () => {
+  const now = 1_700_000_000_000;
+  const malformedCases = [null, undefined, Number.NaN, "not-a-time", {}];
+
+  for (const malformed of malformedCases) {
+    const prior = basePrintOrder({ createdAt: malformed, status: "failed" });
+    const resolved = resolvePrintOrderCreatedAt(prior, now);
+    assert.equal(resolved, malformed, `must preserve malformed createdAt=${String(malformed)}`);
+    assert.equal(
+      getPrintOrderRetentionSeconds({ createdAt: resolved, now, env: {} }),
+      1,
+      `malformed createdAt must fail closed to 1s TTL; got value=${String(malformed)}`,
+    );
+  }
+
+  // Brand-new records (no prior) still mint now.
+  assert.equal(resolvePrintOrderCreatedAt(null, now), now);
+  assert.equal(resolvePrintOrderCreatedAt(undefined, now), now);
+  assert.equal(
+    getPrintOrderRetentionSeconds({ createdAt: resolvePrintOrderCreatedAt(null, now), now, env: {} }),
+    60 * 24 * 60 * 60,
+  );
+
+  // Production webhook must not nullish-coalesce prior createdAt to Date.now().
+  assert.match(webhookRouteSource, /resolvePrintOrderCreatedAt\(existing\)/);
+  assert.doesNotMatch(webhookRouteSource, /createdAt:\s*existing\?\.createdAt\s*\?\?\s*Date\.now\(\)/);
+  assert.match(printOrdersSource, /resolvePrintOrderCreatedAt/);
+  assert.match(printOrdersSource, /typeof createdAt !== "number"/);
+});
+
+test("alternate fulfillment webhook omits phone on initial and retry-shaped payloads", () => {
+  const order = basePrintOrder({
+    customerPhone: FIXTURE_PHONE,
+    shippingDetails: {
+      name: "Test Buyer",
+      phone: FIXTURE_PHONE,
+      address: {
+        line1: "123 Example St",
+        city: "Austin",
+        state: "TX",
+        postal_code: "78701",
+        country: "US",
+      },
+    },
+  });
+  const printfulRecipient = getPrintRecipient(order);
+  assert.ok(printfulRecipient);
+  assert.equal(printfulRecipient.phone, FIXTURE_PHONE);
+
+  const initialPayload = buildAlternateFulfillmentWebhookPayload(order, {
+    printAssetUrl: "https://example.test/api/print/assets?id=asset-1",
+    recipient: printfulRecipient,
+  });
+  const retryPayload = buildAlternateFulfillmentWebhookPayload(
+    { ...order, attempts: 2, status: "failed", error: "webhook_failed" },
+    {
+      printAssetUrl: "https://example.test/api/print/assets?id=asset-1",
+      cardPrintAssetUrl: "https://example.test/api/print/assets?id=card-1",
+      recipient: printfulRecipient,
+    },
+  );
+
+  for (const [label, payload] of [
+    ["initial", initialPayload],
+    ["retry", retryPayload],
+  ]) {
+    const serialized = JSON.stringify(payload);
+    assert.equal(payload.customerPhone, undefined, `${label}: top-level customerPhone omitted`);
+    assert.equal(payload.recipient?.phone, undefined, `${label}: recipient.phone omitted`);
+    assert.equal(payload.shippingDetails?.phone, undefined, `${label}: shippingDetails.phone omitted`);
+    assert.equal("hasCheckoutPhone" in payload, false, `${label}: no phone-presence flag on alternate webhook`);
+    assert.doesNotMatch(serialized, /\+15555550199/, `${label}: no raw phone digits`);
+    assert.doesNotMatch(serialized, /5555550199/, `${label}: no raw phone digits`);
+    assert.doesNotMatch(serialized, /customerPhone/, `${label}: customerPhone key absent`);
+    assert.equal(payload.printAssetUrl, "https://example.test/api/print/assets?id=asset-1");
+    assert.equal(payload.recipient?.city, "Austin");
+    assert.equal(payload.sessionId, order.sessionId);
+  }
+
+  // Canonical Printful recipient path still receives phone when present.
+  assert.equal(getPrintRecipient(order)?.phone, FIXTURE_PHONE);
+  // Stored-shaped record is not mutated by payload construction.
+  assert.equal(order.customerPhone, FIXTURE_PHONE);
+
+  assert.match(webhookRouteSource, /buildAlternateFulfillmentWebhookPayload/);
+  assert.match(retryRouteSource, /buildAlternateFulfillmentWebhookPayload/);
+  assert.doesNotMatch(
+    webhookRouteSource,
+    /JSON\.stringify\(\{\s*\.\.\.payload,\s*printAssetUrl,\s*recipient,\s*\}\)/,
+  );
+  assert.doesNotMatch(
+    retryRouteSource,
+    /JSON\.stringify\(\{\s*\.\.\.hydrated,\s*printAssetUrl,\s*recipient,\s*\}\)/,
+  );
 });

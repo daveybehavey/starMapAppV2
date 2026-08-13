@@ -21,7 +21,7 @@ export function getPrintOrderRetentionSeconds({
   now = Date.now(),
   env = process.env,
 } = {}) {
-  if (!Number.isFinite(createdAt)) return 1;
+  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 1;
   const raw = typeof env.PRINT_ORDER_RETENTION_DAYS === "string" ? env.PRINT_ORDER_RETENTION_DAYS.trim() : "";
   const parsedDays = raw ? Number.parseInt(raw, 10) : Number.NaN;
   const configuredDays =
@@ -32,6 +32,15 @@ export function getPrintOrderRetentionSeconds({
   const deadlineMs = createdAt + maxRetentionSeconds * 1000;
   const remainingSeconds = Math.ceil((deadlineMs - safeNow) / 1000);
   return Math.max(1, Math.min(maxRetentionSeconds, remainingSeconds));
+}
+
+/**
+ * Brand-new print orders get `now`. Prior records keep createdAt exactly
+ * (including malformed) so retention can fail closed.
+ */
+export function resolvePrintOrderCreatedAt(existing, now = Date.now()) {
+  if (!existing) return now;
+  return existing.createdAt;
 }
 
 export function sanitizePrintOrderForOperatorResponse(record) {
@@ -103,6 +112,24 @@ export function getPrintRecipient(record) {
     state_code: shippingAddress.state || undefined,
     country_code: shippingAddress.country,
     zip: shippingAddress.postal_code,
+  };
+}
+
+/**
+ * Keep in sync with buildAlternateFulfillmentWebhookPayload in src/lib/printOrders.ts.
+ * Omits phone from generic alternate fulfillment webhook payloads.
+ */
+export function buildAlternateFulfillmentWebhookPayload(record, extras) {
+  const sanitizedRecord = sanitizePrintOrderForOperatorResponse(record);
+  const orderWithoutPhoneFlag = { ...sanitizedRecord };
+  delete orderWithoutPhoneFlag.hasCheckoutPhone;
+  const recipientWithoutPhone = { ...extras.recipient };
+  delete recipientWithoutPhone.phone;
+  return {
+    ...orderWithoutPhoneFlag,
+    ...(extras.printAssetUrl ? { printAssetUrl: extras.printAssetUrl } : {}),
+    ...(extras.cardPrintAssetUrl ? { cardPrintAssetUrl: extras.cardPrintAssetUrl } : {}),
+    recipient: recipientWithoutPhone,
   };
 }
 

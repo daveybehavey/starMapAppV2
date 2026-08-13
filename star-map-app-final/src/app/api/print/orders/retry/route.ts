@@ -5,6 +5,7 @@ import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
+  buildAlternateFulfillmentWebhookPayload,
   buildPrintAssetUrl,
   extractCheckoutPhoneFromStripeSession,
   getPrintMinChargeCents,
@@ -284,11 +285,13 @@ export async function POST(req: NextRequest) {
     const response = await fetch(printFulfillmentWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...hydrated,
-        printAssetUrl,
-        recipient,
-      }),
+      body: JSON.stringify(
+        buildAlternateFulfillmentWebhookPayload(hydrated, {
+          printAssetUrl,
+          cardPrintAssetUrl,
+          recipient,
+        }),
+      ),
     });
     if (!response.ok) {
       const body = await response.text().catch(() => "");

@@ -119,8 +119,8 @@ export function extractCheckoutPhoneFromStripeSession(session: {
  * Configuration may shorten the default 60-day bound, but never extend it.
  * A malformed creation timestamp fails closed to the minimum one-second TTL.
  */
-export function getPrintOrderRetentionSeconds(createdAt: number, now = Date.now()) {
-  if (!Number.isFinite(createdAt)) return 1;
+export function getPrintOrderRetentionSeconds(createdAt: unknown, now = Date.now()) {
+  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 1;
 
   const raw = process.env.PRINT_ORDER_RETENTION_DAYS?.trim();
   const parsedDays = raw ? Number.parseInt(raw, 10) : Number.NaN;
@@ -132,6 +132,21 @@ export function getPrintOrderRetentionSeconds(createdAt: number, now = Date.now(
   const deadlineMs = createdAt + maxRetentionSeconds * 1000;
   const remainingSeconds = Math.ceil((deadlineMs - safeNow) / 1000);
   return Math.max(1, Math.min(maxRetentionSeconds, remainingSeconds));
+}
+
+/**
+ * Brand-new print orders get `now`. When a prior record exists (including
+ * pending/failed duplicates), preserve its `createdAt` exactly — even when
+ * null/missing/non-finite — so persistence can fail closed instead of minting
+ * a fresh retention window.
+ */
+export function resolvePrintOrderCreatedAt(
+  existing: { createdAt?: unknown } | null | undefined,
+  now = Date.now(),
+): number {
+  if (!existing) return now;
+  // Intentionally return malformed values unchanged for fail-closed retention.
+  return existing.createdAt as number;
 }
 
 export async function persistPrintOrderRecord(sessionId: string, record: PrintOrderRecord) {
@@ -160,6 +175,34 @@ export function sanitizePrintOrderForOperatorResponse(record: PrintOrderRecord) 
     ...rest,
     shippingDetails: safeShippingDetails,
     hasCheckoutPhone,
+  };
+}
+
+type PrintfulRecipient = NonNullable<ReturnType<typeof getPrintRecipient>>;
+
+/**
+ * Outbound payload for the optional generic `PRINT_FULFILLMENT_WEBHOOK_URL`.
+ * Omits checkout phone from both top-level record fields and recipient —
+ * phone is shared only with Printful. Does not mutate the stored record.
+ */
+export function buildAlternateFulfillmentWebhookPayload(
+  record: PrintOrderRecord,
+  extras: {
+    printAssetUrl?: string;
+    cardPrintAssetUrl?: string;
+    recipient: PrintfulRecipient;
+  },
+) {
+  const sanitizedRecord = sanitizePrintOrderForOperatorResponse(record);
+  const orderWithoutPhoneFlag = { ...sanitizedRecord };
+  delete (orderWithoutPhoneFlag as { hasCheckoutPhone?: boolean }).hasCheckoutPhone;
+  const recipientWithoutPhone = { ...extras.recipient };
+  delete (recipientWithoutPhone as { phone?: string }).phone;
+  return {
+    ...orderWithoutPhoneFlag,
+    ...(extras.printAssetUrl ? { printAssetUrl: extras.printAssetUrl } : {}),
+    ...(extras.cardPrintAssetUrl ? { cardPrintAssetUrl: extras.cardPrintAssetUrl } : {}),
+    recipient: recipientWithoutPhone,
   };
 }
 
