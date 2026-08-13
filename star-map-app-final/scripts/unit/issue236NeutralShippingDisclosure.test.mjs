@@ -350,6 +350,16 @@ test("generic/indexable surfaces no longer hard-code US transit disclosures", ()
   assert.doesNotMatch(homeHero, /U\.S\. shipping/);
 });
 
+test("shipping policy page uses table-aware neutral wording without selector instructions", () => {
+  const shippingPage = readSrc("app/shipping/page.tsx");
+  assert.doesNotMatch(shippingPage, /getPrintDeliveryEstimateLine/);
+  assert.doesNotMatch(shippingPage, /after you select a shipping country/i);
+  assert.doesNotMatch(shippingPage, /United States|U\.S\.|Typical U\.S\./);
+  assert.match(shippingPage, /varies by destination/i);
+  assert.match(shippingPage, /country table below/i);
+  assert.match(shippingPage, /Delivery dates are estimates, not\s+guarantees/);
+});
+
 test("post-checkout helpers accept shippingCountry without expanding address/PII surface", () => {
   const verifySource = readSrc("app/api/stripe/verify/route.ts");
   assert.match(verifySource, /shippingCountry/);
