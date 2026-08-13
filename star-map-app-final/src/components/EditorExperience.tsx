@@ -55,7 +55,9 @@ import {
 import {
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
+  PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL,
   readStoredPrintShippingCountry,
+  resolveInitialPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
 import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
@@ -395,12 +397,9 @@ export function EditorExperience({
   );
   useEffect(() => {
     const stored = readStoredPrintShippingCountry();
-    if (stored && printShippingCountries.includes(stored)) {
-      setPrintShippingCountryValue(stored, "initial");
-      return;
-    }
-    if (printShippingCountries.length) {
-      setPrintShippingCountryValue(printShippingCountries[0], "initial");
+    const initial = resolveInitialPrintShippingCountry(stored, printShippingCountries);
+    if (initial) {
+      setPrintShippingCountryValue(initial, "initial");
     }
   }, [printShippingCountries, setPrintShippingCountryValue]);
 
@@ -3397,6 +3396,13 @@ export function EditorExperience({
                                   colorScheme: "light",
                                 }}
                               >
+                                <option
+                                  value=""
+                                  className="text-midnight"
+                                  style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                                >
+                                  {PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL}
+                                </option>
                                 {printShippingCountryOptions.map((country) => (
                                   <option
                                     key={country.code}

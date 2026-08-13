@@ -6,9 +6,9 @@ import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import {
+  getPrintDeliveryEstimateLine,
   getPrintProductionTimelineLine,
   getPrintStandardShippingOnlyLine,
-  getPrintUsTotalDeliveryEstimateLine,
   getPrintUrgentHdUpsellLine,
   getPaywallDigitalBullets,
   getPaywallPrintBullets,
@@ -19,7 +19,7 @@ import {
   getPrintShippingDisclosure,
   getPrintFreeShippingOfferLine,
 } from "@/lib/printCheckoutConfig";
-import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
@@ -448,6 +448,13 @@ export function PaywallModal({
                       className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs"
                       style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
+                      <option
+                        value=""
+                        className="text-midnight"
+                        style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                      >
+                        {PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL}
+                      </option>
                       {printShippingCountryOptions.map((country) => (
                         <option
                           key={country.code}
@@ -473,7 +480,12 @@ export function PaywallModal({
                     ) : null}
                     <div className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85">
                       <p>{getPrintProductionTimelineLine()}</p>
-                      <p>{getPrintUsTotalDeliveryEstimateLine()}</p>
+                      <p>
+                        {getPrintDeliveryEstimateLine({
+                          variant: preferredPrintVariant,
+                          country: printShippingCountry,
+                        })}
+                      </p>
                       <p>{getPrintStandardShippingOnlyLine()}</p>
                       <p className="font-medium text-amber-50">
                         {getPrintUrgentHdUpsellLine(instantHdPriceLine)}

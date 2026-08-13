@@ -2,19 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getPaywallPrintBullets,
+  getPrintDeliveryEstimateLine,
   getPrintFulfillmentProgressSteps,
   getPrintOrderConfirmationEtaNote,
   getPrintOrderConfirmationNextSteps,
   getPrintStandardShippingOnlyLine,
   getPrintUrgentHdUpsellLine,
-  getPrintUsTotalDeliveryEstimateLine,
 } from "./commerceFacts.harness.mjs";
 
-test("total delivery estimate combines production and standard transit", () => {
-  const line = getPrintUsTotalDeliveryEstimateLine();
+test("total delivery estimate unknown country is destination-neutral", () => {
+  const line = getPrintDeliveryEstimateLine();
   assert.match(line, /2–5 business days/);
+  assert.match(line, /varies by destination/i);
+  assert.doesNotMatch(line, /United States/i);
+  assert.doesNotMatch(line, /\bU\.S\./i);
+  assert.doesNotMatch(line, /4–6 business days/);
+});
+
+test("total delivery estimate known US remains matrix-backed", () => {
+  const line = getPrintDeliveryEstimateLine({ country: "US", variant: "poster_framed" });
+  assert.match(line, /2–5 business days/);
+  assert.match(line, /United States/);
   assert.match(line, /4–6 business days/);
-  assert.match(line, /1–2 weeks/i);
 });
 
 test("standard shipping disclosure states express is unavailable", () => {
@@ -45,6 +54,7 @@ test("fulfillment progress steps reflect auto-confirm production path", () => {
   assert.equal(steps.length, 4);
   assert.ok(steps.some((s) => /Production \(2–5 business days/i.test(s)));
   assert.ok(!steps.some((s) => /manual quality review/i.test(s)));
+  assert.ok(steps.some((s) => /varies by destination/i.test(s)));
 });
 
 test("fulfillment progress steps reflect manual review when auto-confirm off", () => {
@@ -64,4 +74,5 @@ test("order confirmation eta note mentions express unavailable", () => {
   const note = getPrintOrderConfirmationEtaNote({ includesDigitalAddOn: false });
   assert.match(note, /express is not available/i);
   assert.match(note, /Need it sooner\? HD digital unlocks right after payment/);
+  assert.doesNotMatch(note, /United States/i);
 });

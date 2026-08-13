@@ -2,20 +2,42 @@
  * Canonical customer-facing commerce copy. Update only when operations/legal
  * approve a change, then align Merchant Center / checkout copy as needed.
  */
+import type { PrintVariant } from "@/lib/printCatalog";
 import { isPrintfulAutoConfirmEnabled } from "@/lib/printCheckoutConfig";
+import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 
 export const PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS = "2–5 business days" as const;
 
-/** Typical U.S. standard carrier transit after Printful ships (from Printful rate data). */
+/**
+ * Explicit U.S. framed/unframed standard transit from the Printful shipping matrix.
+ * Use only for labeled U.S. examples/tests — never as a silent default for generic copy.
+ */
 export const PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS = "4–6 business days" as const;
+
+export type PrintDeliveryEstimateInput = {
+  variant?: PrintVariant;
+  country?: string | null;
+};
+
+function resolveDeliveryInput(input?: PrintDeliveryEstimateInput) {
+  return {
+    variant: input?.variant ?? ("poster_framed" as PrintVariant),
+    country: input?.country ?? null,
+  };
+}
 
 export function getPrintProductionTimelineLine(): string {
   return `Made to order — typical production time is ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} before shipment.`;
 }
 
-/** End-to-end U.S. estimate for physical prints (production + standard transit). */
-export function getPrintUsTotalDeliveryEstimateLine(): string {
-  return `Typical U.S. delivery is about ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} production plus ${PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} standard carrier transit (often roughly 1–2 weeks total; not a guaranteed arrival date).`;
+/**
+ * End-to-end delivery estimate: production + destination-aware (or neutral) transit.
+ * Unknown country must not emit United States / U.S.-specific transit windows.
+ */
+export function getPrintDeliveryEstimateLine(input?: PrintDeliveryEstimateInput): string {
+  const { variant, country } = resolveDeliveryInput(input);
+  const transit = formatPrintDeliveryDisclosure(variant, country);
+  return `Made to order — typical production takes ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} before shipment. ${transit}; delivery dates are estimates, not guarantees.`;
 }
 
 export function getPrintStandardShippingOnlyLine(): string {
@@ -47,13 +69,15 @@ export function getPaywallDigitalBullets(): string[] {
   ];
 }
 
-export function getPrintFulfillmentProgressSteps(): readonly string[] {
+export function getPrintFulfillmentProgressSteps(input?: PrintDeliveryEstimateInput): readonly string[] {
+  const { variant, country } = resolveDeliveryInput(input);
+  const transit = formatPrintDeliveryDisclosure(variant, country);
   if (isPrintfulAutoConfirmEnabled()) {
     return [
       "Payment received",
       "Print order submitted to our production partner",
       `Production (${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}, made to order)`,
-      `Standard shipping with tracking after production (${PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} typical U.S. transit)`,
+      `Standard shipping with tracking after production (${transit})`,
     ] as const;
   }
   return [
@@ -71,13 +95,18 @@ export function getPrintOrderIncludesDigitalNote(): string {
   return "Physical orders stay in manual review before production starts, but your digital file stays available right away.";
 }
 
-export function getPrintDeliveryTimingFaqAnswer(shippingDisclosure: string): string {
-  return `${shippingDisclosure} ${getPrintUsTotalDeliveryEstimateLine()} ${getPrintStandardShippingOnlyLine()} ${getPrintUrgentHdUpsellLine()}`;
+export function getPrintDeliveryTimingFaqAnswer(
+  shippingDisclosure: string,
+  input?: PrintDeliveryEstimateInput,
+): string {
+  return `${shippingDisclosure} ${getPrintDeliveryEstimateLine(input)} ${getPrintStandardShippingOnlyLine()} ${getPrintUrgentHdUpsellLine()}`;
 }
 
 /** Compact trust-panel / policy summary for physical print orders. */
-export function getPrintPhysicalOrderSummaryLine(): string {
-  return `Physical prints are made to order (${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} typical production, then ${PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} standard carrier transit). Express shipping is not offered for these products.`;
+export function getPrintPhysicalOrderSummaryLine(input?: PrintDeliveryEstimateInput): string {
+  const { variant, country } = resolveDeliveryInput(input);
+  const transit = formatPrintDeliveryDisclosure(variant, country);
+  return `Physical prints are made to order (${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} typical production). ${transit}. Express shipping is not offered for these products.`;
 }
 
 export function getPrintProductionBadgeLabel(): string {
@@ -97,7 +126,11 @@ export function getPrintFramedHdBundleShortLine(): string {
 export function getPrintOrderConfirmationNextSteps(input: {
   manualReviewRequired: boolean;
   includesDigitalAddOn?: boolean;
+  variant?: PrintVariant;
+  country?: string | null;
 }): string[] {
+  const { variant, country } = resolveDeliveryInput(input);
+  const transit = formatPrintDeliveryDisclosure(variant, country);
   const steps = input.manualReviewRequired
     ? [
         "Your print file is sent to our production partner.",
@@ -108,7 +141,7 @@ export function getPrintOrderConfirmationNextSteps(input: {
     : [
         "Your print is submitted to our production partner.",
         `Production is made to order (${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} typical).`,
-        `Standard shipping follows production (${PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} typical U.S. carrier transit).`,
+        `Standard shipping follows production (${transit}).`,
         "You'll receive a separate email with tracking when it ships.",
       ];
 
@@ -124,10 +157,11 @@ export function getPrintOrderConfirmationNextSteps(input: {
 
 export function getPrintOrderConfirmationEtaNote(input: {
   includesDigitalAddOn?: boolean;
+  variant?: PrintVariant;
+  country?: string | null;
 }): string {
   const parts = [
-    getPrintProductionTimelineLine(),
-    getPrintUsTotalDeliveryEstimateLine(),
+    getPrintDeliveryEstimateLine({ variant: input.variant, country: input.country }),
     getPrintStandardShippingOnlyLine(),
   ];
   if (input.includesDigitalAddOn) {

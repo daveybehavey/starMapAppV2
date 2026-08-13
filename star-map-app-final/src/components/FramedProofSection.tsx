@@ -10,7 +10,7 @@ import {
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { formatPrintShippingEstimateWithDelivery } from "@/lib/printfulShipping";
+import { PRINT_NEUTRAL_SHIPPING_CARD_NOTE } from "@/lib/printfulShipping";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
@@ -41,17 +41,6 @@ export default function FramedProofSection({
   const framedProofImage = HOME_MOCKUPS.framedBedroom;
   const unframedProofImage = HOME_MOCKUPS.unframedPoster;
   const digitalProofImage = HOME_MOCKUPS.digitalHd;
-  const proofShippingCountry = "US";
-  const framedShippingDetail = formatPrintShippingEstimateWithDelivery(
-    "poster_framed",
-    proofShippingCountry,
-    "shipping"
-  );
-  const unframedShippingDetail = formatPrintShippingEstimateWithDelivery(
-    "poster_unframed",
-    proofShippingCountry,
-    "shipping"
-  );
 
   return (
     <section className="brand-light-panel content-visibility-auto mt-6 overflow-hidden rounded-3xl">
@@ -119,7 +108,7 @@ export default function FramedProofSection({
               </p>
               <h3 className="text-midnight mt-2 text-sm font-semibold">{printTiers.poster_framed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{framedPrice}</p>
-              <p className="mt-1 text-xs text-neutral-600">Est. to U.S.: {framedShippingDetail}</p>
+              <p className="mt-1 text-xs text-neutral-600">{PRINT_NEUTRAL_SHIPPING_CARD_NOTE}</p>
               <p className="mt-2 text-xs text-neutral-700">
                 Ready-to-hang gift route with the frame already handled.
               </p>
@@ -130,7 +119,7 @@ export default function FramedProofSection({
               </p>
               <h3 className="text-midnight mt-2 text-sm font-semibold">{printTiers.poster_unframed.label}</h3>
               <p className="mt-1 text-sm text-neutral-700">{unframedPrice}</p>
-              <p className="mt-1 text-xs text-neutral-600">Est. to U.S.: {unframedShippingDetail}</p>
+              <p className="mt-1 text-xs text-neutral-600">{PRINT_NEUTRAL_SHIPPING_CARD_NOTE}</p>
               <p className="mt-2 text-xs text-neutral-700">
                 Use this if you already know how you want to frame it yourself.
               </p>
