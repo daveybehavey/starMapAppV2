@@ -304,7 +304,8 @@ const items = [
           id: "print_poster_framed_hd_bundle",
           title: "Custom Star Map Framed Print + HD Digital Download",
           description: `${printBaseDescription} Framed print with instant HD digital add-on. Free standard shipping on this bundle.`,
-          link: `${SITE_URL}/editor?mode=quick&source=merchant-feed-framed-hd&checkout=print&print_variant=poster_framed&include_digital=true`,
+          // Same crawlable money page as framed/unframed (editor remains robots-disallowed).
+          link: `${SITE_URL}/star-map-poster`,
           imageLink: framedImageLink,
           additionalImageLinks: [unframedImageLink, `${SITE_URL}/blog/anniversary/framed-star-map.jpg`],
           availability: "in_stock",
