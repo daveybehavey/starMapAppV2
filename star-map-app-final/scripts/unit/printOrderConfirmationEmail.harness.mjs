@@ -25,8 +25,14 @@ export function renderPrintOrderConfirmationEmail(data) {
   const nextSteps = getPrintOrderConfirmationNextSteps({
     manualReviewRequired: manualReview,
     includesDigitalAddOn,
+    country: data.shippingCountry,
+    variant: data.printVariant,
   });
-  const etaNote = getPrintOrderConfirmationEtaNote({ includesDigitalAddOn });
+  const etaNote = getPrintOrderConfirmationEtaNote({
+    includesDigitalAddOn,
+    country: data.shippingCountry,
+    variant: data.printVariant,
+  });
   const preheader = getPrintOrderConfirmationPreheader(manualReview);
   const text = [
     `Product: ${productLabel}`,

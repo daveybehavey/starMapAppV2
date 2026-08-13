@@ -184,7 +184,7 @@ export default function HowToPrintStarMapPage() {
           </div>
           <div>
             <h3 className="font-semibold text-midnight">What size should I print?</h3>
-            <p>Popular sizes include 11x14, 16x20, and 24x36. Choose the size that fits your frame and space.</p>
+            <p>Common sizes include 11x14, 16x20, and 24x36. Choose the size that fits your frame and space.</p>
           </div>
         </div>
       </section>
@@ -196,7 +196,7 @@ export default function HowToPrintStarMapPage() {
           },
           {
             question: "What size should I print?",
-            answer: "Popular sizes include 11x14, 16x20, and 24x36. Choose the size that fits your frame and space.",
+            answer: "Common sizes include 11x14, 16x20, and 24x36. Choose the size that fits your frame and space.",
           },
         ]}
       />

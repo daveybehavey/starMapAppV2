@@ -73,7 +73,7 @@ const weddingFaqItems = [
   {
     question: "How long does it take to make?",
     answer:
-      "Most couples finish a preview in under five minutes. HD unlocks right after checkout; physical prints ship after your design is approved.",
+      "You can finish a preview in under five minutes. HD unlocks right after checkout; physical prints ship after your design is approved.",
   },
   {
     question: "Can I print it locally?",
@@ -220,7 +220,7 @@ export default function WeddingPage() {
       <WeddingGiftJourneySection />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-midnight text-xl font-semibold">Why couples choose this gift</h2>
+        <h2 className="text-midnight text-xl font-semibold">What makes this wedding gift meaningful</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
           The stars above you when you said “I do” cannot be recreated. Our maps plot that exact sky with
           astronomically accurate data — constellations, planets, and Moon phase included. It is a wall-ready

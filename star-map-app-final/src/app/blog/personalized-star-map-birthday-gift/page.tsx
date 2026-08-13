@@ -72,7 +72,7 @@ export default function PersonalizedBirthdayPost() {
           </p>
           <p>
             In this guide, we’ll cover what a personalized star map is, why it’s an ideal birthday gift, how it’s made,
-            personalization tips, and who it’s best for—helping you create a present that’s as special as the person
+            personalization tips, and who it suits—helping you create a present that’s as special as the person
             receiving it.
           </p>
 

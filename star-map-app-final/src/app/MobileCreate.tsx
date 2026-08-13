@@ -24,7 +24,7 @@ import {
   paywallPrintCheckoutRowKey,
   paywallPrintSkuButtonClassesMobile,
 } from "@/lib/paywallPrintCheckout";
-import { getPrintShippingCountryLabel, getPrintShippingCountryOptions } from "@/lib/printfulShipping";
+import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
 import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
@@ -1613,6 +1613,13 @@ export function MobileCreate({
                       className="print-country-select mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px] text-midnight"
                       style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
+                      <option
+                        value=""
+                        className="text-midnight"
+                        style={{ color: "#111827", backgroundColor: "#ffffff" }}
+                      >
+                        {PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL}
+                      </option>
                       {printShippingCountryOptions.map((country) => (
                         <option
                           key={country.code}

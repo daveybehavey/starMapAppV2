@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import { getPrintFramedHdBundleTimingLine } from "@/lib/commerceFacts";
+import { type EditorLocationPrefill, withEditorLocation } from "@/lib/editorLocationPrefill";
 import { getPrintPricingTiers } from "@/lib/pricing";
 import {
   buildPrintEditorCheckoutHref,
@@ -13,12 +14,15 @@ type DeliveryFormatModuleProps = {
   heading?: string;
   intro?: string;
   sourcePrefix?: string;
+  /** When set (e.g. city landings), editor CTAs include location (+ coords when provided). */
+  location?: string | EditorLocationPrefill;
 };
 
 export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
   intro = "You only build the map once. After preview, the recommended presentation is framed + HD for a ready-to-hang gift plus instant digital — with free standard shipping on qualifying $100+ orders.",
   sourcePrefix = "delivery-format",
+  location,
 }: DeliveryFormatModuleProps) {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
@@ -35,7 +39,31 @@ export default function DeliveryFormatModule({
     ),
   };
   const shippingDisclosure = getPrintShippingDisclosure();
-  const baselineDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", "US");
+  const baselineDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", null);
+  const digitalHref = withEditorLocation(
+    `/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-digital`)}`,
+    location
+  );
+  const unframedHref = withEditorLocation(
+    `/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-print-unframed`)}&checkout=print&print_variant=poster_unframed`,
+    location
+  );
+  const framedHdHref = withEditorLocation(
+    buildPrintEditorCheckoutHref({
+      source: `${sourcePrefix}-print-framed-hd`,
+      variant: "poster_framed",
+      includeDigitalAddOn: true,
+    }),
+    location
+  );
+  const framedCardHref = withEditorLocation(
+    buildPrintEditorCheckoutHref({
+      source: `${sourcePrefix}-print-framed-card`,
+      variant: "poster_framed",
+      includeCardAddOn: true,
+    }),
+    location
+  );
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -56,7 +84,7 @@ export default function DeliveryFormatModule({
             <li>Works well for local poster printing and DIY framing</li>
           </ul>
           <Link
-            href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-digital`)}`}
+            href={digitalHref}
             className="bg-midnight hover:bg-midnight/90 mt-4 inline-flex rounded-full border border-black/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px]"
           >
             Preview then buy digital
@@ -76,7 +104,7 @@ export default function DeliveryFormatModule({
               <li>Starts at {printLabels.unframed}</li>
             </ul>
             <Link
-              href={`/editor?mode=quick&source=${encodeURIComponent(`${sourcePrefix}-print-unframed`)}&checkout=print&print_variant=poster_unframed`}
+              href={unframedHref}
               className="mt-4 inline-flex rounded-full border border-amber-300/70 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-900 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
             >
               Preview then buy unframed
@@ -104,21 +132,13 @@ export default function DeliveryFormatModule({
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
-                href={buildPrintEditorCheckoutHref({
-                  source: `${sourcePrefix}-print-framed-hd`,
-                  variant: "poster_framed",
-                  includeDigitalAddOn: true,
-                })}
+                href={framedHdHref}
                 className="bg-midnight hover:bg-midnight/90 inline-flex rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px]"
               >
                 Preview framed + HD gift
               </Link>
               <Link
-                href={buildPrintEditorCheckoutHref({
-                  source: `${sourcePrefix}-print-framed-card`,
-                  variant: "poster_framed",
-                  includeCardAddOn: true,
-                })}
+                href={framedCardHref}
                 className="text-midnight inline-flex rounded-full border border-amber-300/70 bg-white px-4 py-2 text-xs font-semibold transition hover:-translate-y-[1px] hover:bg-amber-50"
               >
                 Preview framed + card

@@ -11,6 +11,7 @@ import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
 import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
+import { resolveSeoLocationEditorPrefill, withEditorLocation } from "@/lib/editorLocationPrefill";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
@@ -62,6 +63,17 @@ export default async function StarMapLocationPage({ params }: PageProps) {
   if (!isIndexableLocationSlug(location.slug)) notFound();
 
   const display = formatLocationDisplay(location);
+  const locationPrefill = resolveSeoLocationEditorPrefill(location);
+  if (!locationPrefill) notFound();
+  const stickySource = `sticky-city-${location.slug}`;
+  const framedCtaHref = withEditorLocation(
+    `/editor?mode=quick&source=star-map-in-${location.slug}-cta-framed&checkout=print&print_variant=poster_framed`,
+    locationPrefill
+  );
+  const stickyPrimaryHref = withEditorLocation(
+    `/editor?mode=quick&source=${encodeURIComponent(stickySource)}`,
+    locationPrefill
+  );
   const indexableLocations = seoLocations.filter((item) => isIndexableLocationSlug(item.slug));
   const sameCountry = indexableLocations.filter(
     (item) => item.slug !== location.slug && item.country && item.country === location.country
@@ -117,6 +129,12 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         title={`Preview a ${display} star map`}
         description="Add your date and location, then open the editor with the framed path, the unframed path, or a neutral preview-first start."
         source={`city-${location.slug}`}
+        defaultLocation={locationPrefill.name}
+        defaultLocationCoords={{
+          latitude: locationPrefill.latitude,
+          longitude: locationPrefill.longitude,
+          timezone: locationPrefill.timezone,
+        }}
         intentOptions={[
           {
             label: "Preview framed print",
@@ -144,7 +162,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           },
         ]}
       />
-      <StickyCtaBar source={`sticky-city-${location.slug}`} />
+      <StickyCtaBar source={stickySource} primaryHref={stickyPrimaryHref} />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-xl font-semibold">
@@ -174,7 +192,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         </ol>
         <div className="pt-2">
           <Link
-            href={`/editor?mode=quick&source=star-map-in-${location.slug}-cta-framed&checkout=print&print_variant=poster_framed`}
+            href={framedCtaHref}
             className="text-midnight focus:ring-gold inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Start with framed print preview
@@ -186,6 +204,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         heading={`Choose how you want to keep the ${display} map`}
         intro={`Use the same preview to decide between the finished framed route, the lower-total unframed route, or HD digital delivery for ${display}.`}
         sourcePrefix={`location-${location.slug}-format`}
+        location={locationPrefill}
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

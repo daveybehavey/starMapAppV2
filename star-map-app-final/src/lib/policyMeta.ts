@@ -6,8 +6,8 @@
 export const POLICY_LAST_UPDATED_ISO = {
   privacy: "2026-08-08",
   terms: "2026-03-16",
-  shipping: "2026-05-02",
-  returns: "2026-05-02",
+  shipping: "2026-08-07",
+  returns: "2026-08-07",
 } as const;
 
 export type PolicyPageKey = keyof typeof POLICY_LAST_UPDATED_ISO;

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import PolicyShell from "@/components/policy/PolicyShell";
 import { getBusinessProfile } from "@/lib/businessProfile";
-import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS, getPrintStandardShippingOnlyLine, getPrintUsTotalDeliveryEstimateLine } from "@/lib/commerceFacts";
+import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS, getPrintStandardShippingOnlyLine } from "@/lib/commerceFacts";
 import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
 import { getPrintAllowedCountries, getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 import { getPrintFreeShippingOfferLine, getPrintFreeShippingQualifyingHint } from "@/lib/printFreeShipping";
@@ -77,7 +77,8 @@ export default function ShippingPage() {
         </p>
         <p className="mt-3 text-sm text-neutral-900 sm:text-base">
           Print orders are made to order. Typical fulfillment time before shipment is {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS},
-          plus carrier transit time shown below. {getPrintUsTotalDeliveryEstimateLine()}
+          plus carrier transit that varies by destination (see the country table below). Delivery dates are estimates, not
+          guarantees.
         </p>
         <p className="mt-3 text-sm text-neutral-900 sm:text-base">{getPrintStandardShippingOnlyLine()}</p>
         {freeShippingOffer ? (
@@ -138,7 +139,7 @@ export default function ShippingPage() {
             <a href={`mailto:${profile.email}`} className="font-semibold text-midnight underline">
               {profile.email}
             </a>{" "}
-            within 7 days with your order details and photos.
+            within 30 days with your order details and photos.
           </p>
         </section>
     </PolicyShell>

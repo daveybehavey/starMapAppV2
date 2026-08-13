@@ -296,7 +296,7 @@ export default function AnniversaryPage() {
       />
       <RevenueTrustModule
         heading="Anniversary gift confidence"
-        intro="Most couples decide faster once the wording, frame plan, and whether they want the finished framed route are already clear."
+        intro="Decisions get clearer once the wording, frame plan, and whether you want the finished framed route are already clear."
       />
       <OccasionLinks />
 
@@ -308,8 +308,8 @@ export default function AnniversaryPage() {
               What date should I use for an anniversary star map?
             </h3>
             <p>
-              Most couples use their wedding date or the night they first met. Any meaningful date works —
-              anniversaries, first dates, and engagements are all popular choices.
+              Common date ideas include your wedding date or the night you first met. Any meaningful date works —
+              anniversaries, first dates, and engagements are all solid options.
             </p>
           </div>
           <div>
@@ -371,7 +371,7 @@ export default function AnniversaryPage() {
           {
             question: "What date should I use for an anniversary star map?",
             answer:
-              "Most couples use their wedding date or the night they first met. Any meaningful date works — anniversaries, first dates, and engagements are all popular choices.",
+              "Common date ideas include your wedding date or the night you first met. Any meaningful date works — anniversaries, first dates, and engagements are all solid options.",
           },
           {
             question: "Is this a good couples gift?",

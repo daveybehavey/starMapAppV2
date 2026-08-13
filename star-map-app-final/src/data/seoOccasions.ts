@@ -24,7 +24,7 @@ export const seoOccasions: SeoOccasion[] = [
     intro:
       "Celebrate the engagement with a star map that captures the exact sky from the proposal night. Personal, romantic, and ready to print.",
     detail:
-      "Most couples choose the proposal date, but you can also use the engagement party or the night you decided together. Add names and a short line to make it feel like a framed promise.",
+      "Common date ideas include the proposal date, the engagement party, or the night you decided together. Add names and a short line to make it feel like a framed promise.",
     exampleLine: "Engagement · Brooklyn, NY · June 14, 2024",
     faqs: [
       {
@@ -59,7 +59,7 @@ export const seoOccasions: SeoOccasion[] = [
     intro:
       "Turn the proposal moment into a timeless keepsake with a custom star map that matches the exact sky.",
     detail:
-      "Most people choose the proposal night, but you can also use the first date or the day you decided on forever. Add names and a short line to make it feel like a framed promise.",
+      "Common date ideas include the proposal night, the first date, or the day you decided on forever. Add names and a short line to make it feel like a framed promise.",
     exampleLine: "The Proposal · Paris, France · May 3, 2023",
     faqs: [
       {
@@ -80,7 +80,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Is a proposal star map good for anniversaries too?",
         answer:
-          "Yes. Many couples use the proposal date for an engagement gift and reorder the same design for anniversaries in a new style or frame size.",
+          "Yes. The proposal date works well for an engagement gift, and you can reorder the same design for anniversaries in a new style or frame size.",
       },
     ],
   },
@@ -289,7 +289,7 @@ export const seoOccasions: SeoOccasion[] = [
       "Give mom a personalized star map from a meaningful date — birth date, anniversary, or Mother's Day itself. Free preview, framed + HD, poster, or instant HD.",
     intro: "Honor mom with a star map from a meaningful date—birthdays, anniversaries, or family milestones.",
     detail:
-      "Popular choices include a child’s birth date or a family milestone. Add multiple names and a short dedication to personalize the print.",
+      "Common date ideas include a child’s birth date or a family milestone. Add multiple names and a short dedication to personalize the print.",
     exampleLine: "For Mom · San Diego, CA · May 12, 2024",
     faqs: [
       {
@@ -312,7 +312,7 @@ export const seoOccasions: SeoOccasion[] = [
     intro:
       "Celebrate your anniversary with a star map that captures the exact night sky from your special date.",
     detail:
-      "Most couples choose their wedding date, first date, or the night they first met. Include names and a short line to make it feel like a framed vow.",
+      "Common date ideas include your wedding date, first date, or the night you first met. Include names and a short line to make it feel like a framed vow.",
     exampleLine: "Our Anniversary · Napa Valley, CA · September 12, 2019",
     faqs: [
       {

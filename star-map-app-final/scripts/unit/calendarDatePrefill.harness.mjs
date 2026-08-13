@@ -1,4 +1,8 @@
-export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
+/**
+ * Keep in sync with src/lib/dateTime.ts calendar-date helpers.
+ */
+
+export function formatDateTimeForLocation(dateTime, timeZone) {
   const date = new Date(dateTime);
   if (!Number.isFinite(date.getTime())) return null;
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -12,8 +16,7 @@ export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
   });
 
   const parts = formatter.formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPart["type"]) =>
-    parts.find((p) => p.type === type)?.value;
+  const get = (type) => parts.find((p) => p.type === type)?.value;
 
   const year = get("year");
   const month = get("month");
@@ -25,7 +28,7 @@ export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
   return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
 }
 
-function isValidCalendarYmd(year: number, month: number, day: number): boolean {
+function isValidCalendarYmd(year, month, day) {
   const probe = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
   return (
     probe.getUTCFullYear() === year &&
@@ -34,7 +37,7 @@ function isValidCalendarYmd(year: number, month: number, day: number): boolean {
   );
 }
 
-function parseYmdParam(dateParam: string): { year: number; month: number; day: number } | null {
+function parseYmdParam(dateParam) {
   const trimmed = dateParam.trim();
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
   if (!match) return null;
@@ -46,18 +49,7 @@ function parseYmdParam(dateParam: string): { year: number; month: number; day: n
   return { year, month, day };
 }
 
-/**
- * Convert a wall-clock local date/time in `timeZone` to a UTC Date.
- * Mirrors the existing astronomy/dateInput offset approach (no new provider).
- */
-function zonedWallTimeToUtcDate(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-  timeZone: string
-): Date | null {
+function zonedWallTimeToUtcDate(year, month, day, hour, minute, timeZone) {
   try {
     const testDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
     const formatter = new Intl.DateTimeFormat("en-US", {
@@ -71,21 +63,15 @@ function zonedWallTimeToUtcDate(
       hour12: false,
     });
     const parts = formatter.formatToParts(testDate);
-    const get = (type: Intl.DateTimeFormatPartTypes) =>
-      Number(parts.find((part) => part.type === type)?.value);
+    const get = (type) => Number(parts.find((part) => part.type === type)?.value);
     const localYear = get("year");
     const localMonth = get("month");
     const localDay = get("day");
     let localHour = get("hour");
     const localMinute = get("minute");
-    // Some engines report midnight as 24.
     if (localHour === 24) localHour = 0;
 
-    if (
-      ![localYear, localMonth, localDay, localHour, localMinute].every((value) =>
-        Number.isFinite(value)
-      )
-    ) {
+    if (![localYear, localMonth, localDay, localHour, localMinute].every((value) => Number.isFinite(value))) {
       return null;
     }
 
@@ -100,18 +86,7 @@ function zonedWallTimeToUtcDate(
   }
 }
 
-/**
- * Parse a YYYY-MM-DD editor query date into an ISO instant.
- *
- * - With `timeZone`: noon on that calendar date in the resolved city timezone
- *   (prevents browser/city TZ skew from shifting the intended calendar day).
- * - Without `timeZone`: preserves legacy browser-local noon behavior for
- *   generic/non-city name-only handoffs.
- */
-export function parseCalendarDateParamToIso(
-  dateParam: string,
-  timeZone?: string | null
-): string | null {
+export function parseCalendarDateParamToIso(dateParam, timeZone) {
   const ymd = parseYmdParam(dateParam);
   if (!ymd) return null;
   const { year, month, day } = ymd;

@@ -4,6 +4,7 @@ import { type FormEvent, type ReactNode, useCallback, useState } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
+import type { EditorLocationPrefill } from "@/lib/editorLocationPrefill";
 import type { PrintVariant } from "@/lib/pricing";
 
 type PreviewStartIntent = {
@@ -23,6 +24,16 @@ type PreviewStartFormProps = {
   description?: string;
   buttonLabel?: string;
   source?: string;
+  /**
+   * Optional initial location for city (or other contextual) landings.
+   * Prefills the input via defaultValue; remains editable and is submitted as `location`.
+   */
+  defaultLocation?: string;
+  /**
+   * When provided with defaultLocation, submits lat/lon/tz so the editor can treat the
+   * city as coordinate-resolved. Cleared if the visitor edits the location text.
+   */
+  defaultLocationCoords?: Pick<EditorLocationPrefill, "latitude" | "longitude" | "timezone">;
   intentOptions?: PreviewStartIntent[];
   /** When false, hides the iOS date-keyboard helper under the date field. */
   showMobileDateHelper?: boolean;
@@ -63,12 +74,28 @@ export default function PreviewStartForm({
   description = "Enter the date and location to open the editor with your sky ready to customize.",
   buttonLabel = "Preview your map",
   source,
+  defaultLocation,
+  defaultLocationCoords,
   intentOptions,
   showMobileDateHelper = true,
   footerContent,
 }: PreviewStartFormProps) {
   const resolvedSource = source?.trim() || "preview-start-form";
+  const initialLocation = defaultLocation?.trim() || "";
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [coordsActive, setCoordsActive] = useState(Boolean(defaultLocationCoords && initialLocation));
+
+  const syncCoordsForEditedLocation = useCallback(
+    (nextValue: string) => {
+      if (!defaultLocationCoords || !initialLocation) {
+        setCoordsActive(false);
+        return;
+      }
+      setCoordsActive(nextValue.trim() === initialLocation);
+    },
+    [defaultLocationCoords, initialLocation]
+  );
+
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       const formData = new FormData(event.currentTarget);
@@ -134,10 +161,19 @@ export default function PreviewStartForm({
               type="text"
               placeholder="City or address"
               autoComplete="address-level2"
+              defaultValue={initialLocation || undefined}
+              onChange={(event) => syncCoordsForEditedLocation(event.currentTarget.value)}
               className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none"
             />
           </div>
         </div>
+        {coordsActive && defaultLocationCoords ? (
+          <>
+            <input type="hidden" name="lat" value={String(defaultLocationCoords.latitude)} />
+            <input type="hidden" name="lon" value={String(defaultLocationCoords.longitude)} />
+            <input type="hidden" name="tz" value={defaultLocationCoords.timezone} />
+          </>
+        ) : null}
         {showMobileDateHelper ? (
           <p className="mt-2 text-xs text-neutral-600">{MOBILE_DATE_HELPER_TEXT}</p>
         ) : null}

@@ -1,6 +1,11 @@
 # Production deploy on Linux (avoids Windows OpenNext flakiness).
-# Requires repo secrets CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL (legacy global key pair)
-# or CLOUDFLARE_API_TOKEN (scoped token). Values live in local .env.local — never commit.
+# Auth: prefer CLOUDFLARE_API_TOKEN when set. Legacy CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL
+# are exported only when the token secret is absent (Wrangler 4.95 prefers key/email if both
+# schemes are present). Values live in local .env.local — never commit.
+#
+# Triggers:
+#   - manual dispatch fallback (branch/tag/SHA ref)
+#   - reusable workflow call from the owner-comment bridge (#234) after SHA + main checks
 name: Deploy production
 
 on:
@@ -9,11 +14,21 @@ on:
       ref:
         description: Git ref to deploy (branch, tag, or SHA)
         required: true
+        type: string
         default: main
+  workflow_call:
+    inputs:
+      ref:
+        description: Immutable commit SHA validated by the owner-comment bridge
+        required: true
+        type: string
 
 concurrency:
   group: deploy-production
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 defaults:
   run:
@@ -42,8 +57,10 @@ jobs:
 
       - name: Deploy to Cloudflare
         env:
-          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Blank legacy envs when token is present so Wrangler cannot prefer key/email.
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_TOKEN == '' && secrets.CLOUDFLARE_API_KEY || '' }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_API_TOKEN == '' && secrets.CLOUDFLARE_EMAIL || '' }}
           CLOUDFLARE_ACCOUNT_ID: c5699cbcedce27a6ad755bdeb815f6de
           NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
           DEPLOY_SKIP_LOCK: "1"

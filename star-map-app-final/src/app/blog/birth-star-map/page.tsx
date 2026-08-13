@@ -27,7 +27,7 @@ const faqItems = [
   {
     question: "Do I need the exact birth time for a baby star map?",
     answer:
-      "Exact time is ideal when you have it from a birth certificate or hospital record. If you only know the date and city, the map is still personal and gift-worthy — many buyers use midnight or an approximate hour and add a note that time was estimated.",
+      "Exact time is ideal when you have it from a birth certificate or hospital record. If you only know the date and city, the map is still personal and gift-worthy — you can use midnight or an approximate hour and add a note that time was estimated.",
   },
   {
     question: "Is a star map a good baby shower gift?",
@@ -37,7 +37,7 @@ const faqItems = [
   {
     question: "What format is best for a nursery?",
     answer:
-      "Framed print is the most common nursery choice — ready to hang above a crib or changing table. Unframed poster lowers the total if parents already chose a frame. HD digital lets you print locally or share with grandparents the same day.",
+      "Framed print is a ready-to-hang nursery option — ready to hang above a crib or changing table. Unframed poster lowers the total if parents already chose a frame. HD digital lets you print locally or share with grandparents the same day.",
   },
   {
     question: "Can I add the baby's name on the print?",
@@ -134,7 +134,7 @@ export default function BirthStarMapPostPage() {
               <Link href="/how-accurate-are-star-maps" className="text-amber-300 hover:underline">
                 how accurate star maps are
               </Link>
-              . The short version: date, time, timezone, and location all matter; exact birth time is best when you
+              . The short version: date, time, timezone, and location all matter; use exact birth time when you
               have it.
             </p>
           </section>
@@ -148,7 +148,7 @@ export default function BirthStarMapPostPage() {
             </p>
             <ul className="mt-2 list-disc space-y-2 pl-5 text-neutral-200">
               <li>
-                <strong>Birth date and time from the hospital record.</strong> Best when you want Moon and planet
+                <strong>Birth date and time from the hospital record.</strong> Use this when you want Moon and planet
                 placement as precise as possible — common for maps ordered after the baby arrives.
               </li>
               <li>
@@ -180,7 +180,7 @@ export default function BirthStarMapPostPage() {
               <li>One short line: <em>Under these stars you arrived</em></li>
             </ul>
             <p className="mt-3">
-              For a ready-to-hang gift, framed print is the strongest presentation. Compare{" "}
+              For a ready-to-hang gift, framed print is the recommended presentation. Compare{" "}
               <Link href="/star-map-gift-formats" className="text-amber-300 hover:underline">
                 framed, unframed, and HD digital formats
               </Link>{" "}
@@ -251,7 +251,7 @@ export default function BirthStarMapPostPage() {
             </h2>
             <p>
               These searches sound similar but serve different moments. A birth star map marks arrival — the night they
-              entered the world — and is most often bought for nurseries, newborn gifts, and baby showers. A{" "}
+              entered the world — and is often used for nurseries, newborn gifts, and baby showers. A{" "}
               <Link href="/birthday" className="text-amber-300 hover:underline">
                 birthday star map
               </Link>{" "}
