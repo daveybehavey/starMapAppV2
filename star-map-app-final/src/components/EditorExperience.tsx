@@ -754,8 +754,12 @@ export function EditorExperience({
             longitude: parsed.longitude,
             timezone: parsed.timezone,
           });
-          hasLocation = true;
-          resolvedCityTimeZone = parsed.timezone;
+          // Auto-reveal must use the same confirmed nonzero-coordinate predicate as
+          // Generate eligibility — explicit lat=0&lon=0 stays unresolved/locked.
+          hasLocation = hasConfirmedEditorLocation(parsed);
+          if (hasLocation) {
+            resolvedCityTimeZone = parsed.timezone;
+          }
         } else {
           // Name-only handoff: never create a confirmed mixed state (new label + old
           // restored coordinates). Conflicting confirmed drafts stay unresolved until

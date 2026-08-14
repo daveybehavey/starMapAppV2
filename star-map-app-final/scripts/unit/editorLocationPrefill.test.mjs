@@ -125,6 +125,43 @@ test("name-only with date cannot unlock/reveal a (0,0) sky", () => {
   assert.match(editor, /hasConfirmedEditorLocation/);
   // Auto-reveal still requires resolved coordinates from the query parser.
   assert.match(editor, /if \(parsed\.hasResolvedCoordinates\)/);
+  // …and the same confirmed nonzero predicate as Generate eligibility.
+  assert.match(editor, /hasLocation = hasConfirmedEditorLocation\(parsed\)/);
+});
+
+test("explicit lat=0&lon=0 + valid date must not auto-reveal", () => {
+  const parsed = parseEditorLocationQuery(
+    new URLSearchParams({
+      location: "Null Island",
+      lat: "0",
+      lon: "0",
+      tz: "UTC",
+      date: "2024-06-12",
+    })
+  );
+  // Parser may accept the numeric pair, but confirmation/reveal must reject (0,0).
+  assert.equal(parsed?.hasResolvedCoordinates, true);
+  assert.equal(parsed?.latitude, 0);
+  assert.equal(parsed?.longitude, 0);
+  assert.equal(hasConfirmedEditorLocation(parsed), false);
+
+  const nonzero = parseEditorLocationQuery(
+    new URLSearchParams({
+      location: "New York, NY",
+      lat: "40.7128",
+      lon: "-74.006",
+      tz: "America/New_York",
+      date: "2024-06-12",
+    })
+  );
+  assert.equal(nonzero?.hasResolvedCoordinates, true);
+  assert.equal(hasConfirmedEditorLocation(nonzero), true);
+
+  const editor = readSrc("components/EditorExperience.tsx");
+  assert.match(editor, /hasLocation = hasConfirmedEditorLocation\(parsed\)/);
+  assert.match(editor, /if \(hasValidDate && hasLocation\)/);
+  // City timezone for date parse is only used when confirmation passed.
+  assert.match(editor, /if \(hasLocation\)[\s\S]*?resolvedCityTimeZone = parsed\.timezone/);
 });
 
 test("canonical city overwrites stale draft; conflicting name-only stays unresolved", () => {
@@ -291,8 +328,8 @@ test("city landing page wires coordinate-resolved prefill into primary CTAs", ()
   assert.match(editor, /parseEditorLocationQuery/);
   assert.match(editor, /applyEditorLocationQueryToState/);
   assert.match(editor, /parsed\.hasResolvedCoordinates/);
-  // Only resolved city queries count as location for auto-reveal.
-  assert.match(editor, /hasLocation = true/);
+  // Auto-reveal requires confirmed nonzero coordinates (not mere resolved lat/lon).
+  assert.match(editor, /hasLocation = hasConfirmedEditorLocation\(parsed\)/);
   // Non-conflicting name-only still updates the label only.
   assert.match(editor, /setLocation\(\{\s*name: applied\.name\s*\}\)/);
   // Conflicting confirmed draft + name-only clears reveal and stays unresolved.
