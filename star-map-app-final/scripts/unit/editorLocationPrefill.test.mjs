@@ -5,9 +5,11 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   applyEditorLocationQueryToState,
+  isValidEditorTimeZone,
   parseEditorLocationQuery,
   withEditorLocation,
 } from "./editorLocationPrefill.harness.mjs";
+import { formatDateTimeForLocation } from "./calendarDatePrefill.harness.mjs";
 
 const UNIT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(UNIT_DIR, "../..");
@@ -59,6 +61,7 @@ test("coordinate prefill includes lat/lon/tz and cannot be name-only", () => {
   assert.equal(parsed?.hasResolvedCoordinates, true);
   assert.equal(parsed?.latitude, 25.7617);
   assert.equal(parsed?.longitude, -80.1918);
+  assert.equal(parsed?.timezone, "America/New_York");
   assert.notEqual(parsed?.latitude, 0);
   assert.notEqual(parsed?.longitude, 0);
 });
@@ -76,12 +79,31 @@ test("name-only query is not treated as coordinate-resolved selected location", 
 
   const parsed = parseEditorLocationQuery(params);
   assert.equal(parsed?.hasResolvedCoordinates, false);
-  assert.equal(parsed?.latitude, 0);
-  assert.equal(parsed?.longitude, 0);
-  assert.equal(parsed?.timezone, "UTC");
+  // Must not invent (0,0) as a selected/resolved location.
+  assert.equal(Number.isNaN(parsed?.latitude), true);
+  assert.equal(Number.isNaN(parsed?.longitude), true);
+  assert.equal(parsed?.timezone, "");
 });
 
-test("stale draft coordinates cannot survive under a new selected city name", () => {
+test("generic location+date does not invent a (0,0) sky selection", () => {
+  const parsed = parseEditorLocationQuery(
+    new URLSearchParams({ location: "Our Backyard", date: "2024-06-12" })
+  );
+  assert.equal(parsed?.hasResolvedCoordinates, false);
+  assert.equal(Number.isNaN(parsed?.latitude), true);
+  assert.equal(Number.isNaN(parsed?.longitude), true);
+  // Applying name-only onto a fresh default (0,0) must not promote it to resolved.
+  const applied = applyEditorLocationQueryToState(
+    { name: "", latitude: 0, longitude: 0, timezone: "UTC" },
+    new URLSearchParams({ location: "Our Backyard" })
+  );
+  assert.equal(applied?.hasResolvedCoordinates, false);
+  assert.equal(applied?.name, "Our Backyard");
+  assert.equal(applied?.latitude, 0);
+  assert.equal(applied?.longitude, 0);
+});
+
+test("canonical city overwrites stale draft; name-only preserves restored coordinates", () => {
   const previous = {
     name: "Santorini, Greece",
     latitude: 36.3932,
@@ -110,11 +132,53 @@ test("stale draft coordinates cannot survive under a new selected city name", ()
   );
   assert.equal(nameOnly?.name, "Chicago, IL");
   assert.equal(nameOnly?.hasResolvedCoordinates, false);
-  assert.equal(nameOnly?.latitude, 0);
-  assert.equal(nameOnly?.longitude, 0);
-  assert.equal(nameOnly?.timezone, "UTC");
-  assert.notEqual(nameOnly?.latitude, previous.latitude);
-  assert.notEqual(nameOnly?.longitude, previous.longitude);
+  // Legacy name-only: must not wipe restored valid coordinates into (0,0).
+  assert.equal(nameOnly?.latitude, previous.latitude);
+  assert.equal(nameOnly?.longitude, previous.longitude);
+  assert.equal(nameOnly?.timezone, previous.timezone);
+});
+
+test("invalid timezone never stores crashing Intl zone; valid timezone still works", () => {
+  assert.equal(isValidEditorTimeZone("America/New_York"), true);
+  assert.equal(isValidEditorTimeZone("Not/AZone"), false);
+  assert.equal(isValidEditorTimeZone(""), false);
+
+  const invalid = parseEditorLocationQuery(
+    new URLSearchParams({
+      location: "Somewhere",
+      lat: "1",
+      lon: "1",
+      tz: "Not/AZone",
+    })
+  );
+  assert.equal(invalid?.hasResolvedCoordinates, true);
+  assert.equal(invalid?.latitude, 1);
+  assert.equal(invalid?.longitude, 1);
+  // Documented safe fallback — never store the invalid string.
+  assert.equal(invalid?.timezone, "UTC");
+  assert.equal(isValidEditorTimeZone(invalid.timezone), true);
+  assert.doesNotThrow(() => {
+    const formatted = formatDateTimeForLocation("2024-06-12T12:00:00.000Z", invalid.timezone);
+    assert.ok(formatted);
+  });
+
+  // Defense in depth: even a raw invalid zone must not throw through format helper.
+  assert.equal(formatDateTimeForLocation("2024-06-12T12:00:00.000Z", "Not/AZone"), null);
+
+  const valid = parseEditorLocationQuery(
+    new URLSearchParams({
+      location: "New York, NY",
+      lat: "40.7128",
+      lon: "-74.006",
+      tz: "America/New_York",
+    })
+  );
+  assert.equal(valid?.hasResolvedCoordinates, true);
+  assert.equal(valid?.timezone, "America/New_York");
+  assert.doesNotThrow(() => {
+    const formatted = formatDateTimeForLocation("2024-06-12T16:00:00.000Z", valid.timezone);
+    assert.ok(formatted);
+  });
 });
 
 test("withEditorLocation is a no-op for empty location (non-city / generic paths)", () => {
@@ -153,11 +217,15 @@ test("city landing page wires coordinate-resolved prefill into primary CTAs", ()
 
   const editor = readSrc("components/EditorExperience.tsx");
   assert.match(editor, /parseEditorLocationQuery/);
-  assert.match(editor, /latitude: parsed\.latitude/);
-  assert.match(editor, /longitude: parsed\.longitude/);
-  assert.match(editor, /timezone: parsed\.timezone/);
-  // Generic name-only handoffs still reveal; city CTAs supply coords so sky is correct.
-  assert.doesNotMatch(editor, /hasLocation = parsed\.hasResolvedCoordinates/);
+  assert.match(editor, /parsed\.hasResolvedCoordinates/);
+  // Only resolved city queries count as location for auto-reveal.
+  assert.match(editor, /hasLocation = true/);
+  assert.match(editor, /setLocation\(\{\s*name: parsed\.name\s*\}\)/);
+  // Must not overwrite full location for unresolved name-only handoffs.
+  assert.match(
+    editor,
+    /if \(parsed\.hasResolvedCoordinates\)[\s\S]*?setLocation\(\{[\s\S]*?latitude: parsed\.latitude/
+  );
 });
 
 test("generic / non-city entry paths do not force city coords", () => {

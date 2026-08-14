@@ -730,24 +730,27 @@ export function EditorExperience({
     let hasLocation = false;
 
     // Apply location first so a coordinate-resolved city timezone can interpret the
-    // calendar date. Generic/name-only handoffs keep browser-local date parsing.
+    // calendar date. Generic/name-only handoffs keep browser-local date parsing and
+    // must not invent/reveal a (0,0) sky or wipe restored coordinates.
     let resolvedCityTimeZone: string | null = null;
     if (locationParam && locationParam.trim()) {
-      // Always overwrite the full location object so stale draft coordinates cannot
-      // survive under a new city/name. City landings supply lat/lon/tz; generic
-      // name-only handoffs (homepage etc.) still count as a location for reveal,
-      // and the editor autocomplete confirms coordinates afterward.
       const parsed = parseEditorLocationQuery(searchParams);
       if (parsed) {
-        setLocation({
-          name: parsed.name,
-          latitude: parsed.latitude,
-          longitude: parsed.longitude,
-          timezone: parsed.timezone,
-        });
-        hasLocation = true;
         if (parsed.hasResolvedCoordinates) {
+          // Canonical city query: overwrite full location so stale draft coords cannot
+          // survive under the selected city name. Timezone is validated in the parser.
+          setLocation({
+            name: parsed.name,
+            latitude: parsed.latitude,
+            longitude: parsed.longitude,
+            timezone: parsed.timezone,
+          });
+          hasLocation = true;
           resolvedCityTimeZone = parsed.timezone;
+        } else {
+          // Legacy name-only handoff: update the label only. Preserve any restored
+          // lat/lon/tz and do not auto-reveal until coordinates are confirmed.
+          setLocation({ name: parsed.name });
         }
       }
     }

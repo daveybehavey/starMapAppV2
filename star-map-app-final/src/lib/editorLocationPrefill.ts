@@ -37,6 +37,22 @@ export function isValidEditorCoordinatePair(latitude: number, longitude: number)
 }
 
 /**
+ * True when `timeZone` is accepted by `Intl.DateTimeFormat`.
+ * Empty/whitespace is not valid — callers choose a documented fallback separately.
+ */
+export function isValidEditorTimeZone(timeZone: string): boolean {
+  const trimmed = timeZone.trim();
+  if (!trimmed) return false;
+  try {
+    // Throws RangeError for unknown IANA zone identifiers.
+    new Intl.DateTimeFormat("en-US", { timeZone: trimmed }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve a city landing into a full editor prefill (name + coordinates + timezone).
  * Returns null when the slug has no canonical coordinates.
  */
@@ -82,7 +98,8 @@ export function withEditorLocation(href: string, location?: LocationPrefillInput
   params.set("location", name);
   params.set("lat", String(location.latitude));
   params.set("lon", String(location.longitude));
-  params.set("tz", location.timezone.trim() || "UTC");
+  const tz = location.timezone.trim();
+  params.set("tz", tz && isValidEditorTimeZone(tz) ? tz : "UTC");
   const search = params.toString();
   return search ? `${path}?${search}${hash}` : `${path}${hash}`;
 }
@@ -90,9 +107,11 @@ export function withEditorLocation(href: string, location?: LocationPrefillInput
 type ParamGetter = { get(name: string): string | null };
 
 /**
- * Parse editor location query params into an explicit location state.
- * Always returns latitude/longitude/timezone fields so callers can overwrite
- * stale draft coordinates when applying a city (or name-only) prefill.
+ * Parse editor location query params.
+ *
+ * - Valid lat+lon: resolved city selection (timezone validated; missing/invalid → UTC).
+ * - Name-only: unresolved handoff — does **not** invent `(0,0)` as selected coordinates.
+ *   Callers must apply name-only updates without wiping restored lat/lon/tz.
  */
 export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQueryResult | null {
   const name = params.get("location")?.trim() ?? "";
@@ -105,32 +124,54 @@ export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQue
   const longitude = lonRaw == null || lonRaw.trim() === "" ? Number.NaN : Number.parseFloat(lonRaw);
   const hasResolvedCoordinates = isValidEditorCoordinatePair(latitude, longitude);
 
+  if (!hasResolvedCoordinates) {
+    // Unresolved name-only: keep fields inert. Do not invent (0,0)/UTC as a selection.
+    return {
+      name,
+      latitude: Number.NaN,
+      longitude: Number.NaN,
+      timezone: "",
+      hasResolvedCoordinates: false,
+    };
+  }
+
+  // Documented safe fallback when tz is missing or not a valid IANA identifier.
+  const timezone = tzRaw && isValidEditorTimeZone(tzRaw) ? tzRaw : "UTC";
+
   return {
     name,
-    latitude: hasResolvedCoordinates ? latitude : 0,
-    longitude: hasResolvedCoordinates ? longitude : 0,
-    timezone: hasResolvedCoordinates && tzRaw ? tzRaw : "UTC",
-    hasResolvedCoordinates,
+    latitude,
+    longitude,
+    timezone,
+    hasResolvedCoordinates: true,
   };
 }
 
 /**
- * Pure apply helper for regression coverage: given any prior location (e.g. draft),
- * applying a query-derived location always replaces coordinates — never keeps stale
- * lat/lon under a new city name.
+ * Pure apply helper for regression coverage.
+ * - Resolved city query: always replaces name+lat+lon+timezone (no stale draft coords).
+ * - Name-only query: updates name only; preserves prior coordinates/timezone.
  */
 export function applyEditorLocationQueryToState(
-  _previous: { name: string; latitude: number; longitude: number; timezone: string },
+  previous: { name: string; latitude: number; longitude: number; timezone: string },
   params: ParamGetter
 ): { name: string; latitude: number; longitude: number; timezone: string; hasResolvedCoordinates: boolean } | null {
   const parsed = parseEditorLocationQuery(params);
   if (!parsed) return null;
+  if (!parsed.hasResolvedCoordinates) {
+    return {
+      name: parsed.name,
+      latitude: previous.latitude,
+      longitude: previous.longitude,
+      timezone: previous.timezone,
+      hasResolvedCoordinates: false,
+    };
+  }
   return {
     name: parsed.name,
-    // Explicit overwrite: do not spread/merge previous coordinates.
     latitude: parsed.latitude,
     longitude: parsed.longitude,
     timezone: parsed.timezone,
-    hasResolvedCoordinates: parsed.hasResolvedCoordinates,
+    hasResolvedCoordinates: true,
   };
 }
