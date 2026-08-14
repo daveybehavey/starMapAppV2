@@ -81,7 +81,11 @@ import {
   shouldAutoOpenEditorDigitalPaywall,
 } from "@/lib/previewSourceHints";
 import { parseCalendarDateParamToIso } from "@/lib/dateTime";
-import { hasConfirmedEditorLocation, parseEditorLocationQuery } from "@/lib/editorLocationPrefill";
+import {
+  applyEditorLocationQueryToState,
+  hasConfirmedEditorLocation,
+  parseEditorLocationQuery,
+} from "@/lib/editorLocationPrefill";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
 import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
 import {
@@ -736,7 +740,7 @@ export function EditorExperience({
 
     // Apply location first so a coordinate-resolved city timezone can interpret the
     // calendar date. Generic/name-only handoffs keep browser-local date parsing and
-    // must not invent/reveal a (0,0) sky or wipe restored coordinates.
+    // must not invent/reveal a (0,0) sky or merge a new label onto restored coords.
     let resolvedCityTimeZone: string | null = null;
     if (locationParam && locationParam.trim()) {
       const parsed = parseEditorLocationQuery(searchParams);
@@ -753,9 +757,27 @@ export function EditorExperience({
           hasLocation = true;
           resolvedCityTimeZone = parsed.timezone;
         } else {
-          // Legacy name-only handoff: update the label only. Preserve any restored
-          // lat/lon/tz and do not auto-reveal until coordinates are confirmed.
-          setLocation({ name: parsed.name });
+          // Name-only handoff: never create a confirmed mixed state (new label + old
+          // restored coordinates). Conflicting confirmed drafts stay unresolved until
+          // the visitor newly confirms coordinates.
+          const previous = useStore.getState().location;
+          const applied = applyEditorLocationQueryToState(previous, searchParams);
+          if (applied) {
+            const previousConfirmed = hasConfirmedEditorLocation(previous);
+            const nameChanged = (previous.name?.trim() ?? "") !== applied.name;
+            if (previousConfirmed && nameChanged) {
+              setLocation({
+                name: applied.name,
+                latitude: applied.latitude,
+                longitude: applied.longitude,
+                timezone: applied.timezone,
+              });
+              // Draft restore may have set revealed; keep the handoff locked.
+              setRevealed(false);
+            } else {
+              setLocation({ name: applied.name });
+            }
+          }
         }
       }
     }

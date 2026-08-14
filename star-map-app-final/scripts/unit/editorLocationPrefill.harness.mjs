@@ -112,8 +112,20 @@ export function applyEditorLocationQueryToState(previous, params) {
   const parsed = parseEditorLocationQuery(params);
   if (!parsed) return null;
   if (!parsed.hasResolvedCoordinates) {
+    const previousName = typeof previous?.name === "string" ? previous.name.trim() : "";
+    const nextName = parsed.name;
+    const previousConfirmed = hasConfirmedEditorLocation(previous);
+    if (previousConfirmed && previousName !== nextName) {
+      return {
+        name: nextName,
+        latitude: Number.NaN,
+        longitude: Number.NaN,
+        timezone: "",
+        hasResolvedCoordinates: false,
+      };
+    }
     return {
-      name: parsed.name,
+      name: nextName,
       latitude: previous.latitude,
       longitude: previous.longitude,
       timezone: previous.timezone,

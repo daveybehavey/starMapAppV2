@@ -170,7 +170,12 @@ export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQue
 /**
  * Pure apply helper for regression coverage.
  * - Resolved city query: always replaces name+lat+lon+timezone (no stale draft coords).
- * - Name-only query: updates name only; preserves prior coordinates/timezone.
+ * - Name-only over unconfirmed prior state: updates name; keeps prior lat/lon/tz as-is
+ *   (including the unset `(0,0)` default) without promoting to resolved.
+ * - Name-only over a *different* confirmed restored place: never merges the new label
+ *   onto the old coordinates. Stays explicitly unresolved with inert coords (not a
+ *   selected `(0,0)` sky) until the visitor confirms a place.
+ * - Name-only for the *same* confirmed place name: keeps prior coordinates.
  */
 export function applyEditorLocationQueryToState(
   previous: { name: string; latitude: number; longitude: number; timezone: string },
@@ -179,8 +184,21 @@ export function applyEditorLocationQueryToState(
   const parsed = parseEditorLocationQuery(params);
   if (!parsed) return null;
   if (!parsed.hasResolvedCoordinates) {
+    const previousName = previous.name?.trim() ?? "";
+    const nextName = parsed.name;
+    const previousConfirmed = hasConfirmedEditorLocation(previous);
+    if (previousConfirmed && previousName !== nextName) {
+      return {
+        name: nextName,
+        // Inert unresolved coords — not a selected (0,0) sky, not the prior place.
+        latitude: Number.NaN,
+        longitude: Number.NaN,
+        timezone: "",
+        hasResolvedCoordinates: false,
+      };
+    }
     return {
-      name: parsed.name,
+      name: nextName,
       latitude: previous.latitude,
       longitude: previous.longitude,
       timezone: previous.timezone,
