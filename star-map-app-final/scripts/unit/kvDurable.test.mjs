@@ -98,6 +98,95 @@ test("durable put: production without CF binding rejects rather than silent loca
   assert.equal(memoryStore.size, 0);
 });
 
+test("durable put: provider-valid print-order TTL remote failure propagates without local success", async () => {
+  // Mirrors persistPrintOrderRecord's >=60s retained-write path: setDurable with
+  // an exact remaining TTL must not fall back to local-only success on CF put failure.
+  const key = "print:order:cs_valid_ttl_fail";
+  const memoryStore = new Map();
+  const fallbackWrites = [];
+  const cfKv = {
+    async get() {
+      return null;
+    },
+    async put(_putKey, _value, options) {
+      assert.equal(options?.expirationTtl, 120);
+      throw new Error("cf put unavailable for retained print order");
+    },
+    async delete() {
+      throw new Error("delete should not run on persist path");
+    },
+    async list() {
+      return { keys: [], list_complete: true };
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      persistDurableKvPut({
+        cfKv,
+        allowLocalFallback: false,
+        mirrorLocalInCi: true,
+        key,
+        value: { status: "pending", customerPhone: "+15555550199", createdAt: 1_700_000_000_000 },
+        ttlSeconds: 120,
+        memoryStore,
+        writeFallback: async (writtenKey, value) => {
+          fallbackWrites.push({ key: writtenKey, value });
+        },
+      }),
+    (error) => {
+      assert.ok(error instanceof KvDurableWriteError);
+      assert.equal(error.code, "kv_durable_write_failed");
+      return true;
+    }
+  );
+
+  assert.equal(memoryStore.has(key), false);
+  assert.equal(fallbackWrites.length, 0);
+});
+
+test("durable put: provider-valid print-order TTL remote success mirrors only when requested", async () => {
+  const key = "print:order:cs_valid_ttl_ok";
+  const memoryStore = new Map();
+  const fallbackWrites = [];
+  const remotePuts = [];
+  const record = { status: "pending", createdAt: 1_700_000_000_000 };
+  const cfKv = {
+    async get() {
+      return null;
+    },
+    async put(putKey, value, options) {
+      remotePuts.push({ key: putKey, value: JSON.parse(value), options });
+    },
+    async delete() {
+      throw new Error("delete should not run on persist path");
+    },
+    async list() {
+      return { keys: [], list_complete: true };
+    },
+  };
+
+  const result = await persistDurableKvPut({
+    cfKv,
+    allowLocalFallback: false,
+    mirrorLocalInCi: true,
+    key,
+    value: record,
+    ttlSeconds: 60,
+    memoryStore,
+    writeFallback: async (writtenKey, value) => {
+      fallbackWrites.push({ key: writtenKey, value });
+    },
+  });
+
+  assert.equal(result, "OK");
+  assert.equal(remotePuts.length, 1);
+  assert.equal(remotePuts[0].key, key);
+  assert.equal(remotePuts[0].options?.expirationTtl, 60);
+  assert.deepEqual(memoryStore.get(key), record);
+  assert.equal(fallbackWrites.length, 1);
+});
+
 test("durable delete: remote success clears memory and fallback mirrors", async () => {
   const key = "print:order:cs_delete_ok";
   const memoryStore = new Map([[key, { customerPhone: "+15555550199" }]]);

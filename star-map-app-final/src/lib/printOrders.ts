@@ -179,7 +179,9 @@ export async function persistPrintOrderRecord(sessionId: string, record: PrintOr
     await kv.deleteDurable(key);
     return;
   }
-  await kv.set(key, record, { ex: plan.ttlSeconds });
+  // Provider-valid remaining TTL: use strict durable put so Cloudflare
+  // binding/put failures propagate instead of silent local-only success.
+  await kv.setDurable(key, record, { ex: plan.ttlSeconds });
 }
 
 /**

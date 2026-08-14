@@ -324,8 +324,26 @@ test("print-order KV write plan deletes below Workers min TTL and never extends 
 
   assert.match(printOrdersSource, /action === "delete"/);
   assert.match(printOrdersSource, /kv\.deleteDurable/);
+  assert.match(printOrdersSource, /kv\.setDurable\(key,\s*record,\s*\{\s*ex:\s*plan\.ttlSeconds\s*\}\)/);
   assert.doesNotMatch(printOrdersSource, /Math\.max\(1,\s*Math\.min\(maxRetentionSeconds/);
   assert.doesNotMatch(printOrdersSource, /ex:\s*getPrintOrderRetentionSeconds/);
+  // Ordinary kv.set swallows remote failures into local fallback — must not be
+  // used for retained print-order PII writes (durable path only).
+  assert.doesNotMatch(
+    printOrdersSource,
+    /persistPrintOrderRecord[\s\S]*?await kv\.set\(/,
+  );
+});
+
+test("valid-TTL print-order persistence uses durable put semantics", () => {
+  assert.match(
+    printOrdersSource,
+    /await kv\.setDurable\(key,\s*record,\s*\{\s*ex:\s*plan\.ttlSeconds\s*\}\)/,
+  );
+  assert.match(printOrdersSource, /kv\.deleteDurable\(key\)/);
+  // Plan gate still routes >=60 to persist and <60/malformed to delete.
+  assert.match(printOrdersSource, /CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS/);
+  assert.match(printOrdersSource, /resolvePrintOrderKvWrite\(record\.createdAt\)/);
 });
 
 test("production status/retry/resolve routes sanitize operator order responses", () => {
