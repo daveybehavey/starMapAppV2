@@ -759,6 +759,9 @@ export function EditorExperience({
           hasLocation = hasConfirmedEditorLocation(parsed);
           if (hasLocation) {
             resolvedCityTimeZone = parsed.timezone;
+          } else {
+            // Numeric (0,0) (or otherwise unconfirmed) must not keep a prior reveal.
+            setRevealed(false);
           }
         } else {
           // Name-only handoff: never create a confirmed mixed state (new label + old

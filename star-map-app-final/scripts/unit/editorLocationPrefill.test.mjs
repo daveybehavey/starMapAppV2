@@ -162,6 +162,11 @@ test("explicit lat=0&lon=0 + valid date must not auto-reveal", () => {
   assert.match(editor, /if \(hasValidDate && hasLocation\)/);
   // City timezone for date parse is only used when confirmation passed.
   assert.match(editor, /if \(hasLocation\)[\s\S]*?resolvedCityTimeZone = parsed\.timezone/);
+  // Unconfirmed numeric pairs (including explicit 0,0) clear any prior reveal.
+  assert.match(
+    editor,
+    /hasLocation = hasConfirmedEditorLocation\(parsed\)[\s\S]*?if \(hasLocation\)[\s\S]*?else[\s\S]*?setRevealed\(false\)/
+  );
 });
 
 test("canonical city overwrites stale draft; conflicting name-only stays unresolved", () => {
