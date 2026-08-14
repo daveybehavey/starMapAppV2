@@ -53,6 +53,26 @@ export function isValidEditorTimeZone(timeZone: string): boolean {
 }
 
 /**
+ * True when the editor has a named place with confirmed coordinates.
+ * The unset default `(0,0)` is not treated as a confirmed selection, so a
+ * name-only handoff cannot unlock/reveal a wrong sky.
+ */
+export function hasConfirmedEditorLocation(location: {
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}): boolean {
+  const name = location.name?.trim() ?? "";
+  if (!name) return false;
+  const latitude = typeof location.latitude === "number" ? location.latitude : Number.NaN;
+  const longitude = typeof location.longitude === "number" ? location.longitude : Number.NaN;
+  if (!isValidEditorCoordinatePair(latitude, longitude)) return false;
+  // Store default before geocode confirmation.
+  if (latitude === 0 && longitude === 0) return false;
+  return true;
+}
+
+/**
  * Resolve a city landing into a full editor prefill (name + coordinates + timezone).
  * Returns null when the slug has no canonical coordinates.
  */

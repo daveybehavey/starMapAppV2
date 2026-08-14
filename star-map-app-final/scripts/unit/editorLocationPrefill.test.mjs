@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   applyEditorLocationQueryToState,
+  hasConfirmedEditorLocation,
   isValidEditorTimeZone,
   parseEditorLocationQuery,
   withEditorLocation,
@@ -101,6 +102,29 @@ test("generic location+date does not invent a (0,0) sky selection", () => {
   assert.equal(applied?.name, "Our Backyard");
   assert.equal(applied?.latitude, 0);
   assert.equal(applied?.longitude, 0);
+  assert.equal(hasConfirmedEditorLocation(applied), false);
+});
+
+test("name-only with date cannot unlock/reveal a (0,0) sky", () => {
+  assert.equal(
+    hasConfirmedEditorLocation({ name: "Paris, France", latitude: 0, longitude: 0 }),
+    false
+  );
+  assert.equal(
+    hasConfirmedEditorLocation({
+      name: "Paris, France",
+      latitude: 48.8566,
+      longitude: 2.3522,
+    }),
+    true
+  );
+
+  const editor = readSrc("components/EditorExperience.tsx");
+  const logic = readSrc("hooks/useEditorLogic.ts");
+  assert.match(logic, /hasConfirmedEditorLocation\(location\)/);
+  assert.match(editor, /hasConfirmedEditorLocation/);
+  // Auto-reveal still requires resolved coordinates from the query parser.
+  assert.match(editor, /if \(parsed\.hasResolvedCoordinates\)/);
 });
 
 test("canonical city overwrites stale draft; name-only preserves restored coordinates", () => {

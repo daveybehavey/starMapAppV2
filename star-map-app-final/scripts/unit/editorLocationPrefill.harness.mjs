@@ -34,6 +34,16 @@ export function isValidEditorTimeZone(timeZone) {
   }
 }
 
+export function hasConfirmedEditorLocation(location) {
+  const name = location?.name?.trim() ?? "";
+  if (!name) return false;
+  const latitude = typeof location.latitude === "number" ? location.latitude : Number.NaN;
+  const longitude = typeof location.longitude === "number" ? location.longitude : Number.NaN;
+  if (!isValidEditorCoordinatePair(latitude, longitude)) return false;
+  if (latitude === 0 && longitude === 0) return false;
+  return true;
+}
+
 export function withEditorLocation(href, location) {
   if (location == null) return href;
 

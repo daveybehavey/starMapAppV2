@@ -58,7 +58,8 @@ test("customer creates and customizes a visible preview from the homepage", asyn
   await waitForEditor(page);
   await dismissOverlays(page);
 
-  await page.getByRole("button", { name: /Customize more/i }).click();
+  // Homepage handoff is name-only: do not auto-reveal a (0,0) sky. Confirm place
+  // via autocomplete, then generate preview, before Customize more is available.
   const geocodeResponsePromise = page.waitForResponse((response) => {
     const responseUrl = new URL(response.url());
     return responseUrl.pathname === "/api/geocode" && responseUrl.searchParams.get("q") === "Paris";
@@ -67,6 +68,7 @@ test("customer creates and customizes a visible preview from the homepage", asyn
     .getByRole("combobox", { name: /Location search/i })
     .or(page.getByRole("combobox", { name: /Search city, landmark, or address/i }))
     .first();
+  await expect(locationSearch).toHaveValue("Paris, France");
   await locationSearch.fill("Paris");
   const geocodeResponse = await geocodeResponsePromise;
   expect(geocodeResponse.ok()).toBe(true);
@@ -111,7 +113,11 @@ test("customer creates and customizes a visible preview from the homepage", asyn
       timezone: "Europe/Paris",
     });
 
+  await page.getByRole("button", { name: /Generate preview/i }).first().click();
   await waitForPreview(page);
+  await page.getByRole("button", { name: /Customize more/i }).click();
+  await expect(locationSearch).toHaveValue("Paris, France");
+
   const preview = await waitForMapCanvasReady(page);
   const canvas = preview.locator("canvas").last();
   const readCanvasSignature = () =>

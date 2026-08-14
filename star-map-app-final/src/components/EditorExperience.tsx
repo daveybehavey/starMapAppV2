@@ -81,7 +81,7 @@ import {
   shouldAutoOpenEditorDigitalPaywall,
 } from "@/lib/previewSourceHints";
 import { parseCalendarDateParamToIso } from "@/lib/dateTime";
-import { parseEditorLocationQuery } from "@/lib/editorLocationPrefill";
+import { hasConfirmedEditorLocation, parseEditorLocationQuery } from "@/lib/editorLocationPrefill";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
 import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
 import {
@@ -519,27 +519,32 @@ export function EditorExperience({
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hasLocation = Boolean(location.name?.trim());
+  const hasConfirmedLocation = hasConfirmedEditorLocation(location);
   const titleText =
     textBoxes.find((box) => box.id === "title")?.text?.trim() ?? textBoxes[0]?.text?.trim() ?? "";
   const hasPersonalizedTitle = titleText.length > 0 && titleText.toLowerCase() !== DEFAULT_TITLE_TEXT;
   const setupSteps = [
-    { label: "Date + place", done: hasDate && hasLocation, optional: false },
+    { label: "Date + place", done: hasDate && hasConfirmedLocation, optional: false },
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
   const previewLockedMessage =
-    !hasDate && !hasLocation
+    !hasDate && !hasConfirmedLocation
       ? "Add your date and place to unlock preview. Presets optional."
       : !hasDate
         ? "Add your date to unlock preview. Presets optional."
-        : "Add your place to unlock preview. Presets optional.";
+        : hasLocation && !hasConfirmedLocation
+          ? "Confirm your place from suggestions to unlock preview. Presets optional."
+          : "Add your place to unlock preview. Presets optional.";
   const previewReadyMessage = "Preview is ready. Presets optional.";
   const previewUnlockButtonLabel =
-    !hasDate && !hasLocation
+    !hasDate && !hasConfirmedLocation
       ? "Add date + place to unlock preview"
       : !hasDate
         ? "Add your date to unlock preview"
-        : "Add your place to unlock preview";
+        : hasLocation && !hasConfirmedLocation
+          ? "Confirm your place to unlock preview"
+          : "Add your place to unlock preview";
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(
