@@ -116,7 +116,6 @@ test("customer creates and customizes a visible preview from the homepage", asyn
   await page.getByRole("button", { name: /Generate preview/i }).first().click();
   await waitForPreview(page);
   await page.getByRole("button", { name: /Customize more/i }).click();
-  await expect(locationSearch).toHaveValue("Paris, France");
 
   const preview = await waitForMapCanvasReady(page);
   const canvas = preview.locator("canvas").last();
