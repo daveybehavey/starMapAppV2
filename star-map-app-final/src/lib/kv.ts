@@ -46,6 +46,11 @@ export class KvDurableDeleteError extends Error {
   }
 }
 
+/** True for strict durable put/delete failures that must not be swallowed as soft errors. */
+export function isDurableKvPersistenceError(error: unknown): boolean {
+  return error instanceof KvDurableWriteError || error instanceof KvDurableDeleteError;
+}
+
 /**
  * Explicit boundary for intentional local/CI KV mode.
  * Production Cloudflare outages must not silently fall through here when a binding was expected.

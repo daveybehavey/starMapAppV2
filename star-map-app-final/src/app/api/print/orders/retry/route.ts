@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { kv } from "@/lib/kv";
+import { isDurableKvPersistenceError, kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
@@ -86,6 +86,7 @@ async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<Pr
     }
     return updated;
   } catch (error) {
+    if (isDurableKvPersistenceError(error)) throw error;
     console.warn("Failed to refresh print order recipient details from Stripe", error);
     return existing;
   }
@@ -281,8 +282,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
   }
 
+  let webhookResponse: Response;
   try {
-    const response = await fetch(printFulfillmentWebhookUrl, {
+    webhookResponse = await fetch(printFulfillmentWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
@@ -293,23 +295,13 @@ export async function POST(req: NextRequest) {
         }),
       ),
     });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`Webhook ${response.status}: ${body.slice(0, 280)}`);
+    if (!webhookResponse.ok) {
+      const body = await webhookResponse.text().catch(() => "");
+      throw new Error(`Webhook ${webhookResponse.status}: ${body.slice(0, 280)}`);
     }
-
-    const sent = {
-      ...hydrated,
-      status: "sent" as const,
-      attempts,
-      printAssetUrl,
-      webhookStatus: response.status,
-      sentAt: now,
-      error: undefined,
-    };
-    await persistPrintOrderRecord(sessionId, sent);
-    return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
   } catch (error) {
+    // Restrict this catch to outbound fulfillment failures only.
+    if (isDurableKvPersistenceError(error)) throw error;
     const failed = await persistFailedPrintOrder({
       ...hydrated,
       attempts,
@@ -318,4 +310,18 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
   }
+
+  const sent = {
+    ...hydrated,
+    status: "sent" as const,
+    attempts,
+    printAssetUrl,
+    webhookStatus: webhookResponse.status,
+    sentAt: now,
+    error: undefined,
+  };
+  // Successful external side effect: durable state write stays outside the outbound
+  // catch so KV failures cannot be rewritten as webhook failures.
+  await persistPrintOrderRecord(sessionId, sent);
+  return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
 }

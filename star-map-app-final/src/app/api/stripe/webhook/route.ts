@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { kv } from "@/lib/kv";
+import { isDurableKvPersistenceError, kv } from "@/lib/kv";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { isPrintVariant } from "@/lib/printCatalog";
 import { getMerchFamily, isMerchFamilyId, type MerchFamilyId } from "@/lib/merchCatalog";
@@ -889,6 +889,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       await persistPrintOrderRecord(session.id, payload);
       recipient = getPrintRecipient(payload);
     } catch (error) {
+      if (isDurableKvPersistenceError(error)) throw error;
       console.warn("Print order recipient refresh failed", error);
     }
   }
@@ -1050,8 +1051,9 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
 
   if (!printFulfillmentWebhookUrl) return;
 
+  let webhookResponse: Response;
   try {
-    const response = await fetch(printFulfillmentWebhookUrl, {
+    webhookResponse = await fetch(printFulfillmentWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
@@ -1062,21 +1064,13 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         }),
       ),
     });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`Webhook ${response.status}: ${body.slice(0, 280)}`);
-    }
-    if (!isPrintfulConfigured()) {
-      await persistPrintOrderRecord(session.id, {
-        ...payload,
-        printAssetUrl,
-        status: "sent",
-        webhookStatus: response.status,
-        sentAt: Date.now(),
-        error: undefined,
-      });
+    if (!webhookResponse.ok) {
+      const body = await webhookResponse.text().catch(() => "");
+      throw new Error(`Webhook ${webhookResponse.status}: ${body.slice(0, 280)}`);
     }
   } catch (error) {
+    // Outbound fulfillment failures only — durable persistence errors must not land here.
+    if (isDurableKvPersistenceError(error)) throw error;
     if (!isPrintfulConfigured()) {
       await persistProblemPrintOrder({
         ...payload,
@@ -1085,6 +1079,20 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         error: error instanceof Error ? error.message.slice(0, 320) : "webhook_failed",
       });
     }
+    return;
+  }
+
+  // Successful external side effect: persist "sent" outside the outbound catch so a
+  // transient KV failure cannot be rewritten as a webhook/provider failure.
+  if (!isPrintfulConfigured()) {
+    await persistPrintOrderRecord(session.id, {
+      ...payload,
+      printAssetUrl,
+      status: "sent",
+      webhookStatus: webhookResponse.status,
+      sentAt: Date.now(),
+      error: undefined,
+    });
   }
 }
 
@@ -1287,11 +1295,15 @@ export async function POST(req: Request) {
 
   const eventDedupeKey = ENTITLEMENT_KV.stripeWebhookEvent(event.id);
   const isExpiredCheckoutEvent = event.type === "checkout.session.expired";
+  const isCompletedCheckoutEvent = event.type === "checkout.session.completed";
+  // Defer dedupe finalization for events whose critical side effects must remain
+  // Stripe-retryable when durable persistence fails mid-handling.
+  const deferDedupeUntilSuccess = isExpiredCheckoutEvent || isCompletedCheckoutEvent;
 
   // Unrelated Stripe event types keep pre-processing dedupe.
-  // checkout.session.expired finalizes dedupe only after delivered / already-delivered / terminal
-  // handling so retryable provider failures remain eligible for Stripe redelivery.
-  if (!isExpiredCheckoutEvent) {
+  // checkout.session.expired / checkout.session.completed finalize dedupe only after
+  // successful handling so retryable durable failures remain eligible for redelivery.
+  if (!deferDedupeUntilSuccess) {
     const dedupeCount = await kv.incr(eventDedupeKey, 1, {
       ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
     });
@@ -1306,13 +1318,25 @@ export async function POST(req: Request) {
   }
 
   let expiredRecoveryRetryable = false;
+  let completedCheckoutRetryable = false;
 
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      await markSessionPaid(session);
-      await queuePrintOrder(session);
-      await applyReferralReward(session);
+      try {
+        await markSessionPaid(session);
+        await queuePrintOrder(session);
+        await applyReferralReward(session);
+      } catch (error) {
+        // Durable print-order persistence failure must not finalize dedupe — Stripe
+        // redelivery must be able to queue the paid order again.
+        if (isDurableKvPersistenceError(error)) {
+          completedCheckoutRetryable = true;
+          break;
+        }
+        throw error;
+      }
+      await kv.set(eventDedupeKey, { received: true }, { ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS });
       break;
     }
     case "checkout.session.expired": {
@@ -1390,8 +1414,15 @@ export async function POST(req: Request) {
       break;
   }
 
-  if (expiredRecoveryRetryable) {
-    return NextResponse.json({ error: "checkout_recovery_retryable" }, { status: 503 });
+  if (expiredRecoveryRetryable || completedCheckoutRetryable) {
+    return NextResponse.json(
+      {
+        error: completedCheckoutRetryable
+          ? "print_order_queue_retryable"
+          : "checkout_recovery_retryable",
+      },
+      { status: 503 },
+    );
   }
 
   return NextResponse.json({ received: true });
