@@ -1,6 +1,7 @@
 /** Keep in sync with src/lib/printOrders.ts phone + recipient + operator sanitization helpers. */
 
 export const DEFAULT_PRINT_ORDER_RETENTION_DAYS = 60;
+export const CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS = 60;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
 export function normalizeCheckoutPhone(value) {
@@ -21,7 +22,7 @@ export function getPrintOrderRetentionSeconds({
   now = Date.now(),
   env = process.env,
 } = {}) {
-  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 1;
+  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 0;
   const raw = typeof env.PRINT_ORDER_RETENTION_DAYS === "string" ? env.PRINT_ORDER_RETENTION_DAYS.trim() : "";
   const parsedDays = raw ? Number.parseInt(raw, 10) : Number.NaN;
   const configuredDays =
@@ -31,7 +32,20 @@ export function getPrintOrderRetentionSeconds({
   const safeNow = Number.isFinite(now) ? now : Date.now();
   const deadlineMs = createdAt + maxRetentionSeconds * 1000;
   const remainingSeconds = Math.ceil((deadlineMs - safeNow) / 1000);
-  return Math.max(1, Math.min(maxRetentionSeconds, remainingSeconds));
+  if (remainingSeconds <= 0) return 0;
+  return Math.min(maxRetentionSeconds, remainingSeconds);
+}
+
+/**
+ * Persist only when remaining TTL is Workers-KV-valid (>=60). Otherwise delete.
+ * Never extends past the creation-anchored deadline.
+ */
+export function resolvePrintOrderKvWrite({ createdAt, now = Date.now(), env = process.env } = {}) {
+  const remainingSeconds = getPrintOrderRetentionSeconds({ createdAt, now, env });
+  if (remainingSeconds < CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS) {
+    return { action: "delete" };
+  }
+  return { action: "persist", ttlSeconds: remainingSeconds };
 }
 
 /**

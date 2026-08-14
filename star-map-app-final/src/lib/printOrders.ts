@@ -67,6 +67,8 @@ const DEFAULT_PRINT_MIN_CHARGE_CENTS = 100;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 /** Fixed maximum retention from original order creation (fulfillment + short support window). */
 export const DEFAULT_PRINT_ORDER_RETENTION_DAYS = 60;
+/** Cloudflare Workers KV rejects expirationTtl below this value. */
+export const CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS = 60;
 
 export function getPrintMinChargeCents() {
   const raw = process.env.PRINT_MIN_CHARGE_CENTS?.trim();
@@ -113,14 +115,15 @@ export function extractCheckoutPhoneFromStripeSession(session: {
 }
 
 /**
- * Remaining bounded KV retention for a print-order record.
+ * Remaining bounded KV retention for a print-order record, in whole seconds.
  * The deadline is anchored to the original `createdAt`: later webhook, retry,
  * shipping, or notification writes can never restart the retention window.
  * Configuration may shorten the default 60-day bound, but never extend it.
- * A malformed creation timestamp fails closed to the minimum one-second TTL.
+ * Malformed creation timestamps and already-elapsed windows return `0` so the
+ * caller can fail closed (durable delete) instead of minting a sub-minute TTL.
  */
 export function getPrintOrderRetentionSeconds(createdAt: unknown, now = Date.now()) {
-  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 1;
+  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) return 0;
 
   const raw = process.env.PRINT_ORDER_RETENTION_DAYS?.trim();
   const parsedDays = raw ? Number.parseInt(raw, 10) : Number.NaN;
@@ -131,7 +134,24 @@ export function getPrintOrderRetentionSeconds(createdAt: unknown, now = Date.now
   const safeNow = Number.isFinite(now) ? now : Date.now();
   const deadlineMs = createdAt + maxRetentionSeconds * 1000;
   const remainingSeconds = Math.ceil((deadlineMs - safeNow) / 1000);
-  return Math.max(1, Math.min(maxRetentionSeconds, remainingSeconds));
+  if (remainingSeconds <= 0) return 0;
+  return Math.min(maxRetentionSeconds, remainingSeconds);
+}
+
+/**
+ * Decide whether a print-order rewrite may use a provider-valid KV TTL, or must
+ * durably delete. Never returns a sub-minute TTL and never extends past the
+ * creation-anchored deadline.
+ */
+export function resolvePrintOrderKvWrite(
+  createdAt: unknown,
+  now = Date.now(),
+): { action: "delete" } | { action: "persist"; ttlSeconds: number } {
+  const remainingSeconds = getPrintOrderRetentionSeconds(createdAt, now);
+  if (remainingSeconds < CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS) {
+    return { action: "delete" };
+  }
+  return { action: "persist", ttlSeconds: remainingSeconds };
 }
 
 /**
@@ -150,9 +170,16 @@ export function resolvePrintOrderCreatedAt(
 }
 
 export async function persistPrintOrderRecord(sessionId: string, record: PrintOrderRecord) {
-  await kv.set(printOrderKey(sessionId), record, {
-    ex: getPrintOrderRetentionSeconds(record.createdAt),
-  });
+  const key = printOrderKey(sessionId);
+  const plan = resolvePrintOrderKvWrite(record.createdAt);
+  if (plan.action === "delete") {
+    // Remaining window is below Workers KV's minimum valid TTL (or malformed /
+    // already expired). Do not attempt an invalid expirationTtl and do not
+    // extend retention to 60s past the original deadline — remove the PII key.
+    await kv.deleteDurable(key);
+    return;
+  }
+  await kv.set(key, record, { ex: plan.ttlSeconds });
 }
 
 /**

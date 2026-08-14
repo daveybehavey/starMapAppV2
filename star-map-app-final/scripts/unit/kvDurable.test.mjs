@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isLocalKvFallbackAllowed,
+  KvDurableDeleteError,
   KvDurableWriteError,
+  persistDurableKvDelete,
   persistDurableKvPut,
   persistOrdinaryKvPutWithLocalFallbackOnRemoteFailure,
 } from "../../src/lib/kv.ts";
@@ -25,6 +27,9 @@ test("durable put: Cloudflare put failure propagates and does not populate local
     },
     async put() {
       throw new Error("cf put unavailable");
+    },
+    async delete() {
+      throw new Error("delete should not run");
     },
     async list() {
       return { keys: [], list_complete: true };
@@ -93,6 +98,121 @@ test("durable put: production without CF binding rejects rather than silent loca
   assert.equal(memoryStore.size, 0);
 });
 
+test("durable delete: remote success clears memory and fallback mirrors", async () => {
+  const key = "print:order:cs_delete_ok";
+  const memoryStore = new Map([[key, { customerPhone: "+15555550199" }]]);
+  const removedFallback = [];
+  let remoteDeleted = false;
+  const cfKv = {
+    async get() {
+      return null;
+    },
+    async put() {
+      throw new Error("put should not run");
+    },
+    async delete(deletedKey) {
+      assert.equal(deletedKey, key);
+      remoteDeleted = true;
+    },
+    async list() {
+      return { keys: [], list_complete: true };
+    },
+  };
+
+  const result = await persistDurableKvDelete({
+    cfKv,
+    allowLocalFallback: false,
+    key,
+    memoryStore,
+    removeFallback: async (removedKey) => {
+      removedFallback.push(removedKey);
+    },
+  });
+
+  assert.equal(result, "OK");
+  assert.equal(remoteDeleted, true);
+  assert.equal(memoryStore.has(key), false);
+  assert.deepEqual(removedFallback, [key]);
+});
+
+test("durable delete: remote failure throws and does not clear local copies", async () => {
+  const key = "print:order:cs_delete_fail";
+  const memoryStore = new Map([[key, { customerPhone: "+15555550199" }]]);
+  const removedFallback = [];
+  const cfKv = {
+    async get() {
+      return null;
+    },
+    async put() {
+      throw new Error("put should not run");
+    },
+    async delete() {
+      throw new Error("cf delete unavailable");
+    },
+    async list() {
+      return { keys: [], list_complete: true };
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      persistDurableKvDelete({
+        cfKv,
+        allowLocalFallback: true,
+        key,
+        memoryStore,
+        removeFallback: async (removedKey) => {
+          removedFallback.push(removedKey);
+        },
+      }),
+    (error) => {
+      assert.ok(error instanceof KvDurableDeleteError);
+      assert.equal(error.code, "kv_durable_delete_failed");
+      return true;
+    }
+  );
+
+  assert.equal(memoryStore.has(key), true);
+  assert.equal(removedFallback.length, 0);
+});
+
+test("durable delete: intentional local/CI mode removes memory and fallback when CF absent", async () => {
+  const key = "print:order:cs_delete_local";
+  const memoryStore = new Map([[key, { status: "pending" }]]);
+  const removedFallback = [];
+  const result = await persistDurableKvDelete({
+    cfKv: null,
+    allowLocalFallback: true,
+    key,
+    memoryStore,
+    removeFallback: async (removedKey) => {
+      removedFallback.push(removedKey);
+    },
+  });
+  assert.equal(result, "OK");
+  assert.equal(memoryStore.has(key), false);
+  assert.deepEqual(removedFallback, [key]);
+});
+
+test("durable delete: production without CF binding rejects rather than silent local success", async () => {
+  const key = "print:order:cs_delete_prod_missing";
+  const memoryStore = new Map([[key, { status: "pending" }]]);
+  await assert.rejects(
+    () =>
+      persistDurableKvDelete({
+        cfKv: null,
+        allowLocalFallback: false,
+        key,
+        memoryStore,
+        removeFallback: async () => {
+          throw new Error("fallback remove must not run");
+        },
+      }),
+    KvDurableDeleteError
+  );
+  assert.equal(memoryStore.has(key), true);
+});
+
 test("negative control: ordinary set swallows CF failure into local success (marker-only race)", async () => {
   const memoryStore = new Map();
   const fallbackWrites = [];
@@ -107,6 +227,9 @@ test("negative control: ordinary set swallows CF failure into local success (mar
         return;
       }
       throw new Error("session put failed remotely");
+    },
+    async delete() {
+      throw new Error("delete should not run");
     },
     async list() {
       return { keys: [], list_complete: true };

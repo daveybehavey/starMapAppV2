@@ -8,6 +8,7 @@ type KvListOptions = { prefix?: string; cursor?: string; limit?: number };
 type CloudflareKvNamespace = {
   get<T>(key: string, type: "json"): Promise<T | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
   list(options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{
     keys: Array<{ name: string }>;
     list_complete: boolean;
@@ -33,6 +34,15 @@ export class KvDurableWriteError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options?.cause ? { cause: options.cause } : undefined);
     this.name = "KvDurableWriteError";
+  }
+}
+
+/** Surfaces a durable Cloudflare KV delete failure (never converted into local-only success). */
+export class KvDurableDeleteError extends Error {
+  readonly code = "kv_durable_delete_failed";
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options?.cause ? { cause: options.cause } : undefined);
+    this.name = "KvDurableDeleteError";
   }
 }
 
@@ -66,6 +76,15 @@ async function writeFallbackValue<T>(key: string, value: T): Promise<void> {
   const filePath = fallbackFilePathForKey(key);
   await fs.mkdir(fallbackKvDir, { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(value), "utf8");
+}
+
+async function removeFallbackValue(key: string): Promise<void> {
+  const filePath = fallbackFilePathForKey(key);
+  try {
+    await fs.unlink(filePath);
+  } catch {
+    // Missing fallback file is a successful delete outcome.
+  }
 }
 
 async function getCloudflareKv(): Promise<CloudflareKvNamespace | null> {
@@ -135,6 +154,44 @@ export async function persistDurableKvPut<T>(input: {
 
   input.memoryStore.set(input.key, input.value);
   await input.writeFallback(input.key, input.value);
+  return "OK";
+}
+
+/**
+ * Durable delete orchestration used by {@link kv.deleteDurable}.
+ * When a Cloudflare namespace is present, delete failures propagate and must not
+ * clear local copies in a way that falsely reports durable success.
+ * After a successful remote delete, local memory/file mirrors are cleared so CI
+ * mirroring cannot retain stale PII.
+ * Exported for focused unit tests with injectable deps.
+ */
+export async function persistDurableKvDelete(input: {
+  cfKv: CloudflareKvNamespace | null;
+  allowLocalFallback: boolean;
+  key: string;
+  memoryStore: Map<string, unknown>;
+  removeFallback: (key: string) => Promise<void>;
+}): Promise<"OK"> {
+  if (input.cfKv) {
+    try {
+      await input.cfKv.delete(input.key);
+    } catch (error) {
+      throw new KvDurableDeleteError("Cloudflare KV durable delete failed", { cause: error });
+    }
+    // Remote delete succeeded — drop any local mirrors (including CI write mirrors).
+    input.memoryStore.delete(input.key);
+    await input.removeFallback(input.key);
+    return "OK";
+  }
+
+  if (!input.allowLocalFallback) {
+    throw new KvDurableDeleteError(
+      "Cloudflare KV binding unavailable for durable delete (local fallback not permitted)"
+    );
+  }
+
+  input.memoryStore.delete(input.key);
+  await input.removeFallback(input.key);
   return "OK";
 }
 
@@ -222,6 +279,21 @@ export const kv = {
       ttlSeconds: ttlFromOptions(options),
       memoryStore,
       writeFallback: writeFallbackValue,
+    });
+  },
+  /**
+   * Strict durable delete for privacy-sensitive keys (e.g. print-order PII past retention).
+   * When Cloudflare KV is bound, delete failures propagate and do not report local-only success.
+   * Local memory/file is used only when CF is intentionally absent (dev/CI/explicit allow).
+   */
+  async deleteDurable(key: string): Promise<"OK"> {
+    const cfKv = await getCloudflareKv();
+    return persistDurableKvDelete({
+      cfKv,
+      allowLocalFallback: isLocalKvFallbackAllowed(),
+      key,
+      memoryStore,
+      removeFallback: removeFallbackValue,
     });
   },
   async incr(key: string, by = 1, options?: KvIncrOptions): Promise<number> {

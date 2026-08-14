@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   basePrintOrder,
   buildAlternateFulfillmentWebhookPayload,
+  CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS,
   DEFAULT_PRINT_ORDER_RETENTION_DAYS,
   extractCheckoutPhoneFromStripeSession,
   getPrintOrderOpsSafeSummary,
@@ -14,6 +15,7 @@ import {
   normalizeCheckoutPhone,
   redactPrintOrderApiResponseText,
   resolvePrintOrderCreatedAt,
+  resolvePrintOrderKvWrite,
   sanitizePrintOrderForOperatorResponse,
 } from "./printOrders.harness.mjs";
 
@@ -246,21 +248,84 @@ test("print-order retention is fixed from creation and cannot exceed 60 days", (
   );
   assert.equal(
     getPrintOrderRetentionSeconds({ createdAt, now: createdAt + 61 * DAY_MS, env: {} }),
-    1,
+    0,
   );
   assert.equal(
     getPrintOrderRetentionSeconds({ createdAt: createdAt + DAY_MS, now: createdAt, env: {} }),
     60 * DAY_SECONDS,
   );
-  assert.equal(getPrintOrderRetentionSeconds({ createdAt: Number.NaN, now: createdAt, env: {} }), 1);
-  assert.equal(getPrintOrderRetentionSeconds({ createdAt: undefined, now: createdAt, env: {} }), 1);
+  assert.equal(getPrintOrderRetentionSeconds({ createdAt: Number.NaN, now: createdAt, env: {} }), 0);
+  assert.equal(getPrintOrderRetentionSeconds({ createdAt: undefined, now: createdAt, env: {} }), 0);
 
   assert.match(printOrdersSource, /persistPrintOrderRecord/);
-  assert.match(printOrdersSource, /getPrintOrderRetentionSeconds\(record\.createdAt\)/);
+  assert.match(printOrdersSource, /resolvePrintOrderKvWrite\(record\.createdAt\)/);
+  assert.match(printOrdersSource, /kv\.deleteDurable\(key\)/);
   assert.match(printOrdersSource, /DEFAULT_PRINT_ORDER_RETENTION_DAYS\s*=\s*60/);
   assert.match(printOrdersSource, /Math\.min\(configuredDays, DEFAULT_PRINT_ORDER_RETENTION_DAYS\)/);
   assert.match(printOrdersSource, /typeof createdAt !== "number"/);
   assert.match(printOrdersSource, /!Number\.isFinite\(createdAt\)/);
+  assert.match(printOrdersSource, /CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS\s*=\s*60/);
+});
+
+test("print-order KV write plan deletes below Workers min TTL and never extends deadline", () => {
+  const DAY_SECONDS = 24 * 60 * 60;
+  const createdAt = 1_700_000_000_000;
+  const deadlineMs = createdAt + DEFAULT_PRINT_ORDER_RETENTION_DAYS * DAY_SECONDS * 1000;
+
+  assert.equal(CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS, 60);
+
+  // Malformed => delete (no put / no invented TTL).
+  for (const malformed of [null, undefined, Number.NaN, "bad", {}]) {
+    assert.deepEqual(
+      resolvePrintOrderKvWrite({ createdAt: malformed, now: createdAt, env: {} }),
+      { action: "delete" },
+    );
+  }
+
+  // Already expired => delete.
+  assert.deepEqual(
+    resolvePrintOrderKvWrite({ createdAt, now: deadlineMs + 1_000, env: {} }),
+    { action: "delete" },
+  );
+
+  // 1–59s remaining => delete (must not put invalid TTL or pad to 60 past deadline).
+  for (const remaining of [1, 30, 59]) {
+    const now = deadlineMs - remaining * 1000;
+    const plan = resolvePrintOrderKvWrite({ createdAt, now, env: {} });
+    assert.deepEqual(plan, { action: "delete" }, `remaining=${remaining}s must delete`);
+    assert.ok(now + CLOUDFLARE_KV_MIN_EXPIRATION_TTL_SECONDS * 1000 > deadlineMs);
+  }
+
+  // Exactly 60s remaining => persist with exact TTL.
+  assert.deepEqual(
+    resolvePrintOrderKvWrite({ createdAt, now: deadlineMs - 60_000, env: {} }),
+    { action: "persist", ttlSeconds: 60 },
+  );
+
+  // >60s remaining => persist with exact remaining (capped by max window).
+  assert.deepEqual(
+    resolvePrintOrderKvWrite({ createdAt, now: deadlineMs - 120_000, env: {} }),
+    { action: "persist", ttlSeconds: 120 },
+  );
+  assert.deepEqual(
+    resolvePrintOrderKvWrite({ createdAt, now: createdAt, env: {} }),
+    { action: "persist", ttlSeconds: DEFAULT_PRINT_ORDER_RETENTION_DAYS * DAY_SECONDS },
+  );
+
+  // Env may shorten but never extend past 60-day creation-anchored max.
+  assert.deepEqual(
+    resolvePrintOrderKvWrite({
+      createdAt,
+      now: createdAt,
+      env: { PRINT_ORDER_RETENTION_DAYS: "90" },
+    }),
+    { action: "persist", ttlSeconds: 60 * DAY_SECONDS },
+  );
+
+  assert.match(printOrdersSource, /action === "delete"/);
+  assert.match(printOrdersSource, /kv\.deleteDurable/);
+  assert.doesNotMatch(printOrdersSource, /Math\.max\(1,\s*Math\.min\(maxRetentionSeconds/);
+  assert.doesNotMatch(printOrdersSource, /ex:\s*getPrintOrderRetentionSeconds/);
 });
 
 test("production status/retry/resolve routes sanitize operator order responses", () => {
@@ -299,8 +364,13 @@ test("duplicate prior record with malformed createdAt cannot receive a fresh ret
     assert.equal(resolved, malformed, `must preserve malformed createdAt=${String(malformed)}`);
     assert.equal(
       getPrintOrderRetentionSeconds({ createdAt: resolved, now, env: {} }),
-      1,
-      `malformed createdAt must fail closed to 1s TTL; got value=${String(malformed)}`,
+      0,
+      `malformed createdAt must fail closed to 0 remaining; got value=${String(malformed)}`,
+    );
+    assert.deepEqual(
+      resolvePrintOrderKvWrite({ createdAt: resolved, now, env: {} }),
+      { action: "delete" },
+      `malformed createdAt must durable-delete; got value=${String(malformed)}`,
     );
   }
 
@@ -310,6 +380,10 @@ test("duplicate prior record with malformed createdAt cannot receive a fresh ret
   assert.equal(
     getPrintOrderRetentionSeconds({ createdAt: resolvePrintOrderCreatedAt(null, now), now, env: {} }),
     60 * 24 * 60 * 60,
+  );
+  assert.deepEqual(
+    resolvePrintOrderKvWrite({ createdAt: resolvePrintOrderCreatedAt(null, now), now, env: {} }),
+    { action: "persist", ttlSeconds: 60 * 24 * 60 * 60 },
   );
 
   // Production webhook must not nullish-coalesce prior createdAt to Date.now().
