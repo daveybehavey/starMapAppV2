@@ -44,6 +44,12 @@ export function hasConfirmedEditorLocation(location) {
   return true;
 }
 
+export const UNCONFIRMED_EDITOR_LOCATION_FIELDS = {
+  latitude: 0,
+  longitude: 0,
+  timezone: "UTC",
+};
+
 export function withEditorLocation(href, location) {
   if (location == null) return href;
 
@@ -90,9 +96,7 @@ export function parseEditorLocationQuery(params) {
   if (!hasResolvedCoordinates) {
     return {
       name,
-      latitude: Number.NaN,
-      longitude: Number.NaN,
-      timezone: "",
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
       hasResolvedCoordinates: false,
     };
   }
@@ -108,27 +112,13 @@ export function parseEditorLocationQuery(params) {
   };
 }
 
-export function applyEditorLocationQueryToState(previous, params) {
+export function applyEditorLocationQueryToState(_previous, params) {
   const parsed = parseEditorLocationQuery(params);
   if (!parsed) return null;
   if (!parsed.hasResolvedCoordinates) {
-    const previousName = typeof previous?.name === "string" ? previous.name.trim() : "";
-    const nextName = parsed.name;
-    const previousConfirmed = hasConfirmedEditorLocation(previous);
-    if (previousConfirmed && previousName !== nextName) {
-      return {
-        name: nextName,
-        latitude: Number.NaN,
-        longitude: Number.NaN,
-        timezone: "",
-        hasResolvedCoordinates: false,
-      };
-    }
     return {
-      name: nextName,
-      latitude: previous.latitude,
-      longitude: previous.longitude,
-      timezone: previous.timezone,
+      name: parsed.name,
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
       hasResolvedCoordinates: false,
     };
   }

@@ -73,6 +73,18 @@ export function hasConfirmedEditorLocation(location: {
 }
 
 /**
+ * Persistable unconfirmed location fields used for name-only query handoffs.
+ * Matches the editor store default so draft autosave and coordinate controls stay
+ * healthy — never use `NaN` / empty timezone in global editor state.
+ * `hasConfirmedEditorLocation` rejects `(0,0)`, so this is not a selected sky.
+ */
+export const UNCONFIRMED_EDITOR_LOCATION_FIELDS = {
+  latitude: 0,
+  longitude: 0,
+  timezone: "UTC",
+} as const;
+
+/**
  * Resolve a city landing into a full editor prefill (name + coordinates + timezone).
  * Returns null when the slug has no canonical coordinates.
  */
@@ -130,8 +142,9 @@ type ParamGetter = { get(name: string): string | null };
  * Parse editor location query params.
  *
  * - Valid lat+lon: resolved city selection (timezone validated; missing/invalid → UTC).
- * - Name-only: unresolved handoff — does **not** invent `(0,0)` as selected coordinates.
- *   Callers must apply name-only updates without wiping restored lat/lon/tz.
+ * - Name-only: unresolved handoff. Returns persistable unconfirmed fields
+ *   (`(0,0)` / `UTC`) with `hasResolvedCoordinates: false` — not a selected sky,
+ *   and never `NaN` that would poison draft persistence / coordinate controls.
  */
 export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQueryResult | null {
   const name = params.get("location")?.trim() ?? "";
@@ -145,12 +158,9 @@ export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQue
   const hasResolvedCoordinates = isValidEditorCoordinatePair(latitude, longitude);
 
   if (!hasResolvedCoordinates) {
-    // Unresolved name-only: keep fields inert. Do not invent (0,0)/UTC as a selection.
     return {
       name,
-      latitude: Number.NaN,
-      longitude: Number.NaN,
-      timezone: "",
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
       hasResolvedCoordinates: false,
     };
   }
@@ -170,38 +180,20 @@ export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQue
 /**
  * Pure apply helper for regression coverage.
  * - Resolved city query: always replaces name+lat+lon+timezone (no stale draft coords).
- * - Name-only over unconfirmed prior state: updates name; keeps prior lat/lon/tz as-is
- *   (including the unset `(0,0)` default) without promoting to resolved.
- * - Name-only over a *different* confirmed restored place: never merges the new label
- *   onto the old coordinates. Stays explicitly unresolved with inert coords (not a
- *   selected `(0,0)` sky) until the visitor confirms a place.
- * - Name-only for the *same* confirmed place name: keeps prior coordinates.
+ * - Name-only query (any prior state, including same label): always unconfirmed until
+ *   coordinates are newly confirmed. Uses persistable `(0,0)`/`UTC` — never inherits
+ *   prior confirmed coords, never writes `NaN` into editor state.
  */
 export function applyEditorLocationQueryToState(
-  previous: { name: string; latitude: number; longitude: number; timezone: string },
+  _previous: { name: string; latitude: number; longitude: number; timezone: string },
   params: ParamGetter
 ): { name: string; latitude: number; longitude: number; timezone: string; hasResolvedCoordinates: boolean } | null {
   const parsed = parseEditorLocationQuery(params);
   if (!parsed) return null;
   if (!parsed.hasResolvedCoordinates) {
-    const previousName = previous.name?.trim() ?? "";
-    const nextName = parsed.name;
-    const previousConfirmed = hasConfirmedEditorLocation(previous);
-    if (previousConfirmed && previousName !== nextName) {
-      return {
-        name: nextName,
-        // Inert unresolved coords — not a selected (0,0) sky, not the prior place.
-        latitude: Number.NaN,
-        longitude: Number.NaN,
-        timezone: "",
-        hasResolvedCoordinates: false,
-      };
-    }
     return {
-      name: nextName,
-      latitude: previous.latitude,
-      longitude: previous.longitude,
-      timezone: previous.timezone,
+      name: parsed.name,
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
       hasResolvedCoordinates: false,
     };
   }

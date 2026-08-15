@@ -764,26 +764,19 @@ export function EditorExperience({
             setRevealed(false);
           }
         } else {
-          // Name-only handoff: never create a confirmed mixed state (new label + old
-          // restored coordinates). Conflicting confirmed drafts stay unresolved until
-          // the visitor newly confirms coordinates.
+          // Name-only handoff: always unconfirmed until coordinates are newly
+          // confirmed. Never inherit restored coords (even for the same label),
+          // never write NaN into store, and always clear prior reveal.
           const previous = useStore.getState().location;
           const applied = applyEditorLocationQueryToState(previous, searchParams);
           if (applied) {
-            const previousConfirmed = hasConfirmedEditorLocation(previous);
-            const nameChanged = (previous.name?.trim() ?? "") !== applied.name;
-            if (previousConfirmed && nameChanged) {
-              setLocation({
-                name: applied.name,
-                latitude: applied.latitude,
-                longitude: applied.longitude,
-                timezone: applied.timezone,
-              });
-              // Draft restore may have set revealed; keep the handoff locked.
-              setRevealed(false);
-            } else {
-              setLocation({ name: applied.name });
-            }
+            setLocation({
+              name: applied.name,
+              latitude: applied.latitude,
+              longitude: applied.longitude,
+              timezone: applied.timezone,
+            });
+            setRevealed(false);
           }
         }
       }

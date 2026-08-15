@@ -80,19 +80,23 @@ test("name-only query is not treated as coordinate-resolved selected location", 
 
   const parsed = parseEditorLocationQuery(params);
   assert.equal(parsed?.hasResolvedCoordinates, false);
-  // Must not invent (0,0) as a selected/resolved location.
-  assert.equal(Number.isNaN(parsed?.latitude), true);
-  assert.equal(Number.isNaN(parsed?.longitude), true);
-  assert.equal(parsed?.timezone, "");
+  // Persistable unconfirmed defaults — not a selected/resolved sky.
+  assert.equal(parsed?.latitude, 0);
+  assert.equal(parsed?.longitude, 0);
+  assert.equal(parsed?.timezone, "UTC");
+  assert.equal(hasConfirmedEditorLocation(parsed), false);
+  assert.equal(Number.isFinite(parsed?.latitude), true);
+  assert.equal(Number.isFinite(parsed?.longitude), true);
 });
 
-test("generic location+date does not invent a (0,0) sky selection", () => {
+test("generic location+date does not invent a confirmed (0,0) sky selection", () => {
   const parsed = parseEditorLocationQuery(
     new URLSearchParams({ location: "Our Backyard", date: "2024-06-12" })
   );
   assert.equal(parsed?.hasResolvedCoordinates, false);
-  assert.equal(Number.isNaN(parsed?.latitude), true);
-  assert.equal(Number.isNaN(parsed?.longitude), true);
+  assert.equal(parsed?.latitude, 0);
+  assert.equal(parsed?.longitude, 0);
+  assert.equal(hasConfirmedEditorLocation(parsed), false);
   // Applying name-only onto a fresh default (0,0) must not promote it to resolved.
   const applied = applyEditorLocationQueryToState(
     { name: "", latitude: 0, longitude: 0, timezone: "UTC" },
@@ -102,6 +106,7 @@ test("generic location+date does not invent a (0,0) sky selection", () => {
   assert.equal(applied?.name, "Our Backyard");
   assert.equal(applied?.latitude, 0);
   assert.equal(applied?.longitude, 0);
+  assert.equal(applied?.timezone, "UTC");
   assert.equal(hasConfirmedEditorLocation(applied), false);
 });
 
@@ -169,7 +174,7 @@ test("explicit lat=0&lon=0 + valid date must not auto-reveal", () => {
   );
 });
 
-test("canonical city overwrites stale draft; conflicting name-only stays unresolved", () => {
+test("canonical city overwrites stale draft; every name-only stays unconfirmed", () => {
   const previous = {
     name: "Santorini, Greece",
     latitude: 36.3932,
@@ -200,24 +205,81 @@ test("canonical city overwrites stale draft; conflicting name-only stays unresol
   );
   assert.equal(nameOnly?.name, "Chicago, IL");
   assert.equal(nameOnly?.hasResolvedCoordinates, false);
-  assert.equal(Number.isNaN(nameOnly?.latitude), true);
-  assert.equal(Number.isNaN(nameOnly?.longitude), true);
-  assert.equal(nameOnly?.timezone, "");
+  assert.equal(nameOnly?.latitude, 0);
+  assert.equal(nameOnly?.longitude, 0);
+  assert.equal(nameOnly?.timezone, "UTC");
   assert.notEqual(nameOnly?.latitude, previous.latitude);
   assert.notEqual(nameOnly?.longitude, previous.longitude);
   assert.equal(hasConfirmedEditorLocation(nameOnly), false);
+  assert.equal(Number.isFinite(nameOnly?.latitude), true);
+  assert.equal(Number.isNaN(nameOnly?.latitude), false);
+});
 
-  // Same-name name-only keeps restored coordinates (no unnecessary erase).
+test("same-name name-only handoff does not inherit restored coordinates as confirmed", () => {
+  const previous = {
+    name: "Santorini, Greece",
+    latitude: 36.3932,
+    longitude: 25.4615,
+    timezone: "Europe/Athens",
+  };
   const sameName = applyEditorLocationQueryToState(
     previous,
     new URLSearchParams({ location: "Santorini, Greece" })
   );
   assert.equal(sameName?.name, "Santorini, Greece");
   assert.equal(sameName?.hasResolvedCoordinates, false);
-  assert.equal(sameName?.latitude, previous.latitude);
-  assert.equal(sameName?.longitude, previous.longitude);
-  assert.equal(sameName?.timezone, previous.timezone);
-  assert.equal(hasConfirmedEditorLocation(sameName), true);
+  assert.equal(sameName?.latitude, 0);
+  assert.equal(sameName?.longitude, 0);
+  assert.equal(sameName?.timezone, "UTC");
+  assert.notEqual(sameName?.latitude, previous.latitude);
+  assert.notEqual(sameName?.longitude, previous.longitude);
+  assert.equal(hasConfirmedEditorLocation(sameName), false);
+});
+
+test("name-only apply never writes NaN into persistable location fields", () => {
+  const previous = {
+    name: "Santorini, Greece",
+    latitude: 36.3932,
+    longitude: 25.4615,
+    timezone: "Europe/Athens",
+  };
+  for (const location of ["Chicago, IL", "Santorini, Greece", "Our Backyard"]) {
+    const applied = applyEditorLocationQueryToState(
+      previous,
+      new URLSearchParams({ location })
+    );
+    assert.ok(applied);
+    assert.equal(Number.isFinite(applied.latitude), true);
+    assert.equal(Number.isFinite(applied.longitude), true);
+    assert.equal(Number.isNaN(applied.latitude), false);
+    assert.equal(Number.isNaN(applied.longitude), false);
+    assert.equal(applied.timezone, "UTC");
+    assert.ok(applied.timezone.trim().length > 0);
+    assert.equal(applied.hasResolvedCoordinates, false);
+    assert.equal(hasConfirmedEditorLocation(applied), false);
+  }
+
+  const src = readSrc("lib/editorLocationPrefill.ts");
+  assert.match(src, /UNCONFIRMED_EDITOR_LOCATION_FIELDS/);
+  assert.doesNotMatch(src, /latitude: Number\.NaN/);
+  assert.doesNotMatch(src, /longitude: Number\.NaN/);
+});
+
+test("every name-only handoff clears prior revealed in EditorExperience", () => {
+  const editor = readSrc("components/EditorExperience.tsx");
+  // Name-only branch always writes full unconfirmed fields and clears reveal.
+  assert.match(editor, /applyEditorLocationQueryToState/);
+  assert.match(
+    editor,
+    /setLocation\(\{[\s\S]*?name: applied\.name[\s\S]*?latitude: applied\.latitude[\s\S]*?longitude: applied\.longitude[\s\S]*?timezone: applied\.timezone/
+  );
+  assert.match(
+    editor,
+    /if \(applied\)[\s\S]*?setLocation\([\s\S]*?setRevealed\(false\)/
+  );
+  // No partial name-only merge that would keep prior reveal.
+  assert.doesNotMatch(editor, /setLocation\(\{\s*name: applied\.name\s*\}\)/);
+  assert.doesNotMatch(editor, /previousConfirmed && nameChanged/);
 });
 
 test("restored coords + different name-only cannot become confirmed mixed location", () => {
@@ -243,12 +305,13 @@ test("restored coords + different name-only cannot become confirmed mixed locati
   assert.equal(applied?.name, "Chicago, IL");
   assert.equal(hasConfirmedEditorLocation(applied), false);
   assert.equal(applied?.hasResolvedCoordinates, false);
+  assert.equal(applied?.latitude, 0);
+  assert.equal(applied?.longitude, 0);
   assert.notEqual(applied?.latitude, restored.latitude);
   assert.notEqual(applied?.longitude, restored.longitude);
 
   const editor = readSrc("components/EditorExperience.tsx");
   assert.match(editor, /applyEditorLocationQueryToState/);
-  assert.match(editor, /previousConfirmed && nameChanged/);
   assert.match(editor, /setRevealed\(false\)/);
 });
 
@@ -335,10 +398,11 @@ test("city landing page wires coordinate-resolved prefill into primary CTAs", ()
   assert.match(editor, /parsed\.hasResolvedCoordinates/);
   // Auto-reveal requires confirmed nonzero coordinates (not mere resolved lat/lon).
   assert.match(editor, /hasLocation = hasConfirmedEditorLocation\(parsed\)/);
-  // Non-conflicting name-only still updates the label only.
-  assert.match(editor, /setLocation\(\{\s*name: applied\.name\s*\}\)/);
-  // Conflicting confirmed draft + name-only clears reveal and stays unresolved.
-  assert.match(editor, /previousConfirmed && nameChanged/);
+  // Name-only always writes full unconfirmed fields and clears reveal.
+  assert.match(
+    editor,
+    /setLocation\(\{[\s\S]*?name: applied\.name[\s\S]*?latitude: applied\.latitude/
+  );
   assert.match(editor, /setRevealed\(false\)/);
   // Must not overwrite full location for unresolved name-only handoffs via city branch.
   assert.match(
