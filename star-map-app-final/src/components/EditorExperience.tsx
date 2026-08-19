@@ -674,7 +674,9 @@ export function EditorExperience({
         aspectRatio: draft.aspectRatio,
         shape: draft.shape,
         renderOptions: { ...currentState.renderOptions, ...draft.renderOptions },
-        revealed: Boolean(draft.location.name.trim()),
+        // Same confirmed-location predicate as Generate / auto-reveal — a named
+        // (0,0)/UTC draft must remount locked, not as a revealed wrong sky.
+        revealed: hasConfirmedEditorLocation(draft.location),
       });
       setSelectedOccasion(draft.selectedOccasion);
       setCustomOccasion(draft.selectedOccasion ? false : Boolean(draft.location.name.trim()));
@@ -684,7 +686,7 @@ export function EditorExperience({
     }
     try {
       const revealedFlag = localStorage.getItem(REVEALED_FLAG);
-      if (revealedFlag === "true") {
+      if (revealedFlag === "true" && hasConfirmedEditorLocation(useStore.getState().location)) {
         setRevealed(true);
       }
       const autoFlag = localStorage.getItem(AUTO_EXPORT_KEY);

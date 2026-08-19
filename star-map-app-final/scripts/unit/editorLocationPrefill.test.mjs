@@ -265,6 +265,35 @@ test("name-only apply never writes NaN into persistable location fields", () => 
   assert.doesNotMatch(src, /longitude: Number\.NaN/);
 });
 
+test("persisted unresolved name-only draft restores unrevealed; confirmed coords keep reveal", () => {
+  const unresolvedNamedZero = {
+    name: "Paris, France",
+    latitude: 0,
+    longitude: 0,
+    timezone: "UTC",
+  };
+  const confirmedParis = {
+    name: "Paris, France",
+    latitude: 48.8566,
+    longitude: 2.3522,
+    timezone: "Europe/Paris",
+  };
+
+  assert.equal(hasConfirmedEditorLocation(unresolvedNamedZero), false);
+  assert.equal(hasConfirmedEditorLocation(confirmedParis), true);
+
+  const editor = readSrc("components/EditorExperience.tsx");
+  // Direct /editor remount must use the same confirmed-location predicate as Generate.
+  assert.match(editor, /revealed:\s*hasConfirmedEditorLocation\(\s*draft\.location\s*\)/);
+  // Name-only (0,0)/UTC must not be treated as a revealed sky.
+  assert.doesNotMatch(editor, /revealed:\s*Boolean\(\s*draft\.location\.name\.trim\(\)\s*\)/);
+  // A leftover last-revealed flag must not reopen an unconfirmed (0,0) sky.
+  assert.match(
+    editor,
+    /getItem\(REVEALED_FLAG\)[\s\S]{0,180}?hasConfirmedEditorLocation\(useStore\.getState\(\)\.location\)/
+  );
+});
+
 test("every name-only handoff clears prior revealed in EditorExperience", () => {
   const editor = readSrc("components/EditorExperience.tsx");
   // Name-only branch always writes full unconfirmed fields and clears reveal.
