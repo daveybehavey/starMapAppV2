@@ -260,6 +260,8 @@ test("print-order retention is fixed from creation and cannot exceed 60 days", (
   assert.match(printOrdersSource, /persistPrintOrderRecord/);
   assert.match(printOrdersSource, /resolvePrintOrderKvWrite\(record\.createdAt\)/);
   assert.match(printOrdersSource, /kv\.deleteDurable\(key\)/);
+  assert.match(printOrdersSource, /deleted_unretainable/);
+  assert.match(printOrdersSource, /assertPrintOrderRetained/);
   assert.match(printOrdersSource, /DEFAULT_PRINT_ORDER_RETENTION_DAYS\s*=\s*60/);
   assert.match(printOrdersSource, /Math\.min\(configuredDays, DEFAULT_PRINT_ORDER_RETENTION_DAYS\)/);
   assert.match(printOrdersSource, /typeof createdAt !== "number"/);

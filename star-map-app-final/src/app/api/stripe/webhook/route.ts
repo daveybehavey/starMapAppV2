@@ -15,12 +15,14 @@ import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
+  assertPrintOrderRetained,
   buildAlternateFulfillmentWebhookPayload,
   buildPrintAssetUrl,
   extractCheckoutPhoneFromStripeSession,
   getPrintMinChargeCents,
   getPrintRecipient,
   hasSufficientPrintCharge,
+  isPrintOrderUnretainableError,
   persistPrintOrderRecord,
   printOrderKey,
   resolvePrintOrderCreatedAt,
@@ -802,7 +804,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         nextRecord.operatorFailureAlertError = alertResult.error;
       }
     }
-    await persistPrintOrderRecord(session.id, nextRecord);
+    // Fail-closed: unretainable delete must not look like durable problem-state success.
+    assertPrintOrderRetained(await persistPrintOrderRecord(session.id, nextRecord));
   };
 
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
@@ -835,7 +838,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     attempts: (existing?.attempts ?? 0) + 1,
     createdAt: resolvePrintOrderCreatedAt(existing),
   };
-  await persistPrintOrderRecord(session.id, payload);
+  // Pending queue write must remain durable. Deleted/unretainable aborts before Printful.
+  assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
 
   const printAssetId = payload.printAssetId;
   if (!printAssetId) {
@@ -886,7 +890,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         customerPhone: extractCheckoutPhoneFromStripeSession(latest) ?? payload.customerPhone ?? null,
         shippingDetails: extractShippingDetails(latest),
       };
-      await persistPrintOrderRecord(session.id, payload);
+      assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
       recipient = getPrintRecipient(payload);
     } catch (error) {
       if (isDurableKvPersistenceError(error)) throw error;
@@ -987,7 +991,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       const reviewedRecord = printfulResult.orderId
         ? await applyPrintfulPostSubmitReview(sentRecord)
         : sentRecord;
-      await persistPrintOrderRecord(session.id, reviewedRecord);
+      assertPrintOrderRetained(await persistPrintOrderRecord(session.id, reviewedRecord));
       if (reviewedRecord.printfulOrderId) {
         await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
       }
@@ -1040,7 +1044,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const reviewedRecord = printfulResult.orderId
       ? await applyPrintfulPostSubmitReview(sentRecord)
       : sentRecord;
-    await persistPrintOrderRecord(session.id, reviewedRecord);
+    assertPrintOrderRetained(await persistPrintOrderRecord(session.id, reviewedRecord));
     if (reviewedRecord.printfulOrderId) {
       await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
     }
@@ -1085,14 +1089,16 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   // Successful external side effect: persist "sent" outside the outbound catch so a
   // transient KV failure cannot be rewritten as a webhook/provider failure.
   if (!isPrintfulConfigured()) {
-    await persistPrintOrderRecord(session.id, {
-      ...payload,
-      printAssetUrl,
-      status: "sent",
-      webhookStatus: webhookResponse.status,
-      sentAt: Date.now(),
-      error: undefined,
-    });
+    assertPrintOrderRetained(
+      await persistPrintOrderRecord(session.id, {
+        ...payload,
+        printAssetUrl,
+        status: "sent",
+        webhookStatus: webhookResponse.status,
+        sentAt: Date.now(),
+        error: undefined,
+      }),
+    );
   }
 }
 
@@ -1328,6 +1334,16 @@ export async function POST(req: Request) {
         await queuePrintOrder(session);
         await applyReferralReward(session);
       } catch (error) {
+        // Unretainable / deleted durable print-order state must fail closed and
+        // finalize the Stripe event — retrying would remint retention and risk a
+        // duplicate provider order. True KV outages remain Stripe-retryable.
+        if (isPrintOrderUnretainableError(error)) {
+          console.error("Print order unretainable; finalizing webhook without provider retry", {
+            sessionId: session.id,
+            reason: error.reason,
+          });
+          break;
+        }
         // Durable print-order persistence failure must not finalize dedupe — Stripe
         // redelivery must be able to queue the paid order again.
         if (isDurableKvPersistenceError(error)) {

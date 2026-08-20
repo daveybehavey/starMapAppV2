@@ -154,6 +154,56 @@ export function resolvePrintOrderKvWrite(
   return { action: "persist", ttlSeconds: remainingSeconds };
 }
 
+/** Explicit durable write outcome — callers must not treat delete as silent success. */
+export type PersistPrintOrderResult =
+  | { outcome: "persisted"; ttlSeconds: number }
+  | { outcome: "deleted_unretainable"; reason: "malformed_created_at" | "expired_or_below_min_ttl" };
+
+export type PrintOrderUnretainableReason = Extract<
+  PersistPrintOrderResult,
+  { outcome: "deleted_unretainable" }
+>["reason"];
+
+/**
+ * Fail-closed signal when a print-order key was durably removed (or could not be
+ * retained) instead of rewritten. Must not continue into provider side effects,
+ * and must not be treated as a Stripe-retryable KV outage (retry would remint a
+ * fresh retention window and risk a duplicate Printful order).
+ */
+export class PrintOrderUnretainableError extends Error {
+  readonly code = "print_order_unretainable";
+  readonly reason: PrintOrderUnretainableReason;
+
+  constructor(reason: PrintOrderUnretainableReason) {
+    super(`print_order_unretainable:${reason}`);
+    this.name = "PrintOrderUnretainableError";
+    this.reason = reason;
+  }
+}
+
+export function isPrintOrderUnretainableError(error: unknown): error is PrintOrderUnretainableError {
+  return error instanceof PrintOrderUnretainableError;
+}
+
+export function classifyPrintOrderUnretainableReason(createdAt: unknown): PrintOrderUnretainableReason {
+  if (typeof createdAt !== "number" || !Number.isFinite(createdAt)) {
+    return "malformed_created_at";
+  }
+  return "expired_or_below_min_ttl";
+}
+
+/**
+ * Require a successful durable rewrite. Deleted/unretainable outcomes throw so
+ * webhook/retry callers abort before Printful (or alternate) submission.
+ */
+export function assertPrintOrderRetained(
+  result: PersistPrintOrderResult,
+): asserts result is Extract<PersistPrintOrderResult, { outcome: "persisted" }> {
+  if (result.outcome !== "persisted") {
+    throw new PrintOrderUnretainableError(result.reason);
+  }
+}
+
 /**
  * Brand-new print orders get `now`. When a prior record exists (including
  * pending/failed duplicates), preserve its `createdAt` exactly — even when
@@ -169,19 +219,27 @@ export function resolvePrintOrderCreatedAt(
   return existing.createdAt as number;
 }
 
-export async function persistPrintOrderRecord(sessionId: string, record: PrintOrderRecord) {
+export async function persistPrintOrderRecord(
+  sessionId: string,
+  record: PrintOrderRecord,
+): Promise<PersistPrintOrderResult> {
   const key = printOrderKey(sessionId);
   const plan = resolvePrintOrderKvWrite(record.createdAt);
   if (plan.action === "delete") {
     // Remaining window is below Workers KV's minimum valid TTL (or malformed /
     // already expired). Do not attempt an invalid expirationTtl and do not
     // extend retention to 60s past the original deadline — remove the PII key.
+    // Callers MUST treat deleted_unretainable as fail-closed (no provider create).
     await kv.deleteDurable(key);
-    return;
+    return {
+      outcome: "deleted_unretainable",
+      reason: classifyPrintOrderUnretainableReason(record.createdAt),
+    };
   }
   // Provider-valid remaining TTL: use strict durable put so Cloudflare
   // binding/put failures propagate instead of silent local-only success.
   await kv.setDurable(key, record, { ex: plan.ttlSeconds });
+  return { outcome: "persisted", ttlSeconds: plan.ttlSeconds };
 }
 
 /**

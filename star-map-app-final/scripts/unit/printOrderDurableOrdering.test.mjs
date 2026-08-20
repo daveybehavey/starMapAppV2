@@ -153,6 +153,10 @@ test("source: hydrateOrderRecipientData rethrows durable persistence errors", ()
     retrySource.indexOf("export async function POST"),
   );
   assert.match(hydrateFn, /persistPrintOrderRecord/);
-  assert.match(hydrateFn, /isDurableKvPersistenceError\(error\)\)\s*throw error/);
+  assert.match(
+    hydrateFn,
+    /isDurableKvPersistenceError\(error\)\s*\|\|\s*isPrintOrderUnretainableError\(error\)\)\s*throw error/,
+  );
+  assert.match(hydrateFn, /assertPrintOrderRetained\(await persistPrintOrderRecord/);
   assert.match(hydrateFn, /Failed to refresh print order recipient details from Stripe/);
 });
