@@ -130,8 +130,11 @@ test("E: normal retry after durable success skips duplicate provider create (sen
   assert.match(webhookSource, /existing\?\.status === "sent"/);
   assert.match(retrySource, /existing\.status === "sent"/);
   assert.match(retrySource, /status:\s*"already_sent"/);
-  // Successful sent rewrite still uses fail-closed assert.
-  assert.match(webhookSource, /assertPrintOrderRetained\(await persistPrintOrderRecord\(session\.id, reviewedRecord\)\)/);
+  // Pre-provider retainability gate on admin retry.
+  assert.match(retrySource, /resolvePrintOrderKvWrite\(hydrated\.createdAt\)/);
+  // After provider success, unretainable sent-writes index then finalize (no remint).
+  assert.match(webhookSource, /durable record unretainable after provider success/);
+  assert.match(webhookSource, /sentPersist\.outcome === "deleted_unretainable"/);
 });
 
 test("F: definitive provider failure before any order exists remains retryable", async () => {

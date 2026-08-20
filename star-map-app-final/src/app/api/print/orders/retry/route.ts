@@ -16,6 +16,7 @@ import {
   isValidPrintCheckoutSessionId,
   persistPrintOrderRecord,
   printOrderKey,
+  resolvePrintOrderKvWrite,
   sanitizePrintOrderForOperatorResponse,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
@@ -254,6 +255,13 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Fulfillment not configured" }, { status: 503 });
   }
 
+  // Fail closed before any provider side effect: unretainable records must not
+  // reach Printful and then lose durable recovery state on the post-sent write.
+  const retainPlan = resolvePrintOrderKvWrite(hydrated.createdAt);
+  if (retainPlan.action === "delete") {
+    assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, hydrated));
+  }
+
   const attempts = (hydrated.attempts ?? 0) + 1;
   const now = Date.now();
 
@@ -288,7 +296,22 @@ async function postRetryPrintOrder(req: NextRequest) {
       error: undefined,
     };
     sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
-    assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, sent));
+    const sentPersist = await persistPrintOrderRecord(sessionId, sent);
+    if (sentPersist.outcome === "deleted_unretainable") {
+      if (sent.printfulOrderId) {
+        await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "print_order_unretainable",
+          reason: sentPersist.reason,
+          providerAccepted: true,
+          printfulOrderId: sent.printfulOrderId ?? null,
+        },
+        { status: 409 },
+      );
+    }
     if (sent.printfulOrderId) {
       await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
     }
