@@ -81,7 +81,11 @@ import {
   shouldAutoOpenEditorDigitalPaywall,
 } from "@/lib/previewSourceHints";
 import { parseCalendarDateParamToIso } from "@/lib/dateTime";
-import { parseEditorLocationQuery } from "@/lib/editorLocationPrefill";
+import {
+  applyEditorLocationQueryToState,
+  hasConfirmedEditorLocation,
+  parseEditorLocationQuery,
+} from "@/lib/editorLocationPrefill";
 import { stableMapRecipeFingerprint } from "@/lib/mapRecipeFingerprint";
 import { cardRecipeFingerprintSuffix, getCard4x6ExportDimensions } from "@/lib/printCardExport";
 import {
@@ -519,27 +523,32 @@ export function EditorExperience({
   const dateLocationRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hasLocation = Boolean(location.name?.trim());
+  const hasConfirmedLocation = hasConfirmedEditorLocation(location);
   const titleText =
     textBoxes.find((box) => box.id === "title")?.text?.trim() ?? textBoxes[0]?.text?.trim() ?? "";
   const hasPersonalizedTitle = titleText.length > 0 && titleText.toLowerCase() !== DEFAULT_TITLE_TEXT;
   const setupSteps = [
-    { label: "Date + place", done: hasDate && hasLocation, optional: false },
+    { label: "Date + place", done: hasDate && hasConfirmedLocation, optional: false },
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
   const previewLockedMessage =
-    !hasDate && !hasLocation
+    !hasDate && !hasConfirmedLocation
       ? "Add your date and place to unlock preview. Presets optional."
       : !hasDate
         ? "Add your date to unlock preview. Presets optional."
-        : "Add your place to unlock preview. Presets optional.";
+        : hasLocation && !hasConfirmedLocation
+          ? "Confirm your place from suggestions to unlock preview. Presets optional."
+          : "Add your place to unlock preview. Presets optional.";
   const previewReadyMessage = "Preview is ready. Presets optional.";
   const previewUnlockButtonLabel =
-    !hasDate && !hasLocation
+    !hasDate && !hasConfirmedLocation
       ? "Add date + place to unlock preview"
       : !hasDate
         ? "Add your date to unlock preview"
-        : "Add your place to unlock preview";
+        : hasLocation && !hasConfirmedLocation
+          ? "Confirm your place to unlock preview"
+          : "Add your place to unlock preview";
 
   // Wrap hook's applyPreset to scroll to dateLocationRef
   const applyPreset = useCallback(
@@ -665,7 +674,9 @@ export function EditorExperience({
         aspectRatio: draft.aspectRatio,
         shape: draft.shape,
         renderOptions: { ...currentState.renderOptions, ...draft.renderOptions },
-        revealed: Boolean(draft.location.name.trim()),
+        // Same confirmed-location predicate as Generate / auto-reveal — a named
+        // (0,0)/UTC draft must remount locked, not as a revealed wrong sky.
+        revealed: hasConfirmedEditorLocation(draft.location),
       });
       setSelectedOccasion(draft.selectedOccasion);
       setCustomOccasion(draft.selectedOccasion ? false : Boolean(draft.location.name.trim()));
@@ -675,7 +686,7 @@ export function EditorExperience({
     }
     try {
       const revealedFlag = localStorage.getItem(REVEALED_FLAG);
-      if (revealedFlag === "true") {
+      if (revealedFlag === "true" && hasConfirmedEditorLocation(useStore.getState().location)) {
         setRevealed(true);
       }
       const autoFlag = localStorage.getItem(AUTO_EXPORT_KEY);
@@ -730,24 +741,45 @@ export function EditorExperience({
     let hasLocation = false;
 
     // Apply location first so a coordinate-resolved city timezone can interpret the
-    // calendar date. Generic/name-only handoffs keep browser-local date parsing.
+    // calendar date. Generic/name-only handoffs keep browser-local date parsing and
+    // must not invent/reveal a (0,0) sky or merge a new label onto restored coords.
     let resolvedCityTimeZone: string | null = null;
     if (locationParam && locationParam.trim()) {
-      // Always overwrite the full location object so stale draft coordinates cannot
-      // survive under a new city/name. City landings supply lat/lon/tz; generic
-      // name-only handoffs (homepage etc.) still count as a location for reveal,
-      // and the editor autocomplete confirms coordinates afterward.
       const parsed = parseEditorLocationQuery(searchParams);
       if (parsed) {
-        setLocation({
-          name: parsed.name,
-          latitude: parsed.latitude,
-          longitude: parsed.longitude,
-          timezone: parsed.timezone,
-        });
-        hasLocation = true;
         if (parsed.hasResolvedCoordinates) {
-          resolvedCityTimeZone = parsed.timezone;
+          // Canonical city query: overwrite full location so stale draft coords cannot
+          // survive under the selected city name. Timezone is validated in the parser.
+          setLocation({
+            name: parsed.name,
+            latitude: parsed.latitude,
+            longitude: parsed.longitude,
+            timezone: parsed.timezone,
+          });
+          // Auto-reveal must use the same confirmed nonzero-coordinate predicate as
+          // Generate eligibility — explicit lat=0&lon=0 stays unresolved/locked.
+          hasLocation = hasConfirmedEditorLocation(parsed);
+          if (hasLocation) {
+            resolvedCityTimeZone = parsed.timezone;
+          } else {
+            // Numeric (0,0) (or otherwise unconfirmed) must not keep a prior reveal.
+            setRevealed(false);
+          }
+        } else {
+          // Name-only handoff: always unconfirmed until coordinates are newly
+          // confirmed. Never inherit restored coords (even for the same label),
+          // never write NaN into store, and always clear prior reveal.
+          const previous = useStore.getState().location;
+          const applied = applyEditorLocationQueryToState(previous, searchParams);
+          if (applied) {
+            setLocation({
+              name: applied.name,
+              latitude: applied.latitude,
+              longitude: applied.longitude,
+              timezone: applied.timezone,
+            });
+            setRevealed(false);
+          }
         }
       }
     }

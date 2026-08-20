@@ -302,6 +302,82 @@ test("an impossible datetime rejects the entire draft without partial restoratio
   expect(await page.evaluate(() => localStorage.getItem("star-map-draft"))).toBe(invalidDraft);
 });
 
+function draftEnvelope(location: {
+  name: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+}) {
+  return JSON.stringify({
+    schemaVersion: 1,
+    savedAt: "2026-08-17T18:00:00.000Z",
+    datetimeISO: persistedState.dateTime,
+    location,
+    textBoxes: persistedState.textBoxes,
+    selectedStyle: persistedState.selectedStyle,
+    aspectRatio: persistedState.aspectRatio,
+    shape: persistedState.shape,
+    renderOptions: persistedState.renderOptions,
+    selectedOccasion: null,
+  });
+}
+
+test("unresolved named (0,0)/UTC draft remounts unrevealed and cannot show a (0,0) sky", async ({ page }) => {
+  test.setTimeout(90_000);
+  const unresolved = {
+    name: "Paris, France",
+    latitude: 0,
+    longitude: 0,
+    timezone: "UTC",
+  };
+  await page.addInitScript((draft) => {
+    localStorage.clear();
+    localStorage.setItem("starmap-promo-popup-dismissed", new Date().toISOString());
+    localStorage.setItem("cookiesAccepted", "true");
+    localStorage.setItem("analytics-consent", "true");
+    localStorage.setItem("star-map-draft", draft);
+    localStorage.setItem("star-map-last-revealed", "true");
+  }, draftEnvelope(unresolved));
+
+  await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
+  await waitForEditor(page, true);
+  await getDraftStore(page);
+
+  const state = await page.evaluate(() => {
+    const current = (window as unknown as { __ZUSTAND_STORE__: DraftTestStore }).__ZUSTAND_STORE__.getState() as DraftTestState & {
+      revealed: boolean;
+    };
+    return {
+      revealed: current.revealed,
+      location: current.location,
+    };
+  });
+  expect(state.location).toEqual(unresolved);
+  expect(state.revealed).toBe(false);
+  await expect(page.getByRole("button", { name: /Generate preview|Confirm your place to unlock preview|Add your place to unlock preview/i }).first()).toBeVisible();
+});
+
+test("confirmed nonzero location draft remounts with intended reveal", async ({ page }) => {
+  test.setTimeout(90_000);
+  await seedDraftOnLoad(page, draftEnvelope(persistedState.location));
+
+  await page.goto("/editor?force=desktop", { waitUntil: "domcontentloaded" });
+  await waitForEditor(page, true);
+  await getDraftStore(page);
+
+  const state = await page.evaluate(() => {
+    const current = (window as unknown as { __ZUSTAND_STORE__: DraftTestStore }).__ZUSTAND_STORE__.getState() as DraftTestState & {
+      revealed: boolean;
+    };
+    return {
+      revealed: current.revealed,
+      location: current.location,
+    };
+  });
+  expect(state.location).toEqual(persistedState.location);
+  expect(state.revealed).toBe(true);
+});
+
 for (const invalidCase of [
   { name: "empty-string corruption", raw: "" },
   {
