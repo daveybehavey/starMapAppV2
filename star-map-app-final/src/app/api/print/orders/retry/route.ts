@@ -14,7 +14,17 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import {
+  applyPrintfulPostSubmitReview,
+  persistReviewedPrintOrder,
+  shouldRereviewPrintfulFilesOnAlreadySent,
+  shouldSendAlreadySentApprovalAlert,
+} from "@/lib/printFulfillmentPostSubmit";
+import {
+  getEffectivePrintOrderRecord,
+  getPrintOrderCoordinatorStore,
+  recordTerminalFailureAndDeliverAlert,
+} from "@/lib/printOrderCoordinator";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
@@ -109,48 +119,97 @@ export async function POST(req: NextRequest) {
   }
 
   const persistFailedPrintOrder = async (record: PrintOrderRecord) => {
-    const failedRecord: PrintOrderRecord = {
-      ...record,
-      status: "failed",
-    };
-    if (!failedRecord.operatorFailureAlertedAt) {
-      const alertResult = await sendPrintOrderFailureAlert(failedRecord);
-      if (alertResult.delivered) {
-        failedRecord.operatorFailureAlertedAt = Date.now();
-        failedRecord.operatorFailureAlertProvider = alertResult.provider;
-        failedRecord.operatorFailureAlertError = undefined;
-      } else {
-        failedRecord.operatorFailureAlertProvider = alertResult.provider;
-        failedRecord.operatorFailureAlertError = alertResult.error;
-      }
-    }
+    const failedRecord = await recordTerminalFailureAndDeliverAlert({
+      record: { ...record, status: "failed" },
+      error: record.error || "print_order_failed",
+      source: "retry",
+      sendFailureAlert: (order, opts) => sendPrintOrderFailureAlert(order, opts),
+    });
     await kv.set(printOrderKey(sessionId), failedRecord);
     return failedRecord;
   };
 
-  const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-  if (!existing) {
+  const existingRaw = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  if (!existingRaw) {
     return NextResponse.json({ ok: false, error: "Print order not found" }, { status: 404 });
   }
-  if (existing.status === "sent") {
-    if (!existing.operatorAlertedAt) {
-      const alertResult = await sendPrintOrderApprovalAlert(existing);
-      const updated: PrintOrderRecord = {
-        ...existing,
-        operatorAlertedAt: alertResult.delivered ? Date.now() : existing.operatorAlertedAt,
+  const effectiveExisting = await getEffectivePrintOrderRecord(sessionId, existingRaw, {
+    requireReadable: true,
+  });
+  // Finding #2: coordinator outage must fail closed — no Printful create/confirm/retry side effects.
+  if (!effectiveExisting.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: effectiveExisting.error || "print_order_coordinator_unavailable",
+        order: effectiveExisting.order,
+      },
+      { status: 503 },
+    );
+  }
+  const existing = effectiveExisting.order;
+  const wasTerminalFailed =
+    existing.status === "failed" || effectiveExisting.state?.authorityStatus === "failed";
+  const coordinator = await getPrintOrderCoordinatorStore();
+
+  const recoverAfterSuccessfulReestablish = async (order: PrintOrderRecord) => {
+    if (!wasTerminalFailed) return order;
+    const recovered = await coordinator.operatorAuthorizedRecovery({
+      sessionId,
+      printfulOrderId: order.printfulOrderId,
+      note: "operator_authorized_retry_recovery",
+    });
+    if (!recovered.ok) {
+      return {
+        ...order,
+        error: recovered.error || "print_order_coordinator_recovery_failed",
+      };
+    }
+    return {
+      ...order,
+      status: "sent" as const,
+      error: undefined,
+      operatorResolvedAt: recovered.state.operatorResolvedAt,
+      operatorResolvedNote: recovered.state.operatorResolvedNote,
+      operatorResolvedProvider: "manual_printful" as const,
+    };
+  };
+
+  // Already created at Printful: never create a duplicate — re-review / alert only.
+  if (existing.printfulOrderId || existing.status === "sent") {
+    let current = existing;
+    if (wasTerminalFailed && existing.printfulOrderId) {
+      // Finding #3: admin retry re-establishes authority before re-review.
+      current = await recoverAfterSuccessfulReestablish(current);
+      if (current.error?.startsWith("print_order_coordinator_")) {
+        return NextResponse.json({ ok: false, error: current.error, order: current }, { status: 503 });
+      }
+    }
+    if (shouldRereviewPrintfulFilesOnAlreadySent(current) || wasTerminalFailed) {
+      current = await applyPrintfulPostSubmitReview({
+        ...current,
+        status: "sent",
+        printfulOrderId: current.printfulOrderId,
+      });
+      current = await persistReviewedPrintOrder(sessionId, current);
+    } else if (shouldSendAlreadySentApprovalAlert(current)) {
+      const alertResult = await sendPrintOrderApprovalAlert(current);
+      current = {
+        ...current,
+        operatorAlertedAt: alertResult.delivered ? Date.now() : current.operatorAlertedAt,
         operatorAlertProvider: alertResult.provider,
         operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
       };
-      await kv.set(printOrderKey(sessionId), updated);
-      void sendPrintOrderConfirmation(sessionId).catch((error) => {
-        console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
-      });
-      return NextResponse.json({ ok: true, status: "already_sent", order: updated });
+      current = await persistReviewedPrintOrder(sessionId, current);
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
     });
-    return NextResponse.json({ ok: true, status: "already_sent", order: existing });
+    return NextResponse.json({
+      ok: true,
+      status: current.status === "failed" ? "failed" : "already_sent",
+      order: current,
+    });
   }
 
   const hydrated = await hydrateOrderRecipientData(existing);
@@ -260,15 +319,20 @@ export async function POST(req: NextRequest) {
       sentAt: now,
       error: undefined,
     };
+    // Finding #3: clear terminal failed before healthy persist after successful create.
+    sent = await recoverAfterSuccessfulReestablish(sent);
+    if (sent.error?.startsWith("print_order_coordinator_")) {
+      return NextResponse.json({ ok: false, error: sent.error, order: sent }, { status: 503 });
+    }
     sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
-    await kv.set(printOrderKey(sessionId), sent);
+    sent = await persistReviewedPrintOrder(sessionId, sent);
     if (sent.printfulOrderId) {
       await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed after retry", { sessionId, error });
     });
-    return NextResponse.json({ ok: true, status: "sent", order: sent });
+    return NextResponse.json({ ok: true, status: sent.status === "failed" ? "failed" : "sent", order: sent });
   }
 
   try {

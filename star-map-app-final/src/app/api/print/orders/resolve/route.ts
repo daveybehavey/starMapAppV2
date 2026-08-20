@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
+import {
+  getEffectivePrintOrderRecord,
+  getPrintOrderCoordinatorStore,
+} from "@/lib/printOrderCoordinator";
 import { isValidPrintCheckoutSessionId, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
@@ -49,6 +53,20 @@ export async function POST(req: NextRequest) {
   const note = typeof payload?.note === "string" ? payload.note.trim() : "";
   const now = Date.now();
 
+  const coordinator = await getPrintOrderCoordinatorStore();
+  const resolved = await coordinator.operatorResolve({
+    sessionId,
+    printfulOrderId: printfulOrderId || existing.printfulOrderId,
+    note: note || (printfulOrderId ? `manual_printful_order_id=${String(printfulOrderId)}` : undefined),
+    nowMs: now,
+  });
+  if (!resolved.ok) {
+    return NextResponse.json(
+      { ok: false, error: resolved.error || "print_order_coordinator_unavailable" },
+      { status: 503 },
+    );
+  }
+
   const updated: PrintOrderRecord = {
     ...existing,
     status: "sent",
@@ -59,13 +77,21 @@ export async function POST(req: NextRequest) {
     operatorResolvedNote:
       note || (printfulOrderId ? `manual_printful_order_id=${String(printfulOrderId)}` : existing.operatorResolvedNote),
     error: undefined,
+    printfulFileReviewPendingAt: undefined,
     webhookStatus: existing.webhookStatus,
   };
 
-  await kv.set(printOrderKey(sessionId), updated);
-  if (updated.printfulOrderId) {
-    await setPrintFulfillmentIndex(updated.printfulOrderId, sessionId);
+  const effective = await getEffectivePrintOrderRecord(sessionId, updated, {
+    store: coordinator,
+    requireReadable: true,
+  });
+  if (!effective.ok) {
+    return NextResponse.json({ ok: false, error: effective.error }, { status: 503 });
   }
-  return NextResponse.json({ ok: true, order: updated });
-}
 
+  await kv.set(printOrderKey(sessionId), effective.order);
+  if (effective.order.printfulOrderId) {
+    await setPrintFulfillmentIndex(effective.order.printfulOrderId, sessionId);
+  }
+  return NextResponse.json({ ok: true, order: effective.order });
+}

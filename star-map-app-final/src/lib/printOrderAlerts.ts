@@ -1,4 +1,9 @@
+import { createHash } from "node:crypto";
 import type { PrintOrderRecord } from "@/lib/printOrders";
+import {
+  PRINT_ORDER_FAILURE_ALERT_PROVIDER_POLICY,
+  buildPrintOrderFailureAlertResendIdempotencyKey,
+} from "@/lib/printOrderCoordinatorState";
 
 type PrintOrderAlertProvider = "resend" | "sendgrid" | "none";
 type PrintOrderAlertKind = "approval" | "failure";
@@ -7,6 +12,15 @@ export type PrintOrderAlertResult = {
   delivered: boolean;
   provider: PrintOrderAlertProvider;
   error?: string;
+  retryability?: "delivered" | "retryable" | "terminal" | "not_configured";
+  errorCode?: string;
+  idempotencyKey?: string;
+  status?: number;
+};
+
+export type PrintOrderFailureAlertSendOptions = {
+  /** Required for recoverable Resend-only failure alerts. */
+  idempotencyKey?: string;
 };
 
 type ParsedEmailAddress = {
@@ -195,12 +209,89 @@ function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
   return { subject, text: textLines.join("\n"), html };
 }
 
-async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+/** Safely extract Resend's machine-readable error `name` from a JSON body snippet. */
+export function extractPrintAlertResendErrorName(bodySnippet?: string): string | null {
+  if (typeof bodySnippet !== "string" || !bodySnippet.trim()) return null;
+  try {
+    const parsed = JSON.parse(bodySnippet) as unknown;
+    if (parsed && typeof parsed === "object" && typeof (parsed as { name?: unknown }).name === "string") {
+      const name = (parsed as { name: string }).name.trim();
+      return name || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Classify Resend HTTP results for failure-alert delivery.
+ * 409 concurrent_idempotent_requests → retryable (same Idempotency-Key safe).
+ */
+export function classifyPrintFailureAlertHttpResult(
+  status: number,
+  bodySnippet?: string,
+): Pick<PrintOrderAlertResult, "delivered" | "retryability" | "errorCode" | "status"> {
+  if (status >= 200 && status < 300) {
+    return { delivered: true, status, retryability: "delivered" };
+  }
+  if (status === 409) {
+    const errorName = extractPrintAlertResendErrorName(bodySnippet);
+    if (errorName === "concurrent_idempotent_requests") {
+      return {
+        delivered: false,
+        status,
+        retryability: "retryable",
+        errorCode: "concurrent_idempotent_requests",
+      };
+    }
+    if (errorName === "invalid_idempotent_request") {
+      return {
+        delivered: false,
+        status,
+        retryability: "terminal",
+        errorCode: "invalid_idempotent_request",
+      };
+    }
+    return {
+      delivered: false,
+      status,
+      retryability: "terminal",
+      errorCode: "provider_conflict",
+    };
+  }
+  if (status === 429 || status >= 500) {
+    return {
+      delivered: false,
+      status,
+      retryability: "retryable",
+      errorCode: status === 429 ? "provider_rate_limited" : "provider_server_error",
+    };
+  }
+  return {
+    delivered: false,
+    status,
+    retryability: "terminal",
+    errorCode: "provider_client_error",
+  };
+}
+
+async function sendWithResend(
+  order: PrintOrderRecord,
+  kind: PrintOrderAlertKind,
+  opts?: { idempotencyKey?: string },
+): Promise<PrintOrderAlertResult> {
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || "";
   const from = getAlertFrom();
   const to = getAlertRecipient();
   if (!resendApiKey || !from || !to) {
-    return { delivered: false, provider: "none" as const, error: "print_alert_not_configured" };
+    return {
+      delivered: false,
+      provider: "none",
+      retryability: "not_configured",
+      error: "print_alert_not_configured",
+      errorCode: "print_alert_not_configured",
+    };
   }
 
   const payload: {
@@ -222,33 +313,51 @@ async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind
     payload.reply_to = parsed?.email || replyTo;
   }
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${resendApiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (opts?.idempotencyKey) {
+    headers["Idempotency-Key"] = opts.idempotencyKey;
+  }
+
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(payload),
   });
+
+  if (kind === "failure" && opts?.idempotencyKey) {
+    const body = await response.text().catch(() => "");
+    const classified = classifyPrintFailureAlertHttpResult(response.status, body);
+    return {
+      ...classified,
+      provider: "resend",
+      idempotencyKey: opts.idempotencyKey,
+      error: classified.delivered ? undefined : body.slice(0, 280) || classified.errorCode,
+    };
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     return {
       delivered: false,
-      provider: "resend" as const,
+      provider: "resend",
       error: body.slice(0, 280) || `resend_${response.status}`,
+      retryability: "retryable",
+      status: response.status,
     };
   }
 
-  return { delivered: true, provider: "resend" as const };
+  return { delivered: true, provider: "resend", retryability: "delivered", idempotencyKey: opts?.idempotencyKey };
 }
 
-async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKind): Promise<PrintOrderAlertResult> {
   const sendgridApiKey = process.env.SENDGRID_API_KEY?.trim() || "";
   const from = parseEmailAddress(getAlertFrom());
   const to = getAlertRecipient();
   if (!sendgridApiKey || !from || !to) {
-    return { delivered: false, provider: "none" as const, error: "print_alert_not_configured" };
+    return { delivered: false, provider: "none", error: "print_alert_not_configured", retryability: "not_configured" };
   }
 
   const copy = getCopy(order, kind);
@@ -278,31 +387,54 @@ async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKi
     const body = await response.text().catch(() => "");
     return {
       delivered: false,
-      provider: "sendgrid" as const,
+      provider: "sendgrid",
       error: body.slice(0, 280) || `sendgrid_${response.status}`,
+      retryability: "retryable",
     };
   }
 
-  return { delivered: true, provider: "sendgrid" as const };
+  return { delivered: true, provider: "sendgrid", retryability: "delivered" };
 }
 
 async function sendPrintOrderAlert(
   order: PrintOrderRecord,
   kind: PrintOrderAlertKind,
+  opts?: PrintOrderFailureAlertSendOptions,
 ): Promise<PrintOrderAlertResult> {
   try {
+    if (kind === "failure") {
+      // Failure alerts are Resend-only: SendGrid Mail Send lacks equivalent Idempotency-Key semantics.
+      void PRINT_ORDER_FAILURE_ALERT_PROVIDER_POLICY;
+      const idempotencyKey =
+        opts?.idempotencyKey?.trim() || buildPrintOrderFailureAlertResendIdempotencyKey(order.sessionId);
+      const resendResult = await sendWithResend(order, kind, { idempotencyKey });
+      if (resendResult.provider === "none") {
+        return {
+          delivered: false,
+          provider: "none",
+          retryability: "not_configured",
+          error: "print_failure_alert_resend_required",
+          errorCode: "print_failure_alert_resend_required",
+          idempotencyKey,
+        };
+      }
+      return resendResult;
+    }
+
     const resendResult = await sendWithResend(order, kind);
     if (resendResult.provider !== "none") return resendResult;
 
     const sendgridResult = await sendWithSendgrid(order, kind);
     if (sendgridResult.provider !== "none") return sendgridResult;
 
-    return { delivered: false, provider: "none", error: "print_alert_not_configured" };
+    return { delivered: false, provider: "none", error: "print_alert_not_configured", retryability: "not_configured" };
   } catch (error) {
     return {
       delivered: false,
       provider: "none",
       error: error instanceof Error ? error.message.slice(0, 280) : "print_alert_failed",
+      retryability: "retryable",
+      errorCode: "print_alert_failed",
     };
   }
 }
@@ -311,6 +443,29 @@ export async function sendPrintOrderApprovalAlert(order: PrintOrderRecord): Prom
   return sendPrintOrderAlert(order, "approval");
 }
 
-export async function sendPrintOrderFailureAlert(order: PrintOrderRecord): Promise<PrintOrderAlertResult> {
-  return sendPrintOrderAlert(order, "failure");
+export async function sendPrintOrderFailureAlert(
+  order: PrintOrderRecord,
+  opts?: PrintOrderFailureAlertSendOptions,
+): Promise<PrintOrderAlertResult> {
+  return sendPrintOrderAlert(order, "failure", opts);
+}
+
+/** Test/helper: prove approval path can still consider SendGrid; failure path must not. */
+export function buildPrintFailureAlertResendHeaders(sessionId: string): Record<string, string> {
+  return {
+    "Idempotency-Key": buildPrintOrderFailureAlertResendIdempotencyKey(sessionId),
+  };
+}
+
+/** Evidence helper: SendGrid Mail Send requests lack Idempotency-Key. */
+export function buildPrintAlertSendgridHeaders(): Record<string, string> {
+  return {
+    Authorization: "Bearer test",
+    "Content-Type": "application/json",
+  };
+}
+
+/** Stable opaque fingerprint for logs — never log raw session ids with alert keys. */
+export function fingerprintPrintFailureAlertKey(idempotencyKey: string): string {
+  return createHash("sha256").update(idempotencyKey).digest("hex").slice(0, 12);
 }

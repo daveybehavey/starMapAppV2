@@ -25,7 +25,11 @@ import {
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import {
+  applyPrintfulPostSubmitReview,
+  persistReviewedPrintOrder,
+} from "@/lib/printFulfillmentPostSubmit";
+import { recordTerminalFailureAndDeliverAlert } from "@/lib/printOrderCoordinator";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import {
@@ -783,21 +787,37 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   if (getOrderType(session) !== "print") return;
 
   const persistProblemPrintOrder = async (record: PrintOrderRecord) => {
-    const nextRecord: PrintOrderRecord = {
-      ...record,
-      error: record.error ?? "print_order_needs_review",
-    };
-    if (!nextRecord.operatorFailureAlertedAt) {
-      const alertResult = await sendPrintOrderFailureAlert(nextRecord);
-      if (alertResult.delivered) {
-        nextRecord.operatorFailureAlertedAt = Date.now();
-        nextRecord.operatorFailureAlertProvider = alertResult.provider;
-        nextRecord.operatorFailureAlertError = undefined;
-      } else {
-        nextRecord.operatorFailureAlertProvider = alertResult.provider;
-        nextRecord.operatorFailureAlertError = alertResult.error;
+    // Local ops hold (submission disabled) is not a provider terminal failure — alert only.
+    if (record.status === "pending" && record.error === "submission_disabled") {
+      const nextRecord: PrintOrderRecord = {
+        ...record,
+        error: record.error ?? "print_order_needs_review",
+      };
+      if (!nextRecord.operatorFailureAlertedAt) {
+        const alertResult = await sendPrintOrderFailureAlert(nextRecord);
+        if (alertResult.delivered) {
+          nextRecord.operatorFailureAlertedAt = Date.now();
+          nextRecord.operatorFailureAlertProvider = alertResult.provider;
+          nextRecord.operatorFailureAlertError = undefined;
+        } else {
+          nextRecord.operatorFailureAlertProvider = alertResult.provider;
+          nextRecord.operatorFailureAlertError = alertResult.error;
+        }
       }
+      await kv.set(printOrderKey(session.id), nextRecord);
+      return;
     }
+
+    const nextRecord = await recordTerminalFailureAndDeliverAlert({
+      record: {
+        ...record,
+        status: "failed",
+        error: record.error ?? "print_order_needs_review",
+      },
+      error: record.error ?? "print_order_needs_review",
+      source: "other",
+      sendFailureAlert: (order, opts) => sendPrintOrderFailureAlert(order, opts),
+    });
     await kv.set(printOrderKey(session.id), nextRecord);
   };
 
@@ -980,9 +1000,9 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       const reviewedRecord = printfulResult.orderId
         ? await applyPrintfulPostSubmitReview(sentRecord)
         : sentRecord;
-      await kv.set(printOrderKey(session.id), reviewedRecord);
-      if (reviewedRecord.printfulOrderId) {
-        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+      const persisted = await persistReviewedPrintOrder(session.id, reviewedRecord);
+      if (persisted.printfulOrderId) {
+        await setPrintFulfillmentIndex(persisted.printfulOrderId, session.id);
       }
       void sendPrintOrderConfirmation(session.id).catch((error) => {
         console.warn("Print confirmation email failed", { sessionId: session.id, error });
@@ -1033,9 +1053,9 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const reviewedRecord = printfulResult.orderId
       ? await applyPrintfulPostSubmitReview(sentRecord)
       : sentRecord;
-    await kv.set(printOrderKey(session.id), reviewedRecord);
-    if (reviewedRecord.printfulOrderId) {
-      await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+    const persisted = await persistReviewedPrintOrder(session.id, reviewedRecord);
+    if (persisted.printfulOrderId) {
+      await setPrintFulfillmentIndex(persisted.printfulOrderId, session.id);
     }
     void sendPrintOrderConfirmation(session.id).catch((error) => {
       console.warn("Print confirmation email failed", { sessionId: session.id, error });

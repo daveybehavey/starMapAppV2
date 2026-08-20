@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
+import { getEffectivePrintOrderRecord } from "@/lib/printOrderCoordinator";
 import {
   getPrintRecipient,
   isValidPrintCheckoutSessionId,
@@ -32,14 +33,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
-  const recipient = getPrintRecipient(order);
+  const effective = await getEffectivePrintOrderRecord(sessionId, order, { requireReadable: true });
+  // Finding #4: always present the fail-closed effective order during coordinator outage.
+  const resolvedOrder = effective.order;
+
+  const recipient = getPrintRecipient(resolvedOrder);
   const marginPreview = recipient
     ? evaluatePrintMarginForPaidOrder({
-        variant: order.printVariant,
+        variant: resolvedOrder.printVariant,
         shippingCountry: recipient.country_code,
-        amountTotalCents: order.amountTotal ?? null,
+        amountTotalCents: resolvedOrder.amountTotal ?? null,
       })
     : null;
 
-  return NextResponse.json({ ok: true, order, marginPreview });
+  return NextResponse.json({
+    ok: true,
+    order: resolvedOrder,
+    marginPreview,
+    coordinator: effective.ok
+      ? {
+          authorityStatus: effective.state?.authorityStatus ?? null,
+          failureAlertPhase: effective.state?.failureAlert.phase ?? null,
+        }
+      : { unavailable: true, error: effective.error },
+  });
 }
