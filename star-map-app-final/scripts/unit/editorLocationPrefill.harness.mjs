@@ -23,6 +23,33 @@ export function isValidEditorCoordinatePair(latitude, longitude) {
   );
 }
 
+export function isValidEditorTimeZone(timeZone) {
+  const trimmed = typeof timeZone === "string" ? timeZone.trim() : "";
+  if (!trimmed) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: trimmed }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function hasConfirmedEditorLocation(location) {
+  const name = location?.name?.trim() ?? "";
+  if (!name) return false;
+  const latitude = typeof location.latitude === "number" ? location.latitude : Number.NaN;
+  const longitude = typeof location.longitude === "number" ? location.longitude : Number.NaN;
+  if (!isValidEditorCoordinatePair(latitude, longitude)) return false;
+  if (latitude === 0 && longitude === 0) return false;
+  return true;
+}
+
+export const UNCONFIRMED_EDITOR_LOCATION_FIELDS = {
+  latitude: 0,
+  longitude: 0,
+  timezone: "UTC",
+};
+
 export function withEditorLocation(href, location) {
   if (location == null) return href;
 
@@ -49,7 +76,8 @@ export function withEditorLocation(href, location) {
   params.set("location", name);
   params.set("lat", String(location.latitude));
   params.set("lon", String(location.longitude));
-  params.set("tz", (location.timezone || "UTC").trim() || "UTC");
+  const tz = (location.timezone || "").trim();
+  params.set("tz", tz && isValidEditorTimeZone(tz) ? tz : "UTC");
   const search = params.toString();
   return search ? `${path}?${search}${hash}` : `${path}${hash}`;
 }
@@ -65,23 +93,40 @@ export function parseEditorLocationQuery(params) {
   const longitude = lonRaw == null || lonRaw.trim() === "" ? Number.NaN : Number.parseFloat(lonRaw);
   const hasResolvedCoordinates = isValidEditorCoordinatePair(latitude, longitude);
 
+  if (!hasResolvedCoordinates) {
+    return {
+      name,
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
+      hasResolvedCoordinates: false,
+    };
+  }
+
+  const timezone = tzRaw && isValidEditorTimeZone(tzRaw) ? tzRaw : "UTC";
+
   return {
     name,
-    latitude: hasResolvedCoordinates ? latitude : 0,
-    longitude: hasResolvedCoordinates ? longitude : 0,
-    timezone: hasResolvedCoordinates && tzRaw ? tzRaw : "UTC",
-    hasResolvedCoordinates,
+    latitude,
+    longitude,
+    timezone,
+    hasResolvedCoordinates: true,
   };
 }
 
 export function applyEditorLocationQueryToState(_previous, params) {
   const parsed = parseEditorLocationQuery(params);
   if (!parsed) return null;
+  if (!parsed.hasResolvedCoordinates) {
+    return {
+      name: parsed.name,
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
+      hasResolvedCoordinates: false,
+    };
+  }
   return {
     name: parsed.name,
     latitude: parsed.latitude,
     longitude: parsed.longitude,
     timezone: parsed.timezone,
-    hasResolvedCoordinates: parsed.hasResolvedCoordinates,
+    hasResolvedCoordinates: true,
   };
 }

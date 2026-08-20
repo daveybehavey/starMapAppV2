@@ -37,6 +37,54 @@ export function isValidEditorCoordinatePair(latitude: number, longitude: number)
 }
 
 /**
+ * True when `timeZone` is accepted by `Intl.DateTimeFormat`.
+ * Empty/whitespace is not valid — callers choose a documented fallback separately.
+ */
+export function isValidEditorTimeZone(timeZone: string): boolean {
+  const trimmed = timeZone.trim();
+  if (!trimmed) return false;
+  try {
+    // Throws RangeError for unknown IANA zone identifiers.
+    new Intl.DateTimeFormat("en-US", { timeZone: trimmed }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True when the editor has a named place with confirmed coordinates.
+ * The unset default `(0,0)` is not treated as a confirmed selection, so a
+ * name-only handoff cannot unlock/reveal a wrong sky.
+ */
+export function hasConfirmedEditorLocation(location: {
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}): boolean {
+  const name = location.name?.trim() ?? "";
+  if (!name) return false;
+  const latitude = typeof location.latitude === "number" ? location.latitude : Number.NaN;
+  const longitude = typeof location.longitude === "number" ? location.longitude : Number.NaN;
+  if (!isValidEditorCoordinatePair(latitude, longitude)) return false;
+  // Store default before geocode confirmation.
+  if (latitude === 0 && longitude === 0) return false;
+  return true;
+}
+
+/**
+ * Persistable unconfirmed location fields used for name-only query handoffs.
+ * Matches the editor store default so draft autosave and coordinate controls stay
+ * healthy — never use `NaN` / empty timezone in global editor state.
+ * `hasConfirmedEditorLocation` rejects `(0,0)`, so this is not a selected sky.
+ */
+export const UNCONFIRMED_EDITOR_LOCATION_FIELDS = {
+  latitude: 0,
+  longitude: 0,
+  timezone: "UTC",
+} as const;
+
+/**
  * Resolve a city landing into a full editor prefill (name + coordinates + timezone).
  * Returns null when the slug has no canonical coordinates.
  */
@@ -82,7 +130,8 @@ export function withEditorLocation(href: string, location?: LocationPrefillInput
   params.set("location", name);
   params.set("lat", String(location.latitude));
   params.set("lon", String(location.longitude));
-  params.set("tz", location.timezone.trim() || "UTC");
+  const tz = location.timezone.trim();
+  params.set("tz", tz && isValidEditorTimeZone(tz) ? tz : "UTC");
   const search = params.toString();
   return search ? `${path}?${search}${hash}` : `${path}${hash}`;
 }
@@ -90,9 +139,12 @@ export function withEditorLocation(href: string, location?: LocationPrefillInput
 type ParamGetter = { get(name: string): string | null };
 
 /**
- * Parse editor location query params into an explicit location state.
- * Always returns latitude/longitude/timezone fields so callers can overwrite
- * stale draft coordinates when applying a city (or name-only) prefill.
+ * Parse editor location query params.
+ *
+ * - Valid lat+lon: resolved city selection (timezone validated; missing/invalid → UTC).
+ * - Name-only: unresolved handoff. Returns persistable unconfirmed fields
+ *   (`(0,0)` / `UTC`) with `hasResolvedCoordinates: false` — not a selected sky,
+ *   and never `NaN` that would poison draft persistence / coordinate controls.
  */
 export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQueryResult | null {
   const name = params.get("location")?.trim() ?? "";
@@ -105,19 +157,32 @@ export function parseEditorLocationQuery(params: ParamGetter): EditorLocationQue
   const longitude = lonRaw == null || lonRaw.trim() === "" ? Number.NaN : Number.parseFloat(lonRaw);
   const hasResolvedCoordinates = isValidEditorCoordinatePair(latitude, longitude);
 
+  if (!hasResolvedCoordinates) {
+    return {
+      name,
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
+      hasResolvedCoordinates: false,
+    };
+  }
+
+  // Documented safe fallback when tz is missing or not a valid IANA identifier.
+  const timezone = tzRaw && isValidEditorTimeZone(tzRaw) ? tzRaw : "UTC";
+
   return {
     name,
-    latitude: hasResolvedCoordinates ? latitude : 0,
-    longitude: hasResolvedCoordinates ? longitude : 0,
-    timezone: hasResolvedCoordinates && tzRaw ? tzRaw : "UTC",
-    hasResolvedCoordinates,
+    latitude,
+    longitude,
+    timezone,
+    hasResolvedCoordinates: true,
   };
 }
 
 /**
- * Pure apply helper for regression coverage: given any prior location (e.g. draft),
- * applying a query-derived location always replaces coordinates — never keeps stale
- * lat/lon under a new city name.
+ * Pure apply helper for regression coverage.
+ * - Resolved city query: always replaces name+lat+lon+timezone (no stale draft coords).
+ * - Name-only query (any prior state, including same label): always unconfirmed until
+ *   coordinates are newly confirmed. Uses persistable `(0,0)`/`UTC` — never inherits
+ *   prior confirmed coords, never writes `NaN` into editor state.
  */
 export function applyEditorLocationQueryToState(
   _previous: { name: string; latitude: number; longitude: number; timezone: string },
@@ -125,12 +190,18 @@ export function applyEditorLocationQueryToState(
 ): { name: string; latitude: number; longitude: number; timezone: string; hasResolvedCoordinates: boolean } | null {
   const parsed = parseEditorLocationQuery(params);
   if (!parsed) return null;
+  if (!parsed.hasResolvedCoordinates) {
+    return {
+      name: parsed.name,
+      ...UNCONFIRMED_EDITOR_LOCATION_FIELDS,
+      hasResolvedCoordinates: false,
+    };
+  }
   return {
     name: parsed.name,
-    // Explicit overwrite: do not spread/merge previous coordinates.
     latitude: parsed.latitude,
     longitude: parsed.longitude,
     timezone: parsed.timezone,
-    hasResolvedCoordinates: parsed.hasResolvedCoordinates,
+    hasResolvedCoordinates: true,
   };
 }

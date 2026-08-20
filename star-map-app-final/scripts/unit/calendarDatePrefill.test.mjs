@@ -71,4 +71,12 @@ test("EditorExperience uses city timezone for coordinate-resolved date prefill",
   const locationIdx = editor.indexOf("parseEditorLocationQuery(searchParams)");
   const dateIdx = editor.indexOf("parseCalendarDateParamToIso(dateParam, resolvedCityTimeZone)");
   assert.ok(locationIdx > 0 && dateIdx > locationIdx);
+  // Only resolved coordinates promote city timezone for date parsing / reveal.
+  assert.match(editor, /if \(parsed\.hasResolvedCoordinates\)/);
+  assert.match(editor, /resolvedCityTimeZone = parsed\.timezone/);
+});
+
+test("invalid timezone cannot crash formatDateTimeForLocation via Intl", () => {
+  assert.equal(formatDateTimeForLocation("2024-06-12T12:00:00.000Z", "Not/AZone"), null);
+  assert.ok(formatDateTimeForLocation("2024-06-12T12:00:00.000Z", "America/New_York"));
 });
