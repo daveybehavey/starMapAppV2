@@ -85,9 +85,10 @@ test("B: malformed durable record → provider creation blocked (fail closed)", 
   assert.match(webhookSource, /assertPrintOrderRetained\(await persistPrintOrderRecord/);
   assert.match(webhookSource, /isPrintOrderUnretainableError\(error\)/);
   assert.match(webhookSource, /finalizing webhook without provider retry/);
+  assert.match(webhookSource, /persistWebhookEventDedupe/);
   assert.match(
     webhookSource,
-    /isPrintOrderUnretainableError\(error\)[\s\S]*?break;[\s\S]*?isDurableKvPersistenceError\(error\)[\s\S]*?completedCheckoutRetryable\s*=\s*true/,
+    /isPrintOrderUnretainableError\(error\)[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey[\s\S]*?(?:completedCheckoutRetryable\s*=\s*true;[\s\S]*?)?break;[\s\S]*?isDurableKvPersistenceError\(error\)[\s\S]*?completedCheckoutRetryable\s*=\s*true/,
   );
 });
 
@@ -132,9 +133,11 @@ test("E: normal retry after durable success skips duplicate provider create (sen
   assert.match(retrySource, /status:\s*"already_sent"/);
   // Pre-provider retainability gate on admin retry.
   assert.match(retrySource, /resolvePrintOrderKvWrite\(hydrated\.createdAt\)/);
-  // After provider success, unretainable sent-writes index then finalize (no remint).
+  // After provider success, unretainable sent-writes index then throw so event
+  // dedupe is written immediately in the outer handler (no remint soft-return gap).
   assert.match(webhookSource, /durable record unretainable after provider success/);
   assert.match(webhookSource, /sentPersist\.outcome === "deleted_unretainable"/);
+  assert.match(webhookSource, /throw new PrintOrderUnretainableError\(sentPersist\.reason\)/);
 });
 
 test("F: definitive provider failure before any order exists remains retryable", async () => {

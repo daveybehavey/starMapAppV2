@@ -72,7 +72,7 @@ test("source: checkout.session.completed defers dedupe until after durable queue
   assert.match(webhookSource, /if \(!deferDedupeUntilSuccess\)/);
   assert.match(
     webhookSource,
-    /await queuePrintOrder\(session\);[\s\S]*?await kv\.set\(eventDedupeKey/,
+    /await queuePrintOrder\(session\);[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey/,
   );
   // Dedupe set for completed happens after successful handling, not before queuePrintOrder.
   const completedCase = webhookSource.slice(
@@ -80,11 +80,14 @@ test("source: checkout.session.completed defers dedupe until after durable queue
     webhookSource.indexOf('case "checkout.session.expired"'),
   );
   assert.match(completedCase, /queuePrintOrder\(session\)/);
-  assert.match(completedCase, /kv\.set\(eventDedupeKey/);
+  assert.match(completedCase, /persistWebhookEventDedupe\(eventDedupeKey/);
   assert.ok(
-    completedCase.indexOf("queuePrintOrder(session)") < completedCase.indexOf("kv.set(eventDedupeKey"),
+    completedCase.indexOf("queuePrintOrder(session)") <
+      completedCase.indexOf("persistWebhookEventDedupe(eventDedupeKey)"),
     "dedupe finalize must follow queuePrintOrder",
   );
+  // Helper must actually write the KV dedupe key (not a no-op).
+  assert.match(webhookSource, /async function persistWebhookEventDedupe[\s\S]*?await kv\.set\(\s*eventDedupeKey/);
 });
 
 test("successful alternate webhook + durable persist failure does not mark webhook_failed", () => {

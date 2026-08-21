@@ -24,6 +24,7 @@ import {
   hasSufficientPrintCharge,
   isPrintOrderUnretainableError,
   persistPrintOrderRecord,
+  PrintOrderUnretainableError,
   printOrderKey,
   resolvePrintOrderCreatedAt,
   type PrintOrderRecord,
@@ -171,6 +172,27 @@ const subscriptionKey = (id: string) => `stripe:sub:${id}`;
 const accessEmailKey = (id: string) => ENTITLEMENT_KV.accessEmailDedupe(id);
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 const WEBHOOK_EVENT_DEDUPE_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * Persist Stripe event dedupe as a terminal "do not re-enter" marker.
+ * Returns false when the write fails — callers must not claim successful finalize.
+ */
+async function persistWebhookEventDedupe(
+  eventDedupeKey: string,
+  meta?: { reason?: string },
+): Promise<boolean> {
+  try {
+    await kv.set(
+      eventDedupeKey,
+      { received: true, ...(meta?.reason ? { reason: meta.reason } : {}) },
+      { ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS },
+    );
+    return true;
+  } catch (error) {
+    console.error("Webhook event dedupe persistence failed", { eventDedupeKey, error });
+    return false;
+  }
+}
 
 function normalizeEmail(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -993,6 +1015,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         : sentRecord;
       const sentPersist = await persistPrintOrderRecord(session.id, reviewedRecord);
       if (sentPersist.outcome === "deleted_unretainable") {
+        // Provider already accepted. Index for webhook correlation, then throw so the
+        // outer handler writes event dedupe before any further work (tight crash window).
         if (reviewedRecord.printfulOrderId) {
           await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
         }
@@ -1001,7 +1025,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
           reason: sentPersist.reason,
           printfulOrderId: reviewedRecord.printfulOrderId ?? null,
         });
-        return;
+        throw new PrintOrderUnretainableError(sentPersist.reason);
       }
       if (reviewedRecord.printfulOrderId) {
         await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
@@ -1057,9 +1081,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       : sentRecord;
     const sentPersist = await persistPrintOrderRecord(session.id, reviewedRecord);
     if (sentPersist.outcome === "deleted_unretainable") {
-      // Provider already accepted the order. Do not Stripe-retry (that remints
-      // retention) and do not throw — keep fulfillment index when possible so
-      // Printful webhooks can still resolve the session.
+      // Provider already accepted. Index, then throw so event dedupe is written
+      // immediately in the outer handler (no remint; no silent soft-return gap).
       if (reviewedRecord.printfulOrderId) {
         await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
       }
@@ -1068,7 +1091,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         reason: sentPersist.reason,
         printfulOrderId: reviewedRecord.printfulOrderId ?? null,
       });
-      return;
+      throw new PrintOrderUnretainableError(sentPersist.reason);
     }
     if (reviewedRecord.printfulOrderId) {
       await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
@@ -1127,7 +1150,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         sessionId: session.id,
         reason: sentPersist.reason,
       });
-      return;
+      throw new PrintOrderUnretainableError(sentPersist.reason);
     }
   }
 }
@@ -1372,6 +1395,15 @@ export async function POST(req: Request) {
             sessionId: session.id,
             reason: error.reason,
           });
+          // Must persist event dedupe before treating this as terminal. If dedupe
+          // cannot be written, return retryable 503 — provider reconcile (v1/v2)
+          // prevents a second order if the provider already accepted.
+          const deduped = await persistWebhookEventDedupe(eventDedupeKey, {
+            reason: "print_order_unretainable",
+          });
+          if (!deduped) {
+            completedCheckoutRetryable = true;
+          }
           break;
         }
         // Durable print-order persistence failure must not finalize dedupe — Stripe
@@ -1382,7 +1414,12 @@ export async function POST(req: Request) {
         }
         throw error;
       }
-      await kv.set(eventDedupeKey, { received: true }, { ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS });
+      {
+        const deduped = await persistWebhookEventDedupe(eventDedupeKey);
+        if (!deduped) {
+          completedCheckoutRetryable = true;
+        }
+      }
       break;
     }
     case "checkout.session.expired": {
