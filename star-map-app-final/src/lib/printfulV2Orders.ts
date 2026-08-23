@@ -35,6 +35,8 @@ export type SubmitPrintfulV2OrderResult = {
   status: number;
   orderId?: string | number;
   error?: string;
+  /** True when an existing order was reused instead of creating another. */
+  reconciled?: boolean;
 };
 
 function normalizeExternalId(raw: string) {
@@ -73,6 +75,37 @@ function parseErrorMessage(raw: string, parsed: unknown) {
   return raw.trim() ? raw.slice(0, 240) : "printful_v2_order_failed";
 }
 
+function extractV2OrderId(parsed: unknown): string | number | undefined {
+  if (!parsed || typeof parsed !== "object") return undefined;
+  const data =
+    "data" in parsed ? (parsed as { data?: { id?: unknown } }).data : (parsed as { id?: unknown });
+  const id = data && typeof data === "object" ? (data as { id?: unknown }).id : undefined;
+  return typeof id === "string" || typeof id === "number" ? id : undefined;
+}
+
+/**
+ * Detect duplicate / existing-external-id style provider responses.
+ * Mirrors v1 OR-1 / non-editable intent for V2: never mint a second external id.
+ */
+function isExistingExternalIdConflict(status: number, parsed: unknown, raw: string): boolean {
+  if (status === 409) return true;
+  const msg = parseErrorMessage(raw, parsed).toLowerCase();
+  if (!msg) return false;
+  if (msg.includes("no longer editable") || msg.includes("not editable")) return true;
+  if (msg.includes("already exists") || msg.includes("duplicate") || msg.includes("conflict")) {
+    return true;
+  }
+  // e.g. "external_id must be unique" / "external id already taken"
+  const mentionsExternal = msg.includes("external_id") || msg.includes("external id");
+  if (
+    mentionsExternal &&
+    (msg.includes("exist") || msg.includes("unique") || msg.includes("taken") || msg.includes("duplicate"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export async function submitPrintfulV2CatalogOrder(
   input: SubmitPrintfulV2CatalogOrderInput,
 ): Promise<SubmitPrintfulV2OrderResult> {
@@ -86,9 +119,10 @@ export async function submitPrintfulV2CatalogOrder(
 
   const baseUrl = getPrintfulApiBase();
   const url = `${baseUrl}/v2/orders`;
+  const normalizedExternalId = normalizeExternalId(input.externalId);
 
   const body = {
-    external_id: normalizeExternalId(input.externalId),
+    external_id: normalizedExternalId,
     shipping: "STANDARD",
     recipient: input.recipient,
     order_items: [
@@ -117,14 +151,57 @@ export async function submitPrintfulV2CatalogOrder(
   };
 
   const PRINTFUL_API_TIMEOUT_MS = 15_000;
+  const authHeaders = {
+    Authorization: `Bearer ${token}`,
+    "X-PF-Store-Id": storeId,
+  };
+
+  const lookupOrderIdByExternalId = async (): Promise<string | number | null> => {
+    // V2 resolves external ids via /v2/orders/@{external_id} (same @ convention as v1).
+    const lookupUrl = `${baseUrl}/v2/orders/@${encodeURIComponent(normalizedExternalId)}`;
+    const response = await fetch(lookupUrl, {
+      method: "GET",
+      headers: authHeaders,
+      signal: AbortSignal.timeout(PRINTFUL_API_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const raw = await response.text();
+    let parsed: unknown = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
+    return extractV2OrderId(parsed) ?? null;
+  };
+
+  const reconcileExistingOrFail = async (): Promise<SubmitPrintfulV2OrderResult> => {
+    try {
+      const existingOrderId = await lookupOrderIdByExternalId();
+      if (existingOrderId != null) {
+        return {
+          ok: true,
+          status: 200,
+          orderId: existingOrderId,
+          reconciled: true,
+        };
+      }
+    } catch {
+      // Fall through — do not create a duplicate order.
+    }
+    return {
+      ok: false,
+      status: 409,
+      error: "printful_v2_order_exists_not_reconciled",
+    };
+  };
 
   try {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...authHeaders,
         "Content-Type": "application/json",
-        "X-PF-Store-Id": storeId,
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(PRINTFUL_API_TIMEOUT_MS),
@@ -138,6 +215,11 @@ export async function submitPrintfulV2CatalogOrder(
     }
 
     if (!response.ok) {
+      // Duplicate / existing external_id: reconcile — never invent a second external id.
+      if (isExistingExternalIdConflict(response.status, parsed, raw)) {
+        return await reconcileExistingOrFail();
+      }
+
       return {
         ok: false,
         status: response.status,
@@ -145,18 +227,36 @@ export async function submitPrintfulV2CatalogOrder(
       };
     }
 
-    const data =
-      parsed && typeof parsed === "object" && "data" in parsed ? (parsed as { data?: { id?: unknown } }).data : null;
-    const orderId =
-      typeof data?.id === "string" || typeof data?.id === "number" ? (data.id as string | number) : undefined;
-    return { ok: true, status: response.status, orderId };
+    return {
+      ok: true,
+      status: response.status,
+      orderId: extractV2OrderId(parsed),
+    };
   } catch (error) {
     const isTimeout = error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+    // Ambiguous network/timeout: the POST may have been accepted. Prefer GET reconcile
+    // over returning a blind failure that could later create a second order.
+    try {
+      const existingOrderId = await lookupOrderIdByExternalId();
+      if (existingOrderId != null) {
+        return {
+          ok: true,
+          status: 200,
+          orderId: existingOrderId,
+          reconciled: true,
+        };
+      }
+    } catch {
+      // Fall through to definitive failure — no order observed.
+    }
     return {
       ok: false,
       status: 503,
-      error: isTimeout ? "printful_v2_request_timeout" : error instanceof Error ? error.message.slice(0, 240) : "printful_v2_request_failed",
+      error: isTimeout
+        ? "printful_v2_request_timeout"
+        : error instanceof Error
+          ? error.message.slice(0, 240)
+          : "printful_v2_request_failed",
     };
   }
 }
-

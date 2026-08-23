@@ -10,6 +10,7 @@
 import { kv } from "@/lib/kv";
 import {
   printOrderKey,
+  persistPrintOrderRecord,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { renderShippingNotificationEmail, type ShippingNotificationData } from "@/lib/shippingNotificationEmail";
@@ -161,7 +162,7 @@ export async function sendShippingNotification(
       ...record,
       shippingNotificationError: sendResult.error.slice(0, 320),
     };
-    await kv.set(key, failed);
+    await persistPrintOrderRecord(sessionId, failed);
     return { ok: false, status: "failed", reason: sendResult.error, provider: "resend" };
   }
 
@@ -173,7 +174,7 @@ export async function sendShippingNotification(
     shippingNotificationMessageId: sendResult.id || undefined,
     shippingNotificationError: undefined,
   };
-  await kv.set(key, sent);
+  await persistPrintOrderRecord(sessionId, sent);
 
   return {
     ok: true,

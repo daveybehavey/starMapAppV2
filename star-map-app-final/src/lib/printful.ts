@@ -30,6 +30,8 @@ export type SubmitPrintfulOrderResult = {
   status: number;
   orderId?: string | number;
   error?: string;
+  /** True when an existing non-editable Printful order was reused instead of creating another. */
+  reconciled?: boolean;
 };
 
 function parseVariantId(raw: string | undefined): number | null {
@@ -143,7 +145,38 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     return msg.includes("no longer editable") || resultMsg.includes("no longer editable");
   };
 
+  const extractOrderId = (parsed: unknown): string | number | undefined => {
+    if (!parsed || typeof parsed !== "object" || !("result" in parsed)) return undefined;
+    const result = (parsed as { result?: { id?: unknown } }).result;
+    if (!result || typeof result !== "object") return undefined;
+    const id = (result as { id?: unknown }).id;
+    return typeof id === "string" || typeof id === "number" ? id : undefined;
+  };
+
   const PRINTFUL_API_TIMEOUT_MS = 15_000;
+
+  const lookupOrderIdByExternalId = async (externalId: string): Promise<string | number | null> => {
+    const normalized = normalizeExternalId(externalId);
+    const query = new URLSearchParams();
+    if (storeId) query.set("store_id", storeId);
+    const qs = query.toString();
+    // Printful resolves external ids via /orders/@{external_id}.
+    const url = `${baseUrl}/orders/@${encodeURIComponent(normalized)}${qs ? `?${qs}` : ""}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(PRINTFUL_API_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const raw = await response.text();
+    let parsed: unknown = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
+    return extractOrderId(parsed) ?? null;
+  };
 
   try {
     const attempt = async (options: { updateExisting: boolean; externalId: string }) => {
@@ -166,22 +199,27 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     // First try: idempotent update_existing=1 keyed off the session ID.
     const first = await attempt({ updateExisting: true, externalId: input.externalId });
     if (!first.response.ok) {
-      // If the external_id exists but cannot be edited, create a new draft order instead.
+      // If the external_id exists but cannot be edited (e.g. already confirmed),
+      // reconcile to that existing order — never mint a second external_id / order.
       if (first.response.status === 400 && isNonEditableOrderError(first.parsed)) {
-        const retryExternalId = `${input.externalId}#${Date.now()}`;
-        const second = await attempt({ updateExisting: false, externalId: retryExternalId });
-        if (!second.response.ok) {
-          return {
-            ok: false,
-            status: second.response.status,
-            error: parseErrorMessage(second.raw, second.parsed) || "printful_order_failed",
-          };
+        try {
+          const existingOrderId = await lookupOrderIdByExternalId(input.externalId);
+          if (existingOrderId != null) {
+            return {
+              ok: true,
+              status: 200,
+              orderId: existingOrderId,
+              reconciled: true,
+            };
+          }
+        } catch {
+          // Fall through to explicit failure — do not create a duplicate order.
         }
-        const result =
-          second.parsed && typeof second.parsed === "object" && "result" in second.parsed
-            ? (second.parsed as { result?: { id?: string | number } }).result
-            : null;
-        return { ok: true, status: second.response.status, orderId: result?.id };
+        return {
+          ok: false,
+          status: 409,
+          error: "printful_order_exists_not_reconciled",
+        };
       }
 
       return {
@@ -191,12 +229,11 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
       };
     }
 
-    const result =
-      first.parsed && typeof first.parsed === "object" && "result" in first.parsed
-        ? (first.parsed as { result?: { id?: string | number } }).result
-        : null;
-
-    return { ok: true, status: first.response.status, orderId: result?.id };
+    return {
+      ok: true,
+      status: first.response.status,
+      orderId: extractOrderId(first.parsed),
+    };
   } catch (error) {
     const isTimeout = error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
     return {

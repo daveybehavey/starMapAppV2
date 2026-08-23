@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { kv } from "@/lib/kv";
+import { isDurableKvPersistenceError, kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
+  assertPrintOrderRetained,
+  buildAlternateFulfillmentWebhookPayload,
   buildPrintAssetUrl,
+  extractCheckoutPhoneFromStripeSession,
   getPrintMinChargeCents,
   getPrintRecipient,
   hasSufficientPrintCharge,
+  isPrintOrderUnretainableError,
   isValidPrintCheckoutSessionId,
+  persistPrintOrderRecord,
   printOrderKey,
+  resolvePrintOrderKvWrite,
+  sanitizePrintOrderForOperatorResponse,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
@@ -52,7 +59,11 @@ function extractShippingDetails(session: Stripe.Checkout.Session): Stripe.Checko
 }
 
 async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<PrintOrderRecord> {
-  if (getPrintRecipient(existing)) return existing;
+  // Refresh when shipping/recipient is incomplete, or when customerPhone was never
+  // considered (legacy records predating phone persistence). Do not invent a phone.
+  const hasRecipient = Boolean(getPrintRecipient(existing));
+  const phoneAlreadyConsidered = existing.customerPhone !== undefined;
+  if (hasRecipient && phoneAlreadyConsidered) return existing;
   if (!stripe) return existing;
   try {
     const session = await stripe.checkout.sessions.retrieve(existing.sessionId);
@@ -65,23 +76,40 @@ async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<Pr
       currency: session.currency ?? existing.currency ?? null,
       customerEmail: session.customer_details?.email ?? session.customer_email ?? existing.customerEmail ?? null,
       customerName: session.customer_details?.name ?? existing.customerName ?? null,
+      customerPhone: extractCheckoutPhoneFromStripeSession(session) ?? existing.customerPhone ?? null,
       shippingDetails: extractShippingDetails(session) ?? existing.shippingDetails ?? null,
     };
     if (
       updated.customerEmail !== existing.customerEmail ||
       updated.customerName !== existing.customerName ||
+      updated.customerPhone !== existing.customerPhone ||
       JSON.stringify(updated.shippingDetails) !== JSON.stringify(existing.shippingDetails)
     ) {
-      await kv.set(printOrderKey(existing.sessionId), updated);
+      assertPrintOrderRetained(await persistPrintOrderRecord(existing.sessionId, updated));
     }
     return updated;
   } catch (error) {
+    if (isDurableKvPersistenceError(error) || isPrintOrderUnretainableError(error)) throw error;
     console.warn("Failed to refresh print order recipient details from Stripe", error);
     return existing;
   }
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    return await postRetryPrintOrder(req);
+  } catch (error) {
+    if (isPrintOrderUnretainableError(error)) {
+      return NextResponse.json(
+        { ok: false, error: error.code, reason: error.reason },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
+}
+
+async function postRetryPrintOrder(req: NextRequest) {
   if (!requireAdmin(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
@@ -124,7 +152,7 @@ export async function POST(req: NextRequest) {
         failedRecord.operatorFailureAlertError = alertResult.error;
       }
     }
-    await kv.set(printOrderKey(sessionId), failedRecord);
+    assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, failedRecord));
     return failedRecord;
   };
 
@@ -141,16 +169,16 @@ export async function POST(req: NextRequest) {
         operatorAlertProvider: alertResult.provider,
         operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
       };
-      await kv.set(printOrderKey(sessionId), updated);
+      assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, updated));
       void sendPrintOrderConfirmation(sessionId).catch((error) => {
         console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
       });
-      return NextResponse.json({ ok: true, status: "already_sent", order: updated });
+      return NextResponse.json({ ok: true, status: "already_sent", order: sanitizePrintOrderForOperatorResponse(updated) });
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
     });
-    return NextResponse.json({ ok: true, status: "already_sent", order: existing });
+    return NextResponse.json({ ok: true, status: "already_sent", order: sanitizePrintOrderForOperatorResponse(existing) });
   }
 
   const hydrated = await hydrateOrderRecipientData(existing);
@@ -162,7 +190,7 @@ export async function POST(req: NextRequest) {
       attempts: (hydrated.attempts ?? 0) + 1,
       error: "print_asset_missing",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   const printAssetUrl = hydrated.printAssetUrl?.trim() || buildPrintAssetUrl(siteUrl, printAssetId);
@@ -178,7 +206,7 @@ export async function POST(req: NextRequest) {
         printAssetUrl,
         error: "card_print_asset_missing",
       });
-      return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+      return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
     }
     cardPrintAssetUrl = hydrated.cardPrintAssetUrl?.trim() || buildPrintAssetUrl(siteUrl, cardPrintAssetId);
     await extendPrintAssetTtlForFulfillment(cardPrintAssetId).catch(() => undefined);
@@ -192,7 +220,7 @@ export async function POST(req: NextRequest) {
       printAssetUrl,
       error: "shipping_details_missing",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   if (!hasSufficientPrintCharge(hydrated.amountTotal)) {
@@ -202,7 +230,7 @@ export async function POST(req: NextRequest) {
       printAssetUrl,
       error: `print_amount_below_minimum:${getPrintMinChargeCents()}`,
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   const marginCheck = evaluatePrintMarginForPaidOrder({
@@ -220,11 +248,18 @@ export async function POST(req: NextRequest) {
           ? `print_margin_below_minimum:${marginCheck.minMarginCents}`
           : "print_margin_estimate_unavailable",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 400 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
     return NextResponse.json({ ok: false, error: "Fulfillment not configured" }, { status: 503 });
+  }
+
+  // Fail closed before any provider side effect: unretainable records must not
+  // reach Printful and then lose durable recovery state on the post-sent write.
+  const retainPlan = resolvePrintOrderKvWrite(hydrated.createdAt);
+  if (retainPlan.action === "delete") {
+    assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, hydrated));
   }
 
   const attempts = (hydrated.attempts ?? 0) + 1;
@@ -247,7 +282,7 @@ export async function POST(req: NextRequest) {
         webhookStatus: printful.status,
         error: printful.error ?? "printful_order_failed",
       });
-      return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 502 });
+      return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
     }
     let sent: PrintOrderRecord = {
       ...hydrated,
@@ -261,49 +296,71 @@ export async function POST(req: NextRequest) {
       error: undefined,
     };
     sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
-    await kv.set(printOrderKey(sessionId), sent);
+    const sentPersist = await persistPrintOrderRecord(sessionId, sent);
+    if (sentPersist.outcome === "deleted_unretainable") {
+      if (sent.printfulOrderId) {
+        await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "print_order_unretainable",
+          reason: sentPersist.reason,
+          providerAccepted: true,
+          printfulOrderId: sent.printfulOrderId ?? null,
+        },
+        { status: 409 },
+      );
+    }
     if (sent.printfulOrderId) {
       await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed after retry", { sessionId, error });
     });
-    return NextResponse.json({ ok: true, status: "sent", order: sent });
+    return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
   }
 
+  let webhookResponse: Response;
   try {
-    const response = await fetch(printFulfillmentWebhookUrl, {
+    webhookResponse = await fetch(printFulfillmentWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...hydrated,
-        printAssetUrl,
-        recipient,
-      }),
+      body: JSON.stringify(
+        buildAlternateFulfillmentWebhookPayload(hydrated, {
+          printAssetUrl,
+          cardPrintAssetUrl,
+          recipient,
+        }),
+      ),
     });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`Webhook ${response.status}: ${body.slice(0, 280)}`);
+    if (!webhookResponse.ok) {
+      const body = await webhookResponse.text().catch(() => "");
+      throw new Error(`Webhook ${webhookResponse.status}: ${body.slice(0, 280)}`);
     }
-
-    const sent = {
-      ...hydrated,
-      status: "sent" as const,
-      attempts,
-      printAssetUrl,
-      webhookStatus: response.status,
-      sentAt: now,
-      error: undefined,
-    };
-    await kv.set(printOrderKey(sessionId), sent);
-    return NextResponse.json({ ok: true, status: "sent", order: sent });
   } catch (error) {
+    // Restrict this catch to outbound fulfillment failures only.
+    if (isDurableKvPersistenceError(error) || isPrintOrderUnretainableError(error)) throw error;
     const failed = await persistFailedPrintOrder({
       ...hydrated,
       attempts,
       printAssetUrl,
       error: error instanceof Error ? error.message.slice(0, 320) : "webhook_failed",
     });
-    return NextResponse.json({ ok: false, error: failed.error, order: failed }, { status: 502 });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
   }
+
+  const sent = {
+    ...hydrated,
+    status: "sent" as const,
+    attempts,
+    printAssetUrl,
+    webhookStatus: webhookResponse.status,
+    sentAt: now,
+    error: undefined,
+  };
+  // Successful external side effect: durable state write stays outside the outbound
+  // catch so KV failures cannot be rewritten as webhook failures.
+  assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, sent));
+  return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
 }

@@ -1,5 +1,5 @@
 import { kv } from "@/lib/kv";
-import { printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
+import { persistPrintOrderRecord, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
 import {
   formatPrintOrderAmount,
   formatPrintShippingSummary,
@@ -91,7 +91,7 @@ export async function sendPrintOrderConfirmation(sessionId: string): Promise<Pri
       ...record,
       printConfirmationError: sendResult.error.slice(0, 320),
     };
-    await kv.set(key, failed);
+    await persistPrintOrderRecord(sessionId, failed);
     console.warn("Print confirmation email failed", { sessionId, error: sendResult.error });
     return { ok: false, status: "failed", reason: sendResult.error, provider: "resend" };
   }
@@ -102,7 +102,7 @@ export async function sendPrintOrderConfirmation(sessionId: string): Promise<Pri
     printConfirmationMessageId: sendResult.id || undefined,
     printConfirmationError: undefined,
   };
-  await kv.set(key, sent);
+  await persistPrintOrderRecord(sessionId, sent);
 
   return {
     ok: true,
