@@ -158,5 +158,11 @@ bucket_name = "cache"
 binding = "STAR_MAP_KV"
 id = "cdef6c5fa5cc4e52bfe105aa1ba37713"
 
+# Persist Worker console logs in Cloudflare dashboard (Workers Logs).
+# Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [images]
 binding = "IMAGES"
