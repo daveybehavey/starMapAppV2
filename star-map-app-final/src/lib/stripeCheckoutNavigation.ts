@@ -1,13 +1,64 @@
-/** Stripe hosted Checkout URLs require the #fid… fragment; without it the page fails to initialize. */
+/**
+ * Strict allowlist for Stripe hosted Checkout handoff URLs.
+ *
+ * Stripe documents redirecting customers to the full `session.url` string; the optional
+ * `#fid…` fragment is an implementation detail and may be absent on some responses.
+ * Security: exact hostname + HTTPS + canonical `/c/pay/cs_*` path only — never substring
+ * matching or wildcard `*.stripe.com`.
+ */
+
+/** Explicit Stripe Checkout hostnames (add custom Checkout domains here when configured). */
+export const STRIPE_CHECKOUT_HOSTNAMES = ["checkout.stripe.com"] as const;
+
+/** Canonical Checkout Session path segment: /c/pay/cs_{live|test}_<id> */
+export const STRIPE_CHECKOUT_SESSION_PATH_RE = /^\/c\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/;
+
+export type StripeCheckoutUrlShape = {
+  valid: boolean;
+  hashPresent: boolean;
+  urlLength: number;
+  hostname: string | null;
+  hasSessionPath: boolean;
+};
+
+export function describeStripeCheckoutUrlShape(url: string): StripeCheckoutUrlShape {
+  try {
+    const trimmed = url.trim();
+    const parsed = new URL(trimmed);
+    return {
+      valid: isValidStripeCheckoutUrl(trimmed),
+      hashPresent: parsed.hash.length > 1,
+      urlLength: trimmed.length,
+      hostname: parsed.hostname || null,
+      hasSessionPath: STRIPE_CHECKOUT_SESSION_PATH_RE.test(parsed.pathname),
+    };
+  } catch {
+    return {
+      valid: false,
+      hashPresent: false,
+      urlLength: typeof url === "string" ? url.length : 0,
+      hostname: null,
+      hasSessionPath: false,
+    };
+  }
+}
+
 export function isValidStripeCheckoutUrl(url: string): boolean {
   try {
     const parsed = new URL(url.trim());
-    return (
-      parsed.protocol === "https:" &&
-      parsed.hostname === "checkout.stripe.com" &&
-      parsed.pathname.startsWith("/c/pay/") &&
-      parsed.hash.length > 1
-    );
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.username || parsed.password) return false;
+    if (
+      !STRIPE_CHECKOUT_HOSTNAMES.includes(
+        parsed.hostname as (typeof STRIPE_CHECKOUT_HOSTNAMES)[number]
+      )
+    ) {
+      return false;
+    }
+    if (!STRIPE_CHECKOUT_SESSION_PATH_RE.test(parsed.pathname)) return false;
+    // Empty hash is valid (Stripe may omit #fid). Lone "#" is malformed.
+    if (parsed.hash === "#") return false;
+    return true;
   } catch {
     return false;
   }
