@@ -46,6 +46,12 @@ import {
   resolveQaRequestContext,
   type QaRequestContext,
 } from "@/lib/qaSession";
+import {
+  bestEffortCheckoutSideEffect,
+  extractStripeErrorDiagnostics,
+  logCheckoutFailure,
+  resolveCheckoutCorrelationId,
+} from "@/lib/checkoutResilience";
 
 export const runtime = "nodejs";
 
@@ -77,12 +83,15 @@ const printCheckoutEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_CHECKOUT_
 const printDynamicShippingEnabled = /^(1|true|yes)$/i.test((process.env.PRINT_DYNAMIC_SHIPPING || "").trim());
 
 // Use fetch-based HTTP client to work in Cloudflare Workers.
+// maxNetworkRetries: Stripe SDK reuses the same idempotency key across retries (explicit
+// key when mapId present; SDK-generated key otherwise) — safe against duplicate sessions.
 const stripe =
   stripeSecret &&
   new Stripe(stripeSecret, {
     apiVersion: "2024-06-20",
     httpClient: Stripe.createFetchHttpClient(),
     timeout: 20_000,
+    maxNetworkRetries: 2,
   });
 const stripePriceProductIdCache = new Map<string, Promise<string | null>>();
 
@@ -1118,6 +1127,7 @@ async function createCheckoutSession(input: {
 }
 
 export async function GET(req: NextRequest) {
+  const correlationId = resolveCheckoutCorrelationId(req.headers.get("x-correlation-id"));
   const ip = getClientIp(req);
   const rateLimit = await checkRateLimit(`checkout:${ip}`, 5, 60);
   if (!rateLimit.allowed) {
@@ -1238,10 +1248,15 @@ export async function GET(req: NextRequest) {
       await assertDigitalCheckoutMap(mapId, plan);
     } catch (error) {
       if (error instanceof CheckoutError) {
-        await recordBuyerCheckoutFailure(qaContext, {
-          reason: error.code,
-          source: "checkout_api_digital_get",
-          plan,
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "buyer_failure_diag_digital_get",
+          run: () =>
+            recordBuyerCheckoutFailure(qaContext, {
+              reason: error.code,
+              source: "checkout_api_digital_get",
+              plan,
+            }),
         });
         return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
       }
@@ -1279,19 +1294,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
     }
     if (!qaContext.enabled) {
-      await recordFunnelStep({
-        step: "checkout_session_created",
-        source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-        plan: orderType === "print" ? printVariant : plan,
-        handoff: "missing",
-        trustedCheckoutClassification: true,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "funnel_checkout_session_created_get",
+        run: () =>
+          recordFunnelStep({
+            step: "checkout_session_created",
+            source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+            plan: orderType === "print" ? printVariant : plan,
+            handoff: "missing",
+            trustedCheckoutClassification: true,
+          }),
       });
-      await recordFunnelStep({
-        step: "checkout_redirected",
-        source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-        plan: orderType === "print" ? printVariant : plan,
-        handoff: "missing",
-        trustedCheckoutClassification: true,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "funnel_checkout_redirected_get",
+        run: () =>
+          recordFunnelStep({
+            step: "checkout_redirected",
+            source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+            plan: orderType === "print" ? printVariant : plan,
+            handoff: "missing",
+            trustedCheckoutClassification: true,
+          }),
       });
     }
     if (!isValidStripeCheckoutUrl(sessionUrl)) {
@@ -1306,24 +1331,45 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
-      await recordBuyerCheckoutFailure(qaContext, {
-        reason: err.code,
-        source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-        plan: orderType === "print" ? printVariant : plan,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "buyer_failure_diag_get",
+        run: () =>
+          recordBuyerCheckoutFailure(qaContext, {
+            reason: err.code,
+            source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+            plan: orderType === "print" ? printVariant : plan,
+          }),
       });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
 
     const normalized = normalizeNonCheckoutError(err);
-    await recordBuyerCheckoutFailure(qaContext, {
-      reason: normalized.reason,
-      source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-      plan: orderType === "print" ? printVariant : plan,
+    const stripeDiag = extractStripeErrorDiagnostics(err);
+    await bestEffortCheckoutSideEffect({
+      correlationId,
+      stage: "buyer_failure_diag_get_unknown",
+      run: () =>
+        recordBuyerCheckoutFailure(qaContext, {
+          reason: normalized.reason,
+          source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+          plan: orderType === "print" ? printVariant : plan,
+        }),
     });
-    console.error("Stripe checkout error", err);
+    logCheckoutFailure({
+      correlationId,
+      stage: "stripe_checkout_get",
+      normalizedReason: normalized.reason,
+      stripeErrorType: stripeDiag.stripeErrorType,
+      stripeErrorCode: stripeDiag.stripeErrorCode,
+      httpStatus: normalized.status,
+      mapIdPresent: Boolean(mapId),
+      checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+    });
     // Keep response `code` stable for the UI, while analytics use deterministic `reason`.
+    // Public allowlisted codes (map_required, etc.) remain CheckoutError paths above.
     return NextResponse.json(
-      { error: "Checkout failed", code: "unknown_error" },
+      { error: "Checkout failed", code: "unknown_error", diagnosticId: correlationId },
       { status: normalized.status }
     );
   }
@@ -1331,6 +1377,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   // Rate limit: 5 requests per minute per IP (prevents checkout session spam)
+  const correlationId = resolveCheckoutCorrelationId(req.headers.get("x-correlation-id"));
   const ip = getClientIp(req);
   const rateLimit = await checkRateLimit(`checkout:${ip}`, 5, 60);
   if (!rateLimit.allowed) {
@@ -1340,6 +1387,7 @@ export async function POST(req: NextRequest) {
   let plan: CheckoutPlan = "single";
   let orderType: CheckoutOrderType = "digital";
   let printVariant: PrintVariant = "poster_framed";
+  let mapIdForDiag: string | undefined;
   const qaContext = resolveQaRequestContext(req.headers, process.env.PRINT_ADMIN_TOKEN);
   if (qaContext.status === "unauthorized") {
     return NextResponse.json(
@@ -1382,6 +1430,7 @@ export async function POST(req: NextRequest) {
         checkoutHandoff?: string;
       } | null;
       mapId = parseCheckoutMapId(body?.mapId);
+      mapIdForDiag = mapId;
       checkoutHandoff = resolveCheckoutHandoff(body?.checkoutHandoff);
       if (body?.plan && ["single", "pack3", "subscription"].includes(body.plan)) {
         plan = body.plan;
@@ -1542,12 +1591,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!qaContext.enabled) {
-      await recordFunnelStep({
-        step: "checkout_request_received",
-        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-        plan: orderType === "print" ? printVariant : plan,
-        handoff: checkoutHandoff,
-        trustedCheckoutClassification: true,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "funnel_checkout_request_received",
+        run: () =>
+          recordFunnelStep({
+            step: "checkout_request_received",
+            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+            plan: orderType === "print" ? printVariant : plan,
+            handoff: checkoutHandoff,
+            trustedCheckoutClassification: true,
+          }),
       });
     }
 
@@ -1583,15 +1637,26 @@ export async function POST(req: NextRequest) {
       // Stripe rejected auto-apply (common on print + shipping). Still return checkout so the
       // customer can enter the code on the hosted page when allow_promotion_codes is enabled.
       if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
-        await kv.set(idempotencyKey, session.url.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "idempotency_cache_set_discount_rejected",
+          run: async () => {
+            await kv.set(idempotencyKey, session.url!.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
+          },
+        });
       }
       if (!qaContext.enabled) {
-        await recordFunnelStep({
-          step: "checkout_session_created",
-          source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-          plan: orderType === "print" ? printVariant : plan,
-          handoff: checkoutHandoff,
-        trustedCheckoutClassification: true,
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "funnel_checkout_session_created_discount_rejected",
+          run: () =>
+            recordFunnelStep({
+              step: "checkout_session_created",
+              source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+              plan: orderType === "print" ? printVariant : plan,
+              handoff: checkoutHandoff,
+              trustedCheckoutClassification: true,
+            }),
         });
       }
       const rejectedUrl = session.url?.trim() ?? "";
@@ -1611,35 +1676,60 @@ export async function POST(req: NextRequest) {
       });
     }
     if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
-      await kv.set(idempotencyKey, session.url.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "idempotency_cache_set",
+        run: async () => {
+          await kv.set(idempotencyKey, session.url!.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
+        },
+      });
     }
     if (!qaContext.enabled) {
-      await recordFunnelStep({
-        step: "checkout_session_created",
-        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-        plan: orderType === "print" ? printVariant : plan,
-        handoff: checkoutHandoff,
-        trustedCheckoutClassification: true,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "funnel_checkout_session_created",
+        run: () =>
+          recordFunnelStep({
+            step: "checkout_session_created",
+            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+            plan: orderType === "print" ? printVariant : plan,
+            handoff: checkoutHandoff,
+            trustedCheckoutClassification: true,
+          }),
       });
 
-      await recordFunnelStep({
-        step: "checkout_redirected",
-        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-        plan: orderType === "print" ? printVariant : plan,
-        handoff: checkoutHandoff,
-        trustedCheckoutClassification: true,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "funnel_checkout_redirected",
+        run: () =>
+          recordFunnelStep({
+            step: "checkout_redirected",
+            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+            plan: orderType === "print" ? printVariant : plan,
+            handoff: checkoutHandoff,
+            trustedCheckoutClassification: true,
+          }),
       });
     }
 
     const checkoutUrl = session.url?.trim() ?? "";
     if (!checkoutUrl || !isValidStripeCheckoutUrl(checkoutUrl)) {
-      await recordBuyerCheckoutFailure(qaContext, {
-        reason: "invalid_checkout_url",
-        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-        plan: orderType === "print" ? printVariant : plan,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "buyer_failure_diag_invalid_url",
+        run: () =>
+          recordBuyerCheckoutFailure(qaContext, {
+            reason: "invalid_checkout_url",
+            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+            plan: orderType === "print" ? printVariant : plan,
+          }),
       });
       return NextResponse.json(
-        { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
+        {
+          error: "Checkout could not start securely. Please try again.",
+          code: "invalid_checkout_url",
+          diagnosticId: correlationId,
+        },
         { status: 500 }
       );
     }
@@ -1656,23 +1746,43 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
-      await recordBuyerCheckoutFailure(qaContext, {
-        reason: err.code,
-        source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-        plan: orderType === "print" ? printVariant : plan,
+      await bestEffortCheckoutSideEffect({
+        correlationId,
+        stage: "buyer_failure_diag_post",
+        run: () =>
+          recordBuyerCheckoutFailure(qaContext, {
+            reason: err.code,
+            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+            plan: orderType === "print" ? printVariant : plan,
+          }),
       });
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
 
     const normalized = normalizeNonCheckoutError(err);
-    await recordBuyerCheckoutFailure(qaContext, {
-      reason: normalized.reason,
-      source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-      plan: orderType === "print" ? printVariant : plan,
+    const stripeDiag = extractStripeErrorDiagnostics(err);
+    await bestEffortCheckoutSideEffect({
+      correlationId,
+      stage: "buyer_failure_diag_post_unknown",
+      run: () =>
+        recordBuyerCheckoutFailure(qaContext, {
+          reason: normalized.reason,
+          source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+          plan: orderType === "print" ? printVariant : plan,
+        }),
     });
-    console.error("Stripe checkout error", err);
+    logCheckoutFailure({
+      correlationId,
+      stage: "stripe_checkout_post",
+      normalizedReason: normalized.reason,
+      stripeErrorType: stripeDiag.stripeErrorType,
+      stripeErrorCode: stripeDiag.stripeErrorCode,
+      httpStatus: normalized.status,
+      mapIdPresent: Boolean(mapIdForDiag),
+      checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+    });
     return NextResponse.json(
-      { error: "Checkout failed", code: "unknown_error" },
+      { error: "Checkout failed", code: "unknown_error", diagnosticId: correlationId },
       { status: normalized.status }
     );
   }

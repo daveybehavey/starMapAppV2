@@ -46,6 +46,19 @@ export class KvDurableDeleteError extends Error {
   }
 }
 
+/**
+ * Ordinary (non-durable) KV write failed without a safe local fallback.
+ * Callers that treat KV as best-effort analytics/cache must soft-catch this;
+ * never convert a Cloudflare binding failure into a fake filesystem success on Workers.
+ */
+export class KvSoftWriteError extends Error {
+  readonly code = "kv_soft_write_failed";
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options?.cause ? { cause: options.cause } : undefined);
+    this.name = "KvSoftWriteError";
+  }
+}
+
 /** True for strict durable put/delete failures that must not be swallowed as soft errors. */
 export function isDurableKvPersistenceError(error: unknown): boolean {
   return error instanceof KvDurableWriteError || error instanceof KvDurableDeleteError;
@@ -226,6 +239,92 @@ export async function persistOrdinaryKvPutWithLocalFallbackOnRemoteFailure<T>(in
   }
 }
 
+/**
+ * Ordinary put orchestration for {@link kv.set}.
+ * When a Cloudflare namespace is present, put failures must NOT fall through to filesystem APIs
+ * (Workers have no durable local FS). Local memory/file is used only when CF is absent and
+ * {@link isLocalKvFallbackAllowed} is true.
+ */
+export async function persistOrdinaryKvPut<T>(input: {
+  cfKv: CloudflareKvNamespace | null;
+  allowLocalFallback: boolean;
+  mirrorLocalInCi: boolean;
+  key: string;
+  value: T;
+  ttlSeconds?: number;
+  memoryStore: Map<string, unknown>;
+  writeFallback: (key: string, value: T) => Promise<void>;
+}): Promise<"OK"> {
+  if (input.cfKv) {
+    try {
+      await input.cfKv.put(
+        input.key,
+        JSON.stringify(input.value),
+        input.ttlSeconds ? { expirationTtl: input.ttlSeconds } : undefined
+      );
+      if (input.mirrorLocalInCi) {
+        input.memoryStore.set(input.key, input.value);
+        await input.writeFallback(input.key, input.value);
+      }
+      return "OK";
+    } catch (error) {
+      throw new KvSoftWriteError("Cloudflare KV ordinary put failed", { cause: error });
+    }
+  }
+
+  if (!input.allowLocalFallback) {
+    throw new KvSoftWriteError(
+      "Cloudflare KV binding unavailable for ordinary write (local fallback not permitted)"
+    );
+  }
+
+  input.memoryStore.set(input.key, input.value);
+  await input.writeFallback(input.key, input.value);
+  return "OK";
+}
+
+/**
+ * Ordinary incr orchestration for {@link kv.incr}.
+ * Same Workers-safe rule as {@link persistOrdinaryKvPut}: CF present + failure ⇒ no filesystem.
+ */
+export async function persistOrdinaryKvIncr(input: {
+  cfKv: CloudflareKvNamespace | null;
+  allowLocalFallback: boolean;
+  key: string;
+  by: number;
+  ttlSeconds?: number;
+  readLocal: (key: string) => Promise<number | null>;
+  memoryStore: Map<string, unknown>;
+  writeFallback: (key: string, value: number) => Promise<void>;
+}): Promise<number> {
+  if (input.cfKv) {
+    try {
+      const current = (await input.cfKv.get<number>(input.key, "json")) ?? 0;
+      const next = current + input.by;
+      await input.cfKv.put(
+        input.key,
+        JSON.stringify(next),
+        input.ttlSeconds ? { expirationTtl: input.ttlSeconds } : undefined
+      );
+      return next;
+    } catch (error) {
+      throw new KvSoftWriteError("Cloudflare KV ordinary incr failed", { cause: error });
+    }
+  }
+
+  if (!input.allowLocalFallback) {
+    throw new KvSoftWriteError(
+      "Cloudflare KV binding unavailable for ordinary incr (local fallback not permitted)"
+    );
+  }
+
+  const current = Number((await input.readLocal(input.key)) ?? 0);
+  const next = current + input.by;
+  input.memoryStore.set(input.key, next);
+  await input.writeFallback(input.key, next);
+  return next;
+}
+
 export const kv = {
   async get<T>(key: string): Promise<T | null> {
     if (MIRROR_KV_LOCAL_IN_CI && memoryStore.has(key)) {
@@ -251,22 +350,16 @@ export const kv = {
   },
   async set<T>(key: string, value: T, options?: KvSetOptions): Promise<"OK"> {
     const cfKv = await getCloudflareKv();
-    if (cfKv) {
-      const ttl = ttlFromOptions(options);
-      try {
-        await cfKv.put(key, JSON.stringify(value), ttl ? { expirationTtl: ttl } : undefined);
-        if (MIRROR_KV_LOCAL_IN_CI) {
-          memoryStore.set(key, value);
-          await writeFallbackValue(key, value);
-        }
-        return "OK";
-      } catch {
-        // Fall through to local fallback storage in dev/test or transient KV outages.
-      }
-    }
-    memoryStore.set(key, value);
-    await writeFallbackValue(key, value);
-    return "OK";
+    return persistOrdinaryKvPut({
+      cfKv,
+      allowLocalFallback: isLocalKvFallbackAllowed(),
+      mirrorLocalInCi: MIRROR_KV_LOCAL_IN_CI,
+      key,
+      value,
+      ttlSeconds: ttlFromOptions(options),
+      memoryStore,
+      writeFallback: writeFallbackValue,
+    });
   },
   /**
    * Strict durable write for recovery canonical-session success.
@@ -303,22 +396,21 @@ export const kv = {
   },
   async incr(key: string, by = 1, options?: KvIncrOptions): Promise<number> {
     const cfKv = await getCloudflareKv();
-    const ttl = ttlFromOptions(options);
-    if (cfKv) {
-      try {
-        const current = (await cfKv.get<number>(key, "json")) ?? 0;
-        const next = current + by;
-        await cfKv.put(key, JSON.stringify(next), ttl ? { expirationTtl: ttl } : undefined);
-        return next;
-      } catch {
-        // Fall through to local fallback storage in dev/test or transient KV outages.
-      }
-    }
-    const current = Number((await kv.get<number>(key)) ?? 0);
-    const next = current + by;
-    memoryStore.set(key, next);
-    await writeFallbackValue(key, next);
-    return next;
+    return persistOrdinaryKvIncr({
+      cfKv,
+      allowLocalFallback: isLocalKvFallbackAllowed(),
+      key,
+      by,
+      ttlSeconds: ttlFromOptions(options),
+      readLocal: async (localKey) => {
+        if (memoryStore.has(localKey)) {
+          return Number(memoryStore.get(localKey) ?? 0);
+        }
+        return readFallbackValue<number>(localKey);
+      },
+      memoryStore,
+      writeFallback: writeFallbackValue,
+    });
   },
   async list(
     options?: KvListOptions

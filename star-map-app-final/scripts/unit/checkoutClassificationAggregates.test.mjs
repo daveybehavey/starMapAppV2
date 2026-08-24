@@ -253,7 +253,7 @@ test("positive: checkout route marks classification writes as trusted", () => {
   assert.match(funnel, /export function isProtectedCheckoutClassificationWrite/);
 
   const funnelCallPattern =
-    /await recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
+    /recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
   const trustedCalls = route.match(funnelCallPattern) || [];
   assert.ok(trustedCalls.length >= 3, `expected >=3 trusted checkout classification writes, got ${trustedCalls.length}`);
   assert.equal(route.includes("trustedCheckoutClassification: false"), false);
@@ -305,11 +305,14 @@ test("negative: diagnostics never enumerate arbitrary KV keys outside allowlist"
 
 test("negative: QA checkout does not increment production classification", () => {
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
-  assert.match(route, /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{\s*\n\s*await recordFunnelStep/);
+  // Funnel writes remain QA-gated; best-effort wrapper must not remove the gate.
+  assert.match(route, /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{/);
+  assert.match(route, /bestEffortCheckoutSideEffect/);
+  assert.match(route, /recordFunnelStep\(/);
   assert.match(route, /trustedCheckoutClassification: true/);
 
   const funnelCallPattern =
-    /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{[\s\S]*?await recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?handoff: (?:checkoutHandoff|"missing")[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
+    /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{[\s\S]*?recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?handoff: (?:checkoutHandoff|"missing")[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
   const gatedCalls = route.match(funnelCallPattern) || [];
   assert.ok(gatedCalls.length >= 3, `expected >=3 QA-gated trusted classification writes, got ${gatedCalls.length}`);
 });
