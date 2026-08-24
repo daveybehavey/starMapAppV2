@@ -39,7 +39,11 @@ import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/pri
 import { applyMarketingAttributionMetadata } from "@/lib/commerceAnalytics";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
 import { recordBuyerCheckoutFailure } from "@/lib/checkoutDiagnostics";
-import { isValidStripeCheckoutUrl, stripeCheckoutHtmlRedirectBody } from "@/lib/stripeCheckoutNavigation";
+import {
+  describeStripeCheckoutUrlShape,
+  isValidStripeCheckoutUrl,
+  stripeCheckoutHtmlRedirectBody,
+} from "@/lib/stripeCheckoutNavigation";
 import {
   applyQaCheckoutMetadata,
   appendCheckoutIdempotencyQaSegment,
@@ -1117,9 +1121,13 @@ async function createCheckoutSession(input: {
 
   const checkoutUrl = session.url?.trim() ?? "";
   if (checkoutUrl && !isValidStripeCheckoutUrl(checkoutUrl)) {
-    console.error("Stripe returned checkout URL without required fragment", {
+    const shape = describeStripeCheckoutUrlShape(checkoutUrl);
+    console.error("Stripe returned checkout URL that failed validation", {
       sessionId: session.id,
-      urlLength: checkoutUrl.length,
+      urlLength: shape.urlLength,
+      hashPresent: shape.hashPresent,
+      hasSessionPath: shape.hasSessionPath,
+      hostname: shape.hostname,
     });
     throw new Error("invalid_stripe_checkout_url");
   }

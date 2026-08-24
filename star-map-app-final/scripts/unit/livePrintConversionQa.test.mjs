@@ -652,19 +652,21 @@ test("hosted Stripe URL validator accepts bounded handoff shape without echoing 
   assert.throws(() => assertHostedStripeCheckoutUrl("https://example.com/pay"), /Stripe-hosted/);
 });
 
-test("hosted Stripe URL validator rejects HTTP, deceptive hosts, wrong paths, and missing fragments", () => {
+test("hosted Stripe URL validator rejects HTTP, deceptive hosts, and wrong paths", () => {
   const rejects = [
     "http://checkout.stripe.com/c/pay/cs_live_abc#fidfragment",
     "https://evil.example/checkout.stripe.com/c/pay/cs_live_abc#fidfragment",
     "https://checkout.stripe.com.evil.example/c/pay/cs_live_abc#fidfragment",
     "https://checkout.stripe.com/pay/cs_live_abc#fidfragment",
-    "https://checkout.stripe.com/c/pay/cs_live_abc",
-    "https://checkout.stripe.com/c/pay/cs_live_abc#",
     "not-a-url-but-checkout.stripe.com",
   ];
   for (const url of rejects) {
     assert.throws(() => assertHostedStripeCheckoutUrl(url), /Stripe-hosted|missing/, url);
   }
+  // Fragment-less canonical Stripe URLs are valid (Stripe may omit #fid).
+  assert.doesNotThrow(() =>
+    assertHostedStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_live_abc")
+  );
   // Negative control: permissive substring alone must not pass.
   assert.throws(() => assertHostedStripeCheckoutUrl("prefix checkout.stripe.com suffix"), /Stripe-hosted/);
   const source = fs.readFileSync(SCRIPT_PATH, "utf8");
@@ -676,7 +678,7 @@ test("shared Stripe checkout URL module is the single handoff contract for all l
   const merch = fs.readFileSync(MERCH_PROBE, "utf8");
   const proof = fs.readFileSync(C1_M1_PROOF, "utf8");
   const primary = fs.readFileSync(SCRIPT_PATH, "utf8");
-  assert.match(shared, /hostname === "checkout\.stripe\.com"/);
+  assert.match(shared, /STRIPE_CHECKOUT_HOSTNAMES\.includes\(parsed\.hostname\)/);
   assert.match(shared, /\/c\/pay\//);
   assert.match(merch, /qa-stripe-checkout-url\.mjs/);
   assert.match(proof, /qa-stripe-checkout-url\.mjs/);
@@ -687,6 +689,7 @@ test("shared Stripe checkout URL module is the single handoff contract for all l
     extractFromShared("https://checkout.stripe.com/c/pay/cs_test_shared#fid")
   );
   assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_test_shared#fid"), true);
+  assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_test_shared"), true);
 });
 
 test("merch probe rejects loose checkout.stripe.com substring URLs", () => {
@@ -699,8 +702,6 @@ test("merch probe rejects loose checkout.stripe.com substring URLs", () => {
     "https://evil.example/checkout.stripe.com/c/pay/cs_live_merch123#fidfragment",
     "https://checkout.stripe.com.evil.example/c/pay/cs_live_merch123#fidfragment",
     "https://checkout.stripe.com/pay/cs_live_merch123#fidfragment",
-    "https://checkout.stripe.com/c/pay/cs_live_merch123",
-    "https://checkout.stripe.com/c/pay/cs_live_merch123#",
     "https://checkout.stripe.com/c/pay/not-a-session#cs_test_oldsession",
     "https://example.com/?next=checkout.stripe.com",
     "prefix checkout.stripe.com suffix",

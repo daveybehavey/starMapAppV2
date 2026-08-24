@@ -2,11 +2,13 @@
  * Shared strict Stripe Checkout handoff validators for live QA probes.
  *
  * Contract mirrors buyer navigation (`src/lib/stripeCheckoutNavigation.ts`):
- * HTTPS + exact host `checkout.stripe.com` + `/c/pay/<session>` + nonempty fragment.
+ * HTTPS + exact host allowlist + canonical `/c/pay/cs_*` path.
+ * Fragment (#fid…) is optional — Stripe may return session.url without a hash.
  * Session IDs are taken only from the validated pathname — never query/fragment scans.
  */
 
 const CHECKOUT_SESSION_ID_PATH_RE = /^\/c\/pay\/(cs_(?:live|test)_[A-Za-z0-9]+)$/;
+const STRIPE_CHECKOUT_HOSTNAMES = ["checkout.stripe.com"];
 
 /**
  * Mirror of src/lib/stripeCheckoutNavigation.isValidStripeCheckoutUrl (plain JS for node --test).
@@ -15,12 +17,12 @@ const CHECKOUT_SESSION_ID_PATH_RE = /^\/c\/pay\/(cs_(?:live|test)_[A-Za-z0-9]+)$
 export function isValidStripeCheckoutUrl(url) {
   try {
     const parsed = new URL(String(url).trim());
-    return (
-      parsed.protocol === "https:" &&
-      parsed.hostname === "checkout.stripe.com" &&
-      parsed.pathname.startsWith("/c/pay/") &&
-      parsed.hash.length > 1
-    );
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.username || parsed.password) return false;
+    if (!STRIPE_CHECKOUT_HOSTNAMES.includes(parsed.hostname)) return false;
+    if (!parsed.pathname.match(/^\/c\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/)) return false;
+    if (parsed.hash === "#") return false;
+    return true;
   } catch {
     return false;
   }
@@ -28,7 +30,7 @@ export function isValidStripeCheckoutUrl(url) {
 
 /**
  * Validate hosted Stripe URL without echoing it.
- * Accepts only the repository's strict HTTPS / exact-host / /c/pay/ / nonempty-fragment contract.
+ * Accepts only the repository's strict HTTPS / exact-host / /c/pay/ contract.
  * @param {unknown} url
  */
 export function assertHostedStripeCheckoutUrl(url) {
