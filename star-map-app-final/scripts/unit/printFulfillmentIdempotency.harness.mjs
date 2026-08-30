@@ -32,7 +32,7 @@ export class PrintOrderUnretainableError extends Error {
 }
 
 export function assertPrintOrderRetained(result) {
-  if (!result || result.outcome !== "persisted") {
+  if (!result || result.outcome === "deleted_unretainable") {
     throw new PrintOrderUnretainableError(result?.reason || "expired_or_below_min_ttl");
   }
   return result;

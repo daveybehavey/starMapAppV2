@@ -157,7 +157,17 @@ export function resolvePrintOrderKvWrite(
 /** Explicit durable write outcome — callers must not treat delete as silent success. */
 export type PersistPrintOrderResult =
   | { outcome: "persisted"; ttlSeconds: number }
-  | { outcome: "deleted_unretainable"; reason: "malformed_created_at" | "expired_or_below_min_ttl" };
+  | { outcome: "deleted_unretainable"; reason: "malformed_created_at" | "expired_or_below_min_ttl" }
+  /** Soft guard: refused to let a nonterminal write clear a known terminal failure. */
+  | { outcome: "rejected_terminal_failure" };
+
+export type PersistPrintOrderOptions = {
+  /**
+   * Explicit operator recovery (resolve) may clear terminal failure.
+   * Ordinary fulfillment / review / notification writers must omit this.
+   */
+  allowClearTerminalFailure?: boolean;
+};
 
 export type PrintOrderUnretainableReason = Extract<
   PersistPrintOrderResult,
@@ -193,13 +203,14 @@ export function classifyPrintOrderUnretainableReason(createdAt: unknown): PrintO
 }
 
 /**
- * Require a successful durable rewrite. Deleted/unretainable outcomes throw so
- * webhook/retry callers abort before Printful (or alternate) submission.
+ * Require that the print-order key was not durably deleted as unretainable.
+ * `persisted` and `rejected_terminal_failure` both keep recoverable state
+ * (the latter preserves an existing terminal failure). Only deletion throws.
  */
 export function assertPrintOrderRetained(
   result: PersistPrintOrderResult,
-): asserts result is Extract<PersistPrintOrderResult, { outcome: "persisted" }> {
-  if (result.outcome !== "persisted") {
+): asserts result is Exclude<PersistPrintOrderResult, { outcome: "deleted_unretainable" }> {
+  if (result.outcome === "deleted_unretainable") {
     throw new PrintOrderUnretainableError(result.reason);
   }
 }
@@ -222,6 +233,7 @@ export function resolvePrintOrderCreatedAt(
 export async function persistPrintOrderRecord(
   sessionId: string,
   record: PrintOrderRecord,
+  options?: PersistPrintOrderOptions,
 ): Promise<PersistPrintOrderResult> {
   const key = printOrderKey(sessionId);
   const plan = resolvePrintOrderKvWrite(record.createdAt);
@@ -236,6 +248,18 @@ export async function persistPrintOrderRecord(
       reason: classifyPrintOrderUnretainableReason(record.createdAt),
     };
   }
+
+  // Soft monotonic guard (best-effort; Workers KV has no CAS). Nonterminal
+  // writers must not clear a known terminal failure. Residual TOCTOU remains
+  // under concurrent reads; authoritative terminal authority still prefers
+  // Printful failure/cancel webhooks over stale sent/healthy rewrites.
+  if (record.status !== "failed" && !options?.allowClearTerminalFailure) {
+    const existing = await kv.get<PrintOrderRecord>(key);
+    if (existing?.status === "failed") {
+      return { outcome: "rejected_terminal_failure" };
+    }
+  }
+
   // Provider-valid remaining TTL: use strict durable put so Cloudflare
   // binding/put failures propagate instead of silent local-only success.
   await kv.setDurable(key, record, { ex: plan.ttlSeconds });

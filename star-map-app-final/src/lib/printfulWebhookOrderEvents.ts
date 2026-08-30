@@ -11,10 +11,14 @@ import {
   reviewPrintfulOrderFiles,
 } from "@/lib/printfulOrderReview";
 
+/**
+ * Authoritative terminal provider-failure webhooks only.
+ * `order_put_hold` is operator-attention / pending — not monotonic terminal failure
+ * (`order_remove_hold` can return the order toward draft/reconfirm).
+ */
 export const PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES = new Set([
   "order_failed",
   "order_canceled",
-  "order_put_hold",
 ]);
 
 export type PrintfulOrderWebhookPayload = {
