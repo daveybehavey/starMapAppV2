@@ -98,6 +98,10 @@ async function applyAuthority(
       const stub = ns.get(ns.idFromName(trimmed));
       return await stub.apply(trimmed, op);
     } catch {
+      // Local Next/playwright often has a wrangler binding stub without an exported DO class.
+      if (isLocalAuthorityFallbackAllowed()) {
+        return applyMemory(trimmed, op);
+      }
       return { ok: false, reason: "authority_unread", state: null };
     }
   }
@@ -118,6 +122,9 @@ export async function getPrintOrderAuthorityState(
       const stub = ns.get(ns.idFromName(trimmed));
       return await stub.getState(trimmed);
     } catch {
+      if (isLocalAuthorityFallbackAllowed()) {
+        return getMemoryState(trimmed);
+      }
       return null;
     }
   }
@@ -165,12 +172,11 @@ export async function operatorRecoverPrintOrder(
 export async function readAuthorityLifecycleForMirrorGuard(
   sessionId: string,
 ): Promise<PrintOrderAuthorityLifecycle | null | "unread"> {
-  const ns = tryGetAuthorityNamespace();
   const state = await getPrintOrderAuthorityState(sessionId);
   if (state) return state.lifecycle;
-  if (ns) return "unread";
-  if (isLocalAuthorityFallbackAllowed()) return "unbound";
-  return "unread";
+  // Production without a readable DO must fail closed. Local/CI may use memory.
+  if (!isLocalAuthorityFallbackAllowed()) return "unread";
+  return "unbound";
 }
 
 export function shouldRejectNonterminalKvMirror(
