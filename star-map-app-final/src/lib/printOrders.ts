@@ -208,9 +208,11 @@ export function classifyPrintOrderUnretainableReason(createdAt: unknown): PrintO
 export function assertPrintOrderRetained(
   result: PersistPrintOrderResult,
 ): asserts result is Extract<PersistPrintOrderResult, { outcome: "persisted" }> {
-  if (result.outcome !== "persisted") {
-    throw new PrintOrderUnretainableError(result.reason);
+  if (result.outcome === "persisted") return;
+  if (result.outcome === "rejected_terminal_failure") {
+    throw new Error("print_order_rejected_terminal_failure");
   }
+  throw new PrintOrderUnretainableError(result.reason);
 }
 
 /**

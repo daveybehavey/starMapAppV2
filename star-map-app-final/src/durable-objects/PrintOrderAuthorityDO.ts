@@ -36,7 +36,7 @@ function rowToState(row: AuthorityRow): PrintOrderAuthorityState {
 }
 
 export class PrintOrderAuthorityDO extends DurableObject {
-  constructor(ctx: DurableObjectState, env: CloudflareEnv) {
+  constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     this.ctx.blockConcurrencyWhile(async () => {
       this.ctx.storage.sql.exec(`
