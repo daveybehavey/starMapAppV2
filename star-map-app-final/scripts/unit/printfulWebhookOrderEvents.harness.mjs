@@ -2,7 +2,6 @@
 export const PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES = new Set([
   "order_failed",
   "order_canceled",
-  "order_put_hold",
 ]);
 
 export function isPrintfulOrderFailureWebhookType(eventType) {

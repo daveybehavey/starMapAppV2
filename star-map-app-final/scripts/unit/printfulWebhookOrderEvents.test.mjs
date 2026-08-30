@@ -6,9 +6,11 @@ import {
   PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES,
 } from "./printfulWebhookOrderEvents.harness.mjs";
 
-test("PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES covers failure lifecycle events", () => {
+test("PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES covers authoritative terminal events only", () => {
   assert.equal(PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has("order_failed"), true);
   assert.equal(PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has("order_canceled"), true);
+  assert.equal(PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has("order_put_hold"), false);
+  assert.equal(isPrintfulOrderFailureWebhookType("order_put_hold"), false);
   assert.equal(isPrintfulOrderFailureWebhookType("package_shipped"), false);
 });
 

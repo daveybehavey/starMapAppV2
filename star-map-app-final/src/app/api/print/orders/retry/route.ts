@@ -21,10 +21,9 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import { persistAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
-import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
 export const runtime = "nodejs";
 
@@ -284,7 +283,7 @@ async function postRetryPrintOrder(req: NextRequest) {
       });
       return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
     }
-    let sent: PrintOrderRecord = {
+    const sentRecord: PrintOrderRecord = {
       ...hydrated,
       status: "sent" as const,
       attempts,
@@ -295,12 +294,13 @@ async function postRetryPrintOrder(req: NextRequest) {
       sentAt: now,
       error: undefined,
     };
-    sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
-    const sentPersist = await persistPrintOrderRecord(sessionId, sent);
+    // Persist provider identity (+ index) before optional file review/alerts.
+    const { identityPersist: sentPersist, record: sent } =
+      await persistAcceptedPrintfulIdentityThenReview({
+        sessionId,
+        sentRecord,
+      });
     if (sentPersist.outcome === "deleted_unretainable") {
-      if (sent.printfulOrderId) {
-        await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
-      }
       return NextResponse.json(
         {
           ok: false,
@@ -312,8 +312,16 @@ async function postRetryPrintOrder(req: NextRequest) {
         { status: 409 },
       );
     }
-    if (sent.printfulOrderId) {
-      await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
+    if (sentPersist.outcome === "rejected_terminal_failure") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "terminal_failure_preserved",
+          providerAccepted: true,
+          printfulOrderId: sent.printfulOrderId ?? null,
+        },
+        { status: 409 },
+      );
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed after retry", { sessionId, error });

@@ -62,7 +62,8 @@ export async function POST(req: NextRequest) {
     webhookStatus: existing.webhookStatus,
   };
 
-  await persistPrintOrderRecord(sessionId, updated);
+  // Explicit operator recovery may clear terminal failure; ordinary writers cannot.
+  await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
   if (updated.printfulOrderId) {
     await setPrintFulfillmentIndex(updated.printfulOrderId, sessionId);
   }

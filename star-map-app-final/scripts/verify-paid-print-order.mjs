@@ -74,7 +74,8 @@ if (printfulToken && order?.printfulOrderId) {
   }
 }
 
-const fileFailures = printful?.fileStatuses?.filter((f) => f.status && f.status !== "ok") ?? [];
+const fileFailures =
+  printful?.fileStatuses?.filter((f) => String(f.status || "").trim().toLowerCase() === "failed") ?? [];
 const fulfillmentOk =
   session.payment_status === "paid" &&
   order?.status === "sent" &&

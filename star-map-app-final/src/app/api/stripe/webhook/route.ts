@@ -32,9 +32,8 @@ import {
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import { persistAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
-import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import {
   applyCheckoutRecoveryDeliveredSessionFields,
   buildCheckoutRecoveryAttemptRecord,
@@ -1010,16 +1009,15 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         sentAt: Date.now(),
         error: undefined,
       };
-      const reviewedRecord = printfulResult.orderId
-        ? await applyPrintfulPostSubmitReview(sentRecord)
-        : sentRecord;
-      const sentPersist = await persistPrintOrderRecord(session.id, reviewedRecord);
+      // Persist provider identity (+ index) before optional file review/alerts.
+      const { identityPersist: sentPersist, record: reviewedRecord } =
+        await persistAcceptedPrintfulIdentityThenReview({
+          sessionId: session.id,
+          sentRecord,
+        });
       if (sentPersist.outcome === "deleted_unretainable") {
-        // Provider already accepted. Index for webhook correlation, then throw so the
+        // Provider already accepted. Index is written inside the helper; throw so the
         // outer handler writes event dedupe before any further work (tight crash window).
-        if (reviewedRecord.printfulOrderId) {
-          await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
-        }
         console.error("Print order sent but durable record unretainable after provider success", {
           sessionId: session.id,
           reason: sentPersist.reason,
@@ -1027,12 +1025,11 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         });
         throw new PrintOrderUnretainableError(sentPersist.reason);
       }
-      if (reviewedRecord.printfulOrderId) {
-        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+      if (sentPersist.outcome !== "rejected_terminal_failure") {
+        void sendPrintOrderConfirmation(session.id).catch((error) => {
+          console.warn("Print confirmation email failed", { sessionId: session.id, error });
+        });
       }
-      void sendPrintOrderConfirmation(session.id).catch((error) => {
-        console.warn("Print confirmation email failed", { sessionId: session.id, error });
-      });
     }
     return;
   }
@@ -1076,16 +1073,15 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       sentAt: Date.now(),
       error: undefined,
     };
-    const reviewedRecord = printfulResult.orderId
-      ? await applyPrintfulPostSubmitReview(sentRecord)
-      : sentRecord;
-    const sentPersist = await persistPrintOrderRecord(session.id, reviewedRecord);
+    // Persist provider identity (+ index) before optional file review/alerts.
+    const { identityPersist: sentPersist, record: reviewedRecord } =
+      await persistAcceptedPrintfulIdentityThenReview({
+        sessionId: session.id,
+        sentRecord,
+      });
     if (sentPersist.outcome === "deleted_unretainable") {
-      // Provider already accepted. Index, then throw so event dedupe is written
-      // immediately in the outer handler (no remint; no silent soft-return gap).
-      if (reviewedRecord.printfulOrderId) {
-        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
-      }
+      // Provider already accepted. Index is written inside the helper; throw so event
+      // dedupe is written immediately in the outer handler (no remint soft-return gap).
       console.error("Print order sent but durable record unretainable after provider success", {
         sessionId: session.id,
         reason: sentPersist.reason,
@@ -1093,12 +1089,11 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       });
       throw new PrintOrderUnretainableError(sentPersist.reason);
     }
-    if (reviewedRecord.printfulOrderId) {
-      await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+    if (sentPersist.outcome !== "rejected_terminal_failure") {
+      void sendPrintOrderConfirmation(session.id).catch((error) => {
+        console.warn("Print confirmation email failed", { sessionId: session.id, error });
+      });
     }
-    void sendPrintOrderConfirmation(session.id).catch((error) => {
-      console.warn("Print confirmation email failed", { sessionId: session.id, error });
-    });
   }
 
   if (!printFulfillmentWebhookUrl) return;
