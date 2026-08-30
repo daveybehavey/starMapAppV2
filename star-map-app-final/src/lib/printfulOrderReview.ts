@@ -4,12 +4,21 @@ export type PrintfulFileStatusRow = {
   status: string;
 };
 
+/** Provider-aligned file status classes for post-submit review. */
+export type PrintfulFileStatusClass = "ok" | "waiting" | "failed" | "unknown" | "empty";
+
+/** Aggregated review outcome used by post-submit / ops paths. */
+export type PrintfulFileReviewOutcome = "ok" | "failed" | "pending";
+
 export type PrintfulOrderFileReview = {
   orderId: string | number;
   orderStatus?: string;
   dashboardUrl?: string;
   fileStatuses: PrintfulFileStatusRow[];
+  /** Confirmed provider file-processing failures only (`failed`). */
   failedFiles: PrintfulFileStatusRow[];
+  /** Transient (`waiting`) or unrecognized nonempty statuses — not confirmed failures. */
+  pendingFiles: PrintfulFileStatusRow[];
 };
 
 function getPrintfulApiConfig() {
@@ -18,8 +27,49 @@ function getPrintfulApiConfig() {
   return token ? { token, baseUrl } : null;
 }
 
+export function normalizePrintfulFileStatus(status: string): string {
+  return status.trim().toLowerCase();
+}
+
+/**
+ * Classify a Printful file status string.
+ * - `ok` = accepted/healthy
+ * - `waiting` = asynchronous processing (not failure)
+ * - `failed` = confirmed file-processing failure
+ * - `unknown` = nonempty unrecognized status (fail-safe: not confirmed failure)
+ * - `empty` = blank/whitespace (ignored)
+ */
+export function classifyPrintfulFileStatus(status: string): PrintfulFileStatusClass {
+  const normalized = normalizePrintfulFileStatus(status);
+  if (!normalized) return "empty";
+  if (normalized === "ok") return "ok";
+  if (normalized === "waiting") return "waiting";
+  if (normalized === "failed") return "failed";
+  return "unknown";
+}
+
+/** Confirmed failures only — never includes `waiting` or unknown statuses. */
 export function collectPrintfulFileFailures(fileStatuses: PrintfulFileStatusRow[]): PrintfulFileStatusRow[] {
-  return fileStatuses.filter((row) => row.status && row.status.trim().toLowerCase() !== "ok");
+  return fileStatuses.filter((row) => classifyPrintfulFileStatus(row.status) === "failed");
+}
+
+/**
+ * Unresolved statuses that must not trigger confirmed-failure alerts
+ * and must not be treated as final approval.
+ */
+export function collectPrintfulPendingFiles(fileStatuses: PrintfulFileStatusRow[]): PrintfulFileStatusRow[] {
+  return fileStatuses.filter((row) => {
+    const kind = classifyPrintfulFileStatus(row.status);
+    return kind === "waiting" || kind === "unknown";
+  });
+}
+
+export function resolvePrintfulFileReviewOutcome(
+  review: Pick<PrintfulOrderFileReview, "failedFiles" | "pendingFiles">,
+): PrintfulFileReviewOutcome {
+  if (review.failedFiles.length > 0) return "failed";
+  if (review.pendingFiles.length > 0) return "pending";
+  return "ok";
 }
 
 export async function reviewPrintfulOrderFiles(orderId: string | number): Promise<PrintfulOrderFileReview | null> {
@@ -69,6 +119,7 @@ export async function reviewPrintfulOrderFiles(orderId: string | number): Promis
       dashboardUrl: typeof result.dashboard_url === "string" ? result.dashboard_url : undefined,
       fileStatuses,
       failedFiles: collectPrintfulFileFailures(fileStatuses),
+      pendingFiles: collectPrintfulPendingFiles(fileStatuses),
     };
   } catch {
     return null;

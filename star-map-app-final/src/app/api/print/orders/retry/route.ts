@@ -21,7 +21,11 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import {
+  applyPrintfulPostSubmitReview,
+  shouldRereviewPrintfulFilesOnAlreadySent,
+  shouldSendAlreadySentApprovalAlert,
+} from "@/lib/printFulfillmentPostSubmit";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
@@ -161,7 +165,16 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Print order not found" }, { status: 404 });
   }
   if (existing.status === "sent") {
-    if (!existing.operatorAlertedAt) {
+    // Unresolved Printful file review must be rechecked before any approval path.
+    if (shouldRereviewPrintfulFilesOnAlreadySent(existing)) {
+      const reviewed = await applyPrintfulPostSubmitReview(existing);
+      await kv.set(printOrderKey(sessionId), reviewed);
+      void sendPrintOrderConfirmation(sessionId).catch((error) => {
+        console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
+      });
+      return NextResponse.json({ ok: true, status: "already_sent", order: reviewed });
+    }
+    if (shouldSendAlreadySentApprovalAlert(existing)) {
       const alertResult = await sendPrintOrderApprovalAlert(existing);
       const updated: PrintOrderRecord = {
         ...existing,
