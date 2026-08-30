@@ -1,6 +1,8 @@
 name = "star-map-final"
 account_id = "c5699cbcedce27a6ad755bdeb815f6de"
-main = ".open-next/worker.js"
+# Custom entry re-exports OpenNext fetch handler + PrintOrderAuthorityDO.
+# See https://opennext.js.org/cloudflare/howtos/custom-worker
+main = "cloudflare-worker.ts"
 compatibility_date = "2025-12-29"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 workers_dev = false
@@ -157,6 +159,16 @@ bucket_name = "cache"
 [[kv_namespaces]]
 binding = "STAR_MAP_KV"
 id = "cdef6c5fa5cc4e52bfe105aa1ba37713"
+
+# Thin per-logical-order SQLite DO: bind + terminal failure + operator recover only.
+# Does not provision resources until an approved deploy; local/CI use in-memory fallback.
+[[durable_objects.bindings]]
+name = "PRINT_ORDER_AUTHORITY"
+class_name = "PrintOrderAuthorityDO"
+
+[[migrations]]
+tag = "v1-print-order-authority"
+new_sqlite_classes = ["PrintOrderAuthorityDO"]
 
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.

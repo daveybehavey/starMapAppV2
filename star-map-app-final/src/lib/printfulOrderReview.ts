@@ -4,12 +4,15 @@ export type PrintfulFileStatusRow = {
   status: string;
 };
 
+export type PrintfulFileReviewDisposition = "healthy" | "pending" | "failed";
+
 export type PrintfulOrderFileReview = {
   orderId: string | number;
   orderStatus?: string;
   dashboardUrl?: string;
   fileStatuses: PrintfulFileStatusRow[];
   failedFiles: PrintfulFileStatusRow[];
+  pendingFiles: PrintfulFileStatusRow[];
 };
 
 function getPrintfulApiConfig() {
@@ -18,8 +21,40 @@ function getPrintfulApiConfig() {
   return token ? { token, baseUrl } : null;
 }
 
+/**
+ * Explicit Printful file-status classification:
+ * - `ok` → healthy
+ * - `failed` → confirmed file failure
+ * - `waiting` / unknown nonempty / blank → pending (fail-safe; never false failure)
+ */
+export function classifyPrintfulFileStatus(status: string | null | undefined): PrintfulFileReviewDisposition {
+  const normalized = typeof status === "string" ? status.trim().toLowerCase() : "";
+  if (normalized === "ok") return "healthy";
+  if (normalized === "failed") return "failed";
+  return "pending";
+}
+
 export function collectPrintfulFileFailures(fileStatuses: PrintfulFileStatusRow[]): PrintfulFileStatusRow[] {
-  return fileStatuses.filter((row) => row.status && row.status.trim().toLowerCase() !== "ok");
+  return fileStatuses.filter((row) => classifyPrintfulFileStatus(row.status) === "failed");
+}
+
+export function collectPrintfulFilePending(fileStatuses: PrintfulFileStatusRow[]): PrintfulFileStatusRow[] {
+  return fileStatuses.filter((row) => classifyPrintfulFileStatus(row.status) === "pending");
+}
+
+/**
+ * Summarize a review result for post-submit handling.
+ * Null/unavailable review stays pending/fail-safe (not success, not confirmed failure).
+ * Empty file list is also pending — do not invent approval from an empty GET.
+ */
+export function summarizePrintfulFileReview(
+  review: PrintfulOrderFileReview | null | undefined,
+): "healthy" | "pending" | "failed" | "unavailable" {
+  if (!review) return "unavailable";
+  if (review.failedFiles.length > 0) return "failed";
+  if (review.fileStatuses.length === 0) return "pending";
+  if (review.pendingFiles.length > 0) return "pending";
+  return "healthy";
 }
 
 export async function reviewPrintfulOrderFiles(orderId: string | number): Promise<PrintfulOrderFileReview | null> {
@@ -69,6 +104,7 @@ export async function reviewPrintfulOrderFiles(orderId: string | number): Promis
       dashboardUrl: typeof result.dashboard_url === "string" ? result.dashboard_url : undefined,
       fileStatuses,
       failedFiles: collectPrintfulFileFailures(fileStatuses),
+      pendingFiles: collectPrintfulFilePending(fileStatuses),
     };
   } catch {
     return null;

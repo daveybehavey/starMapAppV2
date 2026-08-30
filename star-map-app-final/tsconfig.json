@@ -30,6 +30,7 @@
   },
   "include": [
     "next-env.d.ts",
+    "cloudflare-env.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
     "scripts/**/*.ts",
@@ -45,6 +46,7 @@
     "node_modules",
     ".next-playwright",
     ".next-playwright/**/*",
-    "**/.next-playwright/**"
+    "**/.next-playwright/**",
+    "cloudflare-worker.ts"
   ]
 }

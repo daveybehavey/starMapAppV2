@@ -1,9 +1,5 @@
-/** Keep in sync with src/lib/printfulWebhookOrderEvents.ts */
-export const PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES = new Set([
-  "order_failed",
-  "order_canceled",
-  "order_put_hold",
-]);
+/** Keep in sync with src/lib/printfulWebhookOrderEvents.ts / printOrderAuthorityState.ts */
+export const PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES = new Set(["order_failed", "order_canceled"]);
 
 export function isPrintfulOrderFailureWebhookType(eventType) {
   return PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has(eventType.trim());

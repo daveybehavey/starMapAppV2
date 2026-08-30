@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
-import { isValidPrintCheckoutSessionId, persistPrintOrderRecord, printOrderKey, sanitizePrintOrderForOperatorResponse, type PrintOrderRecord } from "@/lib/printOrders";
+import {
+  isValidPrintCheckoutSessionId,
+  persistPrintOrderRecord,
+  printOrderKey,
+  sanitizePrintOrderForOperatorResponse,
+  type PrintOrderRecord,
+} from "@/lib/printOrders";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
+import {
+  bindPrintProviderOrderId,
+  getPrintOrderAuthorityState,
+  operatorRecoverPrintOrder,
+  seedPrintOrderAuthorityFromKv,
+} from "@/lib/printOrderAuthority";
+import { normalizeAuthorityProviderOrderId } from "@/lib/printOrderAuthorityState";
 
 export const runtime = "nodejs";
 
@@ -38,6 +51,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
+  const authority = await getPrintOrderAuthorityState(sessionId);
+  if (!authority || authority.revision === 0) {
+    await seedPrintOrderAuthorityFromKv(sessionId, existing);
+  }
+  const current = await getPrintOrderAuthorityState(sessionId);
+  if (!current) {
+    return NextResponse.json({ ok: false, error: "print_order_authority_unread" }, { status: 503 });
+  }
+  if (current.lifecycle === "terminal_failed") {
+    const recovered = await operatorRecoverPrintOrder(sessionId);
+    if (!recovered.ok) {
+      return NextResponse.json(
+        { ok: false, error: "operator_recover_failed", reason: "reason" in recovered ? recovered.reason : "unknown" },
+        { status: 503 },
+      );
+    }
+  }
+
   const rawPrintfulOrderId = payload?.printfulOrderId;
   const printfulOrderId =
     typeof rawPrintfulOrderId === "string"
@@ -48,6 +79,19 @@ export async function POST(req: NextRequest) {
 
   const note = typeof payload?.note === "string" ? payload.note.trim() : "";
   const now = Date.now();
+  const resolvedProviderId =
+    normalizeAuthorityProviderOrderId(printfulOrderId) ||
+    normalizeAuthorityProviderOrderId(existing.printfulOrderId);
+
+  if (resolvedProviderId) {
+    const bind = await bindPrintProviderOrderId(sessionId, resolvedProviderId);
+    if (!bind.ok && "reason" in bind && bind.reason === "authority_unread") {
+      return NextResponse.json({ ok: false, error: "print_order_authority_unread" }, { status: 503 });
+    }
+    if (!bind.ok && "reason" in bind && bind.reason === "conflicting_provider_id") {
+      return NextResponse.json({ ok: false, error: "conflicting_provider_id" }, { status: 409 });
+    }
+  }
 
   const updated: PrintOrderRecord = {
     ...existing,
@@ -62,10 +106,10 @@ export async function POST(req: NextRequest) {
     webhookStatus: existing.webhookStatus,
   };
 
-  await persistPrintOrderRecord(sessionId, updated);
+  // Explicit operator path may clear a prior terminal KV mirror.
+  await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
   if (updated.printfulOrderId) {
     await setPrintFulfillmentIndex(updated.printfulOrderId, sessionId);
   }
   return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(updated) });
 }
-

@@ -154,10 +154,19 @@ export function resolvePrintOrderKvWrite(
   return { action: "persist", ttlSeconds: remainingSeconds };
 }
 
+export type PersistPrintOrderOptions = {
+  /**
+   * Explicit operator resolve/recover may clear a terminal failure mirror.
+   * Ordinary nonterminal writers must leave this unset/false.
+   */
+  allowClearTerminalFailure?: boolean;
+};
+
 /** Explicit durable write outcome — callers must not treat delete as silent success. */
 export type PersistPrintOrderResult =
   | { outcome: "persisted"; ttlSeconds: number }
-  | { outcome: "deleted_unretainable"; reason: "malformed_created_at" | "expired_or_below_min_ttl" };
+  | { outcome: "deleted_unretainable"; reason: "malformed_created_at" | "expired_or_below_min_ttl" }
+  | { outcome: "rejected_terminal_failure" };
 
 export type PrintOrderUnretainableReason = Extract<
   PersistPrintOrderResult,
@@ -222,6 +231,7 @@ export function resolvePrintOrderCreatedAt(
 export async function persistPrintOrderRecord(
   sessionId: string,
   record: PrintOrderRecord,
+  options?: PersistPrintOrderOptions,
 ): Promise<PersistPrintOrderResult> {
   const key = printOrderKey(sessionId);
   const plan = resolvePrintOrderKvWrite(record.createdAt);
@@ -236,6 +246,25 @@ export async function persistPrintOrderRecord(
       reason: classifyPrintOrderUnretainableReason(record.createdAt),
     };
   }
+
+  // Authority-backed guard: nonterminal KV mirrors must not clear terminal failure.
+  // The Durable Object is authoritative; KV remains a projection.
+  if (record.status !== "failed" && !options?.allowClearTerminalFailure) {
+    const { readAuthorityLifecycleForMirrorGuard, shouldRejectNonterminalKvMirror } =
+      await import("@/lib/printOrderAuthority");
+    const lifecycle = await readAuthorityLifecycleForMirrorGuard(sessionId);
+    if (shouldRejectNonterminalKvMirror(lifecycle)) {
+      return { outcome: "rejected_terminal_failure" };
+    }
+    // Best-effort KV self-check for pre-DO records not yet seeded into authority.
+    if (lifecycle === "unbound") {
+      const existing = await kv.get<PrintOrderRecord>(key);
+      if (existing?.status === "failed") {
+        return { outcome: "rejected_terminal_failure" };
+      }
+    }
+  }
+
   // Provider-valid remaining TTL: use strict durable put so Cloudflare
   // binding/put failures propagate instead of silent local-only success.
   await kv.setDurable(key, record, { ex: plan.ttlSeconds });

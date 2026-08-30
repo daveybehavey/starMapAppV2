@@ -9,7 +9,9 @@ import {
 test("PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES covers failure lifecycle events", () => {
   assert.equal(PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has("order_failed"), true);
   assert.equal(PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has("order_canceled"), true);
+  assert.equal(PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has("order_put_hold"), false);
   assert.equal(isPrintfulOrderFailureWebhookType("package_shipped"), false);
+  assert.equal(isPrintfulOrderFailureWebhookType("order_put_hold"), false);
 });
 
 test("buildPrintfulWebhookFailureError includes event, reason, and status", () => {
