@@ -202,8 +202,17 @@ export async function applyTerminalWebhookWithRevisionGuard(input) {
   }
 
   const latest = await authority.get(sessionId);
+  // AG-041: null/unreadable latest is authority_unread (retryable), not a stale skip.
+  if (!latest) {
+    return {
+      status: "authority_unread",
+      reason: "authority_unread",
+      kvWritten: false,
+      terminalRevision,
+      latestLifecycle: null,
+    };
+  }
   if (
-    !latest ||
     latest.lifecycle !== "terminal_failed" ||
     latest.revision !== terminalRevision
   ) {
@@ -212,12 +221,100 @@ export async function applyTerminalWebhookWithRevisionGuard(input) {
       reason: "stale_terminal_projection_skipped",
       kvWritten: false,
       terminalRevision,
-      latestLifecycle: latest?.lifecycle ?? null,
+      latestLifecycle: latest.lifecycle,
     };
   }
 
   await kv.set(printOrderKey(sessionId), { status: "failed", sessionId });
   return { status: "updated", kvWritten: true, terminalRevision };
+}
+
+
+
+/** AG-041: project KV through DO authority (mirrors src/lib/printOrderAuthority.ts). */
+export function projectPrintOrderWithAuthority(kvRecord, authority) {
+  const providerId = authority.printfulOrderId ?? kvRecord.printfulOrderId;
+  if (authority.lifecycle === "terminal_failed") {
+    return {
+      ...kvRecord,
+      status: "failed",
+      printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+    };
+  }
+  if (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") {
+    const recoveredFromStaleFailure = kvRecord.status === "failed";
+    const nextStatus = recoveredFromStaleFailure
+      ? providerId
+        ? "sent"
+        : "pending"
+      : kvRecord.status;
+    return {
+      ...kvRecord,
+      status: nextStatus,
+      printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+      ...(recoveredFromStaleFailure ? { error: undefined } : {}),
+    };
+  }
+  return {
+    ...kvRecord,
+    printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+  };
+}
+
+/**
+ * AG-041 interleaving: terminal check sees matching revision, then operator recovers
+ * and writes sent KV, then stale failed KV write still lands. Authoritative status
+ * must follow DO (recovered), not the stale KV failed mirror.
+ */
+export async function simulateRecoveryBeforeStaleTerminalKvWrite(input) {
+  const { sessionId, kv, authority } = input;
+  await authority.apply(sessionId, {
+    type: "bind_provider_order_id",
+    printfulOrderId: 9001,
+    now: 1,
+  });
+  const terminal = await authority.apply(sessionId, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    reason: "x",
+    now: 2,
+  });
+  const terminalRevision = terminal.state.revision;
+
+  // Pre-write revision check would pass here (latest still terminal at this revision).
+  const latestBeforeRecover = await authority.get(sessionId);
+  const checkWouldPass =
+    latestBeforeRecover &&
+    latestBeforeRecover.lifecycle === "terminal_failed" &&
+    latestBeforeRecover.revision === terminalRevision;
+
+  // Operator recovery wins in DO + writes sent projection.
+  await authority.apply(sessionId, { type: "operator_recover", now: 3 });
+  await kv.set(printOrderKey(sessionId), {
+    status: "sent",
+    sessionId,
+    printfulOrderId: 9001,
+    operatorResolvedAt: 3,
+  });
+
+  // Stale terminal KV write still lands (TOCTOU) — must be harmless for DO readers.
+  await kv.set(printOrderKey(sessionId), {
+    status: "failed",
+    sessionId,
+    printfulOrderId: 9001,
+    error: "stale_terminal_projection",
+  });
+
+  const authorityAfter = await authority.get(sessionId);
+  const kvAfter = await kv.get(printOrderKey(sessionId));
+  const projected = projectPrintOrderWithAuthority(kvAfter, authorityAfter);
+  return {
+    checkWouldPass,
+    authorityLifecycle: authorityAfter.lifecycle,
+    kvStatus: kvAfter.status,
+    projectedStatus: projected.status,
+    projectedPrintfulOrderId: projected.printfulOrderId,
+  };
 }
 
 export { createSerializedAuthorityStore, createUnboundAuthorityState, applyPrintOrderAuthorityOp };

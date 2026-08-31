@@ -174,8 +174,19 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   }
 
   const latest = await getPrintOrderAuthorityState(sessionId);
+  // Unreadable authority after a successful terminal transition must stay retryable.
+  // Only a *readable* mismatched lifecycle/revision is a true stale-projection skip.
+  // Do not treat cross-store races as solved by this check — status/retry read the DO.
+  if (!latest) {
+    return {
+      ok: false,
+      status: "authority_unread",
+      reason: "authority_unread",
+      sessionId,
+      terminalRevision,
+    };
+  }
   if (
-    !latest ||
     latest.lifecycle !== "terminal_failed" ||
     latest.revision !== terminalRevision
   ) {

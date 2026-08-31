@@ -9,6 +9,11 @@ import {
   sanitizePrintOrderForOperatorResponse,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
+import {
+  getPrintOrderAuthorityState,
+  projectPrintOrderWithAuthority,
+  seedPrintOrderAuthorityFromKv,
+} from "@/lib/printOrderAuthority";
 
 export const runtime = "nodejs";
 
@@ -28,11 +33,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "valid session_id required" }, { status: 400 });
   }
 
-  const order = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-  if (!order) {
+  const kvOrder = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  if (!kvOrder) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
+  // DO is the sole authority for lifecycle/provider id. KV is a non-authoritative mirror.
+  let authority = await getPrintOrderAuthorityState(sessionId);
+  if (!authority || authority.revision === 0) {
+    await seedPrintOrderAuthorityFromKv(sessionId, kvOrder);
+    authority = await getPrintOrderAuthorityState(sessionId);
+  }
+  if (!authority) {
+    return NextResponse.json(
+      { ok: false, error: "print_order_authority_unread" },
+      { status: 503 },
+    );
+  }
+
+  const order = projectPrintOrderWithAuthority(kvOrder, authority);
   const recipient = getPrintRecipient(order);
   const marginPreview = recipient
     ? evaluatePrintMarginForPaidOrder({
@@ -42,5 +61,18 @@ export async function GET(req: NextRequest) {
       })
     : null;
 
-  return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(order), marginPreview });
+  return NextResponse.json({
+    ok: true,
+    order: sanitizePrintOrderForOperatorResponse(order),
+    marginPreview,
+    authority: {
+      lifecycle: authority.lifecycle,
+      revision: authority.revision,
+      printfulOrderId: authority.printfulOrderId,
+    },
+    kvProjection: {
+      status: kvOrder.status,
+      printfulOrderId: kvOrder.printfulOrderId ?? null,
+    },
+  });
 }

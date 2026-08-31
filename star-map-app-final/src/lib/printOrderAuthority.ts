@@ -188,3 +188,62 @@ export function shouldRejectNonterminalKvMirror(
   }
   return authorityLifecycleBlocksNonterminalMirror(lifecycle);
 }
+
+/** Stripe-retryable: Printful accepted but DO bind failed/unread/conflicted. */
+export class PrintOrderAuthorityBindError extends Error {
+  readonly code = "print_order_authority_bind_failed";
+  readonly reason: string;
+
+  constructor(reason: string) {
+    super(`print_order_authority_bind_failed:${reason}`);
+    this.name = "PrintOrderAuthorityBindError";
+    this.reason = reason;
+  }
+}
+
+export function isPrintOrderAuthorityBindError(
+  error: unknown,
+): error is PrintOrderAuthorityBindError {
+  return error instanceof PrintOrderAuthorityBindError;
+}
+
+/**
+ * Project a KV mirror through DO authority for operator/status/retry surfaces.
+ * KV remains non-authoritative: a stale `failed` mirror after operator recovery
+ * or bind must not make authoritative consumers report/act as failed.
+ */
+export function projectPrintOrderWithAuthority(
+  kvRecord: PrintOrderRecord,
+  authority: PrintOrderAuthorityState,
+): PrintOrderRecord {
+  const providerId = authority.printfulOrderId ?? kvRecord.printfulOrderId;
+
+  if (authority.lifecycle === "terminal_failed") {
+    return {
+      ...kvRecord,
+      status: "failed",
+      printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+    };
+  }
+
+  if (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") {
+    const recoveredFromStaleFailure = kvRecord.status === "failed";
+    const nextStatus: PrintOrderRecord["status"] = recoveredFromStaleFailure
+      ? providerId
+        ? "sent"
+        : "pending"
+      : kvRecord.status;
+    return {
+      ...kvRecord,
+      status: nextStatus,
+      printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+      ...(recoveredFromStaleFailure ? { error: undefined } : {}),
+    };
+  }
+
+  return {
+    ...kvRecord,
+    printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+  };
+}
+

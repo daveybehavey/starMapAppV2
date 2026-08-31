@@ -29,3 +29,20 @@ Redeploy prior Worker without DO authority reads; KV mirror remains last-known p
 - `cloudflare-worker.ts`: OpenNext custom worker exporting `PrintOrderAuthorityDO`
 
 Deploy provisions the DO namespace — requires explicit human approval (high-risk infra). This lane does not deploy.
+
+## AG-041 authority boundary
+
+The per-logical-order Durable Object is the **sole authoritative source** for:
+
+1. provider-id bind (after Printful accept)
+2. terminal failed/canceled lifecycle
+3. explicit operator recovery
+
+Workers KV (`print:order:*`, fulfillment index) is a **best-effort non-authoritative projection** only.
+
+### Required runtime behavior
+
+- After Printful accepts an order, a failed/unread/conflicting DO bind must **not** complete Stripe processing. Surface a retryable `PrintOrderAuthorityBindError` so the Stripe event is not durably acknowledged while provider identity is unrecoverable.
+- Printful terminal webhooks that cannot re-read DO authority after marking terminal must return **retryable non-2xx** (`authority_unread`). A readable mismatched revision/lifecycle may skip the KV projection as stale.
+- Status / operator / retry decisions read the DO for lifecycle and provider id. A stale KV `failed` write after later operator recovery must not make those surfaces report or act as failed.
+- Do **not** attempt to close cross-store races with another read-before-KV-write check. Stale projections are harmless when consumers treat the DO as sole authority.

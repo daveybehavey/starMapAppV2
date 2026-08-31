@@ -33,6 +33,10 @@ import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funn
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
+import {
+  isPrintOrderAuthorityBindError,
+  PrintOrderAuthorityBindError,
+} from "@/lib/printOrderAuthority";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import {
   applyCheckoutRecoveryDeliveredSessionFields,
@@ -1041,6 +1045,17 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
           console.warn("Print confirmation email failed", { sessionId: session.id, error });
         });
       }
+      if (!bindOk || bindBlockedByTerminal || bindFailureReason) {
+        // Provider already accepted — do not finalize Stripe dedupe while DO bind is unbound/conflicted/unread.
+        console.error("Print order provider accepted but authority bind failed; leaving Stripe event retryable", {
+          sessionId: session.id,
+          bindFailureReason: bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+          printfulOrderId: reviewedRecord.printfulOrderId ?? null,
+        });
+        throw new PrintOrderAuthorityBindError(
+          bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+        );
+      }
     }
     return;
   }
@@ -1115,6 +1130,17 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       void sendPrintOrderConfirmation(session.id).catch((error) => {
         console.warn("Print confirmation email failed", { sessionId: session.id, error });
       });
+    }
+    if (!bindOk || bindBlockedByTerminal || bindFailureReason) {
+      // Provider already accepted — do not finalize Stripe dedupe while DO bind is unbound/conflicted/unread.
+      console.error("Print order provider accepted but authority bind failed; leaving Stripe event retryable", {
+        sessionId: session.id,
+        bindFailureReason: bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+        printfulOrderId: reviewedRecord.printfulOrderId ?? null,
+      });
+      throw new PrintOrderAuthorityBindError(
+        bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+      );
     }
   }
 
@@ -1425,6 +1451,15 @@ export async function POST(req: Request) {
         }
         // Durable print-order persistence failure must not finalize dedupe — Stripe
         // redelivery must be able to queue the paid order again.
+        if (isPrintOrderAuthorityBindError(error)) {
+          // Provider accepted but DO bind unread/conflicted — Stripe must retry; do not finalize dedupe.
+          console.error("Print order authority bind failed after provider accept; Stripe event remains retryable", {
+            sessionId: session.id,
+            reason: error.reason,
+          });
+          completedCheckoutRetryable = true;
+          break;
+        }
         if (isDurableKvPersistenceError(error)) {
           completedCheckoutRetryable = true;
           break;

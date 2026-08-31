@@ -26,8 +26,10 @@ import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import {
   getPrintOrderAuthorityState,
+  projectPrintOrderWithAuthority,
   seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
+import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
 export const runtime = "nodejs";
 
@@ -182,17 +184,18 @@ async function postRetryPrintOrder(req: NextRequest) {
       {
         ok: false,
         error: "terminal_failed_requires_operator_recover",
-        order: sanitizePrintOrderForOperatorResponse(existing),
+        order: sanitizePrintOrderForOperatorResponse(projectPrintOrderWithAuthority(existing, authority)),
       },
       { status: 409 },
     );
   }
   if (authority.lifecycle === "bound" && authority.printfulOrderId) {
-    const boundOrder: PrintOrderRecord = {
-      ...existing,
-      status: existing.status === "sent" ? "sent" : existing.status,
-      printfulOrderId: existing.printfulOrderId ?? authority.printfulOrderId,
-    };
+    // DO provider id is authoritative; repair stale KV/index before acknowledging.
+    const boundOrder = projectPrintOrderWithAuthority(existing, authority);
+    assertPrintOrderRetained(
+      await persistPrintOrderRecord(sessionId, boundOrder, { allowClearTerminalFailure: true }),
+    );
+    await setPrintFulfillmentIndex(authority.printfulOrderId, sessionId);
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed on already_bound retry", { sessionId, error });
     });

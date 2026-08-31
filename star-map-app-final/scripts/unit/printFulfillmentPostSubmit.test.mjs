@@ -11,6 +11,8 @@ import {
   createSerializedAuthorityStore,
   fulfillmentIndexKey,
   printOrderKey,
+  projectPrintOrderWithAuthority,
+  simulateRecoveryBeforeStaleTerminalKvWrite,
 } from "./printFulfillmentPostSubmit.harness.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +39,14 @@ const retrySource = fs.readFileSync(
 );
 const resolveSource = fs.readFileSync(
   path.join(appRoot, "src/app/api/print/orders/resolve/route.ts"),
+  "utf8",
+);
+const statusSource = fs.readFileSync(
+  path.join(appRoot, "src/app/api/print/orders/status/route.ts"),
+  "utf8",
+);
+const authoritySource = fs.readFileSync(
+  path.join(appRoot, "src/lib/printOrderAuthority.ts"),
   "utf8",
 );
 
@@ -273,4 +283,91 @@ test("source: stripe/retry use bind-before-review; resolve uses operatorRecover"
   assert.match(retrySource, /terminal_failed_requires_operator_recover/);
   assert.match(resolveSource, /operatorRecoverPrintOrder/);
   assert.match(resolveSource, /allowClearTerminalFailure:\s*true/);
+});
+
+test("AG-041 #1: Stripe bind failure after Printful accept is retryable (no silent ack)", () => {
+  assert.match(webhookSource, /PrintOrderAuthorityBindError/);
+  assert.match(webhookSource, /isPrintOrderAuthorityBindError\(error\)/);
+  assert.match(webhookSource, /completedCheckoutRetryable\s*=\s*true/);
+  // Bind failure must throw before normal completion path finalizes dedupe.
+  assert.match(
+    webhookSource,
+    /throw new PrintOrderAuthorityBindError\([\s\S]*?bindFailureReason/,
+  );
+  assert.match(authoritySource, /export class PrintOrderAuthorityBindError/);
+});
+
+test("AG-041 #2: post-terminal authority unread is retryable, not stale skip", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: 9001,
+    now: 1,
+  });
+  const result = await applyTerminalWebhookWithRevisionGuard({
+    sessionId: SESSION,
+    kv,
+    authority,
+    afterTerminalHook: async ({ authority: auth, sessionId }) => {
+      // Simulate transient unread on the post-transition re-read.
+      const originalGet = auth.get.bind(auth);
+      auth.get = async (id) => (id === sessionId ? null : originalGet(id));
+    },
+  });
+  assert.equal(result.status, "authority_unread");
+  assert.equal(result.reason, "authority_unread");
+  assert.equal(result.kvWritten, false);
+  assert.match(printfulWebhookLibSource, /if \(!latest\)/);
+  assert.match(
+    printfulWebhookLibSource,
+    /if \(!latest\)[\s\S]*?status: "authority_unread"/,
+  );
+});
+
+test("AG-041 #3: authoritative status ignores stale KV failed after operator recovery", async () => {
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: 4242,
+    now: 1,
+  });
+  await authority.apply(SESSION, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    reason: "x",
+    now: 2,
+  });
+  await authority.apply(SESSION, { type: "operator_recover", now: 3 });
+  const authState = await authority.get(SESSION);
+  const kvRecord = {
+    status: "failed",
+    sessionId: SESSION,
+    printfulOrderId: 111,
+    error: "stale_failed_mirror",
+  };
+  const projected = projectPrintOrderWithAuthority(kvRecord, authState);
+  assert.equal(authState.lifecycle, "operator_recovered");
+  assert.notEqual(projected.status, "failed");
+  assert.equal(projected.printfulOrderId, authState.printfulOrderId);
+  assert.equal(projected.error, undefined);
+  assert.match(statusSource, /projectPrintOrderWithAuthority/);
+  assert.match(statusSource, /getPrintOrderAuthorityState/);
+  assert.match(retrySource, /projectPrintOrderWithAuthority/);
+  assert.match(retrySource, /setPrintFulfillmentIndex\(authority\.printfulOrderId/);
+});
+
+test("AG-041 #4: recovery-before-stale-KV-write interleaving keeps DO authoritative", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  const result = await simulateRecoveryBeforeStaleTerminalKvWrite({
+    sessionId: SESSION,
+    kv,
+    authority,
+  });
+  assert.equal(result.checkWouldPass, true);
+  assert.equal(result.authorityLifecycle, "operator_recovered");
+  assert.equal(result.kvStatus, "failed"); // stale write landed
+  assert.notEqual(result.projectedStatus, "failed");
+  assert.equal(String(result.projectedPrintfulOrderId), "9001");
 });
