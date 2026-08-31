@@ -341,14 +341,16 @@ async function postRetryPrintOrder(req: NextRequest) {
     const {
       identityPersist: sentPersist,
       record: reviewed,
+      bindOk,
       bindBlockedByTerminal,
+      bindFailureReason,
     } = await bindAcceptedPrintfulIdentityThenReview({
       sessionId,
       sentRecord: sent,
       existingKv: hydrated,
     });
     sent = reviewed;
-    if (sentPersist.outcome === "deleted_unretainable") {
+    if (sentPersist?.outcome === "deleted_unretainable") {
       return NextResponse.json(
         {
           ok: false,
@@ -360,7 +362,18 @@ async function postRetryPrintOrder(req: NextRequest) {
         { status: 409 },
       );
     }
-    if (sentPersist.outcome === "rejected_terminal_failure" || bindBlockedByTerminal) {
+    if (!bindOk || bindBlockedByTerminal || bindFailureReason) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: bindFailureReason ?? "terminal_failed_blocks_sent_mirror",
+          providerAccepted: true,
+          printfulOrderId: sent.printfulOrderId ?? null,
+        },
+        { status: bindFailureReason === "authority_unread" ? 503 : 409 },
+      );
+    }
+    if (sentPersist?.outcome === "rejected_terminal_failure") {
       return NextResponse.json(
         {
           ok: false,

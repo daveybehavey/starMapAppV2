@@ -1010,13 +1010,18 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         error: undefined,
       };
       // Bind DO identity (+ KV/index) before optional file review/alerts.
-      const { identityPersist: sentPersist, record: reviewedRecord, bindBlockedByTerminal } =
-        await bindAcceptedPrintfulIdentityThenReview({
-          sessionId: session.id,
-          sentRecord,
-          existingKv: payload,
-        });
-      if (sentPersist.outcome === "deleted_unretainable") {
+      const {
+        identityPersist: sentPersist,
+        record: reviewedRecord,
+        bindOk,
+        bindBlockedByTerminal,
+        bindFailureReason,
+      } = await bindAcceptedPrintfulIdentityThenReview({
+        sessionId: session.id,
+        sentRecord,
+        existingKv: payload,
+      });
+      if (sentPersist?.outcome === "deleted_unretainable") {
         // Provider already accepted. Index is written inside the helper; throw so the
         // outer handler writes event dedupe before any further work (tight crash window).
         console.error("Print order sent but durable record unretainable after provider success", {
@@ -1026,7 +1031,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         });
         throw new PrintOrderUnretainableError(sentPersist.reason);
       }
-      if (sentPersist.outcome !== "rejected_terminal_failure" && !bindBlockedByTerminal) {
+      if (
+        bindOk &&
+        sentPersist?.outcome === "persisted" &&
+        !bindBlockedByTerminal &&
+        !bindFailureReason
+      ) {
         void sendPrintOrderConfirmation(session.id).catch((error) => {
           console.warn("Print confirmation email failed", { sessionId: session.id, error });
         });
@@ -1075,13 +1085,18 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       error: undefined,
     };
     // Bind DO identity (+ KV/index) before optional file review/alerts.
-    const { identityPersist: sentPersist, record: reviewedRecord, bindBlockedByTerminal } =
-      await bindAcceptedPrintfulIdentityThenReview({
-        sessionId: session.id,
-        sentRecord,
-        existingKv: payload,
-      });
-    if (sentPersist.outcome === "deleted_unretainable") {
+    const {
+      identityPersist: sentPersist,
+      record: reviewedRecord,
+      bindOk,
+      bindBlockedByTerminal,
+      bindFailureReason,
+    } = await bindAcceptedPrintfulIdentityThenReview({
+      sessionId: session.id,
+      sentRecord,
+      existingKv: payload,
+    });
+    if (sentPersist?.outcome === "deleted_unretainable") {
       // Provider already accepted. Index is written inside the helper; throw so event
       // dedupe is written immediately in the outer handler (no remint soft-return gap).
       console.error("Print order sent but durable record unretainable after provider success", {
@@ -1091,7 +1106,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       });
       throw new PrintOrderUnretainableError(sentPersist.reason);
     }
-    if (sentPersist.outcome !== "rejected_terminal_failure" && !bindBlockedByTerminal) {
+    if (
+      bindOk &&
+      sentPersist?.outcome === "persisted" &&
+      !bindBlockedByTerminal &&
+      !bindFailureReason
+    ) {
       void sendPrintOrderConfirmation(session.id).catch((error) => {
         console.warn("Print confirmation email failed", { sessionId: session.id, error });
       });

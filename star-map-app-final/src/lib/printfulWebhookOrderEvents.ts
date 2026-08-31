@@ -79,6 +79,7 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   reason?: string;
   sessionId?: string;
   error?: string;
+  terminalRevision?: number;
 }> {
   const eventType = input.eventType.trim();
   if (!isPrintfulOrderFailureWebhookType(eventType)) {
@@ -131,6 +132,18 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
       sessionId,
     };
   }
+  if (!terminal.ok || !terminal.state) {
+    return {
+      ok: false,
+      status: "authority_unread",
+      reason: "authority_unread",
+      sessionId,
+    };
+  }
+
+  // Capture the revision that won this webhook's terminal transition so a later
+  // operator recovery cannot be overwritten by this stale KV projection.
+  const terminalRevision = terminal.state.revision;
 
   let error = buildPrintfulWebhookFailureError(eventType, input.reason, input.orderStatus);
   const reviewOrderId = printfulOrderId || existing.printfulOrderId;
@@ -160,6 +173,21 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     }
   }
 
+  const latest = await getPrintOrderAuthorityState(sessionId);
+  if (
+    !latest ||
+    latest.lifecycle !== "terminal_failed" ||
+    latest.revision !== terminalRevision
+  ) {
+    return {
+      ok: true,
+      status: "ignored",
+      reason: "stale_terminal_projection_skipped",
+      sessionId,
+      terminalRevision,
+    };
+  }
+
   // Terminal mirror: allow clearing prior nonterminal KV status.
   await persistPrintOrderRecord(sessionId, nextRecord, { allowClearTerminalFailure: true });
 
@@ -169,6 +197,7 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
       status: "alert_failed",
       sessionId,
       error: nextRecord.operatorFailureAlertError,
+      terminalRevision,
     };
   }
 
@@ -176,5 +205,6 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     ok: true,
     status: "updated",
     sessionId,
+    terminalRevision,
   };
 }

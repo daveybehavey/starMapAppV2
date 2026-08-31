@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  applyTerminalWebhookWithRevisionGuard,
   bindAcceptedPrintfulIdentityThenReview,
   buildReviewFromStatuses,
   createMemoryKv,
@@ -22,6 +23,14 @@ const webhookSource = fs.readFileSync(
   path.join(appRoot, "src/app/api/stripe/webhook/route.ts"),
   "utf8",
 );
+const printfulWebhookRouteSource = fs.readFileSync(
+  path.join(appRoot, "src/app/api/printful/webhook/route.ts"),
+  "utf8",
+);
+const printfulWebhookLibSource = fs.readFileSync(
+  path.join(appRoot, "src/lib/printfulWebhookOrderEvents.ts"),
+  "utf8",
+);
 const retrySource = fs.readFileSync(
   path.join(appRoot, "src/app/api/print/orders/retry/route.ts"),
   "utf8",
@@ -31,7 +40,7 @@ const resolveSource = fs.readFileSync(
   "utf8",
 );
 
-const SESSION = "cs_test_ag016_bind_before_review";
+const SESSION = "cs_test_ag018_bind_before_review";
 
 function baseSentRecord(overrides = {}) {
   return {
@@ -61,6 +70,7 @@ test("1: provider success binds + persists ID/index before review", async () => 
   assert.equal(result.identityPersist.outcome, "persisted");
   assert.equal(result.indexed, true);
   assert.equal(result.bindOk, true);
+  assert.equal(result.bindFailureReason, null);
 
   const bindStep = events.findIndex((e) => e.step === "bind");
   const identityStep = events.findIndex((e) => e.step === "identity_persist");
@@ -142,7 +152,7 @@ test("6: null/unavailable review invents neither success nor failure", async () 
   assert.equal(result.record.error, undefined);
 });
 
-test("7: terminal webhook state blocks stale sent mirror", async () => {
+test("7: terminal webhook state blocks stale sent mirror without KV/index write", async () => {
   const kv = createMemoryKv();
   const authority = createSerializedAuthorityStore();
   await authority.apply(SESSION, {
@@ -158,14 +168,106 @@ test("7: terminal webhook state blocks stale sent mirror", async () => {
     reviewResult: buildReviewFromStatuses([{ item: "a", type: "default", status: "ok" }]),
   });
   assert.equal(result.bindBlockedByTerminal, true);
-  assert.equal(result.identityPersist.outcome, "rejected_terminal_failure");
+  assert.equal(result.bindFailureReason, "terminal_blocks_bind");
+  assert.equal(result.identityPersist, null);
+  assert.equal(result.indexed, false);
   assert.equal(await kv.get(printOrderKey(SESSION)), null);
+  assert.equal(await kv.get(fulfillmentIndexKey(9001)), null);
   assert.equal((await authority.get(SESSION)).lifecycle, "terminal_failed");
+});
+
+test("AG-018 #1: conflicting provider ID fails closed — no KV, index, or review", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: 111,
+    now: 1,
+  });
+  const events = [];
+  const result = await bindAcceptedPrintfulIdentityThenReview({
+    sessionId: SESSION,
+    sentRecord: baseSentRecord({ printfulOrderId: 222 }),
+    kv,
+    authority,
+    reviewResult: buildReviewFromStatuses([{ item: "a", type: "default", status: "ok" }]),
+    events,
+  });
+  assert.equal(result.bindOk, false);
+  assert.equal(result.bindFailureReason, "conflicting_provider_id");
+  assert.equal(result.identityPersist, null);
+  assert.equal(result.indexed, false);
+  assert.equal(await kv.get(printOrderKey(SESSION)), null);
+  assert.equal(await kv.get(fulfillmentIndexKey(222)), null);
+  assert.ok(!events.some((e) => e.step === "identity_persist"));
+  assert.ok(!events.some((e) => e.step === "review_start"));
+  assert.equal((await authority.get(SESSION)).printfulOrderId, "111");
+});
+
+test("AG-018 #4: healthy review persists approval metadata via new record snapshot", async () => {
+  const kv = createMemoryKv();
+  const result = await bindAcceptedPrintfulIdentityThenReview({
+    sessionId: SESSION,
+    sentRecord: baseSentRecord(),
+    kv,
+    reviewResult: buildReviewFromStatuses([{ item: "a", type: "default", status: "ok" }]),
+  });
+  assert.equal(result.bindOk, true);
+  assert.ok(result.record.operatorAlertedAt);
+  assert.equal(result.record.operatorAlertProvider, "resend");
+  assert.equal(result.reviewPersist?.outcome, "persisted");
+  const stored = await kv.get(printOrderKey(SESSION));
+  assert.ok(stored.operatorAlertedAt);
+  assert.equal(stored.operatorAlertProvider, "resend");
+  assert.match(postSubmitSource, /Return a new record/);
+  assert.match(postSubmitSource, /const approved: PrintOrderRecord = \{ \.\.\.sentRecord \}/);
+  assert.match(postSubmitSource, /const beforeReview: PrintOrderRecord = \{ \.\.\.sentRecord \}/);
+});
+
+test("AG-018 #3: stale terminal KV projection skipped after operator recovery", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: 9001,
+    now: 1,
+  });
+
+  const result = await applyTerminalWebhookWithRevisionGuard({
+    sessionId: SESSION,
+    kv,
+    authority,
+    afterTerminalHook: async ({ authority: auth, kv: store, sessionId }) => {
+      await auth.apply(sessionId, { type: "operator_recover", now: Date.now() });
+      await store.set(printOrderKey(sessionId), {
+        status: "sent",
+        sessionId,
+        printfulOrderId: 9001,
+        operatorResolvedAt: Date.now(),
+      });
+    },
+  });
+
+  assert.equal(result.status, "ignored");
+  assert.equal(result.reason, "stale_terminal_projection_skipped");
+  assert.equal(result.kvWritten, false);
+  assert.equal(result.latestLifecycle, "operator_recovered");
+  const stored = await kv.get(printOrderKey(SESSION));
+  assert.equal(stored.status, "sent");
+  assert.match(printfulWebhookLibSource, /stale_terminal_projection_skipped/);
+  assert.match(printfulWebhookLibSource, /latest\.revision !== terminalRevision/);
+});
+
+test("AG-018 #2: authority_unread returns retryable non-2xx from Printful webhook route", () => {
+  assert.match(printfulWebhookRouteSource, /status === "authority_unread"/);
+  assert.match(printfulWebhookRouteSource, /status:\s*503/);
+  assert.match(printfulWebhookLibSource, /status: "authority_unread"/);
 });
 
 test("source: stripe/retry use bind-before-review; resolve uses operatorRecover", () => {
   assert.match(postSubmitSource, /bindAcceptedPrintfulIdentityThenReview/);
   assert.match(postSubmitSource, /bindPrintProviderOrderId/);
+  assert.match(postSubmitSource, /Fail closed unless bind is successful/);
   assert.match(webhookSource, /bindAcceptedPrintfulIdentityThenReview/);
   assert.match(retrySource, /bindAcceptedPrintfulIdentityThenReview/);
   assert.match(retrySource, /terminal_failed_requires_operator_recover/);
