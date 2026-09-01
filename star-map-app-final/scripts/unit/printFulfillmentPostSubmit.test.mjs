@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  applyOperatorResolveProjection,
   applyTerminalWebhookDoFirst,
   applyTerminalWebhookWithRevisionGuard,
   bindAcceptedPrintfulIdentityThenReview,
@@ -12,6 +13,7 @@ import {
   createSerializedAuthorityStore,
   fulfillmentIndexKey,
   printOrderKey,
+  projectOperatorResolveProviderId,
   projectPrintOrderWithAuthority,
   resolveRetryDoFirst,
   resolveStatusDoFirst,
@@ -503,4 +505,86 @@ test("AG-042 #7: source wiring — webhook DO-first; status/retry reconciliation
   assert.match(retrySource, /operator_recovered/);
   assert.match(authoritySource, /inferAuthorityOnlyOrderStatus/);
   assert.match(authoritySource, /boundButPendingProjection/);
+});
+
+test("AG-055 #1: DO=A + stale KV=B + no explicit ID projects/indexes A (not B)", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await kv.set(printOrderKey(SESSION), {
+    sessionId: SESSION,
+    status: "failed",
+    printfulOrderId: "B",
+  });
+  // Pre-seed a stale index for B so we can assert this path does not keep using B.
+  await kv.set(fulfillmentIndexKey("B"), SESSION);
+
+  const resolved = projectOperatorResolveProviderId({
+    explicitOperatorId: "",
+    authorityPrintfulOrderId: "A",
+    kvPrintfulOrderId: "B",
+  });
+  assert.equal(resolved, "A");
+
+  const result = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(String(result.resolvedProviderId), "A");
+  assert.equal(String(result.kvPrintfulOrderId), "A");
+  assert.equal(String(result.authorityPrintfulOrderId), "A");
+  assert.equal(result.indexedSessionForResolved, SESSION);
+  // B must not be the ID written/indexed by the resolve projection path.
+  assert.notEqual(String(result.kvPrintfulOrderId), "B");
+});
+
+test("AG-055 #2: explicit matching ID remains idempotent; conflict fails closed", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await kv.set(printOrderKey(SESSION), {
+    sessionId: SESSION,
+    status: "sent",
+    printfulOrderId: "A",
+  });
+
+  const match = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "A",
+    authority,
+    kv,
+  });
+  assert.equal(match.ok, true);
+  assert.equal(String(match.resolvedProviderId), "A");
+
+  const conflict = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "Z",
+    authority,
+    kv,
+  });
+  assert.equal(conflict.ok, false);
+  assert.equal(conflict.reason, "conflicting_provider_id");
+  assert.equal(String((await authority.get(SESSION)).printfulOrderId), "A");
+});
+
+test("AG-055 #3: resolve route source projects resolvedProviderId (not stale KV)", () => {
+  assert.match(resolveSource, /projectedProviderId\s*=\s*resolvedProviderId/);
+  assert.match(resolveSource, /printfulOrderId:\s*projectedProviderId/);
+  assert.match(resolveSource, /setPrintFulfillmentIndex\(\s*projectedProviderId/);
+  assert.doesNotMatch(
+    resolveSource,
+    /printfulOrderId:\s*printfulOrderId\s*\|\|\s*existing\.printfulOrderId/,
+  );
 });

@@ -95,11 +95,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Projection/index must use the same authoritative ID that passed bind —
+  // never recompute from raw operator input or stale KV after the fact.
+  const projectedProviderId = resolvedProviderId || undefined;
+
   const updated: PrintOrderRecord = {
     ...existing,
     status: "sent",
     sentAt: existing.sentAt ?? now,
-    printfulOrderId: printfulOrderId || existing.printfulOrderId,
+    printfulOrderId: projectedProviderId,
     operatorResolvedAt: now,
     operatorResolvedProvider: "manual_printful",
     operatorResolvedNote:
@@ -110,8 +114,8 @@ export async function POST(req: NextRequest) {
 
   // Explicit operator path may clear a prior terminal KV mirror.
   await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
-  if (updated.printfulOrderId) {
-    await setPrintFulfillmentIndex(updated.printfulOrderId, sessionId);
+  if (projectedProviderId) {
+    await setPrintFulfillmentIndex(projectedProviderId, sessionId);
   }
   return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(updated) });
 }

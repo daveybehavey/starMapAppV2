@@ -451,4 +451,72 @@ export async function simulateRecoveryBeforeStaleTerminalKvWrite(input) {
   };
 }
 
+/**
+ * AG-055: mirrors resolve-route projection — same ID that won authority bind
+ * must be written to KV + fulfillment index (never recompute from stale KV).
+ */
+export function projectOperatorResolveProviderId({
+  explicitOperatorId,
+  authorityPrintfulOrderId,
+  kvPrintfulOrderId,
+}) {
+  return (
+    normalizeAuthorityProviderOrderId(explicitOperatorId) ||
+    normalizeAuthorityProviderOrderId(authorityPrintfulOrderId) ||
+    normalizeAuthorityProviderOrderId(kvPrintfulOrderId) ||
+    null
+  );
+}
+
+/** Simulate resolve KV/index write using the already-resolved authoritative ID. */
+export async function applyOperatorResolveProjection(input) {
+  const {
+    sessionId,
+    explicitOperatorId = "",
+    authority,
+    kv,
+  } = input;
+  const authState = await authority.get(sessionId);
+  const existing = await kv.get(printOrderKey(sessionId));
+  const resolvedProviderId = projectOperatorResolveProviderId({
+    explicitOperatorId,
+    authorityPrintfulOrderId: authState.printfulOrderId,
+    kvPrintfulOrderId: existing?.printfulOrderId,
+  });
+
+  if (resolvedProviderId) {
+    const bind = await authority.apply(sessionId, {
+      type: "bind_provider_order_id",
+      printfulOrderId: resolvedProviderId,
+      now: Date.now(),
+    });
+    if (!bind.ok && bind.reason === "conflicting_provider_id") {
+      return { ok: false, reason: "conflicting_provider_id", resolvedProviderId: null };
+    }
+  }
+
+  const projectedProviderId = resolvedProviderId || undefined;
+  const updated = {
+    ...(existing || {}),
+    sessionId,
+    status: "sent",
+    printfulOrderId: projectedProviderId,
+  };
+  await kv.set(printOrderKey(sessionId), updated);
+  if (projectedProviderId) {
+    await kv.set(fulfillmentIndexKey(projectedProviderId), sessionId);
+  }
+  // Stale B must not remain indexed by this path when A won.
+  return {
+    ok: true,
+    resolvedProviderId: projectedProviderId ?? null,
+    kvPrintfulOrderId: (await kv.get(printOrderKey(sessionId)))?.printfulOrderId ?? null,
+    indexedSessionForResolved: projectedProviderId
+      ? await kv.get(fulfillmentIndexKey(projectedProviderId))
+      : null,
+    indexedSessionForStaleB: await kv.get(fulfillmentIndexKey("B")),
+    authorityPrintfulOrderId: (await authority.get(sessionId)).printfulOrderId,
+  };
+}
+
 export { createSerializedAuthorityStore, createUnboundAuthorityState, applyPrintOrderAuthorityOp };
