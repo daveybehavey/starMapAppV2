@@ -243,22 +243,156 @@ export function projectPrintOrderWithAuthority(kvRecord, authority) {
   }
   if (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") {
     const recoveredFromStaleFailure = kvRecord.status === "failed";
-    const nextStatus = recoveredFromStaleFailure
-      ? providerId
-        ? "sent"
-        : "pending"
-      : kvRecord.status;
+    const boundButPendingProjection = kvRecord.status === "pending" && Boolean(providerId);
+    const nextStatus =
+      recoveredFromStaleFailure || boundButPendingProjection
+        ? providerId
+          ? "sent"
+          : "pending"
+        : kvRecord.status;
     return {
       ...kvRecord,
       status: nextStatus,
       printfulOrderId: providerId ?? kvRecord.printfulOrderId,
-      ...(recoveredFromStaleFailure ? { error: undefined } : {}),
+      ...(recoveredFromStaleFailure || boundButPendingProjection ? { error: undefined } : {}),
     };
   }
   return {
     ...kvRecord,
     printfulOrderId: providerId ?? kvRecord.printfulOrderId,
   };
+}
+
+/** AG-042: DO-first terminal webhook model — authority before KV gate. */
+export async function applyTerminalWebhookDoFirst(input) {
+  const {
+    sessionId,
+    eventType = "order_failed",
+    reason = null,
+    printfulOrderId = null,
+    kv,
+    applyAuthorityOp,
+    getAuthority,
+  } = input;
+
+  let authority = await getAuthority(sessionId);
+  const existing = kv ? await kv.get(`print:order:${sessionId}`) : null;
+  if ((!authority || authority.revision === 0) && existing) {
+    await applyAuthorityOp(sessionId, {
+      type: "seed_from_kv",
+      kvStatus: existing.status ?? null,
+      printfulOrderId: existing.printfulOrderId ?? null,
+    });
+    authority = await getAuthority(sessionId);
+  }
+
+  const terminal = await applyAuthorityOp(sessionId, {
+    type: "mark_terminal_failed",
+    eventType,
+    reason,
+    printfulOrderId,
+  });
+  if (!terminal.ok && terminal.reason === "conflicting_provider_id") {
+    return {
+      status: "provider_id_conflict",
+      reason: "conflicting_provider_id",
+      kvWritten: false,
+      authority: terminal.state,
+    };
+  }
+  if (!terminal.ok) {
+    return { status: "authority_unread", reason: terminal.reason ?? "authority_unread", kvWritten: false };
+  }
+
+  if (!existing) {
+    return {
+      status: "projection_missing",
+      reason: "reconciliation_needed",
+      kvWritten: false,
+      authority: terminal.state,
+      terminalRevision: terminal.state.revision,
+    };
+  }
+
+  await kv.set(`print:order:${sessionId}`, {
+    ...existing,
+    status: "failed",
+    printfulOrderId: printfulOrderId || terminal.state.printfulOrderId || existing.printfulOrderId,
+    error: reason,
+  });
+  return {
+    status: "updated",
+    kvWritten: true,
+    authority: terminal.state,
+    terminalRevision: terminal.state.revision,
+  };
+}
+
+export function inferAuthorityOnlyOrderStatus(authority) {
+  if (authority.lifecycle === "terminal_failed") return "failed";
+  if (authority.printfulOrderId) return "sent";
+  return "pending";
+}
+
+/** Status DO-first when KV missing. */
+export function resolveStatusDoFirst({ authority, kvOrder, sessionId }) {
+  if (!authority) return { ok: false, error: "print_order_authority_unread", httpStatus: 503 };
+  if (!kvOrder) {
+    if (authority.revision === 0 && authority.lifecycle === "unbound") {
+      return { ok: false, error: "Not found", httpStatus: 404 };
+    }
+    return {
+      ok: true,
+      degraded: true,
+      reconciliationNeeded: true,
+      projectionMissing: true,
+      order: {
+        sessionId,
+        status: inferAuthorityOnlyOrderStatus(authority),
+        printfulOrderId: authority.printfulOrderId,
+        error: authority.terminalReason,
+      },
+      httpStatus: 200,
+    };
+  }
+  return {
+    ok: true,
+    order: projectPrintOrderWithAuthority(kvOrder, authority),
+    httpStatus: 200,
+  };
+}
+
+/** Retry DO-first: never resubmit when authority exists without KV. */
+export function resolveRetryDoFirst({ authority, kvOrder }) {
+  if (!authority) return { action: "unread", httpStatus: 503 };
+  if (!kvOrder) {
+    if (authority.revision > 0 || authority.lifecycle !== "unbound") {
+      return {
+        action: "reconciliation_required",
+        httpStatus: 409,
+        authority: {
+          lifecycle: authority.lifecycle,
+          revision: authority.revision,
+          printfulOrderId: authority.printfulOrderId,
+        },
+      };
+    }
+    return { action: "not_found", httpStatus: 404 };
+  }
+  if (authority.lifecycle === "terminal_failed") {
+    return { action: "requires_recover", httpStatus: 409 };
+  }
+  if (
+    (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") &&
+    authority.printfulOrderId
+  ) {
+    return {
+      action: "already_bound",
+      httpStatus: 200,
+      order: projectPrintOrderWithAuthority(kvOrder, authority),
+    };
+  }
+  return { action: "submit", httpStatus: 200 };
 }
 
 /**

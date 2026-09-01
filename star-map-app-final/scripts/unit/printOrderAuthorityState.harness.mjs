@@ -107,7 +107,28 @@ export function applyPrintOrderAuthorityOp(state, op) {
       const eventType = op.eventType.trim() || "order_failed";
       const reason =
         typeof op.reason === "string" && op.reason.trim() ? op.reason.trim().slice(0, 240) : null;
+      const incoming = normalizeAuthorityProviderOrderId(op.printfulOrderId ?? null);
+      const existing = normalizeAuthorityProviderOrderId(state.printfulOrderId);
+      if (incoming && existing && incoming !== existing) {
+        return { ok: false, state, reason: "conflicting_provider_id" };
+      }
+      const providerId = existing ?? incoming;
       if (state.lifecycle === "terminal_failed") {
+        if (incoming && !existing) {
+          return {
+            ok: true,
+            changed: true,
+            state: bump(
+              state,
+              {
+                printfulOrderId: incoming,
+                terminalEventType: eventType,
+                terminalReason: reason ?? state.terminalReason,
+              },
+              now,
+            ),
+          };
+        }
         return { ok: true, state, changed: false, reason: "already_terminal" };
       }
       return {
@@ -119,6 +140,7 @@ export function applyPrintOrderAuthorityOp(state, op) {
             lifecycle: "terminal_failed",
             terminalEventType: eventType,
             terminalReason: reason,
+            printfulOrderId: providerId,
           },
           now,
         ),

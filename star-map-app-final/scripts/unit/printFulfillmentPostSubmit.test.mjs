@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  applyTerminalWebhookDoFirst,
   applyTerminalWebhookWithRevisionGuard,
   bindAcceptedPrintfulIdentityThenReview,
   buildReviewFromStatuses,
@@ -12,6 +13,8 @@ import {
   fulfillmentIndexKey,
   printOrderKey,
   projectPrintOrderWithAuthority,
+  resolveRetryDoFirst,
+  resolveStatusDoFirst,
   simulateRecoveryBeforeStaleTerminalKvWrite,
 } from "./printFulfillmentPostSubmit.harness.mjs";
 
@@ -370,4 +373,134 @@ test("AG-041 #4: recovery-before-stale-KV-write interleaving keeps DO authoritat
   assert.equal(result.kvStatus, "failed"); // stale write landed
   assert.notEqual(result.projectedStatus, "failed");
   assert.equal(String(result.projectedPrintfulOrderId), "9001");
+});
+
+test("AG-042 #1: KV-missing + DO-bound terminal webhook keeps authority and returns projection_missing", async () => {
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "PF-BOUND",
+    now: 1,
+  });
+  const result = await applyTerminalWebhookDoFirst({
+    sessionId: SESSION,
+    eventType: "order_failed",
+    reason: "provider_failed",
+    printfulOrderId: "PF-BOUND",
+    kv: null,
+    applyAuthorityOp: (sessionId, op) => authority.apply(sessionId, op),
+    getAuthority: (sessionId) => authority.get(sessionId),
+  });
+  assert.equal(result.status, "projection_missing");
+  assert.equal(result.reason, "reconciliation_needed");
+  assert.equal(result.kvWritten, false);
+  const authState = await authority.get(SESSION);
+  assert.equal(authState.lifecycle, "terminal_failed");
+  assert.equal(String(authState.printfulOrderId), "PF-BOUND");
+});
+
+test("AG-042 #2: KV-missing + DO-unbound terminal webhook captures provider id", async () => {
+  const authority = createSerializedAuthorityStore();
+  const result = await applyTerminalWebhookDoFirst({
+    sessionId: SESSION,
+    eventType: "order_canceled",
+    reason: "canceled",
+    printfulOrderId: "PF-CAPTURE",
+    kv: null,
+    applyAuthorityOp: (sessionId, op) => authority.apply(sessionId, op),
+    getAuthority: (sessionId) => authority.get(sessionId),
+  });
+  assert.equal(result.status, "projection_missing");
+  const authState = await authority.get(SESSION);
+  assert.equal(authState.lifecycle, "terminal_failed");
+  assert.equal(String(authState.printfulOrderId), "PF-CAPTURE");
+});
+
+test("AG-042 #3: provider-id conflict fails closed", async () => {
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "PF-A",
+    now: 1,
+  });
+  const result = await applyTerminalWebhookDoFirst({
+    sessionId: SESSION,
+    eventType: "order_failed",
+    printfulOrderId: "PF-B",
+    kv: null,
+    applyAuthorityOp: (sessionId, op) => authority.apply(sessionId, op),
+    getAuthority: (sessionId) => authority.get(sessionId),
+  });
+  assert.equal(result.status, "provider_id_conflict");
+  const authState = await authority.get(SESSION);
+  assert.equal(authState.lifecycle, "bound");
+  assert.equal(String(authState.printfulOrderId), "PF-A");
+});
+
+test("AG-042 #4: degraded status when authority exists without KV", async () => {
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    printfulOrderId: "PF-STATUS",
+    now: 1,
+  });
+  const authState = await authority.get(SESSION);
+  const resolved = resolveStatusDoFirst({
+    authority: authState,
+    kvOrder: null,
+    sessionId: SESSION,
+  });
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.degraded, true);
+  assert.equal(resolved.reconciliationNeeded, true);
+  assert.equal(resolved.projectionMissing, true);
+  assert.equal(resolved.httpStatus, 200);
+  assert.equal(resolved.order.status, "failed");
+  assert.equal(String(resolved.order.printfulOrderId), "PF-STATUS");
+});
+
+test("AG-042 #5: retry with authority but missing KV never resubmits", async () => {
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "PF-RETRY",
+    now: 1,
+  });
+  const authState = await authority.get(SESSION);
+  const resolved = resolveRetryDoFirst({ authority: authState, kvOrder: null });
+  assert.equal(resolved.action, "reconciliation_required");
+  assert.equal(resolved.httpStatus, 409);
+  assert.equal(String(resolved.authority.printfulOrderId), "PF-RETRY");
+});
+
+test("AG-042 #6: normal path still projects bound pending KV as sent", () => {
+  const projected = projectPrintOrderWithAuthority(
+    { status: "pending", sessionId: SESSION, printfulOrderId: null },
+    {
+      lifecycle: "bound",
+      printfulOrderId: "PF-OK",
+      revision: 2,
+      terminalReason: null,
+      terminalEventType: null,
+    },
+  );
+  assert.equal(projected.status, "sent");
+  assert.equal(String(projected.printfulOrderId), "PF-OK");
+});
+
+test("AG-042 #7: source wiring — webhook DO-first; status/retry reconciliation", () => {
+  assert.match(printfulWebhookLibSource, /DO-first/);
+  assert.match(printfulWebhookLibSource, /projection_missing/);
+  assert.match(printfulWebhookLibSource, /provider_id_conflict/);
+  assert.match(printfulWebhookLibSource, /printfulOrderId,/);
+  assert.match(printfulWebhookRouteSource, /projection_missing/);
+  assert.match(printfulWebhookRouteSource, /provider_id_conflict/);
+  assert.match(statusSource, /DO-first/);
+  assert.match(statusSource, /reconciliationNeeded/);
+  assert.match(statusSource, /projectionMissing/);
+  assert.match(retrySource, /reconciliation_required/);
+  assert.match(retrySource, /operator_recovered/);
+  assert.match(authoritySource, /inferAuthorityOnlyOrderStatus/);
+  assert.match(authoritySource, /boundButPendingProjection/);
 });

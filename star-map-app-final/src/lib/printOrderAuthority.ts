@@ -154,12 +154,18 @@ export async function bindPrintProviderOrderId(
 
 export async function markPrintOrderTerminalFailed(
   sessionId: string,
-  input: { eventType: string; reason?: string | null },
+  input: {
+    eventType: string;
+    reason?: string | null;
+    /** Captured atomically with terminal transition when authority lacks a provider id. */
+    printfulOrderId?: string | number | null;
+  },
 ): Promise<PrintOrderAuthorityApplyResult | { ok: false; reason: "authority_unread"; state: null }> {
   return applyAuthority(sessionId, {
     type: "mark_terminal_failed",
     eventType: input.eventType,
     reason: input.reason,
+    printfulOrderId: input.printfulOrderId,
   });
 }
 
@@ -228,16 +234,19 @@ export function projectPrintOrderWithAuthority(
 
   if (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") {
     const recoveredFromStaleFailure = kvRecord.status === "failed";
-    const nextStatus: PrintOrderRecord["status"] = recoveredFromStaleFailure
-      ? providerId
-        ? "sent"
-        : "pending"
-      : kvRecord.status;
+    // Bound/recovered + provider id means submission succeeded; pending KV is a stale projection.
+    const boundButPendingProjection = kvRecord.status === "pending" && Boolean(providerId);
+    const nextStatus: PrintOrderRecord["status"] =
+      recoveredFromStaleFailure || boundButPendingProjection
+        ? providerId
+          ? "sent"
+          : "pending"
+        : kvRecord.status;
     return {
       ...kvRecord,
       status: nextStatus,
       printfulOrderId: providerId ?? kvRecord.printfulOrderId,
-      ...(recoveredFromStaleFailure ? { error: undefined } : {}),
+      ...(recoveredFromStaleFailure || boundButPendingProjection ? { error: undefined } : {}),
     };
   }
 
@@ -245,5 +254,17 @@ export function projectPrintOrderWithAuthority(
     ...kvRecord,
     printfulOrderId: providerId ?? kvRecord.printfulOrderId,
   };
+}
+
+/**
+ * Infer a degraded operator-facing status when DO authority exists but KV projection is missing.
+ * Product fields are intentionally absent — callers must treat this as reconciliation-needed.
+ */
+export function inferAuthorityOnlyOrderStatus(
+  authority: PrintOrderAuthorityState,
+): PrintOrderRecord["status"] {
+  if (authority.lifecycle === "terminal_failed") return "failed";
+  if (authority.printfulOrderId) return "sent";
+  return "pending";
 }
 

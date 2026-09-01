@@ -46,3 +46,13 @@ Workers KV (`print:order:*`, fulfillment index) is a **best-effort non-authorita
 - Printful terminal webhooks that cannot re-read DO authority after marking terminal must return **retryable non-2xx** (`authority_unread`). A readable mismatched revision/lifecycle may skip the KV projection as stale.
 - Status / operator / retry decisions read the DO for lifecycle and provider id. A stale KV `failed` write after later operator recovery must not make those surfaces report or act as failed.
 - Do **not** attempt to close cross-store races with another read-before-KV-write check. Stale projections are harmless when consumers treat the DO as sole authority.
+
+## AG-042 boundary correction
+
+Missing/unreadable Workers KV is a **degraded projection**, never a gate that can suppress Durable Object lifecycle authority.
+
+1. Terminal Printful webhooks resolve the logical session and update DO authority **before** requiring KV. A successful terminal transition survives missing KV and returns `projection_missing` / reconciliation-needed (not `ignored`).
+2. If authority lacks a provider id, the webhook provider id is captured atomically in `mark_terminal_failed`. Provider-id conflicts fail closed (`provider_id_conflict`).
+3. Status reads DO first. Authority without KV returns a degraded reconciliation-needed payload (HTTP 200), not 404. Only uninitialized/neither-store is not-found.
+4. Retry reads DO first. Authority without KV returns `reconciliation_required` and **never** resubmits to Printful.
+5. When KV exists, DO lifecycle/provider identity is projected over it (including bound+pending → sent).

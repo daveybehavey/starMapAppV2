@@ -108,8 +108,18 @@ export class PrintOrderAuthorityDO extends DurableObject {
     return this.apply(sessionId, { type: "bind_provider_order_id", printfulOrderId });
   }
 
-  async markTerminalFailed(sessionId: string, eventType: string, reason?: string | null) {
-    return this.apply(sessionId, { type: "mark_terminal_failed", eventType, reason });
+  async markTerminalFailed(
+    sessionId: string,
+    eventType: string,
+    reason?: string | null,
+    printfulOrderId?: string | number | null,
+  ) {
+    return this.apply(sessionId, {
+      type: "mark_terminal_failed",
+      eventType,
+      reason,
+      printfulOrderId,
+    });
   }
 
   async operatorRecover(sessionId: string) {

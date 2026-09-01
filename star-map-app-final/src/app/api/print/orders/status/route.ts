@@ -11,6 +11,7 @@ import {
 } from "@/lib/printOrders";
 import {
   getPrintOrderAuthorityState,
+  inferAuthorityOnlyOrderStatus,
   projectPrintOrderWithAuthority,
   seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
@@ -33,22 +34,50 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "valid session_id required" }, { status: 400 });
   }
 
-  const kvOrder = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-  if (!kvOrder) {
-    return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
-  }
-
-  // DO is the sole authority for lifecycle/provider id. KV is a non-authoritative mirror.
+  // DO-first: missing KV is a degraded projection, not not-found, when authority exists.
   let authority = await getPrintOrderAuthorityState(sessionId);
-  if (!authority || authority.revision === 0) {
+  const kvOrder = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+
+  if ((!authority || authority.revision === 0) && kvOrder) {
     await seedPrintOrderAuthorityFromKv(sessionId, kvOrder);
     authority = await getPrintOrderAuthorityState(sessionId);
   }
+
   if (!authority) {
     return NextResponse.json(
       { ok: false, error: "print_order_authority_unread" },
       { status: 503 },
     );
+  }
+
+  const authorityPayload = {
+    lifecycle: authority.lifecycle,
+    revision: authority.revision,
+    printfulOrderId: authority.printfulOrderId,
+    terminalReason: authority.terminalReason,
+    terminalEventType: authority.terminalEventType,
+  };
+
+  if (!kvOrder) {
+    if (authority.revision === 0 && authority.lifecycle === "unbound") {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+    const inferredStatus = inferAuthorityOnlyOrderStatus(authority);
+    return NextResponse.json({
+      ok: true,
+      degraded: true,
+      reconciliationNeeded: true,
+      projectionMissing: true,
+      order: {
+        sessionId,
+        status: inferredStatus,
+        printfulOrderId: authority.printfulOrderId,
+        error: authority.terminalReason,
+      },
+      marginPreview: null,
+      authority: authorityPayload,
+      kvProjection: null,
+    });
   }
 
   const order = projectPrintOrderWithAuthority(kvOrder, authority);
@@ -65,11 +94,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     order: sanitizePrintOrderForOperatorResponse(order),
     marginPreview,
-    authority: {
-      lifecycle: authority.lifecycle,
-      revision: authority.revision,
-      printfulOrderId: authority.printfulOrderId,
-    },
+    authority: authorityPayload,
     kvProjection: {
       status: kvOrder.status,
       printfulOrderId: kvOrder.printfulOrderId ?? null,

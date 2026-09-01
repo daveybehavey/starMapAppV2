@@ -161,24 +161,41 @@ async function postRetryPrintOrder(req: NextRequest) {
     return failedRecord;
   };
 
+  // DO-first: authority presence with missing KV must never resubmit to Printful.
+  let authority = await getPrintOrderAuthorityState(sessionId);
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-  if (!existing) {
-    return NextResponse.json({ ok: false, error: "Print order not found" }, { status: 404 });
+
+  if ((!authority || authority.revision === 0) && existing) {
+    await seedPrintOrderAuthorityFromKv(sessionId, existing);
+    authority = await getPrintOrderAuthorityState(sessionId);
   }
 
-  {
-    const authority = await getPrintOrderAuthorityState(sessionId);
-    if (!authority || authority.revision === 0) {
-      await seedPrintOrderAuthorityFromKv(sessionId, existing);
-    }
-  }
-  const authority = await getPrintOrderAuthorityState(sessionId);
   if (!authority) {
     return NextResponse.json(
       { ok: false, error: "print_order_authority_unread" },
       { status: 503 },
     );
   }
+
+  if (!existing) {
+    if (authority.revision > 0 || authority.lifecycle !== "unbound") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "reconciliation_required",
+          reason: "projection_missing",
+          authority: {
+            lifecycle: authority.lifecycle,
+            revision: authority.revision,
+            printfulOrderId: authority.printfulOrderId,
+          },
+        },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ ok: false, error: "Print order not found" }, { status: 404 });
+  }
+
   if (authority.lifecycle === "terminal_failed") {
     return NextResponse.json(
       {
@@ -189,8 +206,12 @@ async function postRetryPrintOrder(req: NextRequest) {
       { status: 409 },
     );
   }
-  if (authority.lifecycle === "bound" && authority.printfulOrderId) {
+  if (
+    (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") &&
+    authority.printfulOrderId
+  ) {
     // DO provider id is authoritative; repair stale KV/index before acknowledging.
+    // Includes operator_recovered so a stale KV failed/pending cannot trigger resubmit.
     const boundOrder = projectPrintOrderWithAuthority(existing, authority);
     assertPrintOrderRetained(
       await persistPrintOrderRecord(sessionId, boundOrder, { allowClearTerminalFailure: true }),

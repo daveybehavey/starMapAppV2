@@ -79,8 +79,10 @@ export async function POST(req: NextRequest) {
 
   const note = typeof payload?.note === "string" ? payload.note.trim() : "";
   const now = Date.now();
+  // Prefer explicit operator id, then DO authority, then KV bootstrap only.
   const resolvedProviderId =
     normalizeAuthorityProviderOrderId(printfulOrderId) ||
+    normalizeAuthorityProviderOrderId(current.printfulOrderId) ||
     normalizeAuthorityProviderOrderId(existing.printfulOrderId);
 
   if (resolvedProviderId) {

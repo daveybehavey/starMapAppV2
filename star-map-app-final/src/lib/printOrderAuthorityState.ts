@@ -42,6 +42,8 @@ export type PrintOrderAuthorityOp =
       type: "mark_terminal_failed";
       eventType: string;
       reason?: string | null;
+      /** Optional provider id captured atomically with the terminal transition. */
+      printfulOrderId?: string | number | null;
       now?: number;
     }
   | {
@@ -197,9 +199,36 @@ function applyMarkTerminalFailed(
   const now = op.now ?? Date.now();
   const eventType = op.eventType.trim() || "order_failed";
   const reason = typeof op.reason === "string" && op.reason.trim() ? op.reason.trim().slice(0, 240) : null;
+  const incoming = normalizeAuthorityProviderOrderId(op.printfulOrderId ?? null);
+  const existing = normalizeAuthorityProviderOrderId(state.printfulOrderId);
+
+  // Fail closed on provider-id conflict — never mark terminal for the wrong identity.
+  if (incoming && existing && incoming !== existing) {
+    return { ok: false, state, reason: "conflicting_provider_id" };
+  }
+
+  const providerId = existing ?? incoming;
+
   if (state.lifecycle === "terminal_failed") {
+    // Idempotent terminal: still allow capturing a missing provider id onto authority.
+    if (incoming && !existing) {
+      return {
+        ok: true,
+        changed: true,
+        state: bump(
+          state,
+          {
+            printfulOrderId: incoming,
+            terminalEventType: eventType,
+            terminalReason: reason ?? state.terminalReason,
+          },
+          now,
+        ),
+      };
+    }
     return { ok: true, state, changed: false, reason: "already_terminal" };
   }
+
   return {
     ok: true,
     changed: true,
@@ -209,6 +238,7 @@ function applyMarkTerminalFailed(
         lifecycle: "terminal_failed",
         terminalEventType: eventType,
         terminalReason: reason,
+        printfulOrderId: providerId,
       },
       now,
     ),

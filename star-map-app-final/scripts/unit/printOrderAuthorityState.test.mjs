@@ -170,3 +170,58 @@ test("source wiring: DO + wrangler migration + custom worker present", () => {
   assert.match(wranglerSource, /main = "cloudflare-worker.ts"/);
   assert.match(workerSource, /export \{ PrintOrderAuthorityDO \}/);
 });
+
+
+test("AG-042: mark_terminal_failed captures provider id atomically when unbound", () => {
+  let state = createUnboundAuthorityState("cs_test_ag042_capture");
+  const result = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    reason: "printful_failed",
+    printfulOrderId: "PF-42",
+    now: 100,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.changed, true);
+  assert.equal(result.state.lifecycle, "terminal_failed");
+  assert.equal(result.state.printfulOrderId, "PF-42");
+});
+
+test("AG-042: mark_terminal_failed fails closed on provider id conflict", () => {
+  let state = createUnboundAuthorityState("cs_test_ag042_conflict");
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "PF-1",
+    now: 1,
+  }).state;
+  const result = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    printfulOrderId: "PF-OTHER",
+    now: 2,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "conflicting_provider_id");
+  assert.equal(result.state.lifecycle, "bound");
+  assert.equal(result.state.printfulOrderId, "PF-1");
+});
+
+test("AG-042: already-terminal can repair missing provider id", () => {
+  let state = createUnboundAuthorityState("cs_test_ag042_repair");
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 1,
+  }).state;
+  assert.equal(state.printfulOrderId, null);
+  const repaired = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    printfulOrderId: "PF-REPAIR",
+    now: 2,
+  });
+  assert.equal(repaired.ok, true);
+  assert.equal(repaired.changed, true);
+  assert.equal(repaired.state.printfulOrderId, "PF-REPAIR");
+  assert.equal(repaired.state.lifecycle, "terminal_failed");
+});

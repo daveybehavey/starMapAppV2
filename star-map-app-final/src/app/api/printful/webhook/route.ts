@@ -181,6 +181,46 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
     );
   }
 
+  // Provider-id conflict: fail closed so we never ACK a mismatched terminal identity.
+  if (result.status === "provider_id_conflict") {
+    console.warn("Printful order failure provider id conflict", {
+      eventType,
+      sessionId: result.sessionId,
+      reason: result.reason,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "provider_id_conflict",
+        event: eventType,
+        sessionId: result.sessionId,
+        reason: result.reason ?? "conflicting_provider_id",
+        authority: result.authority ?? null,
+      },
+      { status: 409 },
+    );
+  }
+
+  // Authority terminalized but KV projection missing — ACK with explicit reconciliation signal.
+  if (result.status === "projection_missing") {
+    console.warn("Printful order failure projection missing after authority terminal", {
+      eventType,
+      sessionId: result.sessionId,
+      reason: result.reason,
+      terminalRevision: result.terminalRevision,
+    });
+    return NextResponse.json({
+      ok: true,
+      status: "projection_missing",
+      event: eventType,
+      sessionId: result.sessionId,
+      reason: result.reason ?? "reconciliation_needed",
+      reconciliationNeeded: true,
+      terminalRevision: result.terminalRevision,
+      authority: result.authority ?? null,
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     status: "updated",
@@ -219,4 +259,4 @@ export async function GET(req: NextRequest) {
   }
   return NextResponse.json({ ok: true, status: "ready" });
 }
-
+
