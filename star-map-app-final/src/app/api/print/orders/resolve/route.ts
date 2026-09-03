@@ -122,14 +122,17 @@ export async function POST(req: NextRequest) {
     webhookStatus: existing.webhookStatus,
   };
 
+  // AG-079: keep stale KV provider B as retry-discoverable cleanup intent until
+  // A-index + owned-B cleanup are proven. Only then commit order KV B→A.
   try {
-    await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
     if (projectedProviderId) {
       await setPrintFulfillmentIndex(projectedProviderId, sessionId);
       if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
+        // missing/not_owned are idempotent/safe; thrown delete failures stop before KV forgets B.
         await deletePrintFulfillmentIndexIfOwned(staleKvProviderId, sessionId);
       }
     }
+    await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
   } catch {
     return NextResponse.json(
       {

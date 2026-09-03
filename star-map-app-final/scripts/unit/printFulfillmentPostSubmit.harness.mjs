@@ -460,12 +460,20 @@ export function projectOperatorResolveProviderId({
 }
 
 /** Simulate resolve KV/index write using the already-resolved authoritative ID. */
+/**
+ * AG-079: mirrors resolve projection repair order —
+ * A index → owned stale-B cleanup → order KV B→A.
+ * Injectable failOn* hooks prove retry-durable cleanup without new durable state.
+ */
 export async function applyOperatorResolveProjection(input) {
   const {
     sessionId,
     explicitOperatorId = "",
     authority,
     kv,
+    failOnAIndex = false,
+    failOnBCleanup = false,
+    failOnKvProjection = false,
   } = input;
   const existing = await kv.get(printOrderKey(sessionId));
   const staleKvProviderId = normalizeAuthorityProviderOrderId(existing?.printfulOrderId);
@@ -482,6 +490,7 @@ export async function applyOperatorResolveProjection(input) {
       reason: resolved.reason,
       resolvedProviderId: null,
       authorityPrintfulOrderId: (await authority.get(sessionId)).printfulOrderId,
+      kvPrintfulOrderId: existing?.printfulOrderId ?? null,
       indexedSessionForStaleB: await kv.get(fulfillmentIndexKey("B")),
     };
   }
@@ -494,16 +503,45 @@ export async function applyOperatorResolveProjection(input) {
     status: "sent",
     printfulOrderId: projectedProviderId,
   };
-  await kv.set(printOrderKey(sessionId), updated);
-  if (projectedProviderId) {
-    await kv.set(fulfillmentIndexKey(projectedProviderId), sessionId);
-    if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
-      const mapped = await kv.get(fulfillmentIndexKey(staleKvProviderId));
-      if (mapped === sessionId) {
-        await kv.delete(fulfillmentIndexKey(staleKvProviderId));
+
+  try {
+    if (projectedProviderId) {
+      if (failOnAIndex) {
+        throw new Error("a_index_failed");
+      }
+      await kv.set(fulfillmentIndexKey(projectedProviderId), sessionId);
+
+      if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
+        if (failOnBCleanup) {
+          throw new Error("b_cleanup_failed");
+        }
+        const mapped = await kv.get(fulfillmentIndexKey(staleKvProviderId));
+        // Only delete when still owned by this session — never another session's alias.
+        if (mapped === sessionId) {
+          await kv.delete(fulfillmentIndexKey(staleKvProviderId));
+        }
       }
     }
+
+    if (failOnKvProjection) {
+      throw new Error("kv_projection_failed");
+    }
+    await kv.set(printOrderKey(sessionId), updated);
+  } catch (error) {
+    return {
+      ok: false,
+      reason: "reconciliation_needed",
+      error: error instanceof Error ? error.message : String(error),
+      resolvedProviderId: projectedProviderId ?? null,
+      kvPrintfulOrderId: (await kv.get(printOrderKey(sessionId)))?.printfulOrderId ?? null,
+      indexedSessionForResolved: projectedProviderId
+        ? await kv.get(fulfillmentIndexKey(projectedProviderId))
+        : null,
+      indexedSessionForStaleB: await kv.get(fulfillmentIndexKey("B")),
+      authorityPrintfulOrderId: (await authority.get(sessionId)).printfulOrderId,
+    };
   }
+
   return {
     ok: true,
     resolvedProviderId: projectedProviderId ?? null,

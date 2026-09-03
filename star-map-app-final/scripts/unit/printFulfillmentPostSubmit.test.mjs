@@ -702,3 +702,159 @@ test("AG-074 #5: terminal-before-KV harness path when KV missing after authority
   assert.equal(auth.lifecycle, "terminal_failed");
   assert.equal(String(auth.printfulOrderId), "PF-74");
 });
+
+test("AG-079 #1: B-cleanup failure keeps KV=B; retry rediscovers B then commits A", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await kv.set(printOrderKey(SESSION), {
+    sessionId: SESSION,
+    status: "failed",
+    printfulOrderId: "B",
+  });
+  await kv.set(fulfillmentIndexKey("B"), SESSION);
+
+  const first = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+    failOnBCleanup: true,
+  });
+  assert.equal(first.ok, false);
+  assert.equal(first.reason, "reconciliation_needed");
+  assert.equal(String(first.kvPrintfulOrderId), "B");
+  assert.equal(first.indexedSessionForStaleB, SESSION);
+  // A index may already be repaired before B cleanup fails.
+  assert.equal(first.indexedSessionForResolved, SESSION);
+
+  const second = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(second.ok, true);
+  assert.equal(String(second.resolvedProviderId), "A");
+  assert.equal(String(second.kvPrintfulOrderId), "A");
+  assert.equal(second.indexedSessionForResolved, SESSION);
+  assert.equal(second.indexedSessionForStaleB, null);
+});
+
+test("AG-079 #2: cleanup ok + KV projection fail; retry converges to A without new durable state", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await kv.set(printOrderKey(SESSION), {
+    sessionId: SESSION,
+    status: "failed",
+    printfulOrderId: "B",
+  });
+  await kv.set(fulfillmentIndexKey("B"), SESSION);
+
+  const first = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+    failOnKvProjection: true,
+  });
+  assert.equal(first.ok, false);
+  assert.equal(first.reason, "reconciliation_needed");
+  // Cleanup completed: B alias gone, but order KV still holds B as retry intent.
+  assert.equal(String(first.kvPrintfulOrderId), "B");
+  assert.equal(first.indexedSessionForStaleB, null);
+  assert.equal(first.indexedSessionForResolved, SESSION);
+
+  const second = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(second.ok, true);
+  assert.equal(String(second.kvPrintfulOrderId), "A");
+  assert.equal(second.indexedSessionForResolved, SESSION);
+  assert.equal(second.indexedSessionForStaleB, null);
+});
+
+test("AG-079 #3: alias B owned by another session is never deleted", async () => {
+  const OTHER = "cs_test_ag079_other_session";
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await kv.set(printOrderKey(SESSION), {
+    sessionId: SESSION,
+    status: "failed",
+    printfulOrderId: "B",
+  });
+  await kv.set(fulfillmentIndexKey("B"), OTHER);
+
+  const result = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(String(result.kvPrintfulOrderId), "A");
+  assert.equal(result.indexedSessionForResolved, SESSION);
+  assert.equal(await kv.get(fulfillmentIndexKey("B")), OTHER);
+});
+
+test("AG-079 #4: successful/idempotent recovery still projects A and clears owned B", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await kv.set(printOrderKey(SESSION), {
+    sessionId: SESSION,
+    status: "failed",
+    printfulOrderId: "B",
+  });
+  await kv.set(fulfillmentIndexKey("B"), SESSION);
+
+  const first = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(first.ok, true);
+  assert.equal(String(first.kvPrintfulOrderId), "A");
+  assert.equal(first.indexedSessionForStaleB, null);
+
+  const second = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(second.ok, true);
+  assert.equal(String(second.kvPrintfulOrderId), "A");
+  assert.equal(second.indexedSessionForResolved, SESSION);
+});
+
+test("AG-079 #5: resolve source commits indexes before order KV projection", () => {
+  const setIdx = resolveSource.indexOf("setPrintFulfillmentIndex(projectedProviderId");
+  const delIdx = resolveSource.indexOf("deletePrintFulfillmentIndexIfOwned(staleKvProviderId");
+  const persistIdx = resolveSource.indexOf(
+    "persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true })",
+  );
+  assert.ok(setIdx > 0 && delIdx > setIdx && persistIdx > delIdx);
+});
