@@ -178,12 +178,15 @@ async function postRetryPrintOrder(req: NextRequest) {
   // AG-086: legacy failed mirrors (absent terminalEventType) fail closed while DO
   // is revision-zero/uninitialized — do not seed terminal and do not resubmit.
   if (authority.revision === 0 && isLegacyAmbiguousPrintOrderFailure(existing)) {
+    const legacyOrder = existing
+      ? sanitizePrintOrderForOperatorResponse(existing)
+      : null;
     return NextResponse.json(
       {
         ok: false,
         error: "reconciliation_required",
         reason: "legacy_failure_provenance_unknown",
-        order: existing ? sanitizePrintOrderForOperatorResponse(existing) : null,
+        order: legacyOrder,
       },
       { status: 409 },
     );
