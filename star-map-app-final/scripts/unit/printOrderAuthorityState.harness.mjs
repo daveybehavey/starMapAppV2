@@ -6,6 +6,19 @@ export function isPrintfulTerminalFailureWebhookType(eventType) {
   return PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES.has(eventType.trim());
 }
 
+export function terminalEventTypeFromKvFailureError(error) {
+  if (typeof error !== "string") return null;
+  const trimmed = error.trim();
+  if (!trimmed) return null;
+  if (trimmed === "printful_order_failed" || trimmed.startsWith("printful_order_failed:")) {
+    return "order_failed";
+  }
+  if (trimmed === "printful_order_canceled" || trimmed.startsWith("printful_order_canceled:")) {
+    return "order_canceled";
+  }
+  return null;
+}
+
 export function normalizeAuthorityProviderOrderId(value) {
   if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
   if (typeof value === "string") {
@@ -49,21 +62,26 @@ export function applyPrintOrderAuthorityOp(state, op) {
       const now = op.now ?? Date.now();
       const id = normalizeAuthorityProviderOrderId(op.printfulOrderId ?? null);
       if (op.kvStatus === "failed") {
-        return {
-          ok: true,
-          changed: true,
-          state: bump(
-            state,
-            {
-              printfulOrderId: id,
-              lifecycle: "terminal_failed",
-              terminalReason: "seeded_from_kv_failed",
-              terminalEventType: "kv_seed",
-              seededFromKv: true,
-            },
-            now,
-          ),
-        };
+        const terminalEventType =
+          typeof op.terminalEventType === "string" ? op.terminalEventType.trim() : "";
+        if (isPrintfulTerminalFailureWebhookType(terminalEventType)) {
+          return {
+            ok: true,
+            changed: true,
+            state: bump(
+              state,
+              {
+                printfulOrderId: id,
+                lifecycle: "terminal_failed",
+                terminalReason: "seeded_from_kv_failed",
+                terminalEventType,
+                seededFromKv: true,
+              },
+              now,
+            ),
+          };
+        }
+        return { ok: true, changed: true, state: bump(state, { seededFromKv: true }, now) };
       }
       if (id && (op.kvStatus === "sent" || op.kvStatus === "pending")) {
         return {

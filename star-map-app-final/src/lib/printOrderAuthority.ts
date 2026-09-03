@@ -10,6 +10,7 @@ import {
   applyPrintOrderAuthorityOp,
   authorityLifecycleBlocksNonterminalMirror,
   createUnboundAuthorityState,
+  terminalEventTypeFromKvFailureError,
   type PrintOrderAuthorityApplyResult,
   type PrintOrderAuthorityLifecycle,
   type PrintOrderAuthorityOp,
@@ -136,12 +137,21 @@ export async function getPrintOrderAuthorityState(
 
 export async function seedPrintOrderAuthorityFromKv(
   sessionId: string,
-  kvMirror: { status?: PrintOrderRecord["status"] | null; printfulOrderId?: string | number | null } | null,
+  kvMirror: {
+    status?: PrintOrderRecord["status"] | null;
+    printfulOrderId?: string | number | null;
+    error?: string | null;
+  } | null,
 ): Promise<PrintOrderAuthorityApplyResult | { ok: false; reason: "authority_unread"; state: null }> {
+  const terminalEventType =
+    kvMirror?.status === "failed"
+      ? terminalEventTypeFromKvFailureError(kvMirror.error ?? null)
+      : null;
   return applyAuthority(sessionId, {
     type: "seed_from_kv",
     kvStatus: kvMirror?.status ?? null,
     printfulOrderId: kvMirror?.printfulOrderId ?? null,
+    terminalEventType,
   });
 }
 

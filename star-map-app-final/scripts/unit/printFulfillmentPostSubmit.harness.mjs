@@ -4,6 +4,7 @@ import {
   createSerializedAuthorityStore,
   createUnboundAuthorityState,
   normalizeAuthorityProviderOrderId,
+  terminalEventTypeFromKvFailureError,
 } from "./printOrderAuthorityState.harness.mjs";
 import {
   buildReviewFromStatuses,
@@ -554,4 +555,40 @@ export async function applyOperatorResolveProjection(input) {
   };
 }
 
-export { createSerializedAuthorityStore, createUnboundAuthorityState, applyPrintOrderAuthorityOp };
+/**
+ * AG-081: terminal webhook with unresolved session (missing Printful-ID index /
+ * hashed smc_ external_id) must stay retryable — never ACK as ignored.
+ */
+export function classifyUnresolvedTerminalWebhookSession(sessionId) {
+  if (!sessionId) {
+    return {
+      ok: false,
+      status: "session_unresolved",
+      reason: "session_unresolved",
+      httpStatus: 503,
+    };
+  }
+  return { ok: true, status: "continue", httpStatus: 200 };
+}
+
+/** AG-081: seed mirror uses the same terminal-evidence gate as production. */
+export async function seedAuthorityFromKvMirror(authority, sessionId, kvMirror, now = Date.now()) {
+  const terminalEventType =
+    kvMirror?.status === "failed"
+      ? terminalEventTypeFromKvFailureError(kvMirror.error ?? null)
+      : null;
+  return authority.apply(sessionId, {
+    type: "seed_from_kv",
+    kvStatus: kvMirror?.status ?? null,
+    printfulOrderId: kvMirror?.printfulOrderId ?? null,
+    terminalEventType,
+    now,
+  });
+}
+
+export {
+  createSerializedAuthorityStore,
+  createUnboundAuthorityState,
+  applyPrintOrderAuthorityOp,
+  terminalEventTypeFromKvFailureError,
+};

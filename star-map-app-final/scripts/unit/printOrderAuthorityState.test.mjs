@@ -11,6 +11,7 @@ import {
   createUnboundAuthorityState,
   isPrintfulTerminalFailureWebhookType,
   PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES,
+  terminalEventTypeFromKvFailureError,
 } from "./printOrderAuthorityState.harness.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -149,15 +150,28 @@ test("operator recover then re-bind allowed; non-operator path still blocked", (
   assert.equal(reboundSame.state.printfulOrderId, "1");
 });
 
-test("seed from KV: failed→terminal, sent+id→bound; no production mutation required", () => {
-  const failedSeed = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
+test("seed from KV: ordinary failed stays unbound; terminal evidence → terminal; sent+id→bound", () => {
+  const ordinaryFailed = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
     type: "seed_from_kv",
     kvStatus: "failed",
     printfulOrderId: 55,
     now: 2,
   });
-  assert.equal(failedSeed.state.lifecycle, "terminal_failed");
-  assert.equal(failedSeed.state.seededFromKv, true);
+  assert.equal(ordinaryFailed.state.lifecycle, "unbound");
+  assert.equal(ordinaryFailed.state.seededFromKv, true);
+  assert.equal(ordinaryFailed.state.printfulOrderId, null);
+
+  const terminalSeed = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
+    type: "seed_from_kv",
+    kvStatus: "failed",
+    printfulOrderId: 55,
+    terminalEventType: "order_failed",
+    now: 2,
+  });
+  assert.equal(terminalSeed.state.lifecycle, "terminal_failed");
+  assert.equal(terminalSeed.state.seededFromKv, true);
+  assert.equal(terminalSeed.state.terminalEventType, "order_failed");
+  assert.equal(terminalSeed.state.printfulOrderId, "55");
 
   const boundSeed = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
     type: "seed_from_kv",
@@ -167,6 +181,22 @@ test("seed from KV: failed→terminal, sent+id→bound; no production mutation r
   });
   assert.equal(boundSeed.state.lifecycle, "bound");
   assert.equal(boundSeed.state.printfulOrderId, "55");
+});
+
+test("AG-081: terminalEventTypeFromKvFailureError only accepts provider terminal mirrors", () => {
+  assert.equal(terminalEventTypeFromKvFailureError("printful_order_failed"), "order_failed");
+  assert.equal(
+    terminalEventTypeFromKvFailureError("printful_order_failed:reason"),
+    "order_failed",
+  );
+  assert.equal(
+    terminalEventTypeFromKvFailureError("printful_order_canceled:status=canceled"),
+    "order_canceled",
+  );
+  assert.equal(terminalEventTypeFromKvFailureError("printful_submit_failed"), null);
+  assert.equal(terminalEventTypeFromKvFailureError("asset_url_missing"), null);
+  assert.equal(terminalEventTypeFromKvFailureError("printful_files_failed:x"), null);
+  assert.equal(terminalEventTypeFromKvFailureError(null), null);
 });
 
 test("source wiring: DO + wrangler migration + custom worker present", () => {

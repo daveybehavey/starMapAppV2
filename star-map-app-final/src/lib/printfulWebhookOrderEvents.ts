@@ -91,7 +91,8 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     | "alert_failed"
     | "authority_unread"
     | "projection_missing"
-    | "provider_id_conflict";
+    | "provider_id_conflict"
+    | "session_unresolved";
   reason?: string;
   sessionId?: string;
   error?: string;
@@ -119,9 +120,12 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   });
 
   if (!sessionId) {
+    // AG-081: recoverable missing-index window (e.g. Printful accepted, bind failed,
+    // hashed smc_ external_id not yet indexed). Keep terminal webhooks retryable —
+    // do not ACK/ignore and permanently lose order_failed / order_canceled.
     return {
-      ok: true,
-      status: "ignored",
+      ok: false,
+      status: "session_unresolved",
       reason: "session_unresolved",
     };
   }

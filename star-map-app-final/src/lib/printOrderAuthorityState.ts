@@ -31,6 +31,12 @@ export type PrintOrderAuthorityOp =
       type: "seed_from_kv";
       kvStatus?: "pending" | "sent" | "failed" | null;
       printfulOrderId?: string | number | null;
+      /**
+       * Only when this is a true terminal provider event (`order_failed` /
+       * `order_canceled`) may a KV `failed` mirror seed `terminal_failed`.
+       * Ordinary pre-provider / local validation failures must omit this.
+       */
+      terminalEventType?: string | null;
       now?: number;
     }
   | {
@@ -83,6 +89,24 @@ export function isPrintfulTerminalFailureWebhookType(eventType: string): boolean
   return PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES.has(eventType.trim());
 }
 
+/**
+ * Derive terminal webhook type from a KV failure `error` mirror written by
+ * `buildPrintfulWebhookFailureError` (`printful_order_failed…` / `printful_order_canceled…`).
+ * Ordinary retry/local failure strings must return null so seed stays non-terminal.
+ */
+export function terminalEventTypeFromKvFailureError(error?: string | null): string | null {
+  if (typeof error !== "string") return null;
+  const trimmed = error.trim();
+  if (!trimmed) return null;
+  if (trimmed === "printful_order_failed" || trimmed.startsWith("printful_order_failed:")) {
+    return "order_failed";
+  }
+  if (trimmed === "printful_order_canceled" || trimmed.startsWith("printful_order_canceled:")) {
+    return "order_canceled";
+  }
+  return null;
+}
+
 export function normalizeAuthorityProviderOrderId(value: string | number | null | undefined): string | null {
   if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
   if (typeof value === "string") {
@@ -128,20 +152,31 @@ function applySeedFromKv(
   const now = op.now ?? Date.now();
   const id = normalizeAuthorityProviderOrderId(op.printfulOrderId ?? null);
   if (op.kvStatus === "failed") {
+    // AG-081: only true terminal provider evidence may seed terminal_failed.
+    // Bare status:"failed" (retry/local validation) must remain retryable.
+    const terminalEventType =
+      typeof op.terminalEventType === "string" ? op.terminalEventType.trim() : "";
+    if (isPrintfulTerminalFailureWebhookType(terminalEventType)) {
+      return {
+        ok: true,
+        changed: true,
+        state: bump(
+          state,
+          {
+            printfulOrderId: id,
+            lifecycle: "terminal_failed",
+            terminalReason: "seeded_from_kv_failed",
+            terminalEventType,
+            seededFromKv: true,
+          },
+          now,
+        ),
+      };
+    }
     return {
       ok: true,
       changed: true,
-      state: bump(
-        state,
-        {
-          printfulOrderId: id,
-          lifecycle: "terminal_failed",
-          terminalReason: "seeded_from_kv_failed",
-          terminalEventType: "kv_seed",
-          seededFromKv: true,
-        },
-        now,
-      ),
+      state: bump(state, { seededFromKv: true }, now),
     };
   }
   if (id && (op.kvStatus === "sent" || op.kvStatus === "pending")) {

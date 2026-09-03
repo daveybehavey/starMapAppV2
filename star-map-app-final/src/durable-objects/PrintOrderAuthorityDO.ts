@@ -142,12 +142,17 @@ export class PrintOrderAuthorityDO extends DurableObject {
 
   async seedFromKv(
     sessionId: string,
-    input: { kvStatus?: "pending" | "sent" | "failed" | null; printfulOrderId?: string | number | null },
+    input: {
+      kvStatus?: "pending" | "sent" | "failed" | null;
+      printfulOrderId?: string | number | null;
+      terminalEventType?: string | null;
+    },
   ) {
     return this.apply(sessionId, {
       type: "seed_from_kv",
       kvStatus: input.kvStatus ?? null,
       printfulOrderId: input.printfulOrderId ?? null,
+      terminalEventType: input.terminalEventType ?? null,
     });
   }
 }

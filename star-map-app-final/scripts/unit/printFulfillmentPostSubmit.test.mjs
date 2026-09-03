@@ -17,6 +17,8 @@ import {
   projectPrintOrderWithAuthority,
   resolveRetryDoFirst,
   resolveStatusDoFirst,
+  seedAuthorityFromKvMirror,
+  classifyUnresolvedTerminalWebhookSession,
   simulateRecoveryBeforeStaleTerminalKvWrite,
 } from "./printFulfillmentPostSubmit.harness.mjs";
 
@@ -857,4 +859,82 @@ test("AG-079 #5: resolve source commits indexes before order KV projection", () 
     "persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true })",
   );
   assert.ok(setIdx > 0 && delIdx > setIdx && persistIdx > delIdx);
+});
+
+test("AG-081 #1: unresolved terminal webhook stays retryable (no 200 ACK)", () => {
+  const unresolved = classifyUnresolvedTerminalWebhookSession(null);
+  assert.equal(unresolved.ok, false);
+  assert.equal(unresolved.status, "session_unresolved");
+  assert.equal(unresolved.httpStatus, 503);
+
+  assert.match(printfulWebhookLibSource, /status: "session_unresolved"/);
+  assert.match(printfulWebhookLibSource, /ok: false/);
+  assert.match(
+    printfulWebhookLibSource,
+    /if \(!sessionId\)[\s\S]*?status: "session_unresolved"/,
+  );
+  assert.match(printfulWebhookRouteSource, /status === "session_unresolved"/);
+  assert.match(
+    printfulWebhookRouteSource,
+    /session_unresolved[\s\S]*?status:\s*503/,
+  );
+  // Must not ACK unresolved terminal as ignored success.
+  assert.doesNotMatch(
+    printfulWebhookLibSource,
+    /if \(!sessionId\)[\s\S]*?ok: true[\s\S]*?session_unresolved/,
+  );
+});
+
+test("AG-081 #2: ordinary KV failed seed stays retryable; terminal error seeds terminal", async () => {
+  const ordinaryAuth = createSerializedAuthorityStore();
+  await seedAuthorityFromKvMirror(ordinaryAuth, SESSION, {
+    status: "failed",
+    printfulOrderId: undefined,
+    error: "printful_submit_failed:timeout",
+  });
+  const ordinary = await ordinaryAuth.get(SESSION);
+  assert.equal(ordinary.lifecycle, "unbound");
+  assert.equal(ordinary.seededFromKv, true);
+  const ordinaryRetry = resolveRetryDoFirst({
+    authority: ordinary,
+    kvOrder: { status: "failed", sessionId: SESSION, error: "printful_submit_failed:timeout" },
+  });
+  assert.equal(ordinaryRetry.action, "submit");
+  assert.notEqual(ordinaryRetry.action, "requires_recover");
+
+  const terminalAuth = createSerializedAuthorityStore();
+  await seedAuthorityFromKvMirror(terminalAuth, SESSION, {
+    status: "failed",
+    printfulOrderId: 9001,
+    error: "printful_order_failed:provider_canceled",
+  });
+  const terminal = await terminalAuth.get(SESSION);
+  assert.equal(terminal.lifecycle, "terminal_failed");
+  assert.equal(terminal.terminalEventType, "order_failed");
+  assert.equal(terminal.printfulOrderId, "9001");
+  const terminalRetry = resolveRetryDoFirst({
+    authority: terminal,
+    kvOrder: {
+      status: "failed",
+      sessionId: SESSION,
+      printfulOrderId: 9001,
+      error: "printful_order_failed:provider_canceled",
+    },
+  });
+  assert.equal(terminalRetry.action, "requires_recover");
+
+  assert.match(authoritySource, /terminalEventTypeFromKvFailureError/);
+  assert.match(authoritySource, /terminalEventType/);
+});
+
+test("AG-081 #3: seed + retry idempotent for ordinary failed mirror", async () => {
+  const authority = createSerializedAuthorityStore();
+  const mirror = { status: "failed", error: "asset_url_missing" };
+  await seedAuthorityFromKvMirror(authority, SESSION, mirror, 1);
+  await seedAuthorityFromKvMirror(authority, SESSION, mirror, 2);
+  const state = await authority.get(SESSION);
+  assert.equal(state.lifecycle, "unbound");
+  assert.equal(state.revision, 1);
+  assert.equal(state.seededFromKv, true);
+  assert.equal(resolveRetryDoFirst({ authority: state, kvOrder: mirror }).action, "submit");
 });

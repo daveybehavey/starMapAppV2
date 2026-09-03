@@ -144,6 +144,26 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
     });
   }
 
+  // AG-081: missing provider-ID index / unresolvable session — do not ACK 200.
+  // Printful must retry until the index exists or external_id becomes resolvable.
+  if (result.status === "session_unresolved") {
+    console.warn("Printful order failure session unresolved (retryable)", {
+      eventType,
+      printfulOrderId: normalizePrintfulOrderId(printfulOrderId),
+      externalId: externalId.slice(0, 64),
+      reason: result.reason,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "session_unresolved",
+        event: eventType,
+        reason: result.reason ?? "session_unresolved",
+      },
+      { status: 503 },
+    );
+  }
+
   if (result.status === "alert_failed") {
     console.warn("Printful order failure alert failed", {
       eventType,
