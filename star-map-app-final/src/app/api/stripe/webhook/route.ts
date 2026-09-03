@@ -818,7 +818,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       ...record,
       error: record.error ?? "print_order_needs_review",
       // Ordinary/nonterminal failure writers must not inherit stale terminal provenance.
-      ...(record.status === "failed" ? { terminalEventType: null as const } : {}),
+      ...(record.status === "failed" ? { terminalEventType: null } : {}),
     };
     if (!nextRecord.operatorFailureAlertedAt) {
       const alertResult = await sendPrintOrderFailureAlert(nextRecord);
