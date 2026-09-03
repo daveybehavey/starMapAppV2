@@ -81,8 +81,27 @@ export function applyPrintOrderAuthorityOp(state, op) {
         return { ok: false, state, reason: "terminal_blocks_bind" };
       }
       const now = op.now ?? Date.now();
-      if (state.lifecycle === "bound" && state.printfulOrderId) {
+      if (
+        (state.lifecycle === "bound" || state.lifecycle === "operator_recovered") &&
+        state.printfulOrderId
+      ) {
         if (state.printfulOrderId === id) {
+          if (state.lifecycle === "operator_recovered") {
+            return {
+              ok: true,
+              changed: true,
+              state: bump(
+                state,
+                {
+                  lifecycle: "bound",
+                  terminalReason: null,
+                  terminalEventType: null,
+                },
+                now,
+              ),
+              reason: "idempotent_bind",
+            };
+          }
           return { ok: true, state, changed: false, reason: "idempotent_bind" };
         }
         return { ok: false, state, reason: "conflicting_provider_id" };
@@ -164,6 +183,60 @@ export function applyPrintOrderAuthorityOp(state, op) {
           now,
         ),
       };
+    }
+    case "operator_resolve": {
+      const now = op.now ?? Date.now();
+      const explicit = normalizeAuthorityProviderOrderId(op.explicitPrintfulOrderId ?? null);
+      const bootstrap = normalizeAuthorityProviderOrderId(op.bootstrapPrintfulOrderId ?? null);
+      const existing = normalizeAuthorityProviderOrderId(state.printfulOrderId);
+
+      if (explicit && existing && explicit !== existing) {
+        return { ok: false, state, reason: "conflicting_provider_id" };
+      }
+
+      const targetId = existing ?? explicit ?? bootstrap;
+      let next = state;
+      let changed = false;
+
+      if (next.lifecycle === "terminal_failed") {
+        next = bump(
+          next,
+          {
+            lifecycle: "operator_recovered",
+            terminalReason: null,
+            terminalEventType: null,
+          },
+          now,
+        );
+        changed = true;
+      }
+
+      if (targetId) {
+        if (next.printfulOrderId === targetId && next.lifecycle === "bound") {
+          return {
+            ok: true,
+            state: next,
+            changed,
+            reason: changed ? undefined : "idempotent_operator_resolve",
+          };
+        }
+        next = bump(
+          next,
+          {
+            printfulOrderId: targetId,
+            lifecycle: "bound",
+            terminalReason: null,
+            terminalEventType: null,
+          },
+          now,
+        );
+        changed = true;
+      }
+
+      if (!changed) {
+        return { ok: true, state: next, changed: false, reason: "idempotent_operator_resolve" };
+      }
+      return { ok: true, state: next, changed: true };
     }
     default:
       return { ok: true, state, changed: false };

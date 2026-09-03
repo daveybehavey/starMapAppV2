@@ -49,6 +49,14 @@ export type PrintOrderAuthorityOp =
   | {
       type: "operator_recover";
       now?: number;
+    }
+  | {
+      type: "operator_resolve";
+      /** Explicit operator-supplied provider id (conflict-checked before lifecycle change). */
+      explicitPrintfulOrderId?: string | number | null;
+      /** KV bootstrap id — used only when authority has no provider id. */
+      bootstrapPrintfulOrderId?: string | number | null;
+      now?: number;
     };
 
 export type PrintOrderAuthorityApplyResult =
@@ -170,8 +178,28 @@ function applyBind(
     return { ok: false, state, reason: "terminal_blocks_bind" };
   }
   const now = op.now ?? Date.now();
-  if (state.lifecycle === "bound" && state.printfulOrderId) {
+  // Bound and operator_recovered both hold an authoritative provider id when set.
+  if (
+    (state.lifecycle === "bound" || state.lifecycle === "operator_recovered") &&
+    state.printfulOrderId
+  ) {
     if (state.printfulOrderId === id) {
+      if (state.lifecycle === "operator_recovered") {
+        return {
+          ok: true,
+          changed: true,
+          state: bump(
+            state,
+            {
+              lifecycle: "bound",
+              terminalReason: null,
+              terminalEventType: null,
+            },
+            now,
+          ),
+          reason: "idempotent_bind",
+        };
+      }
       return { ok: true, state, changed: false, reason: "idempotent_bind" };
     }
     return { ok: false, state, reason: "conflicting_provider_id" };
@@ -269,6 +297,72 @@ function applyOperatorRecover(
 }
 
 /**
+ * Atomic operator resolve: validate explicit id, recover terminal, and bind/return
+ * the authoritative provider id in one serialized transition.
+ */
+function applyOperatorResolve(
+  state: PrintOrderAuthorityState,
+  op: Extract<PrintOrderAuthorityOp, { type: "operator_resolve" }>,
+): PrintOrderAuthorityApplyResult {
+  const now = op.now ?? Date.now();
+  const explicit = normalizeAuthorityProviderOrderId(op.explicitPrintfulOrderId ?? null);
+  const bootstrap = normalizeAuthorityProviderOrderId(op.bootstrapPrintfulOrderId ?? null);
+  const existing = normalizeAuthorityProviderOrderId(state.printfulOrderId);
+
+  // Conflict-check BEFORE any lifecycle change.
+  if (explicit && existing && explicit !== existing) {
+    return { ok: false, state, reason: "conflicting_provider_id" };
+  }
+
+  // Preserve authoritative id when present; otherwise explicit, else KV bootstrap.
+  const targetId = existing ?? explicit ?? bootstrap;
+
+  let next = state;
+  let changed = false;
+
+  if (next.lifecycle === "terminal_failed") {
+    next = bump(
+      next,
+      {
+        lifecycle: "operator_recovered",
+        terminalReason: null,
+        terminalEventType: null,
+      },
+      now,
+    );
+    changed = true;
+  }
+
+  if (targetId) {
+    if (next.printfulOrderId === targetId && next.lifecycle === "bound") {
+      return {
+        ok: true,
+        state: next,
+        changed,
+        reason: changed ? undefined : "idempotent_operator_resolve",
+      };
+    }
+    // End state matches historical recover-then-bind: bound with authoritative id.
+    next = bump(
+      next,
+      {
+        printfulOrderId: targetId,
+        lifecycle: "bound",
+        terminalReason: null,
+        terminalEventType: null,
+      },
+      now,
+    );
+    changed = true;
+  }
+
+  if (!changed) {
+    return { ok: true, state: next, changed: false, reason: "idempotent_operator_resolve" };
+  }
+  return { ok: true, state: next, changed: true };
+}
+
+/**
  * Apply one authority operation. Deterministic and side-effect free.
  * Callers that need strong consistency must serialize applies (DO single-thread / mutex).
  */
@@ -288,6 +382,8 @@ export function applyPrintOrderAuthorityOp(
       return applyMarkTerminalFailed(state, op);
     case "operator_recover":
       return applyOperatorRecover(state, op);
+    case "operator_resolve":
+      return applyOperatorResolve(state, op);
     default: {
       const _exhaustive: never = op;
       void _exhaustive;

@@ -8,13 +8,17 @@ import {
 import {
   getPrintOrderAuthorityState,
   markPrintOrderTerminalFailed,
-  seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
 import {
   isPrintfulTerminalFailureWebhookType,
   PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES,
 } from "@/lib/printOrderAuthorityState";
-import { persistPrintOrderRecord, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
+import {
+  isValidPrintCheckoutSessionId,
+  persistPrintOrderRecord,
+  printOrderKey,
+  type PrintOrderRecord,
+} from "@/lib/printOrders";
 import {
   formatPrintfulFileFailureError,
   reviewPrintfulOrderFiles,
@@ -57,6 +61,12 @@ export async function resolvePrintfulWebhookOrderSessionId(input: {
   printfulOrderId: string | null;
   externalId: string;
 }): Promise<string | null> {
+  const externalId = input.externalId.trim();
+  // AG-074: valid checkout external_id resolves without awaiting Printful-ID KV index.
+  if (externalId && isValidPrintCheckoutSessionId(externalId)) {
+    return externalId;
+  }
+
   const indexedSessionId = input.printfulOrderId
     ? await lookupSessionIdByPrintfulOrderId(input.printfulOrderId)
     : null;
@@ -116,15 +126,8 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     };
   }
 
-  // DO-first: never gate terminal authority on KV readability.
-  const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-
-  let authority = await getPrintOrderAuthorityState(sessionId);
-  if ((!authority || authority.revision === 0) && existing) {
-    await seedPrintOrderAuthorityFromKv(sessionId, existing);
-    authority = await getPrintOrderAuthorityState(sessionId);
-  }
-
+  // DO-first / AG-074 authority-first: atomic provider-id capture + terminal transition
+  // BEFORE any KV record read / projection / seed.
   const terminal = await markPrintOrderTerminalFailed(sessionId, {
     eventType,
     reason: input.reason,
@@ -170,7 +173,10 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     printfulOrderId: terminal.state.printfulOrderId,
   };
 
-  // Authority transition succeeded. Missing KV is a degraded projection, not a lost event.
+  // Authority committed — only now may KV/review/alert projection work occur.
+  const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+
+  // Missing KV is a degraded projection, not a lost event.
   if (!existing) {
     return {
       ok: true,

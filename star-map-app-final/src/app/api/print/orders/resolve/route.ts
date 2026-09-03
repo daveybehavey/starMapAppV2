@@ -8,11 +8,13 @@ import {
   sanitizePrintOrderForOperatorResponse,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
-import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import {
-  bindPrintProviderOrderId,
+  deletePrintFulfillmentIndexIfOwned,
+  setPrintFulfillmentIndex,
+} from "@/lib/printFulfillmentIndex";
+import {
   getPrintOrderAuthorityState,
-  operatorRecoverPrintOrder,
+  operatorResolvePrintOrder,
   seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
 import { normalizeAuthorityProviderOrderId } from "@/lib/printOrderAuthorityState";
@@ -59,15 +61,6 @@ export async function POST(req: NextRequest) {
   if (!current) {
     return NextResponse.json({ ok: false, error: "print_order_authority_unread" }, { status: 503 });
   }
-  if (current.lifecycle === "terminal_failed") {
-    const recovered = await operatorRecoverPrintOrder(sessionId);
-    if (!recovered.ok) {
-      return NextResponse.json(
-        { ok: false, error: "operator_recover_failed", reason: "reason" in recovered ? recovered.reason : "unknown" },
-        { status: 503 },
-      );
-    }
-  }
 
   const rawPrintfulOrderId = payload?.printfulOrderId;
   const printfulOrderId =
@@ -79,25 +72,39 @@ export async function POST(req: NextRequest) {
 
   const note = typeof payload?.note === "string" ? payload.note.trim() : "";
   const now = Date.now();
-  // Prefer explicit operator id, then DO authority, then KV bootstrap only.
-  const resolvedProviderId =
-    normalizeAuthorityProviderOrderId(printfulOrderId) ||
-    normalizeAuthorityProviderOrderId(current.printfulOrderId) ||
-    normalizeAuthorityProviderOrderId(existing.printfulOrderId);
 
-  if (resolvedProviderId) {
-    const bind = await bindPrintProviderOrderId(sessionId, resolvedProviderId);
-    if (!bind.ok && "reason" in bind && bind.reason === "authority_unread") {
+  const explicitId = normalizeAuthorityProviderOrderId(printfulOrderId);
+  const bootstrapId = normalizeAuthorityProviderOrderId(existing.printfulOrderId);
+
+  // Single serialized authority transaction: conflict-check → recover → bind.
+  const resolved = await operatorResolvePrintOrder(sessionId, {
+    explicitPrintfulOrderId: explicitId,
+    bootstrapPrintfulOrderId: bootstrapId,
+  });
+
+  if (!resolved.ok) {
+    const reason = "reason" in resolved ? resolved.reason : "unknown";
+    if (reason === "authority_unread") {
       return NextResponse.json({ ok: false, error: "print_order_authority_unread" }, { status: 503 });
     }
-    if (!bind.ok && "reason" in bind && bind.reason === "conflicting_provider_id") {
+    if (reason === "conflicting_provider_id") {
       return NextResponse.json({ ok: false, error: "conflicting_provider_id" }, { status: 409 });
     }
+    // Any unsuccessful authority result stops before sent projection/index writes.
+    return NextResponse.json(
+      { ok: false, error: "operator_resolve_failed", reason },
+      { status: 503 },
+    );
   }
 
-  // Projection/index must use the same authoritative ID that passed bind —
-  // never recompute from raw operator input or stale KV after the fact.
-  const projectedProviderId = resolvedProviderId || undefined;
+  if (!resolved.state) {
+    return NextResponse.json({ ok: false, error: "print_order_authority_unread" }, { status: 503 });
+  }
+
+  // Projection/index only from returned authority state — never recompute from stale KV.
+  const projectedProviderId =
+    normalizeAuthorityProviderOrderId(resolved.state.printfulOrderId) || undefined;
+  const staleKvProviderId = normalizeAuthorityProviderOrderId(existing.printfulOrderId);
 
   const updated: PrintOrderRecord = {
     ...existing,
@@ -107,15 +114,37 @@ export async function POST(req: NextRequest) {
     operatorResolvedAt: now,
     operatorResolvedProvider: "manual_printful",
     operatorResolvedNote:
-      note || (printfulOrderId ? `manual_printful_order_id=${String(printfulOrderId)}` : existing.operatorResolvedNote),
+      note ||
+      (printfulOrderId
+        ? `manual_printful_order_id=${String(printfulOrderId)}`
+        : existing.operatorResolvedNote),
     error: undefined,
     webhookStatus: existing.webhookStatus,
   };
 
-  // Explicit operator path may clear a prior terminal KV mirror.
-  await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
-  if (projectedProviderId) {
-    await setPrintFulfillmentIndex(projectedProviderId, sessionId);
+  try {
+    await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
+    if (projectedProviderId) {
+      await setPrintFulfillmentIndex(projectedProviderId, sessionId);
+      if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
+        await deletePrintFulfillmentIndexIfOwned(staleKvProviderId, sessionId);
+      }
+    }
+  } catch {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "projection_repair_failed",
+        reason: "reconciliation_needed",
+        authority: {
+          lifecycle: resolved.state.lifecycle,
+          revision: resolved.state.revision,
+          printfulOrderId: resolved.state.printfulOrderId,
+        },
+      },
+      { status: 503 },
+    );
   }
+
   return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(updated) });
 }

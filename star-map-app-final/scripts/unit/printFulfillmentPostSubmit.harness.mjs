@@ -275,17 +275,7 @@ export async function applyTerminalWebhookDoFirst(input) {
     getAuthority,
   } = input;
 
-  let authority = await getAuthority(sessionId);
-  const existing = kv ? await kv.get(`print:order:${sessionId}`) : null;
-  if ((!authority || authority.revision === 0) && existing) {
-    await applyAuthorityOp(sessionId, {
-      type: "seed_from_kv",
-      kvStatus: existing.status ?? null,
-      printfulOrderId: existing.printfulOrderId ?? null,
-    });
-    authority = await getAuthority(sessionId);
-  }
-
+  // AG-074: terminal authority before any KV record read/projection.
   const terminal = await applyAuthorityOp(sessionId, {
     type: "mark_terminal_failed",
     eventType,
@@ -304,6 +294,7 @@ export async function applyTerminalWebhookDoFirst(input) {
     return { status: "authority_unread", reason: terminal.reason ?? "authority_unread", kvWritten: false };
   }
 
+  const existing = kv ? await kv.get(`print:order:${sessionId}`) : null;
   if (!existing) {
     return {
       status: "projection_missing",
@@ -476,26 +467,27 @@ export async function applyOperatorResolveProjection(input) {
     authority,
     kv,
   } = input;
-  const authState = await authority.get(sessionId);
   const existing = await kv.get(printOrderKey(sessionId));
-  const resolvedProviderId = projectOperatorResolveProviderId({
-    explicitOperatorId,
-    authorityPrintfulOrderId: authState.printfulOrderId,
-    kvPrintfulOrderId: existing?.printfulOrderId,
-  });
+  const staleKvProviderId = normalizeAuthorityProviderOrderId(existing?.printfulOrderId);
 
-  if (resolvedProviderId) {
-    const bind = await authority.apply(sessionId, {
-      type: "bind_provider_order_id",
-      printfulOrderId: resolvedProviderId,
-      now: Date.now(),
-    });
-    if (!bind.ok && bind.reason === "conflicting_provider_id") {
-      return { ok: false, reason: "conflicting_provider_id", resolvedProviderId: null };
-    }
+  const resolved = await authority.apply(sessionId, {
+    type: "operator_resolve",
+    explicitPrintfulOrderId: explicitOperatorId || null,
+    bootstrapPrintfulOrderId: existing?.printfulOrderId ?? null,
+    now: Date.now(),
+  });
+  if (!resolved.ok) {
+    return {
+      ok: false,
+      reason: resolved.reason,
+      resolvedProviderId: null,
+      authorityPrintfulOrderId: (await authority.get(sessionId)).printfulOrderId,
+      indexedSessionForStaleB: await kv.get(fulfillmentIndexKey("B")),
+    };
   }
 
-  const projectedProviderId = resolvedProviderId || undefined;
+  const projectedProviderId =
+    normalizeAuthorityProviderOrderId(resolved.state.printfulOrderId) || undefined;
   const updated = {
     ...(existing || {}),
     sessionId,
@@ -505,8 +497,13 @@ export async function applyOperatorResolveProjection(input) {
   await kv.set(printOrderKey(sessionId), updated);
   if (projectedProviderId) {
     await kv.set(fulfillmentIndexKey(projectedProviderId), sessionId);
+    if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
+      const mapped = await kv.get(fulfillmentIndexKey(staleKvProviderId));
+      if (mapped === sessionId) {
+        await kv.delete(fulfillmentIndexKey(staleKvProviderId));
+      }
+    }
   }
-  // Stale B must not remain indexed by this path when A won.
   return {
     ok: true,
     resolvedProviderId: projectedProviderId ?? null,

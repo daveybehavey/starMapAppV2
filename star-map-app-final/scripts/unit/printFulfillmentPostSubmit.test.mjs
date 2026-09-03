@@ -279,14 +279,14 @@ test("AG-018 #2: authority_unread returns retryable non-2xx from Printful webhoo
   assert.match(printfulWebhookLibSource, /status: "authority_unread"/);
 });
 
-test("source: stripe/retry use bind-before-review; resolve uses operatorRecover", () => {
+test("source: stripe/retry use bind-before-review; resolve uses atomic operatorResolve", () => {
   assert.match(postSubmitSource, /bindAcceptedPrintfulIdentityThenReview/);
   assert.match(postSubmitSource, /bindPrintProviderOrderId/);
   assert.match(postSubmitSource, /Fail closed unless bind is successful/);
   assert.match(webhookSource, /bindAcceptedPrintfulIdentityThenReview/);
   assert.match(retrySource, /bindAcceptedPrintfulIdentityThenReview/);
   assert.match(retrySource, /terminal_failed_requires_operator_recover/);
-  assert.match(resolveSource, /operatorRecoverPrintOrder/);
+  assert.match(resolveSource, /operatorResolvePrintOrder/);
   assert.match(resolveSource, /allowClearTerminalFailure:\s*true/);
 });
 
@@ -543,6 +543,8 @@ test("AG-055 #1: DO=A + stale KV=B + no explicit ID projects/indexes A (not B)",
   assert.equal(result.indexedSessionForResolved, SESSION);
   // B must not be the ID written/indexed by the resolve projection path.
   assert.notEqual(String(result.kvPrintfulOrderId), "B");
+  // Owned stale B alias must be removed (AG-074 index repair).
+  assert.equal(result.indexedSessionForStaleB, null);
 });
 
 test("AG-055 #2: explicit matching ID remains idempotent; conflict fails closed", async () => {
@@ -579,12 +581,124 @@ test("AG-055 #2: explicit matching ID remains idempotent; conflict fails closed"
   assert.equal(String((await authority.get(SESSION)).printfulOrderId), "A");
 });
 
-test("AG-055 #3: resolve route source projects resolvedProviderId (not stale KV)", () => {
-  assert.match(resolveSource, /projectedProviderId\s*=\s*resolvedProviderId/);
+test("AG-055 #3: resolve route source projects authority-returned provider id (not stale KV)", () => {
+  assert.match(resolveSource, /projectedProviderId/);
+  assert.match(resolveSource, /resolved\.state\.printfulOrderId/);
   assert.match(resolveSource, /printfulOrderId:\s*projectedProviderId/);
   assert.match(resolveSource, /setPrintFulfillmentIndex\(\s*projectedProviderId/);
+  assert.match(resolveSource, /deletePrintFulfillmentIndexIfOwned/);
   assert.doesNotMatch(
     resolveSource,
     /printfulOrderId:\s*printfulOrderId\s*\|\|\s*existing\.printfulOrderId/,
   );
+});
+
+test("AG-074 #1: terminal authority A + explicit Z conflicts before recovery; authority unchanged", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await authority.apply(SESSION, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 2,
+  });
+  const before = await authority.get(SESSION);
+  assert.equal(before.lifecycle, "terminal_failed");
+  assert.equal(String(before.printfulOrderId), "A");
+
+  const conflict = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "Z",
+    authority,
+    kv,
+  });
+  assert.equal(conflict.ok, false);
+  assert.equal(conflict.reason, "conflicting_provider_id");
+  const after = await authority.get(SESSION);
+  assert.equal(after.lifecycle, "terminal_failed");
+  assert.equal(String(after.printfulOrderId), "A");
+  assert.equal(after.revision, before.revision);
+});
+
+test("AG-074 #2: repeated operator resolve with same authority is idempotent", async () => {
+  const kv = createMemoryKv();
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  });
+  await authority.apply(SESSION, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 2,
+  });
+  await kv.set(printOrderKey(SESSION), {
+    sessionId: SESSION,
+    status: "failed",
+    printfulOrderId: "A",
+  });
+
+  const first = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(first.ok, true);
+  const mid = await authority.get(SESSION);
+  const second = await applyOperatorResolveProjection({
+    sessionId: SESSION,
+    explicitOperatorId: "",
+    authority,
+    kv,
+  });
+  assert.equal(second.ok, true);
+  const end = await authority.get(SESSION);
+  assert.equal(String(end.printfulOrderId), "A");
+  assert.equal(end.lifecycle, mid.lifecycle);
+  assert.equal(String(second.kvPrintfulOrderId), "A");
+});
+
+test("AG-074 #3: webhook with valid external_id does not await Printful-ID index", () => {
+  assert.match(printfulWebhookLibSource, /isValidPrintCheckoutSessionId\(externalId\)/);
+  assert.match(
+    printfulWebhookLibSource,
+    /valid checkout external_id resolves without awaiting Printful-ID KV index/,
+  );
+  const terminalIdx = printfulWebhookLibSource.indexOf("markPrintOrderTerminalFailed");
+  const kvGetIdx = printfulWebhookLibSource.indexOf("kv.get<PrintOrderRecord>");
+  assert.ok(terminalIdx > 0 && kvGetIdx > terminalIdx);
+});
+
+
+test("AG-074 #4: accepted Printful bind failure remains Stripe-retryable (no silent ack)", () => {
+  assert.match(webhookSource, /PrintOrderAuthorityBindError/);
+  assert.match(webhookSource, /isPrintOrderAuthorityBindError\(/);
+  assert.match(postSubmitSource, /Fail closed unless bind is successful/);
+});
+
+
+test("AG-074 #5: terminal-before-KV harness path when KV missing after authority commit", async () => {
+  const authority = createSerializedAuthorityStore();
+  await authority.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "PF-74",
+    now: 1,
+  });
+  const result = await applyTerminalWebhookDoFirst({
+    sessionId: SESSION,
+    printfulOrderId: "PF-74",
+    kv: createMemoryKv(), // empty — projection missing after terminal
+    applyAuthorityOp: (sessionId, op) => authority.apply(sessionId, op),
+    getAuthority: (sessionId) => authority.get(sessionId),
+  });
+  assert.equal(result.status, "projection_missing");
+  const auth = await authority.get(SESSION);
+  assert.equal(auth.lifecycle, "terminal_failed");
+  assert.equal(String(auth.printfulOrderId), "PF-74");
 });

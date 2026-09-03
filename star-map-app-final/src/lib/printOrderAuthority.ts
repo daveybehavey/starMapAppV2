@@ -175,6 +175,21 @@ export async function operatorRecoverPrintOrder(
   return applyAuthority(sessionId, { type: "operator_recover" });
 }
 
+/** Atomic operator resolve: conflict-check, recover terminal, bind authoritative provider id. */
+export async function operatorResolvePrintOrder(
+  sessionId: string,
+  input: {
+    explicitPrintfulOrderId?: string | number | null;
+    bootstrapPrintfulOrderId?: string | number | null;
+  } = {},
+): Promise<PrintOrderAuthorityApplyResult | { ok: false; reason: "authority_unread"; state: null }> {
+  return applyAuthority(sessionId, {
+    type: "operator_resolve",
+    explicitPrintfulOrderId: input.explicitPrintfulOrderId,
+    bootstrapPrintfulOrderId: input.bootstrapPrintfulOrderId,
+  });
+}
+
 export async function readAuthorityLifecycleForMirrorGuard(
   sessionId: string,
 ): Promise<PrintOrderAuthorityLifecycle | null | "unread"> {

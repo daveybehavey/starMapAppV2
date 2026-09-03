@@ -130,14 +130,23 @@ test("operator recover then re-bind allowed; non-operator path still blocked", (
   const recovered = applyPrintOrderAuthorityOp(state, { type: "operator_recover", now: 5 });
   assert.equal(recovered.ok, true);
   assert.equal(recovered.state.lifecycle, "operator_recovered");
-  const rebound = applyPrintOrderAuthorityOp(recovered.state, {
+  // AG-074: authoritative provider id survives recovery — conflicting re-bind fails closed.
+  const reboundConflict = applyPrintOrderAuthorityOp(recovered.state, {
     type: "bind_provider_order_id",
     printfulOrderId: 2,
     now: 6,
   });
-  assert.equal(rebound.ok, true);
-  assert.equal(rebound.state.lifecycle, "bound");
-  assert.equal(rebound.state.printfulOrderId, "2");
+  assert.equal(reboundConflict.ok, false);
+  assert.equal(reboundConflict.reason, "conflicting_provider_id");
+  assert.equal(reboundConflict.state.printfulOrderId, "1");
+  const reboundSame = applyPrintOrderAuthorityOp(recovered.state, {
+    type: "bind_provider_order_id",
+    printfulOrderId: 1,
+    now: 7,
+  });
+  assert.equal(reboundSame.ok, true);
+  assert.equal(reboundSame.state.lifecycle, "bound");
+  assert.equal(reboundSame.state.printfulOrderId, "1");
 });
 
 test("seed from KV: failed→terminal, sent+id→bound; no production mutation required", () => {
@@ -224,4 +233,104 @@ test("AG-042: already-terminal can repair missing provider id", () => {
   assert.equal(repaired.changed, true);
   assert.equal(repaired.state.printfulOrderId, "PF-REPAIR");
   assert.equal(repaired.state.lifecycle, "terminal_failed");
+});
+
+test("AG-074: operator_resolve conflicts explicit Z vs authority A before recover", () => {
+  let state = createUnboundAuthorityState("cs_test_ag074_conflict");
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  }).state;
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 2,
+  }).state;
+  const result = applyPrintOrderAuthorityOp(state, {
+    type: "operator_resolve",
+    explicitPrintfulOrderId: "Z",
+    bootstrapPrintfulOrderId: "B",
+    now: 3,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "conflicting_provider_id");
+  assert.equal(result.state.lifecycle, "terminal_failed");
+  assert.equal(result.state.printfulOrderId, "A");
+  assert.equal(result.state.revision, state.revision);
+});
+
+test("AG-074: operator_resolve recovers terminal and preserves authoritative A over bootstrap B", () => {
+  let state = createUnboundAuthorityState("cs_test_ag074_preserve");
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  }).state;
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 2,
+  }).state;
+  const result = applyPrintOrderAuthorityOp(state, {
+    type: "operator_resolve",
+    bootstrapPrintfulOrderId: "B",
+    now: 3,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.printfulOrderId, "A");
+  assert.equal(result.state.lifecycle, "bound");
+});
+
+test("AG-074: operator_resolve is idempotent for repeated same recovery", () => {
+  let state = createUnboundAuthorityState("cs_test_ag074_idem");
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "bind_provider_order_id",
+    printfulOrderId: "A",
+    now: 1,
+  }).state;
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 2,
+  }).state;
+  const first = applyPrintOrderAuthorityOp(state, {
+    type: "operator_resolve",
+    now: 3,
+  });
+  assert.equal(first.ok, true);
+  const second = applyPrintOrderAuthorityOp(first.state, {
+    type: "operator_resolve",
+    bootstrapPrintfulOrderId: "B",
+    now: 4,
+  });
+  assert.equal(second.ok, true);
+  assert.equal(second.state.printfulOrderId, "A");
+  assert.equal(second.changed, false);
+});
+
+test("AG-074: mark_terminal_failed captures provider id when unbound; conflict rejected", () => {
+  let unbound = createUnboundAuthorityState("cs_test_ag074_capture");
+  const captured = applyPrintOrderAuthorityOp(unbound, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    printfulOrderId: "PF-NEW",
+    now: 1,
+  });
+  assert.equal(captured.ok, true);
+  assert.equal(captured.state.printfulOrderId, "PF-NEW");
+
+  let bound = applyPrintOrderAuthorityOp(createUnboundAuthorityState("cs_test_ag074_term_conflict"), {
+    type: "bind_provider_order_id",
+    printfulOrderId: "PF-1",
+    now: 1,
+  }).state;
+  const conflict = applyPrintOrderAuthorityOp(bound, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    printfulOrderId: "PF-2",
+    now: 2,
+  });
+  assert.equal(conflict.ok, false);
+  assert.equal(conflict.reason, "conflicting_provider_id");
 });

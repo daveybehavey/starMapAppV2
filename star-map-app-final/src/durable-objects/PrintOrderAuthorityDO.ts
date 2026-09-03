@@ -126,6 +126,20 @@ export class PrintOrderAuthorityDO extends DurableObject {
     return this.apply(sessionId, { type: "operator_recover" });
   }
 
+  async operatorResolve(
+    sessionId: string,
+    input: {
+      explicitPrintfulOrderId?: string | number | null;
+      bootstrapPrintfulOrderId?: string | number | null;
+    } = {},
+  ) {
+    return this.apply(sessionId, {
+      type: "operator_resolve",
+      explicitPrintfulOrderId: input.explicitPrintfulOrderId,
+      bootstrapPrintfulOrderId: input.bootstrapPrintfulOrderId,
+    });
+  }
+
   async seedFromKv(
     sessionId: string,
     input: { kvStatus?: "pending" | "sent" | "failed" | null; printfulOrderId?: string | number | null },

@@ -59,3 +59,24 @@ export async function setPrintFulfillmentIndex(
   if (!isValidPrintCheckoutSessionId(sessionId)) return;
   await kv.set(printFulfillmentIndexKey(normalizedOrderId), sessionId.trim());
 }
+
+/**
+ * Remove a Printful-id → session index entry only if it still points at this session.
+ * Never deletes another session's alias.
+ */
+export async function deletePrintFulfillmentIndexIfOwned(
+  printfulOrderId: string | number,
+  sessionId: string,
+): Promise<"deleted" | "not_owned" | "missing" | "invalid"> {
+  const normalizedOrderId = normalizePrintfulOrderId(printfulOrderId);
+  if (!normalizedOrderId) return "invalid";
+  if (!isValidPrintCheckoutSessionId(sessionId)) return "invalid";
+  const key = printFulfillmentIndexKey(normalizedOrderId);
+  const current = await kv.get<string>(key);
+  if (typeof current !== "string") return "missing";
+  const trimmed = current.trim();
+  if (trimmed !== sessionId.trim()) return "not_owned";
+  await kv.deleteDurable(key);
+  return "deleted";
+}
+
