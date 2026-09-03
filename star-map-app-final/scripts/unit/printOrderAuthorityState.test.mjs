@@ -11,7 +11,6 @@ import {
   createUnboundAuthorityState,
   isPrintfulTerminalFailureWebhookType,
   PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES,
-  terminalEventTypeFromKvFailureError,
 } from "./printOrderAuthorityState.harness.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -183,20 +182,46 @@ test("seed from KV: ordinary failed stays unbound; terminal evidence → termina
   assert.equal(boundSeed.state.printfulOrderId, "55");
 });
 
-test("AG-081: terminalEventTypeFromKvFailureError only accepts provider terminal mirrors", () => {
-  assert.equal(terminalEventTypeFromKvFailureError("printful_order_failed"), "order_failed");
-  assert.equal(
-    terminalEventTypeFromKvFailureError("printful_order_failed:reason"),
-    "order_failed",
-  );
-  assert.equal(
-    terminalEventTypeFromKvFailureError("printful_order_canceled:status=canceled"),
-    "order_canceled",
-  );
-  assert.equal(terminalEventTypeFromKvFailureError("printful_submit_failed"), null);
-  assert.equal(terminalEventTypeFromKvFailureError("asset_url_missing"), null);
-  assert.equal(terminalEventTypeFromKvFailureError("printful_files_failed:x"), null);
-  assert.equal(terminalEventTypeFromKvFailureError(null), null);
+test("AG-086: seed uses explicit terminalEventType only — never error text", () => {
+  const collision = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
+    type: "seed_from_kv",
+    kvStatus: "failed",
+    // Colliding submission fallback string must NOT seed terminal without explicit field.
+    terminalEventType: null,
+    now: 2,
+  });
+  assert.equal(collision.state.lifecycle, "unbound");
+  assert.equal(collision.state.seededFromKv, true);
+
+  const explicitFailed = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
+    type: "seed_from_kv",
+    kvStatus: "failed",
+    terminalEventType: "order_failed",
+    now: 2,
+  });
+  assert.equal(explicitFailed.state.lifecycle, "terminal_failed");
+  assert.equal(explicitFailed.state.terminalEventType, "order_failed");
+
+  const explicitCanceled = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
+    type: "seed_from_kv",
+    kvStatus: "failed",
+    terminalEventType: "order_canceled",
+    now: 2,
+  });
+  assert.equal(explicitCanceled.state.lifecycle, "terminal_failed");
+  assert.equal(explicitCanceled.state.terminalEventType, "order_canceled");
+
+  // Absent/omitted terminalEventType on seed op → nonterminal (legacy handled by callers).
+  const omitted = applyPrintOrderAuthorityOp(createUnboundAuthorityState(SESSION, 1), {
+    type: "seed_from_kv",
+    kvStatus: "failed",
+    now: 2,
+  });
+  assert.equal(omitted.state.lifecycle, "unbound");
+  assert.equal(omitted.state.seededFromKv, true);
+
+  assert.doesNotMatch(stateSource, /terminalEventTypeFromKvFailureError/);
+  assert.match(stateSource, /isPrintfulTerminalFailureWebhookType/);
 });
 
 test("source wiring: DO + wrangler migration + custom worker present", () => {

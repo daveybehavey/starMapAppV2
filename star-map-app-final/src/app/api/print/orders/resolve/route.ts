@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
         ? `manual_printful_order_id=${String(printfulOrderId)}`
         : existing.operatorResolvedNote),
     error: undefined,
+    terminalEventType: null,
     webhookStatus: existing.webhookStatus,
   };
 

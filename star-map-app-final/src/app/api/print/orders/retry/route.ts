@@ -14,6 +14,7 @@ import {
   hasSufficientPrintCharge,
   isPrintOrderUnretainableError,
   isValidPrintCheckoutSessionId,
+  isLegacyAmbiguousPrintOrderFailure,
   persistPrintOrderRecord,
   printOrderKey,
   resolvePrintOrderKvWrite,
@@ -145,6 +146,8 @@ async function postRetryPrintOrder(req: NextRequest) {
     const failedRecord: PrintOrderRecord = {
       ...record,
       status: "failed",
+      // Ordinary/nonterminal failure — never inherit a stale terminal marker.
+      terminalEventType: null,
     };
     if (!failedRecord.operatorFailureAlertedAt) {
       const alertResult = await sendPrintOrderFailureAlert(failedRecord);
@@ -165,7 +168,28 @@ async function postRetryPrintOrder(req: NextRequest) {
   let authority = await getPrintOrderAuthorityState(sessionId);
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
 
-  if ((!authority || authority.revision === 0) && existing) {
+  if (!authority) {
+    return NextResponse.json(
+      { ok: false, error: "print_order_authority_unread" },
+      { status: 503 },
+    );
+  }
+
+  // AG-086: legacy failed mirrors (absent terminalEventType) fail closed while DO
+  // is revision-zero/uninitialized — do not seed terminal and do not resubmit.
+  if (authority.revision === 0 && isLegacyAmbiguousPrintOrderFailure(existing)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "reconciliation_required",
+        reason: "legacy_failure_provenance_unknown",
+        order: existing ? sanitizePrintOrderForOperatorResponse(existing) : null,
+      },
+      { status: 409 },
+    );
+  }
+
+  if (authority.revision === 0 && existing) {
     await seedPrintOrderAuthorityFromKv(sessionId, existing);
     authority = await getPrintOrderAuthorityState(sessionId);
   }
@@ -361,6 +385,7 @@ async function postRetryPrintOrder(req: NextRequest) {
       printfulOrderId: printful.orderId,
       sentAt: now,
       error: undefined,
+      terminalEventType: null,
     };
     const {
       identityPersist: sentPersist,
@@ -451,6 +476,7 @@ async function postRetryPrintOrder(req: NextRequest) {
     webhookStatus: webhookResponse.status,
     sentAt: now,
     error: undefined,
+    terminalEventType: null,
   };
   // Successful external side effect: durable state write stays outside the outbound
   // catch so KV failures cannot be rewritten as webhook failures.

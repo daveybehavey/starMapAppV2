@@ -18,6 +18,7 @@ import {
   persistPrintOrderRecord,
   printOrderKey,
   type PrintOrderRecord,
+  type PrintOrderTerminalEventType,
 } from "@/lib/printOrders";
 import {
   formatPrintfulFileFailureError,
@@ -202,11 +203,14 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     }
   }
 
+  // Explicit terminal provenance is independent of mutable `error` (file review may
+  // replace the error string with printful_files_failed:… without erasing provenance).
   const nextRecord: PrintOrderRecord = {
     ...existing,
     status: "failed",
     printfulOrderId: reviewOrderId || existing.printfulOrderId,
     error,
+    terminalEventType: eventType as PrintOrderTerminalEventType,
   };
 
   if (!nextRecord.operatorFailureAlertedAt) {

@@ -11,6 +11,7 @@ import {
   buildReviewFromStatuses,
   createMemoryKv,
   createSerializedAuthorityStore,
+  createUnboundAuthorityState,
   fulfillmentIndexKey,
   printOrderKey,
   projectOperatorResolveProviderId,
@@ -20,6 +21,9 @@ import {
   seedAuthorityFromKvMirror,
   classifyUnresolvedTerminalWebhookSession,
   simulateRecoveryBeforeStaleTerminalKvWrite,
+  isLegacyAmbiguousPrintOrderFailure,
+  terminalEventTypeForAuthoritySeed,
+  kvFailedMirrorBlocksNonterminalWrite,
 } from "./printFulfillmentPostSubmit.harness.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -885,51 +889,187 @@ test("AG-081 #1: unresolved terminal webhook stays retryable (no 200 ACK)", () =
   );
 });
 
-test("AG-081 #2: ordinary KV failed seed stays retryable; terminal error seeds terminal", async () => {
+test("AG-086 #1: ordinary submission fallback error + explicit null stays nonterminal/retryable", async () => {
   const ordinaryAuth = createSerializedAuthorityStore();
   await seedAuthorityFromKvMirror(ordinaryAuth, SESSION, {
     status: "failed",
     printfulOrderId: undefined,
-    error: "printful_submit_failed:timeout",
+    error: "printful_order_failed",
+    terminalEventType: null,
   });
   const ordinary = await ordinaryAuth.get(SESSION);
   assert.equal(ordinary.lifecycle, "unbound");
   assert.equal(ordinary.seededFromKv, true);
   const ordinaryRetry = resolveRetryDoFirst({
     authority: ordinary,
-    kvOrder: { status: "failed", sessionId: SESSION, error: "printful_submit_failed:timeout" },
-  });
-  assert.equal(ordinaryRetry.action, "submit");
-  assert.notEqual(ordinaryRetry.action, "requires_recover");
-
-  const terminalAuth = createSerializedAuthorityStore();
-  await seedAuthorityFromKvMirror(terminalAuth, SESSION, {
-    status: "failed",
-    printfulOrderId: 9001,
-    error: "printful_order_failed:provider_canceled",
-  });
-  const terminal = await terminalAuth.get(SESSION);
-  assert.equal(terminal.lifecycle, "terminal_failed");
-  assert.equal(terminal.terminalEventType, "order_failed");
-  assert.equal(terminal.printfulOrderId, "9001");
-  const terminalRetry = resolveRetryDoFirst({
-    authority: terminal,
     kvOrder: {
       status: "failed",
       sessionId: SESSION,
-      printfulOrderId: 9001,
-      error: "printful_order_failed:provider_canceled",
+      error: "printful_order_failed",
+      terminalEventType: null,
     },
   });
-  assert.equal(terminalRetry.action, "requires_recover");
-
-  assert.match(authoritySource, /terminalEventTypeFromKvFailureError/);
-  assert.match(authoritySource, /terminalEventType/);
+  assert.equal(ordinaryRetry.action, "submit");
+  assert.notEqual(ordinaryRetry.action, "requires_recover");
 });
 
-test("AG-081 #3: seed + retry idempotent for ordinary failed mirror", async () => {
+test("AG-086 #2: true order_failed/order_canceled provenance survives printful_files_failed error", async () => {
+  for (const eventType of ["order_failed", "order_canceled"]) {
+    const auth = createSerializedAuthorityStore();
+    const kv = createMemoryKv();
+    await kv.set(printOrderKey(SESSION), {
+      status: "sent",
+      sessionId: SESSION,
+      printfulOrderId: 9001,
+      terminalEventType: null,
+    });
+    const result = await applyTerminalWebhookDoFirst({
+      sessionId: SESSION,
+      eventType,
+      reason: "provider_issue",
+      printfulOrderId: 9001,
+      kv,
+      applyAuthorityOp: (sid, op) => auth.apply(sid, op),
+      getAuthority: (sid) => auth.get(sid),
+    });
+    assert.equal(result.status, "updated");
+    // Simulate optional file-review error replacement after terminal write.
+    const afterWebhook = await kv.get(printOrderKey(SESSION));
+    assert.equal(afterWebhook.terminalEventType, eventType);
+    await kv.set(printOrderKey(SESSION), {
+      ...afterWebhook,
+      error: "printful_files_failed:File download failed",
+    });
+    const mirrored = await kv.get(printOrderKey(SESSION));
+    assert.equal(mirrored.error, "printful_files_failed:File download failed");
+    assert.equal(mirrored.terminalEventType, eventType);
+
+    const seedAuth = createSerializedAuthorityStore();
+    await seedAuthorityFromKvMirror(seedAuth, `${SESSION}_${eventType}`, mirrored);
+    const seeded = await seedAuth.get(`${SESSION}_${eventType}`);
+    assert.equal(seeded.lifecycle, "terminal_failed");
+    assert.equal(seeded.terminalEventType, eventType);
+    assert.equal(
+      resolveRetryDoFirst({ authority: seeded, kvOrder: mirrored }).action,
+      "requires_recover",
+    );
+  }
+});
+
+test("AG-086 #3: legacy absent provenance cannot resubmit; status exposes reconciliation", async () => {
+  const legacy = {
+    status: "failed",
+    sessionId: SESSION,
+    error: "printful_order_failed:legacy",
+    // terminalEventType intentionally absent
+  };
+  assert.equal(isLegacyAmbiguousPrintOrderFailure(legacy), true);
+  assert.equal(terminalEventTypeForAuthoritySeed(legacy), null);
+
+  const unbound = createUnboundAuthorityState(SESSION, 1);
+  const retry = resolveRetryDoFirst({ authority: unbound, kvOrder: legacy });
+  assert.equal(retry.action, "reconciliation_required");
+  assert.equal(retry.reason, "legacy_failure_provenance_unknown");
+  assert.notEqual(retry.action, "submit");
+
+  const status = resolveStatusDoFirst({
+    authority: unbound,
+    kvOrder: legacy,
+    sessionId: SESSION,
+  });
+  assert.equal(status.reconciliationNeeded, true);
+  assert.equal(status.reason, "legacy_failure_provenance_unknown");
+
+  // Existing nonzero DO authority still wins over legacy KV ambiguity.
+  const boundAuth = createSerializedAuthorityStore();
+  await boundAuth.apply(SESSION, {
+    type: "bind_provider_order_id",
+    printfulOrderId: 42,
+    now: 2,
+  });
+  const bound = await boundAuth.get(SESSION);
+  assert.equal(bound.revision > 0, true);
+  const boundRetry = resolveRetryDoFirst({ authority: bound, kvOrder: legacy });
+  assert.equal(boundRetry.action, "already_bound");
+});
+
+test("AG-086 #4: local validation failures are explicit null; sent/operator recovery clears marker", async () => {
+  assert.match(retrySource, /terminalEventType:\s*null/);
+  assert.match(webhookSource, /terminalEventType:\s*null/);
+  assert.match(resolveSource, /terminalEventType:\s*null/);
+  assert.match(printfulWebhookLibSource, /terminalEventType:\s*eventType/);
+  assert.match(statusSource, /legacy_failure_provenance_unknown/);
+  assert.match(retrySource, /legacy_failure_provenance_unknown/);
+  assert.doesNotMatch(authoritySource, /terminalEventTypeFromKvFailureError/);
+  assert.match(authoritySource, /terminalEventTypeForAuthoritySeed/);
+
+  const recovered = projectPrintOrderWithAuthority(
+    {
+      status: "failed",
+      sessionId: SESSION,
+      printfulOrderId: 1,
+      error: "printful_order_failed",
+      terminalEventType: "order_failed",
+    },
+    {
+      sessionId: SESSION,
+      printfulOrderId: "1",
+      lifecycle: "operator_recovered",
+      terminalReason: null,
+      terminalEventType: null,
+      revision: 3,
+      updatedAt: 1,
+      seededFromKv: false,
+    },
+  );
+  assert.equal(recovered.status, "sent");
+  assert.equal(recovered.terminalEventType, null);
+  assert.equal(recovered.error, undefined);
+});
+
+test("AG-086 #5: serialization distinguishes string vs null vs absent provenance", () => {
+  const withTerminal = {
+    status: "failed",
+    sessionId: SESSION,
+    error: "printful_files_failed:x",
+    terminalEventType: "order_failed",
+  };
+  const withNull = {
+    status: "failed",
+    sessionId: SESSION,
+    error: "printful_order_failed",
+    terminalEventType: null,
+  };
+  const absent = {
+    status: "failed",
+    sessionId: SESSION,
+    error: "printful_order_failed",
+  };
+
+  const roundTrip = (value) => JSON.parse(JSON.stringify(value));
+  const rtTerminal = roundTrip(withTerminal);
+  const rtNull = roundTrip(withNull);
+  const rtAbsent = roundTrip(absent);
+
+  assert.equal(rtTerminal.terminalEventType, "order_failed");
+  assert.equal(Object.prototype.hasOwnProperty.call(rtTerminal, "terminalEventType"), true);
+  assert.equal(rtNull.terminalEventType, null);
+  assert.equal(Object.prototype.hasOwnProperty.call(rtNull, "terminalEventType"), true);
+  assert.equal(Object.prototype.hasOwnProperty.call(rtAbsent, "terminalEventType"), false);
+  assert.equal(isLegacyAmbiguousPrintOrderFailure(rtAbsent), true);
+  assert.equal(isLegacyAmbiguousPrintOrderFailure(rtNull), false);
+  assert.equal(isLegacyAmbiguousPrintOrderFailure(rtTerminal), false);
+  assert.equal(terminalEventTypeForAuthoritySeed(rtTerminal), "order_failed");
+  assert.equal(terminalEventTypeForAuthoritySeed(rtNull), null);
+  assert.equal(terminalEventTypeForAuthoritySeed(rtAbsent), null);
+  assert.equal(kvFailedMirrorBlocksNonterminalWrite(rtNull), false);
+  assert.equal(kvFailedMirrorBlocksNonterminalWrite(rtTerminal), true);
+  assert.equal(kvFailedMirrorBlocksNonterminalWrite(rtAbsent), true);
+});
+
+test("AG-086 #6: seed + retry idempotent for ordinary failed mirror with explicit null", async () => {
   const authority = createSerializedAuthorityStore();
-  const mirror = { status: "failed", error: "asset_url_missing" };
+  const mirror = { status: "failed", error: "asset_url_missing", terminalEventType: null };
   await seedAuthorityFromKvMirror(authority, SESSION, mirror, 1);
   await seedAuthorityFromKvMirror(authority, SESSION, mirror, 2);
   const state = await authority.get(SESSION);

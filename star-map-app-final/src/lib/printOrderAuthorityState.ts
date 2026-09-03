@@ -89,24 +89,6 @@ export function isPrintfulTerminalFailureWebhookType(eventType: string): boolean
   return PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES.has(eventType.trim());
 }
 
-/**
- * Derive terminal webhook type from a KV failure `error` mirror written by
- * `buildPrintfulWebhookFailureError` (`printful_order_failed…` / `printful_order_canceled…`).
- * Ordinary retry/local failure strings must return null so seed stays non-terminal.
- */
-export function terminalEventTypeFromKvFailureError(error?: string | null): string | null {
-  if (typeof error !== "string") return null;
-  const trimmed = error.trim();
-  if (!trimmed) return null;
-  if (trimmed === "printful_order_failed" || trimmed.startsWith("printful_order_failed:")) {
-    return "order_failed";
-  }
-  if (trimmed === "printful_order_canceled" || trimmed.startsWith("printful_order_canceled:")) {
-    return "order_canceled";
-  }
-  return null;
-}
-
 export function normalizeAuthorityProviderOrderId(value: string | number | null | undefined): string | null {
   if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
   if (typeof value === "string") {

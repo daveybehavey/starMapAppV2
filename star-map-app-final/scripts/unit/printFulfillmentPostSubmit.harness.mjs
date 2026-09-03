@@ -4,7 +4,6 @@ import {
   createSerializedAuthorityStore,
   createUnboundAuthorityState,
   normalizeAuthorityProviderOrderId,
-  terminalEventTypeFromKvFailureError,
 } from "./printOrderAuthorityState.harness.mjs";
 import {
   buildReviewFromStatuses,
@@ -16,6 +15,34 @@ export { buildReviewFromStatuses };
 
 export const printOrderKey = (sessionId) => `print:order:${sessionId}`;
 export const fulfillmentIndexKey = (id) => `print:fulfillment:by-printful:${id}`;
+
+export function isExplicitPrintOrderTerminalEventType(value) {
+  return value === "order_failed" || value === "order_canceled";
+}
+
+export function isLegacyAmbiguousPrintOrderFailure(record) {
+  if (!record || record.status !== "failed") return false;
+  return !Object.prototype.hasOwnProperty.call(record, "terminalEventType");
+}
+
+export function terminalEventTypeForAuthoritySeed(kvMirror) {
+  if (kvMirror?.status !== "failed") return null;
+  if (isExplicitPrintOrderTerminalEventType(kvMirror.terminalEventType)) {
+    return kvMirror.terminalEventType;
+  }
+  return null;
+}
+
+export function kvFailedMirrorBlocksNonterminalWrite(existing) {
+  if (!existing || existing.status !== "failed") return false;
+  if (
+    Object.prototype.hasOwnProperty.call(existing, "terminalEventType") &&
+    existing.terminalEventType === null
+  ) {
+    return false;
+  }
+  return true;
+}
 
 export function createMemoryKv() {
   const map = new Map();
@@ -39,7 +66,7 @@ async function persistPrintOrderRecord(kv, authority, sessionId, record, options
       return { outcome: "rejected_terminal_failure" };
     }
     const existing = await kv.get(printOrderKey(sessionId));
-    if (existing?.status === "failed") {
+    if (kvFailedMirrorBlocksNonterminalWrite(existing)) {
       return { outcome: "rejected_terminal_failure" };
     }
   }
@@ -240,6 +267,11 @@ export function projectPrintOrderWithAuthority(kvRecord, authority) {
       ...kvRecord,
       status: "failed",
       printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+      terminalEventType:
+        authority.terminalEventType === "order_failed" ||
+        authority.terminalEventType === "order_canceled"
+          ? authority.terminalEventType
+          : kvRecord.terminalEventType,
     };
   }
   if (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") {
@@ -255,7 +287,9 @@ export function projectPrintOrderWithAuthority(kvRecord, authority) {
       ...kvRecord,
       status: nextStatus,
       printfulOrderId: providerId ?? kvRecord.printfulOrderId,
-      ...(recoveredFromStaleFailure || boundButPendingProjection ? { error: undefined } : {}),
+      ...(recoveredFromStaleFailure || boundButPendingProjection
+        ? { error: undefined, terminalEventType: null }
+        : {}),
     };
   }
   return {
@@ -311,6 +345,8 @@ export async function applyTerminalWebhookDoFirst(input) {
     status: "failed",
     printfulOrderId: printfulOrderId || terminal.state.printfulOrderId || existing.printfulOrderId,
     error: reason,
+    // Explicit provenance survives optional later error rewrite (AG-086).
+    terminalEventType: eventType,
   });
   return {
     status: "updated",
@@ -329,6 +365,15 @@ export function inferAuthorityOnlyOrderStatus(authority) {
 /** Status DO-first when KV missing. */
 export function resolveStatusDoFirst({ authority, kvOrder, sessionId }) {
   if (!authority) return { ok: false, error: "print_order_authority_unread", httpStatus: 503 };
+  if (authority.revision === 0 && isLegacyAmbiguousPrintOrderFailure(kvOrder)) {
+    return {
+      ok: true,
+      reconciliationNeeded: true,
+      reason: "legacy_failure_provenance_unknown",
+      order: kvOrder,
+      httpStatus: 200,
+    };
+  }
   if (!kvOrder) {
     if (authority.revision === 0 && authority.lifecycle === "unbound") {
       return { ok: false, error: "Not found", httpStatus: 404 };
@@ -357,6 +402,14 @@ export function resolveStatusDoFirst({ authority, kvOrder, sessionId }) {
 /** Retry DO-first: never resubmit when authority exists without KV. */
 export function resolveRetryDoFirst({ authority, kvOrder }) {
   if (!authority) return { action: "unread", httpStatus: 503 };
+  // AG-086: legacy absent provenance while DO uninitialized → reconciliation, no resubmit.
+  if (authority.revision === 0 && isLegacyAmbiguousPrintOrderFailure(kvOrder)) {
+    return {
+      action: "reconciliation_required",
+      reason: "legacy_failure_provenance_unknown",
+      httpStatus: 409,
+    };
+  }
   if (!kvOrder) {
     if (authority.revision > 0 || authority.lifecycle !== "unbound") {
       return {
@@ -421,6 +474,7 @@ export async function simulateRecoveryBeforeStaleTerminalKvWrite(input) {
     sessionId,
     printfulOrderId: 9001,
     operatorResolvedAt: 3,
+    terminalEventType: null,
   });
 
   // Stale terminal KV write still lands (TOCTOU) — must be harmless for DO readers.
@@ -571,17 +625,13 @@ export function classifyUnresolvedTerminalWebhookSession(sessionId) {
   return { ok: true, status: "continue", httpStatus: 200 };
 }
 
-/** AG-081: seed mirror uses the same terminal-evidence gate as production. */
+/** AG-086: seed mirror uses explicit KV terminalEventType only — never error text. */
 export async function seedAuthorityFromKvMirror(authority, sessionId, kvMirror, now = Date.now()) {
-  const terminalEventType =
-    kvMirror?.status === "failed"
-      ? terminalEventTypeFromKvFailureError(kvMirror.error ?? null)
-      : null;
   return authority.apply(sessionId, {
     type: "seed_from_kv",
     kvStatus: kvMirror?.status ?? null,
     printfulOrderId: kvMirror?.printfulOrderId ?? null,
-    terminalEventType,
+    terminalEventType: terminalEventTypeForAuthoritySeed(kvMirror),
     now,
   });
 }
@@ -590,5 +640,4 @@ export {
   createSerializedAuthorityStore,
   createUnboundAuthorityState,
   applyPrintOrderAuthorityOp,
-  terminalEventTypeFromKvFailureError,
 };

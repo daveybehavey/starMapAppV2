@@ -817,6 +817,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const nextRecord: PrintOrderRecord = {
       ...record,
       error: record.error ?? "print_order_needs_review",
+      // Ordinary/nonterminal failure writers must not inherit stale terminal provenance.
+      ...(record.status === "failed" ? { terminalEventType: null as const } : {}),
     };
     if (!nextRecord.operatorFailureAlertedAt) {
       const alertResult = await sendPrintOrderFailureAlert(nextRecord);
@@ -1012,6 +1014,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         printfulOrderId: printfulResult.orderId,
         sentAt: Date.now(),
         error: undefined,
+        terminalEventType: null,
       };
       // Bind DO identity (+ KV/index) before optional file review/alerts.
       const {
@@ -1098,6 +1101,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       printfulOrderId: printfulResult.orderId,
       sentAt: Date.now(),
       error: undefined,
+      terminalEventType: null,
     };
     // Bind DO identity (+ KV/index) before optional file review/alerts.
     const {
@@ -1187,6 +1191,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       webhookStatus: webhookResponse.status,
       sentAt: Date.now(),
       error: undefined,
+      terminalEventType: null,
     });
     if (sentPersist.outcome === "deleted_unretainable") {
       console.error("Alternate fulfillment webhook succeeded but durable record unretainable", {

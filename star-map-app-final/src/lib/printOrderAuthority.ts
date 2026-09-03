@@ -10,13 +10,15 @@ import {
   applyPrintOrderAuthorityOp,
   authorityLifecycleBlocksNonterminalMirror,
   createUnboundAuthorityState,
-  terminalEventTypeFromKvFailureError,
   type PrintOrderAuthorityApplyResult,
   type PrintOrderAuthorityLifecycle,
   type PrintOrderAuthorityOp,
   type PrintOrderAuthorityState,
 } from "@/lib/printOrderAuthorityState";
-import type { PrintOrderRecord } from "@/lib/printOrders";
+import {
+  terminalEventTypeForAuthoritySeed,
+  type PrintOrderRecord,
+} from "@/lib/printOrders";
 
 type AuthorityNamespace = {
   idFromName(name: string): DurableObjectId;
@@ -140,18 +142,16 @@ export async function seedPrintOrderAuthorityFromKv(
   kvMirror: {
     status?: PrintOrderRecord["status"] | null;
     printfulOrderId?: string | number | null;
+    /** Explicit KV provenance only — never infer from `error` (AG-086). */
+    terminalEventType?: PrintOrderRecord["terminalEventType"];
     error?: string | null;
   } | null,
 ): Promise<PrintOrderAuthorityApplyResult | { ok: false; reason: "authority_unread"; state: null }> {
-  const terminalEventType =
-    kvMirror?.status === "failed"
-      ? terminalEventTypeFromKvFailureError(kvMirror.error ?? null)
-      : null;
   return applyAuthority(sessionId, {
     type: "seed_from_kv",
     kvStatus: kvMirror?.status ?? null,
     printfulOrderId: kvMirror?.printfulOrderId ?? null,
-    terminalEventType,
+    terminalEventType: terminalEventTypeForAuthoritySeed(kvMirror),
   });
 }
 
@@ -254,6 +254,12 @@ export function projectPrintOrderWithAuthority(
       ...kvRecord,
       status: "failed",
       printfulOrderId: providerId ?? kvRecord.printfulOrderId,
+      // Prefer authoritative DO event type when KV provenance is missing/stale.
+      terminalEventType:
+        authority.terminalEventType === "order_failed" ||
+        authority.terminalEventType === "order_canceled"
+          ? authority.terminalEventType
+          : kvRecord.terminalEventType,
     };
   }
 
@@ -271,7 +277,9 @@ export function projectPrintOrderWithAuthority(
       ...kvRecord,
       status: nextStatus,
       printfulOrderId: providerId ?? kvRecord.printfulOrderId,
-      ...(recoveredFromStaleFailure || boundButPendingProjection ? { error: undefined } : {}),
+      ...(recoveredFromStaleFailure || boundButPendingProjection
+        ? { error: undefined, terminalEventType: null }
+        : {}),
     };
   }
 
