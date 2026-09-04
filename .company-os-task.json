@@ -1,0 +1,14 @@
+{
+  "id": "b3fd8786-e7b3-4b38-ab7a-f63b080ba504",
+  "title": "Expose read-only JSON health endpoint for capture surfaces",
+  "description": "The measurement lane needs confidence that email capture and attribution entry points stay wired after deploys. Add a public, read-only route such as `GET /api/health/capture-sources` that returns JSON listing the active capture surfaces (e.g. homepage promo signup, homepage promo jump CTA, editor promo invite) with stable route identifiers—no PII, payments, or secrets.\n\n— proposed by briefing agent on 2026-04-17T23:21:53.430Z",
+  "area": "measurement",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "GET `/api/health/capture-sources` on the deployed site returns HTTP 200, `Content-Type` includes `application/json`, and the parsed JSON includes a non-empty array field (e.g. `sources`) with at least three objects each having a `id` string and `path` string.",
+  "testPlan": "Use an HTTP GET (curl or the tester runner) against production or preview URL and assert status, content-type, and JSON shape.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-18T00:57:26.909Z",
+  "createdAt": "2026-04-17T23:21:53.992Z",
+  "updatedAt": "2026-04-18T00:57:26.909Z"
+}
