@@ -1,0 +1,13 @@
+{
+  "id": "f1661172-7e40-4607-b9fe-34966e3d2f52",
+  "title": "[TEST] notify:e2e task",
+  "description": "End-to-end Slack from API route",
+  "risk": "medium",
+  "status": "claimed",
+  "acceptanceCriteria": "Slack shows New task proposed (min 10 chars).",
+  "testPlan": "npm run notify:e2e",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-19T17:53:02.994Z",
+  "createdAt": "2026-04-19T17:52:39.416Z",
+  "updatedAt": "2026-04-19T17:53:02.994Z"
+}
