@@ -792,13 +792,14 @@ test("most-gifts/orders/files matcher catches subject-substitution frequency cla
   }
 });
 
-test("HomeOfferStack digital plans no longer generalize most gifts", () => {
+test("HomeOfferStack digital options stay factual and omit the unused subscription choice", () => {
   const source = readSrc("components/HomeOfferStack.tsx");
   assert.doesNotMatch(source, MOST_GIFTS_ORDERS_FILES_PATTERN);
   assert.doesNotMatch(source, /covers most single-map gifts/i);
   assert.doesNotMatch(source, /not most one-off gifts/i);
   assert.match(source, /One finished file unlocks a single map/);
-  assert.match(source, /Built for ongoing exports across many maps/);
+  assert.match(source, /Start with the one-time HD checkout unless you know you need multiple exports/);
+  assert.doesNotMatch(source, /home-plan-subscription/);
 });
 
 test("product-superiority matcher catches reviewed offer-surface claims", () => {
