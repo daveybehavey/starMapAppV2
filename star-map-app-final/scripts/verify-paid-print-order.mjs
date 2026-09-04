@@ -74,7 +74,13 @@ if (printfulToken && order?.printfulOrderId) {
   }
 }
 
-const fileFailures = printful?.fileStatuses?.filter((f) => f.status && f.status !== "ok") ?? [];
+const fileFailures =
+  printful?.fileStatuses?.filter((f) => f.status && String(f.status).trim().toLowerCase() === "failed") ?? [];
+const filePending =
+  printful?.fileStatuses?.filter((f) => {
+    const s = f.status ? String(f.status).trim().toLowerCase() : "";
+    return s && s !== "ok" && s !== "failed";
+  }) ?? [];
 const fulfillmentOk =
   session.payment_status === "paid" &&
   order?.status === "sent" &&
@@ -118,7 +124,9 @@ console.log(
       notes:
         fileFailures.length > 0
           ? "Printful accepted the order but one or more print files failed validation — use --asset proof in create-qa-ops-checkout.mjs for real fulfillment."
-          : undefined,
+          : filePending.length > 0
+            ? "Printful file status is waiting/unknown (pending) — not treated as confirmed failure."
+            : undefined,
     },
     null,
     2,

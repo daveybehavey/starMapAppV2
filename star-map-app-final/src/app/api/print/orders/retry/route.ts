@@ -14,6 +14,7 @@ import {
   hasSufficientPrintCharge,
   isPrintOrderUnretainableError,
   isValidPrintCheckoutSessionId,
+  isLegacyAmbiguousPrintOrderFailure,
   persistPrintOrderRecord,
   printOrderKey,
   resolvePrintOrderKvWrite,
@@ -21,9 +22,14 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
+import {
+  getPrintOrderAuthorityState,
+  projectPrintOrderWithAuthority,
+  seedPrintOrderAuthorityFromKv,
+} from "@/lib/printOrderAuthority";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 
 export const runtime = "nodejs";
@@ -140,6 +146,8 @@ async function postRetryPrintOrder(req: NextRequest) {
     const failedRecord: PrintOrderRecord = {
       ...record,
       status: "failed",
+      // Ordinary/nonterminal failure — never inherit a stale terminal marker.
+      terminalEventType: null,
     };
     if (!failedRecord.operatorFailureAlertedAt) {
       const alertResult = await sendPrintOrderFailureAlert(failedRecord);
@@ -156,10 +164,96 @@ async function postRetryPrintOrder(req: NextRequest) {
     return failedRecord;
   };
 
+  // DO-first: authority presence with missing KV must never resubmit to Printful.
+  let authority = await getPrintOrderAuthorityState(sessionId);
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+
+  if (!authority) {
+    return NextResponse.json(
+      { ok: false, error: "print_order_authority_unread" },
+      { status: 503 },
+    );
+  }
+
+  // AG-086: legacy failed mirrors (absent terminalEventType) fail closed while DO
+  // is revision-zero/uninitialized — do not seed terminal and do not resubmit.
+  if (authority.revision === 0 && isLegacyAmbiguousPrintOrderFailure(existing)) {
+    const legacyOrder = existing
+      ? sanitizePrintOrderForOperatorResponse(existing)
+      : null;
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "reconciliation_required",
+        reason: "legacy_failure_provenance_unknown",
+        order: legacyOrder,
+      },
+      { status: 409 },
+    );
+  }
+
+  if (authority.revision === 0 && existing) {
+    await seedPrintOrderAuthorityFromKv(sessionId, existing);
+    authority = await getPrintOrderAuthorityState(sessionId);
+  }
+
+  if (!authority) {
+    return NextResponse.json(
+      { ok: false, error: "print_order_authority_unread" },
+      { status: 503 },
+    );
+  }
+
   if (!existing) {
+    if (authority.revision > 0 || authority.lifecycle !== "unbound") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "reconciliation_required",
+          reason: "projection_missing",
+          authority: {
+            lifecycle: authority.lifecycle,
+            revision: authority.revision,
+            printfulOrderId: authority.printfulOrderId,
+          },
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ ok: false, error: "Print order not found" }, { status: 404 });
   }
+
+  if (authority.lifecycle === "terminal_failed") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "terminal_failed_requires_operator_recover",
+        order: sanitizePrintOrderForOperatorResponse(projectPrintOrderWithAuthority(existing, authority)),
+      },
+      { status: 409 },
+    );
+  }
+  if (
+    (authority.lifecycle === "bound" || authority.lifecycle === "operator_recovered") &&
+    authority.printfulOrderId
+  ) {
+    // DO provider id is authoritative; repair stale KV/index before acknowledging.
+    // Includes operator_recovered so a stale KV failed/pending cannot trigger resubmit.
+    const boundOrder = projectPrintOrderWithAuthority(existing, authority);
+    assertPrintOrderRetained(
+      await persistPrintOrderRecord(sessionId, boundOrder, { allowClearTerminalFailure: true }),
+    );
+    await setPrintFulfillmentIndex(authority.printfulOrderId, sessionId);
+    void sendPrintOrderConfirmation(sessionId).catch((error) => {
+      console.warn("Print confirmation email failed on already_bound retry", { sessionId, error });
+    });
+    return NextResponse.json({
+      ok: true,
+      status: "already_bound",
+      order: sanitizePrintOrderForOperatorResponse(boundOrder),
+    });
+  }
+
   if (existing.status === "sent") {
     if (!existing.operatorAlertedAt) {
       const alertResult = await sendPrintOrderApprovalAlert(existing);
@@ -294,13 +388,21 @@ async function postRetryPrintOrder(req: NextRequest) {
       printfulOrderId: printful.orderId,
       sentAt: now,
       error: undefined,
+      terminalEventType: null,
     };
-    sent = printful.orderId ? await applyPrintfulPostSubmitReview(sent) : sent;
-    const sentPersist = await persistPrintOrderRecord(sessionId, sent);
-    if (sentPersist.outcome === "deleted_unretainable") {
-      if (sent.printfulOrderId) {
-        await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
-      }
+    const {
+      identityPersist: sentPersist,
+      record: reviewed,
+      bindOk,
+      bindBlockedByTerminal,
+      bindFailureReason,
+    } = await bindAcceptedPrintfulIdentityThenReview({
+      sessionId,
+      sentRecord: sent,
+      existingKv: hydrated,
+    });
+    sent = reviewed;
+    if (sentPersist?.outcome === "deleted_unretainable") {
       return NextResponse.json(
         {
           ok: false,
@@ -312,8 +414,27 @@ async function postRetryPrintOrder(req: NextRequest) {
         { status: 409 },
       );
     }
-    if (sent.printfulOrderId) {
-      await setPrintFulfillmentIndex(sent.printfulOrderId, sessionId);
+    if (!bindOk || bindBlockedByTerminal || bindFailureReason) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: bindFailureReason ?? "terminal_failed_blocks_sent_mirror",
+          providerAccepted: true,
+          printfulOrderId: sent.printfulOrderId ?? null,
+        },
+        { status: bindFailureReason === "authority_unread" ? 503 : 409 },
+      );
+    }
+    if (sentPersist?.outcome === "rejected_terminal_failure") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "terminal_failed_blocks_sent_mirror",
+          providerAccepted: true,
+          printfulOrderId: sent.printfulOrderId ?? null,
+        },
+        { status: 409 },
+      );
     }
     void sendPrintOrderConfirmation(sessionId).catch((error) => {
       console.warn("Print confirmation email failed after retry", { sessionId, error });
@@ -358,6 +479,7 @@ async function postRetryPrintOrder(req: NextRequest) {
     webhookStatus: webhookResponse.status,
     sentAt: now,
     error: undefined,
+    terminalEventType: null,
   };
   // Successful external side effect: durable state write stays outside the outbound
   // catch so KV failures cannot be rewritten as webhook failures.

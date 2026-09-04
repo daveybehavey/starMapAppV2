@@ -32,9 +32,12 @@ import {
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
-import { applyPrintfulPostSubmitReview } from "@/lib/printFulfillmentPostSubmit";
+import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
+import {
+  isPrintOrderAuthorityBindError,
+  PrintOrderAuthorityBindError,
+} from "@/lib/printOrderAuthority";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
-import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import {
   applyCheckoutRecoveryDeliveredSessionFields,
   buildCheckoutRecoveryAttemptRecord,
@@ -814,6 +817,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     const nextRecord: PrintOrderRecord = {
       ...record,
       error: record.error ?? "print_order_needs_review",
+      // Ordinary/nonterminal failure writers must not inherit stale terminal provenance.
+      ...(record.status === "failed" ? { terminalEventType: null } : {}),
     };
     if (!nextRecord.operatorFailureAlertedAt) {
       const alertResult = await sendPrintOrderFailureAlert(nextRecord);
@@ -1009,17 +1014,23 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         printfulOrderId: printfulResult.orderId,
         sentAt: Date.now(),
         error: undefined,
+        terminalEventType: null,
       };
-      const reviewedRecord = printfulResult.orderId
-        ? await applyPrintfulPostSubmitReview(sentRecord)
-        : sentRecord;
-      const sentPersist = await persistPrintOrderRecord(session.id, reviewedRecord);
-      if (sentPersist.outcome === "deleted_unretainable") {
-        // Provider already accepted. Index for webhook correlation, then throw so the
+      // Bind DO identity (+ KV/index) before optional file review/alerts.
+      const {
+        identityPersist: sentPersist,
+        record: reviewedRecord,
+        bindOk,
+        bindBlockedByTerminal,
+        bindFailureReason,
+      } = await bindAcceptedPrintfulIdentityThenReview({
+        sessionId: session.id,
+        sentRecord,
+        existingKv: payload,
+      });
+      if (sentPersist?.outcome === "deleted_unretainable") {
+        // Provider already accepted. Index is written inside the helper; throw so the
         // outer handler writes event dedupe before any further work (tight crash window).
-        if (reviewedRecord.printfulOrderId) {
-          await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
-        }
         console.error("Print order sent but durable record unretainable after provider success", {
           sessionId: session.id,
           reason: sentPersist.reason,
@@ -1027,12 +1038,27 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         });
         throw new PrintOrderUnretainableError(sentPersist.reason);
       }
-      if (reviewedRecord.printfulOrderId) {
-        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+      if (
+        bindOk &&
+        sentPersist?.outcome === "persisted" &&
+        !bindBlockedByTerminal &&
+        !bindFailureReason
+      ) {
+        void sendPrintOrderConfirmation(session.id).catch((error) => {
+          console.warn("Print confirmation email failed", { sessionId: session.id, error });
+        });
       }
-      void sendPrintOrderConfirmation(session.id).catch((error) => {
-        console.warn("Print confirmation email failed", { sessionId: session.id, error });
-      });
+      if (!bindOk || bindBlockedByTerminal || bindFailureReason) {
+        // Provider already accepted — do not finalize Stripe dedupe while DO bind is unbound/conflicted/unread.
+        console.error("Print order provider accepted but authority bind failed; leaving Stripe event retryable", {
+          sessionId: session.id,
+          bindFailureReason: bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+          printfulOrderId: reviewedRecord.printfulOrderId ?? null,
+        });
+        throw new PrintOrderAuthorityBindError(
+          bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+        );
+      }
     }
     return;
   }
@@ -1075,17 +1101,23 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       printfulOrderId: printfulResult.orderId,
       sentAt: Date.now(),
       error: undefined,
+      terminalEventType: null,
     };
-    const reviewedRecord = printfulResult.orderId
-      ? await applyPrintfulPostSubmitReview(sentRecord)
-      : sentRecord;
-    const sentPersist = await persistPrintOrderRecord(session.id, reviewedRecord);
-    if (sentPersist.outcome === "deleted_unretainable") {
-      // Provider already accepted. Index, then throw so event dedupe is written
-      // immediately in the outer handler (no remint; no silent soft-return gap).
-      if (reviewedRecord.printfulOrderId) {
-        await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
-      }
+    // Bind DO identity (+ KV/index) before optional file review/alerts.
+    const {
+      identityPersist: sentPersist,
+      record: reviewedRecord,
+      bindOk,
+      bindBlockedByTerminal,
+      bindFailureReason,
+    } = await bindAcceptedPrintfulIdentityThenReview({
+      sessionId: session.id,
+      sentRecord,
+      existingKv: payload,
+    });
+    if (sentPersist?.outcome === "deleted_unretainable") {
+      // Provider already accepted. Index is written inside the helper; throw so event
+      // dedupe is written immediately in the outer handler (no remint soft-return gap).
       console.error("Print order sent but durable record unretainable after provider success", {
         sessionId: session.id,
         reason: sentPersist.reason,
@@ -1093,12 +1125,27 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       });
       throw new PrintOrderUnretainableError(sentPersist.reason);
     }
-    if (reviewedRecord.printfulOrderId) {
-      await setPrintFulfillmentIndex(reviewedRecord.printfulOrderId, session.id);
+    if (
+      bindOk &&
+      sentPersist?.outcome === "persisted" &&
+      !bindBlockedByTerminal &&
+      !bindFailureReason
+    ) {
+      void sendPrintOrderConfirmation(session.id).catch((error) => {
+        console.warn("Print confirmation email failed", { sessionId: session.id, error });
+      });
     }
-    void sendPrintOrderConfirmation(session.id).catch((error) => {
-      console.warn("Print confirmation email failed", { sessionId: session.id, error });
-    });
+    if (!bindOk || bindBlockedByTerminal || bindFailureReason) {
+      // Provider already accepted — do not finalize Stripe dedupe while DO bind is unbound/conflicted/unread.
+      console.error("Print order provider accepted but authority bind failed; leaving Stripe event retryable", {
+        sessionId: session.id,
+        bindFailureReason: bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+        printfulOrderId: reviewedRecord.printfulOrderId ?? null,
+      });
+      throw new PrintOrderAuthorityBindError(
+        bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
+      );
+    }
   }
 
   if (!printFulfillmentWebhookUrl) return;
@@ -1144,6 +1191,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       webhookStatus: webhookResponse.status,
       sentAt: Date.now(),
       error: undefined,
+      terminalEventType: null,
     });
     if (sentPersist.outcome === "deleted_unretainable") {
       console.error("Alternate fulfillment webhook succeeded but durable record unretainable", {
@@ -1408,6 +1456,15 @@ export async function POST(req: Request) {
         }
         // Durable print-order persistence failure must not finalize dedupe — Stripe
         // redelivery must be able to queue the paid order again.
+        if (isPrintOrderAuthorityBindError(error)) {
+          // Provider accepted but DO bind unread/conflicted — Stripe must retry; do not finalize dedupe.
+          console.error("Print order authority bind failed after provider accept; Stripe event remains retryable", {
+            sessionId: session.id,
+            reason: error.reason,
+          });
+          completedCheckoutRetryable = true;
+          break;
+        }
         if (isDurableKvPersistenceError(error)) {
           completedCheckoutRetryable = true;
           break;

@@ -3,6 +3,9 @@ import type { PrintVariant } from "@/lib/pricing";
 import type { MerchFamilyId } from "@/lib/merchCatalog";
 import { kv } from "@/lib/kv";
 
+/** Explicit provider terminal provenance on a KV failure mirror (AG-086). */
+export type PrintOrderTerminalEventType = "order_failed" | "order_canceled";
+
 export type PrintOrderRecord = {
   status: "pending" | "sent" | "failed";
   sessionId: string;
@@ -58,8 +61,73 @@ export type PrintOrderRecord = {
   shippingNotificationMessageId?: string;
   shippingNotificationError?: string;
   error?: string;
+  /**
+   * Explicit failure provenance for authority seed (AG-086). Never infer from `error`.
+   * - `"order_failed"` / `"order_canceled"`: true Printful terminal webhook
+   * - `null`: explicitly known nonterminal / retryable failure
+   * - absent/`undefined`: legacy ambiguous failed record — fail closed until operator resolution
+   */
+  terminalEventType?: PrintOrderTerminalEventType | null;
   createdAt: number;
 };
+
+export function isExplicitPrintOrderTerminalEventType(
+  value: unknown,
+): value is PrintOrderTerminalEventType {
+  return value === "order_failed" || value === "order_canceled";
+}
+
+/**
+ * Legacy failed KV mirrors lack `terminalEventType` entirely (not even `null`).
+ * Must not auto-seed terminal or allow provider resubmit while DO is uninitialized.
+ */
+export function isLegacyAmbiguousPrintOrderFailure(
+  record:
+    | {
+        status?: string | null;
+        terminalEventType?: PrintOrderTerminalEventType | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!record || record.status !== "failed") return false;
+  return !Object.prototype.hasOwnProperty.call(record, "terminalEventType");
+}
+
+/**
+ * Authority seed evidence from the explicit KV field only — never from `error` text.
+ * Explicit terminal strings seed `terminal_failed`; explicit `null` and legacy absent
+ * both yield no terminal evidence (callers must separately fail-closed on legacy).
+ */
+export function terminalEventTypeForAuthoritySeed(
+  kvMirror:
+    | {
+        status?: PrintOrderRecord["status"] | null;
+        terminalEventType?: PrintOrderTerminalEventType | null;
+      }
+    | null
+    | undefined,
+): PrintOrderTerminalEventType | null {
+  if (kvMirror?.status !== "failed") return null;
+  if (isExplicitPrintOrderTerminalEventType(kvMirror.terminalEventType)) {
+    return kvMirror.terminalEventType;
+  }
+  return null;
+}
+
+/** Unbound KV self-check: only explicit nonterminal (`null`) may be overwritten. */
+export function kvFailedMirrorBlocksNonterminalWrite(
+  existing: Pick<PrintOrderRecord, "status" | "terminalEventType"> | null | undefined,
+): boolean {
+  if (!existing || existing.status !== "failed") return false;
+  if (
+    Object.prototype.hasOwnProperty.call(existing, "terminalEventType") &&
+    existing.terminalEventType === null
+  ) {
+    return false;
+  }
+  return true;
+}
 
 export const printOrderKey = (sessionId: string) => `print:order:${sessionId}`;
 const PRINT_CHECKOUT_SESSION_ID_REGEX = /^cs_(?:test|live)_[A-Za-z0-9_]+$/;
@@ -154,10 +222,19 @@ export function resolvePrintOrderKvWrite(
   return { action: "persist", ttlSeconds: remainingSeconds };
 }
 
+export type PersistPrintOrderOptions = {
+  /**
+   * Explicit operator resolve/recover may clear a terminal failure mirror.
+   * Ordinary nonterminal writers must leave this unset/false.
+   */
+  allowClearTerminalFailure?: boolean;
+};
+
 /** Explicit durable write outcome — callers must not treat delete as silent success. */
 export type PersistPrintOrderResult =
   | { outcome: "persisted"; ttlSeconds: number }
-  | { outcome: "deleted_unretainable"; reason: "malformed_created_at" | "expired_or_below_min_ttl" };
+  | { outcome: "deleted_unretainable"; reason: "malformed_created_at" | "expired_or_below_min_ttl" }
+  | { outcome: "rejected_terminal_failure" };
 
 export type PrintOrderUnretainableReason = Extract<
   PersistPrintOrderResult,
@@ -199,9 +276,11 @@ export function classifyPrintOrderUnretainableReason(createdAt: unknown): PrintO
 export function assertPrintOrderRetained(
   result: PersistPrintOrderResult,
 ): asserts result is Extract<PersistPrintOrderResult, { outcome: "persisted" }> {
-  if (result.outcome !== "persisted") {
-    throw new PrintOrderUnretainableError(result.reason);
+  if (result.outcome === "persisted") return;
+  if (result.outcome === "rejected_terminal_failure") {
+    throw new Error("print_order_rejected_terminal_failure");
   }
+  throw new PrintOrderUnretainableError(result.reason);
 }
 
 /**
@@ -222,6 +301,7 @@ export function resolvePrintOrderCreatedAt(
 export async function persistPrintOrderRecord(
   sessionId: string,
   record: PrintOrderRecord,
+  options?: PersistPrintOrderOptions,
 ): Promise<PersistPrintOrderResult> {
   const key = printOrderKey(sessionId);
   const plan = resolvePrintOrderKvWrite(record.createdAt);
@@ -236,6 +316,28 @@ export async function persistPrintOrderRecord(
       reason: classifyPrintOrderUnretainableReason(record.createdAt),
     };
   }
+
+  // Authority-backed guard: nonterminal KV mirrors must not clear terminal failure.
+  // The Durable Object is authoritative; KV remains a projection.
+  if (record.status !== "failed" && !options?.allowClearTerminalFailure) {
+    const { readAuthorityLifecycleForMirrorGuard, shouldRejectNonterminalKvMirror } =
+      await import("@/lib/printOrderAuthority");
+    const lifecycle = await readAuthorityLifecycleForMirrorGuard(sessionId);
+    if (shouldRejectNonterminalKvMirror(lifecycle)) {
+      return { outcome: "rejected_terminal_failure" };
+    }
+    // Best-effort KV self-check when authority is still unbound: explicit
+    // nonterminal failures (`terminalEventType: null`) may be overwritten by
+    // retry/sent. Explicit terminal or legacy-absent provenance must not clear
+    // without allowClearTerminalFailure (AG-086).
+    if (lifecycle === "unbound") {
+      const existing = await kv.get<PrintOrderRecord>(key);
+      if (kvFailedMirrorBlocksNonterminalWrite(existing)) {
+        return { outcome: "rejected_terminal_failure" };
+      }
+    }
+  }
+
   // Provider-valid remaining TTL: use strict durable put so Cloudflare
   // binding/put failures propagate instead of silent local-only success.
   await kv.setDurable(key, record, { ex: plan.ttlSeconds });

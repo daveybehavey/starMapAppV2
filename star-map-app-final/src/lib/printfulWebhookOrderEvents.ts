@@ -5,17 +5,28 @@ import {
   normalizePrintfulOrderId,
   resolvePrintfulWebhookSessionId,
 } from "@/lib/printFulfillmentIndex";
-import { persistPrintOrderRecord, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
+import {
+  getPrintOrderAuthorityState,
+  markPrintOrderTerminalFailed,
+} from "@/lib/printOrderAuthority";
+import {
+  isPrintfulTerminalFailureWebhookType,
+  PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES,
+} from "@/lib/printOrderAuthorityState";
+import {
+  isValidPrintCheckoutSessionId,
+  persistPrintOrderRecord,
+  printOrderKey,
+  type PrintOrderRecord,
+  type PrintOrderTerminalEventType,
+} from "@/lib/printOrders";
 import {
   formatPrintfulFileFailureError,
   reviewPrintfulOrderFiles,
 } from "@/lib/printfulOrderReview";
 
-export const PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES = new Set([
-  "order_failed",
-  "order_canceled",
-  "order_put_hold",
-]);
+/** Authoritative terminal provider failure/cancel only — not order_put_hold. */
+export const PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES = PRINTFUL_TERMINAL_FAILURE_WEBHOOK_TYPES;
 
 export type PrintfulOrderWebhookPayload = {
   type?: string;
@@ -30,7 +41,7 @@ export type PrintfulOrderWebhookPayload = {
 };
 
 export function isPrintfulOrderFailureWebhookType(eventType: string): boolean {
-  return PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has(eventType.trim());
+  return isPrintfulTerminalFailureWebhookType(eventType);
 }
 
 export function buildPrintfulWebhookFailureError(
@@ -51,6 +62,12 @@ export async function resolvePrintfulWebhookOrderSessionId(input: {
   printfulOrderId: string | null;
   externalId: string;
 }): Promise<string | null> {
+  const externalId = input.externalId.trim();
+  // AG-074: valid checkout external_id resolves without awaiting Printful-ID KV index.
+  if (externalId && isValidPrintCheckoutSessionId(externalId)) {
+    return externalId;
+  }
+
   const indexedSessionId = input.printfulOrderId
     ? await lookupSessionIdByPrintfulOrderId(input.printfulOrderId)
     : null;
@@ -69,12 +86,33 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   orderStatus?: string | null;
 }): Promise<{
   ok: boolean;
-  status: "updated" | "ignored" | "alert_failed";
+  status:
+    | "updated"
+    | "ignored"
+    | "alert_failed"
+    | "authority_unread"
+    | "projection_missing"
+    | "provider_id_conflict"
+    | "session_unresolved";
   reason?: string;
   sessionId?: string;
   error?: string;
+  terminalRevision?: number;
+  authority?: {
+    lifecycle: string;
+    revision: number;
+    printfulOrderId: string | null;
+  };
 }> {
   const eventType = input.eventType.trim();
+  if (!isPrintfulOrderFailureWebhookType(eventType)) {
+    return {
+      ok: true,
+      status: "ignored",
+      reason: "non_terminal_event",
+    };
+  }
+
   const printfulOrderId = normalizePrintfulOrderId(input.printfulOrderId);
   const externalId = input.externalId.trim();
   const sessionId = await resolvePrintfulWebhookOrderSessionId({
@@ -83,25 +121,81 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   });
 
   if (!sessionId) {
+    // AG-081: recoverable missing-index window (e.g. Printful accepted, bind failed,
+    // hashed smc_ external_id not yet indexed). Keep terminal webhooks retryable —
+    // do not ACK/ignore and permanently lose order_failed / order_canceled.
     return {
-      ok: true,
-      status: "ignored",
+      ok: false,
+      status: "session_unresolved",
       reason: "session_unresolved",
     };
   }
 
-  const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-  if (!existing) {
+  // DO-first / AG-074 authority-first: atomic provider-id capture + terminal transition
+  // BEFORE any KV record read / projection / seed.
+  const terminal = await markPrintOrderTerminalFailed(sessionId, {
+    eventType,
+    reason: input.reason,
+    printfulOrderId,
+  });
+
+  if (!terminal.ok && "reason" in terminal && terminal.reason === "authority_unread") {
     return {
-      ok: true,
-      status: "ignored",
-      reason: "print_order_missing",
+      ok: false,
+      status: "authority_unread",
+      reason: "authority_unread",
+      sessionId,
+    };
+  }
+  if (!terminal.ok && "reason" in terminal && terminal.reason === "conflicting_provider_id") {
+    return {
+      ok: false,
+      status: "provider_id_conflict",
+      reason: "conflicting_provider_id",
+      sessionId,
+      authority: terminal.state
+        ? {
+            lifecycle: terminal.state.lifecycle,
+            revision: terminal.state.revision,
+            printfulOrderId: terminal.state.printfulOrderId,
+          }
+        : undefined,
+    };
+  }
+  if (!terminal.ok || !terminal.state) {
+    return {
+      ok: false,
+      status: "authority_unread",
+      reason: "authority_unread",
       sessionId,
     };
   }
 
+  const terminalRevision = terminal.state.revision;
+  const authoritySnapshot = {
+    lifecycle: terminal.state.lifecycle,
+    revision: terminal.state.revision,
+    printfulOrderId: terminal.state.printfulOrderId,
+  };
+
+  // Authority committed — only now may KV/review/alert projection work occur.
+  const existing = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+
+  // Missing KV is a degraded projection, not a lost event.
+  if (!existing) {
+    return {
+      ok: true,
+      status: "projection_missing",
+      reason: "reconciliation_needed",
+      sessionId,
+      terminalRevision,
+      authority: authoritySnapshot,
+    };
+  }
+
   let error = buildPrintfulWebhookFailureError(eventType, input.reason, input.orderStatus);
-  const reviewOrderId = printfulOrderId || existing.printfulOrderId;
+  const reviewOrderId =
+    printfulOrderId || terminal.state.printfulOrderId || existing.printfulOrderId;
   if (reviewOrderId) {
     const review = await reviewPrintfulOrderFiles(reviewOrderId);
     if (review?.failedFiles.length) {
@@ -109,11 +203,14 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     }
   }
 
+  // Explicit terminal provenance is independent of mutable `error` (file review may
+  // replace the error string with printful_files_failed:… without erasing provenance).
   const nextRecord: PrintOrderRecord = {
     ...existing,
     status: "failed",
     printfulOrderId: reviewOrderId || existing.printfulOrderId,
     error,
+    terminalEventType: eventType as PrintOrderTerminalEventType,
   };
 
   if (!nextRecord.operatorFailureAlertedAt) {
@@ -128,7 +225,35 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     }
   }
 
-  await persistPrintOrderRecord(sessionId, nextRecord);
+  const latest = await getPrintOrderAuthorityState(sessionId);
+  // Unreadable authority after a successful terminal transition must stay retryable.
+  // Only a *readable* mismatched lifecycle/revision is a true stale-projection skip.
+  if (!latest) {
+    return {
+      ok: false,
+      status: "authority_unread",
+      reason: "authority_unread",
+      sessionId,
+      terminalRevision,
+      authority: authoritySnapshot,
+    };
+  }
+  if (latest.lifecycle !== "terminal_failed" || latest.revision !== terminalRevision) {
+    return {
+      ok: true,
+      status: "ignored",
+      reason: "stale_terminal_projection_skipped",
+      sessionId,
+      terminalRevision,
+      authority: {
+        lifecycle: latest.lifecycle,
+        revision: latest.revision,
+        printfulOrderId: latest.printfulOrderId,
+      },
+    };
+  }
+
+  await persistPrintOrderRecord(sessionId, nextRecord, { allowClearTerminalFailure: true });
 
   if (nextRecord.operatorFailureAlertError) {
     return {
@@ -136,6 +261,8 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
       status: "alert_failed",
       sessionId,
       error: nextRecord.operatorFailureAlertError,
+      terminalRevision,
+      authority: authoritySnapshot,
     };
   }
 
@@ -143,5 +270,7 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     ok: true,
     status: "updated",
     sessionId,
+    terminalRevision,
+    authority: authoritySnapshot,
   };
 }
