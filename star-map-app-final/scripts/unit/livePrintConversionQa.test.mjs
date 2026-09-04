@@ -611,6 +611,10 @@ test("redirect escape on secret-bearing responses is rejected", () => {
 test("path-bound Checkout Session ID extraction ignores fragment and query IDs", () => {
   const valid = "https://checkout.stripe.com/c/pay/cs_live_pathbound123#fidfragment";
   assert.equal(extractCheckoutSessionIdFromPayPath(valid), "cs_live_pathbound123");
+  assert.equal(
+    extractCheckoutSessionIdFromPayPath("https://checkout.stripe.com/f/pay/cs_live_fpay123#fidfragment"),
+    "cs_live_fpay123"
+  );
 
   // Fragment has a valid-looking session id; path does not — must fail and never use fragment.
   assert.throws(
