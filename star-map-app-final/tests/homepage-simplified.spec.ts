@@ -27,13 +27,13 @@ test.describe("Homepage with SimplifiedEditor", () => {
     await expect(page.locator("#hero-location")).toBeVisible();
     await expect(page.getByRole("button", { name: /Preview your map/i })).toBeVisible();
 
-    // Delivery and plan CTAs are visible and route into quick editor checkout flow.
+    // Delivery and digital-option CTAs are visible and route into quick editor checkout flow.
     await expect(page.locator('a[href^="/editor?mode=quick&source=home-delivery-digital"]')).toBeVisible();
     await expect(page.locator('a[href*="source=home-delivery-print-unframed"]')).toBeVisible();
     await expect(page.locator('a[href*="source=home-delivery-print-framed"]')).toBeVisible();
     await expect(page.locator('a[href^="/editor?mode=quick&source=home-plan-single"]')).toBeVisible();
     await expect(page.locator('a[href^="/editor?mode=quick&source=home-plan-pack3"]')).toBeVisible();
-    await expect(page.locator('a[href^="/editor?mode=quick&source=home-plan-subscription"]')).toBeVisible();
+    await expect(page.locator('a[href^="/editor?mode=quick&source=home-plan-subscription"]')).toHaveCount(0);
 
     console.log("✓ Homepage loads with quick-start hero and pricing CTAs");
   });
@@ -64,7 +64,7 @@ test.describe("Homepage with SimplifiedEditor", () => {
     console.log("✓ Homepage quick-start opens editor");
   });
 
-  test("should show delivery and plan CTA links", async ({ page }) => {
+  test("should show delivery and digital option CTA links", async ({ page }) => {
     test.setTimeout(60_000);
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
@@ -74,15 +74,14 @@ test.describe("Homepage with SimplifiedEditor", () => {
 
     await expect(singleLink).toBeVisible();
     await expect(packLink).toBeVisible();
-    await expect(subscriptionLink).toBeVisible();
+    await expect(subscriptionLink).toHaveCount(0);
 
     await expect(page.locator('a[href*="source=home-delivery-print-framed"]')).toBeVisible();
     await expect(page.locator("#delivery-options")).toBeVisible();
 
     await expect(singleLink).toHaveText(/single hd/i);
-    await expect(packLink).toHaveText(/3-pack/i);
-    await expect(subscriptionLink).toHaveText(/unlimited/i);
+    await expect(packLink).toHaveText(/3 hd credits/i);
 
-    console.log("✓ Homepage delivery and plan links are visible and correctly targeted");
+    console.log("✓ Homepage delivery and digital option links are visible and correctly targeted");
   });
 });

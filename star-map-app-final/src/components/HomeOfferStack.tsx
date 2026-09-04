@@ -281,14 +281,14 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         <div className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">
-              Digital HD plans
+              Digital HD options
             </p>
             <span className="text-[11px] text-neutral-300">One finished file unlocks a single map.</span>
           </div>
           <p className="mt-2 text-xs text-neutral-300">
-            Start with the one-time HD checkout unless you know you need multiple exports or ongoing use.
+            Start with the one-time HD checkout unless you know you need multiple exports.
           </p>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             <a
               href="/editor?mode=quick&source=home-plan-single"
               className="rounded-xl border border-amber-300/55 bg-amber-300/15 p-3 text-left transition hover:border-amber-300/75 hover:bg-amber-300/20"
@@ -321,14 +321,6 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <p className="mt-1 text-[11px] text-neutral-300">
                 Use this if you expect multiple gifts or alternate versions (1 export per credit).
               </p>
-            </a>
-            <a
-              href="/editor?mode=quick&source=home-plan-subscription"
-              className="rounded-xl border border-white/15 bg-white/5 p-3 text-left transition hover:border-white/25 hover:bg-white/10"
-            >
-              <p className="text-sm font-semibold text-white">Unlimited monthly</p>
-              <p className="text-sm font-semibold text-neutral-100">{priceLabels.subscription}/mo</p>
-              <p className="mt-1 text-[11px] text-neutral-300">Built for ongoing exports across many maps.</p>
             </a>
           </div>
           <p className="text-xs text-neutral-300">
