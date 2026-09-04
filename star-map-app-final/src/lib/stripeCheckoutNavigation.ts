@@ -3,15 +3,15 @@
  *
  * Stripe documents redirecting customers to the full `session.url` string; the optional
  * `#fid…` fragment is an implementation detail and may be absent on some responses.
- * Security: exact hostname + HTTPS + canonical `/c/pay/cs_*` path only — never substring
- * matching or wildcard `*.stripe.com`.
+ * Security: exact hostname + HTTPS + canonical `/c/pay/cs_*` or `/f/pay/cs_*` path only —
+ * never substring matching or wildcard `*.stripe.com`.
  */
 
 /** Explicit Stripe Checkout hostnames (add custom Checkout domains here when configured). */
 export const STRIPE_CHECKOUT_HOSTNAMES = ["checkout.stripe.com"] as const;
 
-/** Canonical Checkout Session path segment: /c/pay/cs_{live|test}_<id> */
-export const STRIPE_CHECKOUT_SESSION_PATH_RE = /^\/c\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/;
+/** Canonical Checkout Session path: /(c|f)/pay/cs_{live|test}_<id> (Stripe hosts both shapes). */
+export const STRIPE_CHECKOUT_SESSION_PATH_RE = /^\/(?:c|f)\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/;
 
 export type StripeCheckoutUrlShape = {
   valid: boolean;

@@ -18,6 +18,12 @@ const WITH_FRAGMENT =
 
 const WITHOUT_FRAGMENT = "https://checkout.stripe.com/c/pay/cs_live_abc";
 
+const F_PAY_LIVE = "https://checkout.stripe.com/f/pay/cs_live_abc";
+const F_PAY_LIVE_FRAGMENT =
+  "https://checkout.stripe.com/f/pay/cs_live_abc#fid1d2BpamRhQ2prcSc%2FJ1ZqcHdmYCVWZGt2JVV3aicpJ2dqd2Fgd1ZxfGlgJz8%3D";
+const F_PAY_TEST = "https://checkout.stripe.com/f/pay/cs_test_abc";
+const C_PAY_TEST = "https://checkout.stripe.com/c/pay/cs_test_abc";
+
 /** Production-shaped ~629 char URL observed live (fragment optional). */
 const LONG_FRAGMENTLESS = `https://checkout.stripe.com/c/pay/cs_test_${"A".repeat(585)}`;
 
@@ -33,6 +39,16 @@ test("2: valid Stripe checkout URL WITHOUT fragment -> accepted", () => {
   const shape = describeStripeCheckoutUrlShape(WITHOUT_FRAGMENT);
   assert.equal(shape.valid, true);
   assert.equal(shape.hashPresent, false);
+});
+
+test("2b: /c/pay and /f/pay live+test session paths -> accepted", () => {
+  assert.equal(isValidStripeCheckoutUrl(WITHOUT_FRAGMENT), true);
+  assert.equal(isValidStripeCheckoutUrl(F_PAY_LIVE), true);
+  assert.equal(isValidStripeCheckoutUrl(C_PAY_TEST), true);
+  assert.equal(isValidStripeCheckoutUrl(F_PAY_TEST), true);
+  assert.equal(isValidStripeCheckoutUrl(F_PAY_LIVE_FRAGMENT), true);
+  assert.equal(describeStripeCheckoutUrlShape(F_PAY_LIVE).hasSessionPath, true);
+  assert.equal(describeStripeCheckoutUrlShape(F_PAY_LIVE_FRAGMENT).hashPresent, true);
 });
 
 test("3: http://checkout.stripe.com -> rejected", () => {
@@ -100,7 +116,23 @@ test("11: wrong path variants still rejected", () => {
     false
   );
   assert.equal(
+    isValidStripeCheckoutUrl("https://checkout.stripe.com/evil/pay/cs_live_abc"),
+    false
+  );
+  assert.equal(
     isValidStripeCheckoutUrl("https://checkout.stripe.com/c/pay/not-a-session"),
+    false
+  );
+  assert.equal(
+    isValidStripeCheckoutUrl("https://checkout.stripe.com/f/pay/not-a-session"),
+    false
+  );
+  assert.equal(
+    isValidStripeCheckoutUrl("https://checkout.stripe.com/f/pay/cs_live_abc!"),
+    false
+  );
+  assert.equal(
+    isValidStripeCheckoutUrl("https://checkout.stripe.com/x/pay/cs_live_abc"),
     false
   );
   // Trailing `#` alone normalizes to empty hash — still a valid Stripe handoff host/path.
@@ -108,6 +140,17 @@ test("11: wrong path variants still rejected", () => {
     isValidStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_live_abc#"),
     true
   );
+  assert.equal(
+    isValidStripeCheckoutUrl("https://checkout.stripe.com/f/pay/cs_live_abc#"),
+    true
+  );
+});
+
+test("11b: /f/pay HTML handoff body accepts both path shapes", () => {
+  const fPayBody = stripeCheckoutHtmlRedirectBody(F_PAY_LIVE_FRAGMENT);
+  assert.match(fPayBody, /location\.replace/);
+  assert.match(fPayBody, /\/f\/pay\/cs_live_abc/);
+  assert.throws(() => stripeCheckoutHtmlRedirectBody("https://checkout.stripe.com/evil/cs_live_abc"));
 });
 
 test("12: checkout route uses shape diagnostics not fragment-only rejection", () => {

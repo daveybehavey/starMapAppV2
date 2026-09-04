@@ -2,6 +2,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const DEFAULT_SITE = "https://starmapco.com";
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -73,6 +74,63 @@ async function fetchWithTimeout(url, init, timeoutMs) {
 
 async function ensureDirFor(filePath) {
   await fs.mkdir(path.dirname(path.resolve(process.cwd(), filePath)), { recursive: true });
+}
+
+/**
+ * Strict Stripe hosted Checkout path allowlist (mirrors stripeCheckoutNavigation.ts).
+ * Accepts only /(c|f)/pay/cs_(live|test)_… on checkout.stripe.com over HTTPS.
+ * @param {string} url
+ */
+export function isStrictStripeCheckoutHandoffUrl(url) {
+  try {
+    const parsed = new URL(String(url).trim());
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.username || parsed.password) return false;
+    if (parsed.hostname !== "checkout.stripe.com") return false;
+    if (!/^\/(?:c|f)\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/.test(parsed.pathname)) return false;
+    if (parsed.hash === "#") return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * POST /api/checkout buyer contract: JSON body with `{ url }` only.
+ * HTML `location.replace` must NOT satisfy this probe (buyers call res.json()).
+ * @param {string} bodyText
+ * @returns {string}
+ */
+export function extractPostCheckoutJsonUrl(bodyText) {
+  const text = typeof bodyText === "string" ? bodyText : "";
+  try {
+    const json = JSON.parse(text);
+    if (typeof json?.url === "string" && json.url.trim()) {
+      return json.url.trim();
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+/**
+ * GET /api/checkout secure HTML handoff: `window.location.replace(<JSON-stringified url>)`.
+ * Route-specific — must not be used to green the POST probe.
+ * @param {string} bodyText
+ * @returns {string}
+ */
+export function extractGetCheckoutHtmlHandoffUrl(bodyText) {
+  const text = typeof bodyText === "string" ? bodyText : "";
+  const htmlMatch = text.match(/window\.location\.replace\(("(?:\\.|[^"\\])*")\)/);
+  if (!htmlMatch) return "";
+  try {
+    const url = JSON.parse(htmlMatch[1]);
+    if (typeof url === "string" && url.trim()) return url.trim();
+  } catch {
+    return "";
+  }
+  return "";
 }
 
 async function main() {
@@ -519,19 +577,28 @@ async function main() {
       `${site}/api/checkout`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
         body: JSON.stringify({ plan: "single", mapId }),
         cache: "no-store",
       },
       args.timeoutMs,
     );
-    const checkoutJson = await checkoutRes.json().catch(() => ({}));
-    const checkoutUrl = typeof checkoutJson?.url === "string" ? checkoutJson.url : "";
+    const checkoutBody = await checkoutRes.text();
+    // Buyer POST flow parses JSON only — HTML handoff must not green this probe.
+    const checkoutUrl = extractPostCheckoutJsonUrl(checkoutBody);
+    const handoffOk = isStrictStripeCheckoutHandoffUrl(checkoutUrl);
     runCheck("Digital checkout endpoint responds 200", checkoutRes.status === 200, `status=${checkoutRes.status}`);
     runCheck(
-      "Digital checkout returns Stripe URL",
-      /^https:\/\/checkout\.stripe\.com\//.test(checkoutUrl),
-      checkoutUrl ? checkoutUrl.slice(0, 80) : "missing url",
+      "Digital checkout returns Stripe JSON url",
+      handoffOk,
+      handoffOk
+        ? `json url path ok (${checkoutUrl.includes("/f/pay/") ? "/f/pay" : "/c/pay"})`
+        : checkoutUrl
+          ? "non-allowlisted checkout url"
+          : "missing json stripe url",
     );
   } catch (error) {
     failed = true;
@@ -569,7 +636,12 @@ async function main() {
   console.log("Live smoke result: PASSED");
 }
 
-main().catch((error) => {
-  console.error("Live smoke failed:", error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+const isDirectRun =
+  typeof process.argv[1] === "string" && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error("Live smoke failed:", error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}
