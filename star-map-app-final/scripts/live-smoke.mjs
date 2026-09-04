@@ -2,6 +2,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const DEFAULT_SITE = "https://starmapco.com";
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -80,7 +81,7 @@ async function ensureDirFor(filePath) {
  * Accepts only /(c|f)/pay/cs_(live|test)_… on checkout.stripe.com over HTTPS.
  * @param {string} url
  */
-function isStrictStripeCheckoutHandoffUrl(url) {
+export function isStrictStripeCheckoutHandoffUrl(url) {
   try {
     const parsed = new URL(String(url).trim());
     if (parsed.protocol !== "https:") return false;
@@ -95,40 +96,40 @@ function isStrictStripeCheckoutHandoffUrl(url) {
 }
 
 /**
- * Extract a Stripe Checkout handoff URL from either:
- * - JSON `{ url }` (POST /api/checkout buyer JSON), or
- * - HTML secure handoff body with `window.location.replace(...)` (GET /api/checkout).
- * Does not loosen host/path validation — caller must still run the strict allowlist.
- * @param {Response} res
+ * POST /api/checkout buyer contract: JSON body with `{ url }` only.
+ * HTML `location.replace` must NOT satisfy this probe (buyers call res.json()).
  * @param {string} bodyText
  * @returns {string}
  */
-function extractCheckoutHandoffUrl(res, bodyText) {
-  const contentType = (res.headers.get("content-type") || "").toLowerCase();
+export function extractPostCheckoutJsonUrl(bodyText) {
   const text = typeof bodyText === "string" ? bodyText : "";
-
-  if (contentType.includes("application/json") || text.trimStart().startsWith("{")) {
-    try {
-      const json = JSON.parse(text);
-      if (typeof json?.url === "string" && json.url.trim()) {
-        return json.url.trim();
-      }
-    } catch {
-      // Fall through to HTML handoff parsing.
+  try {
+    const json = JSON.parse(text);
+    if (typeof json?.url === "string" && json.url.trim()) {
+      return json.url.trim();
     }
+  } catch {
+    return "";
   }
+  return "";
+}
 
-  // stripeCheckoutHtmlRedirectBody embeds JSON.stringify(url) inside location.replace(...)
+/**
+ * GET /api/checkout secure HTML handoff: `window.location.replace(<JSON-stringified url>)`.
+ * Route-specific — must not be used to green the POST probe.
+ * @param {string} bodyText
+ * @returns {string}
+ */
+export function extractGetCheckoutHtmlHandoffUrl(bodyText) {
+  const text = typeof bodyText === "string" ? bodyText : "";
   const htmlMatch = text.match(/window\.location\.replace\(("(?:\\.|[^"\\])*")\)/);
-  if (htmlMatch) {
-    try {
-      const url = JSON.parse(htmlMatch[1]);
-      if (typeof url === "string" && url.trim()) return url.trim();
-    } catch {
-      return "";
-    }
+  if (!htmlMatch) return "";
+  try {
+    const url = JSON.parse(htmlMatch[1]);
+    if (typeof url === "string" && url.trim()) return url.trim();
+  } catch {
+    return "";
   }
-
   return "";
 }
 
@@ -578,7 +579,7 @@ async function main() {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          accept: "application/json, text/html;q=0.9",
+          accept: "application/json",
         },
         body: JSON.stringify({ plan: "single", mapId }),
         cache: "no-store",
@@ -586,17 +587,18 @@ async function main() {
       args.timeoutMs,
     );
     const checkoutBody = await checkoutRes.text();
-    const checkoutUrl = extractCheckoutHandoffUrl(checkoutRes, checkoutBody);
+    // Buyer POST flow parses JSON only — HTML handoff must not green this probe.
+    const checkoutUrl = extractPostCheckoutJsonUrl(checkoutBody);
     const handoffOk = isStrictStripeCheckoutHandoffUrl(checkoutUrl);
     runCheck("Digital checkout endpoint responds 200", checkoutRes.status === 200, `status=${checkoutRes.status}`);
     runCheck(
-      "Digital checkout returns Stripe handoff",
+      "Digital checkout returns Stripe JSON url",
       handoffOk,
       handoffOk
-        ? `handoff path ok (${checkoutUrl.includes("/f/pay/") ? "/f/pay" : "/c/pay"})`
+        ? `json url path ok (${checkoutUrl.includes("/f/pay/") ? "/f/pay" : "/c/pay"})`
         : checkoutUrl
           ? "non-allowlisted checkout url"
-          : "missing stripe handoff",
+          : "missing json stripe url",
     );
   } catch (error) {
     failed = true;
@@ -634,7 +636,12 @@ async function main() {
   console.log("Live smoke result: PASSED");
 }
 
-main().catch((error) => {
-  console.error("Live smoke failed:", error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+const isDirectRun =
+  typeof process.argv[1] === "string" && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error("Live smoke failed:", error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}
