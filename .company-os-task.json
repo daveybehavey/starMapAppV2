@@ -1,0 +1,14 @@
+{
+  "id": "46036a38-a2fe-46e2-9ea4-de10b808da01",
+  "title": "Add company-os read-only JSON list of canonical capture source keys",
+  "description": "Roadmap lane: measurement. Capture/source reporting needs stable labels so ops and reports do not drift from what the site emits. Implement a tiny unauthenticated or automation-key-gated GET route in `company-os` that returns the canonical set of capture source identifiers used by the storefront and ops views—distinct from a health probe of capture surfaces.\n\n— proposed by briefing agent on 2026-04-17T23:46:05.791Z",
+  "area": "measurement",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "With `npm run dev` running locally on the default port, HTTP GET `http://localhost:3010/api/ops/capture-source-keys` returns HTTP 200 and JSON containing `sources` as a non-empty array of strings with no duplicates; response must not include database connection strings or secrets.",
+  "testPlan": "Start dev server, `curl` the endpoint, and optionally `jq` to assert `sources|length>0` and unique values.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-20T22:07:17.863Z",
+  "createdAt": "2026-04-17T23:46:06.293Z",
+  "updatedAt": "2026-04-20T22:07:17.863Z"
+}
