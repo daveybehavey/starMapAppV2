@@ -683,7 +683,9 @@ test("shared Stripe checkout URL module is the single handoff contract for all l
   const proof = fs.readFileSync(C1_M1_PROOF, "utf8");
   const primary = fs.readFileSync(SCRIPT_PATH, "utf8");
   assert.match(shared, /STRIPE_CHECKOUT_HOSTNAMES\.includes\(parsed\.hostname\)/);
-  assert.match(shared, /\/c\/pay\//);
+  // Bounded allowlist: /(c|f)/pay/cs_* — Stripe hosts both path shapes.
+  assert.match(shared, /\\\/\(\?:c\|f\)\\\/pay/);
+  assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/f/pay/cs_live_shared"), true);
   assert.match(merch, /qa-stripe-checkout-url\.mjs/);
   assert.match(proof, /qa-stripe-checkout-url\.mjs/);
   assert.match(primary, /qa-stripe-checkout-url\.mjs/);
@@ -691,6 +693,10 @@ test("shared Stripe checkout URL module is the single handoff contract for all l
   assert.equal(
     extractCheckoutSessionIdFromPayPath("https://checkout.stripe.com/c/pay/cs_test_shared#fid"),
     extractFromShared("https://checkout.stripe.com/c/pay/cs_test_shared#fid")
+  );
+  assert.equal(
+    extractCheckoutSessionIdFromPayPath("https://checkout.stripe.com/f/pay/cs_test_shared#fid"),
+    "cs_test_shared"
   );
   assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_test_shared#fid"), true);
   assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/c/pay/cs_test_shared"), true);
