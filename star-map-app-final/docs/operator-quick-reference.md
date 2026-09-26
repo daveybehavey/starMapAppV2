@@ -161,7 +161,7 @@ Use this page when you need to check sales, analytics, print ops, or coupons qui
 
 ### Internal funnel page
 
-- Open `/funnel?token=<FUNNEL_DASHBOARD_TOKEN>`
+- Open `/funnel?token=<FUNNEL_DASHBOARD_TOKEN>` (required in production; unset token 404s live `/funnel`)
 - The page now shows:
   - landing conversion
   - client checkout intent (`checkout_started` from `preview_started`)

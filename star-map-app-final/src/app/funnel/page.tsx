@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getFunnelDashboard } from "@/lib/funnel";
 import { getCheckoutFailureDashboard } from "@/lib/checkoutDiagnostics";
 import { getPromotionSubscriberSummary } from "@/lib/promotionSubscriptions";
 import { getReferralDashboard } from "@/lib/referralDashboard";
 import { FunnelCsvDownloader } from "@/components/funnel/FunnelCsvDownloader";
+import { hasFunnelDashboardAccess } from "@/lib/funnelDashboardAccess";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -73,16 +75,11 @@ function findStepTotal(rows: Awaited<ReturnType<typeof getFunnelDashboard>>["row
 export default async function FunnelDashboardPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const days = toNumber(params.days, 14);
-  const requiredToken = process.env.FUNNEL_DASHBOARD_TOKEN?.trim() || "";
   const token = params.token?.trim() || "";
 
-  if (requiredToken && token !== requiredToken) {
-    return (
-      <main className="mx-auto min-h-screen max-w-3xl px-6 py-12 text-white">
-        <h1 className="text-2xl font-semibold">Funnel dashboard locked</h1>
-        <p className="mt-3 text-sm text-neutral-300">Add the valid `token` query parameter to view this page.</p>
-      </main>
-    );
+  // Production requires FUNNEL_DASHBOARD_TOKEN; deny without advertising the surface.
+  if (!hasFunnelDashboardAccess(token)) {
+    notFound();
   }
 
   const [dashboard, checkoutDiagnostics, promotionSubscribers, referralDashboard] = await Promise.all([

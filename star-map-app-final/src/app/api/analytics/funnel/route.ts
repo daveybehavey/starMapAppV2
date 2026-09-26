@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { getFunnelDashboard, recordFunnelStep } from "@/lib/funnel";
 import { isFunnelStep } from "@/lib/funnelSteps";
+import { hasFunnelDashboardAccess } from "@/lib/funnelDashboardAccess";
 
 export const runtime = "nodejs";
 
@@ -13,15 +14,16 @@ type FunnelRequestBody = {
   variant?: string;
 };
 
-const dashboardToken = process.env.FUNNEL_DASHBOARD_TOKEN?.trim() || "";
-
-function hasDashboardAccess(req: NextRequest) {
-  if (!dashboardToken) return true;
-  const token =
+function readFunnelDashboardToken(req: NextRequest) {
+  return (
     req.headers.get("x-funnel-token")?.trim() ||
     new URL(req.url).searchParams.get("token")?.trim() ||
-    "";
-  return token === dashboardToken;
+    ""
+  );
+}
+
+function hasDashboardAccess(req: NextRequest) {
+  return hasFunnelDashboardAccess(readFunnelDashboardToken(req));
 }
 
 export async function POST(req: NextRequest) {

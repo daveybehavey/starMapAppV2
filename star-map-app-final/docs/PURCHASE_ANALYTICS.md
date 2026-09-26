@@ -63,7 +63,7 @@ Referral-program fields (`referral_*`) still require a referral code.
 | `GA4_API_SECRET`                   | Measurement Protocol (Wrangler secret)        |
 | `NEXT_PUBLIC_GA4_SERVER_PURCHASES` | `true` → paid purchases server-primary        |
 | `NEXT_PUBLIC_POSTHOG_KEY`          | Browser PostHog                               |
-| `FUNNEL_DASHBOARD_TOKEN`           | Optional auth for `GET /api/analytics/funnel` |
+| `FUNNEL_DASHBOARD_TOKEN`           | Required in production for `/funnel` and `GET /api/analytics/funnel` |
 
 ### Checkout classification aggregates (#215)
 
