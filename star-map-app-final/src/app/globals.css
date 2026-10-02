@@ -493,6 +493,15 @@ details > summary:hover {
   }
 }
 
+/* Reserve space so a fixed cookie banner does not cover hero trust/CTAs on mobile */
+html:has(.cookie-banner) {
+  scroll-padding-bottom: 5.75rem;
+}
+
+html:has(.cookie-banner) body {
+  padding-bottom: 5.25rem;
+}
+
 .cookie-banner {
   position: fixed;
   bottom: 0.75rem;
@@ -559,14 +568,25 @@ details > summary:hover {
 }
 
 @media (max-width: 640px) {
+  html:has(.cookie-banner) {
+    scroll-padding-bottom: 5.25rem;
+  }
+
+  html:has(.cookie-banner) body {
+    padding-bottom: 4.75rem;
+  }
+
   .cookie-banner {
-    bottom: 0.6rem;
-    left: 0.6rem;
-    right: 0.6rem;
+    bottom: 0;
+    left: 0;
+    right: 0;
     max-width: none;
+    margin-left: 0;
+    border-radius: 0.85rem 0.85rem 0 0;
     flex-direction: row;
     align-items: center;
     gap: 0.5rem;
+    padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
   }
 
   .cookie-actions {
@@ -578,6 +598,8 @@ details > summary:hover {
   .cookie-btn {
     flex: 0 0 auto;
     text-align: center;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 }
 
@@ -1249,13 +1271,19 @@ input[type="range"]:hover::-moz-range-thumb {
 
 .hero-plan__cta-note-link {
   font-weight: 600;
-  color: var(--accent-amber-strong);
+  color: #ffe29a;
   text-decoration: underline;
   text-underline-offset: 0.18em;
+  text-shadow:
+    0 1px 2px rgba(3, 8, 24, 0.95),
+    0 0 10px rgba(3, 8, 24, 0.65);
+  background: rgba(5, 12, 28, 0.42);
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.2rem;
 }
 
 .hero-plan__cta-note-link:hover {
-  color: #ffe29a;
+  color: #fff1c2;
 }
 
 .hero-plan__cta {
