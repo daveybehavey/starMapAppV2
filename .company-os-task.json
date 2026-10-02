@@ -1,0 +1,14 @@
+{
+  "id": "12202c5e-0d5c-42d4-9287-785b07418bf9",
+  "title": "[TEST] Task ping",
+  "description": "Testing Slack push notifications from tasks API",
+  "area": "general",
+  "risk": "medium",
+  "status": "claimed",
+  "acceptanceCriteria": "Confirm Slack notification arrives.",
+  "testPlan": "Open Slack mobile and verify a notification.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-19T15:51:34.401Z",
+  "createdAt": "2026-04-19T15:49:49.643Z",
+  "updatedAt": "2026-04-19T15:51:34.401Z"
+}
