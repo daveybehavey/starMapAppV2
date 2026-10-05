@@ -1,0 +1,13 @@
+{
+  "id": "a72931f1-1bb0-4524-b418-3032ae44662d",
+  "title": "Autopilot smoke 7: add AUTOPILOT-SMOKE.md",
+  "description": "Create AUTOPILOT-SMOKE.md at the repo root with exactly one line: 'autopilot e2e OK 2026-04-17'. Do NOT modify any other file. Do NOT commit or push.",
+  "area": "ops",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "File AUTOPILOT-SMOKE.md exists at the repo root.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-17T21:15:36.680Z",
+  "createdAt": "2026-04-17T21:15:21.091Z",
+  "updatedAt": "2026-04-17T21:15:36.680Z"
+}
