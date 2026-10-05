@@ -1,0 +1,13 @@
+{
+  "id": "2066778e-df30-46c8-a6e1-2c1b49eda925",
+  "title": "smoke 2026-04-19T15:48:53.626Z",
+  "description": "automated smoke test",
+  "area": "general",
+  "risk": "low",
+  "status": "claimed",
+  "acceptanceCriteria": "Smoke test created, fetched, patched successfully.",
+  "claimedBy": "cursor-agent",
+  "claimedAt": "2026-04-19T15:49:02.787Z",
+  "createdAt": "2026-04-19T15:48:53.808Z",
+  "updatedAt": "2026-04-19T15:49:02.787Z"
+}
