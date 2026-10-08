@@ -61,14 +61,62 @@ test.describe("View Surface (/m/[id])", () => {
     await expect(page.getByRole("link", { name: /Create your own/i })).toBeVisible();
   });
 
-  test("has Share button and no edit controls", async () => {
-    // This test assumes there's at least one valid shared map in the system
-    // For a new deployment, this test would need a fixture map or would be skipped
+  test("copies the shared map URL when native sharing is unavailable", async ({ page }) => {
+    const id = "26800000-0000-4000-8000-000000000001";
+    const payload = {
+      version: 1,
+      seed: "clipboard-fallback-regression",
+      datetimeISO: "2024-06-15T00:00:00.000Z",
+      location: {
+        name: "Paris, France",
+        latitude: 48.8566,
+        longitude: 2.3522,
+        timezone: "Europe/Paris",
+      },
+      textBoxes: [{ text: "A Night in Paris" }, { text: "June 15, 2024" }, { text: "With love" }],
+      selectedStyle: "navyGold",
+      aspectRatio: "square",
+      shape: "rectangle",
+      renderOptions: { constellationLines: "thin" },
+    };
 
-    // For now, we'll just verify the 404 error handling works
-    // In production, you'd have a test fixture map ID
+    await primeLocalStorage(page);
+    await page.addInitScript(() => {
+      const clipboardWindow = window as typeof window & { __copiedMapUrls: string[] };
+      clipboardWindow.__copiedMapUrls = [];
+      Object.defineProperty(navigator, "share", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            clipboardWindow.__copiedMapUrls.push(text);
+          },
+        },
+      });
+    });
+    await page.route(`**/api/maps?id=${id}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(payload),
+      });
+    });
 
-    test.skip(); // Skip until we have a test fixture
+    await page.goto(`/m/${id}`);
+    await dismissOverlays(page);
+    await waitForViewReady(page);
+    await expect(page.getByRole("button", { name: /Save & Remix/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Generate preview|Preview your map/i })).toHaveCount(0);
+
+    const currentUrl = page.url();
+    await page.getByRole("button", { name: /Share this map/i }).click();
+    await expect(page.getByText("Link copied!", { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => {
+      return (window as typeof window & { __copiedMapUrls: string[] }).__copiedMapUrls;
+    })).toEqual([currentUrl]);
   });
 
   // Removed redundant viewport test - responsive layout for 404 is already covered by "handles 404 gracefully" test
