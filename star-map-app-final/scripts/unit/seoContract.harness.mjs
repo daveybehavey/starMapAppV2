@@ -25,14 +25,14 @@ export function loadSeoExports(env = {}) {
     const file = [path, `${path}.ts`, `${path}.tsx`].find(existsSync);
     assert.ok(file, `SEO module not found: ${path}`);
     if (cache.has(file)) return cache.get(file).exports;
-    const module = { exports: {} };
-    cache.set(file, module);
+    const loadedModule = { exports: {} };
+    cache.set(file, loadedModule);
     const { outputText } = ts.transpileModule(readFileSync(file, "utf8"), {
       fileName: file,
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
     });
     runInNewContext(outputText, {
-      module, exports: module.exports, URL, process: { env: { ...env } },
+      module: loadedModule, exports: loadedModule.exports, URL, process: { env: { ...env } },
       require(name) {
         if (realDependencies.has(name)) return load(resolve(src, name.slice(2)));
         if (name === "next/font/google") return { Playfair_Display: () => ({ variable: "test-font" }) };
@@ -41,7 +41,7 @@ export function loadSeoExports(env = {}) {
         return blocked(name);
       },
     }, { filename: file, timeout: 5000 });
-    return module.exports;
+    return loadedModule.exports;
   }
   return (path) => load(resolve(src, path));
 }
