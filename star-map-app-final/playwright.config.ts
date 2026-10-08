@@ -4,9 +4,11 @@ import { defineConfig } from "@playwright/test";
 const nextCli = path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
 
 const useProdServer = process.env.PW_USE_PROD === "true";
+const deterministicCiFonts = ["1", "true"].includes(process.env.CI || "") &&
+  process.env.NEXT_FONT_GOOGLE_MOCKED_RESPONSES === path.join(process.cwd(), ".ci-fonts", "responses.json");
 const webServerCommand = useProdServer
   ? `npm run build && node "${nextCli}" start -H 127.0.0.1 -p 3004`
-  : `node "${nextCli}" dev -H 127.0.0.1 -p 3004`;
+  : `node "${nextCli}" dev${deterministicCiFonts ? " --webpack" : ""} -H 127.0.0.1 -p 3004`;
 
 const forceNewWebServer = ["1", "true", "yes"].includes(String(process.env.PW_FORCE_NEW_SERVER || "").toLowerCase());
 
@@ -26,9 +28,9 @@ export default defineConfig({
   webServer: {
     command: webServerCommand,
     url: "http://127.0.0.1:3004",
-    // `CI` is often set locally to match CI behavior, but forcing a brand-new webServer
-    // on every run is painfully slow on Windows. Opt-in with PW_FORCE_NEW_SERVER=true.
-    reuseExistingServer: !forceNewWebServer,
+    // Deterministic CI must use the server started with these fixtures.
+    // Normal local runs retain the existing opt-in behavior.
+    reuseExistingServer: !forceNewWebServer && !deterministicCiFonts,
     timeout: 300_000,
     env: {
       ...process.env,
