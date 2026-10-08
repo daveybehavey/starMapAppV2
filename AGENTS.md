@@ -34,6 +34,13 @@ Rules:
 
 All commands below run from `star-map-app-final/` unless noted.
 
+## Production hosting and release authority
+
+- Production runs on **Cloudflare Workers via OpenNext/Wrangler**, as defined by `star-map-app-final/wrangler.toml`. The release path is the explicitly owner-authorized GitHub workflow `.github/workflows/deploy-production.yml`, through manual dispatch or `.github/workflows/deploy-production-comment-bridge.yml`.
+- **Vercel is not StarMapCo hosting.** Its status is stale, non-authoritative integration noise. Do not request Vercel login, repair, or redeployment, or block PR readiness solely on its failure. The current owner correction supersedes the older speculative Vercel root-directory repair comment.
+- PR readiness still requires green **exact-head GitHub Actions**, relevant task-specific browser/Playwright verification, independent exact-head review, and human review. Human merge and deployment approvals remain required.
+- This rule does not verify live required-check settings or authorize bypassing enforced checks. If a stale check is enforced, report the enforcement obstacle for owner resolution. Integration diagnosis and separately authorized cleanup belong to [issue #198](https://github.com/daveybehavey/starMapAppV2/issues/198); external settings changes require explicit approval.
+
 ## Verified commands
 
 ### Commands invoked by GitHub Actions
