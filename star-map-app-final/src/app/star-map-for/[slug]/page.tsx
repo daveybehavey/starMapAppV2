@@ -9,6 +9,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
 import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import OccasionLinks from "@/components/OccasionLinks";
+import OccasionStorySection from "@/components/OccasionStorySection";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -175,24 +176,40 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         secondaryPlan="preview"
       />
 
-      <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-midnight text-xl font-semibold">
-          Why a {occasion.label.toLowerCase()} star map works
-        </h2>
-        <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          The night sky never repeats in the same way. A custom star map turns a meaningful date and place
-          into a lasting keepsake.
-        </p>
-        {occasion.detail ? (
-          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">{occasion.detail}</p>
-        ) : null}
-        <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>Accurate star positions for any date and location</li>
-          <li>Instant preview before you download</li>
-          <li>Multiple styles, shapes, and text options</li>
-          <li>Print‑ready HD file after unlock</li>
-        </ul>
-      </section>
+      {occasion.storyHeading && occasion.storyParagraphs && occasion.storyCtaHref ? (
+        <OccasionStorySection
+          heading={occasion.storyHeading}
+          paragraphs={occasion.storyParagraphs}
+          ctaHref={occasion.storyCtaHref}
+          ctaLabel={occasion.storyCtaLabel}
+          artwork={occasion.artwork}
+          bullets={[
+            "Accurate star positions for any date and location",
+            "Instant preview before you download",
+            "Multiple styles, shapes, and text options",
+            "Print‑ready HD file after unlock",
+          ]}
+        />
+      ) : (
+        <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+          <h2 className="text-midnight text-xl font-semibold">
+            Why a {occasion.label.toLowerCase()} star map works
+          </h2>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+            The night sky never repeats in the same way. A custom star map turns a meaningful date and place
+            into a lasting keepsake.
+          </p>
+          {occasion.detail ? (
+            <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">{occasion.detail}</p>
+          ) : null}
+          <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
+            <li>Accurate star positions for any date and location</li>
+            <li>Instant preview before you download</li>
+            <li>Multiple styles, shapes, and text options</li>
+            <li>Print‑ready HD file after unlock</li>
+          </ul>
+        </section>
+      )}
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-midnight text-lg font-semibold">

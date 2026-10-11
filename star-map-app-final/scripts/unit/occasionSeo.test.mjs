@@ -5,7 +5,7 @@ import test from "node:test";
 const TUNED_OCCASIONS = [
   {
     slug: "new-baby",
-    seoTitle: "New Baby Star Map Gift — Birth Night Sky | StarMapCo",
+    seoTitle: "New Baby Star Map | Birth Night Sky Gift | StarMapCo",
     seoH1: "New Baby Star Map Gift",
     mustMatchTitle: /New Baby/i,
   },
@@ -23,15 +23,21 @@ const TUNED_OCCASIONS = [
   },
   {
     slug: "memorial",
-    seoTitle: "Memorial Star Map Gift — Remembrance Night Sky | StarMapCo",
+    seoTitle: "Memorial Star Map | Remembrance Gift | StarMapCo",
     seoH1: "Memorial Star Map Gift",
     mustMatchTitle: /Memorial/i,
   },
   {
     slug: "graduation",
-    seoTitle: "Graduation Star Map Gift — Ceremony Night Sky | StarMapCo",
+    seoTitle: "Graduation Star Map Gift | Ceremony Night Sky | StarMapCo",
     seoH1: "Graduation Star Map Gift",
     mustMatchTitle: /Graduation/i,
+  },
+  {
+    slug: "christmas",
+    seoTitle: "Christmas Star Map Gift | Personalized | StarMapCo",
+    seoH1: "Christmas Star Map Gift",
+    mustMatchTitle: /Christmas/i,
   },
   {
     slug: "mothers-day",

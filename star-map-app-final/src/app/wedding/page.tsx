@@ -15,6 +15,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { featuredRenderExamples } from "@/lib/galleryExamples";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
+import OccasionStorySection from "@/components/OccasionStorySection";
 import WeddingDesignExampleSection from "@/components/WeddingDesignExampleSection";
 import WeddingGiftJourneySection from "@/components/WeddingGiftJourneySection";
 import WeddingLandingHero from "@/components/WeddingLandingHero";
@@ -38,15 +39,17 @@ const breadcrumbs = [
   { href: "/wedding", label: "Wedding" },
 ];
 
+const weddingTitle = "Wedding Star Map Gift | The Sky Above Your Vows | StarMapCo";
+const weddingDescription =
+  "The sky above your ceremony, by date, time and venue. Free preview, no account. Heart and classic styles; HD, print or framed + HD.";
+
 export const metadata: Metadata = {
-  title: "Personalized Wedding Star Map Gift | StarMapCo",
-  description:
-    "Create a wedding star map from your ceremony date and location. Free preview, then the framed + HD gift bundle with free shipping on $100+ orders.",
+  title: weddingTitle,
+  description: weddingDescription,
   alternates: { canonical: `${siteUrl}/wedding` },
   openGraph: {
-    title: "Personalized Wedding Star Map Gift | StarMapCo",
-    description:
-      "Capture the exact night sky from your wedding day and place. Preview free, then order the framed + HD gift bundle with free shipping on qualifying orders.",
+    title: weddingTitle,
+    description: weddingDescription,
     url: `${siteUrl}/wedding`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -84,6 +87,20 @@ const weddingFaqItems = [
     question: "Can I order a framed wedding print directly?",
     answer:
       "Yes. After preview, checkout includes framed print, unframed print, and HD digital from the same approved design.",
+  },
+  {
+    question: "Can I make a wedding star map before the wedding?",
+    answer:
+      "Yes. Use the planned date, ceremony time and venue. The sky is calculated in advance, so the map will match the night.",
+  },
+  {
+    question: "What should the title say?",
+    answer:
+      "Popular choices are the couple's names, a line from the vows, or a phrase like The Night We Became One. Keep it short so it reads well on the print.",
+  },
+  {
+    question: "Can guests give this as a group gift?",
+    answer: "Yes. A framed print is a common group gift from the wedding party or family.",
   },
 ] as const;
 
@@ -127,7 +144,10 @@ export default function WeddingPage() {
     variant: "poster_framed",
     includeDigitalAddOn: true,
   });
-  const framedFaqAnswer = `${weddingFaqItems[5].answer} ${shippingDisclosure}`;
+  const framedFaqIndex = weddingFaqItems.findIndex(
+    (item) => item.question === "Can I order a framed wedding print directly?"
+  );
+  const framedFaqAnswer = `${weddingFaqItems[framedFaqIndex].answer} ${shippingDisclosure}`;
   const deliveryIntro = `Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant digital file. Unframed is the lower-cost option if you already have a frame. HD-only is fastest when you need same-day delivery.`;
 
   return (
@@ -219,29 +239,38 @@ export default function WeddingPage() {
 
       <WeddingGiftJourneySection />
 
-      <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-midnight text-xl font-semibold">What makes this wedding gift meaningful</h2>
-        <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          The stars above you when you said “I do” cannot be recreated. Our maps plot that exact sky with
-          astronomically accurate data — constellations, planets, and Moon phase included. It is a wall-ready
-          way to relive the night you became a constellation of two.
-        </p>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {[
-            "Ceremony date, time, and location — venue city or coordinates",
-            "Print-ready exports up to 6000×6000, no watermark after purchase",
-            "Celebration-ready presets with gold accents and custom dedication lines",
-            "One approved design → framed, unframed, or HD without rebuilding",
-          ].map((item) => (
-            <li
-              key={item}
-              className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-neutral-800"
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <OccasionStorySection
+        heading="Why couples, parents and the wedding party choose it"
+        paragraphs={[
+          "A wedding day is planned for months and then passes in a few blurred hours. The flowers fade, the cake is gone by midnight, and the photos live in a folder. The sky over the ceremony, though, can be recorded exactly. A wedding star map shows the stars as they stood above your venue at the moment you said your vows.",
+          "It makes a meaningful gift in several directions. Couples order one for their own home as a first piece of shared art. Parents and grandparents give one as a keepsake that feels more personal than another item from the registry. Wedding party members often club together on a framed version. It also makes a thoughtful first-anniversary surprise, when the day has settled into memory.",
+          "Designing one takes a few minutes. Enter the wedding date, the ceremony time and the venue or town. Add a title, such as The Night We Became One, along with your names and the date. Shapes and styles vary; a heart-shaped map in a deep navy palette is a popular wedding choice, while a classic circle suits a more understated room.",
+          "You can see the finished design before spending anything. The StarMapCo preview is free and does not ask you to sign up. When it looks right, choose a digital download, an unframed print you can frame to match your decor, or a framed print delivered ready to hang.",
+          "If you are buying for a wedding that has not happened yet, you can still use the planned date, time and venue. Many guests give the map at the reception or send it afterwards so it arrives once the couple are home.",
+        ]}
+        ctaHref="/editor?mode=quick&source=occasion-wedding-story-preview&utm_source=site&utm_medium=landing&utm_campaign=wedding_story"
+        ctaLabel="Create your free preview"
+        artwork={[
+          {
+            src: "/examples/example-wedding-aurora-heart.webp",
+            alt: "Wedding star map example in Aurora heart style",
+          },
+          {
+            src: "/printproof/gallery/wedding-framed-cutout.webp",
+            alt: "Framed wedding star map cutout proof",
+          },
+          {
+            src: "/home-mockups/gallery-living-room-framed.png",
+            alt: "Framed wedding star map in a living room setting",
+          },
+        ]}
+        bullets={[
+          "Ceremony date, time, and location — venue city or coordinates",
+          "Print-ready exports up to 6000×6000, no watermark after purchase",
+          "Celebration-ready presets with gold accents and custom dedication lines",
+          "One approved design → framed, unframed, or HD without rebuilding",
+        ]}
+      />
 
       <AccuracyAuthorityCard source="wedding-accuracy-card" />
 
@@ -401,7 +430,7 @@ export default function WeddingPage() {
           {weddingFaqItems.map((item, index) => (
             <div key={item.question}>
               <h3 className="text-midnight font-semibold">{item.question}</h3>
-              <p>{index === 5 ? framedFaqAnswer : item.answer}</p>
+              <p>{index === framedFaqIndex ? framedFaqAnswer : item.answer}</p>
             </div>
           ))}
         </div>
@@ -414,7 +443,7 @@ export default function WeddingPage() {
       />
       <FaqSchema
         items={weddingFaqItems.map((item, index) =>
-          index === 5 ? { question: item.question, answer: framedFaqAnswer } : item
+          index === framedFaqIndex ? { question: item.question, answer: framedFaqAnswer } : item
         )}
       />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
