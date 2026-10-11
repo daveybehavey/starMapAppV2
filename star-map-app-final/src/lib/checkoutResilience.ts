@@ -12,7 +12,40 @@ export type CheckoutFailureLogFields = {
   httpStatus: number | null;
   mapIdPresent: boolean;
   checkoutKind: string;
+  /** Non-secret error message for Workers logs (never returned raw to clients). */
+  errorMessage?: string | null;
+  sessionId?: string | null;
 };
+
+/** Safe normalized reason tokens returned on `unknown_error` responses (no Stripe secrets). */
+export type UnknownCheckoutFailureResponse = {
+  error: "Checkout failed";
+  code: "unknown_error";
+  reason: string;
+  diagnosticId: string;
+};
+
+export function normalizeFailureReasonToken(raw: string, maxLen = 80): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, maxLen);
+}
+
+export function buildUnknownCheckoutFailureResponse(
+  correlationId: string,
+  reason: string,
+): UnknownCheckoutFailureResponse {
+  const safeReason = normalizeFailureReasonToken(reason) || "stripe_error";
+  return {
+    error: "Checkout failed",
+    code: "unknown_error",
+    reason: safeReason,
+    diagnosticId: correlationId,
+  };
+}
 
 const CORRELATION_ID_RE = /^[a-zA-Z0-9_-]{8,64}$/;
 
@@ -76,6 +109,10 @@ export async function bestEffortCheckoutSideEffect(input: {
 }
 
 export function logCheckoutFailure(fields: CheckoutFailureLogFields): void {
+  const errorMessage =
+    typeof fields.errorMessage === "string" && fields.errorMessage.trim()
+      ? fields.errorMessage.trim().slice(0, 280)
+      : null;
   console.error("checkout_failed", {
     correlationId: fields.correlationId,
     stage: fields.stage,
@@ -85,7 +122,84 @@ export function logCheckoutFailure(fields: CheckoutFailureLogFields): void {
     httpStatus: fields.httpStatus,
     mapIdPresent: fields.mapIdPresent,
     checkoutKind: fields.checkoutKind,
+    errorMessage,
+    sessionId: typeof fields.sessionId === "string" ? fields.sessionId : null,
   });
+}
+
+/**
+ * Extract a safe, non-secret failure reason for logs + client `reason` field.
+ * Prefer Stripe code/type; fall back to a sanitized Error.message (e.g. invalid_stripe_checkout_url).
+ */
+export function resolveCheckoutFailureReason(err: unknown, fallbackStatus = 500): {
+  reason: string;
+  status: number;
+  errorMessage: string | null;
+} {
+  const errorMessage = err instanceof Error ? err.message : typeof err === "string" ? err : null;
+
+  if (errorMessage?.toLowerCase().includes("stripe not configured")) {
+    return { reason: "stripe_not_configured", status: 503, errorMessage };
+  }
+
+  if (!err || typeof err !== "object") {
+    const fromMessage = errorMessage ? normalizeFailureReasonToken(errorMessage) : "";
+    return {
+      reason: fromMessage || "stripe_error",
+      status: fallbackStatus,
+      errorMessage,
+    };
+  }
+
+  const anyErr = err as Record<string, unknown>;
+  const rawErr = anyErr.raw as unknown;
+  const stripeCode =
+    (typeof anyErr.code === "string" ? anyErr.code : null) ??
+    (typeof (rawErr as { code?: unknown } | null)?.code === "string"
+      ? String((rawErr as { code?: unknown }).code)
+      : null);
+  const stripeType = typeof anyErr.type === "string" ? String(anyErr.type) : null;
+  const statusCandidate =
+    (typeof anyErr.statusCode === "number" ? anyErr.statusCode : null) ??
+    (typeof anyErr.status === "number" ? anyErr.status : null);
+  const status =
+    typeof statusCandidate === "number" && Number.isFinite(statusCandidate)
+      ? statusCandidate
+      : fallbackStatus;
+
+  if (stripeCode) {
+    return {
+      reason: normalizeFailureReasonToken(`stripe_${stripeCode}`) || "stripe_error",
+      status,
+      errorMessage,
+    };
+  }
+  if (stripeType) {
+    return {
+      reason: normalizeFailureReasonToken(`stripe_${stripeType}`) || "stripe_error",
+      status,
+      errorMessage,
+    };
+  }
+
+  // Plain Error (e.g. invalid_stripe_checkout_url) — use message, not name "Error".
+  if (errorMessage) {
+    const fromMessage = normalizeFailureReasonToken(errorMessage);
+    if (fromMessage && fromMessage !== "error") {
+      return { reason: fromMessage, status, errorMessage };
+    }
+  }
+
+  const name = typeof anyErr.name === "string" ? anyErr.name : null;
+  if (name && name !== "Error") {
+    return {
+      reason: normalizeFailureReasonToken(`stripe_${name}`) || "stripe_error",
+      status,
+      errorMessage,
+    };
+  }
+
+  return { reason: "stripe_error", status, errorMessage };
 }
 
 /**

@@ -32,9 +32,11 @@ import {
 } from "@/lib/dateInput";
 import {
   createCheckoutHandoffToken,
+  track,
   trackCheckoutClientDiagnostic,
   trackFunnelStep,
 } from "@/lib/analytics";
+import { parseCheckoutApiErrorPayload, shouldRetryCheckoutFailure } from "@/lib/checkoutClientFailure";
 import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 // Lazy load the canvas for better initial load
@@ -618,27 +620,48 @@ export function SimplifiedEditor() {
         plan: "single",
       });
 
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 30000);
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(checkoutPayload),
-        signal: controller.signal,
-      });
-      checkoutApiResponseReceived = true;
-      window.clearTimeout(timeout);
-
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
+      let checkoutUrl: string | null = null;
+      let lastDiagnostics: ReturnType<typeof parseCheckoutApiErrorPayload> | null = null;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        checkoutPayload.checkoutHandoff = createCheckoutHandoffToken();
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 30000);
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-correlation-id":
+              lastDiagnostics?.diagnosticId && /^[a-zA-Z0-9_-]{8,64}$/.test(lastDiagnostics.diagnosticId)
+                ? lastDiagnostics.diagnosticId
+                : crypto.randomUUID(),
+          },
+          body: JSON.stringify(checkoutPayload),
+          signal: controller.signal,
+        });
+        checkoutApiResponseReceived = true;
+        window.clearTimeout(timeout);
+        const payload = (await res.json().catch(() => null)) as {
+          url?: string;
+          code?: string;
+          error?: string;
+          reason?: string;
+          diagnosticId?: string;
+        } | null;
+        if (res.ok && payload?.url) {
+          checkoutUrl = payload.url;
+          break;
+        }
+        lastDiagnostics = parseCheckoutApiErrorPayload(payload, res.status);
         if (payload?.code === "map_required") throw new Error("map_required");
         if (payload?.code === "map_not_found") throw new Error("map_not_found");
-        throw new Error(payload?.code ?? payload?.error ?? "checkout_failed");
+        if (attempt < 2 && shouldRetryCheckoutFailure(lastDiagnostics.code)) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          continue;
+        }
+        throw new Error(lastDiagnostics.code || "checkout_failed");
       }
-
-      const data = (await res.json()) as { url?: string };
-      if (data.url) {
-        redirectToStripeCheckout(data.url);
+      if (checkoutUrl) {
+        redirectToStripeCheckout(checkoutUrl);
         return;
       }
       throw new Error("No checkout URL");
@@ -658,6 +681,12 @@ export function SimplifiedEditor() {
           orderType: "digital",
         });
       }
+      track("checkout_failed", {
+        source: "simplified_editor",
+        reason,
+        plan: "single",
+        orderType: "digital",
+      });
       const urlMessage = checkoutUrlErrorMessage(reason);
       if (urlMessage) {
         setExportError(urlMessage);

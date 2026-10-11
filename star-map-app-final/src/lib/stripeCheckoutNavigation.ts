@@ -64,6 +64,56 @@ export function isValidStripeCheckoutUrl(url: string): boolean {
   }
 }
 
+/**
+ * Hostname owned by Stripe (exact `stripe.com` or `*.stripe.com`).
+ * Rejects lookalikes like `notstripe.com` / `checkout.stripe.com.evil.example`.
+ */
+export function isStripeOwnedHostname(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  return host === "stripe.com" || host.endsWith(".stripe.com");
+}
+
+/**
+ * Recovery allowlist for a Checkout Session that already exists in Stripe.
+ * Prefer {@link isValidStripeCheckoutUrl} for first-pass validation; use this only
+ * when strict path validation fails so we never strand a paid-capable session.
+ */
+export function isRecoverableStripeCheckoutUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.username || parsed.password) return false;
+    if (!isStripeOwnedHostname(parsed.hostname)) return false;
+    // Prefer Checkout Session path shapes; also accept exact checkout.stripe.com hosts
+    // with any path (Stripe has historically shipped alternate handoff paths).
+    if (parsed.hostname === "checkout.stripe.com") return true;
+    return /\/(?:c|f)\/pay\/cs_(?:live|test)_/i.test(parsed.pathname) || /\/cs_(?:live|test)_/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
+export type ResolvedStripeCheckoutUrl = {
+  url: string | null;
+  strictValid: boolean;
+  recovered: boolean;
+};
+
+/** Resolve a Stripe session URL for customer handoff after session creation. */
+export function resolveStripeCheckoutHandoffUrl(url: string | null | undefined): ResolvedStripeCheckoutUrl {
+  const trimmed = typeof url === "string" ? url.trim() : "";
+  if (!trimmed) {
+    return { url: null, strictValid: false, recovered: false };
+  }
+  if (isValidStripeCheckoutUrl(trimmed)) {
+    return { url: trimmed, strictValid: true, recovered: false };
+  }
+  if (isRecoverableStripeCheckoutUrl(trimmed)) {
+    return { url: trimmed, strictValid: false, recovered: true };
+  }
+  return { url: null, strictValid: false, recovered: false };
+}
+
 export function redirectToStripeCheckout(url: string): void {
   if (!isValidStripeCheckoutUrl(url)) {
     throw new Error("invalid_checkout_url");

@@ -109,14 +109,18 @@ test("2: Stripe repeatedly fails → generic customer error fields + normalized 
     httpStatus: 500,
     mapIdPresent: true,
     checkoutKind: "digital_single",
+    errorMessage: null,
+    sessionId: null,
   });
   // Customer payload contract (route returns these fields; no raw Stripe text).
   const customer = {
     error: "Checkout failed",
     code: "unknown_error",
+    reason: "stripe_StripeConnectionError",
     diagnosticId: correlationId,
   };
   assert.equal(customer.code, "unknown_error");
+  assert.equal(customer.reason, "stripe_StripeConnectionError");
   assert.equal(customer.diagnosticId, correlationId);
   assert.equal(Object.hasOwn(customer, "message") === false || customer.message === undefined, true);
 });
@@ -277,7 +281,7 @@ test("8: typed checkout errors remain allowlisted public codes in route", () => 
   assert.match(route, /rateLimitResponse/);
   assert.match(route, /CheckoutError/);
   // unknown_error path stays generic and never echoes raw Stripe text.
-  assert.match(route, /code:\s*"unknown_error"/);
+  assert.match(route, /buildUnknownCheckoutFailureResponse/);
   assert.doesNotMatch(route, /error:\s*err\.message,\s*code:\s*"unknown_error"/);
 });
 

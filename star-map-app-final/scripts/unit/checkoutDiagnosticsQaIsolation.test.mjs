@@ -90,5 +90,5 @@ test("checkout route isolates QA failures from buyer diagnostics on POST and GET
   assert.match(route, /bestEffortCheckoutSideEffect/);
   assert.match(route, /recordFunnelStep\(/);
   assert.match(route, /handoff: checkoutHandoff/);
-  assert.match(route, /handoff: "missing"/);
+  assert.match(route, /handoff: getCheckoutHandoff/);
 });

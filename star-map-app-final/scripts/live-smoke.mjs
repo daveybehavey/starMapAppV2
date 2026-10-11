@@ -581,7 +581,12 @@ async function main() {
           "content-type": "application/json",
           accept: "application/json",
         },
-        body: JSON.stringify({ plan: "single", mapId }),
+        body: JSON.stringify({
+          plan: "single",
+          mapId,
+          // Presence-only browser handoff token (matches editor createCheckoutHandoffToken shape).
+          checkoutHandoff: `b${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`,
+        }),
         cache: "no-store",
       },
       args.timeoutMs,
