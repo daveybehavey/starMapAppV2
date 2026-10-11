@@ -8,6 +8,7 @@ import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import {
   createCheckoutHandoffToken,
+  getCheckoutAnalyticsConsent,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -1463,7 +1464,8 @@ export function EditorExperience({
           shippingCountry?: string;
           referralCode?: string;
           checkoutHandoff?: string;
-        } = { plan, checkoutHandoff: createCheckoutHandoffToken() };
+          analyticsConsent: string;
+        } = { plan, checkoutHandoff: createCheckoutHandoffToken(), analyticsConsent: getCheckoutAnalyticsConsent() };
         if (mapId) checkoutPayload.mapId = mapId;
         if (promoCode) checkoutPayload.promoCode = promoCode;
         if (referralCode) checkoutPayload.referralCode = referralCode;

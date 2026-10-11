@@ -32,6 +32,7 @@ import {
 } from "@/lib/dateInput";
 import {
   createCheckoutHandoffToken,
+  getCheckoutAnalyticsConsent,
   track,
   trackCheckoutClientDiagnostic,
   trackFunnelStep,
@@ -609,9 +610,11 @@ export function SimplifiedEditor() {
         plan: string;
         stripeMode?: "test" | "live";
         checkoutHandoff?: string;
+        analyticsConsent: string;
       } = {
         plan: "single",
         checkoutHandoff: createCheckoutHandoffToken(),
+        analyticsConsent: getCheckoutAnalyticsConsent(),
       };
       if (mapId) checkoutPayload.mapId = mapId;
       if (stripeMode) checkoutPayload.stripeMode = stripeMode;

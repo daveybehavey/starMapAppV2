@@ -1,3 +1,4 @@
+import { normalizePurchaseAnalyticsConsent } from "./purchaseAnalyticsConsent.mjs";
 import type Stripe from "stripe";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 import { isPrintVariant } from "./printCatalog";
@@ -37,6 +38,7 @@ export function buildGa4PurchaseFromStripeSession(session: Stripe.Checkout.Sessi
   const marketing = buildGa4MarketingParamsFromStripeMetadata(session.metadata ?? undefined);
   return {
     transactionId: session.id,
+    analyticsConsent: normalizePurchaseAnalyticsConsent(session.metadata?.analytics_consent),
     plan: getPlanFromStripeSession(session),
     orderType,
     printVariant,

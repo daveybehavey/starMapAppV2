@@ -1,3 +1,4 @@
+import { PURCHASE_ANALYTICS_GRANTED, PURCHASE_ANALYTICS_DENIED } from "./purchaseAnalyticsConsent.mjs";
 import type { FunnelStep } from "./funnelSteps";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 import { pushDataLayer } from "./googleTagManager";
@@ -70,6 +71,11 @@ function canTrackAnalytics() {
   if (!hasAnalyticsConsent()) return false;
   if (isDoNotTrackEnabled()) return false;
   return true;
+}
+
+/** Snapshot once per checkout intent; do not re-read consent inside retry loops. */
+export function getCheckoutAnalyticsConsent(): string {
+  return canTrackAnalytics() ? PURCHASE_ANALYTICS_GRANTED : PURCHASE_ANALYTICS_DENIED;
 }
 
 function getPublicNumber(name: string, fallback: number) {

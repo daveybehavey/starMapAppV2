@@ -90,3 +90,34 @@ for (const editor of ["primary", "simple"]) {
     });
   }
 }
+
+for (const editor of ["primary", "simple"]) {
+  for (const consent of ["missing", "declined", "invalid", "dnt", "granted"]) {
+    test(`${editor}: ${consent} consent stays frozen across checkout retry`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const requests: Record<string, unknown>[] = [];
+      await page.route("**/api/maps", route => route.fulfill({ json: { id: mapId } }));
+      await page.route("**/api/checkout", async route => {
+        requests.push(route.request().postDataJSON());
+        if (requests.length === 1) {
+          // A later grant/withdrawal cannot rewrite this in-flight logical request.
+          await page.evaluate(() => localStorage.setItem("analytics-consent", localStorage.getItem("analytics-consent") === "true" ? "false" : "true"));
+          return route.abort("failed");
+        }
+        return route.fulfill({ json: { url: handoff } });
+      });
+      await openEditor(page, editor);
+      await page.evaluate(state => {
+        if (state === "missing") localStorage.removeItem("analytics-consent");
+        else localStorage.setItem("analytics-consent", state === "declined" ? "false" : state === "invalid" ? "yes" : "true");
+        Object.defineProperty(navigator, "doNotTrack", { configurable: true, value: state === "dnt" ? "1" : "0" });
+      }, consent);
+      await (editor === "primary" ? page.getByRole("button", { name: "Buy this map in HD", exact: true }) : page.getByRole("button", { name: /Unlock HD/i })).click();
+      await expect(page).toHaveURL(handoff);
+      expect(requests).toHaveLength(2);
+      for (const request of requests) expect(request.analyticsConsent).toBe(consent === "granted" ? "granted-v1" : "not-granted");
+      const stable = (request: Record<string, unknown>) => Object.fromEntries(Object.entries(request).filter(([key]) => key !== "checkoutHandoff"));
+      expect(stable(requests[0])).toEqual(stable(requests[1]));
+    });
+  }
+}

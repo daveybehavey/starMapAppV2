@@ -1,3 +1,4 @@
+import { schedulePaymentAnalytics } from "@/lib/optionalPaymentAnalytics";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
@@ -11,7 +12,6 @@ import {
   buildGa4PurchaseFromStripeSession,
   isQaStripeSession,
 } from "@/lib/commerceAnalytics";
-import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 
 export const runtime = "nodejs";
 
@@ -243,7 +243,7 @@ export async function GET(req: NextRequest) {
     });
     if (!alreadyPaid) {
       const skipProductionAnalytics = isQaStripeSession(session);
-      await recordPaymentVerifiedOnce({
+      schedulePaymentAnalytics({
         sessionId,
         amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
         source: orderType === "print" ? "stripe_verify_print" : "stripe_verify_digital",

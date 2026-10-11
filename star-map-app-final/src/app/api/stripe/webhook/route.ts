@@ -1,3 +1,4 @@
+import { schedulePaymentAnalytics } from "@/lib/optionalPaymentAnalytics";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { isDurableKvPersistenceError, kv } from "@/lib/kv";
@@ -29,7 +30,7 @@ import {
   resolvePrintOrderCreatedAt,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
-import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
+import { recordCheckoutExpiredOnce } from "@/lib/funnel";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
@@ -413,7 +414,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
 
   if (!alreadyPaid) {
     const skipProductionAnalytics = isQaStripeSession(session);
-    await recordPaymentVerifiedOnce({
+    schedulePaymentAnalytics({
       sessionId: session.id,
       amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
       source: orderType === "print" ? "stripe_webhook_print" : "stripe_webhook_digital",

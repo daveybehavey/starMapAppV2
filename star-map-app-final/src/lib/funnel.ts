@@ -385,6 +385,7 @@ export async function recordPaymentVerifiedOnce(input: {
   variant?: string;
   occurredAt?: string | number | Date;
   ga4Purchase?: Ga4PurchaseInput;
+  signal?: AbortSignal;
   /** When true, skip GA4 MP and internal payment_verified (live QA / automation). */
   skipProductionAnalytics?: boolean;
 }): Promise<void> {
@@ -398,9 +399,13 @@ export async function recordPaymentVerifiedOnce(input: {
   if (amountTotal !== null && amountTotal <= 0) return;
   // GA4 + PostHog have their own dedupe; run before funnel dedupe so a later verify/webhook can retry.
   if (input.ga4Purchase && !skipProduction) {
-    await recordGa4PurchaseOnce(input.ga4Purchase);
-    await recordPosthogPurchaseOnce(input.ga4Purchase);
+    // Independent, consent-gated providers: neither failure blocks the other.
+    await Promise.allSettled([
+      recordGa4PurchaseOnce(input.ga4Purchase, { signal: input.signal }),
+      recordPosthogPurchaseOnce(input.ga4Purchase, { signal: input.signal }),
+    ]);
   }
+  if (input.signal?.aborted) return;
   const seen = await kv.incr(paymentVerifiedSessionKey(sessionId), 1, { ex: SESSION_DEDUPE_TTL_SECONDS });
   if (seen !== 1) return;
   if (skipProduction) return;

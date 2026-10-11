@@ -1,3 +1,4 @@
+import * as consent from "../../src/lib/purchaseAnalyticsConsent.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
@@ -9,6 +10,7 @@ async function load(file, globals, imports) {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const stub = (name) => {
+    if (name === "./purchaseAnalyticsConsent.mjs") imports[name] = consent;
     assert.ok(Object.hasOwn(imports, name), `Unexpected import ${name}`);
     const exports = imports[name];
     return new vm.SyntheticModule(Object.keys(exports), function () {
@@ -50,7 +52,7 @@ const server = await load("../../src/lib/posthogServerPurchase.ts", {
   process: { env: { NEXT_PUBLIC_POSTHOG_KEY: "synthetic-project-key" } }, URL, console,
   fetch: async (_url, init) => { events.push(JSON.parse(init.body)); return { ok: !fail, status: fail ? 503 : 200 }; },
 }, { "./kv": { kv: { get: async k => store.get(k), incr: async k => store.set(k, 1) } } });
-const input = { transactionId: "cs_test_synthetic", value: 9, currency: "usd" };
+const input = { analyticsConsent: "granted-v1", transactionId: "cs_test_synthetic", value: 9, currency: "usd" };
 assert.equal((await server.recordPosthogPurchaseOnce(input)).recorded, false);
 fail = false;
 assert.equal((await server.recordPosthogPurchaseOnce(input)).recorded, true);
