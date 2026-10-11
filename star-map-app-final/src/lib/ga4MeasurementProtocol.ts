@@ -1,8 +1,10 @@
+import { hasPurchaseAnalyticsConsent } from "./purchaseAnalyticsConsent.mjs";
 import { kv } from "./kv";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 
 export type Ga4PurchaseInput = {
   transactionId: string;
+  analyticsConsent?: string;
   value?: number;
   currency?: string;
   plan?: CheckoutPlan | null;
@@ -161,12 +163,12 @@ function buildPurchaseParams(input: Ga4PurchaseInput) {
  */
 export async function recordGa4PurchaseOnce(
   input: Ga4PurchaseInput,
-  options?: { skipQa?: boolean },
+  options?: { skipQa?: boolean; signal?: AbortSignal },
 ): Promise<void> {
   const transactionId = input.transactionId.trim();
   if (!transactionId) return;
 
-  if (options?.skipQa) return;
+  if (options?.skipQa || options?.signal?.aborted || !hasPurchaseAnalyticsConsent(input.analyticsConsent)) return;
 
   const measurementId = process.env.NEXT_PUBLIC_GA_ID?.trim() || "";
   const apiSecret = process.env.GA4_API_SECRET?.trim() || "";
@@ -177,7 +179,7 @@ export async function recordGa4PurchaseOnce(
 
   const dedupeKey = ga4MpPurchaseKey(transactionId);
   const prior = await kv.get<number>(dedupeKey);
-  if (typeof prior === "number" && prior > 0) return;
+  if (options?.signal?.aborted || (typeof prior === "number" && prior > 0)) return;
 
   const url = new URL("https://www.google-analytics.com/mp/collect");
   url.searchParams.set("measurement_id", measurementId);
@@ -196,6 +198,7 @@ export async function recordGa4PurchaseOnce(
   try {
     const res = await fetch(url.toString(), {
       method: "POST",
+      signal: options?.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });

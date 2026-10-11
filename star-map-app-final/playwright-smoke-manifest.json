@@ -16,7 +16,8 @@
         "tests/map-hub-editor.spec.ts",
         "tests/editor-draft-recovery.spec.ts",
         "tests/error-handling.spec.ts",
-        "tests/hd-export-guard-lifecycle.spec.ts"
+        "tests/hd-export-guard-lifecycle.spec.ts",
+        "tests/purchase-reliability.spec.ts"
       ]
     },
     {

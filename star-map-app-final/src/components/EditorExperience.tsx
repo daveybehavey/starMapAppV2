@@ -1,5 +1,6 @@
 "use client";
 
+import { redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 import dynamic from "next/dynamic";
 import { TextBox, useStore } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
@@ -7,6 +8,7 @@ import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import {
   createCheckoutHandoffToken,
+  getCheckoutAnalyticsConsent,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -16,6 +18,7 @@ import {
 import {
   DIGITAL_SINGLE_FALLBACK_LABEL,
   parseCheckoutApiErrorPayload,
+  requestCheckoutAttempt,
   shouldOfferDigitalSingleFallback,
   shouldRetryCheckoutFailure,
 } from "@/lib/checkoutClientFailure";
@@ -1461,7 +1464,8 @@ export function EditorExperience({
           shippingCountry?: string;
           referralCode?: string;
           checkoutHandoff?: string;
-        } = { plan, checkoutHandoff: createCheckoutHandoffToken() };
+          analyticsConsent: string;
+        } = { plan, checkoutHandoff: createCheckoutHandoffToken(), analyticsConsent: getCheckoutAnalyticsConsent() };
         if (mapId) checkoutPayload.mapId = mapId;
         if (promoCode) checkoutPayload.promoCode = promoCode;
         if (referralCode) checkoutPayload.referralCode = referralCode;
@@ -1746,9 +1750,9 @@ export function EditorExperience({
             },
             body: JSON.stringify(checkoutPayload),
           };
-          const res = await fetch("/api/checkout", attemptInit);
-          checkoutApiResponseReceived = true;
-          data = (await res.json().catch(() => null)) as CheckoutResponse | null;
+          const res = await requestCheckoutAttempt<CheckoutResponse>(attemptInit);
+          checkoutApiResponseReceived ||= res.status !== 0;
+          data = res.data;
           if (res.ok && data?.url) break;
 
           lastCheckoutDiagnostics = parseCheckoutApiErrorPayload(data, res.status);
@@ -1812,7 +1816,7 @@ export function EditorExperience({
             );
             await new Promise((resolve) => setTimeout(resolve, 2200));
           }
-          window.location.href = data.url;
+          redirectToStripeCheckout(data.url);
           return;
         }
         throw new Error("no url");

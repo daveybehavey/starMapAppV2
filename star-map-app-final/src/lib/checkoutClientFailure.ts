@@ -58,6 +58,8 @@ export function shouldRetryCheckoutFailure(code: string): boolean {
   if (NON_RETRYABLE_CHECKOUT_CODES.has(code)) return false;
   // Transient / unknown server failures — retry once.
   return (
+    code === "checkout_network_error" ||
+    code === "checkout_timeout" ||
     code === "unknown_error" ||
     code === "invalid_checkout_url" ||
     code === "checkout_failed" ||
@@ -92,3 +94,33 @@ export function shouldOfferDigitalSingleFallback(input: {
 }
 
 export const DIGITAL_SINGLE_FALLBACK_LABEL = "Try instant HD instead";
+
+/** One bounded transport attempt; callers own the maximum of two attempts.
+ * Normalize only fetch network/timeout failures, leaving programming errors visible.
+ * Keep the payload (especially map ID and order options) unchanged across retries:
+ * those fields bind the server's Stripe idempotency key.
+ */
+export async function requestCheckoutAttempt<T extends CheckoutApiErrorPayload & { url?: string }>(
+  init: RequestInit,
+): Promise<{ ok: boolean; status: number; data: T | null }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch("/api/checkout", { ...init, signal: controller.signal });
+    const data = (await response.json().catch((error: unknown) => {
+      if (controller.signal.aborted) throw error;
+      return null;
+    })) as T | null;
+    return { ok: response.ok, status: response.status, data };
+  } catch (error) {
+    const timedOut = controller.signal.aborted || (error instanceof Error && error.name === "AbortError");
+    if (!timedOut && !(error instanceof TypeError)) throw error;
+    return {
+      ok: false,
+      status: 0,
+      data: { code: timedOut ? "checkout_timeout" : "checkout_network_error" } as T,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}

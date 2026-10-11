@@ -1,3 +1,4 @@
+import { hasPurchaseAnalyticsConsent, normalizePurchaseAnalyticsConsent } from "@/lib/purchaseAnalyticsConsent.mjs";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
@@ -606,6 +607,7 @@ function resolveCheckoutHandoff(raw: unknown): "browser" | "missing" {
 
 function checkoutIdempotencyKey(input: {
   mapId?: string;
+  analyticsConsent?: unknown;
   plan: CheckoutPlan;
   orderType: CheckoutOrderType;
   printVariant?: PrintVariant;
@@ -632,7 +634,10 @@ function checkoutIdempotencyKey(input: {
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}`;
+  // A frozen opt-in changes Stripe metadata. Keep its request identity distinct;
+  // absent/denied consent preserves the existing key and request parameters.
+  const consentSuffix = hasPurchaseAnalyticsConsent(input.analyticsConsent) ? ":analytics-v1" : "";
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${consentSuffix}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -658,6 +663,7 @@ async function createCheckoutSession(input: {
   checkoutSource?: string;
   /** Presence-only: `browser` or `missing`. Never a raw client token. */
   checkoutHandoff?: "browser" | "missing";
+  analyticsConsent?: unknown;
   idempotencyKey?: string;
   merchFamily?: MerchFamilyId;
   merchOptions?: { size?: string; color?: string };
@@ -684,6 +690,7 @@ async function createCheckoutSession(input: {
     referralAutoOfferVariant,
     checkoutSource,
     checkoutHandoff = "missing",
+    analyticsConsent,
     idempotencyKey,
     merchFamily,
     merchOptions,
@@ -756,6 +763,7 @@ async function createCheckoutSession(input: {
   const normalizedCheckoutSource = normalizeIdempotencyToken(checkoutSource, 48);
   if (normalizedCheckoutSource) metadata.checkout_source = normalizedCheckoutSource;
   metadata.checkout_handoff = checkoutHandoff === "browser" ? "browser" : "missing";
+  if (hasPurchaseAnalyticsConsent(analyticsConsent)) metadata.analytics_consent = normalizePurchaseAnalyticsConsent(analyticsConsent);
   if (mapId) metadata.map_id = mapId;
   if (isPrintOrder) {
     metadata.print_variant = normalizedPrintVariant;
@@ -1451,6 +1459,7 @@ export async function POST(req: NextRequest) {
     let referralCode: string | undefined;
     let shippingCountry: string | undefined;
     let checkoutHandoff: "browser" | "missing" = "missing";
+    let analyticsConsent = normalizePurchaseAnalyticsConsent(undefined);
     try {
       const body = (await req.json()) as {
         mapId?: string;
@@ -1468,10 +1477,12 @@ export async function POST(req: NextRequest) {
         shippingCountry?: string;
         referralCode?: string;
         checkoutHandoff?: string;
+        analyticsConsent?: unknown;
       } | null;
       mapId = parseCheckoutMapId(body?.mapId);
       mapIdForDiag = mapId;
       checkoutHandoff = resolveCheckoutHandoff(body?.checkoutHandoff);
+      analyticsConsent = normalizePurchaseAnalyticsConsent(body?.analyticsConsent);
       if (body?.plan && ["single", "pack3", "subscription"].includes(body.plan)) {
         plan = body.plan;
       }
@@ -1617,6 +1628,7 @@ export async function POST(req: NextRequest) {
 
     const idempotencyKey = checkoutIdempotencyKey({
       mapId,
+      analyticsConsent,
       plan,
       orderType,
       printVariant,
@@ -1685,6 +1697,7 @@ export async function POST(req: NextRequest) {
         selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       checkoutSource: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       checkoutHandoff,
+      analyticsConsent,
       idempotencyKey: idempotencyKey ?? undefined,
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,

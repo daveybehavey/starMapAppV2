@@ -1,3 +1,4 @@
+import { hasPurchaseAnalyticsConsent } from "./purchaseAnalyticsConsent.mjs";
 /**
  * Server-side PostHog `purchase` capture from Stripe webhooks / verify.
  * Idempotent per Stripe Checkout Session so ad-blockers cannot hide paid orders.
@@ -52,11 +53,13 @@ export function buildPosthogPurchaseProperties(input: Ga4PurchaseInput): Record<
  */
 export async function recordPosthogPurchaseOnce(
   input: Ga4PurchaseInput,
-  options?: { skipQa?: boolean },
+  options?: { skipQa?: boolean; signal?: AbortSignal },
 ): Promise<{ recorded: boolean; reason?: string }> {
   const transactionId = input.transactionId?.trim() ?? "";
   if (!transactionId) return { recorded: false, reason: "missing_transaction_id" };
   if (options?.skipQa) return { recorded: false, reason: "qa_skipped" };
+  if (!hasPurchaseAnalyticsConsent(input.analyticsConsent)) return { recorded: false, reason: "consent_not_granted" };
+  if (options?.signal?.aborted) return { recorded: false, reason: "aborted" };
 
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim() || "";
   if (!apiKey) {
@@ -82,6 +85,7 @@ export async function recordPosthogPurchaseOnce(
     // Continue — capture may still succeed; Stripe retries + KV incr below provide soft dedupe.
   }
 
+  if (options?.signal?.aborted) return { recorded: false, reason: "aborted" };
   const host = resolvePosthogHost();
   const properties = buildPosthogPurchaseProperties(input);
   delete properties.token;
@@ -100,6 +104,7 @@ export async function recordPosthogPurchaseOnce(
   try {
     const res = await fetch(`${host}/capture/`, {
       method: "POST",
+      signal: options?.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });

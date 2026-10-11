@@ -1,3 +1,4 @@
+import { PURCHASE_ANALYTICS_GRANTED, PURCHASE_ANALYTICS_DENIED } from "./purchaseAnalyticsConsent.mjs";
 import type { FunnelStep } from "./funnelSteps";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "./pricing";
 import { pushDataLayer } from "./googleTagManager";
@@ -72,6 +73,11 @@ function canTrackAnalytics() {
   return true;
 }
 
+/** Snapshot once per checkout intent; do not re-read consent inside retry loops. */
+export function getCheckoutAnalyticsConsent(): string {
+  return canTrackAnalytics() ? PURCHASE_ANALYTICS_GRANTED : PURCHASE_ANALYTICS_DENIED;
+}
+
 function getPublicNumber(name: string, fallback: number) {
   const raw = (process.env as Record<string, string | undefined>)[name];
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
@@ -116,21 +122,6 @@ export function runWhenIdle(task: () => void, timeout = 1200) {
     idleCallback(() => task(), { timeout });
   } else {
     setTimeout(task, timeout);
-  }
-}
-
-function capturePosthog(event: string, props?: EventProps) {
-  if (!canTrackAnalytics()) return;
-  const payload = removeUndefinedValues({
-    ...props,
-    route: window.location.pathname,
-  });
-  try {
-    void loadPosthogClient().then((posthog) => {
-      posthog.capture?.(event, payload);
-    });
-  } catch {
-    // silently ignore tracking errors
   }
 }
 
@@ -306,23 +297,11 @@ export function trackPurchaseCompleted(
       }
     }
     const marketing = buildGa4MarketingParams();
-    // PostHog revenue still fires client-side when consent is granted (server has no PostHog secret).
+    // PostHog purchase revenue is owned by recordPosthogPurchaseOnce on the server.
+    // Retain consented browser-only integrations without a second PostHog purchase.
     if (canTrackAnalytics()) {
       const value = estimateCheckoutValue(input);
       const currency = getCheckoutCurrency(input);
-      capturePosthog("purchase", {
-        transaction_id: input.transactionId,
-        revenue: value,
-        currency: getCheckoutCurrency(input),
-        value,
-        order_type: input.orderType ?? "digital",
-        plan: input.plan ?? undefined,
-        print_variant: input.printVariant ?? undefined,
-        include_digital_add_on: input.includeDigitalAddOn ?? undefined,
-        ga4_server_primary: true,
-        ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
-        ...marketing,
-      });
       pushDataLayer({
         event: "purchase",
         transaction_id: input.transactionId,
@@ -365,17 +344,7 @@ export function trackPurchaseCompleted(
     ...marketing,
   });
   trackPinterestCheckout({ value, currency, orderId: input.transactionId });
-  track("purchase", {
-    transaction_id: input.transactionId,
-    revenue: value,
-    currency,
-    value,
-    order_type: input.orderType ?? "digital",
-    plan: input.plan ?? undefined,
-    print_variant: input.printVariant ?? undefined,
-    include_digital_add_on: input.includeDigitalAddOn ?? undefined,
-    ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
-  });
+  // The server records the sole PostHog purchase, independently of browser consent.
   try {
     sessionStorage.removeItem(PENDING_GA4_PURCHASE_KEY);
   } catch {
