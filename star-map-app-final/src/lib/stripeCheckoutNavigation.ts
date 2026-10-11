@@ -46,7 +46,7 @@ export function describeStripeCheckoutUrlShape(url: string): StripeCheckoutUrlSh
 export function isValidStripeCheckoutUrl(url: string): boolean {
   try {
     const parsed = new URL(url.trim());
-    if (parsed.protocol !== "https:") return false;
+    if (parsed.protocol !== "https:" || parsed.port !== "") return false;
     if (parsed.username || parsed.password) return false;
     if (
       !STRIPE_CHECKOUT_HOSTNAMES.includes(
@@ -81,13 +81,12 @@ export function isStripeOwnedHostname(hostname: string): boolean {
 export function isRecoverableStripeCheckoutUrl(url: string): boolean {
   try {
     const parsed = new URL(url.trim());
-    if (parsed.protocol !== "https:") return false;
+    if (parsed.protocol !== "https:" || parsed.port !== "") return false;
     if (parsed.username || parsed.password) return false;
-    if (!isStripeOwnedHostname(parsed.hostname)) return false;
-    // Prefer Checkout Session path shapes; also accept exact checkout.stripe.com hosts
-    // with any path (Stripe has historically shipped alternate handoff paths).
-    if (parsed.hostname === "checkout.stripe.com") return true;
-    return /\/(?:c|f)\/pay\/cs_(?:live|test)_/i.test(parsed.pathname) || /\/cs_(?:live|test)_/i.test(parsed.pathname);
+    if (!STRIPE_CHECKOUT_HOSTNAMES.includes(parsed.hostname as (typeof STRIPE_CHECKOUT_HOSTNAMES)[number])) return false;
+    // Known session handoffs only, including the API's legacy /pay/ recovery shape.
+    // Do not treat arbitrary Stripe subdomains or paths as Checkout destinations.
+    return /^\/(?:[cf]\/)?pay\/cs_(?:live|test)_[A-Za-z0-9]+$/.test(parsed.pathname);
   } catch {
     return false;
   }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
   createCheckoutHandoffToken,
+  getCheckoutAnalyticsConsent,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -33,7 +34,7 @@ import PostPurchaseProofRequest from "@/components/PostPurchaseProofRequest";
 import { PAYWALL_PRINT_VARIANT_ORDER, isPrintVariant } from "@/lib/printCatalog";
 import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
 import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
-import { buildDownloadPath } from "@/lib/stripeCheckoutNavigation";
+import { buildDownloadPath, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 type ReferralStatus = "idle" | "loading" | "ready" | "error";
@@ -272,6 +273,8 @@ export default function SuccessClient() {
     setMessage(null);
     let checkoutApiResponseReceived = false;
     try {
+      // Snapshot this checkout intent before asynchronous preparation.
+      const analyticsConsent = getCheckoutAnalyticsConsent();
       track("success_recovery_action", { action: "add_digital_download_clicked" });
       trackFunnelStep("checkout_started", {
         source: "success",
@@ -289,6 +292,7 @@ export default function SuccessClient() {
           orderType: "digital",
           mapId: checkoutMapId,
           checkoutHandoff: createCheckoutHandoffToken(),
+          analyticsConsent,
         }),
       });
       checkoutApiResponseReceived = true;
@@ -309,7 +313,7 @@ export default function SuccessClient() {
         plan: "single",
         orderType: "digital",
       });
-      window.location.assign(data.url);
+      redirectToStripeCheckout(data.url);
     } catch (error) {
       const reason = error instanceof Error ? error.message : "checkout_failed";
       if (!checkoutApiResponseReceived) {

@@ -397,26 +397,31 @@ export async function recordPaymentVerifiedOnce(input: {
   // For KPI purposes, only treat real revenue sessions as "payment_verified".
   // Entitlements may still be granted for $0 / no_payment_required flows elsewhere.
   if (amountTotal !== null && amountTotal <= 0) return;
-  // GA4 + PostHog have their own dedupe; run before funnel dedupe so a later verify/webhook can retry.
+  // Internal aggregate accounting has its existing session dedupe and is not
+  // conditional on optional provider latency, consent or cancellation. Start it
+  // independently; the caller still bounds post-response work, not paid delivery.
+  const accounting = (async () => {
+    const seen = await kv.incr(paymentVerifiedSessionKey(sessionId), 1, { ex: SESSION_DEDUPE_TTL_SECONDS });
+    if (seen !== 1) return;
+    if (skipProduction) return;
+    await recordFunnelStep({
+      step: "payment_verified",
+      source: input.source,
+      plan: input.plan,
+      experiment: input.experiment,
+      variant: input.variant,
+      occurredAt: input.occurredAt,
+    });
+  })();
+  const tasks: Promise<unknown>[] = [accounting];
+  // Providers retain their own best-effort dedupe and checkout consent gates.
   if (input.ga4Purchase && !skipProduction) {
-    // Independent, consent-gated providers: neither failure blocks the other.
-    await Promise.allSettled([
+    tasks.push(
       recordGa4PurchaseOnce(input.ga4Purchase, { signal: input.signal }),
       recordPosthogPurchaseOnce(input.ga4Purchase, { signal: input.signal }),
-    ]);
+    );
   }
-  if (input.signal?.aborted) return;
-  const seen = await kv.incr(paymentVerifiedSessionKey(sessionId), 1, { ex: SESSION_DEDUPE_TTL_SECONDS });
-  if (seen !== 1) return;
-  if (skipProduction) return;
-  await recordFunnelStep({
-    step: "payment_verified",
-    source: input.source,
-    plan: input.plan,
-    experiment: input.experiment,
-    variant: input.variant,
-    occurredAt: input.occurredAt,
-  });
+  await Promise.allSettled(tasks);
 }
 
 export async function recordCheckoutExpiredOnce(input: {

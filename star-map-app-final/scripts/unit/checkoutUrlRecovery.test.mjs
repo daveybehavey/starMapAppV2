@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  redirectToStripeCheckout,
   isRecoverableStripeCheckoutUrl,
   isStripeOwnedHostname,
   isValidStripeCheckoutUrl,
@@ -98,4 +99,16 @@ test("source: checkout route recovers URL and returns reason on unknown_error", 
   assert.match(route, /checkout_url_recovered_after_strict_validation/);
   // Must not throw invalid_stripe_checkout_url after session create (stranded session).
   assert.doesNotMatch(route, /throw new Error\("invalid_stripe_checkout_url"\)/);
+});
+
+test("browser and API handoff reject unrecognized Stripe destinations", () => {
+  const rejected = ["https://pay.stripe.com/c/pay/cs_live_abc", "https://checkout.stripe.com/not-a-checkout", "https://checkout.stripe.com/c/pay/cs_live_abc/extra", "https://checkout.stripe.com:444/c/pay/cs_live_abc", "https://evil.example/c/pay/cs_live_abc", "https://checkout.stripe.com.evil.example/pay/cs_test_abc", "http://checkout.stripe.com/pay/cs_test_abc", "https://user@checkout.stripe.com/pay/cs_test_abc"];
+  globalThis.window = { location: { assign: () => assert.fail("unsafe navigation") } };
+  try { for(const url of rejected) { assert.equal(resolveStripeCheckoutHandoffUrl(url).url,null,url);assert.throws(()=>redirectToStripeCheckout(url),/invalid_checkout_url/); } }
+  finally { delete globalThis.window; }
+});
+test("recognized checkout path shapes preserve complete fragment", () => {
+  const assigned=[];globalThis.window={location:{assign:url=>assigned.push(url)}};
+  try { for(const prefix of ["/pay/","/c/pay/","/f/pay/"]) {const url=`https://checkout.stripe.com${prefix}cs_test_abc123#fid=synthetic`;redirectToStripeCheckout(url);assert.equal(assigned.at(-1),url);} }
+  finally {delete globalThis.window;}
 });

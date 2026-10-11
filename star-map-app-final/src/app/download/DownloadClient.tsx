@@ -11,6 +11,7 @@ import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { Shape } from "@/lib/types";
 import {
   createCheckoutHandoffToken,
+  getCheckoutAnalyticsConsent,
   track,
   trackBeginCheckout,
   trackCheckoutClientDiagnostic,
@@ -53,6 +54,8 @@ import {
   triggerBlobDownload,
   verifyStripeSessionForDownload,
 } from "@/lib/hdExportFulfillment";
+
+import { redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 const DRAFT_KEY = "star-map-draft";
 const LEGACY_SIMPLIFIED_DRAFT_KEY = "starmap-simplified-draft";
@@ -1098,6 +1101,8 @@ export default function DownloadClient() {
       let checkoutApiResponseReceived = false;
       let checkoutStartedTracked = false;
       try {
+        // Snapshot this checkout intent before asynchronous preparation.
+        const analyticsConsent = getCheckoutAnalyticsConsent();
         const shippingCountry = printShippingCountry?.trim().toUpperCase() || readStoredPrintShippingCountry();
         if (!shippingCountry) {
           throw new Error("missing_shipping_country");
@@ -1183,6 +1188,7 @@ export default function DownloadClient() {
             mapId: mapId ?? undefined,
             shippingCountry,
             checkoutHandoff: createCheckoutHandoffToken(),
+            analyticsConsent,
           }),
         });
         checkoutApiResponseReceived = true;
@@ -1216,7 +1222,7 @@ export default function DownloadClient() {
           printVariant: variant,
           includeDigitalAddOn: false,
         });
-        window.location.assign(data.url);
+        redirectToStripeCheckout(data.url);
       } catch (error) {
         const reason = error instanceof Error ? error.message : "checkout_failed";
         if (checkoutStartedTracked && !checkoutApiResponseReceived) {

@@ -379,6 +379,11 @@ for (const proof of [undefined, "not-granted", "true", "granted-v1"]) {
       const repeated = await f.consume();
       assert.equal((await repeated.json()).idempotent, true);
       await f.drain();
+      assert.equal(
+        f.store.get("funnel:total:payment_verified"),
+        1,
+        `internal counter lost: ${proof}/${mode}/${order}`
+      );
       if (proof !== "granted-v1" || mode === "unavailable") assert.equal(f.captures.length, 0);
       if (proof === "granted-v1" && mode === "ok") {
         const posthog = f.captures.filter((c) => c.body.event === "purchase");
@@ -431,6 +436,34 @@ for (const proof of [undefined, "not-granted", true, "granted-v1"]) {
   assert.equal(f.creates[0].key.includes(":analytics-v1:"), proof === "granted-v1");
   cases++;
 }
+for (const amountTotal of [0, -1, 900]) {
+  const f = await fixture({ proof: "granted-v1" });
+  const funnel = await f.load("lib/funnel.ts");
+  await funnel.recordPaymentVerifiedOnce({
+    sessionId: f.id,
+    amountTotal,
+    skipProductionAnalytics: amountTotal === 900,
+  });
+  assert.equal(
+    f.store.get("funnel:total:payment_verified"),
+    undefined,
+    "free/negative/QA sessions must not count as revenue"
+  );
+  assert.equal(f.captures.length, 0);
+  cases++;
+}
+const repeatedCounter = await fixture();
+const counter = await repeatedCounter.load("lib/funnel.ts");
+await Promise.all([
+  counter.recordPaymentVerifiedOnce({ sessionId: repeatedCounter.id, amountTotal: 900 }),
+  counter.recordPaymentVerifiedOnce({ sessionId: repeatedCounter.id, amountTotal: 900 }),
+]);
+assert.equal(
+  repeatedCounter.store.get("funnel:total:payment_verified"),
+  1,
+  "retain existing session increment dedupe under this synthetic KV"
+);
+cases++;
 console.log(
   `PASS ${cases} actual-route consent/delivery scenarios; no external calls; deadlines accelerated in test only`
 );
