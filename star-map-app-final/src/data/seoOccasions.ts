@@ -11,6 +11,13 @@ export type SeoOccasion = {
   seoDescription?: string;
   /** Optional on-page H1 override. */
   seoH1?: string;
+  /** Optional story section replacing the generic “Why a … star map works” block. */
+  storyHeading?: string;
+  storyParagraphs?: string[];
+  storyCtaHref?: string;
+  storyCtaLabel?: string;
+  /** Occasion artwork shown in the story section (paths under /public). */
+  artwork?: { src: string; alt: string }[];
 };
 
 export const seoOccasions: SeoOccasion[] = [
@@ -87,15 +94,40 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "new-baby",
     label: "New Baby",
-    seoTitle: "New Baby Star Map Gift — Birth Night Sky | StarMapCo",
+    seoTitle: "New Baby Star Map | Birth Night Sky Gift | StarMapCo",
     seoH1: "New Baby Star Map Gift",
     seoDescription:
-      "Create a personalized new baby star map from their birth date, time, and hospital or home city. Free preview, then framed + HD digital with free shipping on $100+ orders.",
+      "The night sky over the place they arrived, with name, date and city. Free preview, no account. HD from $9; framed + HD for the nursery.",
     intro:
-      "Welcome a new baby with a star map that shows the exact night sky from their birth date and location — a nursery-ready keepsake parents treasure for years.",
+      "The sky on the night they arrived, with their name, date and city. A nursery keepsake that grows with them. Preview free, no account.",
     detail:
       "Use the birth date and time if you have it, or the first night home. Parents often add the baby’s name, birth weight, and a short welcome line before choosing framed + HD for the nursery wall.",
     exampleLine: "Welcome, Noah · Austin, TX · March 18, 2024",
+    storyHeading: "A keepsake they grow into, not out of",
+    storyParagraphs: [
+      "Birth announcements list the weight, the length and the time. A new baby star map adds something those numbers cannot: the sky that was overhead at the moment a child arrived. It is a quiet, lasting gift for a nursery wall, and it grows up with the child instead of being outgrown like a newborn outfit.",
+      "To create one, enter the birth date, the time from the hospital bracelet or birth certificate, and the town where the baby was born. Then add a title. Welcome, Oliver works well, as does the full name with the date and city underneath. Soft parchment tones like our Heirloom style suit a nursery, while a dark night style feels right for an older child's room.",
+      "This is a gift that new parents appreciate weeks after the flowers have wilted. Grandparents often order one for their own home as well, so there is a matching map in two places. It also makes a thoughtful baby shower gift if you create it soon after the birth and send it to arrive while the family is settling in.",
+      "There is no need to commit before you see it. The StarMapCo preview is free, with no account required. Check the spelling of the name, try a couple of styles, and choose a format only when you are happy. The digital option is useful if you want to share the design right away; a framed print is ready to hang above the crib.",
+      "Later on, the map becomes a conversation piece. Children like being told that these were their stars, and many families add a map for each sibling so the set grows over the years.",
+    ],
+    storyCtaHref:
+      "/editor?mode=quick&source=occasion-new-baby-story-preview&utm_source=site&utm_medium=landing&utm_campaign=new-baby_story",
+    storyCtaLabel: "Create your free preview",
+    artwork: [
+      {
+        src: "/examples/example-new-baby-heirloom.webp",
+        alt: "New baby star map example in Heirloom style",
+      },
+      {
+        src: "/examples/example-birthday-noir.webp",
+        alt: "Birth night star map example in a dark noir style",
+      },
+      {
+        src: "/home-mockups/offer-unframed-print.png",
+        alt: "Unframed star map print mockup for a nursery gift",
+      },
+    ],
     faqs: [
       {
         question: "Is a star map a good newborn gift?",
@@ -117,19 +149,56 @@ export const seoOccasions: SeoOccasion[] = [
         answer:
           "The premium gift route is framed print + HD digital so the wall art ships ready to hang and parents get an instant file for sharing. Unframed poster lowers the total if they already picked a frame.",
       },
+      {
+        question: "Is it appropriate as a baby shower gift?",
+        answer:
+          "Yes, once the baby has arrived. Before the birth you would not yet have the date and time, so many people give it after the birth instead.",
+      },
+      {
+        question: "Which style works best in a nursery?",
+        answer:
+          "Light parchment styles tend to blend with nursery decor, while navy and dark styles suit a bolder room. Try both in the free preview.",
+      },
+      {
+        question: "Can I make matching maps for siblings?",
+        answer:
+          "Yes. Create a map for each child's birth night in the same style so they hang well together.",
+      },
     ],
   },
   {
     slug: "memorial",
     label: "Memorial",
-    seoTitle: "Memorial Star Map Gift — Remembrance Night Sky | StarMapCo",
+    seoTitle: "Memorial Star Map | Remembrance Gift | StarMapCo",
     seoH1: "Memorial Star Map Gift",
     seoDescription:
-      "Honor a loved one with a memorial star map from a meaningful date and place. Free preview, then framed print, unframed poster, or instant HD — quiet, respectful personalization.",
-    intro: "Honor a loved one with a memorial star map that captures the night sky from a meaningful date.",
+      "Honor a loved one with the night sky from a date that mattered: a birthday, a wedding or their passing. Gentle, personal. Free preview.",
+    intro:
+      "A quiet way to remember someone: the stars from a date that mattered, with their name and a short line. Take your time; the preview is free.",
     detail:
       "Many families use a birthday, anniversary, or the day of passing. Add a simple dedication line to keep the design quiet and respectful.",
     exampleLine: "In Loving Memory · London, UK · October 9, 2022",
+    storyHeading: "Choosing the date, and the words",
+    storyParagraphs: [
+      "When someone is gone, the things that comfort most are often the simplest. A memorial star map shows the sky over a particular place on a particular night, and gives a grieving family something calm and beautiful to hold onto. It does not try to say too much. It simply marks a moment and keeps it.",
+      "Families choose different dates. Some use the day their loved one was born, as a celebration of the life rather than the loss. Some use a wedding date, an anniversary, or a favourite trip. Others choose the night of passing, because that sky felt significant. There is no right answer; the best date is the one that feels true to the person.",
+      "Wording matters with this kind of gift. A short title such as In Loving Memory, followed by a name and the years, is often enough. Some people add a line the person used to say. Keep it gentle and personal, and read it aloud before you finalise it.",
+      "If you are making this for someone else who is grieving, the free StarMapCo preview lets you take your time without pressure. There is no account to set up and nothing to pay until you are sure. You can choose a digital file to share with relatives in different places, or a framed print that can sit on a mantel, at a memorial service, or beside a photograph.",
+      "A memorial map is not about astronomy. It is about being able to look at a wall and remember that, on a certain night, the person you miss was here, and the stars were exactly where they are shown.",
+    ],
+    storyCtaHref:
+      "/editor?mode=quick&source=occasion-memorial-story-preview&utm_source=site&utm_medium=landing&utm_campaign=memorial_story",
+    storyCtaLabel: "Create your free preview",
+    artwork: [
+      {
+        src: "/examples/example-memorial-starlace.webp",
+        alt: "Memorial star map example in Starlace style",
+      },
+      {
+        src: "/home-mockups/gallery-star-poster.png",
+        alt: "Star map poster mockup for a remembrance gift",
+      },
+    ],
     faqs: [
       {
         question: "Is a memorial star map appropriate?",
@@ -151,19 +220,52 @@ export const seoOccasions: SeoOccasion[] = [
         answer:
           "Framed print is common for display at home; HD digital lets distant family receive the same design immediately without shipping wait.",
       },
+      {
+        question: "Can I order copies for several family members?",
+        answer:
+          "You can create the same map and order it more than once, or choose the digital file to share and print locally.",
+      },
+      {
+        question: "Can it be displayed at a funeral or memorial service?",
+        answer:
+          "Yes. A framed print works well beside photographs at a service and can be taken home afterwards.",
+      },
     ],
   },
   {
     slug: "graduation",
     label: "Graduation",
-    seoTitle: "Graduation Star Map Gift — Ceremony Night Sky | StarMapCo",
+    seoTitle: "Graduation Star Map Gift | Ceremony Night Sky | StarMapCo",
     seoH1: "Graduation Star Map Gift",
     seoDescription:
-      "Celebrate graduation with a custom star map from the ceremony date and city. Free preview, then framed + HD digital, poster, or instant HD for last-minute gifts.",
-    intro: "Celebrate a graduation with a star map from the ceremony date and location.",
+      "The sky over their ceremony or campus, with name and class year. A keepsake beyond card and cash. Free preview; HD, print or framed.",
+    intro:
+      "The sky over the campus on the night they made it, with their name and class year. Preview free, no account.",
     detail:
       "Use the ceremony date or the celebration night. Add the school name, class year, or degree to personalize the print.",
     exampleLine: "Class of 2024 · Boston, MA · May 25, 2024",
+    storyHeading: "A graduation gift that outlasts the gown",
+    storyParagraphs: [
+      "Graduation gifts tend to fall into two camps: practical things for the next stage, or an envelope of money. Both are useful and both are forgotten quickly. A graduation star map is different. It records the sky over the campus or ceremony venue on the day the degree, diploma or certificate was earned, and it becomes something the graduate keeps long after the gown is returned.",
+      "It suits high school, college, university, trade school and postgraduate milestones alike. Enter the ceremony date and location, add a title such as Class of 2026 along with the graduate's name and school town, and choose a design. A deep navy aurora style feels celebratory; a clean minimalist style fits a first apartment or dorm wall.",
+      "Parents often pair the map with a practical gift so there is something meaningful to unwrap alongside it. Grandparents like it because it is personal without needing to know what the graduate wants. Friends sometimes choose the digital version so it can be printed wherever the graduate ends up living next.",
+      "You can see the result before you pay. StarMapCo's preview is free and does not ask you to create an account. Try different titles, check that the school and year read correctly, and choose a format when it feels finished: an instant digital download, an unframed print, or a framed print.",
+      "A small detail makes it land: write a line on the back of the frame or in the card about what you saw the graduate work through to get there. The map marks the night; your words explain why it mattered. Years later, that combination is what turns a print into an heirloom rather than decor.",
+      "For graduates who are moving away, the map is a reminder of the place where they grew up or studied, and of the night they crossed the stage, no matter where they hang it.",
+    ],
+    storyCtaHref:
+      "/editor?mode=quick&source=occasion-graduation-story-preview&utm_source=site&utm_medium=landing&utm_campaign=graduation_story",
+    storyCtaLabel: "Create your free preview",
+    artwork: [
+      {
+        src: "/examples/example-graduation-aurora.webp",
+        alt: "Graduation star map example in Aurora style",
+      },
+      {
+        src: "/home-mockups/offer-digital-hd.png",
+        alt: "Digital HD star map mockup for a graduation gift",
+      },
+    ],
     faqs: [
       {
         question: "Is a star map good for graduation?",
@@ -183,6 +285,19 @@ export const seoOccasions: SeoOccasion[] = [
         question: "Do graduation gifts ship in time for the party?",
         answer:
           "Instant HD unlocks immediately after checkout for same-day gifting. Framed and poster prints ship from our print partner — preview first, then allow production and transit time.",
+      },
+      {
+        question: "What location should I enter?",
+        answer: "The ceremony venue or the campus town. Either gives an accurate sky for that place.",
+      },
+      {
+        question: "Is a digital version available for graduates who are moving?",
+        answer: "Yes. The digital file can be printed wherever they settle.",
+      },
+      {
+        question: "Can I make one for a past graduation?",
+        answer:
+          "Yes. Any past date works, so it can mark a graduation from years ago as a reunion or milestone gift.",
       },
     ],
   },
@@ -544,12 +659,42 @@ export const seoOccasions: SeoOccasion[] = [
   {
     slug: "christmas",
     label: "Christmas",
-    seoTitle: "Christmas Star Map Gift — Holiday Night Sky | StarMapCo",
+    seoTitle: "Christmas Star Map Gift | Personalized | StarMapCo",
     seoH1: "Christmas Star Map Gift",
     seoDescription:
-      "Give a Christmas star map from a holiday memory, proposal, or family gathering. Free preview, then framed + HD, poster, or instant HD for last-minute gifts.",
-    intro: "Create a Christmas star map for a holiday memory, proposal, or family gathering.",
+      "A personalized star map for Christmas: the sky from a wedding, a birth or a first Christmas together. Free preview. Instant HD from $9.",
+    intro:
+      "A gift that is only theirs: the sky from the night you met, a wedding, a birth, or your first Christmas together. Preview free, no account.",
     exampleLine: "Christmas Night · New York, NY · December 25, 2023",
+    storyHeading: "One idea, a different gift for everyone on your list",
+    storyParagraphs: [
+      "Christmas shopping has a way of becoming a list of things nobody asked for. A personalized star map is one of the few gifts that is about the person receiving it rather than the store selling it. It shows the night sky from a date that matters to them, framed and ready to hang, and it is very hard to buy the same one twice.",
+      "Think about who is on your list. For a partner, choose the night you met or your wedding date. For parents, choose their wedding date or the day they brought you home. For a new family, the baby's birth night. For a couple celebrating their first Christmas together, the night they moved in. Each one becomes a different gift from the same idea.",
+      "Some people use Christmas itself as the date: the sky on Christmas Eve over the family home, or the first Christmas in a new house. Add a title like Our First Christmas and the town name, and it becomes a keepsake you can bring out every December.",
+      "Holiday timing matters for physical gifts, so start early. The StarMapCo preview is free and needs no account, so you can design several maps for different people in one sitting and decide later. Framed and unframed prints are shipped to you; check the shipping page for current timing before relying on a specific delivery date.",
+      "If you leave it late, the digital option is there. You can download the file and print it locally, or slip a printed copy into a card on Christmas morning. Either way, it is a gift that took thought, and that shows.",
+    ],
+    storyCtaHref:
+      "/editor?mode=quick&source=occasion-christmas-story-preview&utm_source=site&utm_medium=landing&utm_campaign=christmas_story",
+    storyCtaLabel: "Create your free preview",
+    artwork: [
+      {
+        src: "/home-mockups/gallery-living-room-framed.png",
+        alt: "Framed star map in a living room holiday setting",
+      },
+      {
+        src: "/home-mockups/gallery-framed-light-wood.png",
+        alt: "Framed star map with light wood frame mockup",
+      },
+      {
+        src: "/home-mockups/offer-framed-print.png",
+        alt: "Framed star map print product mockup",
+      },
+      {
+        src: "/home-mockups/offer-digital-hd.png",
+        alt: "Digital HD star map mockup for last-minute Christmas gifts",
+      },
+    ],
     faqs: [
       {
         question: "Is this a good Christmas gift?",
@@ -558,6 +703,21 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Can I use any holiday date?",
         answer: "Yes. Pick the date that matters most to your family.",
+      },
+      {
+        question: "What if it is too late for a print to arrive?",
+        answer:
+          "Choose the digital file. It can be printed locally or presented in a card on Christmas morning.",
+      },
+      {
+        question: "What dates make a good Christmas star map?",
+        answer:
+          "Popular choices are a wedding date, the night a couple met, a child's birth, or Christmas Eve over the family home.",
+      },
+      {
+        question: "Can I make several maps for different people?",
+        answer:
+          "Yes. The preview is free, so you can design one for each person before deciding which to order.",
       },
     ],
   },

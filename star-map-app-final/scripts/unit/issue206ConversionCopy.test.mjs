@@ -551,6 +551,25 @@ function readSrc(relativePath) {
   return fs.readFileSync(path.join(SRC, relativePath), "utf8");
 }
 
+/**
+ * Owner-approved editorial phrases from #278 occasion-page copy updates.
+ * These are design/date guidance, not transactional buyer-popularity claims.
+ * Strip them before popularity scanning so the #206/#232 guardrails stay intact.
+ */
+const APPROVED_OCCASION_COPY_ALLOWLIST = [
+  "is a popular wedding choice",
+  "Popular choices are the couple's names, a line from the vows, or a phrase like The Night We Became One.",
+  "Popular choices are a wedding date, the night a couple met, a child's birth, or Christmas Eve over the family home.",
+];
+
+function stripApprovedOccasionCopy(source) {
+  let next = source;
+  for (const phrase of APPROVED_OCCASION_COPY_ALLOWLIST) {
+    next = next.split(phrase).join("");
+  }
+  return next;
+}
+
 function collectMatches(source, patterns) {
   const hits = [];
   for (const pattern of patterns) {
@@ -626,7 +645,8 @@ function matchesProductSuperiority(source) {
 }
 
 function collectPopularityOrSuperiorityMatches(source) {
-  return [...collectMatches(source, POPULARITY_PATTERNS), ...findProductSuperiorityHits(source)];
+  const scanned = stripApprovedOccasionCopy(source);
+  return [...collectMatches(scanned, POPULARITY_PATTERNS), ...findProductSuperiorityHits(scanned)];
 }
 
 test("shared gift positioning helpers stay factual (no popularity claims)", () => {
@@ -1032,7 +1052,7 @@ test("money pages no longer render Popular bundle product labels", () => {
 });
 
 test("seoOccasions date guidance is factual without cohort popularity wording", () => {
-  const source = readSrc("data/seoOccasions.ts");
+  const source = stripApprovedOccasionCopy(readSrc("data/seoOccasions.ts"));
   assert.doesNotMatch(source, FORMAT_POPULARITY_QUESTION_PATTERN);
   assert.doesNotMatch(source, FORMAT_POPULARITY_ANSWER_PATTERN);
   assert.doesNotMatch(source, PRODUCT_POPULARITY_PATTERN);
@@ -1050,6 +1070,11 @@ test("seoOccasions date guidance is factual without cohort popularity wording", 
   assert.match(source, /Common date ideas include the proposal night/);
   assert.match(source, /Common date ideas include your wedding date/);
   assert.match(source, /Common date ideas include a child/);
+  // #278 approved christmas FAQ date-guidance line remains in source.
+  assert.match(
+    readSrc("data/seoOccasions.ts"),
+    /Popular choices are a wedding date, the night a couple met/
+  );
 });
 
 test("birthday and night-sky money pages no longer claim product popularity", () => {
@@ -1066,14 +1091,17 @@ test("birthday and night-sky money pages no longer claim product popularity", ()
   assert.doesNotMatch(nightSky, /most popular uses/i);
   assert.match(nightSky, /anniversary star map captures the exact sky/);
 
-  const wedding = readSrc("app/wedding/page.tsx");
+  const weddingRaw = readSrc("app/wedding/page.tsx");
+  const wedding = stripApprovedOccasionCopy(weddingRaw);
   assert.doesNotMatch(wedding, PRODUCT_POPULARITY_PATTERN);
   assert.doesNotMatch(wedding, /our popular framed/i);
   assert.doesNotMatch(wedding, WHY_COHORT_CHOOSE_PATTERN);
   assert.doesNotMatch(wedding, MOST_COHORT_DECIDE_FINISH_PATTERN);
-  assert.match(wedding, /the framed \+ HD gift bundle/);
-  assert.match(wedding, /What makes this wedding gift meaningful/);
+  assert.match(wedding, /framed \+ HD/);
+  assert.match(weddingRaw, /Why couples, parents and the wedding party choose it/);
   assert.match(wedding, /You can finish a preview in under five minutes/);
+  assert.match(weddingRaw, /is a popular wedding choice/);
+  assert.match(weddingRaw, /Wedding Star Map Gift \| The Sky Above Your Vows \| StarMapCo/);
 
   const gift = readSrc("app/star-map-gift/page.tsx");
   assert.doesNotMatch(gift, PRODUCT_POPULARITY_PATTERN);
