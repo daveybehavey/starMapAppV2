@@ -36,7 +36,7 @@ import {
   trackCheckoutClientDiagnostic,
   trackFunnelStep,
 } from "@/lib/analytics";
-import { parseCheckoutApiErrorPayload, shouldRetryCheckoutFailure } from "@/lib/checkoutClientFailure";
+import { parseCheckoutApiErrorPayload, requestCheckoutAttempt, shouldRetryCheckoutFailure } from "@/lib/checkoutClientFailure";
 import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 // Lazy load the canvas for better initial load
@@ -624,9 +624,7 @@ export function SimplifiedEditor() {
       let lastDiagnostics: ReturnType<typeof parseCheckoutApiErrorPayload> | null = null;
       for (let attempt = 1; attempt <= 2; attempt += 1) {
         checkoutPayload.checkoutHandoff = createCheckoutHandoffToken();
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 30000);
-        const res = await fetch("/api/checkout", {
+        const res = await requestCheckoutAttempt({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -636,17 +634,9 @@ export function SimplifiedEditor() {
                 : crypto.randomUUID(),
           },
           body: JSON.stringify(checkoutPayload),
-          signal: controller.signal,
         });
-        checkoutApiResponseReceived = true;
-        window.clearTimeout(timeout);
-        const payload = (await res.json().catch(() => null)) as {
-          url?: string;
-          code?: string;
-          error?: string;
-          reason?: string;
-          diagnosticId?: string;
-        } | null;
+        checkoutApiResponseReceived ||= res.status !== 0;
+        const payload = res.data;
         if (res.ok && payload?.url) {
           checkoutUrl = payload.url;
           break;

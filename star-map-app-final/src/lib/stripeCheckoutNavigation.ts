@@ -115,10 +115,11 @@ export function resolveStripeCheckoutHandoffUrl(url: string | null | undefined):
 }
 
 export function redirectToStripeCheckout(url: string): void {
-  if (!isValidStripeCheckoutUrl(url)) {
+  const resolved = resolveStripeCheckoutHandoffUrl(url);
+  if (!resolved.url) {
     throw new Error("invalid_checkout_url");
   }
-  window.location.assign(url);
+  window.location.assign(resolved.url);
 }
 
 export const CHECKOUT_FETCH_TIMEOUT_MS = 45_000;
