@@ -144,7 +144,7 @@ for (const consent of ["missing", "declined", "invalid", "dnt", "granted"]) {
     await primeLocalStorage(page);
     await page.route(/^https?:\/\/(?!127\.0\.0\.1:3004(?:\/|$)|localhost:3004(?:\/|$))/, route => route.abort());
     await page.route("https://checkout.stripe.com/**", route => route.fulfill({ contentType: "text/html", body: "<h1>Mock Stripe handoff</h1>" }));
-    await page.route("**/api/stripe/verify**", route => route.fulfill({ json: { paid: true, mapId, plan: "single", creditsRemaining: 0, orderType: "print", printVariant: "poster_framed", includesDigitalAddOn: false } }));
+    await page.route("**/api/stripe/verify**", route => route.fulfill({ json: { paid: true, mapId, plan: null, creditsRemaining: 0, orderType: "print", printVariant: "poster_framed", includesDigitalAddOn: false } }));
     let payload: Record<string, unknown> | undefined;
     await page.route("**/api/checkout", route => { payload = route.request().postDataJSON(); return route.fulfill({ json: { url: handoff } }); });
     await page.goto(`/success?session_id=cs_test_synthetic&map_id=${mapId}`);
