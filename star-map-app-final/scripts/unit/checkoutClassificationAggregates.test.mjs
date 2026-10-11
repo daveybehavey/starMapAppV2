@@ -312,7 +312,7 @@ test("negative: QA checkout does not increment production classification", () =>
   assert.match(route, /trustedCheckoutClassification: true/);
 
   const funnelCallPattern =
-    /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{[\s\S]*?recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?handoff: (?:checkoutHandoff|"missing")[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
+    /if\s*\(\s*!qaContext\.enabled\s*\)\s*\{[\s\S]*?recordFunnelStep\(\{[\s\S]*?source: orderType === "print" \? "checkout_api_(?:print|digital)_(?:post|get)"[\s\S]*?handoff: (?:checkoutHandoff|getCheckoutHandoff|"missing")[\s\S]*?trustedCheckoutClassification: true[\s\S]*?\}/g;
   const gatedCalls = route.match(funnelCallPattern) || [];
   assert.ok(gatedCalls.length >= 3, `expected >=3 QA-gated trusted classification writes, got ${gatedCalls.length}`);
 });

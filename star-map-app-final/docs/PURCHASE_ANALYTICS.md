@@ -9,7 +9,8 @@ How paid conversions are recorded across GA4, PostHog, internal funnel counters,
 | **Entitlements**                       | Stripe `checkout.session.completed` webhook                                                                                   | `stripe:session:{id}` in KV                  |
 | **GA4 `purchase` (server)**            | `recordPaymentVerifiedOnce` → `recordGa4PurchaseOnce` (webhook or `/api/stripe/verify`)                                       | KV `ga4:mp:purchase:{session_id}`            |
 | **GA4 `purchase` (browser)**           | `/success` → `trackPurchaseCompleted` when server MP is **off** or **$0** paid total                                          | `sessionStorage` `ga4:purchase:{session_id}` |
-| **PostHog `purchase`**                 | Client on `/success` (always when consent; never duplicates GA4 when `NEXT_PUBLIC_GA4_SERVER_PURCHASES=true` for paid orders) | Same sessionStorage key as client GA4        |
+| **PostHog `purchase` (server)**        | `recordPaymentVerifiedOnce` → `recordPosthogPurchaseOnce` (webhook or `/api/stripe/verify`)                                   | KV `posthog:purchase:{session_id}`           |
+| **PostHog `purchase` (browser)**       | Client on `/success` when consent (supplementary; server is authoritative for paid orders)                                    | Same sessionStorage key as client GA4        |
 | **Internal funnel `payment_verified`** | Same as GA4 server path                                                                                                       | KV `funnel:payment_verified:session:{id}`    |
 
 Webhook is authoritative for entitlements. GA4 Measurement Protocol runs on first successful `recordPaymentVerifiedOnce` (webhook or verify, whichever wins dedupe). Client GA4 is suppressed for **paid** checkouts when `NEXT_PUBLIC_GA4_SERVER_PURCHASES=true` (see `wrangler.toml`); **$0** promos still fire browser `purchase` so free conversions appear in Realtime.

@@ -42,6 +42,7 @@ import { recordBuyerCheckoutFailure } from "@/lib/checkoutDiagnostics";
 import {
   describeStripeCheckoutUrlShape,
   isValidStripeCheckoutUrl,
+  resolveStripeCheckoutHandoffUrl,
   stripeCheckoutHtmlRedirectBody,
 } from "@/lib/stripeCheckoutNavigation";
 import {
@@ -52,9 +53,11 @@ import {
 } from "@/lib/qaSession";
 import {
   bestEffortCheckoutSideEffect,
+  buildUnknownCheckoutFailureResponse,
   extractStripeErrorDiagnostics,
   logCheckoutFailure,
   resolveCheckoutCorrelationId,
+  resolveCheckoutFailureReason,
 } from "@/lib/checkoutResilience";
 
 export const runtime = "nodejs";
@@ -572,38 +575,9 @@ class CheckoutError extends Error {
 function normalizeNonCheckoutError(err: unknown): {
   reason: string; // for checkout diagnostics + dashboards
   status: number;
+  errorMessage: string | null;
 } {
-  const fallbackStatus = 500;
-
-  const message = err instanceof Error ? err.message : "";
-  if (message.toLowerCase().includes("stripe not configured")) {
-    return { reason: "stripe_not_configured", status: 503 };
-  }
-
-  if (!err || typeof err !== "object") {
-    return { reason: "stripe_error", status: fallbackStatus };
-  }
-
-  const anyErr = err as Record<string, unknown>;
-  const rawErr = anyErr.raw as unknown;
-  const name = typeof anyErr.name === "string" ? anyErr.name : null;
-  const codeCandidate =
-    (typeof anyErr.code === "string" ? anyErr.code : null) ??
-    (typeof (rawErr as { code?: unknown } | null)?.code === "string"
-      ? String((rawErr as { code?: unknown }).code)
-      : null) ??
-    (typeof anyErr.type === "string" ? String(anyErr.type) : null);
-
-  const statusCandidate =
-    (typeof anyErr.statusCode === "number" ? anyErr.statusCode : null) ??
-    (typeof anyErr.status === "number" ? anyErr.status : null);
-
-  const status =
-    typeof statusCandidate === "number" && Number.isFinite(statusCandidate)
-      ? statusCandidate
-      : fallbackStatus;
-  const base = codeCandidate ? `stripe_${codeCandidate}` : name ? `stripe_${name}` : "stripe_error";
-  return { reason: base, status };
+  return resolveCheckoutFailureReason(err, 500);
 }
 
 const CHECKOUT_IDEMPOTENCY_TTL_SECONDS = 2 * 60;
@@ -1119,19 +1093,51 @@ async function createCheckoutSession(input: {
     );
   }
 
-  const checkoutUrl = session.url?.trim() ?? "";
-  if (checkoutUrl && !isValidStripeCheckoutUrl(checkoutUrl)) {
-    const shape = describeStripeCheckoutUrlShape(checkoutUrl);
-    console.error("Stripe returned checkout URL that failed validation", {
+  // Once Stripe has created a session, never strand the buyer on unknown_error.
+  // Prefer the strict allowlist; if the path shape drifts, recover any Stripe-owned HTTPS URL.
+  let resolved = resolveStripeCheckoutHandoffUrl(session.url);
+  if (!resolved.url && stripe && session.id) {
+    try {
+      const retrieved = await stripe.checkout.sessions.retrieve(session.id);
+      resolved = resolveStripeCheckoutHandoffUrl(retrieved.url);
+      if (resolved.url) {
+        console.warn("checkout_url_recovered_via_retrieve", {
+          sessionId: session.id,
+          strictValid: resolved.strictValid,
+          recovered: resolved.recovered,
+          ...describeStripeCheckoutUrlShape(resolved.url),
+        });
+      }
+    } catch (retrieveError) {
+      console.warn("checkout_url_retrieve_failed", {
+        sessionId: session.id,
+        message: retrieveError instanceof Error ? retrieveError.message.slice(0, 160) : "unknown",
+      });
+    }
+  }
+  if (!resolved.url) {
+    const rawUrl = session.url?.trim() ?? "";
+    const shape = describeStripeCheckoutUrlShape(rawUrl);
+    console.error("Stripe session missing recoverable checkout URL", {
       sessionId: session.id,
       urlLength: shape.urlLength,
       hashPresent: shape.hashPresent,
       hasSessionPath: shape.hasSessionPath,
       hostname: shape.hostname,
     });
-    throw new Error("invalid_stripe_checkout_url");
+    throw new Error("missing_stripe_checkout_url");
   }
-  return { url: checkoutUrl || null, discountRejected };
+  if (resolved.recovered) {
+    const shape = describeStripeCheckoutUrlShape(resolved.url);
+    console.warn("checkout_url_recovered_after_strict_validation", {
+      sessionId: session.id,
+      urlLength: shape.urlLength,
+      hashPresent: shape.hashPresent,
+      hasSessionPath: shape.hasSessionPath,
+      hostname: shape.hostname,
+    });
+  }
+  return { url: resolved.url, discountRejected };
 }
 
 export async function GET(req: NextRequest) {
@@ -1211,6 +1217,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { error: "Print checkout is not enabled yet.", code: "print_checkout_disabled" },
       { status: 503 }
+    );
+  }
+  // Digital GET is not used by the editor (POST + handoff token). Require a browser
+  // handoff query token so headless/direct hits stop minting unpaid $9 sessions.
+  const getCheckoutHandoff = resolveCheckoutHandoff(req.nextUrl.searchParams.get("checkout_handoff"));
+  if (orderType === "digital" && getCheckoutHandoff === "missing" && !qaContext.enabled) {
+    return NextResponse.json(
+      {
+        error: "Checkout requires a browser session. Open checkout from the editor.",
+        code: "checkout_handoff_required",
+        diagnosticId: correlationId,
+      },
+      { status: 403 },
     );
   }
   const recipeFingerprint = normalizeRecipeFingerprint(req.nextUrl.searchParams.get("recipe_fingerprint"));
@@ -1293,13 +1312,17 @@ export async function GET(req: NextRequest) {
       referralAutoOfferVariant:
         selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       checkoutSource: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-      checkoutHandoff: "missing",
+      checkoutHandoff: getCheckoutHandoff,
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
       qaContext,
     });
-    if (!sessionUrl) {
-      return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    const resolvedGetUrl = resolveStripeCheckoutHandoffUrl(sessionUrl);
+    if (!resolvedGetUrl.url) {
+      return NextResponse.json(
+        buildUnknownCheckoutFailureResponse(correlationId, "missing_stripe_checkout_url"),
+        { status: 500 },
+      );
     }
     if (!qaContext.enabled) {
       await bestEffortCheckoutSideEffect({
@@ -1310,7 +1333,7 @@ export async function GET(req: NextRequest) {
             step: "checkout_session_created",
             source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
             plan: orderType === "print" ? printVariant : plan,
-            handoff: "missing",
+            handoff: getCheckoutHandoff,
             trustedCheckoutClassification: true,
           }),
       });
@@ -1322,15 +1345,21 @@ export async function GET(req: NextRequest) {
             step: "checkout_redirected",
             source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
             plan: orderType === "print" ? printVariant : plan,
-            handoff: "missing",
+            handoff: getCheckoutHandoff,
             trustedCheckoutClassification: true,
           }),
       });
     }
-    if (!isValidStripeCheckoutUrl(sessionUrl)) {
-      return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    // HTML handoff still requires the strict allowlist (prevents open redirects in HTML bodies).
+    if (!isValidStripeCheckoutUrl(resolvedGetUrl.url)) {
+      // Recovered Stripe URL that fails the HTML allowlist: return JSON so the client can navigate.
+      return NextResponse.json({
+        url: resolvedGetUrl.url,
+        recoveredCheckoutUrl: true,
+        diagnosticId: correlationId,
+      });
     }
-    return new NextResponse(stripeCheckoutHtmlRedirectBody(sessionUrl), {
+    return new NextResponse(stripeCheckoutHtmlRedirectBody(resolvedGetUrl.url), {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
@@ -1349,7 +1378,10 @@ export async function GET(req: NextRequest) {
             plan: orderType === "print" ? printVariant : plan,
           }),
       });
-      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message, code: err.code, diagnosticId: correlationId },
+        { status: err.status },
+      );
     }
 
     const normalized = normalizeNonCheckoutError(err);
@@ -1373,13 +1405,13 @@ export async function GET(req: NextRequest) {
       httpStatus: normalized.status,
       mapIdPresent: Boolean(mapId),
       checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+      errorMessage: normalized.errorMessage,
     });
     // Keep response `code` stable for the UI, while analytics use deterministic `reason`.
     // Public allowlisted codes (map_required, etc.) remain CheckoutError paths above.
-    return NextResponse.json(
-      { error: "Checkout failed", code: "unknown_error", diagnosticId: correlationId },
-      { status: normalized.status }
-    );
+    return NextResponse.json(buildUnknownCheckoutFailureResponse(correlationId, normalized.reason), {
+      status: normalized.status,
+    });
   }
 }
 
@@ -1493,6 +1525,19 @@ export async function POST(req: NextRequest) {
       // ignore missing/invalid body
     }
 
+    // Presence-only browser handoff required for digital session creation (stops direct/bot POSTs).
+    // Authenticated QA (`qaContext.enabled`) remains exempt for live probes.
+    if (orderType === "digital" && checkoutHandoff === "missing" && !qaContext.enabled) {
+      return NextResponse.json(
+        {
+          error: "Checkout requires a browser session. Open checkout from the editor.",
+          code: "checkout_handoff_required",
+          diagnosticId: correlationId,
+        },
+        { status: 403 },
+      );
+    }
+
     const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
     const fallbackReferralCode = readReferralCodeFromCookie(req);
     const referralAttribution = readReferralAttributionFromCookie(req);
@@ -1587,13 +1632,17 @@ export async function POST(req: NextRequest) {
     });
     if (idempotencyKey) {
       const existingUrl = await kv.get<string>(idempotencyKey);
-      if (typeof existingUrl === "string" && isValidStripeCheckoutUrl(existingUrl.trim())) {
+      const cached = resolveStripeCheckoutHandoffUrl(
+        typeof existingUrl === "string" ? existingUrl : null,
+      );
+      if (cached.url) {
         return NextResponse.json({
-          url: existingUrl.trim(),
+          url: cached.url,
           promoApplied: false,
           referralOfferApplied: false,
           referralOfferVariant: null,
           promoLookupFailed: false,
+          recoveredCheckoutUrl: cached.recovered || undefined,
         });
       }
     }
@@ -1667,20 +1716,25 @@ export async function POST(req: NextRequest) {
             }),
         });
       }
-      const rejectedUrl = session.url?.trim() ?? "";
-      if (!rejectedUrl || !isValidStripeCheckoutUrl(rejectedUrl)) {
+      const rejectedResolved = resolveStripeCheckoutHandoffUrl(session.url);
+      if (!rejectedResolved.url) {
         return NextResponse.json(
-          { error: "Checkout could not start securely. Please try again.", code: "invalid_checkout_url" },
-          { status: 500 }
+          {
+            error: "Checkout could not start securely. Please try again.",
+            code: "invalid_checkout_url",
+            diagnosticId: correlationId,
+          },
+          { status: 500 },
         );
       }
       return NextResponse.json({
-        url: rejectedUrl,
+        url: rejectedResolved.url,
         promoApplied: false,
         discountRejected: true,
         referralOfferApplied: false,
         referralOfferVariant: null,
         promoLookupFailed: promotion.lookupFailed,
+        recoveredCheckoutUrl: rejectedResolved.recovered || undefined,
       });
     }
     if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
@@ -1720,8 +1774,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const checkoutUrl = session.url?.trim() ?? "";
-    if (!checkoutUrl || !isValidStripeCheckoutUrl(checkoutUrl)) {
+    const checkoutResolved = resolveStripeCheckoutHandoffUrl(session.url);
+    if (!checkoutResolved.url) {
       await bestEffortCheckoutSideEffect({
         correlationId,
         stage: "buyer_failure_diag_invalid_url",
@@ -1738,12 +1792,12 @@ export async function POST(req: NextRequest) {
           code: "invalid_checkout_url",
           diagnosticId: correlationId,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     return NextResponse.json({
-      url: checkoutUrl,
+      url: checkoutResolved.url,
       promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
       referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
       referralOfferVariant:
@@ -1751,6 +1805,7 @@ export async function POST(req: NextRequest) {
           ? (referralAutoOffer.variant ?? null)
           : null,
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
+      recoveredCheckoutUrl: checkoutResolved.recovered || undefined,
     });
   } catch (err) {
     if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
@@ -1764,7 +1819,10 @@ export async function POST(req: NextRequest) {
             plan: orderType === "print" ? printVariant : plan,
           }),
       });
-      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message, code: err.code, diagnosticId: correlationId },
+        { status: err.status },
+      );
     }
 
     const normalized = normalizeNonCheckoutError(err);
@@ -1788,10 +1846,10 @@ export async function POST(req: NextRequest) {
       httpStatus: normalized.status,
       mapIdPresent: Boolean(mapIdForDiag),
       checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+      errorMessage: normalized.errorMessage,
     });
-    return NextResponse.json(
-      { error: "Checkout failed", code: "unknown_error", diagnosticId: correlationId },
-      { status: normalized.status }
-    );
+    return NextResponse.json(buildUnknownCheckoutFailureResponse(correlationId, normalized.reason), {
+      status: normalized.status,
+    });
   }
 }

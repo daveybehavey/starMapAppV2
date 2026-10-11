@@ -14,6 +14,12 @@ import {
   trackFunnelStep,
 } from "@/lib/analytics";
 import {
+  DIGITAL_SINGLE_FALLBACK_LABEL,
+  parseCheckoutApiErrorPayload,
+  shouldOfferDigitalSingleFallback,
+  shouldRetryCheckoutFailure,
+} from "@/lib/checkoutClientFailure";
+import {
   formatPrice,
   getPricingTiers,
   type CheckoutOrderType,
@@ -353,6 +359,7 @@ export function EditorExperience({
   const [printShippingCountry, setPrintShippingCountry] = useState<string | null>(null);
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutFallbackOffer, setCheckoutFallbackOffer] = useState<"digital_single" | null>(null);
   const [checkoutInFlight, setCheckoutInFlight] = useState(false);
   const checkoutInFlightRef = useRef(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
@@ -1378,10 +1385,12 @@ export function EditorExperience({
         renderOptions,
       });
       let checkoutApiResponseReceived = false;
+      let lastCheckoutDiagnostics: ReturnType<typeof parseCheckoutApiErrorPayload> | null = null;
       try {
         checkoutInFlightRef.current = true;
         setCheckoutInFlight(true);
         setCheckoutError(null);
+        setCheckoutFallbackOffer(null);
         track("checkout_started", {
           visualMode: renderOptions.visualMode,
           plan,
@@ -1691,11 +1700,6 @@ export function EditorExperience({
           if (uploadedCardAssetId) checkoutPayload.cardPrintAssetId = uploadedCardAssetId;
           checkoutPayload.shippingCountry = printShippingCountry;
         }
-        const checkoutInit: RequestInit = {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(checkoutPayload),
-        };
 
         // Record checkout start right before the checkout API handoff so
         // checkout_started -> checkout_request_received reflects real handoff quality.
@@ -1714,48 +1718,72 @@ export function EditorExperience({
           includeCardAddOn: orderType === "print" ? includeCardAddOn : undefined,
         });
 
-        const res = await fetch("/api/checkout", checkoutInit);
-        checkoutApiResponseReceived = true;
-        const data = (await res.json().catch(() => null)) as {
+        type CheckoutResponse = {
           url?: string;
           error?: string;
           code?: string;
+          reason?: string;
+          diagnosticId?: string;
           promoApplied?: boolean;
           referralOfferApplied?: boolean;
           discountRejected?: boolean;
-        } | null;
-        if (!res.ok) {
-          if (data?.code === "invalid_promotion_code") {
-            throw new Error("invalid_promotion_code");
-          }
-          if (data?.code === "promotion_not_applicable") {
-            throw new Error("promotion_not_applicable");
-          }
-          if (data?.code === "promotion_lookup_failed") {
-            throw new Error("promotion_lookup_failed");
-          }
-          if (data?.code === "print_checkout_disabled") {
-            throw new Error("print_checkout_disabled");
-          }
-          if (data?.code === "print_shipping_country_invalid") {
+        };
+
+        let data: CheckoutResponse | null = null;
+        const maxAttempts = 2;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          // Fresh handoff token per attempt (presence-only; never reused across failures).
+          checkoutPayload.checkoutHandoff = createCheckoutHandoffToken();
+          const attemptInit: RequestInit = {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-correlation-id":
+                lastCheckoutDiagnostics?.diagnosticId &&
+                /^[a-zA-Z0-9_-]{8,64}$/.test(lastCheckoutDiagnostics.diagnosticId)
+                  ? lastCheckoutDiagnostics.diagnosticId
+                  : crypto.randomUUID(),
+            },
+            body: JSON.stringify(checkoutPayload),
+          };
+          const res = await fetch("/api/checkout", attemptInit);
+          checkoutApiResponseReceived = true;
+          data = (await res.json().catch(() => null)) as CheckoutResponse | null;
+          if (res.ok && data?.url) break;
+
+          lastCheckoutDiagnostics = parseCheckoutApiErrorPayload(data, res.status);
+          const failureCode = lastCheckoutDiagnostics.code;
+          if (failureCode === "invalid_promotion_code") throw new Error("invalid_promotion_code");
+          if (failureCode === "promotion_not_applicable") throw new Error("promotion_not_applicable");
+          if (failureCode === "promotion_lookup_failed") throw new Error("promotion_lookup_failed");
+          if (failureCode === "print_checkout_disabled") throw new Error("print_checkout_disabled");
+          if (failureCode === "print_shipping_country_invalid") {
             throw new Error("print_shipping_country_invalid");
           }
-          if (data?.code === "print_margin_guard_blocked") {
-            throw new Error("print_margin_guard_blocked");
-          }
-          if (data?.code === "print_promotion_margin_blocked") {
+          if (failureCode === "print_margin_guard_blocked") throw new Error("print_margin_guard_blocked");
+          if (failureCode === "print_promotion_margin_blocked") {
             throw new Error("print_promotion_margin_blocked");
           }
-          if (data?.code === "missing_shipping_country") {
-            throw new Error("missing_shipping_country");
+          if (failureCode === "missing_shipping_country") throw new Error("missing_shipping_country");
+          if (failureCode === "map_required") throw new Error("map_required");
+          if (failureCode === "map_not_found") throw new Error("map_not_found");
+
+          const canRetry =
+            attempt < maxAttempts && shouldRetryCheckoutFailure(failureCode);
+          if (canRetry) {
+            track("checkout_retry", {
+              source: previewSource,
+              attempt,
+              reason: failureCode,
+              serverReason: lastCheckoutDiagnostics.serverReason ?? undefined,
+              diagnosticId: lastCheckoutDiagnostics.diagnosticId ?? undefined,
+              plan,
+              orderType,
+            });
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            continue;
           }
-          if (data?.code === "map_required") {
-            throw new Error("map_required");
-          }
-          if (data?.code === "map_not_found") {
-            throw new Error("map_not_found");
-          }
-          throw new Error(data?.code ?? data?.error ?? "checkout_failed");
+          throw new Error(failureCode || "checkout_failed");
         }
         if (data?.url) {
           const promoApplied = Boolean(data.promoApplied);
@@ -1838,9 +1866,20 @@ export function EditorExperience({
                                             ? "We couldn't start checkout right now. Please try again shortly."
                                             : "Checkout is unavailable right now. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
+        const offerFallback = shouldOfferDigitalSingleFallback({
+          orderType,
+          plan,
+          code: reason,
+        });
+        if (offerFallback) {
+          setCheckoutFallbackOffer("digital_single");
+        }
         track("checkout_failed", {
           source: previewSource,
           reason,
+          serverReason: lastCheckoutDiagnostics?.serverReason ?? undefined,
+          diagnosticId: lastCheckoutDiagnostics?.diagnosticId ?? undefined,
+          httpStatus: lastCheckoutDiagnostics?.httpStatus ?? undefined,
           plan,
           orderType,
           printVariant: orderType === "print" ? printVariant : undefined,
@@ -1849,6 +1888,7 @@ export function EditorExperience({
           referralApplied: Boolean(referralCode),
           experiment: PAYWALL_COPY_EXPERIMENT,
           variant: paywallVariant,
+          fallbackOffered: offerFallback ? "digital_single" : undefined,
         });
         checkoutInFlightRef.current = false;
         setCheckoutInFlight(false);
@@ -3639,7 +3679,26 @@ export function EditorExperience({
                               </div>
                             ) : null}
                             {checkoutError && (
-                              <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
+                              <div className="mt-2 space-y-2">
+                                <p className="text-[11px] font-semibold text-rose-200">{checkoutError}</p>
+                                {checkoutFallbackOffer === "digital_single" ? (
+                                  <button
+                                    type="button"
+                                    disabled={checkoutInFlight}
+                                    onClick={() => {
+                                      setCheckoutFallbackOffer(null);
+                                      track("checkout_fallback_selected", {
+                                        fallback: "digital_single",
+                                        source: "editor_inline",
+                                      });
+                                      void startCheckout("single");
+                                    }}
+                                    className="w-full rounded-full border border-amber-200/60 bg-amber-400/20 px-3 py-1.5 text-[11px] font-semibold text-amber-50 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-70"
+                                  >
+                                    {DIGITAL_SINGLE_FALLBACK_LABEL}
+                                  </button>
+                                ) : null}
+                              </div>
                             )}
                           </div>
                         )}
@@ -3701,6 +3760,9 @@ export function EditorExperience({
             <PaywallModal
               checkoutInFlight={checkoutInFlight}
               checkoutError={checkoutError}
+              checkoutFallbackLabel={
+                checkoutFallbackOffer === "digital_single" ? DIGITAL_SINGLE_FALLBACK_LABEL : null
+              }
               priceLabels={priceLabels}
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
@@ -3719,6 +3781,19 @@ export function EditorExperience({
                 setPaywallIntent("digital");
                 void startCheckout(plan);
               }}
+              onCheckoutFallback={
+                checkoutFallbackOffer === "digital_single"
+                  ? () => {
+                      setCheckoutFallbackOffer(null);
+                      setPaywallIntent("digital");
+                      track("checkout_fallback_selected", {
+                        fallback: "digital_single",
+                        source: "paywall_modal",
+                      });
+                      void startCheckout("single");
+                    }
+                  : undefined
+              }
               onStartPrintCheckout={
                 printCheckoutEnabled
                   ? (options) => {
@@ -3735,6 +3810,7 @@ export function EditorExperience({
                 setPaywallOpen(false);
                 setPendingExport(null);
                 setCheckoutError(null);
+                setCheckoutFallbackOffer(null);
               }}
             />,
             document.body

@@ -164,8 +164,14 @@ export default function SuccessClient() {
     }
   }, []);
 
+  // Keep status in a ref so this callback identity stays stable — including it in the
+  // payment-verify effect deps previously re-ran verify 18–33× and spammed purchase_success.
+  const accessLinkStatusRef = useRef(accessLinkStatus);
+  useEffect(() => {
+    accessLinkStatusRef.current = accessLinkStatus;
+  }, [accessLinkStatus]);
   const createAccessLink = useCallback(async (force = false) => {
-    if (accessLinkStatus === "loading") return;
+    if (accessLinkStatusRef.current === "loading") return;
     setAccessLinkStatus("loading");
     try {
       const res = await fetch("/api/entitlements/link", {
@@ -184,7 +190,7 @@ export default function SuccessClient() {
     } catch {
       setAccessLinkStatus("error");
     }
-  }, [accessLinkStatus]);
+  }, []);
 
   const handleCopyAccessLink = useCallback(async () => {
     if (!accessLink) return;
@@ -512,11 +518,14 @@ export default function SuccessClient() {
     [pauseRedirect, referralLink],
   );
 
+  const verifySessionId = searchParams.get("session_id");
+  const verifyMapIdParam = searchParams.get("map_id")?.trim() || null;
+
   useEffect(() => {
     let active = true;
     redirectTimerRef.current = null;
-    const sessionId = searchParams.get("session_id");
-    const mapIdParam = searchParams.get("map_id")?.trim() || null;
+    const sessionId = verifySessionId;
+    const mapIdParam = verifyMapIdParam;
     if (!sessionId) {
       setStatus("error");
       setMessage("Missing payment session. Please contact support.");
@@ -570,8 +579,23 @@ export default function SuccessClient() {
               (typeof data.creditsRemaining === "number" ? data.creditsRemaining > 0 : Boolean(verifiedPlan));
 
             setPaid(hasDigitalEntitlement);
-            track("purchase_success", { isPaid: hasDigitalEntitlement, orderType: verifiedOrderType });
             if (typeof window !== "undefined") {
+              try {
+                const purchaseSuccessKey = `ph:purchase_success:${sessionId}`;
+                if (sessionStorage.getItem(purchaseSuccessKey) !== "true") {
+                  track("purchase_success", {
+                    isPaid: hasDigitalEntitlement,
+                    orderType: verifiedOrderType,
+                  });
+                  sessionStorage.setItem(purchaseSuccessKey, "true");
+                }
+              } catch {
+                // Still attempt once if storage is unavailable.
+                track("purchase_success", {
+                  isPaid: hasDigitalEntitlement,
+                  orderType: verifiedOrderType,
+                });
+              }
               try {
                 const purchaseKey = `ga4:purchase:${sessionId}`;
                 if (sessionStorage.getItem(purchaseKey) !== "true") {
@@ -645,7 +669,9 @@ export default function SuccessClient() {
       active = false;
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
-  }, [createAccessLink, router, searchParams, setPaid, verificationRunId]);
+    // Depend on session_id / map_id strings — not the searchParams object identity —
+    // and keep createAccessLink stable (see accessLinkStatusRef) to avoid re-verify loops.
+  }, [createAccessLink, router, setPaid, verificationRunId, verifyMapIdParam, verifySessionId]);
 
   const hasDigitalEntitlement =
     currentPlan === "single" || currentPlan === "pack3" || currentPlan === "subscription";

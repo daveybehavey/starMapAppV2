@@ -146,7 +146,7 @@ test.describe("API route regressions", () => {
     expect(await loadResponse.json()).toEqual(validMapRecipe);
   });
 
-  test("checkout rejects a missing map handoff with the stable error shape", async ({
+  test("checkout rejects digital posts without browser handoff token", async ({
     request,
     baseURL,
   }, testInfo) => {
@@ -161,10 +161,39 @@ test.describe("API route regressions", () => {
       },
     );
 
+    expect(response.status()).toBe(403);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      error: "Checkout requires a browser session. Open checkout from the editor.",
+      code: "checkout_handoff_required",
+    });
+    expect(typeof body.diagnosticId).toBe("string");
+  });
+
+  test("checkout rejects a missing map handoff with the stable error shape", async ({
+    request,
+    baseURL,
+  }, testInfo) => {
+    const response = await fetchLocalApi(
+      request,
+      baseURL ?? TEST_ORIGIN,
+      "/api/checkout",
+      testInfo,
+      {
+        method: "POST",
+        data: {
+          plan: "single",
+          orderType: "digital",
+          checkoutHandoff: "b0123456789abcdef",
+        },
+      },
+    );
+
     expect(response.status()).toBe(400);
     expect(await response.json()).toEqual({
       error: "Create your map preview before starting checkout.",
       code: "map_required",
+      diagnosticId: expect.any(String),
     });
   });
 
@@ -183,6 +212,7 @@ test.describe("API route regressions", () => {
           plan: "single",
           orderType: "digital",
           mapId: "00000000-0000-4000-8000-000000000147",
+          checkoutHandoff: "b0123456789abcdef",
         },
       },
     );
@@ -191,6 +221,7 @@ test.describe("API route regressions", () => {
     expect(await response.json()).toEqual({
       error: "We couldn't find that map. Open the editor, generate your preview, then retry checkout.",
       code: "map_not_found",
+      diagnosticId: expect.any(String),
     });
   });
 

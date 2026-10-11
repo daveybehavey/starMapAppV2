@@ -159,7 +159,7 @@ test("12: checkout route uses shape diagnostics not fragment-only rejection", ()
   assert.match(route, /hashPresent/);
   assert.equal(route.includes("without required fragment"), false);
   assert.match(route, /diagnosticId:\s*correlationId/);
-  assert.match(route, /code:\s*"unknown_error"/);
+  assert.match(route, /buildUnknownCheckoutFailureResponse|resolveStripeCheckoutHandoffUrl/);
 });
 
 test("stripeCheckoutHtmlRedirectBody works with and without fragment", () => {

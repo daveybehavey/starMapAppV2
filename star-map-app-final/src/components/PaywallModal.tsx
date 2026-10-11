@@ -57,6 +57,8 @@ function paywallPrintSkuButtonClasses(
 type Props = {
   checkoutInFlight: boolean;
   checkoutError: string | null;
+  /** Optional recovery CTA label (e.g. "Try instant HD instead") after a failed checkout. */
+  checkoutFallbackLabel?: string | null;
   priceLabels: PriceLabels;
   printShippingCountry?: string | null;
   printShippingCountries?: string[];
@@ -69,6 +71,7 @@ type Props = {
   giftPaywallContext?: "wedding";
   showReferralHint?: boolean;
   onStartCheckout: (plan: CheckoutPlan) => void;
+  onCheckoutFallback?: () => void;
   onStartPrintCheckout?: (options: {
     variant: PrintVariant;
     includeDigitalAddOn: boolean;
@@ -109,6 +112,7 @@ const PAYWALL_COPY: Record<
 export function PaywallModal({
   checkoutInFlight,
   checkoutError,
+  checkoutFallbackLabel = null,
   priceLabels,
   variant,
   purchaseIntent = "digital",
@@ -120,6 +124,7 @@ export function PaywallModal({
   onPrintShippingCountryChange,
   showReferralHint = false,
   onStartCheckout,
+  onCheckoutFallback,
   onStartPrintCheckout,
   onClose,
 }: Props) {
@@ -686,12 +691,22 @@ export function PaywallModal({
           </p>
         )}
         {checkoutError && (
-          <p
+          <div
             role="alert"
             className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700"
           >
-            {checkoutError}
-          </p>
+            <p>{checkoutError}</p>
+            {checkoutFallbackLabel && onCheckoutFallback ? (
+              <button
+                type="button"
+                disabled={checkoutInFlight}
+                onClick={onCheckoutFallback}
+                className="mt-2 w-full rounded-full border border-rose-300 bg-white px-3 py-2 text-xs font-semibold text-rose-800 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {checkoutFallbackLabel}
+              </button>
+            ) : null}
+          </div>
         )}
       </div>
     </div>

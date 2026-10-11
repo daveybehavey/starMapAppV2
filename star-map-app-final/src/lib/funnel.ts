@@ -1,5 +1,6 @@
 import { kv } from "./kv";
 import { type Ga4PurchaseInput, recordGa4PurchaseOnce } from "./ga4MeasurementProtocol";
+import { recordPosthogPurchaseOnce } from "./posthogServerPurchase";
 import { FUNNEL_STEPS, type FunnelStep } from "./funnelSteps";
 
 /** Presence-only browser handoff labels (STAR-006 / #215). Never a raw client token. */
@@ -395,9 +396,10 @@ export async function recordPaymentVerifiedOnce(input: {
   // For KPI purposes, only treat real revenue sessions as "payment_verified".
   // Entitlements may still be granted for $0 / no_payment_required flows elsewhere.
   if (amountTotal !== null && amountTotal <= 0) return;
-  // GA4 has its own dedupe; run before funnel dedupe so a later verify/webhook can retry MP if needed.
+  // GA4 + PostHog have their own dedupe; run before funnel dedupe so a later verify/webhook can retry.
   if (input.ga4Purchase && !skipProduction) {
     await recordGa4PurchaseOnce(input.ga4Purchase);
+    await recordPosthogPurchaseOnce(input.ga4Purchase);
   }
   const seen = await kv.incr(paymentVerifiedSessionKey(sessionId), 1, { ex: SESSION_DEDUPE_TTL_SECONDS });
   if (seen !== 1) return;
