@@ -41,6 +41,14 @@ type PreviewStartFormProps = {
   footerContent?: ReactNode;
 };
 
+const DIGITAL_PLANS = new Set(["single", "pack3", "subscription"]);
+
+/** Digital intents: explicit digital checkout, a digital add-on, or a digital plan with no print checkout. */
+export function isDigitalPreviewIntent(intent: Pick<PreviewStartIntent, "checkout" | "includeDigitalAddOn" | "plan">) {
+  if (intent.checkout === "digital" || intent.includeDigitalAddOn) return true;
+  return intent.checkout !== "print" && DIGITAL_PLANS.has(intent.plan);
+}
+
 function buildEditorAction(
   source: string,
   checkout?: "print" | "digital",
@@ -212,7 +220,7 @@ export default function PreviewStartForm({
                     data-checkout={intent.checkout}
                     data-print-variant={intent.printVariant}
                     data-digital-offer={
-                      intent.checkout === "digital" || intent.includeDigitalAddOn ? true : undefined
+                      isDigitalPreviewIntent(intent) ? true : undefined
                     }
                     className={`focus:ring-gold rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
                   >

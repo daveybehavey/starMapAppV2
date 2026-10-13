@@ -58,11 +58,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             Preview first, then pick how you want it delivered
           </h2>
           <p className="max-w-3xl text-sm leading-relaxed text-neutral-200 sm:text-base">
-            Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a
+            Build the exact sky map first. Then choose <span data-digital-offer>instant HD digital, </span>gift-ready framed print, or a
             lower-cost unframed poster.
           </p>
           <div className="grid gap-2 pt-2 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
+            <div data-digital-offer className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
               <p className="font-semibold text-amber-200">Fastest route</p>
               <p className="mt-1">HD file unlocks right after payment.</p>
             </div>
@@ -143,7 +143,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
-              <li>Pair with the HD add-on for instant digital from the same design</li>
+              <li data-digital-offer>Pair with the HD add-on for instant digital from the same design</li>
               {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
               <li>Ready-to-hang premium option for special occasions</li>
               <li>
@@ -248,7 +248,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <li>✓ {getPrintPhysicalOrderSummaryLine()}</li>
             <li>✓ {shippingDisclosure}</li>
             <li>✓ Damage support: support@starmapco.com.</li>
-            <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
+            <li data-digital-offer>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
             <li>✓ {printBadgeLabel}</li>
           </ul>
         </div>
@@ -259,7 +259,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               Need the full comparison?
             </p>
             <p className="mt-1 text-xs text-neutral-300">
-              Compare live digital, framed, and unframed routes before you enter checkout.
+              Compare live <span data-digital-offer>digital, </span>framed, and unframed routes before you enter checkout.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

@@ -87,7 +87,7 @@ test("app mode hides every digital offer surface", () => {
   assert.match(desktop, /data-testid="desktop-free-export-hd-upsell"\s+data-digital-offer/);
   assert.match(desktop, /androidAppMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);
   assert.match(read("src/components/SimplifiedEditor/SimplifiedEditor.tsx"), /onClick=\{handleHdDownload\}\s+data-digital-offer=\{paid \? undefined : true\}/);
-  assert.match(read("src/components/PreviewStartForm.tsx"), /intent\.checkout === "digital" \|\| intent\.includeDigitalAddOn \? true : undefined/);
+  assert.match(read("src/components/PreviewStartForm.tsx"), /if \(intent\.checkout === "digital" \|\| intent\.includeDigitalAddOn\) return true;/);
   assert.match(css, /\[formaction\*="checkout=digital"\]/);
   assert.match(css, /\[formaction\*="include_digital_addon=1"\]/);
   const home = read("src/components/HomeOfferStack.tsx");
@@ -147,4 +147,17 @@ test("app-mode print paywall copy and ladders never advertise the digital add-on
   assert.match(read("src/components/PrintGiftDecisionPanel.tsx"), tierRe);
   assert.match(read("src/components/MapCommerceHubPanel.tsx"), /data-digital-offer=\{offer\.kind === "digital_hd" \? true : undefined\}/);
   assert.match(read("src/app/globals.css"), /article:has\(a\[href\*="include_digital_addon=1"\]\)/);
+});
+
+test("residual homepage add-on claims, shop HD quick start, and gift-format telemetry", () => {
+  const home = read("src/components/HomeOfferStack.tsx");
+  assert.match(home, /<li data-digital-offer>Pair with the HD add-on/);
+  assert.match(home, /<li data-digital-offer>✓ HD digital add-on available/);
+  assert.match(home, /<span data-digital-offer>instant HD digital, <\/span>/);
+  assert.match(home, /<div data-digital-offer[^>]*>\s*<p[^>]*>Fastest route/);
+  const form = read("src/components/PreviewStartForm.tsx");
+  assert.match(form, /return intent\.checkout !== "print" && DIGITAL_PLANS\.has\(intent\.plan\);/);
+  assert.match(form, /isDigitalPreviewIntent\(intent\) \? true : undefined/);
+  const tel = read("src/components/GiftFormatsTelemetry.tsx");
+  assert.match(tel, /\.\.\.\(appMode \? \[\] : \[\{ plan: "single" as const, orderType: "digital" as const, index: 0 \}\]\)/);
 });
