@@ -35,6 +35,9 @@ test("app-mode policy: only physical orders, never a digital add-on", () => {
   assert.match(src, /includeDigitalAddOn: false/);
   const cookieLine = src.match(/document\.cookie="[^"]*"/)[0];
   assert.doesNotMatch(cookieLine, /max-age|expires/i);
+  // the shared cookie must never switch app mode on in a normal tab
+  const boot = src.slice(src.indexOf("ANDROID_APP_MODE_BOOTSTRAP"));
+  assert.doesNotMatch(boot.slice(0, boot.indexOf("if(on)")), /document\.cookie/);
   // non-app tabs clear a stale app-mode cookie (shared TWA/Chrome cookie jar)
   assert.match(src, /else if\(document\.cookie\.indexOf\("\$\{ANDROID_APP_COOKIE\}="\)!==-1\)\{document\.cookie="\$\{ANDROID_APP_COOKIE\}=; Path=\/; Max-Age=0/);
 });
@@ -69,17 +72,21 @@ test("app mode hides every digital offer surface", () => {
   const css = read("src/app/globals.css");
   assert.match(css, /html\[data-app-mode="android"\] \[data-digital-offer\]/);
   const mobile = read("src/app/MobileCreate.tsx");
-  assert.match(mobile, /data-testid="mobile-unlock-hd"\s+data-digital-offer/);
-  assert.match(mobile, /data-testid="mobile-sticky-unlock-hd"\s+data-digital-offer/);
+  // paid users keep their HD download control: only the unpaid "Unlock HD" state is an offer
+  assert.match(mobile, /data-testid="mobile-unlock-hd"\s+data-digital-offer=\{paid \? undefined : true\}/);
+  assert.match(mobile, /data-testid="mobile-sticky-unlock-hd"\s+data-digital-offer=\{paid \? undefined : true\}/);
   // render-mode, intensity and font "Unlock HD" upsell chips
   assert.equal((mobile.match(/data-digital-offer\s+className="rounded-full border border-white\/25/g) || []).length, 3);
   assert.match(mobile, /appMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);
   assert.match(mobile, /appMode \? "Framed print recommended" : "Framed \+ HD recommended"/);
   const desktop = read("src/components/EditorExperience.tsx");
-  assert.match(desktop, /data-testid="desktop-unlock-hd"\s+data-digital-offer/);
+  assert.match(desktop, /data-testid="desktop-unlock-hd"\s+data-digital-offer=\{paid \? undefined : true\}/);
   assert.match(desktop, /data-testid="desktop-free-export-hd-upsell"\s+data-digital-offer/);
   assert.match(desktop, /androidAppMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);
-  assert.match(read("src/components/SimplifiedEditor/SimplifiedEditor.tsx"), /onClick=\{handleHdDownload\}\s+data-digital-offer/);
+  assert.match(read("src/components/SimplifiedEditor/SimplifiedEditor.tsx"), /onClick=\{handleHdDownload\}\s+data-digital-offer=\{paid \? undefined : true\}/);
+  assert.match(read("src/components/PreviewStartForm.tsx"), /intent\.checkout === "digital" \|\| intent\.includeDigitalAddOn \? true : undefined/);
+  assert.match(css, /\[formaction\*="checkout=digital"\]/);
+  assert.match(css, /\[formaction\*="include_digital_addon=1"\]/);
   const home = read("src/components/HomeOfferStack.tsx");
   assert.match(home, /<div data-digital-offer className="brand-dark-card rounded-2xl p-4">\s*<div[^>]*>\s*<p[^>]*>\s*Digital HD options/);
   assert.match(read("src/components/PaywallModal.tsx"), /appMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);

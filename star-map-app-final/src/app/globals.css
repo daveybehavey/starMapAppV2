@@ -1710,6 +1710,9 @@ html[data-app-mode="android"] a[href*="pack3"],
 html[data-app-mode="android"] a[href*="subscription"],
 html[data-app-mode="android"] a[href*="-digital"],
 html[data-app-mode="android"] a[href*="include_digital_addon=1"],
-html[data-app-mode="android"] a[href*="include_digital_addon=true"] {
+html[data-app-mode="android"] a[href*="include_digital_addon=true"],
+html[data-app-mode="android"] [formaction*="checkout=digital"],
+html[data-app-mode="android"] [formaction*="include_digital_addon=1"],
+html[data-app-mode="android"] [data-checkout="digital"] {
   display: none !important;
 }

@@ -211,6 +211,9 @@ export default function PreviewStartForm({
                     data-plan={intent.plan}
                     data-checkout={intent.checkout}
                     data-print-variant={intent.printVariant}
+                    data-digital-offer={
+                      intent.checkout === "digital" || intent.includeDigitalAddOn ? true : undefined
+                    }
                     className={`focus:ring-gold rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
                   >
                     <span className="block text-sm font-semibold">{intent.label}</span>

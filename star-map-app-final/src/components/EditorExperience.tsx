@@ -3262,7 +3262,7 @@ export function EditorExperience({
                             onClick={() => void handleExport("hd")}
                             aria-label="HD export"
                             data-testid="desktop-unlock-hd"
-                            data-digital-offer
+                            data-digital-offer={paid ? undefined : true}
                             data-cta-priority="primary"
                             disabled={hdExportInFlight}
                             className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"

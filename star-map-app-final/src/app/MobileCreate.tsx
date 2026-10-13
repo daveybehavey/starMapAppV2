@@ -905,7 +905,7 @@ export function MobileCreate({
                 onClick={() => void onExport("hd")}
                 aria-label={paid ? "HD download" : "Unlock HD"}
                 data-testid="mobile-sticky-unlock-hd"
-                data-digital-offer
+                data-digital-offer={paid ? undefined : true}
                 data-cta-priority="primary"
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
               >
@@ -1578,7 +1578,7 @@ export function MobileCreate({
               onClick={() => void onExport("hd")}
               aria-label="HD export"
               data-testid="mobile-unlock-hd"
-              data-digital-offer
+              data-digital-offer={paid ? undefined : true}
               data-cta-priority="primary"
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
             >

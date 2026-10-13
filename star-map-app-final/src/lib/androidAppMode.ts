@@ -6,7 +6,8 @@
  * (HD downloads, packs, unlimited subscription, digital add-ons) outside Play Billing.
  * Physical goods (framed/unframed prints, cards, merch) are allowed.
  *
- * A normal (non-app) tab that finds a stale cookie clears it, because a TWA shares Chrome's cookie jar.
+ * The cookie is never used to turn app mode ON client-side (only URL flag, tab sessionStorage or
+ * the android-app:// referrer). A normal (non-app) tab that finds a stale cookie clears it, because a TWA shares Chrome's cookie jar.
  * When the flag is seen we set a *session* cookie (no Max-Age, so it ends with the app
  * session) plus sessionStorage, mark <html data-app-mode="android">, and:
  *   - the UI hides digital-only offers (CSS in globals.css + PaywallModal),
@@ -18,7 +19,7 @@ export const ANDROID_APP_COOKIE_VALUE = "android";
 export const ANDROID_APP_STORAGE_KEY = "smc_app_mode";
 
 /** Inline, render-blocking bootstrap so the attribute is set before first paint. */
-export const ANDROID_APP_MODE_BOOTSTRAP = `(function(){try{var on=false;var p=new URLSearchParams(location.search);if(p.get("source")==="${ANDROID_APP_SOURCE}"){on=true;}else if(sessionStorage.getItem("${ANDROID_APP_STORAGE_KEY}")==="${ANDROID_APP_COOKIE_VALUE}"){on=true;}else if(document.cookie.indexOf("${ANDROID_APP_COOKIE}=${ANDROID_APP_COOKIE_VALUE}")!==-1){on=true;}else if(document.referrer.indexOf("android-app://app.starmapco.com")===0){on=true;}if(on){sessionStorage.setItem("${ANDROID_APP_STORAGE_KEY}","${ANDROID_APP_COOKIE_VALUE}");document.cookie="${ANDROID_APP_COOKIE}=${ANDROID_APP_COOKIE_VALUE}; Path=/; Secure; SameSite=Lax";document.documentElement.setAttribute("data-app-mode","android");}else if(document.cookie.indexOf("${ANDROID_APP_COOKIE}=")!==-1){document.cookie="${ANDROID_APP_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax";}}catch(e){}})();`;
+export const ANDROID_APP_MODE_BOOTSTRAP = `(function(){try{var on=false;var p=new URLSearchParams(location.search);if(p.get("source")==="${ANDROID_APP_SOURCE}"){on=true;}else if(sessionStorage.getItem("${ANDROID_APP_STORAGE_KEY}")==="${ANDROID_APP_COOKIE_VALUE}"){on=true;}else if(document.referrer.indexOf("android-app://app.starmapco.com")===0){on=true;}if(on){sessionStorage.setItem("${ANDROID_APP_STORAGE_KEY}","${ANDROID_APP_COOKIE_VALUE}");document.cookie="${ANDROID_APP_COOKIE}=${ANDROID_APP_COOKIE_VALUE}; Path=/; Secure; SameSite=Lax";document.documentElement.setAttribute("data-app-mode","android");}else if(document.cookie.indexOf("${ANDROID_APP_COOKIE}=")!==-1){document.cookie="${ANDROID_APP_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax";}}catch(e){}})();`;
 
 /** Client-side check (safe during SSR: returns false). */
 export function isAndroidAppModeClient(): boolean {
