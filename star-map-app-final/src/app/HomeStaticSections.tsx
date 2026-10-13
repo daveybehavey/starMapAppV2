@@ -176,8 +176,9 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
             Delivery now available
           </p>
           <p className="mt-2 text-sm sm:text-base">
-            Preview first, then choose gift-ready framed print, unframed poster, or HD digital delivery from
-            the same design.
+            Preview first, then choose gift-ready framed print<span data-digital-offer>,</span>
+            <span data-app-only> or</span> unframed poster
+            <span data-digital-offer>, or HD digital delivery</span> from the same design.
           </p>
           <p className="mt-2 text-xs text-neutral-300">{printBadgeLabel}</p>
         </div>
@@ -339,7 +340,18 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
               },
               {
                 q: "What does premium unlock include?",
-                a: `After the free preview, you can take the framed route from ${printLabels.framed}, the unframed route from ${printLabels.unframed}, or unlock HD digital from ${priceLabels.single}. Digital packs and subscription stay optional for repeat exports.`,
+                a: (
+                  <>
+                    After the free preview, you can take the framed route from {printLabels.framed}
+                    <span data-digital-offer>,</span>
+                    <span data-app-only> or</span> the unframed route from {printLabels.unframed}
+                    <span data-digital-offer>
+                      , or unlock HD digital from {priceLabels.single}. Digital packs and subscription stay optional
+                      for repeat exports
+                    </span>
+                    .
+                  </>
+                ),
               },
               {
                 q: "Are the maps print-ready?",
